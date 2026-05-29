@@ -3856,8 +3856,8 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT * FROM region r, LATERAL (SELECT r.* LIMIT 0)", "SELECT *, * FROM region LIMIT 0");
         assertQuery("SELECT * FROM region r, LATERAL (SELECT r.* WHERE true)", "SELECT *, * FROM region");
         assertQuery("SELECT region.* FROM region, LATERAL (SELECT region.*) region", "SELECT *, * FROM region");
-        assertQueryFails("SELECT * FROM region r, LATERAL (SELECT r.* WHERE false)", UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
-        assertQueryFails("SELECT * FROM region r, LATERAL (SELECT r.* WHERE r.name = 'ASIA')", UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertQueryReturnsEmptyResult("SELECT * FROM region r, LATERAL (SELECT r.* WHERE false)");
+        assertQuery("SELECT * FROM region r, LATERAL (SELECT r.* WHERE r.name = 'ASIA')", "SELECT *, * FROM region WHERE name = 'ASIA'");
 
         // reference to further outer scope relation
         assertQuery("SELECT * FROM region r, LATERAL (SELECT t.* from (VALUES 1) t, LATERAL (SELECT r.*))", "SELECT *, 1 FROM region");
@@ -4518,22 +4518,23 @@ public abstract class AbstractTestEngineOnlyQueries
                 "VALUES (1,1,FALSE), (2,4,TRUE), (3,5,FALSE), (4,NULL,NULL), (30,2,NULL), (40,NULL,FALSE)");
 
         // subquery with LIMIT (correlated filter below any unhandled node type)
-        assertQueryFails(
-                "SELECT orderkey FROM orders o WHERE clerk IN (SELECT clerk FROM orders s WHERE s.custkey = o.custkey AND s.orderkey < o.orderkey ORDER BY 1 LIMIT 1)",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertQuery(
+                "SELECT orderkey FROM orders o WHERE clerk IN (SELECT clerk FROM orders s WHERE s.custkey = o.custkey AND s.orderkey < o.orderkey ORDER BY 1 LIMIT 1)");
 
-        assertQueryFails("SELECT 1 IN (SELECT l.orderkey) FROM lineitem l", UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
-        assertQueryFails("SELECT 1 IN (SELECT 2 * l.orderkey) FROM lineitem l", UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
-        assertQueryFails("SELECT * FROM lineitem l WHERE 1 IN (SELECT 2 * l.orderkey)", UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
-        assertQueryFails("SELECT * FROM lineitem l ORDER BY 1 IN (SELECT 2 * l.orderkey)", UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertQuery("SELECT 1 IN (SELECT l.orderkey) FROM lineitem l", "SELECT orderkey = 1 FROM lineitem");
+        assertQuery("SELECT 1 IN (SELECT 2 * l.orderkey) FROM lineitem l", "SELECT 2 * orderkey = 1 FROM lineitem");
+        assertQueryReturnsEmptyResult("SELECT * FROM lineitem l WHERE 1 IN (SELECT 2 * l.orderkey)");
+        assertQuery("SELECT * FROM lineitem l ORDER BY 1 IN (SELECT 2 * l.orderkey)", "SELECT * FROM lineitem");
 
         // group by
-        assertQueryFails("SELECT max(l.quantity), 2 * l.orderkey, 1 IN (SELECT l.orderkey) FROM lineitem l GROUP BY l.orderkey", UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
-        assertQueryFails("SELECT max(l.quantity), 2 * l.orderkey FROM lineitem l GROUP BY l.orderkey HAVING max(l.quantity) IN (SELECT l.orderkey)", UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
-        assertQueryFails("SELECT max(l.quantity), 2 * l.orderkey FROM lineitem l GROUP BY l.orderkey, 1 IN (SELECT l.orderkey)", UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertQuery("SELECT max(l.quantity), 2 * l.orderkey, 1 IN (SELECT l.orderkey) FROM lineitem l GROUP BY l.orderkey", "SELECT max(quantity), 2 * orderkey, orderkey = 1 FROM lineitem GROUP BY orderkey");
+        assertQuery(
+                "SELECT max(l.quantity), 2 * l.orderkey FROM lineitem l GROUP BY l.orderkey HAVING max(l.quantity) IN (SELECT l.orderkey)",
+                "SELECT max(quantity), 2 * orderkey FROM lineitem GROUP BY orderkey HAVING max(quantity) = orderkey");
+        assertQuery("SELECT max(l.quantity), 2 * l.orderkey FROM lineitem l GROUP BY l.orderkey, 1 IN (SELECT l.orderkey)", "SELECT max(quantity), 2 * orderkey FROM lineitem GROUP BY orderkey, orderkey = 1");
 
         // join
-        assertQueryFails("SELECT * FROM lineitem l1 JOIN lineitem l2 ON l1.orderkey IN (SELECT l2.orderkey)", UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertQuery("SELECT * FROM lineitem l1 JOIN lineitem l2 ON l1.orderkey IN (SELECT l2.orderkey)", "SELECT * FROM lineitem l1 JOIN lineitem l2 ON l1.orderkey = l2.orderkey");
 
         // subrelation
         assertQueryFails(
@@ -4584,10 +4585,9 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery(
                 "SELECT count(*) FROM orders o " +
                         "WHERE EXISTS (SELECT avg(l.orderkey) FROM lineitem l WHERE o.orderkey = l.orderkey GROUP BY l.linenumber)");
-        assertQueryFails(
+        assertQuery(
                 "SELECT count(*) FROM orders o " +
-                        "WHERE EXISTS (SELECT count(*) FROM lineitem l WHERE o.orderkey = l.orderkey HAVING count(*) > 3)",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                        "WHERE EXISTS (SELECT count(*) FROM lineitem l WHERE o.orderkey = l.orderkey HAVING count(*) > 3)");
 
         // with duplicated rows
         assertQuery(
@@ -4660,10 +4660,10 @@ public abstract class AbstractTestEngineOnlyQueries
 
         // explicit LIMIT in subquery
         assertQuery("SELECT (SELECT count(*) FROM (VALUES (7,1)) t(orderkey, value) WHERE orderkey = corr_key GROUP BY value LIMIT 1) FROM (values 7) t(corr_key)");
-        // Limit(1) and non-constant output symbol of the subquery (count)
-        assertQueryFails(
-                "SELECT (SELECT count(*) FROM (VALUES (7,1), (7,2)) t(orderkey, value) WHERE orderkey = corr_key GROUP BY value LIMIT 1) FROM (values 7) t(corr_key)",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        // Limit(1) and non-constant output symbol of the subquery (count) — the dependent-join
+        // framework decorrelates this (the legacy decorrelator rejected it); both groups count 1,
+        // so the bound result is deterministic
+        assertQuery("SELECT (SELECT count(*) FROM (VALUES (7,1), (7,2)) t(orderkey, value) WHERE orderkey = corr_key GROUP BY value LIMIT 1) FROM (values 7) t(corr_key)");
     }
 
     @Test
@@ -4675,10 +4675,10 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery(
                 "SELECT count(*) FROM nation n WHERE " +
                         "(SELECT count(*) FROM region r WHERE n.regionkey = r.regionkey) > 1");
-        assertQueryFails(
+        assertQuery(
                 "SELECT count(*) FROM nation n WHERE " +
                         "(SELECT avg(a) FROM (SELECT count(*) FROM region r WHERE n.regionkey = r.regionkey) t(a)) > 1",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                "SELECT count(*) FROM nation WHERE false");
 
         // with duplicated rows
         assertQuery(
@@ -4748,13 +4748,13 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQueryFails(
                 "SELECT (SELECT o.orderkey WHERE o.orderkey = 1) FROM orders o ORDER BY orderkey LIMIT 5",
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
-        assertQueryFails(
+        assertQuery(
                 "SELECT (SELECT o.orderkey * 2 WHERE o.orderkey = 1) FROM orders o ORDER BY orderkey LIMIT 5",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                "SELECT CASE WHEN orderkey = 1 THEN orderkey * 2 END FROM orders ORDER BY orderkey LIMIT 5");
         // correlation used outside the subquery
-        assertQueryFails(
+        assertQuery(
                 "SELECT o.orderkey, (SELECT o.orderkey * 2 WHERE o.orderkey = 1) FROM orders o ORDER BY orderkey LIMIT 5",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                "SELECT orderkey, CASE WHEN orderkey = 1 THEN orderkey * 2 END FROM orders ORDER BY orderkey LIMIT 5");
 
         // aggregation with having
         assertQuery("SELECT (SELECT avg(totalprice) FROM orders GROUP BY custkey, orderdate HAVING avg(totalprice) < a) FROM (VALUES 900) t(a)");
@@ -4763,16 +4763,16 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT name FROM nation n WHERE 'AFRICA' = (SELECT name FROM region WHERE regionkey = n.regionkey)");
 
         // same correlation in predicate and projection
-        assertQueryFails(
+        assertQuery(
                 "SELECT nationkey FROM nation n WHERE " +
                         "(SELECT n.regionkey * 2 FROM region r WHERE n.regionkey = r.regionkey) > 6",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                "SELECT nationkey FROM nation WHERE regionkey * 2 > 6");
 
         // different correlation in predicate and projection
-        assertQueryFails(
+        assertQuery(
                 "SELECT nationkey FROM nation n WHERE " +
                         "(SELECT n.nationkey * 2 FROM region r WHERE n.regionkey = r.regionkey) > 6",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                "SELECT nationkey FROM nation WHERE nationkey * 2 > 6");
 
         // correlation used in subrelation
         assertQuery(

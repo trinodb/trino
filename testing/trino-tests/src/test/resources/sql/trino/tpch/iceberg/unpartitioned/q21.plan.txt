@@ -13,9 +13,9 @@ local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [orderkey_36])
                                                     dynamic filter (orderkey_36::EQUAL)
                                                         scan lineitem
-                                                final aggregation over (suppkey_0, name, nationkey, orderkey_16, commitdate, receiptdate, orderstatus, name_11, unique_59)
+                                                final aggregation over (suppkey_0, name, nationkey, orderkey_16, commitdate, receiptdate, orderstatus, name_11, unique_57)
                                                     local exchange (GATHER, SINGLE, [])
-                                                        intermediate aggregation over (suppkey_0, name, nationkey, orderkey_16, commitdate, receiptdate, orderstatus, name_11, unique_59)
+                                                        intermediate aggregation over (suppkey_0, name, nationkey, orderkey_16, commitdate, receiptdate, orderstatus, name_11, unique_57)
                                                             join (INNER, PARTITIONED, can skip output duplicates):
                                                                 remote exchange (REPARTITION, HASH, [orderkey_16])
                                                                     partial aggregation over (orderkey_16, suppkey_18)
