@@ -163,6 +163,11 @@ Returns `TRUE` if any input value is `TRUE`, otherwise `FALSE`.
 Returns an order-insensitive checksum of the given values.
 :::
 
+:::{function} collect(x) -> multiset<[same as input]>
+Returns a [multiset](multiset-type) of all input values, including duplicates
+and nulls. Returns null if there are no input rows.
+:::
+
 :::{function} count(*) -> bigint
 Returns the number of input rows.
 :::
