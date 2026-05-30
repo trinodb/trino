@@ -43,8 +43,10 @@ public class ParquetWriterConfig
     public static final String PARQUET_WRITER_MAX_PAGE_SIZE = "8MB";
     public static final int PARQUET_WRITER_MIN_PAGE_VALUE_COUNT = 1000;
     public static final int PARQUET_WRITER_MAX_PAGE_VALUE_COUNT = 200_000;
+    public static final int PARQUET_WRITER_MIN_ROW_GROUP_ROW_COUNT = PARQUET_WRITER_MIN_PAGE_VALUE_COUNT;
 
     private DataSize blockSize = DataSize.of(128, MEGABYTE);
+    private int rowGroupMaxRowCount = ParquetWriterOptions.DEFAULT_MAX_ROW_GROUP_ROW_COUNT;
     private DataSize pageSize = DataSize.ofBytes(ParquetProperties.DEFAULT_PAGE_SIZE);
     private int pageValueCount = ParquetWriterOptions.DEFAULT_MAX_PAGE_VALUE_COUNT;
     private int batchSize = ParquetWriterOptions.DEFAULT_BATCH_SIZE;
@@ -61,6 +63,20 @@ public class ParquetWriterConfig
     public ParquetWriterConfig setBlockSize(DataSize blockSize)
     {
         this.blockSize = blockSize;
+        return this;
+    }
+
+    @Min(PARQUET_WRITER_MIN_ROW_GROUP_ROW_COUNT)
+    public int getRowGroupMaxRowCount()
+    {
+        return rowGroupMaxRowCount;
+    }
+
+    @Config("parquet.writer.row-group-max-row-count")
+    @ConfigDescription("Maximum row count of row groups created by the Parquet writer")
+    public ParquetWriterConfig setRowGroupMaxRowCount(int rowGroupMaxRowCount)
+    {
+        this.rowGroupMaxRowCount = rowGroupMaxRowCount;
         return this;
     }
 

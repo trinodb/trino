@@ -74,6 +74,10 @@ with Parquet files performed by supported object storage connectors:
   - Maximum size of row groups written by Parquet writer. The equivalent 
     catalog session property is `parquet_writer_block_size`.
   - `128 MB`
+* - `parquet.writer.row-group-max-row-count`
+  - Maximum number of rows in row groups written by Parquet writer. The
+    equivalent catalog session property is `parquet_writer_row_group_max_row_count`.
+  - `unlimited`
 * - `parquet.writer.batch-size`
   - Maximum number of rows processed by the parquet writer in a batch.
     The equivalent catalog session property is `parquet_writer_batch_size`.
