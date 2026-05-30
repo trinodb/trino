@@ -197,6 +197,12 @@ ignored. Returns null if there are no input rows.
 Returns the geometric mean of all input values.
 :::
 
+:::{function} intersection(x) -> multiset<[same as input]>
+Returns the [multiset](multiset-type) intersection of all the input multisets,
+keeping for each element the minimum of its multiplicities across the inputs.
+Null input multisets are ignored. Returns null if there are no input rows.
+:::
+
 :::{function} listagg(x, separator) -> varchar
 Returns the concatenated input values, separated by the `separator` string.
 

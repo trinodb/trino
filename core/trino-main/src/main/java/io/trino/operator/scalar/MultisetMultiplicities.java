@@ -21,13 +21,13 @@ import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
 /// `IDENTICAL` operator so that null is not distinct from null. Building it costs O(n) and each
 /// [#consume] is an amortized O(1) hashed lookup, which lets the multiplicity-matching bag
 /// operators (EXCEPT and INTERSECT ALL) run in O(n + m) rather than O(n * m).
-final class MultisetMultiplicities
+public final class MultisetMultiplicities
 {
     private final BlockSet distinctValues;
     private final int[] counts;
     private int nullCount;
 
-    static MultisetMultiplicities of(BlockPositionIsIdentical elementIdentical, BlockPositionHashCode elementHashCode, Block block)
+    public static MultisetMultiplicities of(BlockPositionIsIdentical elementIdentical, BlockPositionHashCode elementHashCode, Block block)
     {
         return new MultisetMultiplicities(elementIdentical, elementHashCode, block);
     }
@@ -52,7 +52,7 @@ final class MultisetMultiplicities
 
     /// If the value at `position` still has an unconsumed occurrence, consume one and return
     /// `true`; otherwise return `false`.
-    boolean consume(Block block, int position)
+    public boolean consume(Block block, int position)
     {
         if (block.isNull(position)) {
             if (nullCount == 0) {
