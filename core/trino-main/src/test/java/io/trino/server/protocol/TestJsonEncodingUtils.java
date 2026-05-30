@@ -37,6 +37,7 @@ import io.trino.spi.type.AbstractIntType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.MapType;
+import io.trino.spi.type.MultisetType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
@@ -142,6 +143,53 @@ public class TestJsonEncodingUtils
         Page page = page(blockBuilder.build());
         assertThat(roundTrip(columns, page, "[[[0,1,2,3,4,5,6,7,8,9]]]"))
                 .isEqualTo(column(List.of(0L, 1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L)));
+    }
+
+    @Test
+    public void testBigintMultisetSerialization()
+            throws IOException
+    {
+        MultisetType multisetType = new MultisetType(BIGINT, new TypeOperators());
+        List<TypedColumn> columns = ImmutableList.of(typed("col0", multisetType));
+        ArrayBlockBuilder blockBuilder = multisetType.createBlockBuilder(null, 6);
+
+        blockBuilder.buildEntry(builder -> {
+            for (int i = 0; i < 5; i++) {
+                BIGINT.writeLong(builder, i);
+            }
+            builder.appendNull();
+        });
+
+        // A multiset serializes as a JSON array of its elements in physical order, retaining duplicates and nulls.
+        Page page = page(blockBuilder.build());
+        assertThat(roundTrip(columns, page, "[[[0,1,2,3,4,null]]]").getFirst())
+                .containsExactly(array(0L, 1L, 2L, 3L, 4L, null));
+    }
+
+    @Test
+    public void testVarbinaryMultisetSerialization()
+            throws IOException
+    {
+        // A specially encoded element type proves the element encoder is applied recursively (base64 for
+        // varbinary) rather than falling back to the generic POJO path, which would emit the wrong wire form.
+        MultisetType multisetType = new MultisetType(VARBINARY, new TypeOperators());
+        List<TypedColumn> columns = ImmutableList.of(typed("col0", multisetType));
+        ArrayBlockBuilder blockBuilder = multisetType.createBlockBuilder(null, 3);
+
+        blockBuilder.buildEntry(builder -> {
+            VARBINARY.writeSlice(builder, utf8Slice("value"));
+            VARBINARY.writeSlice(builder, utf8Slice("value2"));
+            builder.appendNull();
+        });
+
+        Page page = page(blockBuilder.build());
+        List<Object> values = roundTrip(columns, page, "[[[\"dmFsdWU=\",\"dmFsdWUy\",null]]]").getFirst();
+        assertThat(values.getFirst()).isInstanceOf(List.class);
+        List<?> elements = (List<?>) values.getFirst();
+        assertThat(elements).hasSize(3);
+        assertThat(new String((byte[]) elements.get(0), UTF_8)).isEqualTo("value");
+        assertThat(new String((byte[]) elements.get(1), UTF_8)).isEqualTo("value2");
+        assertThat(elements.get(2)).isNull();
     }
 
     @Test

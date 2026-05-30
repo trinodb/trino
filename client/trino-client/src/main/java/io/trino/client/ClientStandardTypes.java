@@ -44,6 +44,7 @@ public final class ClientStandardTypes
     public static final String CHAR = "char";
     public static final String ROW = "row";
     public static final String ARRAY = "array";
+    public static final String MULTISET = "multiset";
     public static final String MAP = "map";
     public static final String JSON = "json";
     public static final String JSON_2016 = "json2016";
