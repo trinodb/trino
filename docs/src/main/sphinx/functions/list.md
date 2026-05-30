@@ -299,6 +299,9 @@
 - {func}`month`
 - {func}`multimap_agg`
 - {func}`multimap_from_entries`
+- [MULTISET EXCEPT](multiset-set-operators)
+- [MULTISET INTERSECT](multiset-set-operators)
+- [MULTISET UNION](multiset-set-operators)
 - {func}`murmur3`
 
 ## N
