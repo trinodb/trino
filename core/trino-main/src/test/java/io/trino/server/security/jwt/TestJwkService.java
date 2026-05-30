@@ -13,11 +13,13 @@
  */
 package io.trino.server.security.jwt;
 
+import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.units.Duration;
+import io.trino.spi.NodeVersion;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -26,6 +28,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
+import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.http.client.testing.TestingResponse.mockResponse;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -77,6 +80,21 @@ public class TestJwkService
         HttpClient httpClient = new TestingHttpClient(_ -> mockResponse(HttpStatus.OK, JSON_UTF_8, TEST_JWK_RESPONSE));
         JwkService service = new JwkService(URI.create("http://example.com"), httpClient, new Duration(1, DAYS));
         assertTestKeys(service);
+    }
+
+    @Test
+    public void testUserAgentHeader()
+    {
+        JwkService service = new JwkService(
+                URI.create("http://example.com"),
+                new TestingHttpClient(request -> {
+                    assertThat(request.getHeader(HeaderName.of(USER_AGENT))).isEqualTo("Trino/test-version");
+                    return mockResponse(HttpStatus.OK, JSON_UTF_8, EMPTY_KEYS);
+                }),
+                new Duration(1, DAYS),
+                new NodeVersion("test-version"));
+
+        assertEmptyKeys(service);
     }
 
     @Test
