@@ -16,6 +16,7 @@ package io.trino.sql.ir;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.MultisetType;
 import io.trino.spi.type.RowType;
 import io.trino.sql.planner.Symbol;
 
@@ -58,11 +59,12 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitArray(Array node, Void context)
+        protected String visitCollection(Collection node, Void context)
         {
+            String keyword = node.type() instanceof MultisetType ? "MULTISET[" : "ARRAY[";
             return node.elements().stream()
                     .map(child -> process(child, context))
-                    .collect(joining(", ", "ARRAY[", "]"));
+                    .collect(joining(", ", keyword, "]"));
         }
 
         @Override

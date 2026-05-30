@@ -23,13 +23,13 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Collection;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -264,7 +264,7 @@ public final class SqlRoutineHash
                     }
                 }
                 // These expression types are fully represented by class name + type + children
-                case Array _, Between _, Bind _, Case _, Cast _, Coalesce _,
+                case Collection _, Between _, Bind _, Case _, Cast _, Coalesce _,
                      In _, IsNull _, NullIf _, Row _, Switch _ -> {
                     hasher.putInt(expression.children().size());
                     for (Expression child : expression.children()) {

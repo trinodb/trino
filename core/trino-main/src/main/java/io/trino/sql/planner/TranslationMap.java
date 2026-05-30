@@ -23,7 +23,6 @@ import io.trino.operator.scalar.FormatFunction;
 import io.trino.operator.scalar.TryFunction;
 import io.trino.plugin.base.util.JsonTypeUtil;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalParseResult;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -45,6 +44,7 @@ import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Collection;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FieldReference;
@@ -766,7 +766,7 @@ public class TranslationMap
                 .collect(toImmutableList());
 
         Type type = analysis.getType(expression);
-        return new io.trino.sql.ir.Array(((ArrayType) type).getElementType(), values);
+        return new Collection(type, values);
     }
 
     private io.trino.sql.ir.Expression translate(CurrentCatalog unused)

@@ -16,13 +16,13 @@ package io.trino.sql.ir.optimizer;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Collection;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -39,12 +39,12 @@ import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.rule.DesugarBetween;
 import io.trino.sql.ir.optimizer.rule.DistributeComparisonOverCase;
 import io.trino.sql.ir.optimizer.rule.DistributeComparisonOverSwitch;
-import io.trino.sql.ir.optimizer.rule.EvaluateArray;
 import io.trino.sql.ir.optimizer.rule.EvaluateBind;
 import io.trino.sql.ir.optimizer.rule.EvaluateCall;
 import io.trino.sql.ir.optimizer.rule.EvaluateCallWithNullInput;
 import io.trino.sql.ir.optimizer.rule.EvaluateCase;
 import io.trino.sql.ir.optimizer.rule.EvaluateCast;
+import io.trino.sql.ir.optimizer.rule.EvaluateCollection;
 import io.trino.sql.ir.optimizer.rule.EvaluateComparison;
 import io.trino.sql.ir.optimizer.rule.EvaluateFieldReference;
 import io.trino.sql.ir.optimizer.rule.EvaluateIn;
@@ -94,7 +94,7 @@ public class IrExpressionOptimizer
     {
         return new IrExpressionOptimizer(ImmutableList.of(
                 new EvaluateReference(),
-                new EvaluateArray(),
+                new EvaluateCollection(),
                 new EvaluateRow(),
                 new EvaluateBind(),
                 new EvaluateFieldReference(),
@@ -138,7 +138,7 @@ public class IrExpressionOptimizer
     {
         return new IrExpressionOptimizer(ImmutableList.of(
                 new EvaluateReference(),
-                new EvaluateArray(),
+                new EvaluateCollection(),
                 new EvaluateRow(),
                 new EvaluateBind(),
                 new EvaluateFieldReference(),
@@ -194,7 +194,7 @@ public class IrExpressionOptimizer
             }
             case Logical logical -> process(logical.terms(), session, bindings).map(arguments -> new Logical(logical.operator(), arguments));
             case Call call -> process(call.arguments(), session, bindings).map(arguments -> new Call(call.function(), arguments));
-            case Array array -> process(array.elements(), session, bindings).map(elements -> new Array(array.elementType(), elements));
+            case Collection collection -> process(collection.elements(), session, bindings).map(elements -> new Collection(collection.type(), elements));
             case Row row -> process(row.items(), session, bindings).map(fields -> new Row(fields, row.type()));
             case Between between -> {
                 Optional<Expression> value = process(between.value(), session, bindings);
