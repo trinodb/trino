@@ -118,6 +118,7 @@ import io.trino.operator.scalar.ArraySliceFunction;
 import io.trino.operator.scalar.ArraySortComparatorFunction;
 import io.trino.operator.scalar.ArraySortFunction;
 import io.trino.operator.scalar.ArrayToArrayCast;
+import io.trino.operator.scalar.ArrayToMultisetCast;
 import io.trino.operator.scalar.ArrayTrimFunction;
 import io.trino.operator.scalar.ArrayUnionFunction;
 import io.trino.operator.scalar.ArrayVectorFunctions;
@@ -166,6 +167,8 @@ import io.trino.operator.scalar.MapValues;
 import io.trino.operator.scalar.MathFunctions;
 import io.trino.operator.scalar.MultimapFromEntriesFunction;
 import io.trino.operator.scalar.MultisetCardinalityFunction;
+import io.trino.operator.scalar.MultisetToArrayCast;
+import io.trino.operator.scalar.MultisetToMultisetCast;
 import io.trino.operator.scalar.QuantileDigestFunctions;
 import io.trino.operator.scalar.Re2JRegexpFunctions;
 import io.trino.operator.scalar.Re2JRegexpReplaceLambdaFunction;
@@ -578,6 +581,9 @@ public final class SystemFunctionBundle
                 .functions(ZIP_FUNCTIONS)
                 .scalars(ArrayJoin.class)
                 .scalar(ArrayToArrayCast.class)
+                .scalar(ArrayToMultisetCast.class)
+                .scalar(MultisetToArrayCast.class)
+                .scalar(MultisetToMultisetCast.class)
                 .functions(ARRAY_TO_ELEMENT_CONCAT_FUNCTION, ELEMENT_TO_ARRAY_CONCAT_FUNCTION)
                 .function(MAP_ELEMENT_AT)
                 .function(new MapConcatFunction(blockTypeOperators))
