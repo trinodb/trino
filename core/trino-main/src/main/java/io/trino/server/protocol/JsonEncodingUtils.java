@@ -21,6 +21,7 @@ import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlMultiset;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
@@ -29,6 +30,7 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.MapType;
+import io.trino.spi.type.MultisetType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
@@ -116,6 +118,7 @@ public final class JsonEncodingUtils
             case VariantType _ -> new VariantEncoder(supportsVariant, supportsVariantBinary);
             // TODO: add specialized Short/Long decimal encoders
             case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), supportsParametricDateTime, supportsVariant, supportsVariantBinary));
+            case MultisetType multisetType -> new MultisetEncoder(multisetType, createTypeEncoder(multisetType.getElementType(), supportsParametricDateTime, supportsVariant, supportsVariantBinary));
             case MapType mapType -> new MapEncoder(mapType, createTypeEncoder(mapType.getValueType(), supportsParametricDateTime, supportsVariant, supportsVariantBinary));
             case RowType rowType -> new RowEncoder(rowType, rowType.getFieldTypes()
                     .stream()
@@ -385,6 +388,41 @@ public final class JsonEncodingUtils
             generator.writeStartArray();
             for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
                 typeEncoder.encode(generator, arrayBlock, i);
+            }
+            generator.writeEndArray();
+        }
+    }
+
+    private static final class MultisetEncoder
+            implements TypeEncoder
+    {
+        private final MultisetType multisetType;
+        private final TypeEncoder typeEncoder;
+
+        public MultisetEncoder(MultisetType multisetType, TypeEncoder typeEncoder)
+        {
+            this.multisetType = requireNonNull(multisetType, "multisetType is null");
+            this.typeEncoder = requireNonNull(typeEncoder, "typeEncoder is null");
+        }
+
+        @Override
+        public void encode(JsonGenerator generator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                generator.writeNull();
+                return;
+            }
+
+            // A multiset is emitted as a JSON array of its elements in physical order; the
+            // element encoder is applied recursively so parametric/specially-encoded elements
+            // (timestamps, varbinary, ...) get the correct wire form.
+            SqlMultiset multiset = multisetType.getObject(block, position);
+            Block elements = multiset.getRawElementBlock();
+            int offset = multiset.getRawOffset();
+            generator.writeStartArray();
+            for (int i = 0; i < multiset.getSize(); i++) {
+                typeEncoder.encode(generator, elements, offset + i);
             }
             generator.writeEndArray();
         }
