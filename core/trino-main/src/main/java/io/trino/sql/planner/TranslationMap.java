@@ -108,6 +108,7 @@ import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MethodCall;
+import io.trino.sql.tree.MultisetConstructor;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
@@ -329,6 +330,7 @@ public class TranslationMap
                 case MethodCall expression -> translate(expression);
                 case DereferenceExpression expression -> translate(expression);
                 case Array expression -> translate(expression);
+                case MultisetConstructor expression -> translate(expression);
                 case CurrentCatalog expression -> translate(expression);
                 case CurrentSchema expression -> translate(expression);
                 case CurrentPath expression -> translate(expression);
@@ -760,6 +762,16 @@ public class TranslationMap
     }
 
     private io.trino.sql.ir.Expression translate(Array expression)
+    {
+        List<io.trino.sql.ir.Expression> values = expression.getValues().stream()
+                .map(this::translateExpression)
+                .collect(toImmutableList());
+
+        Type type = analysis.getType(expression);
+        return new Collection(type, values);
+    }
+
+    private io.trino.sql.ir.Expression translate(MultisetConstructor expression)
     {
         List<io.trino.sql.ir.Expression> values = expression.getValues().stream()
                 .map(this::translateExpression)

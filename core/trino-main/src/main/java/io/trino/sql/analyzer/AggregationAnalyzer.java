@@ -63,6 +63,7 @@ import io.trino.sql.tree.LocalTime;
 import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.MeasureDefinition;
+import io.trino.sql.tree.MultisetConstructor;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -283,6 +284,12 @@ class AggregationAnalyzer
 
         @Override
         protected Boolean visitArray(Array node, Void context)
+        {
+            return node.getValues().stream().allMatch(expression -> process(expression, context));
+        }
+
+        @Override
+        protected Boolean visitMultisetConstructor(MultisetConstructor node, Void context)
         {
             return node.getValues().stream().allMatch(expression -> process(expression, context));
         }

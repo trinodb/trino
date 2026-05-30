@@ -187,6 +187,7 @@ import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.MethodCall;
+import io.trino.sql.tree.MultisetConstructor;
 import io.trino.sql.tree.NaturalJoin;
 import io.trino.sql.tree.Nearest;
 import io.trino.sql.tree.NestedColumns;
@@ -2536,6 +2537,12 @@ class AstBuilder
     }
 
     @Override
+    public Node visitMultisetConstructor(SqlBaseParser.MultisetConstructorContext context)
+    {
+        return new MultisetConstructor(getLocation(context), visit(context.expression(), Expression.class));
+    }
+
+    @Override
     public Node visitCast(SqlBaseParser.CastContext context)
     {
         boolean isTryCast = context.TRY_CAST() != null;
@@ -3772,6 +3779,15 @@ class AstBuilder
         return new GenericDataType(
                 getLocation(context),
                 new Identifier(getLocation(context.ARRAY()), context.ARRAY().getText(), false),
+                ImmutableList.of(new TypeParameter((DataType) visit(context.type()))));
+    }
+
+    @Override
+    public Node visitMultisetType(SqlBaseParser.MultisetTypeContext context)
+    {
+        return new GenericDataType(
+                getLocation(context),
+                new Identifier(getLocation(context.MULTISET()), context.MULTISET().getText(), false),
                 ImmutableList.of(new TypeParameter((DataType) visit(context.type()))));
     }
 
