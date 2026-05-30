@@ -17,6 +17,7 @@ For more details, see {doc}`aggregate`
 - {func}`bool_and`
 - {func}`bool_or`
 - {func}`checksum`
+- {func}`collect`
 - {func}`corr`
 - {func}`count`
 - {func}`count_if`
@@ -423,6 +424,7 @@ For more details, see {doc}`math`
 For more details, see {doc}`multiset`
 
 - {func}`cardinality`
+- {func}`collect`
 - {func}`element`
 - {func}`set`
 

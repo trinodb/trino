@@ -363,6 +363,24 @@ public class TestMultiset
     }
 
     @Test
+    public void testCollect()
+    {
+        // collects values into a multiset, retaining duplicates
+        assertThat(assertions.query("SELECT CARDINALITY(COLLECT(x)) FROM (VALUES 1, 1, 2) t(x)"))
+                .matches("VALUES BIGINT '3'");
+        assertThat(assertions.query("SELECT COLLECT(x) = MULTISET[1, 1, 2] FROM (VALUES 1, 1, 2) t(x)"))
+                .matches("VALUES true");
+        // grouped
+        assertThat(assertions.query("SELECT k, CARDINALITY(COLLECT(v)) FROM (VALUES (1, 10), (1, 20), (2, 30)) t(k, v) GROUP BY k"))
+                .matches("VALUES (1, BIGINT '2'), (2, BIGINT '1')");
+        // null inputs are retained as null elements (SQL:2023), not skipped
+        assertThat(assertions.query("SELECT CARDINALITY(COLLECT(x)) FROM (VALUES 1, NULL, 2) t(x)"))
+                .matches("VALUES BIGINT '3'");
+        assertThat(assertions.query("SELECT CARDINALITY(COLLECT(x)) FROM (VALUES CAST(NULL AS integer), NULL) t(x)"))
+                .matches("VALUES BIGINT '2'");
+    }
+
+    @Test
     public void testEqualityIsOrderIndependent()
     {
         assertThat(assertions.expression("MULTISET[1, 2, 2] = MULTISET[2, 1, 2]"))

@@ -95,6 +95,7 @@
 - [classifier](classifier-function)
 - [coalesce](coalesce-function)
 - {func}`codepoint`
+- {func}`collect`
 - {func}`color`
 - {func}`combinations`
 - {func}`concat`
