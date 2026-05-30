@@ -14,10 +14,16 @@
 package io.trino.type;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MultisetType;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.query.QueryAssertions;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -27,6 +33,8 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,7 +50,19 @@ public class TestMultiset
     @BeforeAll
     public void init()
     {
-        assertions = new QueryAssertions();
+        QueryRunner runner = new StandaloneQueryRunner(testSessionBuilder()
+                .setCatalog(TEST_CATALOG_NAME)
+                .setSchema("default")
+                .build());
+        // a table whose sole visible column is accompanied by a hidden one, to check that
+        // MULTISET(TABLE ...) takes its element column from the visible fields
+        runner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+                .withGetColumns(_ -> ImmutableList.of(
+                        new ColumnMetadata("visible", BIGINT),
+                        ColumnMetadata.builder().setName("invisible").setType(BIGINT).setHidden(true).build()))
+                .build()));
+        runner.createCatalog("mock", "mock", ImmutableMap.of());
+        assertions = new QueryAssertions(runner);
     }
 
     @AfterAll
@@ -452,6 +472,38 @@ public class TestMultiset
         // grouped, exercising the partial-merge path
         assertThat(assertions.query("SELECT k, CARDINALITY(INTERSECTION(m)) FROM (VALUES (1, MULTISET[1, 1, 2]), (1, MULTISET[1, 2, 2]), (2, MULTISET[3, 3])) t(k, m) GROUP BY k"))
                 .matches("VALUES (1, BIGINT '2'), (2, BIGINT '2')");
+    }
+
+    @Test
+    public void testSubqueryConstructor()
+    {
+        // builds a multiset from the subquery rows, retaining duplicates
+        assertThat(assertions.query("SELECT MULTISET(SELECT x FROM (VALUES 1, 1, 2) t(x)) = MULTISET[1, 1, 2]"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT CARDINALITY(MULTISET(SELECT x FROM (VALUES 1, 1, 2) t(x)))"))
+                .matches("VALUES BIGINT '3'");
+        // an empty subquery yields the empty multiset, not null
+        assertThat(assertions.query("SELECT CARDINALITY(MULTISET(SELECT x FROM (VALUES 1) t(x) WHERE false))"))
+                .matches("VALUES BIGINT '0'");
+        // correlated to the outer row
+        assertThat(assertions.query(
+                """
+                SELECT k, CARDINALITY(MULTISET(SELECT v FROM (VALUES (1, 10), (1, 20), (2, 30)) u(k, v) WHERE u.k = t.k))
+                FROM (VALUES 1, 2) t(k)
+                """))
+                .matches("VALUES (1, BIGINT '2'), (2, BIGINT '1')");
+        // an outer row with no matching subquery rows yields the empty multiset (cardinality 0),
+        // not null and not a dropped row -- the correlated global-aggregation "count bug" path
+        assertThat(assertions.query(
+                """
+                SELECT k, CARDINALITY(MULTISET(SELECT v FROM (VALUES (1, 10)) u(k, v) WHERE u.k = t.k))
+                FROM (VALUES 1, 2) t(k)
+                """))
+                .matches("VALUES (1, BIGINT '1'), (2, BIGINT '0')");
+        // the subquery's degree counts visible columns only, so a hidden column alongside the
+        // element column must not make the subquery look wider than one column
+        assertThat(assertions.query("SELECT CARDINALITY(MULTISET(TABLE mock.default.t))"))
+                .matches("VALUES BIGINT '0'");
     }
 
     @Test
