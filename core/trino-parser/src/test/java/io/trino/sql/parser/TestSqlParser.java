@@ -143,6 +143,7 @@ import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.MethodCall;
+import io.trino.sql.tree.MultisetConstructor;
 import io.trino.sql.tree.NaturalJoin;
 import io.trino.sql.tree.Nearest;
 import io.trino.sql.tree.NestedColumns;
@@ -242,6 +243,7 @@ import io.trino.sql.tree.TransactionAccessMode;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TruncateTable;
 import io.trino.sql.tree.TryExpression;
+import io.trino.sql.tree.TypeParameter;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.UniquePredicate;
 import io.trino.sql.tree.Unnest;
@@ -758,6 +760,37 @@ public class TestSqlParser
                 .isEqualTo(new Array(location(1, 1), ImmutableList.of(new StringLiteral(location(1, 8), "hi"))));
         assertThat(expression("ARRAY ['hi', 'hello']"))
                 .isEqualTo(new Array(location(1, 1), ImmutableList.of(new StringLiteral(location(1, 8), "hi"), new StringLiteral(location(1, 14), "hello"))));
+    }
+
+    @Test
+    public void testMultisetConstructor()
+    {
+        assertThat(expression("MULTISET []"))
+                .isEqualTo(new MultisetConstructor(location(1, 1), ImmutableList.of()));
+        assertThat(expression("MULTISET [1, 2, 2]"))
+                .isEqualTo(new MultisetConstructor(location(1, 1), ImmutableList.of(
+                        new LongLiteral(location(1, 11), "1"),
+                        new LongLiteral(location(1, 14), "2"),
+                        new LongLiteral(location(1, 17), "2"))));
+        assertThat(expression("MULTISET ['hi', 'hello']"))
+                .isEqualTo(new MultisetConstructor(location(1, 1), ImmutableList.of(
+                        new StringLiteral(location(1, 11), "hi"),
+                        new StringLiteral(location(1, 17), "hello"))));
+    }
+
+    @Test
+    public void testMultisetType()
+    {
+        // the `<type> MULTISET` syntax names a multiset type, parsed as the parametric type multiset(E)
+        assertThat(expression("CAST(MULTISET[1] AS integer MULTISET)"))
+                .isEqualTo(new Cast(
+                        location(1, 1),
+                        new MultisetConstructor(location(1, 6), ImmutableList.of(new LongLiteral(location(1, 15), "1"))),
+                        new GenericDataType(
+                                location(1, 21),
+                                new Identifier(location(1, 29), "MULTISET", false),
+                                ImmutableList.of(new TypeParameter(simpleType(location(1, 21), "integer")))),
+                        false));
     }
 
     @Test

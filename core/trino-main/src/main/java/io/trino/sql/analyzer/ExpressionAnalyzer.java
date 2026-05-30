@@ -139,6 +139,7 @@ import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MatchPredicate;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.MethodCall;
+import io.trino.sql.tree.MultisetConstructor;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -318,6 +319,7 @@ import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static io.trino.type.Json2016Type.JSON_2016;
 import static io.trino.type.JsonType.JSON;
+import static io.trino.type.MultisetParametricType.MULTISET;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
@@ -1271,6 +1273,17 @@ public class ExpressionAnalyzer
             Type type = coerceToSingleType(context, "All ARRAY elements", node.getValues());
             Type arrayType = plannerContext.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeParameter.typeParameter(type.getTypeDescriptor())));
             return setExpressionType(node, arrayType);
+        }
+
+        @Override
+        protected Type visitMultisetConstructor(MultisetConstructor node, Context context)
+        {
+            Type type = coerceToSingleType(context, "All MULTISET elements", node.getValues());
+            if (!type.isComparable()) {
+                throw semanticException(TYPE_MISMATCH, node, "Multiset element type must be comparable, got %s", type);
+            }
+            Type multisetType = plannerContext.getTypeManager().getParameterizedType(MULTISET.getName(), ImmutableList.of(TypeParameter.typeParameter(type.getTypeDescriptor())));
+            return setExpressionType(node, multisetType);
         }
 
         @Override

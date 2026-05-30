@@ -189,6 +189,7 @@ public class TestSqlKeywords
                         "MERGE",
                         "MINUTE",
                         "MONTH",
+                        "MULTISET",
                         "NATURAL",
                         "NEAREST",
                         "NESTED",
