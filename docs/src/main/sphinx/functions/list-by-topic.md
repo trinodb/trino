@@ -423,6 +423,8 @@ For more details, see {doc}`math`
 For more details, see {doc}`multiset`
 
 - {func}`cardinality`
+- {func}`element`
+- {func}`set`
 
 ## Quantile digest
 

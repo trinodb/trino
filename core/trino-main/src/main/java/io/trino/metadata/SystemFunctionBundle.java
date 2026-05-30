@@ -167,6 +167,8 @@ import io.trino.operator.scalar.MapValues;
 import io.trino.operator.scalar.MathFunctions;
 import io.trino.operator.scalar.MultimapFromEntriesFunction;
 import io.trino.operator.scalar.MultisetCardinalityFunction;
+import io.trino.operator.scalar.MultisetElementFunction;
+import io.trino.operator.scalar.MultisetSetFunction;
 import io.trino.operator.scalar.MultisetToArrayCast;
 import io.trino.operator.scalar.MultisetToMultisetCast;
 import io.trino.operator.scalar.QuantileDigestFunctions;
@@ -571,6 +573,8 @@ public final class SystemFunctionBundle
                 .scalar(MapValues.class)
                 .scalar(MapCardinalityFunction.class)
                 .scalar(MultisetCardinalityFunction.class)
+                .scalar(MultisetElementFunction.class)
+                .scalar(MultisetSetFunction.class)
                 .scalar(EmptyMapConstructor.class)
                 .scalar(TypeOfFunction.class)
                 .scalar(TryFunction.class)

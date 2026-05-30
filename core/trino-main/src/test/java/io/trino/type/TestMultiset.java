@@ -162,6 +162,45 @@ public class TestMultiset
     }
 
     @Test
+    public void testElement()
+    {
+        assertThat(assertions.expression("ELEMENT(MULTISET[42])"))
+                .hasType(INTEGER)
+                .isEqualTo(42);
+        // the sole element may itself be the null value
+        assertThat(assertions.expression("ELEMENT(MULTISET[NULL]) IS NULL"))
+                .isEqualTo(true);
+        // empty multiset yields the null value
+        assertThat(assertions.expression("ELEMENT(MULTISET[]) IS NULL"))
+                .isEqualTo(true);
+        // more than one element is a cardinality violation
+        assertTrinoExceptionThrownBy(() -> assertions.expression("ELEMENT(MULTISET[1, 2])").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Cardinality violation: multiset passed to ELEMENT has more than one element");
+        // the violation counts elements, not distinct values: two copies of one value still violate
+        assertTrinoExceptionThrownBy(() -> assertions.expression("ELEMENT(MULTISET[1, 1])").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Cardinality violation: multiset passed to ELEMENT has more than one element");
+    }
+
+    @Test
+    public void testSet()
+    {
+        assertThat(assertions.expression("SET(MULTISET[1, 1, 2, 2, 3]) = MULTISET[1, 2, 3]"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("CARDINALITY(SET(MULTISET[1, 1, 2]))"))
+                .isEqualTo(2L);
+        // already a set: unchanged
+        assertThat(assertions.expression("SET(MULTISET[1, 2, 3]) = MULTISET[3, 2, 1]"))
+                .isEqualTo(true);
+        // null is not distinct from null: duplicate nulls collapse to a single element
+        assertThat(assertions.expression("CARDINALITY(SET(MULTISET[NULL, NULL]))"))
+                .isEqualTo(1L);
+        assertThat(assertions.expression("CARDINALITY(SET(MULTISET[1, NULL, 1, NULL]))"))
+                .isEqualTo(2L);
+    }
+
+    @Test
     public void testNoImplicitCoercionWithArray()
     {
         // ARRAY and MULTISET are distinct kinds: comparing them requires an explicit cast
