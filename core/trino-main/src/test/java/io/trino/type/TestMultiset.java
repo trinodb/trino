@@ -22,6 +22,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -85,6 +86,39 @@ public class TestMultiset
         assertThat(assertions.expression("CAST(MULTISET[1, 2, 2] AS integer MULTISET)"))
                 .hasType(new MultisetType(INTEGER, TYPE_OPERATORS))
                 .isEqualTo(ImmutableList.of(1, 2, 2));
+    }
+
+    @Test
+    public void testCardinality()
+    {
+        assertThat(assertions.expression("CARDINALITY(MULTISET[1, 2, 2])"))
+                .isEqualTo(3L);
+        assertThat(assertions.expression("CARDINALITY(MULTISET[])"))
+                .isEqualTo(0L);
+    }
+
+    @Test
+    public void testUnnest()
+    {
+        // UNNEST expands a multiset into one row per element, retaining duplicates
+        assertThat(assertions.query("SELECT x FROM UNNEST(MULTISET[1, 2, 2]) t(x)"))
+                .matches("VALUES 1, 2, 2");
+
+        // a multiset of rows expands each field into a column
+        assertThat(assertions.query("SELECT a, b FROM UNNEST(MULTISET[ROW(1, 'a'), ROW(2, 'b')]) t(a, b)"))
+                .matches("VALUES (1, 'a'), (2, 'b')");
+
+        // a multiset has no ordinal positions, so WITH ORDINALITY is rejected
+        assertThat(assertions.query("SELECT x, n FROM UNNEST(MULTISET[10, 20]) WITH ORDINALITY t(x, n)"))
+                .failure()
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("UNNEST of a multiset does not support WITH ORDINALITY");
+
+        // a multiset must be the only UNNEST operand
+        assertThat(assertions.query("SELECT x, y FROM UNNEST(MULTISET[1, 2], ARRAY[3, 4]) t(x, y)"))
+                .failure()
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("UNNEST of a multiset cannot be combined with other expressions");
     }
 
     @Test
