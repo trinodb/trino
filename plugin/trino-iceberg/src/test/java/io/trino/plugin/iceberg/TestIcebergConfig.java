@@ -36,6 +36,8 @@ import static io.trino.plugin.iceberg.CatalogType.GLUE;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.ParquetFooterCacheType.MEMORY;
+import static io.trino.plugin.iceberg.ParquetFooterCacheType.NONE;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -86,7 +88,9 @@ public class TestIcebergConfig
                 .setMaterializedViewRefreshSnapshotRetentionPeriod(new Duration(4, HOURS))
                 .setObjectStoreLayoutEnabled(false)
                 .setMetadataParallelism(8)
-                .setBucketExecutionEnabled(true));
+                .setBucketExecutionEnabled(true)
+                .setParquetFooterCacheType(NONE)
+                .setParquetFooterCacheMemoryMaxSize(DataSize.of(10, MEGABYTE)));
     }
 
     @Test
@@ -133,6 +137,8 @@ public class TestIcebergConfig
                 .put("iceberg.object-store-layout.enabled", "true")
                 .put("iceberg.metadata.parallelism", "10")
                 .put("iceberg.bucket-execution", "false")
+                .put("iceberg.parquet-footer-cache.type", "MEMORY")
+                .put("iceberg.parquet-footer-cache.memory.max-size", "42MB")
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
@@ -176,7 +182,9 @@ public class TestIcebergConfig
                 .setMaterializedViewRefreshSnapshotRetentionPeriod(new Duration(1, HOURS))
                 .setObjectStoreLayoutEnabled(true)
                 .setMetadataParallelism(10)
-                .setBucketExecutionEnabled(false);
+                .setBucketExecutionEnabled(false)
+                .setParquetFooterCacheType(MEMORY)
+                .setParquetFooterCacheMemoryMaxSize(DataSize.of(42, MEGABYTE));
 
         assertFullMapping(properties, expected);
     }
