@@ -14,39 +14,44 @@
 package io.trino.sql.ir.optimizer.rule;
 
 import io.trino.Session;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.MultisetType;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.Array;
+import io.trino.sql.ir.Collection;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 
 /**
- * Evaluates a constant Array expression
+ * Evaluates a constant Collection expression.
  */
-public class EvaluateArray
+public class EvaluateCollection
         implements IrOptimizerRule
 {
     @Override
     public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
-        if (!(expression instanceof Array(Type elementType, List<Expression> elements)) || !elements.stream().allMatch(Constant.class::isInstance)) {
+        if (!(expression instanceof Collection collection) || !collection.elements().stream().allMatch(Constant.class::isInstance)) {
             return Optional.empty();
         }
 
-        BlockBuilder builder = elementType.createBlockBuilder(null, elements.size());
-        for (Expression element : elements) {
+        Type elementType = collection.elementType();
+        BlockBuilder builder = elementType.createBlockBuilder(null, collection.elements().size());
+        for (Expression element : collection.elements()) {
             writeNativeValue(elementType, builder, ((Constant) element).value());
         }
 
-        return Optional.of(new Constant(expression.type(), builder.build()));
+        Block elements = builder.build();
+        // a multiset's native value is a SqlMultiset wrapping the element block; an array's is the block
+        Object value = collection.type() instanceof MultisetType multisetType ? multisetType.toSqlMultiset(elements) : elements;
+        return Optional.of(new Constant(collection.type(), value));
     }
 }
