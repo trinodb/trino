@@ -140,3 +140,17 @@ SELECT MULTISET[1, 1, 2] SUBMULTISET OF MULTISET[1, 1, 1, 2];
 SELECT MULTISET[1, 1, 2] SUBMULTISET OF MULTISET[1, 2];
 -- false
 ```
+
+### `IS A SET`
+
+`x IS A SET` returns true when no element of `x` occurs more than once, and
+false otherwise. Use `IS NOT A SET` to negate it. Because null is not distinct
+from null, two null elements count as duplicates.
+
+```sql
+SELECT MULTISET[1, 2, 3] IS A SET;
+-- true
+
+SELECT MULTISET[1, 2, 2] IS A SET;
+-- false
+```

@@ -355,6 +355,7 @@ public final class ExpressionTreeRewriter<C>
                     Expression right = rewrite(predicate.getRight(), context.get());
                     yield right == predicate.getRight() ? predicate : new SubmultisetPredicate(predicate.getLocation().orElseThrow(), predicate.isNegated(), right);
                 }
+                case SetPredicate predicate -> predicate;
             };
         }
 

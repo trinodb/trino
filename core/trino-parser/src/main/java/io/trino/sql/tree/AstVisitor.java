@@ -512,6 +512,11 @@ public abstract class AstVisitor<R, C>
         return visitPredicate(node, context);
     }
 
+    protected R visitSetPredicate(SetPredicate node, C context)
+    {
+        return visitPredicate(node, context);
+    }
+
     protected R visitSubscriptExpression(SubscriptExpression node, C context)
     {
         return visitExpression(node, context);

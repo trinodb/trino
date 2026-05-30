@@ -298,6 +298,25 @@ public class TestMultiset
     }
 
     @Test
+    public void testIsASet()
+    {
+        assertThat(assertions.expression("MULTISET[1, 2, 3] IS A SET"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("MULTISET[1, 2, 2] IS A SET"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("MULTISET[1, 2, 2] IS NOT A SET"))
+                .isEqualTo(true);
+        // the empty multiset is a set
+        assertThat(assertions.expression("MULTISET[] IS A SET"))
+                .isEqualTo(true);
+        // null is not distinct from null, so two nulls are duplicates: a definite false, not unknown
+        assertThat(assertions.expression("MULTISET[NULL, NULL] IS A SET"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("MULTISET[1, NULL] IS A SET"))
+                .isEqualTo(true);
+    }
+
+    @Test
     public void testEqualityIsOrderIndependent()
     {
         assertThat(assertions.expression("MULTISET[1, 2, 2] = MULTISET[2, 1, 2]"))

@@ -270,6 +270,7 @@ import io.trino.sql.tree.SetAuthorizationStatement;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetDefaultValue;
 import io.trino.sql.tree.SetPath;
+import io.trino.sql.tree.SetPredicate;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSession;
@@ -2567,6 +2568,12 @@ class AstBuilder
                 getLocation(context),
                 context.NOT() != null,
                 (Expression) visit(context.right));
+    }
+
+    @Override
+    public Node visitSetPredicate(SqlBaseParser.SetPredicateContext context)
+    {
+        return new SetPredicate(getLocation(context), context.NOT() != null);
     }
 
     @Override

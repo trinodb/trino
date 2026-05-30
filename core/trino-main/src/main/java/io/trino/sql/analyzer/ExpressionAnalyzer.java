@@ -160,6 +160,7 @@ import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SearchedCaseExpression;
+import io.trino.sql.tree.SetPredicate;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.SkipTo;
@@ -968,6 +969,7 @@ public class ExpressionAnalyzer
                 case MatchPredicate predicate -> analyzeMatchPredicate(node.getValue(), predicate, node, context);
                 case QuantifiedComparisonPredicate predicate -> analyzeQuantifiedComparison(node.getValue(), predicate, node, context);
                 case SubmultisetPredicate predicate -> analyzeSubmultiset(node.getValue(), predicate, node, context);
+                case SetPredicate _ -> analyzeSet(node.getValue(), node, context);
             };
         }
 
@@ -1123,6 +1125,7 @@ public class ExpressionAnalyzer
                         case MatchPredicate fragment -> analyzeMatchPredicate(operand, fragment, whenClause, context);
                         case QuantifiedComparisonPredicate fragment -> analyzeQuantifiedComparison(operand, fragment, whenClause, context);
                         case SubmultisetPredicate fragment -> analyzeSubmultiset(operand, fragment, whenClause, context);
+                        case SetPredicate _ -> analyzeSet(operand, whenClause, context);
                     }
                 }
             }
@@ -1306,6 +1309,15 @@ public class ExpressionAnalyzer
             Type type = coerceToSingleType(context, anchor, "Both operands of SUBMULTISET must be multisets", value, predicate.getRight());
             if (!(type instanceof MultisetType)) {
                 throw semanticException(TYPE_MISMATCH, anchor, "SUBMULTISET requires multiset operands, got: %s", type);
+            }
+            return setExpressionType(anchor, BOOLEAN);
+        }
+
+        private Type analyzeSet(Expression value, Expression anchor, Context context)
+        {
+            Type type = process(value, context);
+            if (!(type instanceof MultisetType)) {
+                throw semanticException(TYPE_MISMATCH, anchor, "IS A SET requires a multiset operand, got: %s", type);
             }
             return setExpressionType(anchor, BOOLEAN);
         }

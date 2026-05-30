@@ -119,6 +119,7 @@ import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.QuantifiedComparisonPredicate;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SearchedCaseExpression;
+import io.trino.sql.tree.SetPredicate;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.StaticMethodCall;
@@ -675,6 +676,13 @@ public class TranslationMap
                         .addArgument(right.type(), right)
                         .build();
                 yield predicate.isNegated() ? not(plannerContext.getMetadata(), submultiset) : submultiset;
+            }
+            case SetPredicate predicate -> {
+                io.trino.sql.ir.Expression isASet = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                        .setName("$is_a_set")
+                        .addArgument(value.type(), value)
+                        .build();
+                yield predicate.isNegated() ? not(plannerContext.getMetadata(), isASet) : isASet;
             }
         };
     }

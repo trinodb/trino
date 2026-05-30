@@ -31,6 +31,7 @@ public abstract sealed class Predicate
                 LikePredicate,
                 MatchPredicate,
                 QuantifiedComparisonPredicate,
+                SetPredicate,
                 SubmultisetPredicate
 {
     protected Predicate(NodeLocation location)
