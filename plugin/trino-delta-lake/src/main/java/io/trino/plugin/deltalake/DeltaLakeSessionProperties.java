@@ -35,9 +35,9 @@ import static io.trino.plugin.base.session.PropertyMetadataUtil.validateMaxDataS
 import static io.trino.plugin.base.session.PropertyMetadataUtil.validateMinDataSize;
 import static io.trino.plugin.hive.HiveTimestampPrecision.MILLISECONDS;
 import static io.trino.plugin.hive.parquet.ParquetReaderConfig.PARQUET_READER_MAX_SMALL_FILE_THRESHOLD;
-import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MAX_BLOCK_SIZE;
 import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MAX_PAGE_SIZE;
 import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MAX_PAGE_VALUE_COUNT;
+import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MAX_ROW_GROUP_SIZE;
 import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MIN_PAGE_SIZE;
 import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MIN_PAGE_VALUE_COUNT;
 import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MIN_ROW_GROUP_ROW_COUNT;
@@ -60,7 +60,8 @@ public final class DeltaLakeSessionProperties
     private static final String PARQUET_USE_COLUMN_INDEX = "parquet_use_column_index";
     private static final String PARQUET_IGNORE_STATISTICS = "parquet_ignore_statistics";
     private static final String PARQUET_VECTORIZED_DECODING_ENABLED = "parquet_vectorized_decoding_enabled";
-    private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
+    private static final String PARQUET_WRITER_ROW_GROUP_SIZE = "parquet_writer_row_group_size";
+    private static final String LEGACY_PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_ROW_GROUP_MAX_ROW_COUNT = "parquet_writer_row_group_max_row_count";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String PARQUET_WRITER_PAGE_VALUE_COUNT = "parquet_writer_page_value_count";
@@ -144,10 +145,10 @@ public final class DeltaLakeSessionProperties
                         parquetReaderConfig.isVectorizedDecodingEnabled(),
                         false),
                 dataSizeProperty(
-                        PARQUET_WRITER_BLOCK_SIZE,
-                        "Parquet: Writer block size",
-                        parquetWriterConfig.getBlockSize(),
-                        value -> validateMaxDataSize(PARQUET_WRITER_BLOCK_SIZE, value, DataSize.valueOf(PARQUET_WRITER_MAX_BLOCK_SIZE)),
+                        PARQUET_WRITER_ROW_GROUP_SIZE,
+                        "Parquet: Writer row group size",
+                        parquetWriterConfig.getRowGroupSize(),
+                        value -> validateMaxDataSize(PARQUET_WRITER_ROW_GROUP_SIZE, value, DataSize.valueOf(PARQUET_WRITER_MAX_ROW_GROUP_SIZE)),
                         false),
                 integerProperty(
                         PARQUET_WRITER_ROW_GROUP_MAX_ROW_COUNT,
@@ -161,6 +162,12 @@ public final class DeltaLakeSessionProperties
                             }
                         },
                         false),
+                dataSizeProperty(
+                        LEGACY_PARQUET_WRITER_BLOCK_SIZE,
+                        "Deprecated. Use parquet_writer_row_group_size instead.",
+                        null,
+                        value -> validateMaxDataSize(LEGACY_PARQUET_WRITER_BLOCK_SIZE, value, DataSize.valueOf(PARQUET_WRITER_MAX_ROW_GROUP_SIZE)),
+                        true),
                 dataSizeProperty(
                         PARQUET_WRITER_PAGE_SIZE,
                         "Parquet: Writer page size",
@@ -304,9 +311,13 @@ public final class DeltaLakeSessionProperties
         return session.getProperty(PARQUET_VECTORIZED_DECODING_ENABLED, Boolean.class);
     }
 
-    public static DataSize getParquetWriterBlockSize(ConnectorSession session)
+    public static DataSize getParquetWriterRowGroupSize(ConnectorSession session)
     {
-        return session.getProperty(PARQUET_WRITER_BLOCK_SIZE, DataSize.class);
+        DataSize legacyValue = session.getProperty(LEGACY_PARQUET_WRITER_BLOCK_SIZE, DataSize.class);
+        if (legacyValue != null) {
+            return legacyValue;
+        }
+        return session.getProperty(PARQUET_WRITER_ROW_GROUP_SIZE, DataSize.class);
     }
 
     public static int getParquetWriterRowGroupMaxRowCount(ConnectorSession session)

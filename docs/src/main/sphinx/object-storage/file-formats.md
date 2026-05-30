@@ -70,9 +70,9 @@ with Parquet files performed by supported object storage connectors:
   - Maximum values count of pages written by Parquet writer. The equivalent 
     catalog session property is `parquet_writer_page_value_count`.
   - `80000`
-* - `parquet.writer.block-size`
+* - `parquet.writer.row-group-size`
   - Maximum size of row groups written by Parquet writer. The equivalent 
-    catalog session property is `parquet_writer_block_size`.
+    catalog session property is `parquet_writer_row_group_size`.
   - `128 MB`
 * - `parquet.writer.row-group-max-row-count`
   - Maximum number of rows in row groups written by Parquet writer. The

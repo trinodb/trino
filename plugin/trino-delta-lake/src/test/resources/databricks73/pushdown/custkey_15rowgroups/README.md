@@ -37,7 +37,7 @@ Some interesting or useful statistics:
 
 This table was created from Trino using the following statements:
 ```sql
-SET SESSION delta.parquet_writer_block_size = '500B';
+SET SESSION delta.parquet_writer_row_group_size = '500B';
 
 CREATE TABLE delta.default.custkey_15rowgroups
 WITH (location = 's3://TEST_BUCKET/custkey_15rowgroups')
