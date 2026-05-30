@@ -517,6 +517,11 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitMultisetSubquery(MultisetSubquery node, C context)
+    {
+        return visitSubqueryExpression(node, context);
+    }
+
     protected R visitSortItem(SortItem node, C context)
     {
         return visitNode(node, context);

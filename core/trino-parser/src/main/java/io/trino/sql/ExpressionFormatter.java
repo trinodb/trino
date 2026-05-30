@@ -83,6 +83,7 @@ import io.trino.sql.tree.MemberPredicate;
 import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.MultisetConstructor;
 import io.trino.sql.tree.MultisetSetOperation;
+import io.trino.sql.tree.MultisetSubquery;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
@@ -470,6 +471,12 @@ public final class ExpressionFormatter
         protected String visitSubqueryExpression(SubqueryExpression node, Void context)
         {
             return "(" + formatSql(node.getQuery()) + ")";
+        }
+
+        @Override
+        protected String visitMultisetSubquery(MultisetSubquery node, Void context)
+        {
+            return "MULTISET (" + formatSql(node.getQuery()) + ")";
         }
 
         @Override

@@ -430,6 +430,34 @@ public class TestMultiset
     }
 
     @Test
+    public void testSubqueryConstructor()
+    {
+        // builds a multiset from the subquery rows, retaining duplicates
+        assertThat(assertions.query("SELECT MULTISET(SELECT x FROM (VALUES 1, 1, 2) t(x)) = MULTISET[1, 1, 2]"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT CARDINALITY(MULTISET(SELECT x FROM (VALUES 1, 1, 2) t(x)))"))
+                .matches("VALUES BIGINT '3'");
+        // an empty subquery yields the empty multiset, not null
+        assertThat(assertions.query("SELECT CARDINALITY(MULTISET(SELECT x FROM (VALUES 1) t(x) WHERE false))"))
+                .matches("VALUES BIGINT '0'");
+        // correlated to the outer row
+        assertThat(assertions.query(
+                """
+                SELECT k, CARDINALITY(MULTISET(SELECT v FROM (VALUES (1, 10), (1, 20), (2, 30)) u(k, v) WHERE u.k = t.k))
+                FROM (VALUES 1, 2) t(k)
+                """))
+                .matches("VALUES (1, BIGINT '2'), (2, BIGINT '1')");
+        // an outer row with no matching subquery rows yields the empty multiset (cardinality 0),
+        // not null and not a dropped row -- the correlated global-aggregation "count bug" path
+        assertThat(assertions.query(
+                """
+                SELECT k, CARDINALITY(MULTISET(SELECT v FROM (VALUES (1, 10)) u(k, v) WHERE u.k = t.k))
+                FROM (VALUES 1, 2) t(k)
+                """))
+                .matches("VALUES (1, BIGINT '1'), (2, BIGINT '0')");
+    }
+
+    @Test
     public void testEqualityIsOrderIndependent()
     {
         assertThat(assertions.expression("MULTISET[1, 2, 2] = MULTISET[2, 1, 2]"))
