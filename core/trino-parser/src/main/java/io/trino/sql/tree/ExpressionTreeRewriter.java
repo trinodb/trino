@@ -179,6 +179,26 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitMultisetSetOperation(MultisetSetOperation node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteMultisetSetOperation(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression left = rewrite(node.getLeft(), context.get());
+            Expression right = rewrite(node.getRight(), context.get());
+
+            if (left != node.getLeft() || right != node.getRight()) {
+                return new MultisetSetOperation(node.getLocation().orElseThrow(), node.getOperator(), node.isDistinct(), left, right);
+            }
+
+            return node;
+        }
+
+        @Override
         protected Expression visitAtTimeZone(AtTimeZone node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

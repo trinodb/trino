@@ -83,6 +83,7 @@ import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MatchPredicate;
 import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.MultisetConstructor;
+import io.trino.sql.tree.MultisetSetOperation;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
@@ -364,6 +365,15 @@ public final class ExpressionFormatter
             return node.getValues().stream()
                     .map(SqlFormatter::formatSql)
                     .collect(joining(",", "MULTISET[", "]"));
+        }
+
+        @Override
+        protected String visitMultisetSetOperation(MultisetSetOperation node, Void context)
+        {
+            return process(node.getLeft(), context) +
+                    " MULTISET " + node.getOperator() +
+                    (node.isDistinct() ? " DISTINCT " : " ALL ") +
+                    process(node.getRight(), context);
         }
 
         @Override

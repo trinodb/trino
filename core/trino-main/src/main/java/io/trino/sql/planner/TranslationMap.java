@@ -107,6 +107,7 @@ import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MatchPredicate;
 import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.MultisetConstructor;
+import io.trino.sql.tree.MultisetSetOperation;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
@@ -395,6 +396,7 @@ public class TranslationMap
                 case DereferenceExpression expression -> translate(expression);
                 case Array expression -> translate(expression);
                 case MultisetConstructor expression -> translate(expression);
+                case MultisetSetOperation expression -> translate(expression);
                 case CurrentCatalog expression -> translate(expression);
                 case CurrentSchema expression -> translate(expression);
                 case CurrentPath expression -> translate(expression);
@@ -965,6 +967,21 @@ public class TranslationMap
 
         Type type = analysis.getType(expression);
         return new Collection(type, values);
+    }
+
+    private io.trino.sql.ir.Expression translate(MultisetSetOperation expression)
+    {
+        Type type = analysis.getType(expression);
+        String name = switch (expression.getOperator()) {
+            case UNION -> expression.isDistinct() ? "$multiset_union_distinct" : "$multiset_union_all";
+            case INTERSECT -> expression.isDistinct() ? "$multiset_intersect_distinct" : "$multiset_intersect_all";
+            case EXCEPT -> expression.isDistinct() ? "$multiset_except_distinct" : "$multiset_except_all";
+        };
+        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                .setName(name)
+                .addArgument(type, translateExpression(expression.getLeft()))
+                .addArgument(type, translateExpression(expression.getRight()))
+                .build();
     }
 
     private io.trino.sql.ir.Expression translate(CurrentCatalog unused)
