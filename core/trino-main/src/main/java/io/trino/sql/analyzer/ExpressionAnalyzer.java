@@ -169,6 +169,7 @@ import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SortItem.Ordering;
 import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SubmultisetPredicate;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SubsetDefinition;
@@ -1224,6 +1225,7 @@ public class ExpressionAnalyzer
                 case MatchPredicate predicate -> analyzeMatchPredicate(node.getValue(), predicate, node, context);
                 case OverlapsPredicate predicate -> analyzeOverlaps(node.getValue(), predicate, node, context);
                 case QuantifiedComparisonPredicate predicate -> analyzeQuantifiedComparison(node.getValue(), predicate, node, context);
+                case SubmultisetPredicate predicate -> analyzeSubmultiset(node.getValue(), predicate, node, context);
             };
         }
 
@@ -1379,6 +1381,7 @@ public class ExpressionAnalyzer
                         case MatchPredicate fragment -> analyzeMatchPredicate(operand, fragment, whenClause, context);
                         case OverlapsPredicate fragment -> analyzeOverlaps(operand, fragment, whenClause, context);
                         case QuantifiedComparisonPredicate fragment -> analyzeQuantifiedComparison(operand, fragment, whenClause, context);
+                        case SubmultisetPredicate fragment -> analyzeSubmultiset(operand, fragment, whenClause, context);
                     }
                 }
             }
@@ -1386,7 +1389,7 @@ public class ExpressionAnalyzer
             // The case operand is evaluated once and shared by every clause, so all clauses must
             // agree on a single operand type. Reconcile the operand with every value it is
             // directly compared against — equality WHEN values and the value parts of
-            // comparison / BETWEEN / IN-list / IS DISTINCT FROM fragments — into one common
+            // comparison / BETWEEN / IN-list / IS DISTINCT FROM / SUBMULTISET fragments — into one common
             // supertype, then coerce the operand and those values to it. This overrides the
             // narrower per-clause coercions applied above, which each saw only their own clause.
             List<Expression> comparedValues = new ArrayList<>();
@@ -1430,6 +1433,7 @@ public class ExpressionAnalyzer
                 case BetweenPredicate between -> ImmutableList.of(between.getMin(), between.getMax());
                 case DistinctFromPredicate distinct -> ImmutableList.of(distinct.getRight());
                 case InPredicate in when in.getValueList() instanceof InListExpression list -> list.getValues();
+                case SubmultisetPredicate submultiset -> ImmutableList.of(submultiset.getRight());
                 default -> ImmutableList.of();
             };
         }
@@ -1578,6 +1582,15 @@ public class ExpressionAnalyzer
                 throw semanticException(TYPE_MISMATCH, node, "MULTISET %s requires multiset operands, got: %s", node.getOperator(), type);
             }
             return setExpressionType(node, type);
+        }
+
+        private Type analyzeSubmultiset(Expression value, SubmultisetPredicate predicate, Expression anchor, Context context)
+        {
+            Type type = coerceToSingleType(context, anchor, "Both operands of SUBMULTISET must be multisets", value, predicate.getRight());
+            if (!(type instanceof MultisetType)) {
+                throw semanticException(TYPE_MISMATCH, anchor, "SUBMULTISET requires multiset operands, got: %s", type);
+            }
+            return setExpressionType(anchor, BOOLEAN);
         }
 
         @Override

@@ -299,6 +299,7 @@ import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SubmultisetPredicate;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SubsetDefinition;
@@ -2567,6 +2568,15 @@ class AstBuilder
     public Node visitMultisetConstructor(SqlBaseParser.MultisetConstructorContext context)
     {
         return new MultisetConstructor(getLocation(context), visit(context.expression(), Expression.class));
+    }
+
+    @Override
+    public Node visitSubmultiset(SqlBaseParser.SubmultisetContext context)
+    {
+        return new SubmultisetPredicate(
+                getLocation(context),
+                context.NOT() != null,
+                (Expression) visit(context.right));
     }
 
     @Override
