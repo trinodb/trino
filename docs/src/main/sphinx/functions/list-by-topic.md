@@ -27,6 +27,7 @@ For more details, see {doc}`aggregate`
 - {func}`fusion`
 - {func}`geometric_mean`
 - {func}`histogram`
+- {func}`intersection`
 - {func}`kurtosis`
 - {func}`map_agg`
 - {func}`map_union`
@@ -428,6 +429,7 @@ For more details, see {doc}`multiset`
 - {func}`collect`
 - {func}`element`
 - {func}`fusion`
+- {func}`intersection`
 - {func}`set`
 
 ## Quantile digest

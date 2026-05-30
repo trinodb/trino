@@ -211,6 +211,7 @@
 - [if](if-expression)
 - {func}`index`
 - {func}`infinity`
+- {func}`intersection`
 - {func}`intersection_cardinality`
 - {func}`inverse_beta_cdf`
 - {func}`inverse_normal_cdf`

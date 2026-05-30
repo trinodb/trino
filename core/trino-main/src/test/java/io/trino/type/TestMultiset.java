@@ -400,6 +400,36 @@ public class TestMultiset
     }
 
     @Test
+    public void testIntersection()
+    {
+        // minimum multiplicity per value across the input multisets
+        assertThat(assertions.query("SELECT INTERSECTION(m) = MULTISET[1] FROM (VALUES MULTISET[1, 1, 2], MULTISET[1, 3]) t(m)"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT CARDINALITY(INTERSECTION(m)) FROM (VALUES MULTISET[1, 1, 2], MULTISET[1, 1, 2, 2]) t(m)"))
+                .matches("VALUES BIGINT '3'");
+        // disjoint inputs intersect to the empty multiset
+        assertThat(assertions.query("SELECT CARDINALITY(INTERSECTION(m)) FROM (VALUES MULTISET[1], MULTISET[2]) t(m)"))
+                .matches("VALUES BIGINT '0'");
+        // a single input is returned unchanged
+        assertThat(assertions.query("SELECT INTERSECTION(m) = MULTISET[1, 1, 2] FROM (VALUES MULTISET[1, 1, 2]) t(m)"))
+                .matches("VALUES true");
+        // a NULL multiset operand is ignored, not allowed to collapse the result
+        assertThat(assertions.query("SELECT CARDINALITY(INTERSECTION(m)) FROM (VALUES MULTISET[1, 1, 2], CAST(NULL AS multiset(integer)), MULTISET[1, 3]) t(m)"))
+                .matches("VALUES BIGINT '1'");
+        // null elements are matched by IDENTICAL (null not distinct from null)
+        assertThat(assertions.query("SELECT CARDINALITY(INTERSECTION(m)) FROM (VALUES MULTISET[1, NULL], MULTISET[NULL]) t(m)"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(assertions.query("SELECT ELEMENT(INTERSECTION(m)) IS NULL FROM (VALUES MULTISET[1, NULL], MULTISET[NULL]) t(m)"))
+                .matches("VALUES true");
+        // a single empty multiset seeds a real empty state (non-null), distinct from the zero-row NULL case
+        assertThat(assertions.query("SELECT INTERSECTION(m) IS NOT NULL FROM (VALUES CAST(MULTISET[] AS multiset(integer))) t(m)"))
+                .matches("VALUES true");
+        // grouped, exercising the partial-merge path
+        assertThat(assertions.query("SELECT k, CARDINALITY(INTERSECTION(m)) FROM (VALUES (1, MULTISET[1, 1, 2]), (1, MULTISET[1, 2, 2]), (2, MULTISET[3, 3])) t(k, m) GROUP BY k"))
+                .matches("VALUES (1, BIGINT '2'), (2, BIGINT '2')");
+    }
+
+    @Test
     public void testEqualityIsOrderIndependent()
     {
         assertThat(assertions.expression("MULTISET[1, 2, 2] = MULTISET[2, 1, 2]"))
