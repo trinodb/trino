@@ -32,6 +32,13 @@ SELECT timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles';
 -- 2012-10-30 18:00:00.000 America/Los_Angeles
 ```
 
+The `AT LOCAL` operator renders a datetime in the current session time zone:
+
+```
+SELECT timestamp '2012-10-31 01:00 UTC' AT LOCAL;
+-- 2012-10-30 18:00:00.000 America/Los_Angeles  (session zone)
+```
+
 ## Date and time functions
 
 :::{data} current_date

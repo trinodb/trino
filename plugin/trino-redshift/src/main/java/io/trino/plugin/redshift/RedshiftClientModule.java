@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.redshift;
 
-import com.amazon.redshift.Driver;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Provides;
@@ -57,7 +56,6 @@ public class RedshiftClientModule
     public void setup(Binder binder)
     {
         configBinder(binder).bindConfig(RedshiftConfig.class);
-        configBinder(binder).bindConfig(RedshiftJdbcConfig.class);
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(RedshiftClient.class).in(SINGLETON);
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setBulkListColumns(true));
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(SINGLETON);
@@ -94,8 +92,10 @@ public class RedshiftClientModule
         Properties properties = new Properties();
         properties.put("reWriteBatchedInserts", "true");
         properties.put("reWriteBatchedInsertsSize", "512");
-
-        return DriverConnectionFactory.builder(new Driver(), config.getConnectionUrl(), credentialProvider)
+        return DriverConnectionFactory.builder(
+                        new LegacyRedshiftDriver(),
+                        config.getConnectionUrl(),
+                        credentialProvider)
                 .setConnectionProperties(properties)
                 .setOpenTelemetry(openTelemetry)
                 .build();

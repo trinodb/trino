@@ -99,7 +99,7 @@ statement
         SET PROPERTIES propertyAssignments                             #setTableProperties
     | ALTER TABLE tableName=qualifiedName
         EXECUTE procedureName=identifier
-        ('(' (callArgument (',' callArgument)*)? ')')?
+        ('(' (argument (',' argument)*)? ')')?
         (WHERE where=booleanExpression)?                               #tableExecute
     | ALTER ownedEntityKind qualifiedName SET AUTHORIZATION principal  #setAuthorization
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
@@ -122,7 +122,7 @@ statement
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | ALTER VIEW from=qualifiedName RENAME TO to=qualifiedName         #renameView
     | ALTER VIEW viewName=qualifiedName REFRESH                        #refreshView
-    | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
+    | CALL qualifiedName '(' (argument (',' argument)*)? ')'           #call
     | CREATE (OR REPLACE)? functionSpecification                       #createFunction
     | DROP FUNCTION (IF EXISTS)? functionDeclaration                   #dropFunction
     | CREATE (OR REPLACE)? BRANCH (IF NOT EXISTS)? branch=identifier
@@ -585,6 +585,7 @@ predicate[ParserRuleContext value]
 valueExpression
     : primaryExpression                                                                 #valueExpressionDefault
     | valueExpression AT timeZoneSpecifier                                              #atTimeZone
+    | valueExpression AT LOCAL                                                          #atLocal
     | operator=(MINUS | PLUS) valueExpression                                           #arithmeticUnary
     | left=valueExpression operator=(ASTERISK | SLASH | PERCENT) right=valueExpression  #arithmeticBinary
     | left=valueExpression operator=(PLUS | MINUS) right=valueExpression                #arithmeticBinary
@@ -603,7 +604,7 @@ primaryExpression
         filter? over?                                                                     #listagg
     | processingMode? qualifiedName '(' (label=identifier '.')? ASTERISK ')'
         filter? over?                                                                     #functionCall
-    | processingMode? qualifiedName '(' (setQuantifier? expression (',' expression)*)?
+    | processingMode? qualifiedName '(' (setQuantifier? argument (',' argument)*)?
         orderBy? ')' filter? (nullTreatment? over)?                                       #functionCall
     | qualifiedName '::' identifier '(' (expression (',' expression)*)? ')'               #staticMethodCall
     | primaryExpression '.' identifier '(' (expression (',' expression)*)? ')'            #methodCall
@@ -901,7 +902,7 @@ levelOfIsolation
     | SERIALIZABLE                        #serializable
     ;
 
-callArgument
+argument
     : expression                    #positionalArgument
     | identifier '=>' expression    #namedArgument
     ;

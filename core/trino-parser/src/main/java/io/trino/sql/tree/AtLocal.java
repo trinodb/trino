@@ -17,27 +17,18 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public final class CallArgument
-        extends Node
+public class AtLocal
+        extends Expression
 {
-    private final Optional<Identifier> name;
     private final Expression value;
 
-    public CallArgument(NodeLocation location, Optional<Identifier> name, Expression value)
+    public AtLocal(NodeLocation location, Expression value)
     {
         super(location);
-        this.name = requireNonNull(name, "name is null");
         this.value = requireNonNull(value, "value is null");
-    }
-
-    public Optional<Identifier> getName()
-    {
-        return name;
     }
 
     public Expression getValue()
@@ -48,22 +39,19 @@ public final class CallArgument
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitCallArgument(this, context);
+        return visitor.visitAtLocal(this, context);
     }
 
     @Override
     public List<Node> getChildren()
     {
-        ImmutableList.Builder<Node> children = ImmutableList.builder();
-        name.ifPresent(children::add);
-        children.add(value);
-        return children.build();
+        return ImmutableList.of(value);
     }
 
     @Override
-    public boolean shallowEquals(Node other)
+    public int hashCode()
     {
-        return sameClass(this, other);
+        return Objects.hash(value);
     }
 
     @Override
@@ -75,24 +63,13 @@ public final class CallArgument
         if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-        CallArgument o = (CallArgument) obj;
-        return Objects.equals(name, o.name) &&
-                Objects.equals(value, o.value);
+        AtLocal other = (AtLocal) obj;
+        return Objects.equals(value, other.value);
     }
 
     @Override
-    public int hashCode()
+    public boolean shallowEquals(Node other)
     {
-        return Objects.hash(name, value);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("name", name.orElse(null))
-                .add("value", value)
-                .omitNullValues()
-                .toString();
+        return sameClass(this, other);
     }
 }

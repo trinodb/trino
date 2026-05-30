@@ -33,6 +33,7 @@ import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AssignmentStatement;
+import io.trino.sql.tree.AtLocal;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.AutoGroupBy;
 import io.trino.sql.tree.BetweenPredicate;
@@ -953,8 +954,8 @@ class AstBuilder
     public Node visitTableExecute(SqlBaseParser.TableExecuteContext context)
     {
         List<CallArgument> arguments = ImmutableList.of();
-        if (context.callArgument() != null) {
-            arguments = visit(context.callArgument(), CallArgument.class);
+        if (context.argument() != null) {
+            arguments = visit(context.argument(), CallArgument.class);
         }
 
         return new TableExecute(
@@ -1144,7 +1145,7 @@ class AstBuilder
         return new Call(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
-                visit(context.callArgument(), CallArgument.class));
+                visit(context.argument(), CallArgument.class));
     }
 
     @Override
@@ -2481,6 +2482,14 @@ class AstBuilder
     }
 
     @Override
+    public Node visitAtLocal(SqlBaseParser.AtLocalContext context)
+    {
+        return new AtLocal(
+                getLocation(context.AT()),
+                (Expression) visit(context.valueExpression()));
+    }
+
+    @Override
     public Node visitTimeZoneInterval(SqlBaseParser.TimeZoneIntervalContext context)
     {
         return visit(context.interval());
@@ -3059,71 +3068,85 @@ class AstBuilder
 
         SqlBaseParser.ProcessingModeContext processingMode = context.processingMode();
 
+        List<CallArgument> arguments = visit(context.argument(), CallArgument.class);
+        if (context.label != null) {
+            // `f(label.*)` form — captured separately by the grammar, never has named args.
+            // Rewrite to a synthetic single-argument list before arity-sensitive operator branches.
+            DereferenceExpression labelRef = new DereferenceExpression(getLocation(context.label), (Identifier) visit(context.label));
+            arguments = ImmutableList.of(new CallArgument(labelRef.getLocation().orElse(null), Optional.empty(), labelRef));
+        }
+        boolean hasNamedArguments = arguments.stream().anyMatch(argument -> argument.getName().isPresent());
+
         if (name.toString().equalsIgnoreCase("if")) {
-            check(context.expression().size() == 2 || context.expression().size() == 3, "Invalid number of arguments for 'if' function", context);
+            check(arguments.size() == 2 || arguments.size() == 3, "Invalid number of arguments for 'if' function", context);
             check(window.isEmpty(), "OVER clause not valid for 'if' function", context);
             check(!distinct, "DISTINCT not valid for 'if' function", context);
             check(nullTreatment == null, "Null treatment clause not valid for 'if' function", context);
             check(processingMode == null, "Running or final semantics not valid for 'if' function", context);
             check(filter.isEmpty(), "FILTER not valid for 'if' function", context);
+            check(!hasNamedArguments, "Named arguments are not supported for 'if' function", context);
 
             Expression elseExpression = null;
-            if (context.expression().size() == 3) {
-                elseExpression = (Expression) visit(context.expression(2));
+            if (arguments.size() == 3) {
+                elseExpression = arguments.get(2).getValue();
             }
 
             return new IfExpression(
                     getLocation(context),
-                    (Expression) visit(context.expression(0)),
-                    (Expression) visit(context.expression(1)),
+                    arguments.get(0).getValue(),
+                    arguments.get(1).getValue(),
                     elseExpression);
         }
 
         if (name.toString().equalsIgnoreCase("nullif")) {
-            check(context.expression().size() == 2, "Invalid number of arguments for 'nullif' function", context);
+            check(arguments.size() == 2, "Invalid number of arguments for 'nullif' function", context);
             check(window.isEmpty(), "OVER clause not valid for 'nullif' function", context);
             check(!distinct, "DISTINCT not valid for 'nullif' function", context);
             check(nullTreatment == null, "Null treatment clause not valid for 'nullif' function", context);
             check(processingMode == null, "Running or final semantics not valid for 'nullif' function", context);
             check(filter.isEmpty(), "FILTER not valid for 'nullif' function", context);
+            check(!hasNamedArguments, "Named arguments are not supported for 'nullif' function", context);
 
             return new NullIfExpression(
                     getLocation(context),
-                    (Expression) visit(context.expression(0)),
-                    (Expression) visit(context.expression(1)));
+                    arguments.get(0).getValue(),
+                    arguments.get(1).getValue());
         }
 
         if (name.toString().equalsIgnoreCase("coalesce")) {
-            check(context.expression().size() >= 2, "The 'coalesce' function must have at least two arguments", context);
+            check(arguments.size() >= 2, "The 'coalesce' function must have at least two arguments", context);
             check(window.isEmpty(), "OVER clause not valid for 'coalesce' function", context);
             check(!distinct, "DISTINCT not valid for 'coalesce' function", context);
             check(nullTreatment == null, "Null treatment clause not valid for 'coalesce' function", context);
             check(processingMode == null, "Running or final semantics not valid for 'coalesce' function", context);
             check(filter.isEmpty(), "FILTER not valid for 'coalesce' function", context);
+            check(!hasNamedArguments, "Named arguments are not supported for 'coalesce' function", context);
 
-            return new CoalesceExpression(getLocation(context), visit(context.expression(), Expression.class));
+            return new CoalesceExpression(getLocation(context), arguments.stream().map(CallArgument::getValue).collect(toImmutableList()));
         }
 
         if (name.toString().equalsIgnoreCase("try")) {
-            check(context.expression().size() == 1, "The 'try' function must have exactly one argument", context);
+            check(arguments.size() == 1, "The 'try' function must have exactly one argument", context);
             check(window.isEmpty(), "OVER clause not valid for 'try' function", context);
             check(!distinct, "DISTINCT not valid for 'try' function", context);
             check(nullTreatment == null, "Null treatment clause not valid for 'try' function", context);
             check(processingMode == null, "Running or final semantics not valid for 'try' function", context);
             check(filter.isEmpty(), "FILTER not valid for 'try' function", context);
+            check(!hasNamedArguments, "Named arguments are not supported for 'try' function", context);
 
-            return new TryExpression(getLocation(context), (Expression) visit(getOnlyElement(context.expression())));
+            return new TryExpression(getLocation(context), getOnlyElement(arguments).getValue());
         }
 
         if (name.toString().equalsIgnoreCase("format")) {
-            check(context.expression().size() >= 2, "The 'format' function must have at least two arguments", context);
+            check(arguments.size() >= 2, "The 'format' function must have at least two arguments", context);
             check(window.isEmpty(), "OVER clause not valid for 'format' function", context);
             check(!distinct, "DISTINCT not valid for 'format' function", context);
             check(nullTreatment == null, "Null treatment clause not valid for 'format' function", context);
             check(processingMode == null, "Running or final semantics not valid for 'format' function", context);
             check(filter.isEmpty(), "FILTER not valid for 'format' function", context);
+            check(!hasNamedArguments, "Named arguments are not supported for 'format' function", context);
 
-            return new Format(getLocation(context), visit(context.expression(), Expression.class));
+            return new Format(getLocation(context), arguments.stream().map(CallArgument::getValue).collect(toImmutableList()));
         }
 
         Optional<NullTreatment> nulls = Optional.empty();
@@ -3146,13 +3169,8 @@ class AstBuilder
             }
         }
 
-        List<Expression> arguments = visit(context.expression(), Expression.class);
-        if (context.label != null) {
-            arguments = ImmutableList.of(new DereferenceExpression(getLocation(context.label), (Identifier) visit(context.label)));
-        }
-
         return new FunctionCall(
-                Optional.of(getLocation(context)),
+                getLocation(context),
                 name,
                 window,
                 filter,

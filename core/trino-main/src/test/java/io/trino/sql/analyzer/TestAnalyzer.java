@@ -266,6 +266,27 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testNamedArgumentsRejectedForFunctionsWithoutDeclaredNames()
+    {
+        // No built-in function declares parameter names yet, so any named-arg call should
+        // fail with a "no argument named X" diagnostic pointing at the offending name.
+        assertFails("SELECT substr('abc', \"from\" => 1)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("No argument named from for function substr");
+
+        // Duplicate named arguments are caught before lookup so the error points at the
+        // second occurrence rather than failing in candidate filtering.
+        assertFails("SELECT some_fn(x => 1, x => 2)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("Duplicate named argument: x");
+
+        // Positional after named is rejected at analysis time.
+        assertFails("SELECT some_fn(x => 1, 2)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("Positional arguments cannot follow named arguments");
+    }
+
+    @Test
     public void testNonComparableGroupBy()
     {
         assertFails("SELECT * FROM (SELECT approx_set(1)) GROUP BY 1")
@@ -6880,9 +6901,10 @@ public class TestAnalyzer
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:52: Invalid table argument INPUT. Table functions are not allowed as table function arguments");
 
-        assertThatThrownBy(() -> analyze("SELECT * FROM TABLE(system.table_argument_function(input => my_schema.my_table_function(arg => 1)))"))
-                .isInstanceOf(ParsingException.class)
-                .hasMessageContaining("line 1:93: mismatched input '=>'.");
+        // same diagnostic when the inner call uses named-argument syntax (now accepted at parse time)
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => my_schema.my_table_function(arg => 1)))")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:52: Invalid table argument INPUT. Table functions are not allowed as table function arguments");
 
         // cannot pass a table function as the argument, also preceding nested table function with TABLE is incorrect
         assertThatThrownBy(() -> analyze("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(my_schema.my_table_function(1))))"))

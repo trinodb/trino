@@ -59,9 +59,10 @@ import static io.trino.metastore.Partitions.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.trino.metastore.Partitions.escapePathName;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressionCodec;
-import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageValueCount;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterRowGroupMaxRowCount;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterRowGroupSize;
 import static io.trino.plugin.deltalake.DeltaLakeTypes.toParquetType;
 import static io.trino.plugin.hive.HiveCompressionCodecs.toCompressionCodec;
 import static java.lang.String.format;
@@ -466,7 +467,8 @@ public abstract class AbstractDeltaLakePageSink
     private ParquetFileWriter createParquetFileWriter(Location path)
     {
         ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
-                .setMaxBlockSize(getParquetWriterBlockSize(session))
+                .setMaxBlockSize(getParquetWriterRowGroupSize(session))
+                .setMaxRowGroupRowCount(getParquetWriterRowGroupMaxRowCount(session))
                 .setMaxPageSize(getParquetWriterPageSize(session))
                 .setMaxPageValueCount(getParquetWriterPageValueCount(session))
                 .setUseDeltaLengthByteArrayEncoding(useDeltaLengthByteArrayEncoding)
