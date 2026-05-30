@@ -86,6 +86,7 @@ import io.trino.operator.aggregation.VarianceAggregation;
 import io.trino.operator.aggregation.arrayagg.ArrayAggregationFunction;
 import io.trino.operator.aggregation.arrayagg.CollectAggregationFunction;
 import io.trino.operator.aggregation.arrayagg.FusionAggregationFunction;
+import io.trino.operator.aggregation.arrayagg.IntersectionAggregationFunction;
 import io.trino.operator.aggregation.histogram.Histogram;
 import io.trino.operator.aggregation.listagg.ListaggAggregationFunction;
 import io.trino.operator.aggregation.minmaxbyn.MaxByNAggregationFunction;
@@ -604,6 +605,7 @@ public final class SystemFunctionBundle
                 .aggregates(ArrayAggregationFunction.class)
                 .aggregates(CollectAggregationFunction.class)
                 .aggregates(FusionAggregationFunction.class)
+                .aggregates(IntersectionAggregationFunction.class)
                 .aggregates(ListaggAggregationFunction.class)
                 .functions(new MapSubscriptOperator())
                 .functions(MAP_CONSTRUCTOR, JSON_TO_MAP, JSON_STRING_TO_MAP)
