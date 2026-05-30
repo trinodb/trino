@@ -58,6 +58,7 @@ import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.MultisetConstructor;
+import io.trino.sql.tree.MultisetSetOperation;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -286,6 +287,12 @@ class AggregationAnalyzer
         protected Boolean visitMultisetConstructor(MultisetConstructor node, Void context)
         {
             return node.getValues().stream().allMatch(expression -> process(expression, context));
+        }
+
+        @Override
+        protected Boolean visitMultisetSetOperation(MultisetSetOperation node, Void context)
+        {
+            return process(node.getLeft(), context) && process(node.getRight(), context);
         }
 
         @Override
