@@ -272,6 +272,43 @@ public class TestMultiset
     }
 
     @Test
+    public void testSubmultiset()
+    {
+        // every element present with at least the same multiplicity
+        assertThat(assertions.expression("MULTISET[1, 1, 2] SUBMULTISET OF MULTISET[1, 1, 1, 2]"))
+                .isEqualTo(true);
+        // too many copies of 1
+        assertThat(assertions.expression("MULTISET[1, 1, 2] SUBMULTISET OF MULTISET[1, 2]"))
+                .isEqualTo(false);
+        // the empty multiset is a submultiset of anything
+        assertThat(assertions.expression("MULTISET[] SUBMULTISET OF MULTISET[1, 2]"))
+                .isEqualTo(true);
+        // OF is optional, and NOT negates
+        assertThat(assertions.expression("MULTISET[3] NOT SUBMULTISET MULTISET[1, 2]"))
+                .isEqualTo(true);
+        // a null operand yields null
+        assertThat(assertions.expression("(MULTISET[1] SUBMULTISET OF CAST(NULL AS multiset(integer))) IS NULL"))
+                .isEqualTo(true);
+        // null elements match by IDENTICAL (not distinct from null), so the multiplicity of null is
+        // what counts -- this is a definite true/false, never unknown
+        assertThat(assertions.expression("MULTISET[NULL] SUBMULTISET OF MULTISET[NULL]"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("MULTISET[NULL, NULL] SUBMULTISET OF MULTISET[NULL]"))
+                .isEqualTo(false);
+    }
+
+    @Test
+    public void testSubmultisetAsCaseFragment()
+    {
+        assertThat(assertions.expression("CASE MULTISET[1, 2] WHEN SUBMULTISET OF MULTISET[1] THEN 'a' WHEN SUBMULTISET OF MULTISET[1, 2, 3] THEN 'b' END"))
+                .isEqualTo("b");
+        // the case operand is evaluated once and shared by every clause, so it must reconcile to a
+        // single type with the right-hand multiset of every clause, not just the last one
+        assertThat(assertions.expression("CASE MULTISET[1] WHEN SUBMULTISET OF MULTISET[2] THEN 'a' WHEN SUBMULTISET OF MULTISET[1.5, 1.0] THEN 'b' END"))
+                .isEqualTo("b");
+    }
+
+    @Test
     public void testEqualityIsOrderIndependent()
     {
         assertThat(assertions.expression("MULTISET[1, 2, 2] = MULTISET[2, 1, 2]"))

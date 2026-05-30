@@ -287,6 +287,7 @@ public class TestSqlKeywords
                         "START",
                         "STATS",
                         "STRING",
+                        "SUBMULTISET",
                         "SUBSET",
                         "SUBSTRING",
                         "SYMMETRIC",
