@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.metastore.TableInfo;
@@ -166,7 +167,10 @@ public class TestTrinoRestCatalog
                     newDirectExecutorService(),
                     newDirectExecutorService(),
                     0,
-                    ZERO);
+                    ZERO,
+                    ImmutableMap.of(),
+                    Optional.empty(),
+                    ImmutableList.of());
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isTrue();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.nessie;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
@@ -219,7 +220,10 @@ public class TestTrinoNessieCatalog
                     newDirectExecutorService(),
                     newDirectExecutorService(),
                     0,
-                    ZERO);
+                    ZERO,
+                    ImmutableMap.of(),
+                    Optional.empty(),
+                    ImmutableList.of());
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isTrue();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")

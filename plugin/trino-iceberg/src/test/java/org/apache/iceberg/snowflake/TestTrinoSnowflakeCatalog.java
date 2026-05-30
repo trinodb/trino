@@ -244,7 +244,10 @@ public class TestTrinoSnowflakeCatalog
                 newDirectExecutorService(),
                 newDirectExecutorService(),
                 0,
-                ZERO);
+                ZERO,
+                ImmutableMap.of(),
+                Optional.empty(),
+                ImmutableList.of());
         assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                 .isTrue();
         assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")

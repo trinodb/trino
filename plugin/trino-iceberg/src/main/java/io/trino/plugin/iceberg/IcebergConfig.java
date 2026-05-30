@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
@@ -33,10 +34,12 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -77,6 +80,9 @@ public class IcebergConfig
     private boolean registerTableProcedureEnabled;
     private boolean addFilesProcedureEnabled;
     private Optional<String> hiveCatalogName = Optional.empty();
+    private Map<String, String> schemaPrefixRedirectRules = ImmutableMap.of();
+    private Optional<String> defaultRedirectCatalog = Optional.empty();
+    private List<String> defaultRedirectExcludedPrefixes = ImmutableList.of();
     private int formatVersion = 2;
     private Duration expireSnapshotsMinRetention = new Duration(7, DAYS);
     private Duration removeOrphanFilesMinRetention = new Duration(7, DAYS);
@@ -323,6 +329,52 @@ public class IcebergConfig
     public IcebergConfig setHiveCatalogName(String hiveCatalogName)
     {
         this.hiveCatalogName = Optional.ofNullable(hiveCatalogName);
+        return this;
+    }
+
+    public Map<String, String> getSchemaPrefixRedirectRules()
+    {
+        return schemaPrefixRedirectRules;
+    }
+
+    @Config("iceberg.schema-prefix-redirect-rules")
+    @ConfigDescription("Comma-separated list of schema-prefix=catalog-name pairs; schemas matching a prefix are redirected to the given catalog (e.g. 'egdp_prod_=egdp_prod,egdp_test_=egdp_test')")
+    public IcebergConfig setSchemaPrefixRedirectRules(List<String> rules)
+    {
+        this.schemaPrefixRedirectRules = rules.stream()
+                .map(rule -> rule.split("=", 2))
+                .peek(parts -> {
+                    if (parts.length != 2 || parts[0].isEmpty() || parts[1].isEmpty()) {
+                        throw new IllegalArgumentException("Invalid schema-prefix-redirect-rules entry, expected 'prefix=catalog': " + String.join("=", parts));
+                    }
+                })
+                .collect(toImmutableMap(parts -> parts[0], parts -> parts[1]));
+        return this;
+    }
+
+    public Optional<String> getDefaultRedirectCatalog()
+    {
+        return defaultRedirectCatalog;
+    }
+
+    @Config("iceberg.default-redirect-catalog")
+    @ConfigDescription("Catalog to redirect to when no schema-prefix rule matches; the schema and table name are kept as-is")
+    public IcebergConfig setDefaultRedirectCatalog(String defaultRedirectCatalog)
+    {
+        this.defaultRedirectCatalog = Optional.ofNullable(defaultRedirectCatalog);
+        return this;
+    }
+
+    public List<String> getDefaultRedirectExcludedPrefixes()
+    {
+        return defaultRedirectExcludedPrefixes;
+    }
+
+    @Config("iceberg.default-redirect-excluded-prefixes")
+    @ConfigDescription("Comma-separated list of schema name prefixes that bypass iceberg.default-redirect-catalog (e.g. 'bexg_,vrbo_')")
+    public IcebergConfig setDefaultRedirectExcludedPrefixes(List<String> excludedPrefixes)
+    {
+        this.defaultRedirectExcludedPrefixes = ImmutableList.copyOf(excludedPrefixes);
         return this;
     }
 

@@ -428,6 +428,9 @@ public class HiveMetadata
     private final long maxPartitionDropsPerQuery;
     private final HiveTimestampPrecision hiveViewsTimestampPrecision;
     private final Executor metadataFetchingExecutor;
+    private final Map<String, String> schemaPrefixRedirectRules;
+    private final Optional<String> defaultRedirectCatalog;
+    private final List<String> defaultRedirectExcludedPrefixes;
 
     public HiveMetadata(
             CatalogName catalogName,
@@ -455,7 +458,10 @@ public class HiveMetadata
             boolean allowTableRename,
             long maxPartitionDropsPerQuery,
             HiveTimestampPrecision hiveViewsTimestampPrecision,
-            Executor metadataFetchingExecutor)
+            Executor metadataFetchingExecutor,
+            Map<String, String> schemaPrefixRedirectRules,
+            Optional<String> defaultRedirectCatalog,
+            List<String> defaultRedirectExcludedPrefixes)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -483,6 +489,9 @@ public class HiveMetadata
         this.maxPartitionDropsPerQuery = maxPartitionDropsPerQuery;
         this.hiveViewsTimestampPrecision = requireNonNull(hiveViewsTimestampPrecision, "hiveViewsTimestampPrecision is null");
         this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
+        this.schemaPrefixRedirectRules = ImmutableMap.copyOf(requireNonNull(schemaPrefixRedirectRules, "schemaPrefixRedirectRules is null"));
+        this.defaultRedirectCatalog = requireNonNull(defaultRedirectCatalog, "defaultRedirectCatalog is null");
+        this.defaultRedirectExcludedPrefixes = ImmutableList.copyOf(requireNonNull(defaultRedirectExcludedPrefixes, "defaultRedirectExcludedPrefixes is null"));
     }
 
     @Override
@@ -3948,6 +3957,11 @@ public class HiveMetadata
         requireNonNull(session, "session is null");
         requireNonNull(tableName, "tableName is null");
 
+        Optional<CatalogSchemaTableName> prefixRedirect = redirectTableBySchemaPrefix(tableName);
+        if (prefixRedirect.isPresent()) {
+            return prefixRedirect;
+        }
+
         Optional<String> icebergCatalogName = getIcebergCatalogName(session);
         Optional<String> deltaLakeCatalogName = getDeltaLakeCatalogName(session);
         Optional<String> hudiCatalogName = getHudiCatalogName(session);
@@ -4010,6 +4024,29 @@ public class HiveMetadata
             return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, table.getSchemaTableName()));
         }
         return Optional.empty();
+    }
+
+    private Optional<CatalogSchemaTableName> redirectTableBySchemaPrefix(SchemaTableName tableName)
+    {
+        String schemaName = tableName.getSchemaName();
+        for (Map.Entry<String, String> rule : schemaPrefixRedirectRules.entrySet()) {
+            String prefix = rule.getKey();
+            String targetCatalog = rule.getValue();
+            if (schemaName.startsWith(prefix)) {
+                String targetSchema = schemaName.substring(prefix.length());
+                if (targetSchema.isEmpty()) {
+                    continue;
+                }
+                return Optional.of(new CatalogSchemaTableName(targetCatalog, targetSchema, tableName.getTableName()));
+            }
+        }
+        for (String excludedPrefix : defaultRedirectExcludedPrefixes) {
+            if (schemaName.startsWith(excludedPrefix)) {
+                return Optional.empty();
+            }
+        }
+        return defaultRedirectCatalog.map(catalog ->
+                new CatalogSchemaTableName(catalog, schemaName, tableName.getTableName()));
     }
 
     @Override

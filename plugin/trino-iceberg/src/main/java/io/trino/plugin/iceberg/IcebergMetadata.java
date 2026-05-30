@@ -508,6 +508,9 @@ public class IcebergMetadata
     private final ExecutorService icebergFileDeleteExecutor;
     private final int materializedViewRefreshMaxSnapshotsToExpire;
     private final Duration materializedViewRefreshSnapshotRetentionPeriod;
+    private final Map<String, String> schemaPrefixRedirectRules;
+    private final Optional<String> defaultRedirectCatalog;
+    private final List<String> defaultRedirectExcludedPrefixes;
     private final Map<IcebergTableHandle, AtomicReference<TableStatistics>> tableStatisticsCache = new ConcurrentHashMap<>();
     private final IcebergTableCredentialsProvider tableCredentialsProvider;
     private final DeletionVectorWriter deletionVectorWriter;
@@ -532,7 +535,10 @@ public class IcebergMetadata
             ExecutorService icebergPlanningExecutor,
             ExecutorService icebergFileDeleteExecutor,
             int materializedViewRefreshMaxSnapshotsToExpire,
-            Duration materializedViewRefreshSnapshotRetentionPeriod)
+            Duration materializedViewRefreshSnapshotRetentionPeriod,
+            Map<String, String> schemaPrefixRedirectRules,
+            Optional<String> defaultRedirectCatalog,
+            List<String> defaultRedirectExcludedPrefixes)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -552,6 +558,9 @@ public class IcebergMetadata
         this.materializedViewRefreshMaxSnapshotsToExpire = materializedViewRefreshMaxSnapshotsToExpire;
         this.materializedViewRefreshSnapshotRetentionPeriod = materializedViewRefreshSnapshotRetentionPeriod;
         this.tableCredentialsProvider = new IcebergTableCredentialsProvider(catalog);
+        this.schemaPrefixRedirectRules = ImmutableMap.copyOf(requireNonNull(schemaPrefixRedirectRules, "schemaPrefixRedirectRules is null"));
+        this.defaultRedirectCatalog = requireNonNull(defaultRedirectCatalog, "defaultRedirectCatalog is null");
+        this.defaultRedirectExcludedPrefixes = ImmutableList.copyOf(requireNonNull(defaultRedirectExcludedPrefixes, "defaultRedirectExcludedPrefixes is null"));
     }
 
     @Override
@@ -4287,11 +4296,39 @@ public class IcebergMetadata
     @Override
     public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
     {
+        Optional<CatalogSchemaTableName> prefixRedirect = redirectTableBySchemaPrefix(tableName);
+        if (prefixRedirect.isPresent()) {
+            return prefixRedirect;
+        }
+
         Optional<String> targetCatalogName = getHiveCatalogName(session);
         if (targetCatalogName.isEmpty()) {
             return Optional.empty();
         }
         return catalog.redirectTable(session, tableName, targetCatalogName.get());
+    }
+
+    private Optional<CatalogSchemaTableName> redirectTableBySchemaPrefix(SchemaTableName tableName)
+    {
+        String schemaName = tableName.getSchemaName();
+        for (Map.Entry<String, String> rule : schemaPrefixRedirectRules.entrySet()) {
+            String prefix = rule.getKey();
+            String targetCatalog = rule.getValue();
+            if (schemaName.startsWith(prefix)) {
+                String targetSchema = schemaName.substring(prefix.length());
+                if (targetSchema.isEmpty()) {
+                    continue;
+                }
+                return Optional.of(new CatalogSchemaTableName(targetCatalog, targetSchema, tableName.getTableName()));
+            }
+        }
+        for (String excludedPrefix : defaultRedirectExcludedPrefixes) {
+            if (schemaName.startsWith(excludedPrefix)) {
+                return Optional.empty();
+            }
+        }
+        return defaultRedirectCatalog.map(catalog ->
+                new CatalogSchemaTableName(catalog, schemaName, tableName.getTableName()));
     }
 
     @Override
