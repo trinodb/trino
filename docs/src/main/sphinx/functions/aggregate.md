@@ -187,6 +187,12 @@ This function is equivalent to `count(CASE WHEN x THEN 1 END)`.
 This is an alias for {func}`bool_and`.
 :::
 
+:::{function} fusion(x) -> multiset<[same as input]>
+Returns the [multiset](multiset-type) union of all the input multisets, adding
+the multiplicity of each element across the inputs. Null input multisets are
+ignored. Returns null if there are no input rows.
+:::
+
 :::{function} geometric_mean(x) -> double
 Returns the geometric mean of all input values.
 :::
