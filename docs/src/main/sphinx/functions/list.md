@@ -485,6 +485,7 @@
 - {func}`stddev_pop`
 - {func}`stddev_samp`
 - {func}`strpos`
+- [SUBMULTISET](submultiset-predicate)
 - {func}`substr`
 - {func}`substring`
 - {func}`sum`
