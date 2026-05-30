@@ -162,6 +162,7 @@ import io.trino.operator.scalar.MapTransformKeysFunction;
 import io.trino.operator.scalar.MapValues;
 import io.trino.operator.scalar.MathFunctions;
 import io.trino.operator.scalar.MultimapFromEntriesFunction;
+import io.trino.operator.scalar.MultisetCardinalityFunction;
 import io.trino.operator.scalar.QuantileDigestFunctions;
 import io.trino.operator.scalar.Re2JRegexpFunctions;
 import io.trino.operator.scalar.Re2JRegexpReplaceLambdaFunction;
@@ -558,6 +559,7 @@ public final class SystemFunctionBundle
                 .scalar(MapKeys.class)
                 .scalar(MapValues.class)
                 .scalar(MapCardinalityFunction.class)
+                .scalar(MultisetCardinalityFunction.class)
                 .scalar(EmptyMapConstructor.class)
                 .scalar(TypeOfFunction.class)
                 .scalar(TryFunction.class)

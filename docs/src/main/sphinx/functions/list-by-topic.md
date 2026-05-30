@@ -418,6 +418,12 @@ For more details, see {doc}`math`
 - {func}`wilson_interval_lower`
 - {func}`wilson_interval_upper`
 
+## Multiset
+
+For more details, see {doc}`multiset`
+
+- {func}`cardinality`
+
 ## Quantile digest
 
 For more details, see {doc}`qdigest`
