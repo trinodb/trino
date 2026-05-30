@@ -110,6 +110,7 @@ public class ParquetFileWriterFactory
                 .setMaxPageSize(HiveSessionProperties.getParquetWriterPageSize(session))
                 .setMaxPageValueCount(HiveSessionProperties.getParquetWriterPageValueCount(session))
                 .setMaxBlockSize(HiveSessionProperties.getParquetWriterBlockSize(session))
+                .setMaxRowGroupRowCount(HiveSessionProperties.getParquetWriterRowGroupMaxRowCount(session))
                 .setBatchSize(HiveSessionProperties.getParquetBatchSize(session))
                 .setBloomFilterColumns(getParquetBloomFilterColumns(schema))
                 .setUseDeltaLengthByteArrayEncoding(useDeltaLengthByteArrayEncoding)

@@ -242,6 +242,100 @@ public class TestParquetWriter
     }
 
     @Test
+    public void testDefaultMaxRowGroupRowCountDoesNotFlush()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("column");
+        List<Type> types = ImmutableList.of(INTEGER);
+
+        List<BlockMetadata> rowGroups = writeParquetAndReadRowGroups(
+                ParquetWriterOptions.builder()
+                        .setMaxBlockSize(DataSize.of(64, MEGABYTE))
+                        .build(),
+                types,
+                columnNames,
+                generateInputPages(types, 1000, 3));
+
+        assertThat(rowGroups)
+                .hasSize(1)
+                .allSatisfy(rowGroup -> assertThat(rowGroup.rowCount()).isEqualTo(3000));
+    }
+
+    @Test
+    public void testMaxRowGroupRowCountFlushesRowGroups()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("column");
+        List<Type> types = ImmutableList.of(INTEGER);
+
+        List<BlockMetadata> rowGroups = writeParquetAndReadRowGroups(
+                ParquetWriterOptions.builder()
+                        .setMaxBlockSize(DataSize.of(64, MEGABYTE))
+                        .setMaxRowGroupRowCount(300)
+                        .build(),
+                types,
+                columnNames,
+                generateInputPages(types, 1000, 2));
+
+        assertThat(rowGroups)
+                .hasSize(7)
+                .extracting(BlockMetadata::rowCount)
+                .containsExactly(300L, 300L, 300L, 300L, 300L, 300L, 200L);
+    }
+
+    @Test
+    public void testMaxRowGroupSizeFlushesRowGroups()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("columnA", "columnB");
+        List<Type> types = ImmutableList.of(INTEGER, BIGINT);
+
+        List<BlockMetadata> rowGroups = writeParquetAndReadRowGroups(
+                ParquetWriterOptions.builder()
+                        .setMaxBlockSize(DataSize.ofBytes(1000))
+                        .build(),
+                types,
+                columnNames,
+                generateInputPages(types, 10, 100));
+
+        assertThat(rowGroups.size()).isGreaterThan(1);
+    }
+
+    @Test
+    public void testEarlierRowGroupLimitWins()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("columnA", "columnB");
+        List<Type> types = ImmutableList.of(INTEGER, BIGINT);
+
+        List<BlockMetadata> rowGroups = writeParquetAndReadRowGroups(
+                ParquetWriterOptions.builder()
+                        .setMaxBlockSize(DataSize.ofBytes(1000))
+                        .setMaxRowGroupRowCount(500)
+                        .build(),
+                types,
+                columnNames,
+                generateInputPages(types, 10, 100));
+
+        assertThat(rowGroups.size()).isGreaterThan(1);
+        assertThat(rowGroups)
+                .allSatisfy(rowGroup -> assertThat(rowGroup.rowCount()).isLessThan(500));
+
+        rowGroups = writeParquetAndReadRowGroups(
+                ParquetWriterOptions.builder()
+                        .setMaxBlockSize(DataSize.of(64, MEGABYTE))
+                        .setMaxRowGroupRowCount(300)
+                        .build(),
+                types,
+                columnNames,
+                generateInputPages(types, 1000, 1));
+
+        assertThat(rowGroups)
+                .extracting(BlockMetadata::rowCount)
+                .containsExactly(300L, 300L, 300L, 100L);
+    }
+
+    @Test
     public void testLargeStringTruncation()
             throws IOException
     {
@@ -704,5 +798,18 @@ public class TestParquetWriter
             blocks[column] = blockBuilder.build();
         }
         return new Page(blocks);
+    }
+
+    private static List<BlockMetadata> writeParquetAndReadRowGroups(ParquetWriterOptions writerOptions, List<Type> types, List<String> columnNames, List<Page> inputPages)
+            throws IOException
+    {
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        writerOptions,
+                        types,
+                        columnNames,
+                        inputPages),
+                ParquetReaderOptions.defaultOptions());
+        return MetadataReader.readFooter(dataSource, Optional.empty()).getBlocks();
     }
 }

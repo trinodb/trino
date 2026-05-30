@@ -26,6 +26,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 public class ParquetWriterOptions
 {
     private static final DataSize DEFAULT_MAX_ROW_GROUP_SIZE = DataSize.of(128, MEGABYTE);
+    public static final int DEFAULT_MAX_ROW_GROUP_ROW_COUNT = Integer.MAX_VALUE;
     private static final DataSize DEFAULT_MAX_PAGE_SIZE = DataSize.ofBytes(ParquetProperties.DEFAULT_PAGE_SIZE);
     // org.apache.parquet.column.DEFAULT_PAGE_ROW_COUNT_LIMIT is 20_000 to improve selectivity of page indexes
     // This value should be revisited when TODO https://github.com/trinodb/trino/issues/9359 is implemented
@@ -41,6 +42,7 @@ public class ParquetWriterOptions
     }
 
     private final int maxRowGroupSize;
+    private final int maxRowGroupRowCount;
     private final int maxPageSize;
     private final int maxPageValueCount;
     private final int batchSize;
@@ -52,6 +54,7 @@ public class ParquetWriterOptions
 
     private ParquetWriterOptions(
             DataSize maxBlockSize,
+            int maxRowGroupRowCount,
             DataSize maxPageSize,
             int maxPageValueCount,
             int batchSize,
@@ -61,6 +64,7 @@ public class ParquetWriterOptions
             boolean useDeltaLengthByteArrayEncoding)
     {
         this.maxRowGroupSize = Ints.saturatedCast(maxBlockSize.toBytes());
+        this.maxRowGroupRowCount = maxRowGroupRowCount;
         this.maxPageSize = Ints.saturatedCast(maxPageSize.toBytes());
         this.maxPageValueCount = maxPageValueCount;
         this.batchSize = batchSize;
@@ -68,12 +72,18 @@ public class ParquetWriterOptions
         this.bloomFilterFpp = bloomFilterFpp;
         this.bloomFilterColumns = ImmutableSet.copyOf(bloomFilterColumns);
         this.useDeltaLengthByteArrayEncoding = useDeltaLengthByteArrayEncoding;
+        checkArgument(this.maxRowGroupRowCount >= 1, "maxRowGroupRowCount must be at least 1");
         checkArgument(this.bloomFilterFpp > 0.0 && this.bloomFilterFpp < 1.0, "bloomFilterFpp should be > 0.0 & < 1.0");
     }
 
     public int getMaxRowGroupSize()
     {
         return maxRowGroupSize;
+    }
+
+    public int getMaxRowGroupRowCount()
+    {
+        return maxRowGroupRowCount;
     }
 
     public int getMaxPageSize()
@@ -114,6 +124,7 @@ public class ParquetWriterOptions
     public static class Builder
     {
         private DataSize maxBlockSize = DEFAULT_MAX_ROW_GROUP_SIZE;
+        private int maxRowGroupRowCount = DEFAULT_MAX_ROW_GROUP_ROW_COUNT;
         private DataSize maxPageSize = DEFAULT_MAX_PAGE_SIZE;
         private int maxPageValueCount = DEFAULT_MAX_PAGE_VALUE_COUNT;
         private int batchSize = DEFAULT_BATCH_SIZE;
@@ -125,6 +136,12 @@ public class ParquetWriterOptions
         public Builder setMaxBlockSize(DataSize maxBlockSize)
         {
             this.maxBlockSize = maxBlockSize;
+            return this;
+        }
+
+        public Builder setMaxRowGroupRowCount(int maxRowGroupRowCount)
+        {
+            this.maxRowGroupRowCount = maxRowGroupRowCount;
             return this;
         }
 
@@ -174,6 +191,7 @@ public class ParquetWriterOptions
         {
             return new ParquetWriterOptions(
                     maxBlockSize,
+                    maxRowGroupRowCount,
                     maxPageSize,
                     maxPageValueCount,
                     batchSize,
