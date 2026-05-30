@@ -631,6 +631,8 @@ primaryExpression
     | TRY_CAST '(' expression AS type ')'                                                 #cast
     | ARRAY '[' (expression (',' expression)*)? ']'                                       #arrayConstructor
     | '[' (expression (',' expression)*)? ']'                                             #arrayConstructor
+    | MULTISET '[' (expression (',' expression)*)? ']'                                    #multisetConstructor
+    | MULTISET '(' query ')'                                                              #multisetSubquery
     | value=primaryExpression '[' index=valueExpression ']'                               #subscript
     | value=primaryExpression '[' ASTERISK ']'                                            #arrayWildcardSubscript
     | identifier                                                                          #columnReference
@@ -801,6 +803,7 @@ type
     | ARRAY '<' type '>'                                                           #legacyArrayType
     | MAP '<' keyType=type ',' valueType=type '>'                                  #legacyMapType
     | type ARRAY ('[' INTEGER_VALUE ']')?                                          #arrayType
+    | type MULTISET                                                                #multisetType
     | identifier ('(' typeParameter (',' typeParameter)* ')')?                     #genericType
     ;
 
@@ -1084,7 +1087,7 @@ nonReserved
     | JSON
     | KEEP | KEY | KEYS
     | LANGUAGE | LAST | LATERAL | LEADING | LEAVE | LEVEL | LIMIT | LOCAL | LOGICAL | LOOP
-    | MAP | MATCH | MATCHED | MATCHES | MATCH_RECOGNIZE | MATERIALIZED | MEASURES | MERGE | MINUTE | MONTH
+    | MAP | MATCH | MATCHED | MATCHES | MATCH_RECOGNIZE | MATERIALIZED | MEASURES | MERGE | MINUTE | MONTH | MULTISET
     | NEAREST | NESTED | NEXT | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
     | OBJECT | OF | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OUTPUT | OVER | OVERFLOW | OVERLAY
     | PARTIAL | PARTITION | PARTITIONS | PASSING | PAST | PATH | PATTERN | PER | PERIOD | PERMUTE | PLACING | PLAN | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES | PRUNE
@@ -1263,6 +1266,7 @@ MEASURES: 'MEASURES';
 MERGE: 'MERGE';
 MINUTE: 'MINUTE';
 MONTH: 'MONTH';
+MULTISET: 'MULTISET';
 NATURAL: 'NATURAL';
 NEAREST: 'NEAREST';
 NESTED: 'NESTED';
