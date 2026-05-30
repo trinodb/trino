@@ -27,6 +27,7 @@ import org.locationtech.jts.io.WKBWriter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -42,6 +43,9 @@ public final class JtsGeometrySerde
 
     // EWKB flag for SRID presence (bit 29)
     private static final int EWKB_SRID_FLAG = 0x20000000;
+    private static final int EWKB_M_FLAG = 0x40000000;
+    private static final int EWKB_Z_FLAG = 0x80000000;
+    private static final String UNSUPPORTED_COORDINATE_DIMENSIONS_MESSAGE = "Geospatial values with more than 2 coordinate dimensions are not supported";
 
     // WKB type codes (2D)
     private static final int WKB_POINT = 1;
@@ -226,10 +230,8 @@ public final class JtsGeometrySerde
             return ewkb;
         }
         boolean bigEndian = isBigEndian(ewkb.getByte(0));
-        int type = ewkb.getInt(1);
-        if (bigEndian) {
-            type = Integer.reverseBytes(type);
-        }
+        int type = readType(ewkb, bigEndian);
+        verifySupportedCoordinateDimensions(type);
         if ((type & EWKB_SRID_FLAG) == 0) {
             return ewkb;
         }
@@ -280,11 +282,9 @@ public final class JtsGeometrySerde
     {
         checkArgument(wkb.length() >= 5, "WKB too short");
         boolean bigEndian = isBigEndian(wkb.getByte(0));
-        int type = wkb.getInt(1);
-        if (bigEndian) {
-            type = Integer.reverseBytes(type);
-        }
+        int type = readType(wkb, bigEndian);
         checkArgument((type & EWKB_SRID_FLAG) == 0, "Input already has SRID flag set (expected WKB, got EWKB)");
+        verifySupportedCoordinateDimensions(type);
 
         // Add SRID flag
         int newType = type | EWKB_SRID_FLAG;
@@ -300,5 +300,26 @@ public final class JtsGeometrySerde
     {
         checkArgument(endianness == 0 || endianness == 1, "invalid WKB endianness: %s", endianness);
         return endianness == 0;
+    }
+
+    private static int readType(Slice wkb, boolean bigEndian)
+    {
+        int type = wkb.getInt(1);
+        if (bigEndian) {
+            type = Integer.reverseBytes(type);
+        }
+        return type;
+    }
+
+    private static void verifySupportedCoordinateDimensions(int type)
+    {
+        if ((type & (EWKB_Z_FLAG | EWKB_M_FLAG)) != 0 || (type & 0xFFFF) > 999) {
+            throw unsupportedCoordinateDimensions();
+        }
+    }
+
+    private static TrinoException unsupportedCoordinateDimensions()
+    {
+        return new TrinoException(NOT_SUPPORTED, UNSUPPORTED_COORDINATE_DIMENSIONS_MESSAGE);
     }
 }

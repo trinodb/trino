@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKBWriter;
 import org.locationtech.jts.io.WKTReader;
 
 import static io.trino.geospatial.GeometryType.GEOMETRY_COLLECTION;
@@ -171,6 +172,20 @@ public class TestGeometrySerialization
         assertThatThrownBy(() -> wkbToEwkb(ewkb, 3857))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Input already has SRID flag set (expected WKB, got EWKB)");
+    }
+
+    @Test
+    public void testRejectsWkbWithMoreThanTwoCoordinateDimensions()
+    {
+        Geometry geometry = createJtsGeometry("POINT Z (1 2 3)");
+
+        Slice wkb = Slices.wrappedBuffer(new WKBWriter(3, false).write(geometry));
+        assertThatThrownBy(() -> wkbToEwkb(wkb, 4326))
+                .hasMessage("Geospatial values with more than 2 coordinate dimensions are not supported");
+
+        Slice ewkb = Slices.wrappedBuffer(new WKBWriter(3, true).write(geometry));
+        assertThatThrownBy(() -> ewkbToWkb(ewkb))
+                .hasMessage("Geospatial values with more than 2 coordinate dimensions are not supported");
     }
 
     @Test
