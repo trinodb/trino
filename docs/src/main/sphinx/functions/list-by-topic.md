@@ -24,8 +24,9 @@ For more details, see {doc}`aggregate`
 - {func}`covar_pop`
 - {func}`covar_samp`
 - {func}`every`
-- {func}`geometry_collect_agg`
+- {func}`fusion`
 - {func}`geometric_mean`
+- {func}`geometry_collect_agg`
 - {func}`histogram`
 - {func}`kurtosis`
 - {func}`map_agg`
@@ -454,6 +455,7 @@ For more details, see {doc}`multiset`
 - {func}`cardinality`
 - {func}`collect`
 - {func}`element`
+- {func}`fusion`
 - {func}`set`
 
 ## Quantile digest
