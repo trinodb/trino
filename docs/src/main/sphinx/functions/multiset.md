@@ -124,3 +124,19 @@ SELECT MULTISET[1, 1, 2, 3] MULTISET EXCEPT ALL MULTISET[1, 3];
 `MULTISET INTERSECT` binds more tightly than `MULTISET UNION` and
 `MULTISET EXCEPT`, so `a MULTISET UNION b MULTISET INTERSECT c` is evaluated as
 `a MULTISET UNION (b MULTISET INTERSECT c)`.
+
+## Predicates
+
+### `SUBMULTISET`
+
+`x SUBMULTISET OF y` returns true when every element of `x` occurs in `y` with
+at least the same multiplicity. The `OF` keyword is optional. Use `NOT` to
+negate the predicate. Null is treated as not distinct from null.
+
+```sql
+SELECT MULTISET[1, 1, 2] SUBMULTISET OF MULTISET[1, 1, 1, 2];
+-- true
+
+SELECT MULTISET[1, 1, 2] SUBMULTISET OF MULTISET[1, 2];
+-- false
+```

@@ -161,6 +161,7 @@ import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SortItem.Ordering;
 import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SubmultisetPredicate;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SubsetDefinition;
@@ -1175,6 +1176,16 @@ public class ExpressionAnalyzer
                 throw semanticException(TYPE_MISMATCH, node, "MULTISET %s requires multiset operands, got: %s", node.getOperator(), type);
             }
             return setExpressionType(node, type);
+        }
+
+        @Override
+        protected Type visitSubmultisetPredicate(SubmultisetPredicate node, Context context)
+        {
+            Type type = coerceToSingleType(context, node, "Both operands of SUBMULTISET must be multisets", node.getValue(), node.getRight());
+            if (!(type instanceof MultisetType)) {
+                throw semanticException(TYPE_MISMATCH, node, "SUBMULTISET requires multiset operands, got: %s", type);
+            }
+            return setExpressionType(node, BOOLEAN);
         }
 
         @Override

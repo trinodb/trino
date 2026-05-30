@@ -121,6 +121,7 @@ import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SubmultisetPredicate;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
@@ -333,6 +334,7 @@ public class TranslationMap
                 case Array expression -> translate(expression);
                 case MultisetConstructor expression -> translate(expression);
                 case MultisetSetOperation expression -> translate(expression);
+                case SubmultisetPredicate expression -> translate(expression);
                 case CurrentCatalog expression -> translate(expression);
                 case CurrentSchema expression -> translate(expression);
                 case CurrentPath expression -> translate(expression);
@@ -795,6 +797,17 @@ public class TranslationMap
                 .setName(name)
                 .addArgument(type, translateExpression(expression.getLeft()))
                 .addArgument(type, translateExpression(expression.getRight()))
+                .build();
+    }
+
+    private io.trino.sql.ir.Expression translate(SubmultisetPredicate expression)
+    {
+        io.trino.sql.ir.Expression value = translateExpression(expression.getValue());
+        io.trino.sql.ir.Expression right = translateExpression(expression.getRight());
+        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                .setName("$submultiset")
+                .addArgument(value.type(), value)
+                .addArgument(right.type(), right)
                 .build();
     }
 

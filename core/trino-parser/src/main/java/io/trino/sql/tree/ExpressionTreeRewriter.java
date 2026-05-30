@@ -199,6 +199,26 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitSubmultisetPredicate(SubmultisetPredicate node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteSubmultisetPredicate(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression value = rewrite(node.getValue(), context.get());
+            Expression right = rewrite(node.getRight(), context.get());
+
+            if (value != node.getValue() || right != node.getRight()) {
+                return new SubmultisetPredicate(node.getLocation().orElseThrow(), value, right);
+            }
+
+            return node;
+        }
+
+        @Override
         protected Expression visitAtTimeZone(AtTimeZone node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

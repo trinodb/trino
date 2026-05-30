@@ -75,6 +75,7 @@ import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SortItem;
+import io.trino.sql.tree.SubmultisetPredicate;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Trim;
@@ -299,6 +300,12 @@ class AggregationAnalyzer
         protected Boolean visitMultisetSetOperation(MultisetSetOperation node, Void context)
         {
             return process(node.getLeft(), context) && process(node.getRight(), context);
+        }
+
+        @Override
+        protected Boolean visitSubmultisetPredicate(SubmultisetPredicate node, Void context)
+        {
+            return process(node.getValue(), context) && process(node.getRight(), context);
         }
 
         @Override
