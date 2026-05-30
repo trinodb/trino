@@ -620,6 +620,7 @@ predicate[ParserRuleContext value]
     | MATCH UNIQUE? matchType=(SIMPLE | PARTIAL | FULL)? '(' query ')'    #match
     | OVERLAPS right=valueExpression                                      #overlaps
     | NOT? SUBMULTISET OF? right=valueExpression                          #submultiset
+    | IS NOT? A SET                                                       #setPredicate
     ;
 
 valueExpression
@@ -1107,7 +1108,7 @@ authorizationUser
 
 nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
-    : ABSENT | ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | ASYMMETRIC | AT | AUTHORIZATION
+    : A | ABSENT | ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | ASYMMETRIC | AT | AUTHORIZATION
     | BEGIN | BERNOULLI | BOTH | BRANCH | BRANCHES
     | CALL | CALLED | CASCADE | CATALOG | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | CORRESPONDING | COUNT | CURRENT
     | DATA | DATE | DAY | DECLARE | DEFAULT | DEFINE | DEFINER | DENY | DESC | DESCRIPTOR | DETERMINISTIC | DISTRIBUTED | DO | DOUBLE
@@ -1135,6 +1136,7 @@ nonReserved
     | ZONE
     ;
 
+A: 'A';
 ABSENT: 'ABSENT';
 ADD: 'ADD';
 ADMIN: 'ADMIN';

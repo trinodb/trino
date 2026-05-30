@@ -26,6 +26,7 @@ public class TestSqlKeywords
     {
         assertThat(SqlKeywords.sqlKeywords().stream().sorted().collect(toImmutableSet()))
                 .isEqualTo(ImmutableSet.of(
+                        "A",
                         "ABSENT",
                         "ADD",
                         "ADMIN",

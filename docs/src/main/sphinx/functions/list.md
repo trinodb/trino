@@ -217,6 +217,8 @@
 - {func}`is_infinite`
 - {func}`is_json_scalar`
 - {func}`is_nan`
+- [IS A SET](is-a-set-predicate)
+- [IS NOT A SET](is-a-set-predicate)
 - [IS NOT DISTINCT](is-distinct-operator)
 - [IS NOT NULL](is-null-operator)
 - [IS DISTINCT](is-distinct-operator)
