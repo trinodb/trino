@@ -228,6 +228,9 @@ The following table describes {ref}`catalog session properties
 * - `parquet_writer_block_size`
   - The maximum block size created by the Parquet writer.
   - `128MB`
+* - `parquet_writer_row_group_max_row_count`
+  - The maximum row count of row groups created by the Parquet writer.
+  - `unlimited`
 * - `parquet_writer_page_size`
   - The maximum page size created by the Parquet writer.
   - `1MB`

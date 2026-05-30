@@ -178,7 +178,7 @@ public class ParquetWriter
 
         int writeOffset = 0;
         while (writeOffset < page.getPositionCount()) {
-            Page chunk = page.getRegion(writeOffset, min(page.getPositionCount() - writeOffset, writerOption.getBatchSize()));
+            Page chunk = page.getRegion(writeOffset, min(page.getPositionCount() - writeOffset, min(writerOption.getBatchSize(), writerOption.getMaxRowGroupRowCount() - rows)));
 
             // avoid chunk with huge logical size
             while (chunk.getPositionCount() > 1 && chunk.getSizeInBytes() > chunkMaxBytes) {
@@ -200,7 +200,7 @@ public class ParquetWriter
         rows += page.getPositionCount();
         updateEstimatedBufferedBytes();
 
-        if (estimatedBufferedBytes >= writerOption.getMaxRowGroupSize()) {
+        if (estimatedBufferedBytes >= writerOption.getMaxRowGroupSize() || rows >= writerOption.getMaxRowGroupRowCount()) {
             columnWriters.forEach(ColumnWriter::close);
             flush();
             initColumnWriters();
