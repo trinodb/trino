@@ -53,3 +53,24 @@ SELECT x FROM UNNEST(MULTISET[1, 2, 2]) AS t(x);
 -- 2
 -- 2
 ```
+
+## Casts
+
+There is no implicit coercion between arrays and multisets; convert between them
+with an explicit cast. Casting an array to a multiset discards element order,
+and casting a multiset to an array materializes its elements in an unspecified
+order:
+
+```sql
+SELECT CAST(ARRAY[2, 1, 2] AS multiset(integer));
+-- {1, 2, 2}
+
+SELECT CAST(MULTISET[1, 2, 2] AS array(integer));
+-- [1, 2, 2]
+```
+
+The element type is coerced as part of the cast:
+
+```sql
+SELECT CAST(ARRAY[1, 2] AS multiset(bigint));
+```

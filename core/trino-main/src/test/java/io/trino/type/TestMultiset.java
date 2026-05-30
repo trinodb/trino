@@ -14,6 +14,7 @@
 package io.trino.type;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MultisetType;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.query.QueryAssertions;
@@ -26,6 +27,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -119,6 +121,52 @@ public class TestMultiset
                 .failure()
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("UNNEST of a multiset cannot be combined with other expressions");
+    }
+
+    @Test
+    public void testCastToAndFromArray()
+    {
+        // array -> multiset discards order; the result compares as a bag
+        assertThat(assertions.expression("CAST(ARRAY[1, 2, 2] AS multiset(integer))"))
+                .hasType(new MultisetType(INTEGER, TYPE_OPERATORS))
+                .isEqualTo(ImmutableList.of(1, 2, 2));
+        assertThat(assertions.expression("CAST(ARRAY[2, 1, 2] AS multiset(integer)) = MULTISET[1, 2, 2]"))
+                .isEqualTo(true);
+
+        // multiset -> array materializes the elements as an array
+        assertThat(assertions.expression("CAST(MULTISET[1, 2, 2] AS array(integer))"))
+                .hasType(new ArrayType(INTEGER))
+                .isEqualTo(ImmutableList.of(1, 2, 2));
+
+        // the element type is coerced
+        assertThat(assertions.expression("CAST(ARRAY[1, 2] AS multiset(bigint))"))
+                .hasType(new MultisetType(BIGINT, TYPE_OPERATORS))
+                .isEqualTo(ImmutableList.of(1L, 2L));
+
+        // round trip
+        assertThat(assertions.expression("CAST(CAST(MULTISET[1, 2, 2] AS array(integer)) AS multiset(integer)) = MULTISET[1, 2, 2]"))
+                .isEqualTo(true);
+    }
+
+    @Test
+    public void testCastBetweenMultisets()
+    {
+        // multiset -> multiset coerces the element type
+        assertThat(assertions.expression("CAST(MULTISET[1, 2, 2] AS multiset(bigint))"))
+                .hasType(new MultisetType(BIGINT, TYPE_OPERATORS))
+                .isEqualTo(ImmutableList.of(1L, 2L, 2L));
+
+        // an empty multiset(unknown) is usable where a typed multiset is expected
+        assertThat(assertions.expression("CARDINALITY(CAST(MULTISET[] AS multiset(integer)))"))
+                .isEqualTo(0L);
+    }
+
+    @Test
+    public void testNoImplicitCoercionWithArray()
+    {
+        // ARRAY and MULTISET are distinct kinds: comparing them requires an explicit cast
+        assertTrinoExceptionThrownBy(() -> assertions.expression("MULTISET[1] = ARRAY[1]").evaluate())
+                .hasErrorCode(TYPE_MISMATCH);
     }
 
     @Test
