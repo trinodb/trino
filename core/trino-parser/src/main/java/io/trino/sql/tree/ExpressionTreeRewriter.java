@@ -219,6 +219,25 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitSetPredicate(SetPredicate node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteSetPredicate(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression value = rewrite(node.getValue(), context.get());
+
+            if (value != node.getValue()) {
+                return new SetPredicate(node.getLocation().orElseThrow(), value);
+            }
+
+            return node;
+        }
+
+        @Override
         protected Expression visitAtTimeZone(AtTimeZone node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

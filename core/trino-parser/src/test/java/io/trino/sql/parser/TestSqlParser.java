@@ -197,6 +197,7 @@ import io.trino.sql.tree.SetAuthorizationStatement;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetDefaultValue;
 import io.trino.sql.tree.SetPath;
+import io.trino.sql.tree.SetPredicate;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSession;
@@ -793,6 +794,22 @@ public class TestSqlParser
                                 location(1, 13),
                                 new MultisetConstructor(location(1, 1), ImmutableList.of(new LongLiteral(location(1, 10), "1"))),
                                 new MultisetConstructor(location(1, 32), ImmutableList.of(new LongLiteral(location(1, 41), "2"))))));
+    }
+
+    @Test
+    public void testSetPredicate()
+    {
+        assertThat(expression("MULTISET[1] IS A SET"))
+                .isEqualTo(new SetPredicate(
+                        location(1, 13),
+                        new MultisetConstructor(location(1, 1), ImmutableList.of(new LongLiteral(location(1, 10), "1")))));
+        // IS NOT A SET wraps the predicate in a NotExpression
+        assertThat(expression("MULTISET[1] IS NOT A SET"))
+                .isEqualTo(new NotExpression(
+                        location(1, 13),
+                        new SetPredicate(
+                                location(1, 13),
+                                new MultisetConstructor(location(1, 1), ImmutableList.of(new LongLiteral(location(1, 10), "1"))))));
     }
 
     @Test

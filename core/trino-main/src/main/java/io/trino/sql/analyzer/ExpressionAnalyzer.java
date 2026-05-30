@@ -154,6 +154,7 @@ import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SearchedCaseExpression;
+import io.trino.sql.tree.SetPredicate;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.SkipTo;
@@ -1184,6 +1185,16 @@ public class ExpressionAnalyzer
             Type type = coerceToSingleType(context, node, "Both operands of SUBMULTISET must be multisets", node.getValue(), node.getRight());
             if (!(type instanceof MultisetType)) {
                 throw semanticException(TYPE_MISMATCH, node, "SUBMULTISET requires multiset operands, got: %s", type);
+            }
+            return setExpressionType(node, BOOLEAN);
+        }
+
+        @Override
+        protected Type visitSetPredicate(SetPredicate node, Context context)
+        {
+            Type type = process(node.getValue(), context);
+            if (!(type instanceof MultisetType)) {
+                throw semanticException(TYPE_MISMATCH, node, "IS A SET requires a multiset operand, got: %s", type);
             }
             return setExpressionType(node, BOOLEAN);
         }

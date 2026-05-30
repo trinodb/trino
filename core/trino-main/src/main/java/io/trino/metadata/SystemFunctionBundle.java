@@ -167,6 +167,7 @@ import io.trino.operator.scalar.MultisetCardinalityFunction;
 import io.trino.operator.scalar.MultisetElementFunction;
 import io.trino.operator.scalar.MultisetExceptFunction;
 import io.trino.operator.scalar.MultisetIntersectFunction;
+import io.trino.operator.scalar.MultisetIsASetFunction;
 import io.trino.operator.scalar.MultisetSetFunction;
 import io.trino.operator.scalar.MultisetSubmultisetFunction;
 import io.trino.operator.scalar.MultisetToArrayCast;
@@ -575,6 +576,7 @@ public final class SystemFunctionBundle
                 .scalars(MultisetIntersectFunction.class)
                 .scalars(MultisetExceptFunction.class)
                 .scalar(MultisetSubmultisetFunction.class)
+                .scalar(MultisetIsASetFunction.class)
                 .scalar(EmptyMapConstructor.class)
                 .scalar(TypeOfFunction.class)
                 .scalar(TryFunction.class)

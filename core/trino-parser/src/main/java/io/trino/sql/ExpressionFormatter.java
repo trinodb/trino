@@ -94,6 +94,7 @@ import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.SearchedCaseExpression;
+import io.trino.sql.tree.SetPredicate;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SimpleGroupBy;
 import io.trino.sql.tree.SimpleIntervalQualifier;
@@ -363,6 +364,12 @@ public final class ExpressionFormatter
         protected String visitSubmultisetPredicate(SubmultisetPredicate node, Void context)
         {
             return process(node.getValue(), context) + " SUBMULTISET OF " + process(node.getRight(), context);
+        }
+
+        @Override
+        protected String visitSetPredicate(SetPredicate node, Void context)
+        {
+            return process(node.getValue(), context) + " IS A SET";
         }
 
         @Override

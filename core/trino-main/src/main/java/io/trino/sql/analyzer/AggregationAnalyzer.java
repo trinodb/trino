@@ -73,6 +73,7 @@ import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SearchedCaseExpression;
+import io.trino.sql.tree.SetPredicate;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SubmultisetPredicate;
@@ -306,6 +307,12 @@ class AggregationAnalyzer
         protected Boolean visitSubmultisetPredicate(SubmultisetPredicate node, Void context)
         {
             return process(node.getValue(), context) && process(node.getRight(), context);
+        }
+
+        @Override
+        protected Boolean visitSetPredicate(SetPredicate node, Void context)
+        {
+            return process(node.getValue(), context);
         }
 
         @Override
