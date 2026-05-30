@@ -179,6 +179,7 @@
 - {func}`from_unixtime`
 - {func}`from_unixtime_nanos`
 - {func}`from_utf8`
+- {func}`fusion`
 
 ## G
 
