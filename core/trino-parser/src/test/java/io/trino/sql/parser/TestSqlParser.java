@@ -137,6 +137,7 @@ import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.MultisetConstructor;
+import io.trino.sql.tree.MultisetSetOperation;
 import io.trino.sql.tree.NaturalJoin;
 import io.trino.sql.tree.Nearest;
 import io.trino.sql.tree.NestedColumns;
@@ -748,6 +749,29 @@ public class TestSqlParser
                                 new Identifier(location(1, 29), "MULTISET", false),
                                 ImmutableList.of(new TypeParameter(simpleType(location(1, 21), "integer")))),
                         false));
+    }
+
+    @Test
+    public void testMultisetSetOperation()
+    {
+        // INTERSECT binds tighter than UNION/EXCEPT: a UNION b INTERSECT c parses as a UNION (b INTERSECT c)
+        assertThat(expression("MULTISET[1] MULTISET UNION MULTISET[2] MULTISET INTERSECT MULTISET[3]"))
+                .isEqualTo(new MultisetSetOperation(
+                        location(1, 1),
+                        MultisetSetOperation.Operator.UNION,
+                        false,
+                        new MultisetConstructor(location(1, 1), ImmutableList.of(new LongLiteral(location(1, 10), "1"))),
+                        new MultisetSetOperation(
+                                location(1, 28),
+                                MultisetSetOperation.Operator.INTERSECT,
+                                false,
+                                new MultisetConstructor(location(1, 28), ImmutableList.of(new LongLiteral(location(1, 37), "2"))),
+                                new MultisetConstructor(location(1, 59), ImmutableList.of(new LongLiteral(location(1, 68), "3"))))));
+
+        // the quantifier defaults to ALL when neither ALL nor DISTINCT is written, and DISTINCT is carried on the node
+        assertThat(((MultisetSetOperation) createExpression("MULTISET[1] MULTISET UNION MULTISET[2]")).isDistinct()).isFalse();
+        assertThat(((MultisetSetOperation) createExpression("MULTISET[1] MULTISET UNION ALL MULTISET[2]")).isDistinct()).isFalse();
+        assertThat(((MultisetSetOperation) createExpression("MULTISET[1] MULTISET UNION DISTINCT MULTISET[2]")).isDistinct()).isTrue();
     }
 
     @Test

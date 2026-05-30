@@ -97,6 +97,15 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitMultisetSetOperation(MultisetSetOperation node, C context)
+    {
+        process(node.getLeft(), context);
+        process(node.getRight(), context);
+
+        return null;
+    }
+
+    @Override
     protected Void visitSubscriptExpression(SubscriptExpression node, C context)
     {
         process(node.getBase(), context);

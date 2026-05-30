@@ -209,6 +209,69 @@ public class TestMultiset
     }
 
     @Test
+    public void testUnion()
+    {
+        // ALL adds multiplicities (and is the default when neither ALL nor DISTINCT is given)
+        assertThat(assertions.expression("MULTISET[1, 2] MULTISET UNION ALL MULTISET[2, 3] = MULTISET[1, 2, 2, 3]"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("CARDINALITY(MULTISET[1, 2] MULTISET UNION MULTISET[2, 3])"))
+                .isEqualTo(4L);
+        // DISTINCT yields the set union
+        assertThat(assertions.expression("MULTISET[1, 2, 2] MULTISET UNION DISTINCT MULTISET[2, 3] = MULTISET[1, 2, 3]"))
+                .isEqualTo(true);
+        // operands with different element types: the element coerces to the common supertype during
+        // binding, because multiset is covariant in its element type (like array)
+        assertThat(assertions.expression("CARDINALITY(MULTISET[] MULTISET UNION ALL MULTISET[1])"))
+                .isEqualTo(1L);
+        assertThat(assertions.expression("MULTISET[CAST(1 AS bigint)] MULTISET UNION ALL MULTISET[1]"))
+                .hasType(new MultisetType(BIGINT, TYPE_OPERATORS))
+                .isEqualTo(ImmutableList.of(1L, 1L));
+    }
+
+    @Test
+    public void testIntersect()
+    {
+        // ALL takes the minimum multiplicity per value
+        assertThat(assertions.expression("MULTISET[1, 1, 2, 3] MULTISET INTERSECT ALL MULTISET[1, 2, 2] = MULTISET[1, 2]"))
+                .isEqualTo(true);
+        // DISTINCT keeps each shared value once
+        assertThat(assertions.expression("CARDINALITY(MULTISET[1, 1, 2] MULTISET INTERSECT DISTINCT MULTISET[2, 2, 3])"))
+                .isEqualTo(1L);
+        // null is not distinct from null: a null element matches and is retained (here MULTISET[NULL])
+        assertThat(assertions.expression("CARDINALITY(MULTISET[1, NULL] MULTISET INTERSECT ALL MULTISET[NULL])"))
+                .isEqualTo(1L);
+        assertThat(assertions.expression("ELEMENT(MULTISET[1, NULL] MULTISET INTERSECT ALL MULTISET[NULL]) IS NULL"))
+                .isEqualTo(true);
+    }
+
+    @Test
+    public void testExcept()
+    {
+        // ALL subtracts multiplicities
+        assertThat(assertions.expression("MULTISET[1, 1, 2, 3] MULTISET EXCEPT ALL MULTISET[1, 3] = MULTISET[1, 2]"))
+                .isEqualTo(true);
+        // DISTINCT keeps each left value not present on the right, once
+        assertThat(assertions.expression("CARDINALITY(MULTISET[1, 1, 2, 3] MULTISET EXCEPT DISTINCT MULTISET[1, 3])"))
+                .isEqualTo(1L);
+        // null is not distinct from null: one null is cancelled and the other remains (MULTISET[NULL])
+        assertThat(assertions.expression("CARDINALITY(MULTISET[NULL, NULL] MULTISET EXCEPT ALL MULTISET[NULL])"))
+                .isEqualTo(1L);
+        assertThat(assertions.expression("ELEMENT(MULTISET[NULL, NULL] MULTISET EXCEPT ALL MULTISET[NULL]) IS NULL"))
+                .isEqualTo(true);
+    }
+
+    @Test
+    public void testSetOperationPrecedenceAndNull()
+    {
+        // INTERSECT binds tighter than UNION: 1 UNION (1 INTERSECT 1) = {1, 1}, cardinality 2
+        assertThat(assertions.expression("CARDINALITY(MULTISET[1] MULTISET UNION MULTISET[1] MULTISET INTERSECT MULTISET[1])"))
+                .isEqualTo(2L);
+        // a null operand yields a null result
+        assertThat(assertions.expression("(CAST(NULL AS multiset(integer)) MULTISET UNION ALL MULTISET[1]) IS NULL"))
+                .isEqualTo(true);
+    }
+
+    @Test
     public void testEqualityIsOrderIndependent()
     {
         assertThat(assertions.expression("MULTISET[1, 2, 2] = MULTISET[2, 1, 2]"))

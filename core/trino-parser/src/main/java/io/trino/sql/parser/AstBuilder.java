@@ -188,6 +188,7 @@ import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.MultisetConstructor;
+import io.trino.sql.tree.MultisetSetOperation;
 import io.trino.sql.tree.NaturalJoin;
 import io.trino.sql.tree.Nearest;
 import io.trino.sql.tree.NestedColumns;
@@ -2540,6 +2541,36 @@ class AstBuilder
     public Node visitMultisetConstructor(SqlBaseParser.MultisetConstructorContext context)
     {
         return new MultisetConstructor(getLocation(context), visit(context.expression(), Expression.class));
+    }
+
+    @Override
+    public Node visitMultisetIntersect(SqlBaseParser.MultisetIntersectContext context)
+    {
+        // unlike the relational set operations, the multiset operators default to ALL
+        boolean distinct = context.setQuantifier() != null && context.setQuantifier().DISTINCT() != null;
+        return new MultisetSetOperation(
+                getLocation(context),
+                MultisetSetOperation.Operator.INTERSECT,
+                distinct,
+                (Expression) visit(context.left),
+                (Expression) visit(context.right));
+    }
+
+    @Override
+    public Node visitMultisetUnion(SqlBaseParser.MultisetUnionContext context)
+    {
+        boolean distinct = context.setQuantifier() != null && context.setQuantifier().DISTINCT() != null;
+        MultisetSetOperation.Operator operator = switch (context.operator.getType()) {
+            case SqlBaseLexer.UNION -> MultisetSetOperation.Operator.UNION;
+            case SqlBaseLexer.EXCEPT -> MultisetSetOperation.Operator.EXCEPT;
+            default -> throw new IllegalArgumentException("Unsupported multiset operator: " + context.operator.getText());
+        };
+        return new MultisetSetOperation(
+                getLocation(context),
+                operator,
+                distinct,
+                (Expression) visit(context.left),
+                (Expression) visit(context.right));
     }
 
     @Override

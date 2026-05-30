@@ -583,13 +583,15 @@ predicate[ParserRuleContext value]
     ;
 
 valueExpression
-    : primaryExpression                                                                 #valueExpressionDefault
-    | valueExpression AT timeZoneSpecifier                                              #atTimeZone
-    | valueExpression AT LOCAL                                                          #atLocal
-    | operator=(MINUS | PLUS) valueExpression                                           #arithmeticUnary
-    | left=valueExpression operator=(ASTERISK | SLASH | PERCENT) right=valueExpression  #arithmeticBinary
-    | left=valueExpression operator=(PLUS | MINUS) right=valueExpression                #arithmeticBinary
-    | left=valueExpression CONCAT right=valueExpression                                 #concatenation
+    : primaryExpression                                                                             #valueExpressionDefault
+    | valueExpression AT timeZoneSpecifier                                                          #atTimeZone
+    | valueExpression AT LOCAL                                                                      #atLocal
+    | operator=(MINUS | PLUS) valueExpression                                                       #arithmeticUnary
+    | left=valueExpression operator=(ASTERISK | SLASH | PERCENT) right=valueExpression              #arithmeticBinary
+    | left=valueExpression operator=(PLUS | MINUS) right=valueExpression                            #arithmeticBinary
+    | left=valueExpression CONCAT right=valueExpression                                             #concatenation
+    | left=valueExpression MULTISET INTERSECT setQuantifier? right=valueExpression                  #multisetIntersect
+    | left=valueExpression MULTISET operator=(UNION | EXCEPT) setQuantifier? right=valueExpression  #multisetUnion
     ;
 
 primaryExpression

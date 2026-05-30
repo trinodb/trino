@@ -165,9 +165,12 @@ import io.trino.operator.scalar.MathFunctions;
 import io.trino.operator.scalar.MultimapFromEntriesFunction;
 import io.trino.operator.scalar.MultisetCardinalityFunction;
 import io.trino.operator.scalar.MultisetElementFunction;
+import io.trino.operator.scalar.MultisetExceptFunction;
+import io.trino.operator.scalar.MultisetIntersectFunction;
 import io.trino.operator.scalar.MultisetSetFunction;
 import io.trino.operator.scalar.MultisetToArrayCast;
 import io.trino.operator.scalar.MultisetToMultisetCast;
+import io.trino.operator.scalar.MultisetUnionFunction;
 import io.trino.operator.scalar.QuantileDigestFunctions;
 import io.trino.operator.scalar.Re2JRegexpFunctions;
 import io.trino.operator.scalar.Re2JRegexpReplaceLambdaFunction;
@@ -567,6 +570,9 @@ public final class SystemFunctionBundle
                 .scalar(MultisetCardinalityFunction.class)
                 .scalar(MultisetElementFunction.class)
                 .scalar(MultisetSetFunction.class)
+                .scalars(MultisetUnionFunction.class)
+                .scalars(MultisetIntersectFunction.class)
+                .scalars(MultisetExceptFunction.class)
                 .scalar(EmptyMapConstructor.class)
                 .scalar(TypeOfFunction.class)
                 .scalar(TryFunction.class)

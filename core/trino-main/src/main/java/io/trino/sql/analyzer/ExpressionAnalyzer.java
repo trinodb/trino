@@ -49,6 +49,7 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.MultisetType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
@@ -137,6 +138,7 @@ import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.MultisetConstructor;
+import io.trino.sql.tree.MultisetSetOperation;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -1163,6 +1165,16 @@ public class ExpressionAnalyzer
             }
             Type multisetType = plannerContext.getTypeManager().getParameterizedType(MULTISET.getName(), ImmutableList.of(TypeParameter.typeParameter(type.getTypeSignature())));
             return setExpressionType(node, multisetType);
+        }
+
+        @Override
+        protected Type visitMultisetSetOperation(MultisetSetOperation node, Context context)
+        {
+            Type type = coerceToSingleType(context, node, "Both operands of MULTISET " + node.getOperator() + " must be multisets", node.getLeft(), node.getRight());
+            if (!(type instanceof MultisetType)) {
+                throw semanticException(TYPE_MISMATCH, node, "MULTISET %s requires multiset operands, got: %s", node.getOperator(), type);
+            }
+            return setExpressionType(node, type);
         }
 
         @Override

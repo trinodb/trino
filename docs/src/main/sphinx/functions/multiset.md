@@ -98,3 +98,29 @@ SELECT SET(MULTISET[1, 1, 2, 2, 3]);
 -- {1, 2, 3}
 ```
 :::
+
+## Set operators
+
+The `MULTISET UNION`, `MULTISET INTERSECT`, and `MULTISET EXCEPT` operators
+combine two multisets. Each accepts an optional `ALL` or `DISTINCT` quantifier;
+`ALL` is the default.
+
+With `ALL`, the operators combine multiplicities per element value: `UNION`
+adds them, `INTERSECT` takes the minimum, and `EXCEPT` subtracts the right
+multiplicity from the left (not below zero). With `DISTINCT`, the result is
+first reduced so each element occurs at most once.
+
+```sql
+SELECT MULTISET[1, 2] MULTISET UNION ALL MULTISET[2, 3];
+-- {1, 2, 2, 3}
+
+SELECT MULTISET[1, 1, 2, 3] MULTISET INTERSECT ALL MULTISET[1, 2, 2];
+-- {1, 2}
+
+SELECT MULTISET[1, 1, 2, 3] MULTISET EXCEPT ALL MULTISET[1, 3];
+-- {1, 2}
+```
+
+`MULTISET INTERSECT` binds more tightly than `MULTISET UNION` and
+`MULTISET EXCEPT`, so `a MULTISET UNION b MULTISET INTERSECT c` is evaluated as
+`a MULTISET UNION (b MULTISET INTERSECT c)`.
