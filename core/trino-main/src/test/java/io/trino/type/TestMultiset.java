@@ -381,6 +381,25 @@ public class TestMultiset
     }
 
     @Test
+    public void testFusion()
+    {
+        // multiplicities add across the input multisets
+        assertThat(assertions.query("SELECT FUSION(m) = MULTISET[1, 1, 1, 2] FROM (VALUES MULTISET[1, 1], MULTISET[1, 2]) t(m)"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT CARDINALITY(FUSION(m)) FROM (VALUES MULTISET[1, 1], MULTISET[1, 2], MULTISET[3]) t(m)"))
+                .matches("VALUES BIGINT '5'");
+        // a NULL multiset operand is ignored
+        assertThat(assertions.query("SELECT FUSION(m) = MULTISET[1, 1, 1, 2] FROM (VALUES MULTISET[1, 1], CAST(NULL AS multiset(integer)), MULTISET[1, 2]) t(m)"))
+                .matches("VALUES true");
+        // null elements inside the inputs are retained
+        assertThat(assertions.query("SELECT CARDINALITY(FUSION(m)) FROM (VALUES MULTISET[1, NULL], MULTISET[NULL]) t(m)"))
+                .matches("VALUES BIGINT '3'");
+        // grouped, exercising the partial-merge path
+        assertThat(assertions.query("SELECT k, CARDINALITY(FUSION(m)) FROM (VALUES (1, MULTISET[1, 1]), (1, MULTISET[2]), (2, MULTISET[3, 3, 3])) t(k, m) GROUP BY k"))
+                .matches("VALUES (1, BIGINT '3'), (2, BIGINT '3')");
+    }
+
+    @Test
     public void testEqualityIsOrderIndependent()
     {
         assertThat(assertions.expression("MULTISET[1, 2, 2] = MULTISET[2, 1, 2]"))
