@@ -160,6 +160,25 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitMultisetConstructor(MultisetConstructor node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteMultisetConstructor(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            List<Expression> values = rewrite(node.getValues(), context);
+
+            if (!sameElements(node.getValues(), values)) {
+                return new MultisetConstructor(node.getLocation().orElseThrow(), values);
+            }
+
+            return node;
+        }
+
+        @Override
         protected Expression visitAtTimeZone(AtTimeZone node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
