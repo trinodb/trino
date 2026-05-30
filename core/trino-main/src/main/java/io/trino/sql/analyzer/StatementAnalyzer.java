@@ -98,6 +98,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
+import io.trino.spi.type.MultisetType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
@@ -1629,6 +1630,7 @@ class StatementAnalyzer
             ImmutableMap.Builder<NodeRef<Expression>, List<Field>> mappings = ImmutableMap.builder();
 
             ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
+            boolean unnestsMultiset = false;
             for (Expression expression : node.getExpressions()) {
                 verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, expression, "UNNEST");
                 List<Field> expressionOutputs = new ArrayList<>();
@@ -1638,6 +1640,18 @@ class StatementAnalyzer
                 Type expressionType = expressionAnalysis.getType(expression);
                 if (expressionType instanceof ArrayType arrayType) {
                     Type elementType = arrayType.getElementType();
+                    if (elementType instanceof RowType rowType) {
+                        rowType.getFields().stream()
+                                .map(field -> Field.newUnqualified(field.getName(), field.getType()))
+                                .forEach(expressionOutputs::add);
+                    }
+                    else {
+                        expressionOutputs.add(Field.newUnqualified(Optional.empty(), elementType));
+                    }
+                }
+                else if (expressionType instanceof MultisetType type) {
+                    unnestsMultiset = true;
+                    Type elementType = type.getElementType();
                     if (elementType instanceof RowType rowType) {
                         rowType.getFields().stream()
                                 .map(field -> Field.newUnqualified(field.getName(), field.getType()))
@@ -1658,6 +1672,17 @@ class StatementAnalyzer
                 outputFields.addAll(expressionOutputs);
                 mappings.put(NodeRef.of(expression), expressionOutputs);
                 expressionOutputs.forEach(field -> analysis.addSourceColumns(field, analysis.getExpressionSourceColumns(expression)));
+            }
+
+            // SQL:2023 §7.6: a multiset has no ordinal positions, so a multiset may be the only UNNEST
+            // operand and WITH ORDINALITY is not allowed for it.
+            if (unnestsMultiset) {
+                if (node.getExpressions().size() > 1) {
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "UNNEST of a multiset cannot be combined with other expressions");
+                }
+                if (node.isWithOrdinality()) {
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "UNNEST of a multiset does not support WITH ORDINALITY");
+                }
             }
 
             Optional<Field> ordinalityField = Optional.empty();
