@@ -123,6 +123,7 @@ import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SubmultisetPredicate;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
@@ -666,6 +667,15 @@ public class TranslationMap
             case LikePredicate predicate -> translateLike(value, predicate);
             case MatchPredicate _ -> throw new IllegalStateException("MATCH predicate should have been planned by SubqueryPlanner");
             case QuantifiedComparisonPredicate _ -> throw new IllegalStateException("Quantified comparison should have been planned by SubqueryPlanner");
+            case SubmultisetPredicate predicate -> {
+                io.trino.sql.ir.Expression right = translateExpression(predicate.getRight());
+                io.trino.sql.ir.Expression submultiset = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                        .setName("$submultiset")
+                        .addArgument(value.type(), value)
+                        .addArgument(right.type(), right)
+                        .build();
+                yield predicate.isNegated() ? not(plannerContext.getMetadata(), submultiset) : submultiset;
+            }
         };
     }
 

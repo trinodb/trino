@@ -105,6 +105,7 @@ import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SubmultisetPredicate;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Trim;
@@ -374,6 +375,12 @@ public final class ExpressionFormatter
                     " MULTISET " + node.getOperator() +
                     (node.isDistinct() ? " DISTINCT " : " ALL ") +
                     process(node.getRight(), context);
+        }
+
+        @Override
+        protected String visitSubmultisetPredicate(SubmultisetPredicate node, Void context)
+        {
+            return (node.isNegated() ? "NOT SUBMULTISET OF " : "SUBMULTISET OF ") + process(node.getRight(), context);
         }
 
         @Override

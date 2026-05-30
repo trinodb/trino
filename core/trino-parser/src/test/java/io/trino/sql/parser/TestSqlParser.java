@@ -231,6 +231,7 @@ import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SubmultisetPredicate;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SubsetDefinition;
@@ -815,6 +816,30 @@ public class TestSqlParser
         assertThat(((MultisetSetOperation) createExpression("MULTISET[1] MULTISET UNION MULTISET[2]")).isDistinct()).isFalse();
         assertThat(((MultisetSetOperation) createExpression("MULTISET[1] MULTISET UNION ALL MULTISET[2]")).isDistinct()).isFalse();
         assertThat(((MultisetSetOperation) createExpression("MULTISET[1] MULTISET UNION DISTINCT MULTISET[2]")).isDistinct()).isTrue();
+    }
+
+    @Test
+    public void testSubmultisetPredicate()
+    {
+        assertThat(expression("MULTISET[1] SUBMULTISET OF MULTISET[2]"))
+                .isEqualTo(new Predicated(
+                        location(1, 13),
+                        new MultisetConstructor(location(1, 1), ImmutableList.of(new LongLiteral(location(1, 10), "1"))),
+                        new SubmultisetPredicate(
+                                location(1, 13),
+                                false,
+                                new MultisetConstructor(location(1, 28), ImmutableList.of(new LongLiteral(location(1, 37), "2"))))));
+        // OF is optional
+        assertThat(((Predicated) createExpression("MULTISET[1] SUBMULTISET MULTISET[2]")).getPredicate()).isInstanceOf(SubmultisetPredicate.class);
+        // NOT is captured as a flag on the predicate
+        assertThat(expression("MULTISET[1] NOT SUBMULTISET OF MULTISET[2]"))
+                .isEqualTo(new Predicated(
+                        location(1, 13),
+                        new MultisetConstructor(location(1, 1), ImmutableList.of(new LongLiteral(location(1, 10), "1"))),
+                        new SubmultisetPredicate(
+                                location(1, 13),
+                                true,
+                                new MultisetConstructor(location(1, 32), ImmutableList.of(new LongLiteral(location(1, 41), "2"))))));
     }
 
     @Test
