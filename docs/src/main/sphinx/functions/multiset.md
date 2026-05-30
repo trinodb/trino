@@ -74,3 +74,27 @@ The element type is coerced as part of the cast:
 ```sql
 SELECT CAST(ARRAY[1, 2] AS multiset(bigint));
 ```
+
+## Scalar functions
+
+:::{function} element(multiset(E)) -> E
+Returns the sole element of `multiset`. Returns null if `multiset` is empty or
+its single element is null. Raises an error if `multiset` has more than one
+element.
+
+```sql
+SELECT ELEMENT(MULTISET[42]);
+-- 42
+```
+:::
+
+:::{function} set(multiset(E)) -> multiset(E)
+Returns the multiset with duplicate elements removed, so that every element
+occurs exactly once. Null is treated as not distinct from null, so duplicate
+nulls collapse to a single null element.
+
+```sql
+SELECT SET(MULTISET[1, 1, 2, 2, 3]);
+-- {1, 2, 3}
+```
+:::
