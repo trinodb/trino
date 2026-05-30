@@ -31,3 +31,25 @@ The `<type> MULTISET` syntax names a multiset type, for example in a cast:
 ```sql
 SELECT CAST(MULTISET[1, 2, 2] AS integer MULTISET);
 ```
+
+## Cardinality
+
+Use {func}`cardinality` to count the elements of a multiset, including
+duplicates:
+
+```sql
+SELECT CARDINALITY(MULTISET[1, 2, 2]);
+-- 3
+```
+
+## UNNEST
+
+Expand a multiset into a relation with {ref}`unnest`. Each element
+becomes one row, and duplicates produce one row each:
+
+```sql
+SELECT x FROM UNNEST(MULTISET[1, 2, 2]) AS t(x);
+-- 1
+-- 2
+-- 2
+```
