@@ -800,6 +800,18 @@ Example: `MAP(ARRAY['foo', 'bar'], ARRAY[1, 2])`
 
 More information in [](/functions/map).
 
+(multiset-type)=
+### `MULTISET`
+
+An unordered collection of the given element type that retains duplicate
+elements. Unlike an array, a multiset has no element order: two multisets are
+equal when they hold the same elements with the same multiplicities. Element
+values may be null.
+
+Example: `MULTISET[1, 2, 2]`
+
+More information in [](/functions/multiset).
+
 (row-type)=
 ### `ROW`
 
