@@ -141,6 +141,7 @@
 ## E
 
 - {func}`e`
+- {func}`element`
 - {func}`element_at`
 - {func}`empty_approx_set`
 - `evaluate_classifier_predictions`
@@ -372,6 +373,7 @@
 - {func}`second`
 - {func}`sequence` (scalar function)
 - [sequence()](sequence-table-function) (table function)
+- {func}`set`
 - {func}`sha1`
 - {func}`sha256`
 - {func}`sha512`
