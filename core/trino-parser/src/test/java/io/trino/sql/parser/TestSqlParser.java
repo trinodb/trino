@@ -146,6 +146,7 @@ import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.MultisetConstructor;
 import io.trino.sql.tree.MultisetSetOperation;
+import io.trino.sql.tree.MultisetSubquery;
 import io.trino.sql.tree.NaturalJoin;
 import io.trino.sql.tree.Nearest;
 import io.trino.sql.tree.NestedColumns;
@@ -876,6 +877,16 @@ public class TestSqlParser
                         location(1, 13),
                         new MultisetConstructor(location(1, 1), ImmutableList.of(new LongLiteral(location(1, 10), "1"))),
                         new SetPredicate(location(1, 13), true)));
+    }
+
+    @Test
+    public void testMultisetSubquery()
+    {
+        Expression multisetSubquery = createExpression("MULTISET(SELECT x FROM t)");
+        assertThat(multisetSubquery).isInstanceOf(MultisetSubquery.class);
+        // the wrapped query parses exactly as a standalone scalar subquery's query
+        assertThat(((MultisetSubquery) multisetSubquery).getQuery())
+                .isEqualTo(((SubqueryExpression) createExpression("(SELECT x FROM t)")).getQuery());
     }
 
     @Test

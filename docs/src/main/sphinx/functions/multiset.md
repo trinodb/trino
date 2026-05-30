@@ -32,6 +32,17 @@ The `<type> MULTISET` syntax names a multiset type, for example in a cast:
 SELECT CAST(MULTISET[1, 2, 2] AS integer MULTISET);
 ```
 
+## Multiset from a subquery
+
+`MULTISET(subquery)` builds a multiset from the rows of a single-column
+subquery, retaining duplicates. The subquery may be correlated; an outer row
+with no matching subquery rows yields an empty multiset, not null.
+
+```sql
+SELECT CARDINALITY(MULTISET(SELECT n FROM (VALUES 1, 1, 2) AS t(n)));
+-- 3
+```
+
 ## Cardinality
 
 Use {func}`cardinality` to count the elements of a multiset, including

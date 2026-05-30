@@ -143,6 +143,7 @@ import io.trino.sql.tree.MemberPredicate;
 import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.MultisetConstructor;
 import io.trino.sql.tree.MultisetSetOperation;
+import io.trino.sql.tree.MultisetSubquery;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -1284,6 +1285,19 @@ public class ExpressionAnalyzer
             Type type = coerceToSingleType(context, "All ARRAY elements", node.getValues());
             Type arrayType = plannerContext.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeParameter.typeParameter(type.getTypeDescriptor())));
             return setExpressionType(node, arrayType);
+        }
+
+        @Override
+        protected Type visitMultisetSubquery(MultisetSubquery node, Context context)
+        {
+            Type rowType = analyzeSubquery(node, context);
+            if (!(rowType instanceof RowType row) || row.getFields().size() != 1) {
+                throw semanticException(INVALID_ARGUMENTS, node, "MULTISET subquery must return exactly one column");
+            }
+            Type elementType = row.getFields().getFirst().getType();
+            Type multisetType = plannerContext.getTypeManager().getParameterizedType(MULTISET.getName(), ImmutableList.of(TypeParameter.typeParameter(elementType.getTypeDescriptor())));
+            subqueries.add(NodeRef.of((SubqueryExpression) node));
+            return setExpressionType(node, multisetType);
         }
 
         @Override

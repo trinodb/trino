@@ -20,6 +20,7 @@ import com.google.common.graph.Traverser;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.type.MultisetType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
@@ -28,6 +29,7 @@ import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -49,6 +51,7 @@ import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.MatchPredicate;
+import io.trino.sql.tree.MultisetSubquery;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.QuantifiedComparisonPredicate;
@@ -72,6 +75,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.not;
@@ -143,7 +147,9 @@ class SubqueryPlanner
         }
         PlanBuilder scalarSubqueriesBuilder = builder;
         for (Cluster<SubqueryExpression> cluster : cluster(selectSubqueries(scalarSubqueriesBuilder, allSubExpressions, subqueries.getSubqueries()), expr -> scopeAwareKey(expr, analysis, scalarSubqueriesBuilder.getScope()))) {
-            builder = planScalarSubquery(builder, cluster);
+            builder = cluster.getRepresentative() instanceof MultisetSubquery
+                    ? planMultisetSubquery(builder, cluster)
+                    : planScalarSubquery(builder, cluster);
         }
         PlanBuilder existsBuilder = builder;
         for (Cluster<ExistsPredicate> cluster : cluster(selectSubqueries(existsBuilder, allSubExpressions, subqueries.getExistsSubqueries()), expr -> scopeAwareKey(expr, analysis, existsBuilder.getScope()))) {
@@ -329,6 +335,52 @@ class SubqueryPlanner
                 JoinType.INNER,
                 TRUE,
                 mapAll(cluster, subPlan.getScope(), column));
+    }
+
+    private PlanBuilder planMultisetSubquery(PlanBuilder subPlan, Cluster<SubqueryExpression> cluster)
+    {
+        MultisetSubquery multisetSubquery = (MultisetSubquery) cluster.getRepresentative();
+
+        RelationPlan relationPlan = planSubquery(multisetSubquery, subPlan.getTranslations());
+
+        // the subquery is degree-1, so its single visible field is the element column
+        Symbol elementSymbol = getOnlyElement(relationPlan.getFieldMappings());
+        MultisetType multisetType = (MultisetType) analysis.getType(multisetSubquery);
+        Type elementType = multisetType.getElementType();
+
+        // gather the subquery rows into a multiset with COLLECT (a global aggregation, so it produces
+        // exactly one row; over an empty subquery COLLECT is null, hence the coalesce to the empty multiset)
+        ResolvedFunction collect = plannerContext.getMetadata().resolveBuiltinFunction("collect", fromTypes(elementType));
+        Symbol collected = symbolAllocator.newSymbol("collect", multisetType);
+        AggregationNode aggregation = new AggregationNode(
+                idAllocator.getNextId(),
+                relationPlan.getRoot(),
+                ImmutableMap.of(collected, new AggregationNode.Aggregation(
+                        collect,
+                        ImmutableList.of(elementSymbol.toSymbolReference()),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty())),
+                singleGroupingSet(ImmutableList.of()),
+                ImmutableList.of(),
+                AggregationNode.Step.SINGLE,
+                Optional.empty());
+
+        Symbol multiset = symbolAllocator.newSymbol("multiset", multisetType);
+        PlanNode root = new ProjectNode(
+                idAllocator.getNextId(),
+                aggregation,
+                Assignments.of(multiset, new Coalesce(collected.toSymbolReference(), new io.trino.sql.ir.Collection(multisetType, ImmutableList.of()))));
+
+        // the aggregation always produces a single row, so the correlated join can be INNER
+        return appendCorrelatedJoin(
+                subPlan,
+                root,
+                multisetSubquery.getQuery(),
+                JoinType.INNER,
+                TRUE,
+                mapAll(cluster, subPlan.getScope(), multiset));
     }
 
     public PlanBuilder appendCorrelatedJoin(PlanBuilder subPlan, PlanNode subquery, Query query, JoinType type, Expression filterCondition, Map<ScopeAware<io.trino.sql.tree.Expression>, Symbol> mappings)

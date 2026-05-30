@@ -194,6 +194,7 @@ import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.MultisetConstructor;
 import io.trino.sql.tree.MultisetSetOperation;
+import io.trino.sql.tree.MultisetSubquery;
 import io.trino.sql.tree.NaturalJoin;
 import io.trino.sql.tree.Nearest;
 import io.trino.sql.tree.NestedColumns;
@@ -3102,6 +3103,12 @@ class AstBuilder
     public Node visitSubqueryExpression(SqlBaseParser.SubqueryExpressionContext context)
     {
         return new SubqueryExpression(getLocation(context), (Query) visit(context.query()));
+    }
+
+    @Override
+    public Node visitMultisetSubquery(SqlBaseParser.MultisetSubqueryContext context)
+    {
+        return new MultisetSubquery(getLocation(context), (Query) visit(context.query()));
     }
 
     @Override
