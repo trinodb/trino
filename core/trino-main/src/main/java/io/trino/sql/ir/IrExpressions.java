@@ -405,7 +405,7 @@ public final class IrExpressions
     {
         return switch (expression) {
             // These expressions never return null
-            case Array _, Bind _, IsNull _, Lambda _, Row _ -> false;
+            case Collection _, Bind _, IsNull _, Lambda _, Row _ -> false;
 
             // These expressions may return null based on their operands
             case Call e -> switch (matchComparison(e)) {
@@ -464,7 +464,7 @@ public final class IrExpressions
             case Bind _, Constant _, FieldReference _, Lambda _, Reference _ -> false;
 
             // These expressions need to verify their operands
-            case Array e -> e.elements().stream().anyMatch(element -> mayFail(plannerContext, element));
+            case Collection e -> e.elements().stream().anyMatch(element -> mayFail(plannerContext, element));
             case Call e -> switch (matchComparison(e)) {
                 case null -> mayFail(e) || e.arguments().stream().anyMatch(argument -> mayFail(plannerContext, argument));
                 case Comparison comparison -> mayFail(plannerContext, comparison.left()) || mayFail(plannerContext, comparison.right());

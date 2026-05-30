@@ -20,7 +20,7 @@ public class ExpressionRewriter<C>
         return null;
     }
 
-    public Expression rewriteArray(Array node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    public Expression rewriteCollection(Collection node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);
     }

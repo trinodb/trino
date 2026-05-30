@@ -23,8 +23,8 @@ import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.FieldId;
 import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.ResolvedField;
-import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Collection;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.tree.GroupingOperation;
@@ -92,7 +92,7 @@ public final class GroupingOperationRewriter
         return new Call(
                 metadata.resolveOperator(OperatorType.SUBSCRIPT, ImmutableList.of(new ArrayType(type), BIGINT)),
                 ImmutableList.of(
-                        new Array(type, groupingResults),
+                        new Collection(new ArrayType(type), groupingResults),
                         new Call(
                                 metadata.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT)),
                                 ImmutableList.of(groupIdSymbol.get().toSymbolReference(), new Constant(BIGINT, 1L)))));
