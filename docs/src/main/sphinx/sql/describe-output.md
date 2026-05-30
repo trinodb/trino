@@ -4,11 +4,12 @@
 
 ```text
 DESCRIBE OUTPUT statement_name
+DESCRIBE OUTPUT ( query )
 ```
 
 ## Description
 
-List the output columns of a prepared statement, including the
+List the output columns of a prepared statement or a query, including the
 column name (or alias), catalog, schema, table, type, type size in
 bytes, and a boolean indicating if the column is aliased.
 
