@@ -46,6 +46,7 @@ public class Scope
 {
     private final Optional<Scope> parent;
     private final Optional<Resolver> resolver;
+    private final Optional<Resolver> outerResolver;
     private final boolean queryBoundary;
     private final RelationId relationId;
     private final RelationType relation;
@@ -64,6 +65,7 @@ public class Scope
     private Scope(
             Optional<Scope> parent,
             Optional<Resolver> resolver,
+            Optional<Resolver> outerResolver,
             boolean queryBoundary,
             RelationId relationId,
             RelationType relation,
@@ -71,7 +73,8 @@ public class Scope
     {
 
         this.parent = requireNonNull(parent, "parent is null");
-        this.resolver = requireNonNull(resolver, "parent is null");
+        this.resolver = requireNonNull(resolver, "resolver is null");
+        this.outerResolver = requireNonNull(outerResolver, "outerResolver is null");
         this.queryBoundary = queryBoundary;
         this.relationId = requireNonNull(relationId, "relationId is null");
         this.relation = requireNonNull(relation, "relation is null");
@@ -87,12 +90,17 @@ public class Scope
             if (scope.resolver.isPresent()) {
                 return scope.resolver;
             }
-            if (scope.queryBoundary) {
-                return Optional.empty();
-            }
+            //if (scope.queryBoundary) {
+            //    return Optional.empty();
+            //}
             parent = scope.parent;
         }
         return Optional.empty();
+    }
+
+    public Optional<Resolver> getOuterResolver()
+    {
+        return outerResolver;
     }
 
     private Optional<Resolver> getRelationResolver()
@@ -122,7 +130,7 @@ public class Scope
 
     public Scope withRelationType(RelationType relationType)
     {
-        return new Scope(parent, resolver, queryBoundary, relationId, relationType, namedQueries);
+        return new Scope(parent, resolver, outerResolver, queryBoundary, relationId, relationType, namedQueries);
     }
 
     public Scope getQueryBoundaryScope()
@@ -393,6 +401,7 @@ public class Scope
     {
         private Optional<Scope> parent = Optional.empty();
         private Optional<Resolver> resolver = Optional.empty();
+        private Optional<Resolver> outerResolver = Optional.empty();
         private boolean queryBoundary;
         private RelationId relationId = RelationId.anonymous();
         private RelationType relation = new RelationType();
@@ -402,6 +411,7 @@ public class Scope
         {
             parent = other.parent;
             resolver = other.resolver;
+            outerResolver = other.outerResolver;
             queryBoundary = other.queryBoundary;
             relationId = other.relationId;
             relation = other.relation;
@@ -425,8 +435,20 @@ public class Scope
 
         public Builder withResolver(Resolver resolver)
         {
+            return withResolver(Optional.of(resolver));
+        }
+
+        public Builder withResolver(Optional<Resolver> resolver)
+        {
             checkArgument(this.resolver.isEmpty(), "resolver is already set");
-            this.resolver = Optional.of(resolver);
+            this.resolver = resolver;
+            return this;
+        }
+
+        public Builder withOuterResolver(Resolver outerResolver)
+        {
+            checkArgument(this.outerResolver.isEmpty(), "outerResolver is already set");
+            this.outerResolver = Optional.of(outerResolver);
             return this;
         }
 
@@ -452,7 +474,7 @@ public class Scope
 
         public Scope build()
         {
-            return new Scope(parent, resolver, queryBoundary, relationId, relation, namedQueries);
+            return new Scope(parent, resolver, outerResolver, queryBoundary, relationId, relation, namedQueries);
         }
     }
 

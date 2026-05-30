@@ -143,6 +143,7 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.QueryColumn;
 import io.trino.sql.tree.RangeQuantifier;
+import io.trino.sql.tree.Resolver;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SearchedCaseExpression;
@@ -825,7 +826,7 @@ public class ExpressionAnalyzer
             }
 
             // FIXME: scope context resolver will be used to resolve DereferenceExpression
-            Function<Identifier, String> canonicalizer = plannerContext.getDefaultCanonicalizer(session, Optional.of(context.getScope()));
+            Function<Identifier, String> canonicalizer = getQueryResolver(context.getScope()).getCanonicalizer();
             QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(canonicalizer, node);
 
             // If this Dereference looks like column reference, try match it to column first.
@@ -900,6 +901,14 @@ public class ExpressionAnalyzer
             }
 
             return setExpressionType(node, rowFieldType);
+        }
+
+        private Resolver getQueryResolver(Scope scope)
+        {
+            if (scope.getResolver().isPresent()) {
+                return scope.getResolver().get();
+            }
+            return plannerContext.getResolverManager().getDefaultResolver();
         }
 
         @Override
@@ -2635,7 +2644,7 @@ public class ExpressionAnalyzer
                         .ifPresent(function -> {
                             throw semanticException(NOT_SUPPORTED, function, "IN-PREDICATE with %s function is not yet supported", function.getName().getSuffix());
                         });
-                Function<Identifier, String> canonicalizer = plannerContext.getDefaultCanonicalizer(session, Optional.of(context.getScope()));
+                Function<Identifier, String> canonicalizer = getQueryResolver(context.getScope()).getCanonicalizer();
                 extractExpressions(ImmutableList.of(value), DereferenceExpression.class)
                         .forEach(dereference -> {
                             QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(canonicalizer, dereference);

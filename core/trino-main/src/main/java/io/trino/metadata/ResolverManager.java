@@ -14,135 +14,71 @@
 package io.trino.metadata;
 
 import io.trino.Session;
-import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Resolver;
-import io.trino.sql.tree.Update;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
-import java.util.function.Function;
+
+import static java.util.Locale.ENGLISH;
 
 public class ResolverManager
 {
-    private final Map<String, Resolver> resolvers = new ConcurrentHashMap<>();
-    private final Map<String, List<String>> queries = new ConcurrentHashMap<>();
-    private final Map<String, Resolver> resolver = new ConcurrentHashMap<>();
-    private final Map<NodeRef<Update>, Function<Identifier, String>> canonicalizer = new ConcurrentHashMap<>();
-    private final Resolver withResolver = new Resolver(
-            "WITH",
-            (value, _) -> value,
+    private final Resolver DEFAULT_RESOLVER = new Resolver(
+            "DEFAULT_RESOLVER",
+            (value, delimited) -> delimited ? value : value.toUpperCase(ENGLISH),
             (value, _) -> value,
             value -> !Identifier.isValidIdentifier(value));
 
-    private Optional<String> withQueryId = Optional.empty();
+    private final Resolver WITH_RESOLVER = new Resolver(
+            "WITH_RESOLVER",
+            (value, delimited) -> delimited ? value : value.toUpperCase(ENGLISH),
+            (value, _) -> value,
+            value -> !Identifier.isValidIdentifier(value));
+
+    private final Map<String, Resolver> resolvers = new ConcurrentHashMap<>();
+    private final Map<String, String> queries = new ConcurrentHashMap<>();
 
     public ResolverManager() {}
 
-    public Optional<String> lastResolverName(Session session)
-    {
-        return hasSession(session) ? Optional.of(getQuery(session).getLast()) : Optional.empty();
-    }
-
-    public void setResolver(Session session, String catalog, BiFunction<Session, String, Resolver> factory)
-    {
-        checkResolvers(session, catalog, factory);
-        if (!hasSession(session)) {
-            queries.put(session.getQueryId().id(), new ArrayList<>());
-        }
-        getQuery(session).add(catalog);
-    }
-
     public Resolver getResolver(Session session, String catalog, BiFunction<Session, String, Resolver> factory)
     {
-        setResolver(session, catalog, factory);
+        if (!hasResolver(catalog)) {
+            resolvers.put(catalog, factory.apply(session, catalog));
+        }
         return resolvers.get(catalog);
     }
 
-    public Resolver getDefaultResolver(Session session, BiFunction<Session, String, Resolver> factory)
+    public void setResolver(String queryId, Resolver resolver)
     {
-        if (hasSession(session)) {
-            return resolvers.get(getQuery(session).getLast());
+        if (!hasResolver(resolver.getCatalog())) {
+            resolvers.put(resolver.getCatalog(), resolver);
         }
-        return getResolver(session, GlobalSystemConnector.NAME, factory);
+        this.queries.put(queryId, resolver.getCatalog());
     }
 
-    public Optional<Resolver> getResolver(Session session, BiFunction<Session, String, Resolver> factory)
+    public Resolver getWithResolver()
     {
-        Optional<Resolver> resolver = Optional.empty();
-        if (hasSession(session)) {
-            List<String> catalogs = getQuery(session);
-            resolver = Optional.of(resolvers.get(catalogs.getLast()));
-        }
-        else if (session.getCatalog().isPresent()) {
-            System.out.println("ResolverManager.getResolver() catalog: " + session.getCatalog().get() + " WARNING ***********************************");
-            return Optional.of(getResolver(session, session.getCatalog().get(), factory));
-        }
-        else {
-            System.out.println("ResolverManager.getResolver() ERROR ***********************************");
-            System.out.println("ResolverManager.getResolver() stacktrace: " + Arrays.toString(Thread.currentThread().getStackTrace()).replace(',', '\n'));
-        }
-        return resolver;
+        return WITH_RESOLVER;
     }
 
-    public boolean hasSession(Session session)
+    public Resolver getDefaultResolver()
     {
-        return queries.containsKey(session.getQueryId().id());
+        return DEFAULT_RESOLVER;
+    }
+
+    public Optional<Resolver> getResolver(String queryId)
+    {
+        if (queries.containsKey(queryId) && hasResolver(queries.get(queryId))) {
+            return Optional.of(resolvers.get(queries.get(queryId)));
+        }
+        return Optional.empty();
     }
 
     private boolean hasResolver(String catalog)
     {
         return resolvers.containsKey(catalog);
-    }
-
-    private List<String> getQuery(Session session)
-    {
-        return queries.get(session.getQueryId().id());
-    }
-
-    private void checkResolvers(Session session, String catalog, BiFunction<Session, String, Resolver> factory)
-    {
-        if (!hasResolver(catalog)) {
-            resolvers.put(catalog, factory.apply(session, catalog));
-        }
-    }
-
-    public void setResolver(String queryId, Resolver resolver)
-    {
-        this.resolver.put(queryId, resolver);
-    }
-
-    public Resolver getWithResolver(String queryId)
-    {
-        this.resolver.put(queryId, withResolver);
-        return withResolver;
-    }
-
-    public void endUsingWithResolver(String queryId)
-    {
-        if (withQueryId.isPresent() && withQueryId.get().equals(queryId)) {
-            withQueryId = Optional.empty();
-        }
-    }
-
-    public Optional<Resolver> getResolver(String queryId)
-    {
-        return Optional.ofNullable(this.resolver.get(queryId));
-    }
-
-    public void setCanonicalizer(NodeRef<Update> node, Resolver resolver)
-    {
-        this.canonicalizer.put(node, resolver.getCanonicalizer());
-    }
-
-    public Optional<Function<Identifier, String>> getCanonicalizer(NodeRef<Update> node)
-    {
-        return Optional.ofNullable(this.canonicalizer.get(node));
     }
 }

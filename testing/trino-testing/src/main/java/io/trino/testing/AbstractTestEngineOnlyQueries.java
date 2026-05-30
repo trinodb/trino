@@ -2987,7 +2987,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 "WITH a AS (VALUES 1), " +
                         "     a AS (VALUES 2)" +
                         "SELECT * FROM a",
-                "line 1:28: WITH query name 'a' specified more than once");
+                "line 1:28: WITH query name '%s' specified more than once".formatted(withCanonicalize("a")));
     }
 
     @Test
@@ -5184,6 +5184,7 @@ public abstract class AbstractTestEngineOnlyQueries
 
         // wildcard from table with order by
         assertQuery("SELECT \"name\" FROM (SELECT * FROM \"region\" ORDER BY \"name\" DESC LIMIT 2)", "VALUES 'MIDDLE EAST', 'EUROPE'");
+
         assertQuery("SELECT y FROM (SELECT r.* AS (x, y, z) FROM \"region\" r ORDER BY \"name\" DESC LIMIT 2)", "VALUES 'MIDDLE EAST', 'EUROPE'");
         assertQuery("SELECT y FROM (SELECT r.* AS (x, y, z) FROM \"region\" r ORDER BY y DESC LIMIT 2)", "VALUES 'MIDDLE EAST', 'EUROPE'");
     }

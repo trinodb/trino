@@ -26,14 +26,10 @@ import io.trino.metadata.ResolverManager;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.analyzer.Scope;
 import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
-import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Resolver;
 
-import java.util.Optional;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
@@ -148,31 +144,8 @@ public class PlannerContext
         return resolverManager.getResolver(session, catalog, metadata::getResolver);
     }
 
-    public void setResolver(Session session, Resolver resolver)
+    public ResolverManager getResolverManager()
     {
-        resolverManager.setResolver(session.getQueryId().id(), resolver);
-    }
-
-    public Resolver getWithResolver(Session session)
-    {
-        return resolverManager.getWithResolver(session.getQueryId().id());
-    }
-
-    public Optional<Resolver> getResolver(Session session, Optional<Scope> scope)
-    {
-        if (scope.isPresent() && scope.get().getResolver().isPresent()) {
-            return scope.get().getResolver();
-        }
-        return resolverManager.getResolver(session.getQueryId().id());
-    }
-
-    public Function<Identifier, String> getDefaultCanonicalizer(Session session, Optional<Scope> scope)
-    {
-        return getDefaultCanonicalizer(getResolver(session, scope));
-    }
-
-    public Function<Identifier, String> getDefaultCanonicalizer(Optional<Resolver> resolver)
-    {
-        return resolver.map(Resolver::getCanonicalizer).orElse(Resolver.DEFAULT_CANONICALIZER);
+        return resolverManager;
     }
 }

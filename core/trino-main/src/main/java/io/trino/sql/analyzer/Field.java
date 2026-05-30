@@ -49,6 +49,7 @@ public class Field
     {
         return newUnqualified(name, type, Optional.empty());
     }
+
     public static Field newUnqualified(Optional<String> name, Type type, Optional<Resolver> resolver)
     {
         requireNonNull(name, "name is null");
@@ -224,6 +225,8 @@ public class Field
 
     public boolean matchesPrefix(QualifiedName prefix)
     {
+        // System.out.println("Field.matchesPrefix() resolver: " + resolver.map(r -> r.getCanonicalizerKind().name()).orElse("No resolver"));
+        // System.out.println("Field.matchesPrefix() relationAlias: " + relationAlias.map(QualifiedName::toString).orElse("No relationAlias"));
         return matchesPrefix(QualifiedName.of(resolver.map(r -> r::canonicalize), prefix), resolver.isPresent());
     }
 

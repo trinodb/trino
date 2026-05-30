@@ -822,6 +822,12 @@ public abstract class AbstractTestQueryFramework
         return value.toUpperCase(ENGLISH);
     }
 
+    protected String withCanonicalize(String value)
+    {
+        // FIXME: trino-base-jdbc use H2 has connector. For other connectors, this method needs to be overridden.
+        return canonicalize(value);
+    }
+
     protected boolean requiesDelimiters(String value)
     {
         return !value.equals(canonicalize(value));
