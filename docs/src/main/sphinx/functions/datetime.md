@@ -78,6 +78,8 @@ This is an alias for `CAST(x AS date)`.
 
 :::{function} last_day_of_month(x) -> date
 Returns the last day of the month.
+
+The type of `x` can be `date`, `timestamp` or `timestamp with time zone`.
 :::
 
 :::{function} from_iso8601_timestamp(string) -> timestamp(3) with time zone
@@ -127,8 +129,10 @@ SELECT from_iso8601_date('2020-123');
 ```
 :::
 
-:::{function} at_timezone(timestamp(p) with time zone, zone) -> timestamp(p) with time zone
-Converts a `timestamp(p) with time zone` to a time zone specified in `zone`.
+:::{function} at_timezone(x, zone) -> timestamp(p) with time zone
+Converts `x` to a time zone specified in `zone`.
+
+The type of `x` can be `time with time zone` or `timestamp with time zone`.
 
 In the following example, the input timezone is `GMT`, which is seven hours
 ahead of `America/Los_Angeles` in November 2022:
@@ -218,8 +222,10 @@ This is an alias for `current_timestamp`.
 :::
 
 :::{function} to_iso8601(x) -> varchar
-Formats `x` as an ISO 8601 string. `x` can be date, timestamp, or
-timestamp with time zone.
+Formats `x` as an ISO 8601 string.
+
+The type of `x` can be `date`, `time`, `time with timezone`, `timestamp` or
+`timestamp with time zone`.
 :::
 
 :::{function} to_milliseconds(interval) -> bigint
@@ -494,6 +500,8 @@ This SQL-standard function uses special syntax for specifying the arguments.
 
 :::{function} day(x) -> bigint
 Returns the day of the month from `x`.
+
+The type of `x` can be `date`, `timestamp` or `timestamp with time zone`.
 :::
 
 :::{function} day_of_month(x) -> bigint
@@ -503,11 +511,15 @@ This is an alias for {func}`day`.
 :::{function} day_of_week(x) -> bigint
 Returns the ISO day of the week from `x`.
 The value ranges from `1` (Monday) to `7` (Sunday).
+
+The type of `x` can be `date`, `timestamp` or `timestamp with time zone`.
 :::
 
 :::{function} day_of_year(x) -> bigint
 Returns the day of the year from `x`.
 The value ranges from `1` to `366`.
+
+The type of `x` can be `date`, `timestamp` or `timestamp with time zone`.
 :::
 
 :::{function} dow(x) -> bigint
@@ -521,27 +533,43 @@ This is an alias for {func}`day_of_year`.
 :::{function} hour(x) -> bigint
 Returns the hour of the day from `x`.
 The value ranges from `0` to `23`.
+
+The type of `x` can be `time`, `time with time zone`, `timestamp` or
+`timestamp with time zone`.
 :::
 
 :::{function} millisecond(x) -> bigint
 Returns the millisecond of the second from `x`.
+
+The type of `x` can be `time`, `time with time zone`, `timestamp` or
+`timestamp with time zone`.
 :::
 
 :::{function} minute(x) -> bigint
 Returns the minute of the hour from `x`.
+
+The type of `x` can be `time`, `time with time zone`, `timestamp` or
+`timestamp with time zone`.
 :::
 
 :::{function} month(x) -> bigint
 Returns the month of the year from `x`.
+
+The type of `x` can be `date`, `timestamp` or `timestamp with time zone`.
 :::
 
 :::{function} quarter(x) -> bigint
 Returns the quarter of the year from `x`.
 The value ranges from `1` to `4`.
+
+The type of `x` can be `date`, `timestamp` or `timestamp with time zone`.
 :::
 
 :::{function} second(x) -> bigint
 Returns the second of the minute from `x`.
+
+The type of `x` can be `time`, `time with time zone`, `timestamp` or
+`timestamp with time zone`.
 :::
 
 :::{function} timezone_hour(timestamp) -> bigint
@@ -555,6 +583,8 @@ Returns the minute of the time zone offset from `timestamp`.
 :::{function} week(x) -> bigint
 Returns the [ISO week] of the year from `x`.
 The value ranges from `1` to `53`.
+
+The type of `x` can be `date`, `timestamp` or `timestamp with time zone`.
 :::
 
 :::{function} week_of_year(x) -> bigint
@@ -563,10 +593,14 @@ This is an alias for {func}`week`.
 
 :::{function} year(x) -> bigint
 Returns the year from `x`.
+
+The type of `x` can be `date`, `timestamp` or `timestamp with time zone`.
 :::
 
 :::{function} year_of_week(x) -> bigint
 Returns the year of the [ISO week] from `x`.
+
+The type of `x` can be `date`, `timestamp` or `timestamp with time zone`.
 :::
 
 :::{function} yow(x) -> bigint
