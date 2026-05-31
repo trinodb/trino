@@ -2238,9 +2238,9 @@ public abstract class AbstractTestJoinQueries
         // TODO: increase lineitem schema size when build side short-circuit is fixed
         assertQuery(
                 noJoinReordering(),
-                "WITH empty_table AS (SELECT \"partkey\" as value FROM \"part\" WHERE \"name\" = 'a'), " +
-                        "slow_table AS (SELECT \"partkey\" as value FROM tpch.\"sf0.1\".lineitem) " +
-                        "SELECT slow_table.value FROM slow_table INNER JOIN empty_table ON slow_table.value = empty_table.value",
+                "WITH \"empty_table\" AS (SELECT \"partkey\" as value FROM \"part\" WHERE \"name\" = 'a'), " +
+                        "\"slow_table\" AS (SELECT \"partkey\" as value FROM tpch.\"sf0.1\".lineitem) " +
+                        "SELECT \"slow_table\".value FROM \"slow_table\" INNER JOIN \"empty_table\" ON \"slow_table\".value = \"empty_table\".value",
                 "SELECT 0 WHERE false");
     }
 
@@ -2251,9 +2251,9 @@ public abstract class AbstractTestJoinQueries
         // TODO: increase lineitem schema size when build side short-circuit is fixed
         assertQuery(
                 noJoinReordering(),
-                "WITH empty_table AS (SELECT \"partkey\" as value FROM \"part\" WHERE \"name\" = 'a'), " +
-                        "slow_table AS (SELECT count(*) as value FROM tpch.\"sf0.1\".lineitem) " +
-                        "SELECT slow_table.value FROM slow_table RIGHT JOIN empty_table ON slow_table.value = empty_table.value",
+                "WITH \"empty_table\" AS (SELECT \"partkey\" as value FROM \"part\" WHERE \"name\" = 'a'), " +
+                        "\"slow_table\" AS (SELECT count(*) as value FROM tpch.\"sf0.1\".lineitem) " +
+                        "SELECT \"slow_table\".value FROM \"slow_table\" RIGHT JOIN \"empty_table\" ON \"slow_table\".value = \"empty_table\".value",
                 "SELECT 0 WHERE false");
     }
 
@@ -2262,7 +2262,7 @@ public abstract class AbstractTestJoinQueries
     {
         assertQuery(
                 noJoinReordering(),
-                "WITH small_part AS (SELECT * FROM \"part\" WHERE \"name\" = 'a') SELECT \"lineitem\".\"orderkey\" FROM \"lineitem\" LEFT JOIN small_part ON \"lineitem\".\"partkey\" = small_part.\"partkey\"");
+                "WITH \"small_part\" AS (SELECT * FROM \"part\" WHERE \"name\" = 'a') SELECT \"lineitem\".\"orderkey\" FROM \"lineitem\" LEFT JOIN \"small_part\" ON \"lineitem\".\"partkey\" = \"small_part\".\"partkey\"");
     }
 
     @Test
@@ -2270,9 +2270,9 @@ public abstract class AbstractTestJoinQueries
     {
         assertQuery(
                 noJoinReordering(),
-                "WITH small_part AS (SELECT * FROM \"part\" WHERE \"name\" = 'a') SELECT \"lineitem\".\"orderkey\" FROM \"lineitem\" FULL OUTER JOIN small_part ON \"lineitem\".\"partkey\" = small_part.\"partkey\"",
+                "WITH \"small_part\" AS (SELECT * FROM \"part\" WHERE \"name\" = 'a') SELECT \"lineitem\".\"orderkey\" FROM \"lineitem\" FULL OUTER JOIN \"small_part\" ON \"lineitem\".\"partkey\" = \"small_part\".\"partkey\"",
                 // H2 doesn't support FULL OUTER
-                "WITH small_part AS (SELECT * FROM \"part\" WHERE \"name\" = 'a') SELECT \"lineitem\".\"orderkey\" FROM \"lineitem\" LEFT JOIN small_part ON \"lineitem\".\"partkey\" = small_part.\"partkey\"");
+                "WITH \"small_part\" AS (SELECT * FROM \"part\" WHERE \"name\" = 'a') SELECT \"lineitem\".\"orderkey\" FROM \"lineitem\" LEFT JOIN \"small_part\" ON \"lineitem\".\"partkey\" = \"small_part\".\"partkey\"");
     }
 
     @Test
@@ -2282,9 +2282,9 @@ public abstract class AbstractTestJoinQueries
         // TODO: increase lineitem schema size when probe side short-circuit is fixed
         assertQuery(
                 noJoinReordering(),
-                "WITH empty_table AS (SELECT \"partkey\" as value FROM \"part\" WHERE \"name\" = 'a'), " +
-                        "slow_table AS (SELECT count(*) as value FROM tpch.\"sf0.1\".lineitem) " +
-                        "SELECT slow_table.value FROM empty_table INNER JOIN slow_table ON slow_table.value = empty_table.value",
+                "WITH \"empty_table\" AS (SELECT \"partkey\" as value FROM \"part\" WHERE \"name\" = 'a'), " +
+                        "\"slow_table\" AS (SELECT count(*) as value FROM tpch.\"sf0.1\".lineitem) " +
+                        "SELECT \"slow_table\".value FROM \"empty_table\" INNER JOIN \"slow_table\" ON \"slow_table\".value = \"empty_table\".value",
                 "SELECT 0 WHERE false");
     }
 
@@ -2293,7 +2293,7 @@ public abstract class AbstractTestJoinQueries
     {
         assertQuery(
                 noJoinReordering(),
-                "WITH small_part AS (SELECT * FROM \"part\" WHERE \"name\" = 'a') SELECT \"lineitem\".\"orderkey\" FROM small_part RIGHT JOIN \"lineitem\" ON  small_part.\"partkey\" = \"lineitem\".\"partkey\"");
+                "WITH \"small_part\" AS (SELECT * FROM \"part\" WHERE \"name\" = 'a') SELECT \"lineitem\".\"orderkey\" FROM \"small_part\" RIGHT JOIN \"lineitem\" ON \"small_part\".\"partkey\" = \"lineitem\".\"partkey\"");
     }
 
     @Test

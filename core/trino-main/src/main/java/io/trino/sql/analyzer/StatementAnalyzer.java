@@ -2514,7 +2514,7 @@ class StatementAnalyzer
             analysis.registerTable(table, tableHandle, targetTableName, getBranchName(table), session.getIdentity().getUser(), accessControlScope, Optional.empty());
 
             // FIXME: To be able to have working JOIN and MERGE clause then we need to inject the connector resolver in tableScope
-            Scope tableScope = createAndAssignScope(plannerContext.getResolverManager().getTableResolver(resolver), table, scope, outputFields);
+            Scope tableScope = createAndAssignScope(resolver, table, scope, outputFields);
 
             if (addRowIdColumn) {
                 FieldReference reference = new FieldReference(outputFields.size() - 1);
@@ -3323,8 +3323,9 @@ class StatementAnalyzer
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope.orElseThrow());
-            // FIXME: The queryScope resolver need to be propagated to the outer query if present.
-            return createAndAssignScope(queryScope.getResolver(), node, scope, queryScope.getRelationType());
+            // FIXME: For queries other than WITH, the query scope resolver must be propagated to the outer query.
+            Optional<Resolver> resolver = plannerContext.getResolverManager().isWithQuery() ? Optional.empty() : queryScope.getResolver();
+            return createAndAssignScope(resolver, node, scope, queryScope.getRelationType());
        }
 
         private String getScopeInfo(Optional<Scope> scope)

@@ -68,15 +68,15 @@ public class ResolverManager
         return Optional.empty();
     }
 
+    public Boolean isWithQuery()
+    {
+        return isWithQuery;
+    }
+
     public Resolver getWithResolver()
     {
         isWithQuery = true;
         return WITH_RESOLVER;
-    }
-
-    public Optional<Resolver> getTableResolver(Resolver resolver)
-    {
-        return isWithQuery ? Optional.empty() : Optional.of(resolver);
     }
 
     public Resolver getDefaultResolver()
