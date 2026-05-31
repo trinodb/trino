@@ -784,7 +784,6 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitIdentifier(Identifier node, Context context)
         {
-            //System.out.println("ExpressionAnalyzer.visitIdentifier() stacktrace: " + Arrays.toString(Thread.currentThread().getStackTrace()).replace(',', '\n'));
             ResolvedField resolvedField = context.getScope().resolveField(node, node);
 
             if (context.isPatternRecognition()) {
@@ -837,15 +836,15 @@ public class ExpressionAnalyzer
                 throw semanticException(NOT_SUPPORTED, node, "<identifier>.* not allowed in this context");
             }
 
-            // FIXME: scope context resolver will be used to resolve DereferenceExpression
-            Function<Identifier, String> canonicalizer = getQueryResolver(context.getScope()).getCanonicalizer();
-            QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(canonicalizer, node);
+            // FIXME: query resolver will be used to resolve DereferenceExpression
+            Resolver resolver = plannerContext.getQueryResolver(session, Optional.of(context.getScope()));
+            QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(resolver.getCanonicalizer(), node);
 
             // If this Dereference looks like column reference, try match it to column first.
             if (qualifiedName != null) {
                 // In the context of row pattern matching, fields are optionally prefixed with labels. Labels are irrelevant during type analysis.
                 if (context.isPatternRecognition()) {
-                    String label = label(canonicalizer, qualifiedName.getOriginalParts().getFirst());
+                    String label = label(resolver.getCanonicalizer(), qualifiedName.getOriginalParts().getFirst());
                     if (context.getPatternRecognitionContext().labels().contains(label)) {
                         // In the context of row pattern matching, the name of row pattern input table cannot be used to qualify column names.
                         // (it can only be accessed in PARTITION BY and ORDER BY clauses of MATCH_RECOGNIZE). Consequentially, if a dereference
@@ -913,14 +912,6 @@ public class ExpressionAnalyzer
             }
 
             return setExpressionType(node, rowFieldType);
-        }
-
-        private Resolver getQueryResolver(Scope scope)
-        {
-            if (scope.getResolver().isPresent()) {
-                return scope.getResolver().get();
-            }
-            return plannerContext.getResolverManager().getDefaultResolver();
         }
 
         @Override
@@ -2847,7 +2838,7 @@ public class ExpressionAnalyzer
                         .ifPresent(function -> {
                             throw semanticException(NOT_SUPPORTED, function, "IN-PREDICATE with %s function is not yet supported", function.getName().getSuffix());
                         });
-                Function<Identifier, String> canonicalizer = getQueryResolver(context.getScope()).getCanonicalizer();
+                Function<Identifier, String> canonicalizer = plannerContext.getQueryResolver(session, Optional.of(context.getScope())).getCanonicalizer();
                 extractExpressions(ImmutableList.of(value), DereferenceExpression.class)
                         .forEach(dereference -> {
                             QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(canonicalizer, dereference);

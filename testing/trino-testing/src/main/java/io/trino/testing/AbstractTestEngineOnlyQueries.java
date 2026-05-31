@@ -1478,12 +1478,13 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testDescribeOutputDateTimeTypes()
     {
+        // FIXME: Query without any connector use the SQL canonicalizer (ie: UPPERCASE_CANONICALIZER)
         Session session = getSession();
         String sql = "SELECT localtimestamp a, current_timestamp b, localtime c";
         MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
-                .row("a", "", "", "", "timestamp(3)", 8, true)
-                .row("b", "", "", "", "timestamp(3) with time zone", 8, true)
-                .row("c", "", "", "", "time(3)", 8, true)
+                .row(sqlCanonicalize("a"), "", "", "", "timestamp(3)", 8, true)
+                .row(sqlCanonicalize("b"), "", "", "", "timestamp(3) with time zone", 8, true)
+                .row(sqlCanonicalize("c"), "", "", "", "time(3)", 8, true)
                 .build();
         assertDescribeOutputWithBothSyntax(session, sql, expected);
     }
@@ -2942,7 +2943,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 """
                 WITH a AS (
                   WITH aa AS (SELECT 123 "x" FROM "orders" LIMIT 1)
-                  SELECT x y FROM aa
+                  SELECT "x" y FROM aa
                 ), b AS (
                   WITH bb AS (
                     WITH bbb AS (SELECT y FROM a)
@@ -5250,49 +5251,55 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         // find customers with a sequence of 6+ orders with rising prices
         // FIXME: Cant make this test working without using delimited table name
-        assertQuery(
-                "SELECT \"m\".\"custkey\", \"m\".matchno, \"m\".lowest_price, \"m\".highest_price " +
-                        "          FROM \"orders\" " +
-                        "                 MATCH_RECOGNIZE ( " +
-                        "                   PARTITION BY \"custkey\" " +
-                        "                   ORDER BY \"orderdate\" " +
-                        "                   MEASURES " +
-                        "                            \"a\".\"totalprice\" AS lowest_price, " +
-                        "                            FINAL LAST(\"r\".\"totalprice\") AS highest_price, " +
-                        "                            MATCH_NUMBER() AS matchno " +
-                        "                   ONE ROW PER MATCH " +
-                        "                   PATTERN (\"a\" \"r\"{5,}) " +
-                        "                   DEFINE \"r\" AS \"r\".\"totalprice\" > PREV(\"r\".\"totalprice\") " +
-                        "                ) AS m",
-                " VALUES " +
-                        "(223, 1, 35243.42, 272842.24), " +
-                        "(364, 1, 98466.62, 190993.28), " +
-                        "(806, 1, 67625.86, 265458.02), " +
-                        "(874, 1, 57276.82, 300848.95), " +
-                        "(1180, 1, 28357.41, 222579.79), " +
-                        "(1198, 1, 29882.15, 170142.7), " +
-                        "(1411, 1, 5618.66, 178192.17) ");
+        assertQuery("""
+                SELECT m."custkey", m.matchno, m.lowest_price, m.highest_price \
+                   FROM "orders" \
+                      MATCH_RECOGNIZE ( \
+                         PARTITION BY "custkey" \
+                         ORDER BY "orderdate" \
+                         MEASURES \
+                            a."totalprice" AS lowest_price, \
+                            FINAL LAST(r."totalprice") AS highest_price, \
+                            MATCH_NUMBER() AS matchno \
+                         ONE ROW PER MATCH \
+                         PATTERN (a r{5,}) \
+                         DEFINE r AS r."totalprice" > PREV(r."totalprice") \
+                      ) AS m\
+                """,
+                """
+                VALUES \
+                   (223, 1, 35243.42, 272842.24), \
+                   (364, 1, 98466.62, 190993.28), \
+                   (806, 1, 67625.86, 265458.02), \
+                   (874, 1, 57276.82, 300848.95), \
+                   (1180, 1, 28357.41, 222579.79), \
+                   (1198, 1, 29882.15, 170142.7), \
+                   (1411, 1, 5618.66, 178192.17)\
+                """);
 
         // find customers doing small orders after a big order
-        assertQuery(
-                "SELECT \"m\".\"custkey\", \"m\".matchno, \"m\".classy, \"m\".\"totalprice\", \"m\".time_since_last " +
-                        "          FROM \"orders\" " +
-                        "                 MATCH_RECOGNIZE ( " +
-                        "                   PARTITION BY \"custkey\" " +
-                        "                   ORDER BY \"orderdate\" " +
-                        "                   MEASURES " +
-                        "                            CAST(\"small\".\"orderdate\" - PREV(\"orderdate\") AS varchar) AS time_since_last, " +
-                        "                            CLASSIFIER() AS classy, " +
-                        "                            MATCH_NUMBER() AS matchno " +
-                        "                   ALL ROWS PER MATCH " +
-                        "                   PATTERN (\"big\" \"small\"+) " +
-                        "                   DEFINE \"small\" AS \"small\".\"totalprice\" < \"big\".\"totalprice\" * 0.005 " +
-                        "                ) AS m",
-                "VALUES " +
-                        "(1436, 1, 'big', 291066.38, null), " +
-                        "(1436, 1, 'small', 1258.33, '28 00:00:00.000'), " +
-                        "(1400, 1, 'big', 319491.64, null), " +
-                        "(1400, 1, 'small', 1301.08, '85 00:00:00.000') ");
+        assertQuery("""
+                SELECT m."custkey", m.matchno, m.classy, m."totalprice", m.time_since_last \
+                   FROM "orders" \
+                      MATCH_RECOGNIZE ( \
+                         PARTITION BY "custkey" \
+                         ORDER BY "orderdate" \
+                         MEASURES \
+                            CAST(small."orderdate" - PREV("orderdate") AS varchar) AS time_since_last, \
+                            CLASSIFIER() AS classy, \
+                            MATCH_NUMBER() AS matchno \
+                         ALL ROWS PER MATCH \
+                         PATTERN (big small+) \
+                         DEFINE small AS small."totalprice" < big."totalprice" * 0.005 \
+                      ) AS m\
+                """,
+                """
+                VALUES \
+                   (1436, 1, '%1$s', 291066.38, null), \
+                   (1436, 1, '%2$s', 1258.33, '28 00:00:00.000'), \
+                   (1400, 1, '%1$s', 319491.64, null), \
+                   (1400, 1, '%2$s', 1301.08, '85 00:00:00.000')\
+                """.formatted(canonicalize("big"), canonicalize("small")));
     }
 
     @Test
@@ -5335,27 +5342,29 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testJoinedPatternMatch()
     {
-        // FIXME: Cant make this test working without using delimited table name
-        assertQuery(
-                "SELECT \"m\".\"custkey\", \"c\".\"name\", \"m\".highest_price " +
-                        "          FROM \"orders\" " +
-                        "                 MATCH_RECOGNIZE ( " +
-                        "                   PARTITION BY \"custkey\" " +
-                        "                   ORDER BY \"orderdate\" " +
-                        "                   MEASURES FINAL LAST(\"r\".\"totalprice\") AS highest_price " +
-                        "                   ONE ROW PER MATCH " +
-                        "                   PATTERN (A \"r\"{5,}) " +
-                        "                   DEFINE \"r\" AS \"r\".\"totalprice\" > PREV(\"r\".\"totalprice\") " +
-                        "                ) AS m" +
-                        "                JOIN \"customer\" c ON c.\"custkey\" = m.\"custkey\" ",
-                "VALUES " +
-                        "(223, 'Customer#000000223', 272842.24), " +
-                        "(364, 'Customer#000000364', 190993.28), " +
-                        "(806, 'Customer#000000806', 265458.02), " +
-                        "(874, 'Customer#000000874', 300848.95), " +
-                        "(1180, 'Customer#000001180', 222579.79), " +
-                        "(1198, 'Customer#000001198', 170142.7), " +
-                        "(1411, 'Customer#000001411', 178192.17) ");
+        assertQuery("""
+                    SELECT m."custkey", c."name", m.highest_price \
+                       FROM "orders" \
+                          MATCH_RECOGNIZE ( \
+                             PARTITION BY "custkey" \
+                             ORDER BY "orderdate" \
+                             MEASURES FINAL LAST(R."totalprice") AS highest_price \
+                                ONE ROW PER MATCH \
+                                PATTERN (A R{5,}) \
+                                DEFINE R AS R."totalprice" > PREV(R."totalprice") \
+                          ) AS m \
+                       JOIN "customer" c ON c."custkey" = m."custkey" \
+                    """,
+                    """
+                    VALUES \
+                       (223, 'Customer#000000223', 272842.24), \
+                       (364, 'Customer#000000364', 190993.28), \
+                       (806, 'Customer#000000806', 265458.02), \
+                       (874, 'Customer#000000874', 300848.95), \
+                       (1180, 'Customer#000001180', 222579.79), \
+                       (1198, 'Customer#000001198', 170142.7), \
+                       (1411, 'Customer#000001411', 178192.17)\
+                    """);
     }
 
     @Test

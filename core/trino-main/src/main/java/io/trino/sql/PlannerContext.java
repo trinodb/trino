@@ -26,10 +26,12 @@ import io.trino.metadata.ResolverManager;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
+import io.trino.sql.analyzer.Scope;
 import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.tree.Resolver;
 
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
@@ -142,6 +144,14 @@ public class PlannerContext
     public Resolver getResolver(Session session, String catalog)
     {
         return resolverManager.getResolver(session, catalog, metadata::getResolver);
+    }
+
+    public Resolver getQueryResolver(Session session, Optional<Scope> scope)
+    {
+        if (scope.isPresent() && scope.get().getResolver().isPresent()) {
+            return scope.get().getResolver().get();
+        }
+        return resolverManager.getQueryResolver(session.getQueryId().id()).orElse(resolverManager.getDefaultResolver());
     }
 
     public ResolverManager getResolverManager()

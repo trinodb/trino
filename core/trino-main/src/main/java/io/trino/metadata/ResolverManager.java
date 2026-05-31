@@ -40,6 +40,7 @@ public class ResolverManager
 
     private final Map<String, Resolver> resolvers = new ConcurrentHashMap<>();
     private final Map<String, String> queries = new ConcurrentHashMap<>();
+    private boolean isWithQuery;
 
     public ResolverManager() {}
 
@@ -51,30 +52,36 @@ public class ResolverManager
         return resolvers.get(catalog);
     }
 
-    public void setResolver(String queryId, Resolver resolver)
+    public void setQueryResolver(Session session, Resolver resolver)
     {
         if (!hasResolver(resolver.getCatalog())) {
             resolvers.put(resolver.getCatalog(), resolver);
         }
-        this.queries.put(queryId, resolver.getCatalog());
+        queries.put(session.getQueryId().id(), resolver.getCatalog());
     }
 
-    public Resolver getWithResolver()
-    {
-        return WITH_RESOLVER;
-    }
-
-    public Resolver getDefaultResolver()
-    {
-        return DEFAULT_RESOLVER;
-    }
-
-    public Optional<Resolver> getResolver(String queryId)
+    public Optional<Resolver> getQueryResolver(String queryId)
     {
         if (queries.containsKey(queryId) && hasResolver(queries.get(queryId))) {
             return Optional.of(resolvers.get(queries.get(queryId)));
         }
         return Optional.empty();
+    }
+
+    public Resolver getWithResolver()
+    {
+        isWithQuery = true;
+        return WITH_RESOLVER;
+    }
+
+    public Optional<Resolver> getTableResolver(Resolver resolver)
+    {
+        return isWithQuery ? Optional.empty() : Optional.of(resolver);
+    }
+
+    public Resolver getDefaultResolver()
+    {
+        return DEFAULT_RESOLVER;
     }
 
     private boolean hasResolver(String catalog)
