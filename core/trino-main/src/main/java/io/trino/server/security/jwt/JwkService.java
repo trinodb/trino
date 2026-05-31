@@ -16,7 +16,6 @@ package io.trino.server.security.jwt;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Closer;
 import io.airlift.concurrent.Threads;
-import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StringResponseHandler.StringResponse;
@@ -37,7 +36,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.net.HttpHeaders.USER_AGENT;
+import static io.airlift.http.client.HeaderNames.USER_AGENT;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static io.trino.server.security.jwt.JwkDecoder.decodeKeys;
@@ -47,7 +46,7 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 public final class JwkService
 {
     private static final Logger log = Logger.get(JwkService.class);
-    private static final HeaderName USER_AGENT_HEADER = HeaderName.of(USER_AGENT);
+    private static final Duration DEFAULT_REFRESH_DELAY = new Duration(15, TimeUnit.MINUTES);
 
     private final URI address;
     private final HttpClient httpClient;
@@ -58,20 +57,9 @@ public final class JwkService
     @Generated("this")
     private Closer closer;
 
-    public JwkService(URI address, HttpClient httpClient)
-    {
-        this(address, httpClient, new NodeVersion("unknown"));
-    }
-
     public JwkService(URI address, HttpClient httpClient, NodeVersion nodeVersion)
     {
-        this(address, httpClient, new Duration(15, TimeUnit.MINUTES), nodeVersion);
-    }
-
-    @VisibleForTesting
-    public JwkService(URI address, HttpClient httpClient, Duration refreshDelay)
-    {
-        this(address, httpClient, refreshDelay, new NodeVersion("unknown"));
+        this(address, httpClient, DEFAULT_REFRESH_DELAY, nodeVersion);
     }
 
     @VisibleForTesting
@@ -149,7 +137,7 @@ public final class JwkService
     {
         Request request = prepareGet()
                 .setUri(address)
-                .setHeader(USER_AGENT_HEADER, userAgent)
+                .setHeader(USER_AGENT, userAgent)
                 .build();
         StringResponse response;
         try {

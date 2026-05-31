@@ -13,7 +13,6 @@
  */
 package io.trino.server.security.jwt;
 
-import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Response;
@@ -28,8 +27,8 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static com.google.common.net.MediaType.JSON_UTF_8;
+import static io.airlift.http.client.HeaderNames.USER_AGENT;
 import static io.airlift.http.client.testing.TestingResponse.mockResponse;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -38,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestJwkService
 {
+    private static final NodeVersion TEST_VERSION = new NodeVersion("test-version");
     private static final String EMPTY_KEYS = "{ \"keys\": [] }";
     private static final String TEST_JWK_RESPONSE = "" +
             "{\n" +
@@ -78,7 +78,7 @@ public class TestJwkService
     public void testSuccess()
     {
         HttpClient httpClient = new TestingHttpClient(_ -> mockResponse(HttpStatus.OK, JSON_UTF_8, TEST_JWK_RESPONSE));
-        JwkService service = new JwkService(URI.create("http://example.com"), httpClient, new Duration(1, DAYS));
+        JwkService service = new JwkService(URI.create("http://example.com"), httpClient, new Duration(1, DAYS), TEST_VERSION);
         assertTestKeys(service);
     }
 
@@ -88,11 +88,11 @@ public class TestJwkService
         JwkService service = new JwkService(
                 URI.create("http://example.com"),
                 new TestingHttpClient(request -> {
-                    assertThat(request.getHeader(HeaderName.of(USER_AGENT))).isEqualTo("Trino/test-version");
+                    assertThat(request.getHeader(USER_AGENT)).isEqualTo("Trino/" + TEST_VERSION.version());
                     return mockResponse(HttpStatus.OK, JSON_UTF_8, EMPTY_KEYS);
                 }),
                 new Duration(1, DAYS),
-                new NodeVersion("test-version"));
+                TEST_VERSION);
 
         assertEmptyKeys(service);
     }
@@ -101,7 +101,7 @@ public class TestJwkService
     public void testReload()
     {
         AtomicReference<Response> response = new AtomicReference<>(mockResponse(HttpStatus.OK, JSON_UTF_8, EMPTY_KEYS));
-        JwkService service = new JwkService(URI.create("http://example.com"), new TestingHttpClient(_ -> response.get()), new Duration(1, DAYS));
+        JwkService service = new JwkService(URI.create("http://example.com"), new TestingHttpClient(_ -> response.get()), new Duration(1, DAYS), TEST_VERSION);
         assertEmptyKeys(service);
 
         response.set(mockResponse(HttpStatus.OK, JSON_UTF_8, EMPTY_KEYS));
@@ -126,7 +126,7 @@ public class TestJwkService
             throws InterruptedException
     {
         AtomicReference<Supplier<Response>> response = new AtomicReference<>(() -> mockResponse(HttpStatus.OK, JSON_UTF_8, EMPTY_KEYS));
-        JwkService service = new JwkService(URI.create("http://example.com"), new TestingHttpClient(_ -> response.get().get()), new Duration(1, MILLISECONDS));
+        JwkService service = new JwkService(URI.create("http://example.com"), new TestingHttpClient(_ -> response.get().get()), new Duration(1, MILLISECONDS), TEST_VERSION);
         assertEmptyKeys(service);
 
         try {
@@ -163,7 +163,8 @@ public class TestJwkService
                     }
                     return value;
                 }),
-                new Duration(1, DAYS));
+                new Duration(1, DAYS),
+                TEST_VERSION);
         assertTestKeys(service);
 
         // request failure
@@ -183,7 +184,7 @@ public class TestJwkService
     public void testBadResponse()
     {
         AtomicReference<Response> response = new AtomicReference<>(mockResponse(HttpStatus.OK, JSON_UTF_8, TEST_JWK_RESPONSE));
-        JwkService service = new JwkService(URI.create("http://example.com"), new TestingHttpClient(_ -> response.get()), new Duration(1, DAYS));
+        JwkService service = new JwkService(URI.create("http://example.com"), new TestingHttpClient(_ -> response.get()), new Duration(1, DAYS), TEST_VERSION);
         assertTestKeys(service);
 
         // bad response code document

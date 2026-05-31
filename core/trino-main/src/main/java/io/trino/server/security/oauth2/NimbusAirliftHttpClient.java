@@ -33,12 +33,12 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
 
-import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static com.nimbusds.oauth2.sdk.http.HTTPRequest.Method.DELETE;
 import static com.nimbusds.oauth2.sdk.http.HTTPRequest.Method.GET;
 import static com.nimbusds.oauth2.sdk.http.HTTPRequest.Method.POST;
 import static com.nimbusds.oauth2.sdk.http.HTTPRequest.Method.PUT;
 import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
+import static io.airlift.http.client.HeaderNames.USER_AGENT;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
@@ -49,8 +49,6 @@ import static java.util.Objects.requireNonNull;
 public class NimbusAirliftHttpClient
         implements NimbusHttpClient
 {
-    private static final HeaderName USER_AGENT_HEADER = HeaderName.of(USER_AGENT);
-
     private final HttpClient httpClient;
     private final String userAgent;
 
@@ -74,7 +72,7 @@ public class NimbusAirliftHttpClient
             StringResponseHandler.StringResponse response = httpClient.execute(
                     prepareGet()
                             .setUri(url.toURI())
-                            .setHeader(USER_AGENT_HEADER, userAgent)
+                            .setHeader(USER_AGENT, userAgent)
                             .build(),
                     createStringResponseHandler());
             return new Resource(response.getBody(), response.getHeader(CONTENT_TYPE).orElse(null));
