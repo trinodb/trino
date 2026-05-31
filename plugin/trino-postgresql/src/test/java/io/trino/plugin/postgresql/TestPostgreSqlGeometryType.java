@@ -19,6 +19,7 @@ import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.utility.DockerImageName;
 
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestPostgreSqlGeometryType
@@ -64,6 +65,14 @@ final class TestPostgreSqlGeometryType
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("VALUES ST_Point(1, 1)");
         }
+        try (TestTable testTable = newTrinoTable(
+                "test_geometry_ctas",
+                "AS SELECT ST_Point(1, 1) geom")) {
+            assertThat(query(format("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '%s'", testTable.getName())))
+                    .matches("VALUES (varchar'geom', varchar'Geometry')");
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("VALUES ST_Point(1, 1)");
+        }
     }
 
     @Test
@@ -71,6 +80,16 @@ final class TestPostgreSqlGeometryType
     {
         try (TestTable table = new TestTable(postgreSqlServer::execute, "test_geometry_write", "(geom geometry)")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (ST_SetSRID(ST_Point(1, 1), 4326))", 1);
+            assertThat(query("SELECT ST_SRID(geom) FROM " + table.getName()))
+                    .matches("VALUES 4326");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES ST_Point(1, 1)");
+        }
+        try (TestTable table = newTrinoTable(
+                "test_geometry_ctas_with_srid",
+                "AS SELECT ST_SetSRID(ST_Point(1, 1), 4326) geom")) {
+            assertThat(query(format("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '%s'", table.getName())))
+                    .matches("VALUES (varchar'geom', varchar'Geometry')");
             assertThat(query("SELECT ST_SRID(geom) FROM " + table.getName()))
                     .matches("VALUES 4326");
             assertThat(query("SELECT * FROM " + table.getName()))
@@ -108,10 +127,6 @@ final class TestPostgreSqlGeometryType
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("VALUES NULL, ST_Point(12.345, -1.2)");
         }
-
-        assertQueryFails(
-                "CREATE TABLE trino_test_point AS SELECT ST_Point(1, 2) AS point",
-                "Unsupported column type: Geometry");
     }
 
     @Test

@@ -865,6 +865,9 @@ public class PostgreSqlClient
         if (type.equals(uuidType)) {
             return WriteMapping.sliceMapping("uuid", uuidWriteFunction());
         }
+        if (type.equals(geometryType)) {
+            return WriteMapping.objectMapping("geometry", geometryWriteFunction());
+        }
         if (type instanceof ArrayType arrayType && getArrayMapping(session) == AS_ARRAY) {
             Type elementType = arrayType.getElementType();
             String elementDataType = toWriteMapping(session, elementType).getDataType();
@@ -1934,31 +1937,36 @@ public class PostgreSqlClient
                         return geometryType.getObject(blockBuilder.build(), 0);
                     }
                 },
-                new ObjectWriteFunction()
-                {
-                    @Override
-                    public Class<?> getJavaType()
-                    {
-                        return geometryType.getJavaType();
-                    }
-
-                    @Override
-                    public String getBindExpression()
-                    {
-                        return "ST_GeomFromEWKB(?)";
-                    }
-
-                    @Override
-                    public void set(PreparedStatement statement, int index, Object value)
-                            throws SQLException
-                    {
-                        BlockBuilder blockBuilder = geometryType.createBlockBuilder(null, 1);
-                        geometryType.writeObject(blockBuilder, value);
-                        Slice slice = geometryType.getSlice(blockBuilder.build(), 0);
-                        statement.setBytes(index, slice.getBytes());
-                    }
-                },
+                geometryWriteFunction(),
                 DISABLE_PUSHDOWN);
+    }
+
+    private ObjectWriteFunction geometryWriteFunction()
+    {
+        return new ObjectWriteFunction()
+        {
+            @Override
+            public Class<?> getJavaType()
+            {
+                return geometryType.getJavaType();
+            }
+
+            @Override
+            public String getBindExpression()
+            {
+                return "ST_GeomFromEWKB(?)";
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Object value)
+                    throws SQLException
+            {
+                BlockBuilder blockBuilder = geometryType.createBlockBuilder(null, 1);
+                geometryType.writeObject(blockBuilder, value);
+                Slice slice = geometryType.getSlice(blockBuilder.build(), 0);
+                statement.setBytes(index, slice.getBytes());
+            }
+        };
     }
 
     private ColumnMapping pointColumnMapping()
