@@ -117,7 +117,7 @@ public final class TypeSignatureTranslator
         Set<String> variables = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         variables.addAll(typeVariables);
         try {
-            return toTypeSignature(DATA_TYPE_CACHE.get(signature.toLowerCase(ENGLISH), () -> parseDataType(signature)), variables);
+            return toTypeSignature(DATA_TYPE_CACHE.get(signature, () -> parseDataType(signature)), variables);
         }
         catch (Exception e) {
             if (e.getCause() != null) {

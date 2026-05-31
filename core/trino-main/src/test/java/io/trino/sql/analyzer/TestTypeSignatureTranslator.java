@@ -13,13 +13,16 @@
  */
 package io.trino.sql.analyzer;
 
+import io.trino.spi.type.TypeSignature;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.Identifier;
 import org.junit.jupiter.api.Test;
 
 import java.util.Comparator;
 import java.util.Locale;
+import java.util.Set;
 
+import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toDataType;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.parser.ParserAssert.type;
@@ -98,5 +101,33 @@ public class TestTypeSignatureTranslator
     public void testComplexTypes()
     {
         assertRoundTrip("ROW(x BIGINT, y DOUBLE PRECISION, z ROW(m array<bigint>,n map<double,varchar>))");
+    }
+
+    @Test
+    public void testParseTypeSignaturePreservesRowFieldNameCase()
+    {
+        // Regression test for a cache poisoning bug where DATA_TYPE_CACHE was keyed by the lowercased signature
+        // while storing the DataType parsed from the original-cased signature. The first case-variant of a row
+        // signature would then win for every later lookup, returning field names with the wrong casing.
+        // Downstream, NamedTypeSignature.equals is case-sensitive on field names, so function dependency
+        // resolution would miss and throw UndeclaredDependencyException at filter compile time.
+        TypeSignature camelCaseFirst = parseTypeSignature("row(\"memberId\" integer, \"viewerUrn\" varchar)", Set.of());
+        TypeSignature lowerCaseAfter = parseTypeSignature("row(\"memberid\" integer, \"viewerurn\" varchar)", Set.of());
+
+        assertThat(camelCaseFirst.toString())
+                .isEqualTo("row(\"memberId\" integer,\"viewerUrn\" varchar)");
+        assertThat(lowerCaseAfter.toString())
+                .isEqualTo("row(\"memberid\" integer,\"viewerurn\" varchar)");
+        assertThat(camelCaseFirst).isNotEqualTo(lowerCaseAfter);
+
+        // Reverse order: lowercase first, camelCase second. Both must still preserve their input casing.
+        TypeSignature lowerCaseFirst = parseTypeSignature("row(\"actorurn\" varchar, \"appname\" varchar)", Set.of());
+        TypeSignature camelCaseAfter = parseTypeSignature("row(\"actorUrn\" varchar, \"appName\" varchar)", Set.of());
+
+        assertThat(lowerCaseFirst.toString())
+                .isEqualTo("row(\"actorurn\" varchar,\"appname\" varchar)");
+        assertThat(camelCaseAfter.toString())
+                .isEqualTo("row(\"actorUrn\" varchar,\"appName\" varchar)");
+        assertThat(lowerCaseFirst).isNotEqualTo(camelCaseAfter);
     }
 }
