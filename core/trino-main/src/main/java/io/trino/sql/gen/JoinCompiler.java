@@ -540,7 +540,7 @@ public class JoinCompiler
                     .cast(Block.class);
 
             BytecodeExpression rightBlock = rightPage.invoke("getBlock", Block.class, constantInt(index));
-            BytecodeNode equalityCondition = typeEqualsIgnoreNulls(callSiteBinder, type, leftBlock, leftBlockPosition, rightBlock, rightPosition);
+            BytecodeNode equalityCondition = typeEqualsBothNotNull(callSiteBinder, type, leftBlock, leftBlockPosition, rightBlock, rightPosition);
 
             LabelNode checkNextField = new LabelNode("checkNextField");
             positionEqualsRowMethod
@@ -715,7 +715,7 @@ public class JoinCompiler
                     .invoke("get", Object.class, rightBlockIndex)
                     .cast(Block.class);
 
-            BytecodeNode equalityCondition = typeEqualsIgnoreNulls(callSiteBinder, type, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
+            BytecodeNode equalityCondition = typeEqualsBothNotNull(callSiteBinder, type, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
 
             LabelNode checkNextField = new LabelNode("checkNextField");
             positionEqualsPositionMethod
@@ -879,7 +879,10 @@ public class JoinCompiler
                 .append(isNull);
     }
 
-    private BytecodeNode typeEqualsIgnoreNulls(
+    // Both inputs are non-null on every equi-join key, so the equal operator skips its internal isNull checks.
+    // Callers guarantee this: DefaultPagesHash.indexPages skips null build positions, JoinProbe filters null
+    // probe rows, IndexSnapshotBuilder skips null index keys.
+    private BytecodeNode typeEqualsBothNotNull(
             CallSiteBinder callSiteBinder,
             Type type,
             BytecodeExpression leftBlock,
@@ -887,7 +890,7 @@ public class JoinCompiler
             BytecodeExpression rightBlock,
             BytecodeExpression rightBlockPosition)
     {
-        MethodHandle equalOperator = typeOperators.getEqualOperator(type, simpleConvention(DEFAULT_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+        MethodHandle equalOperator = typeOperators.getEqualOperator(type, simpleConvention(DEFAULT_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
         return invokeDynamic(
                 BOOTSTRAP_METHOD,
                 ImmutableList.of(callSiteBinder.bind(equalOperator).getBindingId()),

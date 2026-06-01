@@ -348,4 +348,31 @@ public class TestJoin
                 """))
                 .returnsEmptyResult();
     }
+
+    @Test
+    void testNullKeysInEquiJoin()
+    {
+        // Multi-column varchar keys route through DefaultPagesHash, whose equality codegen assumes non-null keys.
+        // EQUAL excludes rows with any null key.
+        assertThat(assertions.query(
+                """
+                SELECT *
+                FROM (VALUES ('a', 'x'), ('b', CAST(null AS varchar)), (CAST(null AS varchar), 'z')) t(a, b)
+                JOIN (VALUES ('a', 'x'), ('b', CAST(null AS varchar)), (CAST(null AS varchar), 'z')) u(a, b)
+                  ON t.a = u.a AND t.b = u.b
+                """))
+                .skippingTypesCheck()
+                .matches("VALUES ('a', 'x', 'a', 'x')");
+
+        // IS NOT DISTINCT FROM matches null to null and stays in the join filter, not the equi-join keys.
+        assertThat(assertions.query(
+                """
+                SELECT *
+                FROM (VALUES ('a', 'x'), ('b', CAST(null AS varchar)), (CAST(null AS varchar), 'z')) t(a, b)
+                JOIN (VALUES ('a', 'x'), ('b', CAST(null AS varchar)), (CAST(null AS varchar), 'z')) u(a, b)
+                  ON t.a IS NOT DISTINCT FROM u.a AND t.b IS NOT DISTINCT FROM u.b
+                """))
+                .skippingTypesCheck()
+                .matches("VALUES ('a', 'x', 'a', 'x'), ('b', null, 'b', null), (null, 'z', null, 'z')");
+    }
 }
