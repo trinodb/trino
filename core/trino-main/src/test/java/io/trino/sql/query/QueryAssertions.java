@@ -326,7 +326,13 @@ public class QueryAssertions
         @CanIgnoreReturnValue
         public QueryAssert matches(@Language("SQL") String query)
         {
-            result().matches(query);
+            return matches(session, query);
+        }
+
+        @CanIgnoreReturnValue
+        public QueryAssert matches(Session session, @Language("SQL") String query)
+        {
+            result().matches(session, query);
             return this;
         }
 
@@ -570,8 +576,7 @@ public class QueryAssertions
             Session withoutPushdown = Session.builder(session)
                     .setSystemProperty("allow_pushdown_into_connectors", "false")
                     .build();
-            result().matches(runner.execute(withoutPushdown, query()));
-            return this;
+            return matches(withoutPushdown, query());
         }
 
         private String query()
@@ -681,6 +686,12 @@ public class QueryAssertions
 
         @CanIgnoreReturnValue
         public ResultAssert matches(@Language("SQL") String query)
+        {
+            return matches(session, query);
+        }
+
+        @CanIgnoreReturnValue
+        public ResultAssert matches(Session session, @Language("SQL") String query)
         {
             MaterializedResult expected = runner.execute(session, query);
             return matches(expected);
