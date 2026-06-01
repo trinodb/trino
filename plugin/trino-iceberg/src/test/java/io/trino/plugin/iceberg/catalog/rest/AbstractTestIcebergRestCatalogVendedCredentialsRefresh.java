@@ -45,7 +45,7 @@ import static io.trino.tpch.TpchTable.REGION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Execution(ExecutionMode.SAME_THREAD)
-abstract class AbstractTestIcebergRestCatalogVendedCredentialsRefreshTest
+abstract class AbstractTestIcebergRestCatalogVendedCredentialsRefresh
         extends AbstractTestQueryFramework
 {
     private static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(REGION);

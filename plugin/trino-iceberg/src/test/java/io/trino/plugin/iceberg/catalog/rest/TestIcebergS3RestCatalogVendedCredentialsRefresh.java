@@ -38,8 +38,8 @@ import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static org.apache.iceberg.CatalogProperties.FILE_IO_IMPL;
 
-final class TestIcebergS3RestCatalogVendedCredentialsRefreshTest
-        extends AbstractTestIcebergRestCatalogVendedCredentialsRefreshTest
+final class TestIcebergS3RestCatalogVendedCredentialsRefresh
+        extends AbstractTestIcebergRestCatalogVendedCredentialsRefresh
 {
     private final String bucketName = "test-iceberg-refresh-vending-credentials-rest-" + randomNameSuffix();
     private Minio minio;
