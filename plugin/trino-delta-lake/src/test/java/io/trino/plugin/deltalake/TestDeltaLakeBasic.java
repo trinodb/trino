@@ -3076,4 +3076,132 @@ public class TestDeltaLakeBasic
                 .orElseThrow()
                 .getEntriesList(FILE_SYSTEM);
     }
+
+    // -------------------------------------------------------------------------
+    // WHEN NOT MATCHED BY SOURCE
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testMergeNotMatchedBySourceDeleteRewritesFiles()
+    {
+        // Target without deletion_vectors_enabled → BY SOURCE DELETE rewrites the data file.
+        String tableName = "test_merge_by_source_delete_rewrite_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (k int, v int)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)", 5);
+
+        // Source covers keys 2 and 4 → keys 1, 3, 5 are deleted.
+        assertUpdate(
+                "MERGE INTO " + tableName + " t " +
+                        "USING (VALUES 2, 4) s(k) ON t.k = s.k " +
+                        "WHEN NOT MATCHED BY SOURCE THEN DELETE",
+                3);
+
+        assertThat(query("SELECT * FROM " + tableName + " ORDER BY k"))
+                .matches("VALUES (2, 20), (4, 40)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMergeNotMatchedBySourceDeleteWithDeletionVectors()
+            throws Exception
+    {
+        // With deletion_vectors_enabled = true, BY SOURCE DELETE writes a deletion vector
+        // rather than rewriting the data file.
+        String tableName = "test_merge_by_source_delete_dv_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (k int, v int) WITH (deletion_vectors_enabled = true)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)", 5);
+
+        String tableLocation = getTableLocation(tableName);
+
+        assertUpdate(
+                "MERGE INTO " + tableName + " t " +
+                        "USING (VALUES 2, 4) s(k) ON t.k = s.k " +
+                        "WHEN NOT MATCHED BY SOURCE THEN DELETE",
+                3);
+
+        assertThat(query("SELECT * FROM " + tableName + " ORDER BY k"))
+                .matches("VALUES (2, 20), (4, 40)");
+
+        // The MERGE produced a transaction; its AddFile entry must reference a deletion vector
+        // (i.e. the data file was preserved and a DV attached) rather than rewriting.
+        List<DeltaLakeTransactionLogEntry> mergeLog = getEntriesFromJson(2, tableLocation + "/_delta_log");
+        assertThat(mergeLog.stream()
+                .map(DeltaLakeTransactionLogEntry::getAdd)
+                .filter(Objects::nonNull)
+                .anyMatch(add -> add.getDeletionVector().isPresent()))
+                .isTrue();
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMergeNotMatchedBySourceUpdate()
+    {
+        String tableName = "test_merge_by_source_update_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (k int, v int, archived boolean)");
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES (1, 10, false), (2, 20, false), (3, 30, false), (4, 40, false), (5, 50, false)",
+                5);
+
+        // SCD-2 style: rows not in source AND not already archived → flip archived flag.
+        assertUpdate(
+                "MERGE INTO " + tableName + " t " +
+                        "USING (VALUES 2, 4) s(k) ON t.k = s.k " +
+                        "WHEN NOT MATCHED BY SOURCE AND t.archived = false THEN UPDATE SET archived = true",
+                3);
+
+        assertThat(query("SELECT k, archived FROM " + tableName + " ORDER BY k"))
+                .matches("VALUES (1, true), (2, false), (3, true), (4, false), (5, true)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMergeAllThreeClauseKinds()
+    {
+        // MATCHED + BY TARGET + BY SOURCE → FULL OUTER join.
+        String tableName = "test_merge_all_three_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (k int, v int)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)", 5);
+
+        // Source: key 2 (matches), key 6 (new).
+        // Expected: key 2 → UPDATE; key 6 → INSERT; keys 1, 3, 4, 5 → DELETE.  Total = 6 rows.
+        assertUpdate(
+                "MERGE INTO " + tableName + " t " +
+                        "USING (VALUES (2, 200), (6, 600)) s(k, v) ON t.k = s.k " +
+                        "WHEN MATCHED THEN UPDATE SET v = s.v " +
+                        "WHEN NOT MATCHED THEN INSERT (k, v) VALUES (s.k, s.v) " +
+                        "WHEN NOT MATCHED BY SOURCE THEN DELETE",
+                6);
+
+        assertThat(query("SELECT * FROM " + tableName + " ORDER BY k"))
+                .matches("VALUES (2, 200), (6, 600)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMergeNotMatchedBySourcePartitionedWithPredicate()
+    {
+        // Partitioned target + BY SOURCE predicate against the partition column.
+        // Engine-side §5.4 pushdown must not break correctness.
+        String tableName = "test_merge_by_source_partitioned_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (k int, region int) WITH (partitioned_by = ARRAY['region'])");
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES (1, 0), (2, 0), (3, 1), (4, 1), (5, 2)",
+                5);
+
+        // Source covers no rows; BY SOURCE predicate targets region 1 only → 2 deletes.
+        assertUpdate(
+                "MERGE INTO " + tableName + " t " +
+                        "USING (VALUES 999) s(k) ON t.k = s.k " +
+                        "WHEN NOT MATCHED BY SOURCE AND t.region = 1 THEN DELETE",
+                2);
+
+        assertThat(query("SELECT * FROM " + tableName + " ORDER BY k"))
+                .matches("VALUES (1, 0), (2, 0), (5, 2)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
 }
