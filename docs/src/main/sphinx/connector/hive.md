@@ -1528,6 +1528,11 @@ cause instability and performance degradation.
         splits result in more parallelism and thus can decrease latency, but
         also have more overhead and increase load on the system.
   - `64 MB`
+* - `hive.parquet.max-split-size`
+  - The largest size of a single file section assigned to a worker for Parquet
+    files. Defaults to slightly below the typical Parquet row group size so that
+    splits align to row group boundaries.
+  - `120 MB`
 :::
 
 ## Hive 3-related limitations
