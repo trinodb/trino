@@ -83,17 +83,28 @@ public final class HiveQueryRunner
         return builder().build();
     }
 
-    public static Builder<Builder<?>> builder()
+    public static ConcreteBuilder builder()
     {
-        return new Builder<>();
+        return new ConcreteBuilder();
     }
 
-    public static Builder<Builder<?>> builder(Session defaultSession)
+    public static ConcreteBuilder builder(Session defaultSession)
     {
-        return new Builder<>(defaultSession);
+        return new ConcreteBuilder(defaultSession);
     }
 
-    public static class Builder<SELF extends Builder<?>>
+    public static final class ConcreteBuilder
+            extends Builder<ConcreteBuilder>
+    {
+        private ConcreteBuilder() {}
+
+        private ConcreteBuilder(Session defaultSession)
+        {
+            super(defaultSession);
+        }
+    }
+
+    public static class Builder<SELF extends Builder<SELF>>
             extends DistributedQueryRunner.Builder<SELF>
     {
         private boolean skipTimezoneSetup;
