@@ -83,6 +83,13 @@ public class PushProjectionThroughExchange
     public Result apply(ProjectNode project, Captures captures, Context context)
     {
         ExchangeNode exchange = captures.get(CHILD);
+        PlanNode exchangeNode = pushProjectThroughExchange(project, exchange, context);
+        // we need to strip unnecessary symbols (hash, partitioning columns).
+        return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), exchangeNode, ImmutableSet.copyOf(project.getOutputSymbols())).orElse(exchangeNode));
+    }
+
+    public static ExchangeNode pushProjectThroughExchange(ProjectNode project, ExchangeNode exchange, Context context)
+    {
         Set<Symbol> partitioningColumns = exchange.getPartitioningScheme().getPartitioning().getColumns();
 
         ImmutableList.Builder<PlanNode> newSourceBuilder = ImmutableList.builder();
@@ -164,7 +171,7 @@ public class PushProjectionThroughExchange
                 exchange.getPartitioningScheme().getBucketCount(),
                 exchange.getPartitioningScheme().getPartitionCount());
 
-        PlanNode result = new ExchangeNode(
+        return new ExchangeNode(
                 exchange.getId(),
                 exchange.getType(),
                 exchange.getScope(),
@@ -172,12 +179,9 @@ public class PushProjectionThroughExchange
                 newSourceBuilder.build(),
                 inputsBuilder.build(),
                 exchange.getOrderingScheme());
-
-        // we need to strip unnecessary symbols (hash, partitioning columns).
-        return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), result, ImmutableSet.copyOf(project.getOutputSymbols())).orElse(result));
     }
 
-    private static boolean isSymbolToSymbolProjection(ProjectNode project)
+    public static boolean isSymbolToSymbolProjection(ProjectNode project)
     {
         return project.getAssignments().expressions().stream().allMatch(Reference.class::isInstance);
     }
