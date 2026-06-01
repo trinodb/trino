@@ -33,6 +33,7 @@ import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.aws.AwsProperties;
+import org.apache.iceberg.aws.s3.S3FileIOProperties;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.rest.HTTPClient;
@@ -162,7 +163,21 @@ public class TrinoIcebergRestCatalogFactory
                         ConnectorIdentity currentIdentity = (context.wrappedIdentity() != null)
                                 ? ((ConnectorIdentity) context.wrappedIdentity())
                                 : ConnectorIdentity.ofUser("fake");
-                        return fileIoFactory.create(fileSystemFactory.create(currentIdentity, config), true, config);
+                        // When STS credentials are present in the session context (rest.access-key-id),
+                        // also expose them as s3.* keys so IcebergRestCatalogFileSystemFactory picks
+                        // them up for actual S3 reads. Skipped when the catalog already returned vended
+                        // s3.* credentials in the table config response.
+                        Map<String, String> fileIoConfig = config;
+                        if (context.credentials().containsKey(AwsProperties.REST_ACCESS_KEY_ID)
+                                && !config.containsKey(S3FileIOProperties.ACCESS_KEY_ID)) {
+                            fileIoConfig = ImmutableMap.<String, String>builder()
+                                    .putAll(config)
+                                    .put(S3FileIOProperties.ACCESS_KEY_ID, context.credentials().get(AwsProperties.REST_ACCESS_KEY_ID))
+                                    .put(S3FileIOProperties.SECRET_ACCESS_KEY, context.credentials().get(AwsProperties.REST_SECRET_ACCESS_KEY))
+                                    .put(S3FileIOProperties.SESSION_TOKEN, context.credentials().get(AwsProperties.REST_SESSION_TOKEN))
+                                    .buildOrThrow();
+                        }
+                        return fileIoFactory.create(fileSystemFactory.create(currentIdentity, fileIoConfig), true, fileIoConfig);
                     });
             icebergCatalogInstance.initialize(catalogName.toString(), initProperties);
 
