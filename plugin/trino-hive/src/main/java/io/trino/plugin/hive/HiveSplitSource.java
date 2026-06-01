@@ -50,7 +50,6 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
-import static io.trino.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static io.trino.plugin.hive.HiveSessionProperties.getMaxSplitSize;
 import static io.trino.plugin.hive.HiveSessionProperties.getMinimumAssignedSplitWeight;
 import static io.trino.plugin.hive.HiveSessionProperties.isSizeBasedSplitWeightsEnabled;
@@ -74,9 +73,6 @@ class HiveSplitSource
     private final long maxOutstandingSplitsBytes;
 
     private final DataSize maxSplitSize;
-    private final DataSize maxInitialSplitSize;
-    private final boolean deterministicSplits;
-    private final AtomicInteger remainingInitialSplits;
 
     private final HiveSplitLoader splitLoader;
     private final AtomicReference<State> stateReference;
@@ -96,7 +92,6 @@ class HiveSplitSource
             String databaseName,
             String tableName,
             PerBucket queues,
-            int maxInitialSplits,
             DataSize maxOutstandingSplitsSize,
             HiveSplitLoader splitLoader,
             AtomicReference<State> stateReference,
@@ -115,9 +110,6 @@ class HiveSplitSource
         this.highMemorySplitSourceCounter = requireNonNull(highMemorySplitSourceCounter, "highMemorySplitSourceCounter is null");
 
         this.maxSplitSize = getMaxSplitSize(session);
-        this.maxInitialSplitSize = getMaxInitialSplitSize(session);
-        this.deterministicSplits = maxInitialSplits == 0 || maxInitialSplitSize.equals(maxSplitSize);
-        this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
         this.splitWeightProvider = isSizeBasedSplitWeightsEnabled(session) ? new SizeBasedSplitWeightProvider(getMinimumAssignedSplitWeight(session), maxSplitSize) : HiveSplitWeightProvider.uniformStandardWeightProvider();
         this.splitAffinityProvider = requireNonNull(splitAffinityProvider, "splitAffinityProvider is null");
         this.recordScannedFiles = recordScannedFiles;
@@ -127,7 +119,6 @@ class HiveSplitSource
             ConnectorSession session,
             String databaseName,
             String tableName,
-            int maxInitialSplits,
             int maxOutstandingSplits,
             DataSize maxOutstandingSplitsSize,
             int maxSplitsPerSecond,
@@ -170,7 +161,6 @@ class HiveSplitSource
                         return queue.isFinished();
                     }
                 },
-                maxInitialSplits,
                 maxOutstandingSplitsSize,
                 splitLoader,
                 stateReference,
@@ -290,11 +280,6 @@ class HiveSplitSource
                 }
 
                 long maxSplitBytes = maxSplitSize.toBytes();
-                if (remainingInitialSplits.get() > 0) {
-                    if (remainingInitialSplits.getAndDecrement() > 0) {
-                        maxSplitBytes = maxInitialSplitSize.toBytes();
-                    }
-                }
                 InternalHiveBlock block = internalSplit.currentBlock();
                 long splitBytes;
                 if (internalSplit.isSplittable()) {
@@ -315,14 +300,10 @@ class HiveSplitSource
                 }
 
                 // Force-local splits are pinned to specific addresses by the scheduler; affinity keys are only
-                // meaningful for remotely accessible splits. When it is not guaranteed that the splits from a file
-                // will have the same size across different queries, use a file-wide key so all splits of the same
-                // file land on the same worker and reuse the cached content.
+                // meaningful for remotely accessible splits.
                 Optional<String> affinityKey = internalSplit.isForceLocalScheduling()
                         ? Optional.empty()
-                        : deterministicSplits
-                          ? splitAffinityProvider.getKey(internalSplit.getPath(), internalSplit.getStart(), splitBytes)
-                          : splitAffinityProvider.getKey(internalSplit.getPath(), 0, internalSplit.getEstimatedFileSize());
+                        : splitAffinityProvider.getKey(internalSplit.getPath(), internalSplit.getStart(), splitBytes);
                 resultBuilder.add(new HiveSplit(
                         internalSplit.getPartitionName(),
                         internalSplit.getPath(),
