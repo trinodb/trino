@@ -31,11 +31,9 @@ the client protocol, writing tests and other lower level details.
 
 ## Code Style
 
-We recommend you use IntelliJ as your IDE. The code style template for the
-project can be found in the [codestyle](https://github.com/airlift/codestyle)
-repository along with our general programming and Java guidelines. 
+We recommend you use IntelliJ as your IDE. Code style is managed through [airstyle](https://github.com/airlift/airstyle).
 
-To run checkstyle and other maven checks before opening a PR: `./mvnw validate`
+To run airstyle and other maven checks before opening a PR: `./mvnw validate`
 
 In addition to those you should also adhere to the following:
 
