@@ -168,7 +168,8 @@ public class TrinoIcebergRestCatalogFactory
                         // them up for actual S3 reads. Skipped when the catalog already returned vended
                         // s3.* credentials in the table config response.
                         Map<String, String> fileIoConfig = config;
-                        if (context.credentials().containsKey(AwsProperties.REST_ACCESS_KEY_ID)
+                        if (context.credentials() != null
+                                && context.credentials().containsKey(AwsProperties.REST_ACCESS_KEY_ID)
                                 && !config.containsKey(S3FileIOProperties.ACCESS_KEY_ID)) {
                             fileIoConfig = ImmutableMap.<String, String>builder()
                                     .putAll(config)
