@@ -93,11 +93,9 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     @AfterAll
     public void cleanup()
     {
-        computeActual("SHOW TABLES").getMaterializedRows()
-                .forEach(table -> getQueryRunner().execute("DROP TABLE " + table.getField(0)));
-        getQueryRunner().execute("DROP SCHEMA IF EXISTS " + schemaName);
+        getQueryRunner().execute("DROP SCHEMA IF EXISTS " + schemaName + " CASCADE");
 
-        // DROP TABLES should clean up any files, but clear the directory manually to be safe
+        // DROP SCHEMA should clean up any files, but clear the directory manually to be safe
         deleteDirectory(schemaPath());
     }
 
