@@ -242,10 +242,10 @@ public class JoinCompiler
         generateHashPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generateHashRowMethod(classDefinition, callSiteBinder, joinChannelTypes);
         generateRowIdenticalToRowMethod(classDefinition, callSiteBinder, joinChannelTypes);
-        generatePositionEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, true);
+        generatePositionEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generatePositionIdenticalRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generatePositionIdenticalToRowWithPageMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
-        generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, true);
+        generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generatePositionIdenticalToPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generateIsPositionNull(classDefinition, joinChannelFields);
         generateCompareSortChannelPositionsMethod(classDefinition, callSiteBinder, types, channelFields, sortChannel);
@@ -514,8 +514,7 @@ public class JoinCompiler
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             List<Type> joinChannelTypes,
-            List<FieldDefinition> joinChannelFields,
-            boolean ignoreNulls)
+            List<FieldDefinition> joinChannelFields)
     {
         Parameter leftBlockIndex = arg("leftBlockIndex", int.class);
         Parameter leftBlockPosition = arg("leftBlockPosition", int.class);
@@ -523,7 +522,7 @@ public class JoinCompiler
         Parameter rightPage = arg("rightPage", Page.class);
         MethodDefinition positionEqualsRowMethod = classDefinition.declareMethod(
                 a(PUBLIC),
-                ignoreNulls ? "positionEqualsRowIgnoreNulls" : "positionEqualsRow",
+                "positionEqualsRowIgnoreNulls",
                 type(boolean.class),
                 leftBlockIndex,
                 leftBlockPosition,
@@ -541,13 +540,7 @@ public class JoinCompiler
                     .cast(Block.class);
 
             BytecodeExpression rightBlock = rightPage.invoke("getBlock", Block.class, constantInt(index));
-            BytecodeNode equalityCondition;
-            if (ignoreNulls) {
-                equalityCondition = typeEqualsIgnoreNulls(callSiteBinder, type, leftBlock, leftBlockPosition, rightBlock, rightPosition);
-            }
-            else {
-                equalityCondition = typeEquals(callSiteBinder, type, leftBlock, leftBlockPosition, rightBlock, rightPosition);
-            }
+            BytecodeNode equalityCondition = typeEqualsIgnoreNulls(callSiteBinder, type, leftBlock, leftBlockPosition, rightBlock, rightPosition);
 
             LabelNode checkNextField = new LabelNode("checkNextField");
             positionEqualsRowMethod
@@ -693,8 +686,7 @@ public class JoinCompiler
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             List<Type> joinChannelTypes,
-            List<FieldDefinition> joinChannelFields,
-            boolean ignoreNulls)
+            List<FieldDefinition> joinChannelFields)
     {
         Parameter leftBlockIndex = arg("leftBlockIndex", int.class);
         Parameter leftBlockPosition = arg("leftBlockPosition", int.class);
@@ -702,7 +694,7 @@ public class JoinCompiler
         Parameter rightBlockPosition = arg("rightBlockPosition", int.class);
         MethodDefinition positionEqualsPositionMethod = classDefinition.declareMethod(
                 a(PUBLIC),
-                ignoreNulls ? "positionEqualsPositionIgnoreNulls" : "positionEqualsPosition",
+                "positionEqualsPositionIgnoreNulls",
                 type(boolean.class),
                 leftBlockIndex,
                 leftBlockPosition,
@@ -723,13 +715,7 @@ public class JoinCompiler
                     .invoke("get", Object.class, rightBlockIndex)
                     .cast(Block.class);
 
-            BytecodeNode equalityCondition;
-            if (ignoreNulls) {
-                equalityCondition = typeEqualsIgnoreNulls(callSiteBinder, type, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
-            }
-            else {
-                equalityCondition = typeEquals(callSiteBinder, type, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
-            }
+            BytecodeNode equalityCondition = typeEqualsIgnoreNulls(callSiteBinder, type, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
 
             LabelNode checkNextField = new LabelNode("checkNextField");
             positionEqualsPositionMethod
@@ -891,30 +877,6 @@ public class JoinCompiler
         isSortChannelPositionNullMethod
                 .getBody()
                 .append(isNull);
-    }
-
-    private BytecodeNode typeEquals(
-            CallSiteBinder callSiteBinder,
-            Type type,
-            BytecodeExpression leftBlock,
-            BytecodeExpression leftBlockPosition,
-            BytecodeExpression rightBlock,
-            BytecodeExpression rightBlockPosition)
-    {
-        IfStatement ifStatement = new IfStatement();
-        ifStatement.condition()
-                .append(leftBlock.invoke("isNull", boolean.class, leftBlockPosition))
-                .append(rightBlock.invoke("isNull", boolean.class, rightBlockPosition))
-                .append(OpCode.IOR);
-
-        ifStatement.ifTrue()
-                .append(leftBlock.invoke("isNull", boolean.class, leftBlockPosition))
-                .append(rightBlock.invoke("isNull", boolean.class, rightBlockPosition))
-                .append(OpCode.IAND);
-
-        ifStatement.ifFalse().append(typeEqualsIgnoreNulls(callSiteBinder, type, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition));
-
-        return ifStatement;
     }
 
     private BytecodeNode typeEqualsIgnoreNulls(
