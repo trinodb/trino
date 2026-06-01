@@ -200,43 +200,14 @@ public class QueryAssertions
 
     private void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
     {
-        MaterializedResult actualResults = null;
-        try {
-            actualResults = execute(session, actual);
-        }
-        catch (RuntimeException ex) {
-            fail("Execution of 'actual' query failed: " + actual, ex);
-        }
-
-        MaterializedResult expectedResults = null;
-        try {
-            expectedResults = execute(expected);
-        }
-        catch (RuntimeException ex) {
-            fail("Execution of 'expected' query failed: " + expected, ex);
-        }
-
-        assertThat(actualResults.getTypes())
-                .as("Types mismatch for query: \n " + actual + "\n:")
-                .isEqualTo(expectedResults.getTypes());
-
-        List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
-        List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
-
-        assertThat(actualRows).as("For query: \n " + actual).containsExactlyInAnyOrderElementsOf(expectedRows);
+        assertThat(query(session, actual))
+                .matches(expected);
     }
 
     public void assertQueryReturnsEmptyResult(@Language("SQL") String actual)
     {
-        MaterializedResult actualResults = null;
-        try {
-            actualResults = execute(actual);
-        }
-        catch (RuntimeException ex) {
-            fail("Execution of 'actual' query failed: " + actual, ex);
-        }
-        List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
-        assertThat(actualRows).isEmpty();
+        assertThat(query(actual))
+                .returnsEmptyResult();
     }
 
     public MaterializedResult execute(@Language("SQL") String query)
