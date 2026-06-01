@@ -40,5 +40,22 @@ public class IcebergManifestUtils
         return CloseableIterable.transform(manifestReader.liveEntries(), entry -> new FileEntryWithMetadata(entry.file(), entry.snapshotId()));
     }
 
+    /**
+     * Yields every manifest entry (ADDED/EXISTING/DELETED), not just live ones, with the entry-level metadata the
+     * {@code $entries}/{@code $all_entries} system tables expose. {@code manifestReader.entries()} reuses the entry
+     * instance per iteration, so callers must consume each {@link ManifestEntryWithMetadata} before advancing.
+     */
+    public static <F extends ContentFile<F>> CloseableIterable<ManifestEntryWithMetadata> entriesWithMetadata(ManifestReader<F> manifestReader)
+    {
+        return CloseableIterable.transform(manifestReader.entries(), entry -> new ManifestEntryWithMetadata(
+                entry.file(),
+                entry.status().id(),
+                entry.snapshotId(),
+                entry.dataSequenceNumber(),
+                entry.fileSequenceNumber()));
+    }
+
     public record FileEntryWithMetadata(ContentFile<?> file, long snapshotId) {}
+
+    public record ManifestEntryWithMetadata(ContentFile<?> file, int status, Long snapshotId, Long sequenceNumber, Long fileSequenceNumber) {}
 }
