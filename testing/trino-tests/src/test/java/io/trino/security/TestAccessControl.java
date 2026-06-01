@@ -119,7 +119,6 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -289,7 +288,7 @@ public class TestAccessControl
         queryRunner.installPlugin(new JdbcPlugin("base_jdbc", TestingH2JdbcModule::new));
         queryRunner.createCatalog("jdbc", "base_jdbc", TestingH2JdbcModule.createProperties());
         for (String tableName : ImmutableList.of("orders", "nation", "region", "lineitem")) {
-            queryRunner.execute(format("CREATE TABLE %1$s AS SELECT * FROM tpch.tiny.%1$s WITH NO DATA", tableName));
+            queryRunner.execute("CREATE TABLE %1$s AS SELECT * FROM tpch.tiny.%1$s WITH NO DATA".formatted(tableName));
         }
         systemSecurityMetadata = (TestingSystemSecurityMetadata) queryRunner.getCoordinator().getInstance(Key.get(SystemSecurityMetadata.class));
         return queryRunner;
@@ -1040,15 +1039,15 @@ public class TestAccessControl
         String schemaName = getSession().getSchema().orElseThrow();
 
         String targetTable = "merge_nation_target_" + randomNameSuffix();
-        String targetName = format("%s.%s.%s", catalogName, schemaName, targetTable);
+        String targetName = "%s.%s.%s".formatted(catalogName, schemaName, targetTable);
         String sourceTable = "merge_nation_source_" + randomNameSuffix();
-        String sourceName = format("%s.%s.%s", catalogName, schemaName, sourceTable);
+        String sourceName = "%s.%s.%s".formatted(catalogName, schemaName, sourceTable);
 
-        assertUpdate(format("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR)", targetTable));
+        assertUpdate("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR)".formatted(targetTable));
 
-        assertUpdate(format("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR)", sourceTable));
+        assertUpdate("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR)".formatted(sourceTable));
 
-        String baseMergeSql = format("MERGE INTO %s t USING %s s", targetTable, sourceTable) +
+        String baseMergeSql = "MERGE INTO %s t USING %s s".formatted(targetTable, sourceTable) +
                 "    ON (t.nation_name = s.nation_name)";
         String deleteCase = "" +
                 "    WHEN MATCHED AND t.nation_name > (SELECT name FROM tpch.tiny.region WHERE name = t.region_name AND name LIKE ('A%'))" +

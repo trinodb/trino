@@ -36,7 +36,6 @@ import java.util.Random;
 
 import static io.trino.plugin.opensearch.OpenSearchServer.OPENSEARCH_IMAGE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestOpenSearchComplexTypePredicatePushDown
@@ -363,7 +362,7 @@ final class TestOpenSearchComplexTypePredicatePushDown
     private void bulkIndex(String index, String payload)
             throws IOException
     {
-        String endpoint = format("%s?refresh", bulkEndpoint(index));
+        String endpoint = "%s?refresh".formatted(bulkEndpoint(index));
         Request request = new Request("PUT", endpoint);
         request.setJsonEntity(payload);
         client.getLowLevelClient().performRequest(request);
@@ -371,7 +370,7 @@ final class TestOpenSearchComplexTypePredicatePushDown
 
     private static String bulkEndpoint(String index)
     {
-        return format("/%s/_bulk", index);
+        return "/%s/_bulk".formatted(index);
     }
 
     private void deleteIndex(String indexName)

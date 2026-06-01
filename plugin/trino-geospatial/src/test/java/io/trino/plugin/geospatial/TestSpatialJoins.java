@@ -23,7 +23,6 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSpatialJoins
@@ -84,9 +83,9 @@ public class TestSpatialJoins
     @Test
     public void testDistributedSpatialJoinContains()
     {
-        assertUpdate(format("CREATE TABLE contains_partitioning AS " +
+        assertUpdate(("CREATE TABLE contains_partitioning AS " +
                 "SELECT spatial_partitioning(ST_GeometryFromText(wkt)) as v " +
-                "FROM (%s) as a (wkt, name, id)", POLYGONS_SQL), 1);
+                "FROM (%s) as a (wkt, name, id)").formatted(POLYGONS_SQL), 1);
 
         Session session = Session.builder(getSession())
                 .setSystemProperty(SPATIAL_PARTITIONING_TABLE_NAME, "contains_partitioning")
@@ -174,10 +173,9 @@ public class TestSpatialJoins
 
     private static String generatePointsSql(double minX, double minY, double maxX, double maxY, int pointCount, String prefix)
     {
-        return format(
-                "SELECT %s + n * %f, %s + n * %f, '%s' || CAST (n AS VARCHAR), n " +
-                        "FROM (SELECT sequence(1, %s) as numbers) " +
-                        "CROSS JOIN UNNEST (numbers) AS t(n)",
+        return ("SELECT %s + n * %f, %s + n * %f, '%s' || CAST (n AS VARCHAR), n " +
+        "FROM (SELECT sequence(1, %s) as numbers) " +
+        "CROSS JOIN UNNEST (numbers) AS t(n)").formatted(
                 minX,
                 (maxX - minX) / pointCount,
                 minY,
@@ -211,9 +209,9 @@ public class TestSpatialJoins
     @Test
     public void tesDistributedSpatialJoinIntersects()
     {
-        assertUpdate(format("CREATE TABLE intersects_partitioning AS " +
+        assertUpdate(("CREATE TABLE intersects_partitioning AS " +
                 "SELECT spatial_partitioning(ST_GeometryFromText(wkt)) as v " +
-                "FROM (%s) as a (wkt, name, id)", POLYGONS_SQL), 1);
+                "FROM (%s) as a (wkt, name, id)").formatted(POLYGONS_SQL), 1);
 
         Session session = Session.builder(getSession())
                 .setSystemProperty(SPATIAL_PARTITIONING_TABLE_NAME, "intersects_partitioning")

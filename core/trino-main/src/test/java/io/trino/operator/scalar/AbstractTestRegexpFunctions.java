@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.util.Collections;
+import java.util.Arrays;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -629,7 +629,7 @@ public abstract class AbstractTestRegexpFunctions
 
         assertThat(assertions.function("regexp_extract_all", "'rat cat\nbat dog'", "'ra(.)|blah(.)(.)'", "2"))
                 .hasType(new ArrayType(createVarcharType(15)))
-                .isEqualTo(Collections.<String>singletonList(null));
+                .isEqualTo(Arrays.asList((String) null));
 
         assertTrinoExceptionThrownBy(assertions.function("regexp_extract_all", "'hello'", "'(.)'", "2")::evaluate)
                 .hasMessage("Pattern has 1 groups. Cannot access group 2");

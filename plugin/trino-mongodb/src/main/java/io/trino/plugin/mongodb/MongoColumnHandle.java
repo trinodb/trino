@@ -14,7 +14,6 @@
 package io.trino.plugin.mongodb;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -53,11 +52,10 @@ public record MongoColumnHandle(String baseName, List<String> dereferenceNames, 
     @JsonIgnore
     public String getQualifiedName()
     {
-        return Joiner.on('.')
-                .join(ImmutableList.<String>builder()
-                        .add(baseName)
-                        .addAll(dereferenceNames)
-                        .build());
+        return String.join(".", ImmutableList.<String>builder()
+                .add(baseName)
+                .addAll(dereferenceNames)
+                .build());
     }
 
     @JsonIgnore

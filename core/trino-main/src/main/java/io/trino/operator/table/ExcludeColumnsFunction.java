@@ -45,7 +45,6 @@ import static io.trino.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.usedInputAndProduced;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 
@@ -108,7 +107,7 @@ public class ExcludeColumnsFunction
         if (!inputNames.containsAll(excludedNames)) {
             String missingColumns = Sets.difference(excludedNames, inputNames).stream()
                     .collect(joining(", ", "[", "]"));
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Excluded columns: %s not present in the table", missingColumns));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Excluded columns: %s not present in the table".formatted(missingColumns));
         }
 
         ImmutableList.Builder<Integer> requiredColumns = ImmutableList.builder();

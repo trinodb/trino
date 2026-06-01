@@ -55,7 +55,6 @@ import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoClient;
 import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedType;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -243,7 +242,7 @@ public class TestMongoConnectorTest
     private void testGuessFieldTypes(String mongoValue, String trinoValue)
     {
         String tableName = "test_guess_field_type_" + randomNameSuffix();
-        Document document = Document.parse(format("{\"test\":%s}", mongoValue));
+        Document document = Document.parse("{\"test\":%s}".formatted(mongoValue));
 
         assertUpdate("DROP TABLE IF EXISTS test." + tableName);
         client.getDatabase("test").getCollection(tableName).insertOne(document);
@@ -892,7 +891,7 @@ public class TestMongoConnectorTest
                 " (13, ObjectId('000000000000000000000000'), ObjectId('000000000000000000000000'))," +
                 " (14, ObjectId('ffffffffffffffffffffffff'), NULL)," +
                 " (15, NULL, ObjectId('ffffffffffffffffffffffff'))";
-        String inlineTable = format("(%s) AS t(i, one, two)", values);
+        String inlineTable = "(%s) AS t(i, one, two)".formatted(values);
 
         String tableName = "test_objectid_" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
@@ -920,7 +919,7 @@ public class TestMongoConnectorTest
 
         // Join on ObjectId
         assertQuery(
-                format("SELECT l.i, r.i FROM (%1$s) AS l(i, one, two) JOIN (%1$s) AS r(i, one, two) ON l.one = r.two", values),
+                "SELECT l.i, r.i FROM (%1$s) AS l(i, one, two) JOIN (%1$s) AS r(i, one, two) ON l.one = r.two".formatted(values),
                 "VALUES (11, 11), (14, 11), (11, 15), (12, 15), (12, 11), (14, 15), (13, 13)");
 
         // Group by ObjectId (IS DISTINCT FROM)
@@ -1415,21 +1414,21 @@ public class TestMongoConnectorTest
 
         try (TestTable table = newTrinoTable(
                 "filter_on_projection_columns",
-                format("(col_0 ROW(col_1 %1$s, col_2 ROW(col_3 %1$s, col_4 ROW(col_5 %1$s))))", expectedType))) {
-            assertUpdate(format("INSERT INTO %s VALUES NULL", table.getName()), 1);
-            assertUpdate(format("INSERT INTO %1$s SELECT ROW(%2$s, ROW(%2$s, ROW(%2$s)))", table.getName(), expectedValue), 1);
-            assertUpdate(format("INSERT INTO %1$s SELECT ROW(%2$s, ROW(NULL, ROW(%2$s)))", table.getName(), expectedValue), 1);
+                "(col_0 ROW(col_1 %1$s, col_2 ROW(col_3 %1$s, col_4 ROW(col_5 %1$s))))".formatted(expectedType))) {
+            assertUpdate("INSERT INTO %s VALUES NULL".formatted(table.getName()), 1);
+            assertUpdate("INSERT INTO %1$s SELECT ROW(%2$s, ROW(%2$s, ROW(%2$s)))".formatted(table.getName(), expectedValue), 1);
+            assertUpdate("INSERT INTO %1$s SELECT ROW(%2$s, ROW(NULL, ROW(%2$s)))".formatted(table.getName(), expectedValue), 1);
 
             Set<Object> expected = ImmutableSet.of(1);
 
             assertQueryStats(
                     getSession(),
-                    format("SELECT 1 FROM %s WHERE col_0.col_1 = %s", table.getName(), expectedValue),
+                    "SELECT 1 FROM %s WHERE col_0.col_1 = %s".formatted(table.getName(), expectedValue),
                     statsWithPushdown -> {
                         long processedInputPositionWithPushdown = statsWithPushdown.getProcessedInputPositions();
                         assertQueryStats(
                                 sessionWithoutPushdown,
-                                format("SELECT 1 FROM %s WHERE col_0.col_1 = %s", table.getName(), expectedValue),
+                                "SELECT 1 FROM %s WHERE col_0.col_1 = %s".formatted(table.getName(), expectedValue),
                                 statsWithoutPushdown -> {
                                     assertThat(statsWithoutPushdown.getProcessedInputPositions())
                                             .isEqualTo(3);
@@ -1445,12 +1444,12 @@ public class TestMongoConnectorTest
 
             assertQueryStats(
                     getSession(),
-                    format("SELECT 1 FROM %s WHERE col_0.col_2.col_3 = %s", table.getName(), expectedValue),
+                    "SELECT 1 FROM %s WHERE col_0.col_2.col_3 = %s".formatted(table.getName(), expectedValue),
                     statsWithPushdown -> {
                         long processedInputPositionWithPushdown = statsWithPushdown.getProcessedInputPositions();
                         assertQueryStats(
                                 sessionWithoutPushdown,
-                                format("SELECT 1 FROM %s WHERE col_0.col_2.col_3 = %s", table.getName(), expectedValue),
+                                "SELECT 1 FROM %s WHERE col_0.col_2.col_3 = %s".formatted(table.getName(), expectedValue),
                                 statsWithoutPushdown -> {
                                     assertThat(statsWithoutPushdown.getProcessedInputPositions())
                                             .isEqualTo(3);
@@ -1466,12 +1465,12 @@ public class TestMongoConnectorTest
 
             assertQueryStats(
                     getSession(),
-                    format("SELECT 1 FROM %s WHERE col_0.col_2.col_4.col_5 = %s", table.getName(), expectedValue),
+                    "SELECT 1 FROM %s WHERE col_0.col_2.col_4.col_5 = %s".formatted(table.getName(), expectedValue),
                     statsWithPushdown -> {
                         long processedInputPositionWithPushdown = statsWithPushdown.getProcessedInputPositions();
                         assertQueryStats(
                                 sessionWithoutPushdown,
-                                format("SELECT 1 FROM %s WHERE col_0.col_2.col_4.col_5 = %s", table.getName(), expectedValue),
+                                "SELECT 1 FROM %s WHERE col_0.col_2.col_4.col_5 = %s".formatted(table.getName(), expectedValue),
                                 statsWithoutPushdown -> {
                                     assertThat(statsWithoutPushdown.getProcessedInputPositions())
                                             .isEqualTo(3);

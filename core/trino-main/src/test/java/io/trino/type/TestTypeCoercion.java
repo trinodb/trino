@@ -57,7 +57,6 @@ import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Fail.fail;
 
@@ -268,8 +267,7 @@ public class TestTypeCoercion
                     for (Type sourceType : types) {
                         if (typeCoercion.canCoerce(sourceType, transitiveType)) {
                             if (!typeCoercion.canCoerce(sourceType, resultType)) {
-                                fail(format(
-                                        "'%s' -> '%s' coercion is missing when transitive coercion is possible: '%s' -> '%s' -> '%s'",
+                                fail("'%s' -> '%s' coercion is missing when transitive coercion is possible: '%s' -> '%s' -> '%s'".formatted(
                                         sourceType,
                                         resultType,
                                         sourceType,
@@ -294,7 +292,7 @@ public class TestTypeCoercion
                         functionResolution.getCoercion(sourceType, resultType);
                     }
                     catch (Exception e) {
-                        fail(format("'%s' -> '%s' coercion exists but there is no cast operator", sourceType, resultType), e);
+                        fail("'%s' -> '%s' coercion exists but there is no cast operator".formatted(sourceType, resultType), e);
                     }
                 }
             }

@@ -108,7 +108,6 @@ import static io.trino.plugin.hive.HiveSessionProperties.useParquetBloomFilter;
 import static io.trino.plugin.hive.parquet.ParquetPageSource.handleException;
 import static io.trino.plugin.hive.parquet.ParquetTypeTranslator.createCoercer;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetPageSourceFactory
@@ -309,7 +308,7 @@ public class ParquetPageSourceFactory
             if (e instanceof ParquetCorruptionException) {
                 throw new TrinoException(HIVE_BAD_DATA, e);
             }
-            String message = format("Error opening Hive split %s (offset=%s, length=%s): %s", inputFile.location(), start, length, e.getMessage());
+            String message = "Error opening Hive split %s (offset=%s, length=%s): %s".formatted(inputFile.location(), start, length, e.getMessage());
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
     }

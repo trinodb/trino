@@ -23,7 +23,6 @@ import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -116,12 +115,12 @@ public class TestIcebergReadVersionedTable
 
     private long getLatestSnapshotId(String tableName)
     {
-        return (long) computeScalar(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", tableName));
+        return (long) computeScalar("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES".formatted(tableName));
     }
 
     private long getCommittedAtInEpochMilliSeconds(String tableName, long snapshotId)
     {
-        return ((ZonedDateTime) computeScalar(format("SELECT committed_at FROM \"%s$snapshots\" WHERE snapshot_id=%s", tableName, snapshotId)))
+        return ((ZonedDateTime) computeScalar("SELECT committed_at FROM \"%s$snapshots\" WHERE snapshot_id=%s".formatted(tableName, snapshotId)))
                 .toInstant().toEpochMilli();
     }
 

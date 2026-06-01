@@ -26,7 +26,6 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.ORDERS;
-import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 
 public class TestHiveCreateExternalTableDisabled
@@ -50,11 +49,10 @@ public class TestHiveCreateExternalTableDisabled
     {
         Path tempDir = createTempDirectory(null);
 
-        @Language("SQL") String createTableSql = format(
-                "" +
-                        "CREATE TABLE test_create_external " +
-                        "WITH (external_location = '%s') AS " +
-                        "SELECT * FROM tpch.tiny.nation",
+        @Language("SQL") String createTableSql = ("" +
+        "CREATE TABLE test_create_external " +
+        "WITH (external_location = '%s') AS " +
+        "SELECT * FROM tpch.tiny.nation").formatted(
                 tempDir.toUri().toASCIIString());
         assertQueryFails(createTableSql, "Creating non-managed Hive tables is disabled");
 
@@ -67,10 +65,9 @@ public class TestHiveCreateExternalTableDisabled
     {
         Path tempDir = createTempDirectory(null);
 
-        @Language("SQL") String createTableSql = format(
-                "" +
-                        "CREATE TABLE test_create_external (n TINYINT) " +
-                        "WITH (external_location = '%s')",
+        @Language("SQL") String createTableSql = ("" +
+        "CREATE TABLE test_create_external (n TINYINT) " +
+        "WITH (external_location = '%s')").formatted(
                 tempDir.toUri().toASCIIString());
         assertQueryFails(createTableSql, "Cannot create non-managed Hive table");
 

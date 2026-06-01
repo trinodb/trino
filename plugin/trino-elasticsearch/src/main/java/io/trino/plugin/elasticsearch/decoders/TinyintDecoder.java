@@ -25,7 +25,6 @@ import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class TinyintDecoder
@@ -60,15 +59,15 @@ public class TinyintDecoder
                 decoded = Long.parseLong(stringValue);
             }
             catch (NumberFormatException e) {
-                throw new TrinoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as TINYINT: %s", path, value));
+                throw new TrinoException(TYPE_MISMATCH, "Cannot parse value for field '%s' as TINYINT: %s".formatted(path, value));
             }
         }
         else {
-            throw new TrinoException(TYPE_MISMATCH, format("Expected a numeric value for field '%s' of type TINYINT: %s [%s]", path, value, value.getClass().getSimpleName()));
+            throw new TrinoException(TYPE_MISMATCH, "Expected a numeric value for field '%s' of type TINYINT: %s [%s]".formatted(path, value, value.getClass().getSimpleName()));
         }
 
         if (decoded < Byte.MIN_VALUE || decoded > Byte.MAX_VALUE) {
-            throw new TrinoException(TYPE_MISMATCH, format("Value out of range for field '%s' of type TINYINT: %s", path, decoded));
+            throw new TrinoException(TYPE_MISMATCH, "Value out of range for field '%s' of type TINYINT: %s".formatted(path, decoded));
         }
 
         TINYINT.writeLong(output, decoded);

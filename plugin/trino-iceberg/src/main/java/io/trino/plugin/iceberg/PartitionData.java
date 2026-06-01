@@ -38,7 +38,6 @@ import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.rescale;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionData
@@ -77,7 +76,7 @@ public class PartitionData
             return javaClass.cast(value);
         }
 
-        throw new IllegalArgumentException(format("Wrong class [%s] for object class [%s]", javaClass.getName(), value.getClass().getName()));
+        throw new IllegalArgumentException("Wrong class [%s] for object class [%s]".formatted(javaClass.getName(), value.getClass().getName()));
     }
 
     @Override

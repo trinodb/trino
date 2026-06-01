@@ -33,7 +33,6 @@ import static io.trino.spi.type.StandardTypes.INTEGER;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.multiplyExact;
 import static java.lang.StrictMath.toIntExact;
-import static java.lang.String.format;
 import static java.lang.System.arraycopy;
 import static java.util.Arrays.setAll;
 
@@ -99,7 +98,7 @@ public final class ArrayCombinationsFunction
             return combinations;
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Number of combinations too large for array of size %s and combination length %s", arrayLength, combinationLength));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Number of combinations too large for array of size %s and combination length %s".formatted(arrayLength, combinationLength));
         }
     }
 

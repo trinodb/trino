@@ -56,7 +56,6 @@ import static io.trino.tests.product.utils.JdbcDriverUtils.resetSessionProperty;
 import static io.trino.tests.product.utils.JdbcDriverUtils.setSessionProperty;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static java.sql.JDBCType.ARRAY;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.BOOLEAN;
@@ -210,7 +209,7 @@ public abstract class BaseTestHiveCoercion
         if (expectedExceptionsWithTrinoContext().isEmpty()) {
             assertThat(ImmutableSet.copyOf(trinoReadColumns)).isEqualTo(expectedTrinoResults.keySet());
         }
-        String trinoSelectQuery = format("SELECT %s FROM %s", String.join(", ", trinoReadColumns), tableName);
+        String trinoSelectQuery = "SELECT %s FROM %s".formatted(String.join(", ", trinoReadColumns), tableName);
         assertQueryResults(Engine.TRINO, trinoSelectQuery, expectedTrinoResults, trinoReadColumns, 2);
 
         // Additional assertions for VARBINARY coercion
@@ -223,7 +222,7 @@ public abstract class BaseTestHiveCoercion
 
             assertQueryResults(
                     Engine.TRINO,
-                    format("SELECT to_hex(cast(binary_to_string as varbinary)) as hex_representation FROM %s", tableName),
+                    "SELECT to_hex(cast(binary_to_string as varbinary)) as hex_representation FROM %s".formatted(tableName),
                     ImmutableMap.of("hex_representation", hexRepresentedValue),
                     ImmutableList.of("hex_representation"),
                     2);
@@ -232,7 +231,7 @@ public abstract class BaseTestHiveCoercion
         // For Hive, remove unsupported columns for the current file format and hive version
         List<String> hiveReadColumns = removeUnsupportedColumnsForHive(allColumns, tableName);
         Map<String, List<Object>> expectedHiveResults = expected.apply(Engine.HIVE);
-        String hiveSelectQuery = format("SELECT %s FROM %s", String.join(", ", hiveReadColumns), tableName);
+        String hiveSelectQuery = "SELECT %s FROM %s".formatted(String.join(", ", hiveReadColumns), tableName);
         assertQueryResults(Engine.HIVE, hiveSelectQuery, expectedHiveResults, hiveReadColumns, 2);
 
         List<Object> hexRepresentedValue = ImmutableList.of("58F7BFBFBF", "58F7BFBFBF58");
@@ -248,7 +247,7 @@ public abstract class BaseTestHiveCoercion
         // Additional assertions for VARBINARY coercion
         assertQueryResults(
                 Engine.HIVE,
-                format("SELECT hex(binary_to_string) as hex_representation FROM %s", tableName),
+                "SELECT hex(binary_to_string) as hex_representation FROM %s".formatted(tableName),
                 ImmutableMap.of("hex_representation", hexRepresentedValue),
                 ImmutableList.of("hex_representation"),
                 2);
@@ -260,220 +259,219 @@ public abstract class BaseTestHiveCoercion
     {
         // Insert all the data with nanoseconds precision
         setHiveTimestampPrecision(NANOSECONDS);
-        onTrino().executeQuery(format(
-                "INSERT INTO %s VALUES " +
-                        "(" +
-                        "  CAST(ROW ('as is', -1, 100, 2323, 12345, 2) AS ROW(keep VARCHAR, ti2si TINYINT, si2int SMALLINT, int2bi INTEGER, bi2vc BIGINT, lower2uppercase BIGINT)), " +
-                        "  ARRAY [CAST(ROW (2, -101, 12345, 'removed') AS ROW (ti2int TINYINT, si2bi SMALLINT, bi2vc BIGINT, remove VARCHAR))], " +
-                        "  MAP (ARRAY [TINYINT '2'], ARRAY [CAST(ROW (-3, 2323, REAL '0.5') AS ROW (ti2bi TINYINT, int2bi INTEGER, float2double REAL))]), " +
-                        "  TRUE, " +
-                        "  'TRUE', " +
-                        "  ' ', " +
-                        "  '-123', " +
-                        "  'No', " +
-                        "  TINYINT '-1', " +
-                        "  TINYINT '2', " +
-                        "  TINYINT '-3', " +
-                        "  TINYINT '0', " +
-                        "  TINYINT '127', " +
-                        "  TINYINT '4', " +
-                        "  TINYINT '5', " +
-                        "  TINYINT '6', " +
-                        "  SMALLINT '100', " +
-                        "  SMALLINT '-101', " +
-                        "  SMALLINT '0', " +
-                        "  SMALLINT '32767', " +
-                        "  SMALLINT '1024', " +
-                        "  SMALLINT '2048', " +
-                        "  SMALLINT '4096', " +
-                        "  INTEGER '2323', " +
-                        "  INTEGER '0', " +
-                        "  INTEGER '2147483647', " +
-                        "  INTEGER '16384', " +
-                        "  INTEGER '16385', " +
-                        "  INTEGER '16386', " +
-                        "  1234567890, " +
-                        "  12345, " +
-                        "  9223372036854775807, " +
-                        "  9223372, " +
-                        "  9223372036, " +
-                        "  REAL '0.5', " +
-                        "  REAL '0.5', " +
-                        "  REAL '0.5', " +
-                        "  REAL 'Infinity', " +
-                        "  DOUBLE '0.5', " +
-                        "  DOUBLE '12345.12345', " +
-                        "  DOUBLE '12345.12345', " +
-                        "  DOUBLE 'Infinity' ," +
-                        "  DECIMAL '12345678.12', " +
-                        "  DECIMAL '12345678.12', " +
-                        "  DECIMAL '12345678.123456123456', " +
-                        "  DECIMAL '12345678.123456123456', " +
-                        "  DECIMAL '13.1313', " +
-                        "  DECIMAL '11.99', " +
-                        "  DECIMAL '140.1323', " +
-                        "  DECIMAL '142.99', " +
-                        "  DECIMAL '312343.99', " +
-                        "  DECIMAL '312345.99', " +
-                        "  DECIMAL '312347.13433', " +
-                        "  DECIMAL '123', " +
-                        "  DECIMAL '123471234567.9989', " +
-                        "  DECIMAL '12345678.12', " +
-                        "  REAL '12345.12345', " +
-                        "  DOUBLE '12345.12345', " +
-                        "  DECIMAL '12345.12345', " +
-                        "  DECIMAL '12345.12345', " +
-                        "  DECIMAL '12345.12345', " +
-                        "  DECIMAL '12345678.123456123456', " +
-                        "  DECIMAL '12345.12345', " +
-                        "  DECIMAL '12345678.123456123456', " +
-                        "  '-127', " +
-                        "  '2147483647', " +
-                        "  '-32768', " +
-                        "  '2147483647', " +
-                        "  '-2147483648', " +
-                        "  '2147483647', " +
-                        "  '0', " +
-                        "  '1234567890123', " +
-                        "  'abc', " +
-                        "  'abc', " +
-                        "  '2023-09-28', " +
-                        "  '8000-04-13', " +
-                        "  '1234.567', " +
-                        "  '1234.01234', " +
-                        "  'Infinity'," +
-                        "  'NaN'," +
-                        "  '1234.567', " +
-                        "  '1234.01234', " +
-                        "  'Infinity'," +
-                        "  'NaN'," +
-                        "  DATE '2023-09-28', " +
-                        "  DATE '2000-04-13', " +
-                        "  'abc', " +
-                        "  'abc', " +
-                        "  'ab', " +
-                        "  'cd', " +
-                        "  'a', " +
-                        "  'Bigger Value', " +
-                        "  'Hi  ', " +
-                        "  'TrinoDB', " +
-                        "  TIMESTAMP '2022-12-31 23:59:59.999', " +
-                        "  TIMESTAMP '2023-12-31 23:59:59.999999', " +
-                        "  TIMESTAMP '2024-12-31 23:59:59.999999999', " +
-                        "  TIMESTAMP '2121-07-15 15:30:12.123', " +
-                        "  TIMESTAMP '2121-07-15 15:30:12.123', " +
-                        "  TIMESTAMP '2121-07-15 15:30:12.123', " +
-                        "  '2121', " +
-                        "  '2019-01-29 23:59:59.123', " +
-                        "  X'58F7BFBFBF', " +
-                        "  X'58EDA080', " +
-                        "  1), " +
-                        "(" +
-                        "  CAST(ROW (NULL, 1, -100, -2323, -12345, 2) AS ROW(keep VARCHAR, ti2si TINYINT, si2int SMALLINT, int2bi INTEGER, bi2vc BIGINT, lower2uppercase BIGINT)), " +
-                        "  ARRAY [CAST(ROW (-2, 101, -12345, NULL) AS ROW (ti2int TINYINT, si2bi SMALLINT, bi2vc BIGINT, remove VARCHAR))], " +
-                        "  MAP (ARRAY [TINYINT '-2'], ARRAY [CAST(ROW (null, -2323, REAL '-1.5') AS ROW (ti2bi TINYINT, int2bi INTEGER, float2double REAL))]), " +
-                        "  FALSE, " +
-                        "  'FAlSE', " +
-                        "  'oFF', " +
-                        "  '-0', " +
-                        "  '', " +
-                        "  TINYINT '1', " +
-                        "  TINYINT '-2', " +
-                        "  NULL, " +
-                        "  NULL, " +
-                        "  TINYINT '-128', " +
-                        "  TINYINT '-4', " +
-                        "  TINYINT '-5', " +
-                        "  TINYINT '-6', " +
-                        "  SMALLINT '-100', " +
-                        "  SMALLINT '101', " +
-                        "  NULL, " +
-                        "  SMALLINT '-32768', " +
-                        "  SMALLINT '-1024', " +
-                        "  SMALLINT '-2048', " +
-                        "  SMALLINT '-4096', " +
-                        "  INTEGER '-2323', " +
-                        "  NULL, " +
-                        "  INTEGER '-2147483648', " +
-                        "  INTEGER '-16384', " +
-                        "  INTEGER '-16385', " +
-                        "  INTEGER '-16386', " +
-                        "  -1234567890, " +
-                        "  -12345, " +
-                        "  -9223372036854775808, " +
-                        "  -9223372, " +
-                        "  -9223372036, " +
-                        "  REAL '-1.5', " +
-                        "  REAL '-1.5', " +
-                        "  REAL 'NaN', " +
-                        "  REAL '-Infinity', " +
-                        "  DOUBLE '-1.5', " +
-                        "  DOUBLE 'NaN', " +
-                        "  DOUBLE '-12345.12345', " +
-                        "  DOUBLE '-Infinity' ," +
-                        "  DECIMAL '-12345678.12', " +
-                        "  DECIMAL '-12345678.12', " +
-                        "  DECIMAL '-12345678.123456123456', " +
-                        "  DECIMAL '-12345678.123456123456', " +
-                        "  DECIMAL '-12.1313', " +
-                        "  DECIMAL '-10.99', " +
-                        "  DECIMAL '-141.1323', " +
-                        "  DECIMAL '-143.99', " +
-                        "  DECIMAL '-312342.99', " +
-                        "  DECIMAL '-312346.99', " +
-                        "  DECIMAL '-312348.13433', " +
-                        "  DECIMAL '-124', " +
-                        "  DECIMAL '-123471234577.9989', " +
-                        "  DECIMAL '-12345678.12', " +
-                        "  REAL '-12345.12345', " +
-                        "  DOUBLE '-12345.12345', " +
-                        "  DECIMAL '-12345.12345', " +
-                        "  DECIMAL '-12345.12345', " +
-                        "  DECIMAL '-12345.12345', " +
-                        "  DECIMAL '-12345678.123456123456', " +
-                        "  DECIMAL '-12345.12345', " +
-                        "  DECIMAL '-12345678.123456123456', " +
-                        "  '1270', " +
-                        "  '123e+1', " +
-                        "  '327680', " +
-                        "  '123e+1', " +
-                        "  '21474836480', " +
-                        "  '123e+1', " +
-                        "  '-9.223372e+18', " +
-                        "  'Hello', " +
-                        "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
-                        "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
-                        "  '2023-09-27', " +
-                        "  '1900-01-01', " +
-                        "  '-12345.6789', " +
-                        "  '0', " +
-                        "  '-4.4028235e+39f'," +
-                        "  'Invalid Double'," +
-                        "  '-12345.6789', " +
-                        "  '0', " +
-                        "  '-Infinity'," +
-                        "  'Invalid Double'," +
-                        "  DATE '2123-09-27', " +
-                        "  DATE '1900-01-01', " +
-                        "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
-                        "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
-                        "  '\uD83D\uDCB0\uD83D\uDCB0', " +
-                        "  '\uD83D\uDCB0\uD83D\uDCB0', " +
-                        "  '\uD83D\uDCB0', " +
-                        "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
-                        "  '\uD83D\uDCB0 \uD83D\uDCB0\uD83D\uDCB0', " +
-                        "  '\uD83D\uDCB0 \uD83D\uDCB0', " +
-                        "  TIMESTAMP '1970-01-01 00:00:00.123', " +
-                        "  TIMESTAMP '1970-01-01 00:00:00.123456', " +
-                        "  TIMESTAMP '1970-01-01 00:00:00.123456789', " +
-                        "  TIMESTAMP '1970-01-01 00:00:00.123', " +
-                        "  TIMESTAMP '1970-01-01 00:00:00.123', " +
-                        "  TIMESTAMP '1970-01-01 00:00:00.123', " +
-                        "  '1970', " +
-                        "  '1970-01-01 00:00:00.123', " +
-                        "  X'58F7BFBFBF58', " +
-                        "  X'58EDBFBF', " +
-                        "  1)",
+        onTrino().executeQuery(("INSERT INTO %s VALUES " +
+        "(" +
+        "  CAST(ROW ('as is', -1, 100, 2323, 12345, 2) AS ROW(keep VARCHAR, ti2si TINYINT, si2int SMALLINT, int2bi INTEGER, bi2vc BIGINT, lower2uppercase BIGINT)), " +
+        "  ARRAY [CAST(ROW (2, -101, 12345, 'removed') AS ROW (ti2int TINYINT, si2bi SMALLINT, bi2vc BIGINT, remove VARCHAR))], " +
+        "  MAP (ARRAY [TINYINT '2'], ARRAY [CAST(ROW (-3, 2323, REAL '0.5') AS ROW (ti2bi TINYINT, int2bi INTEGER, float2double REAL))]), " +
+        "  TRUE, " +
+        "  'TRUE', " +
+        "  ' ', " +
+        "  '-123', " +
+        "  'No', " +
+        "  TINYINT '-1', " +
+        "  TINYINT '2', " +
+        "  TINYINT '-3', " +
+        "  TINYINT '0', " +
+        "  TINYINT '127', " +
+        "  TINYINT '4', " +
+        "  TINYINT '5', " +
+        "  TINYINT '6', " +
+        "  SMALLINT '100', " +
+        "  SMALLINT '-101', " +
+        "  SMALLINT '0', " +
+        "  SMALLINT '32767', " +
+        "  SMALLINT '1024', " +
+        "  SMALLINT '2048', " +
+        "  SMALLINT '4096', " +
+        "  INTEGER '2323', " +
+        "  INTEGER '0', " +
+        "  INTEGER '2147483647', " +
+        "  INTEGER '16384', " +
+        "  INTEGER '16385', " +
+        "  INTEGER '16386', " +
+        "  1234567890, " +
+        "  12345, " +
+        "  9223372036854775807, " +
+        "  9223372, " +
+        "  9223372036, " +
+        "  REAL '0.5', " +
+        "  REAL '0.5', " +
+        "  REAL '0.5', " +
+        "  REAL 'Infinity', " +
+        "  DOUBLE '0.5', " +
+        "  DOUBLE '12345.12345', " +
+        "  DOUBLE '12345.12345', " +
+        "  DOUBLE 'Infinity' ," +
+        "  DECIMAL '12345678.12', " +
+        "  DECIMAL '12345678.12', " +
+        "  DECIMAL '12345678.123456123456', " +
+        "  DECIMAL '12345678.123456123456', " +
+        "  DECIMAL '13.1313', " +
+        "  DECIMAL '11.99', " +
+        "  DECIMAL '140.1323', " +
+        "  DECIMAL '142.99', " +
+        "  DECIMAL '312343.99', " +
+        "  DECIMAL '312345.99', " +
+        "  DECIMAL '312347.13433', " +
+        "  DECIMAL '123', " +
+        "  DECIMAL '123471234567.9989', " +
+        "  DECIMAL '12345678.12', " +
+        "  REAL '12345.12345', " +
+        "  DOUBLE '12345.12345', " +
+        "  DECIMAL '12345.12345', " +
+        "  DECIMAL '12345.12345', " +
+        "  DECIMAL '12345.12345', " +
+        "  DECIMAL '12345678.123456123456', " +
+        "  DECIMAL '12345.12345', " +
+        "  DECIMAL '12345678.123456123456', " +
+        "  '-127', " +
+        "  '2147483647', " +
+        "  '-32768', " +
+        "  '2147483647', " +
+        "  '-2147483648', " +
+        "  '2147483647', " +
+        "  '0', " +
+        "  '1234567890123', " +
+        "  'abc', " +
+        "  'abc', " +
+        "  '2023-09-28', " +
+        "  '8000-04-13', " +
+        "  '1234.567', " +
+        "  '1234.01234', " +
+        "  'Infinity'," +
+        "  'NaN'," +
+        "  '1234.567', " +
+        "  '1234.01234', " +
+        "  'Infinity'," +
+        "  'NaN'," +
+        "  DATE '2023-09-28', " +
+        "  DATE '2000-04-13', " +
+        "  'abc', " +
+        "  'abc', " +
+        "  'ab', " +
+        "  'cd', " +
+        "  'a', " +
+        "  'Bigger Value', " +
+        "  'Hi  ', " +
+        "  'TrinoDB', " +
+        "  TIMESTAMP '2022-12-31 23:59:59.999', " +
+        "  TIMESTAMP '2023-12-31 23:59:59.999999', " +
+        "  TIMESTAMP '2024-12-31 23:59:59.999999999', " +
+        "  TIMESTAMP '2121-07-15 15:30:12.123', " +
+        "  TIMESTAMP '2121-07-15 15:30:12.123', " +
+        "  TIMESTAMP '2121-07-15 15:30:12.123', " +
+        "  '2121', " +
+        "  '2019-01-29 23:59:59.123', " +
+        "  X'58F7BFBFBF', " +
+        "  X'58EDA080', " +
+        "  1), " +
+        "(" +
+        "  CAST(ROW (NULL, 1, -100, -2323, -12345, 2) AS ROW(keep VARCHAR, ti2si TINYINT, si2int SMALLINT, int2bi INTEGER, bi2vc BIGINT, lower2uppercase BIGINT)), " +
+        "  ARRAY [CAST(ROW (-2, 101, -12345, NULL) AS ROW (ti2int TINYINT, si2bi SMALLINT, bi2vc BIGINT, remove VARCHAR))], " +
+        "  MAP (ARRAY [TINYINT '-2'], ARRAY [CAST(ROW (null, -2323, REAL '-1.5') AS ROW (ti2bi TINYINT, int2bi INTEGER, float2double REAL))]), " +
+        "  FALSE, " +
+        "  'FAlSE', " +
+        "  'oFF', " +
+        "  '-0', " +
+        "  '', " +
+        "  TINYINT '1', " +
+        "  TINYINT '-2', " +
+        "  NULL, " +
+        "  NULL, " +
+        "  TINYINT '-128', " +
+        "  TINYINT '-4', " +
+        "  TINYINT '-5', " +
+        "  TINYINT '-6', " +
+        "  SMALLINT '-100', " +
+        "  SMALLINT '101', " +
+        "  NULL, " +
+        "  SMALLINT '-32768', " +
+        "  SMALLINT '-1024', " +
+        "  SMALLINT '-2048', " +
+        "  SMALLINT '-4096', " +
+        "  INTEGER '-2323', " +
+        "  NULL, " +
+        "  INTEGER '-2147483648', " +
+        "  INTEGER '-16384', " +
+        "  INTEGER '-16385', " +
+        "  INTEGER '-16386', " +
+        "  -1234567890, " +
+        "  -12345, " +
+        "  -9223372036854775808, " +
+        "  -9223372, " +
+        "  -9223372036, " +
+        "  REAL '-1.5', " +
+        "  REAL '-1.5', " +
+        "  REAL 'NaN', " +
+        "  REAL '-Infinity', " +
+        "  DOUBLE '-1.5', " +
+        "  DOUBLE 'NaN', " +
+        "  DOUBLE '-12345.12345', " +
+        "  DOUBLE '-Infinity' ," +
+        "  DECIMAL '-12345678.12', " +
+        "  DECIMAL '-12345678.12', " +
+        "  DECIMAL '-12345678.123456123456', " +
+        "  DECIMAL '-12345678.123456123456', " +
+        "  DECIMAL '-12.1313', " +
+        "  DECIMAL '-10.99', " +
+        "  DECIMAL '-141.1323', " +
+        "  DECIMAL '-143.99', " +
+        "  DECIMAL '-312342.99', " +
+        "  DECIMAL '-312346.99', " +
+        "  DECIMAL '-312348.13433', " +
+        "  DECIMAL '-124', " +
+        "  DECIMAL '-123471234577.9989', " +
+        "  DECIMAL '-12345678.12', " +
+        "  REAL '-12345.12345', " +
+        "  DOUBLE '-12345.12345', " +
+        "  DECIMAL '-12345.12345', " +
+        "  DECIMAL '-12345.12345', " +
+        "  DECIMAL '-12345.12345', " +
+        "  DECIMAL '-12345678.123456123456', " +
+        "  DECIMAL '-12345.12345', " +
+        "  DECIMAL '-12345678.123456123456', " +
+        "  '1270', " +
+        "  '123e+1', " +
+        "  '327680', " +
+        "  '123e+1', " +
+        "  '21474836480', " +
+        "  '123e+1', " +
+        "  '-9.223372e+18', " +
+        "  'Hello', " +
+        "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
+        "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
+        "  '2023-09-27', " +
+        "  '1900-01-01', " +
+        "  '-12345.6789', " +
+        "  '0', " +
+        "  '-4.4028235e+39f'," +
+        "  'Invalid Double'," +
+        "  '-12345.6789', " +
+        "  '0', " +
+        "  '-Infinity'," +
+        "  'Invalid Double'," +
+        "  DATE '2123-09-27', " +
+        "  DATE '1900-01-01', " +
+        "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
+        "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
+        "  '\uD83D\uDCB0\uD83D\uDCB0', " +
+        "  '\uD83D\uDCB0\uD83D\uDCB0', " +
+        "  '\uD83D\uDCB0', " +
+        "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
+        "  '\uD83D\uDCB0 \uD83D\uDCB0\uD83D\uDCB0', " +
+        "  '\uD83D\uDCB0 \uD83D\uDCB0', " +
+        "  TIMESTAMP '1970-01-01 00:00:00.123', " +
+        "  TIMESTAMP '1970-01-01 00:00:00.123456', " +
+        "  TIMESTAMP '1970-01-01 00:00:00.123456789', " +
+        "  TIMESTAMP '1970-01-01 00:00:00.123', " +
+        "  TIMESTAMP '1970-01-01 00:00:00.123', " +
+        "  TIMESTAMP '1970-01-01 00:00:00.123', " +
+        "  '1970', " +
+        "  '1970-01-01 00:00:00.123', " +
+        "  X'58F7BFBFBF58', " +
+        "  X'58EDBFBF', " +
+        "  1)").formatted(
                 tableName));
         resetHiveTimestampPrecision();
     }
@@ -528,7 +526,7 @@ public abstract class BaseTestHiveCoercion
                                 .addField("lower2uppercase", 2L)
                                 .build() :
                                 // TODO: Compare structures for hive executor instead of serialized representation
-                                String.format("{\"keep\":\"as is\",\"ti2si\":-1,\"si2int\":100,\"int2bi\":2323,\"bi2vc\":\"12345\",%s}", hiveValueForCaseChangeField),
+                                "{\"keep\":\"as is\",\"ti2si\":-1,\"si2int\":100,\"int2bi\":2323,\"bi2vc\":\"12345\",%s}".formatted(hiveValueForCaseChangeField),
                         engine == Engine.TRINO ?
                                 rowBuilder()
                                 .addField("keep", null)
@@ -538,7 +536,7 @@ public abstract class BaseTestHiveCoercion
                                 .addField("bi2vc", "-12345")
                                 .addField("lower2uppercase", 2L)
                                 .build() :
-                                String.format("{\"keep\":null,\"ti2si\":1,\"si2int\":-100,\"int2bi\":-2323,\"bi2vc\":\"-12345\",%s}", hiveValueForCaseChangeField)))
+                                "{\"keep\":null,\"ti2si\":1,\"si2int\":-100,\"int2bi\":-2323,\"bi2vc\":\"-12345\",%s}".formatted(hiveValueForCaseChangeField)))
                 .put("list_to_list", ImmutableList.of(
                         engine == Engine.TRINO ?
                                 ImmutableList.of(rowBuilder()
@@ -851,12 +849,12 @@ public abstract class BaseTestHiveCoercion
                         (TIMESTAMP '2121-07-15 15:30:12.123500001')) AS t (timestamp_value)
                 """.formatted(tableName));
 
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_row_to_row timestamp_row_to_row struct<keep:timestamp, si2i:int, timestamp2string:string, string2timestamp:timestamp, timestamp2date:date>", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_list_to_list timestamp_list_to_list array<struct<keep:timestamp, si2i:int, timestamp2string:string, string2timestamp:timestamp, timestamp2date:date>>", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_map_to_map timestamp_map_to_map map<int,struct<keep:timestamp, si2i:int, timestamp2string:string, string2timestamp:timestamp, timestamp2date:date>>", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_to_string timestamp_to_string string", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_timestamp string_to_timestamp TIMESTAMP", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_to_date timestamp_to_date DATE", tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN timestamp_row_to_row timestamp_row_to_row struct<keep:timestamp, si2i:int, timestamp2string:string, string2timestamp:timestamp, timestamp2date:date>".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN timestamp_list_to_list timestamp_list_to_list array<struct<keep:timestamp, si2i:int, timestamp2string:string, string2timestamp:timestamp, timestamp2date:date>>".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN timestamp_map_to_map timestamp_map_to_map map<int,struct<keep:timestamp, si2i:int, timestamp2string:string, string2timestamp:timestamp, timestamp2date:date>>".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN timestamp_to_string timestamp_to_string string".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN string_to_timestamp string_to_timestamp TIMESTAMP".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN timestamp_to_date timestamp_to_date DATE".formatted(tableName));
 
         for (HiveTimestampPrecision hiveTimestampPrecision : HiveTimestampPrecision.values()) {
             String timestampType = "timestamp(%d)".formatted(hiveTimestampPrecision.getPrecision());
@@ -885,7 +883,7 @@ public abstract class BaseTestHiveCoercion
                     expectedRowsForEngineProvider(Engine.TRINO, hiveTimestampPrecision),
                     trinoReadColumns::contains);
 
-            String trinoReadQuery = format("SELECT %s FROM %s", String.join(", ", trinoReadColumns), tableName);
+            String trinoReadQuery = "SELECT %s FROM %s".formatted(String.join(", ", trinoReadColumns), tableName);
             assertQueryResults(Engine.TRINO, trinoReadQuery, expectedTinoResults, trinoReadColumns, 6);
 
             List<String> hiveReadColumns = removeUnsupportedColumnsForHive(allColumns, tableName);
@@ -893,7 +891,7 @@ public abstract class BaseTestHiveCoercion
                     expectedRowsForEngineProvider(Engine.HIVE, hiveTimestampPrecision),
                     hiveReadColumns::contains);
 
-            String hiveSelectQuery = format("SELECT %s FROM %s", String.join(", ", hiveReadColumns), tableName);
+            String hiveSelectQuery = "SELECT %s FROM %s".formatted(String.join(", ", hiveReadColumns), tableName);
             assertQueryResults(Engine.HIVE, hiveSelectQuery, expectedHiveResults, hiveReadColumns, 6);
         }
     }
@@ -1029,8 +1027,8 @@ public abstract class BaseTestHiveCoercion
         else {
             expectedNestedFieldHive = expectedNestedFieldTrino;
         }
-        String subfieldQueryLowerCase = format("SELECT row_to_row.lower2uppercase nested_field FROM %s", tableName);
-        String subfieldQueryUpperCase = format("SELECT row_to_row.LOWER2UPPERCASE nested_field FROM %s", tableName);
+        String subfieldQueryLowerCase = "SELECT row_to_row.lower2uppercase nested_field FROM %s".formatted(tableName);
+        String subfieldQueryUpperCase = "SELECT row_to_row.LOWER2UPPERCASE nested_field FROM %s".formatted(tableName);
         List<String> expectedColumns = ImmutableList.of("nested_field");
 
         // Assert Trino behavior
@@ -1375,110 +1373,110 @@ public abstract class BaseTestHiveCoercion
 
     private static void alterTableColumnTypes(String tableName)
     {
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN row_to_row row_to_row struct<keep:string, ti2si:smallint, si2int:int, int2bi:bigint, bi2vc:string, LOWER2UPPERCASE:bigint>", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN list_to_list list_to_list array<struct<ti2int:int, si2bi:bigint, bi2vc:string>>", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN map_to_map map_to_map map<int,struct<ti2bi:bigint, int2bi:bigint, float2double:double, add:tinyint>>", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN boolean_to_varchar boolean_to_varchar varchar(5)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_boolean string_to_boolean boolean", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN special_string_to_boolean special_string_to_boolean boolean", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN numeric_string_to_boolean numeric_string_to_boolean boolean", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_boolean varchar_to_boolean boolean", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_smallint tinyint_to_smallint smallint", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_int tinyint_to_int int", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_bigint tinyint_to_bigint bigint", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_varchar tinyint_to_varchar varchar(30)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_string tinyint_to_string string", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_double tinyint_to_double double", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_shortdecimal tinyint_to_shortdecimal decimal(10,2)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_longdecimal tinyint_to_longdecimal decimal(20,2)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN smallint_to_int smallint_to_int int", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN smallint_to_bigint smallint_to_bigint bigint", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN smallint_to_varchar smallint_to_varchar varchar(30)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN smallint_to_string smallint_to_string string", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN smallint_to_double smallint_to_double double", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN smallint_to_shortdecimal smallint_to_shortdecimal decimal(10,2)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN smallint_to_longdecimal smallint_to_longdecimal decimal(20,2)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN int_to_bigint int_to_bigint bigint", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN int_to_varchar int_to_varchar varchar(30)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN int_to_string int_to_string string", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN int_to_double int_to_double double", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN int_to_shortdecimal int_to_shortdecimal decimal(10,2)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN int_to_longdecimal int_to_longdecimal decimal(20,2)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN bigint_to_double bigint_to_double double", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN bigint_to_varchar bigint_to_varchar varchar(30)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN bigint_to_string bigint_to_string string", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN bigint_to_shortdecimal bigint_to_shortdecimal decimal(10,2)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN bigint_to_longdecimal bigint_to_longdecimal decimal(20,2)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_double float_to_double double", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_string float_to_string string", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_bounded_varchar float_to_bounded_varchar varchar(12)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_infinity_to_string float_infinity_to_string string", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_float double_to_float float", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_string double_to_string string", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_bounded_varchar double_to_bounded_varchar varchar(12)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_infinity_to_string double_infinity_to_string string", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_shortdecimal shortdecimal_to_shortdecimal DECIMAL(18,4)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_longdecimal shortdecimal_to_longdecimal DECIMAL(20,4)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN longdecimal_to_shortdecimal longdecimal_to_shortdecimal DECIMAL(12,2)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN longdecimal_to_longdecimal longdecimal_to_longdecimal DECIMAL(38,14)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN longdecimal_to_tinyint longdecimal_to_tinyint TINYINT", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_tinyint shortdecimal_to_tinyint TINYINT", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN longdecimal_to_smallint longdecimal_to_smallint SMALLINT", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_smallint shortdecimal_to_smallint SMALLINT", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN too_big_shortdecimal_to_smallint too_big_shortdecimal_to_smallint SMALLINT", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN longdecimal_to_int longdecimal_to_int INTEGER", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_int shortdecimal_to_int INTEGER", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN shortdecimal_with_0_scale_to_int shortdecimal_with_0_scale_to_int INTEGER", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN longdecimal_to_bigint longdecimal_to_bigint BIGINT", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_bigint shortdecimal_to_bigint BIGINT", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_decimal float_to_decimal DECIMAL(10,5)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_decimal double_to_decimal DECIMAL(10,5)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN decimal_to_float decimal_to_float float", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN decimal_to_double decimal_to_double double", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN short_decimal_to_varchar short_decimal_to_varchar string", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN long_decimal_to_varchar long_decimal_to_varchar string", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN short_decimal_to_bounded_varchar short_decimal_to_bounded_varchar varchar(30)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN long_decimal_to_bounded_varchar long_decimal_to_bounded_varchar varchar(30)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_tinyint varchar_to_tinyint tinyint", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_tinyint string_to_tinyint tinyint", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_smallint varchar_to_smallint smallint", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_smallint string_to_smallint smallint", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_integer varchar_to_integer integer", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_integer string_to_integer integer", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_bigint varchar_to_bigint bigint", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_bigint string_to_bigint bigint", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_bigger_varchar varchar_to_bigger_varchar varchar(4)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_smaller_varchar varchar_to_smaller_varchar varchar(2)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_date varchar_to_date date", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN date_to_string date_to_string string", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN date_to_bounded_varchar date_to_bounded_varchar varchar(12)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_distant_date varchar_to_distant_date date", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_float varchar_to_float float", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_float string_to_float float", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_float_infinity varchar_to_float_infinity float", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_special_float varchar_to_special_float float", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_double varchar_to_double double", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_double string_to_double double", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_double_infinity varchar_to_double_infinity double", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_special_double varchar_to_special_double double", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN char_to_bigger_char char_to_bigger_char char(4)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN char_to_smaller_char char_to_smaller_char char(2)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN char_to_string char_to_string string", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN char_to_bigger_varchar char_to_bigger_varchar varchar(4)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN char_to_smaller_varchar char_to_smaller_varchar varchar(2)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_char string_to_char char(1)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_bigger_char varchar_to_bigger_char char(6)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_smaller_char varchar_to_smaller_char char(2)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_millis_to_date timestamp_millis_to_date date", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_micros_to_date timestamp_micros_to_date date", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_nanos_to_date timestamp_nanos_to_date date", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_to_string timestamp_to_string string", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_to_bounded_varchar timestamp_to_bounded_varchar varchar(30)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_to_smaller_varchar timestamp_to_smaller_varchar varchar(4)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN smaller_varchar_to_timestamp smaller_varchar_to_timestamp timestamp", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_timestamp varchar_to_timestamp timestamp", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN binary_to_string binary_to_string string", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN binary_to_smaller_varchar binary_to_smaller_varchar varchar(2)", tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN row_to_row row_to_row struct<keep:string, ti2si:smallint, si2int:int, int2bi:bigint, bi2vc:string, LOWER2UPPERCASE:bigint>".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN list_to_list list_to_list array<struct<ti2int:int, si2bi:bigint, bi2vc:string>>".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN map_to_map map_to_map map<int,struct<ti2bi:bigint, int2bi:bigint, float2double:double, add:tinyint>>".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN boolean_to_varchar boolean_to_varchar varchar(5)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN string_to_boolean string_to_boolean boolean".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN special_string_to_boolean special_string_to_boolean boolean".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN numeric_string_to_boolean numeric_string_to_boolean boolean".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN varchar_to_boolean varchar_to_boolean boolean".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN tinyint_to_smallint tinyint_to_smallint smallint".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN tinyint_to_int tinyint_to_int int".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN tinyint_to_bigint tinyint_to_bigint bigint".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN tinyint_to_varchar tinyint_to_varchar varchar(30)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN tinyint_to_string tinyint_to_string string".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN tinyint_to_double tinyint_to_double double".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN tinyint_to_shortdecimal tinyint_to_shortdecimal decimal(10,2)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN tinyint_to_longdecimal tinyint_to_longdecimal decimal(20,2)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN smallint_to_int smallint_to_int int".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN smallint_to_bigint smallint_to_bigint bigint".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN smallint_to_varchar smallint_to_varchar varchar(30)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN smallint_to_string smallint_to_string string".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN smallint_to_double smallint_to_double double".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN smallint_to_shortdecimal smallint_to_shortdecimal decimal(10,2)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN smallint_to_longdecimal smallint_to_longdecimal decimal(20,2)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN int_to_bigint int_to_bigint bigint".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN int_to_varchar int_to_varchar varchar(30)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN int_to_string int_to_string string".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN int_to_double int_to_double double".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN int_to_shortdecimal int_to_shortdecimal decimal(10,2)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN int_to_longdecimal int_to_longdecimal decimal(20,2)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN bigint_to_double bigint_to_double double".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN bigint_to_varchar bigint_to_varchar varchar(30)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN bigint_to_string bigint_to_string string".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN bigint_to_shortdecimal bigint_to_shortdecimal decimal(10,2)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN bigint_to_longdecimal bigint_to_longdecimal decimal(20,2)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN float_to_double float_to_double double".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN float_to_string float_to_string string".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN float_to_bounded_varchar float_to_bounded_varchar varchar(12)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN float_infinity_to_string float_infinity_to_string string".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN double_to_float double_to_float float".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN double_to_string double_to_string string".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN double_to_bounded_varchar double_to_bounded_varchar varchar(12)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN double_infinity_to_string double_infinity_to_string string".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_shortdecimal shortdecimal_to_shortdecimal DECIMAL(18,4)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_longdecimal shortdecimal_to_longdecimal DECIMAL(20,4)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN longdecimal_to_shortdecimal longdecimal_to_shortdecimal DECIMAL(12,2)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN longdecimal_to_longdecimal longdecimal_to_longdecimal DECIMAL(38,14)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN longdecimal_to_tinyint longdecimal_to_tinyint TINYINT".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_tinyint shortdecimal_to_tinyint TINYINT".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN longdecimal_to_smallint longdecimal_to_smallint SMALLINT".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_smallint shortdecimal_to_smallint SMALLINT".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN too_big_shortdecimal_to_smallint too_big_shortdecimal_to_smallint SMALLINT".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN longdecimal_to_int longdecimal_to_int INTEGER".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_int shortdecimal_to_int INTEGER".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN shortdecimal_with_0_scale_to_int shortdecimal_with_0_scale_to_int INTEGER".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN longdecimal_to_bigint longdecimal_to_bigint BIGINT".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_bigint shortdecimal_to_bigint BIGINT".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN float_to_decimal float_to_decimal DECIMAL(10,5)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN double_to_decimal double_to_decimal DECIMAL(10,5)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN decimal_to_float decimal_to_float float".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN decimal_to_double decimal_to_double double".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN short_decimal_to_varchar short_decimal_to_varchar string".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN long_decimal_to_varchar long_decimal_to_varchar string".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN short_decimal_to_bounded_varchar short_decimal_to_bounded_varchar varchar(30)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN long_decimal_to_bounded_varchar long_decimal_to_bounded_varchar varchar(30)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN varchar_to_tinyint varchar_to_tinyint tinyint".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN string_to_tinyint string_to_tinyint tinyint".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN varchar_to_smallint varchar_to_smallint smallint".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN string_to_smallint string_to_smallint smallint".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN varchar_to_integer varchar_to_integer integer".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN string_to_integer string_to_integer integer".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN varchar_to_bigint varchar_to_bigint bigint".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN string_to_bigint string_to_bigint bigint".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN varchar_to_bigger_varchar varchar_to_bigger_varchar varchar(4)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN varchar_to_smaller_varchar varchar_to_smaller_varchar varchar(2)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN varchar_to_date varchar_to_date date".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN date_to_string date_to_string string".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN date_to_bounded_varchar date_to_bounded_varchar varchar(12)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN varchar_to_distant_date varchar_to_distant_date date".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN varchar_to_float varchar_to_float float".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN string_to_float string_to_float float".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN varchar_to_float_infinity varchar_to_float_infinity float".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN varchar_to_special_float varchar_to_special_float float".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN varchar_to_double varchar_to_double double".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN string_to_double string_to_double double".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN varchar_to_double_infinity varchar_to_double_infinity double".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN varchar_to_special_double varchar_to_special_double double".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN char_to_bigger_char char_to_bigger_char char(4)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN char_to_smaller_char char_to_smaller_char char(2)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN char_to_string char_to_string string".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN char_to_bigger_varchar char_to_bigger_varchar varchar(4)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN char_to_smaller_varchar char_to_smaller_varchar varchar(2)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN string_to_char string_to_char char(1)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN varchar_to_bigger_char varchar_to_bigger_char char(6)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN varchar_to_smaller_char varchar_to_smaller_char char(2)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN timestamp_millis_to_date timestamp_millis_to_date date".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN timestamp_micros_to_date timestamp_micros_to_date date".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN timestamp_nanos_to_date timestamp_nanos_to_date date".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN timestamp_to_string timestamp_to_string string".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN timestamp_to_bounded_varchar timestamp_to_bounded_varchar varchar(30)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN timestamp_to_smaller_varchar timestamp_to_smaller_varchar varchar(4)".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN smaller_varchar_to_timestamp smaller_varchar_to_timestamp timestamp".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN varchar_to_timestamp varchar_to_timestamp timestamp".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN binary_to_string binary_to_string string".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN binary_to_smaller_varchar binary_to_smaller_varchar varchar(2)".formatted(tableName));
     }
 
     protected static TableInstance<?> mutableTableInstanceOf(TableDefinition tableDefinition)

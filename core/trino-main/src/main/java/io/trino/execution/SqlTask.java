@@ -79,7 +79,6 @@ import static io.trino.execution.TaskState.FAILING;
 import static io.trino.execution.TaskState.FINISHED;
 import static io.trino.execution.TaskState.RUNNING;
 import static io.trino.util.Failures.toFailures;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -233,7 +232,7 @@ public class SqlTask
                         // closed buffers signal to upstream tasks that everything finished cleanly
                         case FAILED, FAILING, ABORTED, ABORTING -> outputBuffer.abort();
                         case FINISHED, CANCELED, CANCELING -> outputBuffer.destroy();
-                        default -> throw new IllegalStateException(format("Invalid state for output buffer destruction: %s", newState));
+                        default -> throw new IllegalStateException("Invalid state for output buffer destruction: %s".formatted(newState));
                     }
                 }
             }

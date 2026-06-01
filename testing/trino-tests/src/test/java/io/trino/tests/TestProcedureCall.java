@@ -31,7 +31,6 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.List;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -89,8 +88,8 @@ public class TestProcedureCall
     public void testProcedureCall()
     {
         assertCall("CALL test_simple()", "simple");
-        assertCall(format("CALL %s.test_simple()", PROCEDURE_SCHEMA), "simple");
-        assertCall(format("CALL %s.%s.test_simple()", TESTING_CATALOG, PROCEDURE_SCHEMA), "simple");
+        assertCall("CALL %s.test_simple()".formatted(PROCEDURE_SCHEMA), "simple");
+        assertCall("CALL %s.%s.test_simple()".formatted(TESTING_CATALOG, PROCEDURE_SCHEMA), "simple");
 
         assertCall("CALL test_args(123, 4.5, 'hello', true)", "args", 123L, 4.5, "hello", true);
         assertCall("CALL test_args(-5, nan(), 'bye', false)", "args", -5L, Double.NaN, "bye", false);

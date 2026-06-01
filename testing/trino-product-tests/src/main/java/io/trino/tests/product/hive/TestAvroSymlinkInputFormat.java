@@ -27,7 +27,6 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static java.nio.file.Files.newInputStream;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -68,7 +67,7 @@ public class TestAvroSymlinkInputFormat
 
         saveResourceOnHdfs("avro/original_data.avro", dataDir + "/original_data.avro");
         hdfsClient.saveFile(dataDir + "/dontread.txt", "This file will cause an error if read as avro.");
-        hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs:%s/original_data.avro", dataDir));
+        hdfsClient.saveFile(tableRoot + "/symlink.txt", "hdfs:%s/original_data.avro".formatted(dataDir));
         assertThat(onTrino().executeQuery("SELECT * FROM " + table)).containsExactlyInOrder(row("someValue", 1));
 
         onHive().executeQuery("DROP TABLE " + table);
@@ -104,7 +103,7 @@ public class TestAvroSymlinkInputFormat
         saveResourceOnHdfs("avro/original_data.avro", dataDir + "/original_data.avro");
         saveResourceOnHdfs("avro/original_data.avro", anotherDataDir + "/more_data.avro");
         hdfsClient.saveFile(dataDir + "/dontread.txt", "This file will cause an error if read as avro.");
-        hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs:%s/original_data.avro\nhdfs:%s/more_data.avro", dataDir, anotherDataDir));
+        hdfsClient.saveFile(tableRoot + "/symlink.txt", "hdfs:%s/original_data.avro\nhdfs:%s/more_data.avro".formatted(dataDir, anotherDataDir));
         assertThat(onTrino().executeQuery("SELECT COUNT(*) as cnt FROM " + table)).containsExactlyInOrder(row(2));
 
         onHive().executeQuery("DROP TABLE " + table);
@@ -137,7 +136,7 @@ public class TestAvroSymlinkInputFormat
         String tableRoot = warehouseDirectory + '/' + table;
         String dataDir = warehouseDirectory + "/data_test_avro_symlink_with_nested_directory/nested_directory";
         saveResourceOnHdfs("avro/original_data.avro", dataDir + "/original_data.avro");
-        hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs://%s/original_data.avro", dataDir));
+        hdfsClient.saveFile(tableRoot + "/symlink.txt", "hdfs://%s/original_data.avro".formatted(dataDir));
         assertThat(onTrino().executeQuery("SELECT * FROM " + table)).containsExactlyInOrder(row("someValue", 1));
 
         onHive().executeQuery("DROP TABLE " + table);

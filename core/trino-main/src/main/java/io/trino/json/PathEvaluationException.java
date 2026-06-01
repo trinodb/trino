@@ -17,7 +17,6 @@ import com.google.errorprone.annotations.FormatMethod;
 import io.trino.spi.TrinoException;
 
 import static io.trino.spi.StandardErrorCode.PATH_EVALUATION_ERROR;
-import static java.lang.String.format;
 
 public class PathEvaluationException
         extends TrinoException
@@ -48,11 +47,11 @@ public class PathEvaluationException
     @FormatMethod
     public static TrinoException structuralError(String format, Object... arguments)
     {
-        return new PathEvaluationException("structural error: " + format(format, arguments));
+        return new PathEvaluationException("structural error: " + format.formatted(arguments));
     }
 
     public static TrinoException itemTypeError(String expected, String actual)
     {
-        return new PathEvaluationException(format("invalid item type. Expected: %s, actual: %s", expected, actual));
+        return new PathEvaluationException("invalid item type. Expected: %s, actual: %s".formatted(expected, actual));
     }
 }

@@ -51,7 +51,6 @@ import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static io.trino.operator.Operator.NOT_BLOCKED;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.Math.max;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -405,11 +404,11 @@ public class OperatorContext
         operatorMemoryContext.close();
 
         if (operatorMemoryContext.getUserMemory() != 0) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Operator %s has non-zero user memory (%d bytes) after destroy()", this, operatorMemoryContext.getUserMemory()));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Operator %s has non-zero user memory (%d bytes) after destroy()".formatted(this, operatorMemoryContext.getUserMemory()));
         }
 
         if (operatorMemoryContext.getRevocableMemory() != 0) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Operator %s has non-zero revocable memory (%d bytes) after destroy()", this, operatorMemoryContext.getRevocableMemory()));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Operator %s has non-zero revocable memory (%d bytes) after destroy()".formatted(this, operatorMemoryContext.getRevocableMemory()));
         }
     }
 
@@ -514,7 +513,7 @@ public class OperatorContext
     @Override
     public String toString()
     {
-        return format("%s-%s", operatorType, planNodeId);
+        return "%s-%s".formatted(operatorType, planNodeId);
     }
 
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
@@ -664,7 +663,7 @@ public class OperatorContext
         public void close()
         {
             // Only products of SpillContext.newLocalSpillContext() should be closed.
-            throw new UnsupportedOperationException(format("%s should not be closed directly", getClass()));
+            throw new UnsupportedOperationException("%s should not be closed directly".formatted(getClass()));
         }
 
         @Override

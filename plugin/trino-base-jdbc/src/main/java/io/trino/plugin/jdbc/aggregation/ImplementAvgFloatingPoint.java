@@ -34,7 +34,6 @@ import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.type;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.variable;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
-import static java.lang.String.format;
 
 /**
  * Implements {@code avg(float)}
@@ -64,7 +63,7 @@ public class ImplementAvgFloatingPoint
 
         ParameterizedExpression rewrittenArgument = context.rewriteExpression(argument).orElseThrow();
         return Optional.of(new JdbcExpression(
-                format("avg(%s)", rewrittenArgument.expression()),
+                "avg(%s)".formatted(rewrittenArgument.expression()),
                 rewrittenArgument.parameters(),
                 columnHandle.getJdbcTypeHandle()));
     }

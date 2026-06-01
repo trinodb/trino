@@ -35,7 +35,6 @@ import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.type;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.variable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static java.lang.String.format;
 
 /**
  * Implements {@code avg(x)} for bigint columns while preserving Trino semantics.
@@ -71,7 +70,7 @@ public abstract class BaseImplementAvgBigint
 
         ParameterizedExpression rewrittenArgument = context.rewriteExpression(argument).orElseThrow();
         return Optional.of(new JdbcExpression(
-                format(getRewriteFormatExpression(), rewrittenArgument.expression()),
+                getRewriteFormatExpression().formatted(rewrittenArgument.expression()),
                 rewrittenArgument.parameters(),
                 new JdbcTypeHandle(Types.DOUBLE, Optional.of("double"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty())));
     }

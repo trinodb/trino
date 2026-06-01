@@ -54,7 +54,6 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
-import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -154,14 +153,14 @@ class TestMemoryPools
         // we expect 2 iterations as we have 2 bytes remaining in memory pool and we allocate 1 byte per page
         assertThat(runDriverUntilBlocked(revocableMemoryDriver.driver(), waitingForRevocableMemory())).isEqualTo(2);
         assertThat(userPool.getFreeBytes() <= 0)
-                .describedAs(format("Expected empty pool but got [%d]", userPool.getFreeBytes()))
+                .describedAs("Expected empty pool but got [%d]".formatted(userPool.getFreeBytes()))
                 .isTrue();
 
         // lets free 5 bytes
         userPool.free(fakeTaskId, "test", 5);
         assertThat(runDriverUntilBlocked(revocableMemoryDriver.driver(), waitingForRevocableMemory())).isEqualTo(5);
         assertThat(userPool.getFreeBytes() <= 0)
-                .describedAs(format("Expected empty pool but got [%d]", userPool.getFreeBytes()))
+                .describedAs("Expected empty pool but got [%d]".formatted(userPool.getFreeBytes()))
                 .isTrue();
 
         // 3 more bytes is enough for driver to finish

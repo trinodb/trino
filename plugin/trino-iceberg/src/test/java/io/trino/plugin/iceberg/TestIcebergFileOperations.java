@@ -62,7 +62,6 @@ import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Execution(ExecutionMode.SAME_THREAD)
@@ -529,7 +528,7 @@ public class TestIcebergFileOperations
     private void testPartialTimestampPartitionPruningEffectivenessWithPartitionTransform(String partitionTransform, int expectedDataFileOperations)
     {
         String tableName = "test_transform_timestamp" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['%s'])", tableName, partitionTransform));
+        assertUpdate("CREATE TABLE %s (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['%s'])".formatted(tableName, partitionTransform));
 
         @Language("SQL") String values =
                 """
@@ -1010,7 +1009,7 @@ public class TestIcebergFileOperations
 
     private long getLatestSnapshotId(String tableName)
     {
-        return (long) computeScalar(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", tableName));
+        return (long) computeScalar("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES".formatted(tableName));
     }
 
     private static Session withStatsOnWrite(Session session, boolean enabled)

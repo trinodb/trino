@@ -35,7 +35,6 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.HashArraySizeSupplier.defaultHashArraySizeSupplier;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.data.Percentage.withPercentage;
 
@@ -49,7 +48,7 @@ public class TestPagesIndex
         PagesIndex pagesIndex = newPagesIndex(types, 30, false);
         long initialEstimatedSize = pagesIndex.getEstimatedSize().toBytes();
         assertThat(initialEstimatedSize > 0)
-                .describedAs(format("Initial estimated size must be positive, got %s", initialEstimatedSize))
+                .describedAs("Initial estimated size must be positive, got %s".formatted(initialEstimatedSize))
                 .isTrue();
 
         pagesIndex.addPage(somePage(types));
@@ -68,8 +67,7 @@ public class TestPagesIndex
         long estimatedSizeAfterCompact = pagesIndex.getEstimatedSize().toBytes();
         // We can expect compact to reduce size because VARCHAR sequence pages are compactable.
         assertThat(estimatedSizeAfterCompact < estimatedSizeWithTwoPages)
-                .describedAs(format(
-                        "Compact should reduce (or retain) size, but changed from %s to %s",
+                .describedAs("Compact should reduce (or retain) size, but changed from %s to %s".formatted(
                         estimatedSizeWithTwoPages,
                         estimatedSizeAfterCompact))
                 .isTrue();

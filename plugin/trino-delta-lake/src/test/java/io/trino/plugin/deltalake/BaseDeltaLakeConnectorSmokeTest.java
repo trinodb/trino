@@ -90,7 +90,6 @@ import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.ORDERS;
-import static java.lang.String.format;
 import static java.util.Comparator.comparing;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -178,8 +177,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             this.transactionLogAccess = getConnectorService(queryRunner, TransactionLogAccess.class);
             this.fileSystemFactory = getConnectorService(queryRunner, TrinoFileSystemFactory.class);
 
-            REQUIRED_TPCH_TABLES.forEach(table -> queryRunner.execute(format(
-                    "CREATE TABLE %s WITH (location = '%s') AS SELECT * FROM tpch.tiny.%1$s",
+            REQUIRED_TPCH_TABLES.forEach(table -> queryRunner.execute("CREATE TABLE %s WITH (location = '%s') AS SELECT * FROM tpch.tiny.%1$s".formatted(
                     table.getTableName(),
                     getLocationForTable(bucketName, table.getTableName()))));
 
@@ -266,7 +264,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         hiveHadoop.executeInContainerFailOnError("hdfs", "dfs", "-mkdir", "-p", subDir);
         hiveHadoop.executeInContainerFailOnError("hdfs", "dfs", "-touchz", externalFile);
 
-        assertUpdate(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
+        assertUpdate("CREATE SCHEMA %s WITH (location = '%s')".formatted(schemaName, schemaDir));
         assertThat(hiveHadoop.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
                 .as("external file exists after creating schema")
                 .isEqualTo(0);
@@ -279,7 +277,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         // Test behavior without external file
         hiveHadoop.executeInContainerFailOnError("hdfs", "dfs", "-rm", "-r", subDir);
 
-        assertUpdate(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
+        assertUpdate("CREATE SCHEMA %s WITH (location = '%s')".formatted(schemaName, schemaDir));
         assertThat(hiveHadoop.executeInContainer("hdfs", "dfs", "-test", "-d", schemaDir).getExitCode())
                 .as("schema directory exists after creating schema")
                 .isEqualTo(0);
@@ -366,7 +364,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testCreateTableThatAlreadyExists()
     {
         assertQueryFails("CREATE TABLE person (a int, b int) WITH (location = '" + getLocationForTable(bucketName, "different_person") + "')",
-                format(".*Table 'delta.%s.person' already exists.*", SCHEMA));
+                ".*Table 'delta.%s.person' already exists.*".formatted(SCHEMA));
     }
 
     @Test
@@ -472,20 +470,19 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testShowCreateTable()
     {
         assertThat(computeScalar("SHOW CREATE TABLE person"))
-                .isEqualTo(format(
-                        "CREATE TABLE delta.%s.person (\n" +
-                                "   name varchar,\n" +
-                                "   age integer,\n" +
-                                "   married boolean,\n" +
-                                "   phones array(ROW(number varchar, label varchar)),\n" +
-                                "   address ROW(street varchar, city varchar, state varchar, zip varchar),\n" +
-                                "   income double,\n" +
-                                "   gender varchar\n" +
-                                ")\n" +
-                                "WITH (\n" +
-                                "   location = '%s',\n" +
-                                "   partitioned_by = ARRAY['age']\n" +
-                                ")",
+                .isEqualTo(("CREATE TABLE delta.%s.person (\n" +
+                "   name varchar,\n" +
+                "   age integer,\n" +
+                "   married boolean,\n" +
+                "   phones array(ROW(number varchar, label varchar)),\n" +
+                "   address ROW(street varchar, city varchar, state varchar, zip varchar),\n" +
+                "   income double,\n" +
+                "   gender varchar\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   location = '%s',\n" +
+                "   partitioned_by = ARRAY['age']\n" +
+                ")").formatted(
                         SCHEMA,
                         getLocationForTable(bucketName, "person")));
     }
@@ -497,29 +494,29 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
         String hiveTableName = "foo_hive";
         queryRunner.execute(
-                format("CREATE TABLE hive.%s.%s (foo_id bigint, bar_id bigint, data varchar) WITH (format = 'PARQUET', external_location = '%s')",
+                "CREATE TABLE hive.%s.%s (foo_id bigint, bar_id bigint, data varchar) WITH (format = 'PARQUET', external_location = '%s')".formatted(
                         SCHEMA,
                         hiveTableName,
                         getLocationForTable(bucketName, "foo")));
 
         MaterializedResultWithPlan deltaResult = queryRunner.executeWithPlan(broadcastJoinDistribution(true), "SELECT * FROM foo");
         assertThat(deltaResult.result().getRowCount()).isEqualTo(2);
-        MaterializedResultWithPlan hiveResult = queryRunner.executeWithPlan(broadcastJoinDistribution(true), format("SELECT * FROM %s.%s.%s", "hive", SCHEMA, hiveTableName));
+        MaterializedResultWithPlan hiveResult = queryRunner.executeWithPlan(broadcastJoinDistribution(true), "SELECT * FROM %s.%s.%s".formatted("hive", SCHEMA, hiveTableName));
         assertThat(hiveResult.result().getRowCount()).isEqualTo(2);
 
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
         assertThat(queryManager.getFullQueryInfo(deltaResult.queryId()).getQueryStats().getProcessedInputDataSize()).as("delta processed input data size")
                 .isGreaterThan(DataSize.ofBytes(0))
                 .isEqualTo(queryManager.getFullQueryInfo(hiveResult.queryId()).getQueryStats().getProcessedInputDataSize());
-        queryRunner.execute(format("DROP TABLE hive.%s.%s", SCHEMA, hiveTableName));
+        queryRunner.execute("DROP TABLE hive.%s.%s".formatted(SCHEMA, hiveTableName));
     }
 
     @Test
     public void testHiddenColumns()
     {
         assertQuery("SELECT DISTINCT \"$path\" FROM foo",
-                format("VALUES '%s/part-00000-6f261ad3-ab3a-45e1-9047-01f9491f5a8c-c000.snappy.parquet'," +
-                        " '%1$s/part-00000-f61316e9-b279-4efa-94c8-5ababdacf768-c000.snappy.parquet'", getLocationForTable(bucketName, "foo")));
+                ("VALUES '%s/part-00000-6f261ad3-ab3a-45e1-9047-01f9491f5a8c-c000.snappy.parquet'," +
+                        " '%1$s/part-00000-f61316e9-b279-4efa-94c8-5ababdacf768-c000.snappy.parquet'").formatted(getLocationForTable(bucketName, "foo")));
         assertQuery("SELECT DISTINCT \"$file_size\" FROM foo", "VALUES 935");
         assertQuery("SELECT DISTINCT CAST(\"$file_modified_time\" AS varchar) FROM foo", "VALUES '2020-03-26 02:41:24.000 UTC', '2020-03-26 02:41:43.000 UTC'");
     }
@@ -530,9 +527,9 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String schemaName = "test_schema" + randomNameSuffix();
         String viewName = "dummy_view";
         assertUpdate("CREATE SCHEMA " + schemaName);
-        hiveHadoop.runOnHive(format("CREATE VIEW %s.%s AS SELECT * FROM %s.customer", schemaName, viewName, SCHEMA));
-        assertThat(computeScalar(format("SHOW TABLES FROM %s LIKE '%s'", schemaName, viewName))).isEqualTo(viewName);
-        assertThatThrownBy(() -> computeActual("DESCRIBE " + schemaName + "." + viewName)).hasMessageContaining(format("%s.%s is not a Delta Lake table", schemaName, viewName));
+        hiveHadoop.runOnHive("CREATE VIEW %s.%s AS SELECT * FROM %s.customer".formatted(schemaName, viewName, SCHEMA));
+        assertThat(computeScalar("SHOW TABLES FROM %s LIKE '%s'".formatted(schemaName, viewName))).isEqualTo(viewName);
+        assertThatThrownBy(() -> computeActual("DESCRIBE " + schemaName + "." + viewName)).hasMessageContaining("%s.%s is not a Delta Lake table".formatted(schemaName, viewName));
         hiveHadoop.runOnHive("DROP DATABASE " + schemaName + " CASCADE");
     }
 
@@ -565,11 +562,11 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testDropAndRecreateTable()
     {
         String tableName = "testDropAndRecreate_" + randomNameSuffix();
-        assertUpdate(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, getLocationForTable(bucketName, "nation")));
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, getLocationForTable(bucketName, "nation")));
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
 
         assertUpdate("DROP TABLE " + tableName);
-        assertUpdate(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, getLocationForTable(bucketName, "customer")));
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, getLocationForTable(bucketName, "customer")));
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM customer");
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -586,20 +583,19 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         String tableName = "test_create_partitioned_table_as_" + randomNameSuffix();
         assertUpdate(
-                format("CREATE TABLE " + tableName + " WITH (location = '%s', partitioned_by = ARRAY['regionkey']) AS SELECT name, regionkey, comment from nation",
+                ("CREATE TABLE " + tableName + " WITH (location = '%s', partitioned_by = ARRAY['regionkey']) AS SELECT name, regionkey, comment from nation").formatted(
                         getLocationForTable(bucketName, tableName)),
                 25);
         assertThat(computeScalar("SHOW CREATE TABLE " + tableName))
-                .isEqualTo(format(
-                        "CREATE TABLE %s.%s.%s (\n" +
-                                "   name varchar,\n" +
-                                "   regionkey bigint,\n" +
-                                "   comment varchar\n" +
-                                ")\n" +
-                                "WITH (\n" +
-                                "   location = '%s',\n" +
-                                "   partitioned_by = ARRAY['regionkey']\n" +
-                                ")",
+                .isEqualTo(("CREATE TABLE %s.%s.%s (\n" +
+                "   name varchar,\n" +
+                "   regionkey bigint,\n" +
+                "   comment varchar\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   location = '%s',\n" +
+                "   partitioned_by = ARRAY['regionkey']\n" +
+                ")").formatted(
                         DELTA_CATALOG,
                         SCHEMA,
                         tableName,
@@ -613,10 +609,10 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         String tableName = "test_create_partitioned_table_default_as_" + randomNameSuffix();
         assertUpdate(
-                format("CREATE TABLE " + tableName + "(number_partition, string_partition, a_value) " +
-                                "WITH (location = '%s', " +
-                                "partitioned_by = ARRAY['number_partition', 'string_partition']) " +
-                                "AS VALUES (NULL, 'partition_a', 'jarmuz'), (1, NULL, 'brukselka'), (NULL, NULL, 'kalafior')",
+                ("CREATE TABLE " + tableName + "(number_partition, string_partition, a_value) " +
+                "WITH (location = '%s', " +
+                "partitioned_by = ARRAY['number_partition', 'string_partition']) " +
+                "AS VALUES (NULL, 'partition_a', 'jarmuz'), (1, NULL, 'brukselka'), (NULL, NULL, 'kalafior')").formatted(
                         getLocationForTable(bucketName, tableName),
                         tableName),
                 3);
@@ -629,7 +625,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         String tableName = "test_create_table_partitioned_by_date_" + randomNameSuffix();
         assertUpdate(
-                format("CREATE TABLE %s (i, d) WITH (location = '%s', partitioned_by = ARRAY['d']) AS VALUES (1, DATE '2020-01-01'), (2, DATE '1700-01-01')",
+                "CREATE TABLE %s (i, d) WITH (location = '%s', partitioned_by = ARRAY['d']) AS VALUES (1, DATE '2020-01-01'), (2, DATE '1700-01-01')".formatted(
                         tableName,
                         getLocationForTable(bucketName, tableName)),
                 2);
@@ -663,17 +659,18 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testCleanupForFailedCreateTableAs()
     {
         String controlTableName = "test_cleanup_for_failed_create_table_as_control_" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE " + controlTableName + " WITH (location = '%s') AS " +
-                        "SELECT nationkey from tpch.sf1.nation", getLocationForTable(bucketName, controlTableName)),
+        assertUpdate(("CREATE TABLE " + controlTableName + " WITH (location = '%s') AS " +
+                        "SELECT nationkey from tpch.sf1.nation").formatted(getLocationForTable(bucketName, controlTableName)),
                 25);
         assertThat(getTableFiles(controlTableName)).isNotEmpty();
 
         String tableName = "test_cleanup_for_failed_create_table_as_" + randomNameSuffix();
         assertThat(query(
-                format("CREATE TABLE " + tableName + " WITH (location = '%s') AS " +
-                                "SELECT nationkey from tpch.sf1.nation " + // writer for this part finishes quickly
-                                "UNION ALL " +
-                                "SELECT 10/(max(orderkey)-max(orderkey)) from tpch.sf10.orders", // writer takes longer to complete and fails at the end
+                ("CREATE TABLE " + tableName + " WITH (location = '%s') AS " +
+                "SELECT nationkey from tpch.sf1.nation " + // writer for this part finishes quickly
+                "UNION ALL " +
+                "SELECT 10/(max(orderkey)-max(orderkey)) from tpch.sf10.orders").formatted(
+                        // writer takes longer to complete and fails at the end
                         getLocationForTable(bucketName, tableName))))
                 .failure().hasMessageContaining("Division by zero");
         assertEventually(new Duration(5, SECONDS), () -> assertThat(getTableFiles(tableName)).isEmpty());
@@ -684,10 +681,11 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         String tableName = "test_cleanup_for_failed_partitioned_create_table_as_" + randomNameSuffix();
         assertThat(query(
-                format("CREATE TABLE " + tableName + "(a, b) WITH (location = '%s', partitioned_by = ARRAY['b']) AS " +
-                                "SELECT nationkey, regionkey from tpch.sf1.nation " + // writer for this part finishes quickly
-                                "UNION ALL " +
-                                "SELECT 10/(max(orderkey)-max(orderkey)), orderkey %% 5 from tpch.sf10.orders group by orderkey %% 5", // writer takes longer to complete and fails at the end
+                ("CREATE TABLE " + tableName + "(a, b) WITH (location = '%s', partitioned_by = ARRAY['b']) AS " +
+                "SELECT nationkey, regionkey from tpch.sf1.nation " + // writer for this part finishes quickly
+                "UNION ALL " +
+                "SELECT 10/(max(orderkey)-max(orderkey)), orderkey %% 5 from tpch.sf10.orders group by orderkey %% 5").formatted(
+                        // writer takes longer to complete and fails at the end
                         getLocationForTable(bucketName, tableName))))
                 .failure().hasMessageContaining("Division by zero");
         assertEventually(new Duration(5, SECONDS), () -> assertThat(getTableFiles(tableName)).isEmpty());
@@ -697,7 +695,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testCreateTableAsExistingLocation()
     {
         String tableName = "test_create_table_as_existing_location_" + randomNameSuffix();
-        String createTableStatement = format("CREATE TABLE " + tableName + " WITH (location = '%s') AS SELECT name from nation", getLocationForTable(bucketName, tableName));
+        String createTableStatement = ("CREATE TABLE " + tableName + " WITH (location = '%s') AS SELECT name from nation").formatted(getLocationForTable(bucketName, tableName));
 
         // run create without table directory
         assertThat(getTableFiles(tableName)).as("table files").isEmpty();
@@ -718,7 +716,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         String schemaName = "test_create_schema_with_location_" + randomNameSuffix();
         assertQuerySucceeds(
-                format("CREATE SCHEMA %s WITH ( location = '%s' )",
+                "CREATE SCHEMA %s WITH ( location = '%s' )".formatted(
                         schemaName,
                         getLocationForTable(bucketName, schemaName)));
     }
@@ -732,13 +730,13 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String schemaLocation = getLocationForTable(bucketName, schemaName);
 
         assertUpdate(
-                format("CREATE SCHEMA %s WITH ( location = '%s' )",
+                "CREATE SCHEMA %s WITH ( location = '%s' )".formatted(
                         schemaName,
                         schemaLocation));
-        assertUpdate(format("CREATE TABLE %s.%s AS SELECT name FROM nation", schemaName, tableName), "SELECT count(*) FROM nation");
-        assertUpdate(format("CREATE TABLE %s.%s AS SELECT name FROM nation", schemaName, tableName2), "SELECT count(*) FROM nation");
-        assertQuery(format("SELECT * FROM %s.%s", schemaName, tableName), "SELECT name FROM nation");
-        assertQuery(format("SELECT * FROM %s.%s", schemaName, tableName2), "SELECT name FROM nation");
+        assertUpdate("CREATE TABLE %s.%s AS SELECT name FROM nation".formatted(schemaName, tableName), "SELECT count(*) FROM nation");
+        assertUpdate("CREATE TABLE %s.%s AS SELECT name FROM nation".formatted(schemaName, tableName2), "SELECT count(*) FROM nation");
+        assertQuery("SELECT * FROM %s.%s".formatted(schemaName, tableName), "SELECT name FROM nation");
+        assertQuery("SELECT * FROM %s.%s".formatted(schemaName, tableName2), "SELECT name FROM nation");
         validatePath(schemaLocation, schemaName, tableName);
         validatePath(schemaLocation, schemaName, tableName2);
     }
@@ -751,15 +749,15 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String schemaName = "test_schema" + randomNameSuffix();
         String schemaLocation = getLocationForTable(bucketName, schemaName);
         assertUpdate(
-                format("CREATE SCHEMA %s WITH ( location = '%s' )",
+                "CREATE SCHEMA %s WITH ( location = '%s' )".formatted(
                         schemaName,
                         schemaLocation));
-        assertUpdate(format("CREATE TABLE %s.%s (name VARCHAR)", schemaName, tableName));
-        assertUpdate(format("CREATE TABLE %s.%s (name VARCHAR)", schemaName, tableName2));
-        assertUpdate(format("INSERT INTO %s.%s SELECT name FROM nation", schemaName, tableName), "SELECT count(*) FROM nation");
-        assertUpdate(format("INSERT INTO %s.%s SELECT name FROM nation", schemaName, tableName2), "SELECT count(*) FROM nation");
-        assertQuery(format("SELECT * FROM %s.%s", schemaName, tableName), "SELECT name FROM nation");
-        assertQuery(format("SELECT * FROM %s.%s", schemaName, tableName2), "SELECT name FROM nation");
+        assertUpdate("CREATE TABLE %s.%s (name VARCHAR)".formatted(schemaName, tableName));
+        assertUpdate("CREATE TABLE %s.%s (name VARCHAR)".formatted(schemaName, tableName2));
+        assertUpdate("INSERT INTO %s.%s SELECT name FROM nation".formatted(schemaName, tableName), "SELECT count(*) FROM nation");
+        assertUpdate("INSERT INTO %s.%s SELECT name FROM nation".formatted(schemaName, tableName2), "SELECT count(*) FROM nation");
+        assertQuery("SELECT * FROM %s.%s".formatted(schemaName, tableName), "SELECT name FROM nation");
+        assertQuery("SELECT * FROM %s.%s".formatted(schemaName, tableName2), "SELECT name FROM nation");
         validatePath(schemaLocation, schemaName, tableName);
         validatePath(schemaLocation, schemaName, tableName2);
     }
@@ -770,7 +768,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 .execute("SELECT DISTINCT regexp_replace(\"$path\", '(.*[/][^/]*)[/][^/]*$', '$1') FROM " + schemaName + "." + tableName)
                 .getMaterializedRows();
         assertThat(materializedRows).hasSize(1);
-        assertThat((String) materializedRows.get(0).getField(0)).matches(format("%s/%s.*", schemaLocation, tableName));
+        assertThat((String) materializedRows.get(0).getField(0)).matches("%s/%s.*".formatted(schemaLocation, tableName));
     }
 
     @Test
@@ -787,7 +785,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         String oldTable = "test_external_table_rename_old_" + randomNameSuffix();
 
-        assertUpdate(format("CREATE TABLE %s (a bigint, b double) WITH (location = '%s')", oldTable, getLocationForTable(bucketName, oldTable)));
+        assertUpdate("CREATE TABLE %s (a bigint, b double) WITH (location = '%s')".formatted(oldTable, getLocationForTable(bucketName, oldTable)));
         assertUpdate("INSERT INTO " + oldTable + " VALUES (42, 43)", 1);
         String oldLocation = (String) computeScalar("SELECT \"$path\" FROM " + oldTable);
 
@@ -821,7 +819,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testRenameExternalTableAcrossSchemas()
     {
         String oldTable = "test_rename_old_" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (a bigint, b double) WITH (location = '%s')", oldTable, getLocationForTable(bucketName, oldTable)));
+        assertUpdate("CREATE TABLE %s (a bigint, b double) WITH (location = '%s')".formatted(oldTable, getLocationForTable(bucketName, oldTable)));
         assertUpdate("INSERT INTO " + oldTable + " VALUES (42, 43)", 1);
         String oldLocation = (String) computeScalar("SELECT \"$path\" FROM " + oldTable);
 
@@ -857,15 +855,15 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String schemaName = "test_override_schema_location_schema_" + randomNameSuffix();
         String schemaLocation = getLocationForTable(bucketName, schemaName);
         assertUpdate(
-                format("CREATE SCHEMA %s WITH ( location = '%s' )",
+                "CREATE SCHEMA %s WITH ( location = '%s' )".formatted(
                         schemaName,
                         schemaLocation));
 
         String tableLocation = getLocationForTable(bucketName, "a_different_directory") + "/" + tableName;
-        assertUpdate(format("CREATE TABLE %s.%s WITH (location = '%s') AS SELECT * FROM nation", schemaName, tableName, tableLocation), "SELECT count(*) FROM nation");
+        assertUpdate("CREATE TABLE %s.%s WITH (location = '%s') AS SELECT * FROM nation".formatted(schemaName, tableName, tableLocation), "SELECT count(*) FROM nation");
         assertQuery(
                 "SELECT DISTINCT regexp_replace(\"$path\", '(.*[/][^/]*)[/][^/]*$', '$1') FROM " + schemaName + "." + tableName,
-                format("VALUES '%s'", tableLocation));
+                "VALUES '%s'".formatted(tableLocation));
     }
 
     @Test
@@ -874,10 +872,10 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String tableName = "test_managed_table_cleanup_" + randomNameSuffix();
         String schemaName = "test_managed_table_cleanup_" + randomNameSuffix();
         String schemaLocation = getLocationForTable(bucketName, schemaName);
-        assertUpdate(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaLocation));
-        assertUpdate(format("CREATE TABLE %s.%s AS SELECT * FROM nation", schemaName, tableName), "SELECT count(*) FROM nation");
+        assertUpdate("CREATE SCHEMA %s WITH (location = '%s')".formatted(schemaName, schemaLocation));
+        assertUpdate("CREATE TABLE %s.%s AS SELECT * FROM nation".formatted(schemaName, tableName), "SELECT count(*) FROM nation");
         assertThat(getTableFiles(schemaName + "/" + tableName).size()).isGreaterThan(0);
-        assertUpdate(format("DROP TABLE %s.%s", schemaName, tableName));
+        assertUpdate("DROP TABLE %s.%s".formatted(schemaName, tableName));
         assertThat(getTableFiles(schemaName + "/" + tableName)).isEmpty();
     }
 
@@ -888,12 +886,12 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String schemaName = "test_external_table_files_retained_" + randomNameSuffix();
         String tableLocation = getLocationForTable(bucketName, tableName);
         String schemaLocation = getLocationForTable(bucketName, schemaName);
-        assertUpdate(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaLocation));
+        assertUpdate("CREATE SCHEMA %s WITH (location = '%s')".formatted(schemaName, schemaLocation));
         assertUpdate(
-                format("CREATE TABLE %s.%s WITH (location = '%s') AS SELECT * FROM nation", schemaName, tableName, tableLocation),
+                "CREATE TABLE %s.%s WITH (location = '%s') AS SELECT * FROM nation".formatted(schemaName, tableName, tableLocation),
                 "SELECT count(*) FROM nation");
         int fileCount = getTableFiles(tableName).size();
-        assertUpdate(format("DROP TABLE %s.%s", schemaName, tableName));
+        assertUpdate("DROP TABLE %s.%s".formatted(schemaName, tableName));
         assertThat(getTableFiles(tableName)).hasSize(fileCount);
     }
 
@@ -902,8 +900,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         String tableName = "test_timestamp_with_time_zone_" + randomNameSuffix();
         assertUpdate(
-                format("CREATE TABLE " + tableName + " (ts_tz) WITH (location = '%s') AS " +
-                                "VALUES timestamp '2012-10-31 01:00:00.123 America/New_York', timestamp '2012-10-31 01:00:00.123 America/Los_Angeles', timestamp '2012-10-31 01:00:00.123 UTC'",
+                ("CREATE TABLE " + tableName + " (ts_tz) WITH (location = '%s') AS " +
+                "VALUES timestamp '2012-10-31 01:00:00.123 America/New_York', timestamp '2012-10-31 01:00:00.123 America/Los_Angeles', timestamp '2012-10-31 01:00:00.123 UTC'").formatted(
                         getLocationForTable(bucketName, tableName)),
                 3);
         assertQuery(
@@ -919,8 +917,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         String tableName = "test_timestamp_with_time_zone_micro_" + randomNameSuffix();
         assertQueryFails(
-                format("CREATE TABLE " + tableName + " (ts_tz) WITH (location = '%s') AS " +
-                                "VALUES timestamp '2012-10-31 01:00:00.123456 America/New_York', timestamp '2012-10-31 01:00:00.123456 America/Los_Angeles'",
+                ("CREATE TABLE " + tableName + " (ts_tz) WITH (location = '%s') AS " +
+                "VALUES timestamp '2012-10-31 01:00:00.123456 America/New_York', timestamp '2012-10-31 01:00:00.123456 America/Los_Angeles'").formatted(
                         getLocationForTable(bucketName, tableName)),
                 "Unsupported type:.*");
     }
@@ -1216,16 +1214,16 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         String tableName = "test_insert_partitioned_" + randomNameSuffix();
         assertUpdate(
-                format("CREATE TABLE %s (a_number, a_string) " +
-                                " WITH (location = '%s', " +
-                                "       partitioned_by = ARRAY['a_number']) " +
-                                " AS VALUES (1, 'ala')",
+                ("CREATE TABLE %s (a_number, a_string) " +
+                " WITH (location = '%s', " +
+                "       partitioned_by = ARRAY['a_number']) " +
+                " AS VALUES (1, 'ala')").formatted(
                         tableName,
                         getLocationForTable(bucketName, tableName)),
                 1);
 
-        assertUpdate(format("INSERT INTO %s VALUES (2, 'kota'), (3, 'psa')", tableName), 2);
-        assertUpdate(format("INSERT INTO %s VALUES (2, 'bobra'), (5, 'kreta')", tableName), 2);
+        assertUpdate("INSERT INTO %s VALUES (2, 'kota'), (3, 'psa')".formatted(tableName), 2);
+        assertUpdate("INSERT INTO %s VALUES (2, 'bobra'), (5, 'kreta')".formatted(tableName), 2);
         assertQuery("SELECT * FROM " + tableName, "VALUES (1,'ala'), (2,'kota'), (3,'psa'), (2, 'bobra'), (5, 'kreta')");
         assertQuery(
                 "SELECT DISTINCT regexp_replace(\"$path\", '.*[/]([^/]*)[/][^/]*$', '$1') FROM " + tableName,
@@ -1279,12 +1277,12 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         String tableName = "test_partial_insert_" + randomNameSuffix();
         assertUpdate(
-                format("CREATE TABLE %s (a_number, a_string) WITH (location = '%s') AS " +
-                                "VALUES (1, 'ala')",
+                ("CREATE TABLE %s (a_number, a_string) WITH (location = '%s') AS " +
+                "VALUES (1, 'ala')").formatted(
                         tableName,
                         getLocationForTable(bucketName, tableName)),
                 1);
-        assertUpdate(format("INSERT INTO %s(a_number) VALUES (2), (3)", tableName), 2);
+        assertUpdate("INSERT INTO %s(a_number) VALUES (2), (3)".formatted(tableName), 2);
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'ala'), (2, NULL), (3, NULL)");
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1294,16 +1292,16 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         String tableName = "test_partial_insert_partitioned_" + randomNameSuffix();
         assertUpdate(
-                format("CREATE TABLE %s (a_number, a_string) " +
-                                " WITH (location = '%s', " +
-                                "       partitioned_by = ARRAY['a_number']) " +
-                                " AS VALUES (1, 'ala')",
+                ("CREATE TABLE %s (a_number, a_string) " +
+                " WITH (location = '%s', " +
+                "       partitioned_by = ARRAY['a_number']) " +
+                " AS VALUES (1, 'ala')").formatted(
                         tableName,
                         getLocationForTable(bucketName, tableName)),
                 1);
 
-        assertUpdate(format("INSERT INTO %s(a_number) VALUES (2), (3)", tableName), 2);
-        assertUpdate(format("INSERT INTO %s(a_string) VALUES ('lwa')", tableName), 1);
+        assertUpdate("INSERT INTO %s(a_number) VALUES (2), (3)".formatted(tableName), 2);
+        assertUpdate("INSERT INTO %s(a_string) VALUES ('lwa')".formatted(tableName), 1);
 
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'ala'), (2, NULL), (3, NULL), (NULL, 'lwa')");
         assertUpdate("DROP TABLE " + tableName);
@@ -1314,7 +1312,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         String tableName = "test_insert_column_ordering_" + randomNameSuffix();
         assertUpdate(
-                format("CREATE TABLE %s (a INT, b INT, c INT) WITH (location = '%s', partitioned_by = ARRAY['a', 'b'])",
+                "CREATE TABLE %s (a INT, b INT, c INT) WITH (location = '%s', partitioned_by = ARRAY['a', 'b'])".formatted(
                         tableName,
                         getLocationForTable(bucketName, tableName)));
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, 2, 3), (4, 5, 6)", 2);
@@ -1350,20 +1348,20 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         String tableName = "test_insert_checkpointing_" + randomNameSuffix();
         assertUpdate(
-                format("CREATE TABLE %s (a_number, a_string) " +
-                                " WITH (location = '%s', " +
-                                "       partitioned_by = ARRAY['a_number'], " +
-                                "       checkpoint_interval = 5) " +
-                                " AS VALUES (1, 'ala')",
+                ("CREATE TABLE %s (a_number, a_string) " +
+                " WITH (location = '%s', " +
+                "       partitioned_by = ARRAY['a_number'], " +
+                "       checkpoint_interval = 5) " +
+                " AS VALUES (1, 'ala')").formatted(
                         tableName,
                         getLocationForTable(bucketName, tableName)),
                 1);
-        String transactionLogDirectory = format("%s/_delta_log", tableName);
+        String transactionLogDirectory = "%s/_delta_log".formatted(tableName);
 
-        assertUpdate(format("INSERT INTO %s VALUES (2, 'kota'), (3, 'psa')", tableName), 2);
-        assertUpdate(format("INSERT INTO %s VALUES (2, 'bobra'), (5, 'kreta')", tableName), 2);
-        assertUpdate(format("DELETE FROM %s WHERE a_string = 'kota'", tableName), 1);
-        assertUpdate(format("DELETE FROM %s WHERE a_string = 'kreta'", tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES (2, 'kota'), (3, 'psa')".formatted(tableName), 2);
+        assertUpdate("INSERT INTO %s VALUES (2, 'bobra'), (5, 'kreta')".formatted(tableName), 2);
+        assertUpdate("DELETE FROM %s WHERE a_string = 'kota'".formatted(tableName), 1);
+        assertUpdate("DELETE FROM %s WHERE a_string = 'kreta'".formatted(tableName), 1);
 
         // sanity check
         assertThat(listCheckpointFiles(transactionLogDirectory)).isEmpty();
@@ -1409,7 +1407,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
         // Set 'checkpoint_interval' as 1 to write 'stats_parsed' field every INSERT
         assertUpdate(
-                format("CREATE TABLE %s (col %s) WITH (location = '%s', checkpoint_interval = 1)",
+                "CREATE TABLE %s (col %s) WITH (location = '%s', checkpoint_interval = 1)".formatted(
                         tableName,
                         type,
                         getLocationForTable(bucketName, tableName)));
@@ -1438,7 +1436,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
         // Column statistics on boolean column is unsupported
         assertUpdate(
-                format("CREATE TABLE %s (col integer, unsupported boolean) WITH (location = '%s', checkpoint_interval = 1)",
+                "CREATE TABLE %s (col integer, unsupported boolean) WITH (location = '%s', checkpoint_interval = 1)".formatted(
                         tableName,
                         getLocationForTable(bucketName, tableName)));
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, true)", 1);
@@ -1458,36 +1456,36 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         String tableName = "test_create_or_replace_checkpointing_" + randomNameSuffix();
         assertUpdate(
-                format("CREATE OR REPLACE TABLE %s (a_number, a_string) " +
-                                " WITH (location = '%s', " +
-                                "       partitioned_by = ARRAY['a_number']) " +
-                                " AS VALUES (1, 'ala')",
+                ("CREATE OR REPLACE TABLE %s (a_number, a_string) " +
+                " WITH (location = '%s', " +
+                "       partitioned_by = ARRAY['a_number']) " +
+                " AS VALUES (1, 'ala')").formatted(
                         tableName,
                         getLocationForTable(bucketName, tableName)),
                 1);
-        String transactionLogDirectory = format("%s/_delta_log", tableName);
+        String transactionLogDirectory = "%s/_delta_log".formatted(tableName);
 
-        assertUpdate(format("INSERT INTO %s VALUES (2, 'kota'), (3, 'psa')", tableName), 2);
+        assertUpdate("INSERT INTO %s VALUES (2, 'kota'), (3, 'psa')".formatted(tableName), 2);
         assertThat(listCheckpointFiles(transactionLogDirectory)).isEmpty();
         assertQuery("SELECT * FROM " + tableName, "VALUES (1,'ala'),  (2,'kota'), (3, 'psa')");
 
         // replace table with same schema, expect a checkpoint because the checkpoint interval threshold has been reached
         assertUpdate(
-                format("CREATE OR REPLACE TABLE %s (a_number integer, a_string varchar) " +
-                                " WITH (checkpoint_interval = 2)",
+                ("CREATE OR REPLACE TABLE %s (a_number integer, a_string varchar) " +
+                " WITH (checkpoint_interval = 2)").formatted(
                         tableName));
         assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(1);
         assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
 
-        assertUpdate(format("INSERT INTO " + tableName + " VALUES (1, 'bobra')", tableName), 1);
+        assertUpdate(("INSERT INTO " + tableName + " VALUES (1, 'bobra')").formatted(tableName), 1);
         assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(1);
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'bobra')");
 
         // replace table with selection
         assertUpdate(
-                format("CREATE OR REPLACE TABLE %s (a_number, a_string) " +
-                                " WITH (checkpoint_interval = 2) " +
-                                " AS VALUES (1, 'bobra'), (2, 'kreta')",
+                ("CREATE OR REPLACE TABLE %s (a_number, a_string) " +
+                " WITH (checkpoint_interval = 2) " +
+                " AS VALUES (1, 'bobra'), (2, 'kreta')").formatted(
                         tableName),
                 2);
         assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(2);
@@ -1501,31 +1499,31 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         String tableName = "test_create_or_replace_checkpointing_" + randomNameSuffix();
         assertUpdate(
-                format("CREATE OR REPLACE TABLE %s (a_number, a_string) " +
-                                " WITH (location = '%s', " +
-                                "       partitioned_by = ARRAY['a_number']) " +
-                                " AS VALUES (1, 'ala')",
+                ("CREATE OR REPLACE TABLE %s (a_number, a_string) " +
+                " WITH (location = '%s', " +
+                "       partitioned_by = ARRAY['a_number']) " +
+                " AS VALUES (1, 'ala')").formatted(
                         tableName,
                         getLocationForTable(bucketName, tableName)),
                 1);
-        String transactionLogDirectory = format("%s/_delta_log", tableName);
+        String transactionLogDirectory = "%s/_delta_log".formatted(tableName);
 
-        assertUpdate(format("INSERT INTO %s VALUES (2, 'kota'), (3, 'psa')", tableName), 2);
+        assertUpdate("INSERT INTO %s VALUES (2, 'kota'), (3, 'psa')".formatted(tableName), 2);
         assertThat(listCheckpointFiles(transactionLogDirectory)).isEmpty();
         assertQuery("SELECT * FROM " + tableName, "VALUES (1,'ala'),  (2,'kota'), (3, 'psa')");
 
         // replace table with same schema and a large checkpoint_interval, expect no new checkpoint
         assertUpdate(
-                format("CREATE OR REPLACE TABLE %s (a_number integer, a_string varchar) " +
-                                " WITH (checkpoint_interval = 100)",
+                ("CREATE OR REPLACE TABLE %s (a_number integer, a_string varchar) " +
+                " WITH (checkpoint_interval = 100)").formatted(
                         tableName));
         assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(0);
         assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
 
         // replace table with a different schema and a large checkpoint_interval, expect a new checkpoint because columns have changed
         assertUpdate(
-                format("CREATE OR REPLACE TABLE %s (a_number integer, a_string integer) " +
-                                " WITH (checkpoint_interval = 100)",
+                ("CREATE OR REPLACE TABLE %s (a_number integer, a_string integer) " +
+                " WITH (checkpoint_interval = 100)").formatted(
                         tableName));
         assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(1);
         assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
@@ -1562,17 +1560,16 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         // Create a table with a bunch of transaction log entries
         String tableName = "test_table_location_changed_" + randomNameSuffix();
         String initialLocation = getLocationForTable(bucketName, tableName);
-        assertUpdate(format(
-                "CREATE TABLE %s (a_number int, a_string varchar) WITH (location = '%s' %s)",
+        assertUpdate("CREATE TABLE %s (a_number int, a_string varchar) WITH (location = '%s' %s)".formatted(
                 tableName,
                 initialLocation,
                 firstPartitioned ? ", partitioned_by = ARRAY['a_number']" : ""));
 
         BiConsumer<QueryRunner, String> insertABunchOfRows = (queryRunner, prefix) -> {
-            queryRunner.execute(format("INSERT INTO %s (a_number, a_string) VALUES (1, '%s one')", tableName, prefix));
-            queryRunner.execute(format("INSERT INTO %s (a_number, a_string) VALUES (2, '%s two')", tableName, prefix));
-            queryRunner.execute(format("INSERT INTO %s (a_number, a_string) VALUES (3, '%s tree')", tableName, prefix));
-            queryRunner.execute(format("INSERT INTO %s (a_number, a_string) VALUES (4, '%s four')", tableName, prefix));
+            queryRunner.execute("INSERT INTO %s (a_number, a_string) VALUES (1, '%s one')".formatted(tableName, prefix));
+            queryRunner.execute("INSERT INTO %s (a_number, a_string) VALUES (2, '%s two')".formatted(tableName, prefix));
+            queryRunner.execute("INSERT INTO %s (a_number, a_string) VALUES (3, '%s tree')".formatted(tableName, prefix));
+            queryRunner.execute("INSERT INTO %s (a_number, a_string) VALUES (4, '%s four')".formatted(tableName, prefix));
         };
 
         insertABunchOfRows.accept(getQueryRunner(), "first");
@@ -1587,15 +1584,14 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             newLocation = getLocationForTable(bucketName, "test_table_location_changed_new_" + randomNameSuffix());
 
             independentQueryRunner.execute("DROP TABLE " + tableName);
-            independentQueryRunner.execute(format(
-                    "CREATE TABLE %s (a_number int, a_string varchar, another_string varchar) WITH (location = '%s' %s) ",
+            independentQueryRunner.execute("CREATE TABLE %s (a_number int, a_string varchar, another_string varchar) WITH (location = '%s' %s) ".formatted(
                     tableName,
                     newLocation,
                     secondPartitioned ? ", partitioned_by = ARRAY['a_number']" : ""));
 
             if (fewerEntries) {
                 // Have fewer transaction log entries so that version mismatch is more apparent (but easier to detect)
-                independentQueryRunner.execute(format("INSERT INTO %s VALUES (1, 'second one', 'third column')", tableName));
+                independentQueryRunner.execute("INSERT INTO %s VALUES (1, 'second one', 'third column')".formatted(tableName));
             }
             else {
                 insertABunchOfRows.accept(independentQueryRunner, "second");
@@ -1613,8 +1609,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 break;
             }
             if (!Set.copyOf(currentVisibleData.getMaterializedRows()).equals(Set.copyOf(initialData.getMaterializedRows()))) {
-                throw new AssertionError(format(
-                        "Unexpected result when reading table: %s,\n expected either initialData: %s\n or expectedDataAfterChange: %s",
+                throw new AssertionError("Unexpected result when reading table: %s,\n expected either initialData: %s\n or expectedDataAfterChange: %s".formatted(
                         currentVisibleData,
                         initialData,
                         expectedDataAfterChange));
@@ -1684,37 +1679,37 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testStatsSplitPruningBasedOnSepCreatedCheckpoint()
     {
         String tableName = "test_sep_checkpoint_stats_pruning_" + randomNameSuffix();
-        String transactionLogDirectory = format("%s/_delta_log", tableName);
+        String transactionLogDirectory = "%s/_delta_log".formatted(tableName);
         assertUpdate(
-                format("CREATE TABLE %s (a_number, a_string)" +
-                                " WITH (location = '%s')" +
-                                " AS VALUES (1, 'ala')",
+                ("CREATE TABLE %s (a_number, a_string)" +
+                " WITH (location = '%s')" +
+                " AS VALUES (1, 'ala')").formatted(
                         tableName,
                         getLocationForTable(bucketName, tableName)),
                 1);
 
-        assertUpdate(format("INSERT INTO %s VALUES (2, 'kota')", tableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES (3, 'kota')", tableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES (4, 'kota')", tableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES (5, 'kota')", tableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES (6, 'kota')", tableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES (7, 'kota')", tableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES (8, 'kota')", tableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES (9, 'kota')", tableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES (10, 'kota')", tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES (2, 'kota')".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES (3, 'kota')".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES (4, 'kota')".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES (5, 'kota')".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES (6, 'kota')".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES (7, 'kota')".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES (8, 'kota')".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES (9, 'kota')".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES (10, 'kota')".formatted(tableName), 1);
 
         // there should not be a checkpoint yet
         assertThat(listCheckpointFiles(transactionLogDirectory)).isEmpty();
-        testCountQuery(format("SELECT count(*) FROM %s WHERE a_number <= 3", tableName), 3, 3);
+        testCountQuery("SELECT count(*) FROM %s WHERE a_number <= 3".formatted(tableName), 3, 3);
 
         // perform one more insert to ensure checkpoint
-        assertUpdate(format("INSERT INTO %s VALUES (11, 'kota')", tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES (11, 'kota')".formatted(tableName), 1);
         assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(1);
-        testCountQuery(format("SELECT count(*) FROM %s WHERE a_number <= 3", tableName), 3, 3);
+        testCountQuery("SELECT count(*) FROM %s WHERE a_number <= 3".formatted(tableName), 3, 3);
 
         // split pruning should still be working when table metadata (snapshot, active files) is read anew
         invalidateMetadataCache(tableName);
-        testCountQuery(format("SELECT count(*) FROM %s WHERE a_number <= 3", tableName), 3, 3);
+        testCountQuery("SELECT count(*) FROM %s WHERE a_number <= 3".formatted(tableName), 3, 3);
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1724,32 +1719,32 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         String tableName = "test_sep_checkpoint_stats_pruning_struct_stats_" + randomNameSuffix();
         registerTableFromResources(tableName, "databricks73/pruning/parquet_struct_statistics", getQueryRunner());
-        String transactionLogDirectory = format("%s/_delta_log", tableName);
+        String transactionLogDirectory = "%s/_delta_log".formatted(tableName);
 
         // there should be one checkpoint already (created by DB)
         assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(1);
-        testCountQuery(format("SELECT count(*) FROM %s WHERE l = 0", tableName), 3, 3);
+        testCountQuery("SELECT count(*) FROM %s WHERE l = 0".formatted(tableName), 3, 3);
 
         // fill in with extra transaction to force one more checkpoint made by Trino
         // the checkpoint will be based on DB checkpoint which includes only struct stats
-        assertUpdate(format("INSERT INTO %s VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)", tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)".formatted(tableName), 1);
         assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(2);
 
         // split pruning should still be working
-        testCountQuery(format("SELECT count(*) FROM %s WHERE l = 0", tableName), 3, 3);
+        testCountQuery("SELECT count(*) FROM %s WHERE l = 0".formatted(tableName), 3, 3);
 
         // split pruning should still be working when table metadata (snapshot, active files) is read anew
         invalidateMetadataCache(tableName);
-        testCountQuery(format("SELECT count(*) FROM %s WHERE l = 0", tableName), 3, 3);
+        testCountQuery("SELECT count(*) FROM %s WHERE l = 0".formatted(tableName), 3, 3);
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1765,7 +1760,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 .setCatalogSessionProperty(catalog, "vacuum_min_retention", "0s")
                 .build();
         assertUpdate(
-                format("CREATE TABLE %s WITH (location = '%s', partitioned_by = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", tableName, tableLocation),
+                "CREATE TABLE %s WITH (location = '%s', partitioned_by = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation".formatted(tableName, tableLocation),
                 25);
         try {
             Set<String> initialFiles = getActiveFiles(tableName);
@@ -1811,7 +1806,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 .setCatalogSessionProperty(catalog, "vacuum_min_retention", "0s")
                 .build();
         assertUpdate(
-                format("CREATE TABLE %s WITH (location = '%s', partitioned_by = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", tableName, tableLocation),
+                "CREATE TABLE %s WITH (location = '%s', partitioned_by = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation".formatted(tableName, tableLocation),
                 25);
         try {
             Set<String> initialFiles = getActiveFiles(tableName);
@@ -1857,7 +1852,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 .setCatalogSessionProperty(catalog, "vacuum_min_retention", "0s")
                 .build();
 
-        assertUpdate(format("CREATE TABLE %s (val int, col_white_space timestamp(6)) WITH (location = '%s', partitioned_by = ARRAY['col_white_space'])", tableName, tableLocation));
+        assertUpdate("CREATE TABLE %s (val int, col_white_space timestamp(6)) WITH (location = '%s', partitioned_by = ARRAY['col_white_space'])".formatted(tableName, tableLocation));
 
         try {
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, TIMESTAMP '2024-12-13 11:00:00.000000'), (2, TIMESTAMP '2024-12-13 12:00:00.000000')", 2);
@@ -1898,7 +1893,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String catalog = getSession().getCatalog().orElseThrow();
         String tableName = "test_vacuum_parameter_validation_" + randomNameSuffix();
         assertUpdate(
-                format("CREATE TABLE %s WITH (location = '%s') AS SELECT * FROM tpch.tiny.nation", tableName, getLocationForTable(bucketName, tableName)),
+                "CREATE TABLE %s WITH (location = '%s') AS SELECT * FROM tpch.tiny.nation".formatted(tableName, getLocationForTable(bucketName, tableName)),
                 25);
         assertQueryFails("CALL system.vacuum(NULL, NULL, NULL)", "schema_name cannot be null");
         assertQueryFails("CALL system.vacuum(CURRENT_SCHEMA, NULL, NULL)", "table_name cannot be null");
@@ -1985,7 +1980,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         assertQueryFails(
                 "ALTER TABLE no_such_table_exists EXECUTE OPTIMIZE",
-                format("line 1:7: Table 'delta.%s.no_such_table_exists' does not exist", SCHEMA));
+                "line 1:7: Table 'delta.%s.no_such_table_exists' does not exist".formatted(SCHEMA));
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE OPTIMIZE (file_size_threshold => '33')",
                 "\\Qline 1:38: Unable to set catalog 'delta' table procedure 'OPTIMIZE' property 'file_size_threshold' to ['33']: size is not a valid data size string: 33");
@@ -2072,16 +2067,16 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     private void fillWithInserts(String tableName, String values, int toCreate)
     {
         for (int i = 0; i < toCreate; i++) {
-            assertUpdate(format("INSERT INTO %s VALUES %s", tableName, values), 1);
+            assertUpdate("INSERT INTO %s VALUES %s".formatted(tableName, values), 1);
         }
     }
 
     private void invalidateMetadataCache(String tableName)
     {
         Set<?> activeFiles = computeActual("SELECT \"$path\" FROM " + tableName).getOnlyColumnAsSet();
-        String location = (String) computeScalar(format("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM %s", tableName));
+        String location = (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM %s".formatted(tableName));
         assertUpdate("DROP TABLE " + tableName);
-        assertUpdate(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, location));
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, location));
         // sanity check
         assertThat(computeActual("SELECT \"$path\" FROM " + tableName).getOnlyColumnAsSet()).as("active files after table recreated")
                 .isEqualTo(activeFiles);
@@ -2252,13 +2247,13 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String tableName = "test_create_table_with_trailing_space_" + randomNameSuffix();
         String tableLocationWithTrailingSpace = bucketUrl() + tableName + " ";
 
-        assertQuerySucceeds(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace));
+        assertQuerySucceeds("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c".formatted(tableName, tableLocationWithTrailingSpace));
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'INDIA', true)");
 
         assertThat(getTableLocation(tableName)).isEqualTo(tableLocationWithTrailingSpace);
 
         String registeredTableName = "test_register_table_with_trailing_space_" + randomNameSuffix();
-        assertQuerySucceeds(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", registeredTableName, tableLocationWithTrailingSpace));
+        assertQuerySucceeds("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(registeredTableName, tableLocationWithTrailingSpace));
         assertQuery("SELECT * FROM " + registeredTableName, "VALUES (1, 'INDIA', true)");
 
         assertThat(getTableLocation(registeredTableName)).isEqualTo(tableLocationWithTrailingSpace);
@@ -2553,7 +2548,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
     private void assertTableVersion(String tableName, long version)
     {
-        assertThat(computeScalar(format("SELECT max(version) FROM \"%s$history\"", tableName))).isEqualTo(version);
+        assertThat(computeScalar("SELECT max(version) FROM \"%s$history\"".formatted(tableName))).isEqualTo(version);
     }
 
     private void assertTableOperation(String tableName, long version, String operation)

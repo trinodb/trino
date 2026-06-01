@@ -26,7 +26,6 @@ import java.lang.reflect.Method;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static io.trino.testng.services.Listeners.reportListenerFailure;
-import static java.lang.String.format;
 
 public class ReportMultiThreadedBeforeOrAfterMethod
         implements IClassListener
@@ -71,8 +70,7 @@ public class ReportMultiThreadedBeforeOrAfterMethod
         Method[] methods = testClass.getMethods();
         for (Method method : methods) {
             if (method.getAnnotation(BeforeMethod.class) != null || method.getAnnotation(AfterMethod.class) != null) {
-                throw new RuntimeException(format(
-                        "Test class %s should be annotated as @Test(singleThreaded=true), if it contains mutable state as indicated by %s",
+                throw new RuntimeException("Test class %s should be annotated as @Test(singleThreaded=true), if it contains mutable state as indicated by %s".formatted(
                         testClass.getName(),
                         method));
             }

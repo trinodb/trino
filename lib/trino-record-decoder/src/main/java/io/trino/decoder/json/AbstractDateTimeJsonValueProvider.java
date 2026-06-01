@@ -35,7 +35,6 @@ import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
-import static java.lang.String.format;
 
 public abstract class AbstractDateTimeJsonValueProvider
         extends FieldValueProvider
@@ -66,7 +65,7 @@ public abstract class AbstractDateTimeJsonValueProvider
             if (millis < 0 || millis >= TimeUnit.DAYS.toMillis(1)) {
                 throw new TrinoException(
                         DECODER_CONVERSION_NOT_SUPPORTED,
-                        format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
+                        "could not parse value '%s' as '%s' for column '%s'".formatted(value.asText(), columnHandle.getType(), columnHandle.getName()));
             }
         }
 

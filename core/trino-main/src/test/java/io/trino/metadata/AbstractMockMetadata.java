@@ -13,7 +13,6 @@
  */
 package io.trino.metadata;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -111,6 +110,7 @@ import static io.trino.spi.function.FunctionDependencyDeclaration.NO_DEPENDENCIE
 import static io.trino.spi.function.FunctionId.toFunctionId;
 import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static java.util.stream.Collectors.joining;
 
 public abstract class AbstractMockMetadata
         implements Metadata
@@ -909,7 +909,7 @@ public abstract class AbstractMockMetadata
                     ImmutableMap.of(),
                     ImmutableSet.of());
         }
-        throw new TrinoException(FUNCTION_NOT_FOUND, name + "(" + Joiner.on(", ").join(parameterTypes) + ")");
+        throw new TrinoException(FUNCTION_NOT_FOUND, name + "(" + parameterTypes.stream().map(Object::toString).collect(joining(", ")) + ")");
     }
 
     @Override

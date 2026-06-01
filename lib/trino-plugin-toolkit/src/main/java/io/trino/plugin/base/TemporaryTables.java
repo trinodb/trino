@@ -28,7 +28,7 @@ public class TemporaryTables
     public static String temporaryTableNamePrefix(String queryId)
     {
         requireNonNull(queryId, "queryId is null");
-        return String.format("%s%s_", TEMPORARY_TABLE_NAME_PREFIX, hexFormat.toHexDigits(queryId.hashCode()));
+        return "%s%s_".formatted(TEMPORARY_TABLE_NAME_PREFIX, hexFormat.toHexDigits(queryId.hashCode()));
     }
 
     public static String generateTemporaryTableName(String queryId)

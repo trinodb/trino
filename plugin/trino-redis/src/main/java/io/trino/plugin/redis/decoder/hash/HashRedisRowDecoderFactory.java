@@ -25,7 +25,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static java.lang.String.format;
 import static java.util.function.Function.identity;
 
 public class HashRedisRowDecoderFactory
@@ -52,6 +51,6 @@ public class HashRedisRowDecoderFactory
         if (column.getType().getJavaType() == long.class && "iso8601".equals(column.getDataFormat())) {
             return new ISO8601HashRedisFieldDecoder();
         }
-        throw new IllegalArgumentException(format("unknown data format '%s' for column '%s'", column.getDataFormat(), column.getName()));
+        throw new IllegalArgumentException("unknown data format '%s' for column '%s'".formatted(column.getDataFormat(), column.getName()));
     }
 }

@@ -42,7 +42,6 @@ import java.time.temporal.ChronoUnit;
 
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.containers.TestContainers.startOrReuse;
-import static java.lang.String.format;
 
 public class TestingOracleServer
         implements AutoCloseable
@@ -98,12 +97,12 @@ public class TestingOracleServer
             File tempFile = File.createTempFile("init-", ".sql");
 
             Files.write(Joiner.on("\n").join(
-                    format("ALTER SESSION SET CONTAINER=FREEPDB1;"),
-                    format("CREATE TABLESPACE %s DATAFILE 'test_db.dat' SIZE 100M ONLINE;", TEST_TABLESPACE),
-                    format("CREATE USER %s IDENTIFIED BY %s DEFAULT TABLESPACE %s;", TEST_USER, TEST_PASS, TEST_TABLESPACE),
-                    format("GRANT UNLIMITED TABLESPACE TO %s;", TEST_USER),
-                    format("GRANT CREATE SESSION TO %s;", TEST_USER),
-                    format("GRANT ALL PRIVILEGES TO %s;", TEST_USER)).getBytes(StandardCharsets.UTF_8), tempFile);
+                    "ALTER SESSION SET CONTAINER=FREEPDB1;".formatted(),
+                    "CREATE TABLESPACE %s DATAFILE 'test_db.dat' SIZE 100M ONLINE;".formatted(TEST_TABLESPACE),
+                    "CREATE USER %s IDENTIFIED BY %s DEFAULT TABLESPACE %s;".formatted(TEST_USER, TEST_PASS, TEST_TABLESPACE),
+                    "GRANT UNLIMITED TABLESPACE TO %s;".formatted(TEST_USER),
+                    "GRANT CREATE SESSION TO %s;".formatted(TEST_USER),
+                    "GRANT ALL PRIVILEGES TO %s;".formatted(TEST_USER)).getBytes(StandardCharsets.UTF_8), tempFile);
 
             return tempFile.toPath();
         }

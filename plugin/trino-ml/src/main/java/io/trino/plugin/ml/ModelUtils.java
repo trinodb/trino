@@ -37,7 +37,6 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class ModelUtils
@@ -135,7 +134,7 @@ public final class ModelUtils
 
         int id = slice.getInt(ALGORITHM_OFFSET);
         Class<? extends Model> algorithm = MODEL_SERIALIZATION_IDS.inverse().get(id);
-        requireNonNull(algorithm, format("Unsupported algorith %d", id));
+        requireNonNull(algorithm, "Unsupported algorith %d".formatted(id));
 
         int hyperparameterLength = slice.getInt(HYPERPARAMETER_LENGTH_OFFSET);
 

@@ -21,7 +21,6 @@ import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.TypeSignature;
 
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 // Layout is <size>:<model>, where
@@ -75,6 +74,6 @@ public class ModelType
             return null;
         }
 
-        return format("<%s>", getTypeSignature()).getBytes(UTF_8);
+        return "<%s>".formatted(getTypeSignature()).getBytes(UTF_8);
     }
 }

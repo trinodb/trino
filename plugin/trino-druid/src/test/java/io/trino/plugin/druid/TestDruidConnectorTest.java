@@ -44,7 +44,6 @@ import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.PART;
 import static io.trino.tpch.TpchTable.REGION;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -480,37 +479,37 @@ public class TestDruidConnectorTest
     private void testPredicatePushdownForTimestampWithHigherPrecision(String timestamp)
     {
         // timestamp equality
-        assertThat(query(format("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time = TIMESTAMP '%s'", timestamp)))
+        assertThat(query("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time = TIMESTAMP '%s'".formatted(timestamp)))
                 .returnsEmptyResult()
                 .matches(output(
                         values("linenumber", "partkey", "shipmode")));
 
         // timestamp comparison
-        assertThat(query(format("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time < TIMESTAMP '%s'", timestamp)))
+        assertThat(query("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time < TIMESTAMP '%s'".formatted(timestamp)))
                 .matches("VALUES (BIGINT '3', BIGINT '1673', CAST('RAIL' AS varchar))")
                 .isNotFullyPushedDown(FilterNode.class);
 
-        assertThat(query(format("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time <= TIMESTAMP '%s'", timestamp)))
+        assertThat(query("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time <= TIMESTAMP '%s'".formatted(timestamp)))
                 .matches("VALUES (BIGINT '3', BIGINT '1673', CAST('RAIL' AS varchar))")
                 .isNotFullyPushedDown(FilterNode.class);
 
-        assertThat(query(format("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time > (TIMESTAMP '%s' + INTERVAL '2520' DAY)", timestamp)))
+        assertThat(query("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time > (TIMESTAMP '%s' + INTERVAL '2520' DAY)".formatted(timestamp)))
                 .matches("VALUES " +
                         "(BIGINT '2', BIGINT '370', CAST('RAIL' AS varchar)), " +
                         "(BIGINT '2', BIGINT '468', CAST('AIR' AS varchar))")
                 .isNotFullyPushedDown(FilterNode.class);
 
-        assertThat(query(format("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time >= (TIMESTAMP '%s' + INTERVAL '2521' DAY)", timestamp)))
+        assertThat(query("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time >= (TIMESTAMP '%s' + INTERVAL '2521' DAY)".formatted(timestamp)))
                 .returnsEmptyResult()
                 .isNotFullyPushedDown(FilterNode.class);
 
         // timestamp range
-        assertThat(query(format("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time BETWEEN TIMESTAMP '1992-01-04' AND TIMESTAMP '%s'", timestamp)))
+        assertThat(query("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time BETWEEN TIMESTAMP '1992-01-04' AND TIMESTAMP '%s'".formatted(timestamp)))
                 .matches("VALUES (BIGINT '3', BIGINT '1673', CAST('RAIL' AS varchar))")
                 .isNotFullyPushedDown(FilterNode.class);
 
         // varchar IN without domain compaction
-        assertThat(query(format("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time IN (TIMESTAMP '1992-01-04', TIMESTAMP '1998-11-27', TIMESTAMP '%s')", timestamp)))
+        assertThat(query("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time IN (TIMESTAMP '1992-01-04', TIMESTAMP '1998-11-27', TIMESTAMP '%s')".formatted(timestamp)))
                 .matches("VALUES " +
                         "(BIGINT '3', BIGINT '1673', CAST('RAIL' AS varchar)), " +
                         "(BIGINT '1', BIGINT '574', CAST('AIR' AS varchar))")

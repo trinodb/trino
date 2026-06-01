@@ -154,7 +154,6 @@ import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.Failures.toFailure;
 import static java.lang.Math.min;
 import static java.lang.Math.pow;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -666,7 +665,7 @@ public class PipelinedQueryScheduler
                     if (state == FAILED) {
                         RuntimeException failureCause = stageExecution.getFailureCause()
                                 .map(ExecutionFailureInfo::toException)
-                                .orElseGet(() -> new VerifyException(format("stage execution for stage %s is failed by failure cause is not present", stageExecution.getStageId())));
+                                .orElseGet(() -> new VerifyException("stage execution for stage %s is failed by failure cause is not present".formatted(stageExecution.getStageId())));
                         stageManager.get(stageExecution.getStageId()).fail(failureCause);
                         queryStateMachine.transitionToFailed(failureCause);
                     }
@@ -1276,7 +1275,7 @@ public class PipelinedQueryScheduler
                     if (state == FAILED) {
                         RuntimeException failureCause = stageExecution.getFailureCause()
                                 .map(ExecutionFailureInfo::toException)
-                                .orElseGet(() -> new VerifyException(format("stage execution for stage %s is failed by failure cause is not present", stageExecution.getStageId())));
+                                .orElseGet(() -> new VerifyException("stage execution for stage %s is failed by failure cause is not present".formatted(stageExecution.getStageId())));
                         fail(failureCause, Optional.of(stageExecution.getStageId()));
                     }
                     else if (state.isDone()) {
@@ -1348,7 +1347,7 @@ public class PipelinedQueryScheduler
                 for (StageExecution stageExecution : stageExecutions.values()) {
                     StageExecution.State state = stageExecution.getState();
                     if (state != SCHEDULED && state != RUNNING && state != FLUSHING && !state.isDone()) {
-                        throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Scheduling is complete, but stage %s is in state %s", stageExecution.getStageId(), state));
+                        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Scheduling is complete, but stage %s is in state %s".formatted(stageExecution.getStageId(), state));
                     }
                 }
             }

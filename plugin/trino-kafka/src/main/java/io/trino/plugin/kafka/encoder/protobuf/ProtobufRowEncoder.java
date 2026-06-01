@@ -58,7 +58,6 @@ import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ProtobufRowEncoder
@@ -256,7 +255,7 @@ public class ProtobufRowEncoder
             if (value instanceof ByteBuffer byteBuffer) {
                 return ByteString.copyFrom(byteBuffer, byteBuffer.limit());
             }
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("cannot decode object of '%s' as '%s'", value.getClass(), type));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "cannot decode object of '%s' as '%s'".formatted(value.getClass(), type));
         }
         if (type instanceof TimestampType) {
             checkArgument(value instanceof SqlTimestamp, "value should be an instance of SqlTimestamp");

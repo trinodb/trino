@@ -120,7 +120,6 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN_W
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -660,7 +659,7 @@ public abstract class BaseJdbcConnectorTest
         }
 
         List<String> rows = Stream.of("a", "b", "A", "B", " a ", "a", "b", " b ", "ą")
-                .map(value -> format("'%1$s', '%1$s'", value))
+                .map(value -> "'%1$s', '%1$s'".formatted(value))
                 .collect(toImmutableList());
 
         Session withMarkDistinct = Session.builder(getSession())
@@ -1195,35 +1194,35 @@ public abstract class BaseJdbcConnectorTest
                         .collect(toImmutableList());
 
                 // basic case
-                assertThat(query(session, format("SELECT r.name, n.name FROM nation n %s region r ON n.regionkey = r.regionkey", joinOperator))).isFullyPushedDown();
+                assertThat(query(session, "SELECT r.name, n.name FROM nation n %s region r ON n.regionkey = r.regionkey".formatted(joinOperator))).isFullyPushedDown();
 
                 // join over different columns
-                assertThat(query(session, format("SELECT r.name, n.name FROM nation n %s region r ON n.nationkey = r.regionkey", joinOperator))).isFullyPushedDown();
+                assertThat(query(session, "SELECT r.name, n.name FROM nation n %s region r ON n.nationkey = r.regionkey".formatted(joinOperator))).isFullyPushedDown();
 
                 // filter join condition (effectively empty)
-                assertThat(query(session, format("SELECT n.name FROM nation n %s orders o ON DATE '2025-03-19' = o.orderdate", joinOperator))).joinIsNotFullyPushedDown();
+                assertThat(query(session, "SELECT n.name FROM nation n %s orders o ON DATE '2025-03-19' = o.orderdate".formatted(joinOperator))).joinIsNotFullyPushedDown();
 
                 // no projection on the probe side, only filter
                 assertJoinConditionallyPushedDown(
                         session,
-                        format("SELECT n.name FROM nation n %s orders o ON n.regionkey = 1", joinOperator),
+                        "SELECT n.name FROM nation n %s orders o ON n.regionkey = 1".formatted(joinOperator),
                         expectJoinPushdownOnEmptyProjection(joinOperator));
 
                 // pushdown when using USING
-                assertThat(query(session, format("SELECT r.name, n.name FROM nation n %s region r USING(regionkey)", joinOperator))).isFullyPushedDown();
+                assertThat(query(session, "SELECT r.name, n.name FROM nation n %s region r USING(regionkey)".formatted(joinOperator))).isFullyPushedDown();
 
                 // varchar equality predicate
                 assertJoinConditionallyPushedDown(
                         session,
-                        format("SELECT n.name, n2.regionkey FROM nation n %s nation n2 ON n.name = n2.name", joinOperator),
+                        "SELECT n.name, n2.regionkey FROM nation n %s nation n2 ON n.name = n2.name".formatted(joinOperator),
                         hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY));
                 assertJoinConditionallyPushedDown(
                         session,
-                        format("SELECT n.name, nl.regionkey FROM nation n %s %s nl ON n.name = nl.name", joinOperator, nationLowercaseTable.getName()),
+                        "SELECT n.name, nl.regionkey FROM nation n %s %s nl ON n.name = nl.name".formatted(joinOperator, nationLowercaseTable.getName()),
                         hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY));
 
                 // multiple bigint predicates
-                assertThat(query(session, format("SELECT n.name, c.name FROM nation n %s customer c ON n.nationkey = c.nationkey and n.regionkey = c.custkey", joinOperator)))
+                assertThat(query(session, "SELECT n.name, c.name FROM nation n %s customer c ON n.nationkey = c.nationkey and n.regionkey = c.custkey".formatted(joinOperator)))
                         .isFullyPushedDown();
 
                 // inequality
@@ -1231,13 +1230,13 @@ public abstract class BaseJdbcConnectorTest
                     // bigint inequality predicate
                     assertJoinConditionallyPushedDown(
                             withoutDynamicFiltering,
-                            format("SELECT r.name, n.name FROM nation n %s region r ON n.regionkey %s r.regionkey", joinOperator, operator),
+                            "SELECT r.name, n.name FROM nation n %s region r ON n.regionkey %s r.regionkey".formatted(joinOperator, operator),
                             expectJoinPushdown(operator) && expectJoinPushdownOnInequalityOperator(joinOperator));
 
                     // varchar inequality predicate
                     assertJoinConditionallyPushedDown(
                             withoutDynamicFiltering,
-                            format("SELECT n.name, nl.name FROM nation n %s %s nl ON n.name %s nl.name", joinOperator, nationLowercaseTable.getName(), operator),
+                            "SELECT n.name, nl.name FROM nation n %s %s nl ON n.name %s nl.name".formatted(joinOperator, nationLowercaseTable.getName(), operator),
                             expectVarcharJoinPushdown(operator) && expectJoinPushdownOnInequalityOperator(joinOperator));
                 }
 
@@ -1246,7 +1245,7 @@ public abstract class BaseJdbcConnectorTest
                     log.info("Testing [joinOperator=%s] operator=%s on number", joinOperator, operator);
                     assertJoinConditionallyPushedDown(
                             session,
-                            format("SELECT n.name, c.name FROM nation n %s customer c ON n.nationkey = c.nationkey AND n.regionkey %s c.custkey", joinOperator, operator),
+                            "SELECT n.name, c.name FROM nation n %s customer c ON n.nationkey = c.nationkey AND n.regionkey %s c.custkey".formatted(joinOperator, operator),
                             expectJoinPushdown(operator));
                 }
 
@@ -1255,50 +1254,50 @@ public abstract class BaseJdbcConnectorTest
                     log.info("Testing [joinOperator=%s] operator=%s on varchar", joinOperator, operator);
                     assertJoinConditionallyPushedDown(
                             session,
-                            format("SELECT n.name, nl.name FROM nation n %s %s nl ON n.regionkey = nl.regionkey AND n.name %s nl.name", joinOperator, nationLowercaseTable.getName(), operator),
+                            "SELECT n.name, nl.name FROM nation n %s %s nl ON n.regionkey = nl.regionkey AND n.name %s nl.name".formatted(joinOperator, nationLowercaseTable.getName(), operator),
                             expectVarcharJoinPushdown(operator));
                 }
 
                 // Join over a (double) predicate
-                assertThat(query(session, format("" +
+                assertThat(query(session, ("" +
                         "SELECT c.name, n.name " +
                         "FROM (SELECT * FROM customer WHERE acctbal > 8000) c " +
-                        "%s nation n ON c.custkey = n.nationkey", joinOperator)))
+                        "%s nation n ON c.custkey = n.nationkey").formatted(joinOperator)))
                         .isFullyPushedDown();
 
                 // Join over a varchar equality predicate
                 assertJoinConditionallyPushedDown(
                         session,
-                        format("SELECT c.name, n.name FROM (SELECT * FROM customer WHERE address = 'TcGe5gaZNgVePxU5kRrvXBfkasDTea') c " +
-                                "%s nation n ON c.custkey = n.nationkey", joinOperator),
+                        ("SELECT c.name, n.name FROM (SELECT * FROM customer WHERE address = 'TcGe5gaZNgVePxU5kRrvXBfkasDTea') c " +
+                                "%s nation n ON c.custkey = n.nationkey").formatted(joinOperator),
                         hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY));
 
                 // Join over a varchar inequality predicate
                 assertJoinConditionallyPushedDown(
                         session,
-                        format("SELECT c.name, n.name FROM (SELECT * FROM customer WHERE address < 'TcGe5gaZNgVePxU5kRrvXBfkasDTea') c " +
-                                "%s nation n ON c.custkey = n.nationkey", joinOperator),
+                        ("SELECT c.name, n.name FROM (SELECT * FROM customer WHERE address < 'TcGe5gaZNgVePxU5kRrvXBfkasDTea') c " +
+                                "%s nation n ON c.custkey = n.nationkey").formatted(joinOperator),
                         hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY));
 
                 // join over aggregation
                 assertJoinConditionallyPushedDown(
                         session,
-                        format("SELECT * FROM (SELECT regionkey rk, count(nationkey) c FROM nation GROUP BY regionkey) n " +
-                                "%s region r ON n.rk = r.regionkey", joinOperator),
+                        ("SELECT * FROM (SELECT regionkey rk, count(nationkey) c FROM nation GROUP BY regionkey) n " +
+                                "%s region r ON n.rk = r.regionkey").formatted(joinOperator),
                         hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN));
 
                 // join over LIMIT
                 assertJoinConditionallyPushedDown(
                         session,
-                        format("SELECT * FROM (SELECT nationkey FROM nation LIMIT 30) n " +
-                                "%s region r ON n.nationkey = r.regionkey", joinOperator),
+                        ("SELECT * FROM (SELECT nationkey FROM nation LIMIT 30) n " +
+                                "%s region r ON n.nationkey = r.regionkey").formatted(joinOperator),
                         hasBehavior(SUPPORTS_LIMIT_PUSHDOWN));
 
                 // join over TopN
                 assertJoinConditionallyPushedDown(
                         session,
-                        format("SELECT * FROM (SELECT nationkey FROM nation ORDER BY regionkey LIMIT 5) n " +
-                                "%s region r ON n.nationkey = r.regionkey", joinOperator),
+                        ("SELECT * FROM (SELECT nationkey FROM nation ORDER BY regionkey LIMIT 5) n " +
+                                "%s region r ON n.nationkey = r.regionkey").formatted(joinOperator),
                         hasBehavior(SUPPORTS_TOPN_PUSHDOWN));
 
                 // join over join
@@ -1585,7 +1584,7 @@ public abstract class BaseJdbcConnectorTest
 
             RemoteLogTracingEvent cancelledTracingEvent = new RemoteLogTracingEvent(event -> event.getQuery().toLowerCase(ENGLISH).contains(tableNameToScan) && event.getStatus() == CANCELLED);
             startTracingDatabaseEvent(cancelledTracingEvent);
-            assertUpdate(format("CALL system.runtime.kill_query(query_id => '%s', message => '%s')", queryId, "Killed by test"));
+            assertUpdate("CALL system.runtime.kill_query(query_id => '%s', message => '%s')".formatted(queryId, "Killed by test"));
             future.get();
             assertEventually(() -> assertThat(cancelledTracingEvent.hasHappened()).isTrue());
             stopTracingDatabaseEvent(cancelledTracingEvent);
@@ -1606,8 +1605,7 @@ public abstract class BaseJdbcConnectorTest
             throws Exception
     {
         for (int i = 0; i < 100; i++) {
-            MaterializedResult queriesResult = queryRunner.execute(format(
-                    "SELECT query_id FROM system.runtime.queries WHERE query = '%s' AND query NOT LIKE '%%system.runtime.queries%%'",
+            MaterializedResult queriesResult = queryRunner.execute("SELECT query_id FROM system.runtime.queries WHERE query = '%s' AND query NOT LIKE '%%system.runtime.queries%%'".formatted(
                     query.replaceAll("'", "''")));
             int rowCount = queriesResult.getRowCount();
             if (rowCount == 0) {
@@ -1640,12 +1638,12 @@ public abstract class BaseJdbcConnectorTest
         if (!hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT)) {
             assertQueryFails(
                     "CREATE TABLE not_null_constraint (not_null_col INTEGER NOT NULL)",
-                    format("line 1:35: Catalog '%s' does not support non-null column for column name 'not_null_col'", getSession().getCatalog().orElseThrow()));
+                    "line 1:35: Catalog '%s' does not support non-null column for column name 'not_null_col'".formatted(getSession().getCatalog().orElseThrow()));
             return;
         }
 
         try (TestTable table = newTrinoTable("update_not_null", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
-            assertUpdate(format("INSERT INTO %s (nullable_col, not_null_col) VALUES (1, 10)", table.getName()), 1);
+            assertUpdate("INSERT INTO %s (nullable_col, not_null_col) VALUES (1, 10)".formatted(table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 10)");
             assertQueryFails("UPDATE " + table.getName() + " SET not_null_col = NULL WHERE nullable_col = 1", MODIFYING_ROWS_MESSAGE);
             assertQueryFails("UPDATE " + table.getName() + " SET not_null_col = TRY(5/0) where nullable_col = 1", MODIFYING_ROWS_MESSAGE);
@@ -1919,12 +1917,12 @@ public abstract class BaseJdbcConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (a int, b int)");
         assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1), (2, 2)", 2);
 
-        assertQueryFails(format("DELETE FROM %s WHERE a IS NOT NULL AND abs(a + b) > 10", tableName), "The connector can not perform merge on the target table without primary keys");
-        assertQueryFails(format("UPDATE %s SET a = a+b WHERE a IS NOT NULL AND (a + b) > 10", tableName), "The connector can not perform merge on the target table without primary keys");
-        assertQueryFails(format("MERGE INTO %s t USING (VALUES (3, 3)) AS s(x, y) " +
+        assertQueryFails("DELETE FROM %s WHERE a IS NOT NULL AND abs(a + b) > 10".formatted(tableName), "The connector can not perform merge on the target table without primary keys");
+        assertQueryFails("UPDATE %s SET a = a+b WHERE a IS NOT NULL AND (a + b) > 10".formatted(tableName), "The connector can not perform merge on the target table without primary keys");
+        assertQueryFails(("MERGE INTO %s t USING (VALUES (3, 3)) AS s(x, y) " +
                 "   ON t.a = s.x " +
                 "   WHEN MATCHED THEN UPDATE SET b = y " +
-                "   WHEN NOT MATCHED THEN INSERT (a, b) VALUES (s.x, s.y) ", tableName), "The connector can not perform merge on the target table without primary keys");
+                "   WHEN NOT MATCHED THEN INSERT (a, b) VALUES (s.x, s.y) ").formatted(tableName), "The connector can not perform merge on the target table without primary keys");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1952,7 +1950,7 @@ public abstract class BaseJdbcConnectorTest
             int numberOfRows = 50;
             String values = String.join(",", buildRowsForInsert(numberOfRows));
             assertUpdate(session, "INSERT INTO " + table.getName() + " (a, b) VALUES " + values, numberOfRows);
-            assertQuery("SELECT COUNT(*) FROM " + table.getName(), format("VALUES %d", numberOfRows));
+            assertQuery("SELECT COUNT(*) FROM " + table.getName(), "VALUES %d".formatted(numberOfRows));
         }
     }
 
@@ -1980,7 +1978,7 @@ public abstract class BaseJdbcConnectorTest
                 "(a varchar(36), b bigint)")) {
             String values = String.join(",", buildRowsForInsert(numberOfRows));
             assertUpdate(session, "INSERT INTO " + table.getName() + " (a, b) VALUES " + values, numberOfRows);
-            assertQuery("SELECT COUNT(*) FROM " + table.getName(), format("VALUES %d", numberOfRows));
+            assertQuery("SELECT COUNT(*) FROM " + table.getName(), "VALUES %d".formatted(numberOfRows));
         }
     }
 
@@ -2026,7 +2024,7 @@ public abstract class BaseJdbcConnectorTest
     {
         List<String> result = new ArrayList<>(numberOfRows);
         for (int i = 0; i < numberOfRows; i++) {
-            result.add(format("('%s', %d)", UUID.randomUUID(), ThreadLocalRandom.current().nextLong()));
+            result.add("('%s', %d)".formatted(UUID.randomUUID(), ThreadLocalRandom.current().nextLong()));
         }
         return result;
     }
@@ -2039,7 +2037,7 @@ public abstract class BaseJdbcConnectorTest
             return;
         }
         assertQueryFails(
-                format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))", getSession().getSchema().orElseThrow()),
+                "SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))".formatted(getSession().getSchema().orElseThrow()),
                 "line 1:21: Table function 'system.query' not registered");
     }
 
@@ -2067,7 +2065,7 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         assertQuery(
-                format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))", getSession().getSchema().orElseThrow()),
+                "SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))".formatted(getSession().getSchema().orElseThrow()),
                 "VALUES 'ALGERIA'");
     }
 
@@ -2077,7 +2075,7 @@ public abstract class BaseJdbcConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         try (TestTable testTable = simpleTable()) {
             assertQuery(
-                    format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName()),
+                    "SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))".formatted(testTable.getName()),
                     "VALUES 1, 2");
         }
     }
@@ -2087,7 +2085,7 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         // The output column type may differ per connector. Skipping the check because it's unrelated to the test purpose.
-        assertThat(query(format("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region WHERE regionkey = 0'))", getSession().getSchema().orElseThrow())))
+        assertThat(query("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region WHERE regionkey = 0'))".formatted(getSession().getSchema().orElseThrow())))
                 .skippingTypesCheck()
                 .matches("VALUES 'AFRICA'");
     }
@@ -2097,10 +2095,10 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         assertQueryFails(
-                format("SELECT name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region'))", getSession().getSchema().orElseThrow()),
+                "SELECT name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region'))".formatted(getSession().getSchema().orElseThrow()),
                 ".* Column 'name' cannot be resolved");
         assertQueryFails(
-                format("SELECT column_not_found FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region'))", getSession().getSchema().orElseThrow()),
+                "SELECT column_not_found FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region'))".formatted(getSession().getSchema().orElseThrow()),
                 ".* Column 'column_not_found' cannot be resolved");
     }
 
@@ -2120,7 +2118,7 @@ public abstract class BaseJdbcConnectorTest
                     "SELECT column_name FROM information_schema.columns WHERE table_schema = '" + getSession().getSchema().orElseThrow() + "' AND table_name = '" + unqualifiedTableName + "'",
                     "VALUES 'one', 'three'");
             assertUpdate("INSERT INTO " + testTable.getName() + " (one, three) VALUES (123, 'test')", 1);
-            QueryAssert queryAssert = assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName())));
+            QueryAssert queryAssert = assertThat(query("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))".formatted(testTable.getName())));
             if (expectSuccess) {
                 // For some connectors, the type introspection for regular tables (usually done via JDBC DatabaseMetaData)
                 // is not the same as the type introspection for queries (usually done via JDBC ResultSetMetaData).
@@ -2158,8 +2156,8 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         try (TestTable testTable = simpleTable()) {
-            assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
-                    .failure().hasMessageContaining(format("Query not supported: ResultSetMetaData not available for query: INSERT INTO %s VALUES (3)", testTable.getName()));
+            assertThat(query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))".formatted(testTable.getName())))
+                    .failure().hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO %s VALUES (3)".formatted(testTable.getName()));
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
         }
     }
@@ -2174,7 +2172,7 @@ public abstract class BaseJdbcConnectorTest
 
     protected TestTable simpleTable()
     {
-        return new TestTable(onRemoteDatabase(), format("%s.simple_table", getSession().getSchema().orElseThrow()), "(col BIGINT)", ImmutableList.of("1", "2"));
+        return new TestTable(onRemoteDatabase(), "%s.simple_table".formatted(getSession().getSchema().orElseThrow()), "(col BIGINT)", ImmutableList.of("1", "2"));
     }
 
     @Test
@@ -2188,8 +2186,8 @@ public abstract class BaseJdbcConnectorTest
                 .orElse(65536 + 5);
 
         String validColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
-        try (TestTable left = newTrinoTable("test_long_id_l", format("(%s BIGINT)", validColumnName));
-                TestTable right = newTrinoTable("test_long_id_r", format("(%s BIGINT)", validColumnName))) {
+        try (TestTable left = newTrinoTable("test_long_id_l", "(%s BIGINT)".formatted(validColumnName));
+                TestTable right = newTrinoTable("test_long_id_r", "(%s BIGINT)".formatted(validColumnName))) {
             assertThat(query(joinPushdownEnabled(getSession()),
                     """
                     SELECT l.%1$s, r.%1$s

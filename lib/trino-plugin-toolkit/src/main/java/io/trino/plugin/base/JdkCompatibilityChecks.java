@@ -14,17 +14,17 @@
 package io.trino.plugin.base;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.inject.Binder;
 
 import java.lang.management.ManagementFactory;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class JdkCompatibilityChecks
 {
@@ -36,19 +36,19 @@ public class JdkCompatibilityChecks
     @VisibleForTesting
     JdkCompatibilityChecks(List<String> inputArguments)
     {
-        this.inputArguments = Joiner.on(" ")
-                .skipNulls()
-                .join(requireNonNull(inputArguments, "inputArguments is null"));
+        this.inputArguments = requireNonNull(inputArguments, "inputArguments is null").stream()
+                .filter(Objects::nonNull)
+                .collect(joining(" "));
     }
 
     public static void verifyConnectorAccessOpened(Binder binder, String connectorName, Multimap<String, String> modules)
     {
-        INSTANCE.verifyAccessOpened(wrap(binder), format("Connector '%s'", connectorName), modules);
+        INSTANCE.verifyAccessOpened(wrap(binder), "Connector '%s'".formatted(connectorName), modules);
     }
 
     public static void verifyConnectorUnsafeAllowed(Binder binder, String connectorName)
     {
-        INSTANCE.verifyUnsafeAllowed(wrap(binder), format("Connector '%s'", connectorName));
+        INSTANCE.verifyUnsafeAllowed(wrap(binder), "Connector '%s'".formatted(connectorName));
     }
 
     @VisibleForTesting
@@ -57,16 +57,16 @@ public class JdkCompatibilityChecks
         ImmutableList.Builder<String> missingJvmArguments = ImmutableList.builder();
         for (String fromModule : modules.keySet()) {
             for (String toModule : modules.get(fromModule)) {
-                String requiredJvmArgument = format(".*?--add-opens[\\s=]%s/%s=ALL-UNNAMED.*?", Pattern.quote(fromModule), Pattern.quote(toModule));
+                String requiredJvmArgument = ".*?--add-opens[\\s=]%s/%s=ALL-UNNAMED.*?".formatted(Pattern.quote(fromModule), Pattern.quote(toModule));
                 if (!inputArguments.matches(requiredJvmArgument)) {
-                    missingJvmArguments.add(format("--add-opens=%s/%s=ALL-UNNAMED", fromModule, toModule));
+                    missingJvmArguments.add("--add-opens=%s/%s=ALL-UNNAMED".formatted(fromModule, toModule));
                 }
             }
         }
 
         List<String> requiredJvmArguments = missingJvmArguments.build();
         if (!requiredJvmArguments.isEmpty()) {
-            throwableSettable.setThrowable(new IllegalStateException(format("%s requires additional JVM argument(s). Please add the following to the JVM configuration: '%s'", description, String.join(" ", requiredJvmArguments))));
+            throwableSettable.setThrowable(new IllegalStateException("%s requires additional JVM argument(s). Please add the following to the JVM configuration: '%s'".formatted(description, String.join(" ", requiredJvmArguments))));
         }
     }
 
@@ -75,7 +75,7 @@ public class JdkCompatibilityChecks
     {
         String requiredJvmArgument = "--sun-misc-unsafe-memory-access=allow";
         if (!inputArguments.matches(".*?%s.*?".formatted(Pattern.quote(requiredJvmArgument)))) {
-            throwableSettable.setThrowable(new IllegalStateException(format("%s requires additional JVM argument(s). Please add the following to the JVM configuration: '%s'", description, requiredJvmArgument)));
+            throwableSettable.setThrowable(new IllegalStateException("%s requires additional JVM argument(s). Please add the following to the JVM configuration: '%s'".formatted(description, requiredJvmArgument)));
         }
     }
 

@@ -68,7 +68,6 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Objects.requireNonNull;
@@ -402,7 +401,7 @@ public final class IcebergQueryRunner
             QueryRunner queryRunner = IcebergQueryRunner.builder()
                     .addCoordinatorProperty("http-server.http.port", "8080")
                     .addIcebergProperty("iceberg.catalog.type", "rest")
-                    .addIcebergProperty("iceberg.rest-catalog.uri", format("https://%s/api/2.1/unity-catalog/iceberg-rest", requireEnv("DATABRICKS_WORKSPACE_HOST")))
+                    .addIcebergProperty("iceberg.rest-catalog.uri", "https://%s/api/2.1/unity-catalog/iceberg-rest".formatted(requireEnv("DATABRICKS_WORKSPACE_HOST")))
                     .addIcebergProperty("iceberg.rest-catalog.warehouse", "main")
                     .addIcebergProperty("iceberg.rest-catalog.security", "OAUTH2")
                     .addIcebergProperty("iceberg.rest-catalog.oauth2.token", requireEnv("DATABRICKS_TOKEN"))

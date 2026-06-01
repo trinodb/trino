@@ -31,7 +31,6 @@ import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -120,12 +119,11 @@ public class TestSharedHiveMetastore
     @Override
     protected String getExpectedHiveCreateSchema(String catalogName)
     {
-        return format(
-                """
-                CREATE SCHEMA %s.%s
-                WITH (
-                   location = '%s/%s'
-                )""",
+        return """
+               CREATE SCHEMA %s.%s
+               WITH (
+                  location = '%s/%s'
+               )""".formatted(
                 catalogName,
                 tpchSchema,
                 dataDirectory,
@@ -140,6 +138,6 @@ public class TestSharedHiveMetastore
                 "WITH (\n" +
                 "   location = '%s/%s'\n" +
                 ")";
-        return format(expectedIcebergCreateSchema, catalogName, tpchSchema, dataDirectory, tpchSchema);
+        return expectedIcebergCreateSchema.formatted(catalogName, tpchSchema, dataDirectory, tpchSchema);
     }
 }

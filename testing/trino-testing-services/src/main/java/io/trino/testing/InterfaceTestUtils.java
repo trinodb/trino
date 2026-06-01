@@ -26,7 +26,6 @@ import static com.google.common.base.Defaults.defaultValue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.reflect.Reflection.newProxy;
-import static java.lang.String.format;
 import static java.lang.reflect.Modifier.isProtected;
 import static java.lang.reflect.Modifier.isPublic;
 import static java.lang.reflect.Modifier.isStatic;
@@ -58,7 +57,7 @@ public final class InterfaceTestUtils
                 try {
                     Method override = clazz.getDeclaredMethod(method.getName(), method.getParameterTypes());
                     if (!method.getReturnType().isAssignableFrom(override.getReturnType())) {
-                        Fail.fail(format("%s is not assignable from %s for method %s", method.getReturnType(), override.getReturnType(), method));
+                        Fail.fail("%s is not assignable from %s for method %s".formatted(method.getReturnType(), override.getReturnType(), method));
                     }
                 }
                 catch (NoSuchMethodException e) {
@@ -66,7 +65,7 @@ public final class InterfaceTestUtils
                         // ignored
                     }
                     else {
-                        Fail.fail(format("%s does not override [%s]", clazz.getName(), method));
+                        Fail.fail("%s does not override [%s]".formatted(clazz.getName(), method));
                     }
                 }
             }
@@ -106,7 +105,7 @@ public final class InterfaceTestUtils
                 actualMethod.invoke(forwardingInstance, actualArguments);
             }
             catch (Exception e) {
-                throw new RuntimeException(format("Invocation of %s has failed", actualMethod), e);
+                throw new RuntimeException("Invocation of %s has failed".formatted(actualMethod), e);
             }
         }
     }

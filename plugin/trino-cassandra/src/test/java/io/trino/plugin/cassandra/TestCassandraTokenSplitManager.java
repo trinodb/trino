@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.plugin.cassandra.CassandraTestingUtils.createKeyspace;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -65,7 +64,7 @@ public class TestCassandraTokenSplitManager
             throws Exception
     {
         String tableName = "partition_count_override_table";
-        session.execute(format("CREATE TABLE %s.%s (key text PRIMARY KEY)", KEYSPACE, tableName));
+        session.execute("CREATE TABLE %s.%s (key text PRIMARY KEY)".formatted(KEYSPACE, tableName));
         server.refreshSizeEstimates(KEYSPACE, tableName);
 
         CassandraTokenSplitManager onlyConfigSplitsPerNode = new CassandraTokenSplitManager(session, SPLIT_SIZE, Optional.of(12_345L));
@@ -86,12 +85,12 @@ public class TestCassandraTokenSplitManager
             throws Exception
     {
         String tableName = "empty_table";
-        session.execute(format("CREATE TABLE %s.%s (key text PRIMARY KEY)", KEYSPACE, tableName));
+        session.execute("CREATE TABLE %s.%s (key text PRIMARY KEY)".formatted(KEYSPACE, tableName));
         server.refreshSizeEstimates(KEYSPACE, tableName);
         List<TokenSplit> splits = splitManager.getSplits(KEYSPACE, tableName, Optional.empty());
         // even for the empty table at least one split must be produced, in case the statistics are inaccurate
         assertThat(splits).hasSize(1);
-        session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
+        session.execute("DROP TABLE %s.%s".formatted(KEYSPACE, tableName));
     }
 
     @Test
@@ -99,15 +98,15 @@ public class TestCassandraTokenSplitManager
             throws Exception
     {
         String tableName = "non_empty_table";
-        session.execute(format("CREATE TABLE %s.%s (key text PRIMARY KEY)", KEYSPACE, tableName));
+        session.execute("CREATE TABLE %s.%s (key text PRIMARY KEY)".formatted(KEYSPACE, tableName));
         for (int i = 0; i < PARTITION_COUNT; i++) {
-            session.execute(format("INSERT INTO %s.%s (key) VALUES ('%s')", KEYSPACE, tableName, "value" + i));
+            session.execute("INSERT INTO %s.%s (key) VALUES ('%s')".formatted(KEYSPACE, tableName, "value" + i));
         }
         server.refreshSizeEstimates(KEYSPACE, tableName);
         List<TokenSplit> splits = splitManager.getSplits(KEYSPACE, tableName, Optional.empty());
         int expectedTokenSplitSize = PARTITION_COUNT / SPLIT_SIZE;
         // Use hasSizeBetween because Cassandra server may overestimate the size
         assertThat(splits).hasSizeBetween(expectedTokenSplitSize, expectedTokenSplitSize + 1);
-        session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
+        session.execute("DROP TABLE %s.%s".formatted(KEYSPACE, tableName));
     }
 }

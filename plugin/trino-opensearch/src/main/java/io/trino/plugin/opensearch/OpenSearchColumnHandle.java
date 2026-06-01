@@ -14,7 +14,6 @@
 package io.trino.plugin.opensearch;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.opensearch.client.IndexMetadata;
 import io.trino.spi.connector.ColumnHandle;
@@ -43,7 +42,7 @@ public record OpenSearchColumnHandle(
     @JsonIgnore
     public String name()
     {
-        return Joiner.on('.').join(path);
+        return String.join(".", path);
     }
 
     @Override

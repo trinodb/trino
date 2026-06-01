@@ -21,7 +21,6 @@ import io.trino.spi.TrinoException;
 import java.net.URI;
 
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SimpleHttpResponseHandler<T>
@@ -56,11 +55,10 @@ public class SimpleHttpResponseHandler<T>
                 Exception cause = response.getException();
                 if (cause == null) {
                     if (response.getStatusCode() == HttpStatus.OK.code()) {
-                        cause = new TrinoException(REMOTE_TASK_ERROR, format("Expected response from %s is empty", uri));
+                        cause = new TrinoException(REMOTE_TASK_ERROR, "Expected response from %s is empty".formatted(uri));
                     }
                     else {
-                        cause = new TrinoException(REMOTE_TASK_ERROR, format(
-                                "Expected response code from %s to be %s, but was %s%n%s",
+                        cause = new TrinoException(REMOTE_TASK_ERROR, "Expected response code from %s to be %s, but was %s%n%s".formatted(
                                 uri,
                                 HttpStatus.OK.code(),
                                 response.getStatusCode(),
@@ -68,7 +66,7 @@ public class SimpleHttpResponseHandler<T>
                     }
                 }
                 else {
-                    cause = new TrinoException(REMOTE_TASK_ERROR, format("Unexpected response from %s", uri), cause);
+                    cause = new TrinoException(REMOTE_TASK_ERROR, "Unexpected response from %s".formatted(uri), cause);
                 }
                 callback.fatal(cause);
             }

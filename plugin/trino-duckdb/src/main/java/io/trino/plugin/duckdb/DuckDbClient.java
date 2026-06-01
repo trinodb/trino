@@ -83,7 +83,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static java.lang.String.format;
 import static java.time.temporal.ChronoField.EPOCH_DAY;
 
 public final class DuckDbClient
@@ -143,8 +142,7 @@ public final class DuckDbClient
     protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
             throws SQLException
     {
-        execute(session, connection, format(
-                "ALTER TABLE %s RENAME TO %s",
+        execute(session, connection, "ALTER TABLE %s RENAME TO %s".formatted(
                 quoted(catalogName, remoteSchemaName, remoteTableName),
                 quoted(catalogName, null, newRemoteTableName)));
     }

@@ -36,7 +36,6 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -223,7 +222,7 @@ public class TestDruidTypeMapping
                 .build();
 
         try (DruidTable testTable = new DruidTable("test_timestamp")) {
-            String dataFilePath = format("%s/%s.tsv", druidServer.getHostWorkingDirectory(), testTable.getName());
+            String dataFilePath = "%s/%s.tsv".formatted(druidServer.getHostWorkingDirectory(), testTable.getName());
             try (BufferedWriter writer = Files.newBufferedWriter(Path.of(dataFilePath), UTF_8)) {
                 for (TimestampCase row : rows) {
                     writer.write("%s\t%s".formatted(row.inputLiteral, row.id));

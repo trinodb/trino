@@ -53,7 +53,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
-import static java.lang.String.format;
 import static java.time.Duration.ofHours;
 import static java.util.Objects.requireNonNull;
 
@@ -119,8 +118,7 @@ public class InternalFunctionBundle
                     }
                     Integer existing = positions.putIfAbsent(parameterName.get(), i);
                     if (existing != null && existing != i) {
-                        throw new IllegalArgumentException(format(
-                                "Overloads of %s at arity %s declare parameter %s at different positions: %s vs %s",
+                        throw new IllegalArgumentException("Overloads of %s at arity %s declare parameter %s at different positions: %s vs %s".formatted(
                                 name,
                                 arguments.size(),
                                 parameterName.get(),

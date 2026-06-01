@@ -23,7 +23,6 @@ import java.util.List;
 
 import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
 import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshiftWithRetry;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
 public class TestRedshiftAutomaticJoinPushdown
@@ -52,9 +51,9 @@ public class TestRedshiftAutomaticJoinPushdown
     protected void gatherStats(String tableName)
     {
         executeInRedshiftWithRetry(handle -> {
-            handle.execute(format("ANALYZE VERBOSE %s.%s", TEST_SCHEMA, tableName));
+            handle.execute("ANALYZE VERBOSE %s.%s".formatted(TEST_SCHEMA, tableName));
             for (int i = 0; i < 5; i++) {
-                long actualCount = handle.createQuery(format("SELECT count(*) FROM %s.%s", TEST_SCHEMA, tableName))
+                long actualCount = handle.createQuery("SELECT count(*) FROM %s.%s".formatted(TEST_SCHEMA, tableName))
                         .mapTo(Long.class)
                         .one();
                 long estimatedCount = handle.createQuery(
@@ -68,7 +67,7 @@ public class TestRedshiftAutomaticJoinPushdown
                 if (actualCount == estimatedCount) {
                     return;
                 }
-                handle.execute(format("ANALYZE VERBOSE %s.%s", TEST_SCHEMA, tableName));
+                handle.execute("ANALYZE VERBOSE %s.%s".formatted(TEST_SCHEMA, tableName));
             }
             throw new IllegalStateException("Stats not gathered");
         });

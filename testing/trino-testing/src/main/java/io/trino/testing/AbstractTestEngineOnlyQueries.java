@@ -13,7 +13,6 @@
  */
 package io.trino.testing;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -85,7 +84,6 @@ import static io.trino.tpch.TpchTable.PART;
 import static io.trino.tpch.TpchTable.PART_SUPPLIER;
 import static io.trino.tpch.TpchTable.REGION;
 import static io.trino.tpch.TpchTable.SUPPLIER;
-import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -547,14 +545,14 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testLargeQuerySuccess()
     {
-        assertQuery("SELECT " + Joiner.on(" AND ").join(nCopies(500, "1 = 1")), "SELECT true");
+        assertQuery("SELECT " + String.join(" AND ", nCopies(500, "1 = 1")), "SELECT true");
     }
 
     @Test
     public void testLargeInArray()
     {
         String arrayValues = range(0, 5000)
-                .mapToObj(i -> format("ARRAY[%s, %s, %s]", i, i + 1, i + 2))
+                .mapToObj(i -> "ARRAY[%s, %s, %s]".formatted(i, i + 1, i + 2))
                 .collect(joining(", "));
         assertQuery("SELECT ARRAY[0, 0, 0] in (ARRAY[0, 0, 0], " + arrayValues + ")", "values true");
         assertQuery("SELECT ARRAY[0, 0, 0] in (" + arrayValues + ")", "values false");
@@ -1600,7 +1598,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertEqualsIgnoreOrder(preparedResult, expected);
 
         // Test inline query syntax
-        MaterializedResult inlineResult = computeActual(session, format("DESCRIBE OUTPUT (%s)", sql));
+        MaterializedResult inlineResult = computeActual(session, "DESCRIBE OUTPUT (%s)".formatted(sql));
         assertEqualsIgnoreOrder(inlineResult, expected);
     }
 
@@ -1761,7 +1759,7 @@ public abstract class AbstractTestEngineOnlyQueries
 
         distinctResults.add(expected);
         for (int i = 0; i < 3; i++) {
-            MaterializedResult results = computeActual(format("SELECT shuffle(ARRAY %s) FROM orders LIMIT 10", expected));
+            MaterializedResult results = computeActual("SELECT shuffle(ARRAY %s) FROM orders LIMIT 10".formatted(expected));
             List<MaterializedRow> rows = results.getMaterializedRows();
             assertThat(rows).hasSize(10);
 
@@ -4968,8 +4966,7 @@ public abstract class AbstractTestEngineOnlyQueries
         String groupingSet1 = "at, ab, am, bg, bn, ai, an";
         // 28, 4, 5, 29, 31, 10 (corresponding indices from left to right in the above fortyLetterSequence)
         String groupingSet2 = "bb, ad, ae, bc, be, aj";
-        String query = format(
-                "SELECT grouping(%s) FROM (VALUES (%s)) AS t(%s) GROUP BY GROUPING SETS ((%s), (%s), (%s))",
+        String query = "SELECT grouping(%s) FROM (VALUES (%s)) AS t(%s) GROUP BY GROUPING SETS ((%s), (%s), (%s))".formatted(
                 fortyLetterSequence,
                 fortyIntegers,
                 fortyLetterSequence,
@@ -5528,35 +5525,35 @@ public abstract class AbstractTestEngineOnlyQueries
         assertNoRelationalResult(result);
         assertThat(result.getSetSessionProperties()).isEqualTo(ImmutableMap.of("test_string", "bar"));
 
-        result = computeActual(format("SET SESSION %s.connector_long = 999", TESTING_CATALOG));
+        result = computeActual("SET SESSION %s.connector_long = 999".formatted(TESTING_CATALOG));
         assertNoRelationalResult(result);
         assertThat(result.getSetSessionProperties()).isEqualTo(ImmutableMap.of(TESTING_CATALOG + ".connector_long", "999"));
 
-        result = computeActual(format("SET SESSION %s.connector_string = 'baz'", TESTING_CATALOG));
+        result = computeActual("SET SESSION %s.connector_string = 'baz'".formatted(TESTING_CATALOG));
         assertNoRelationalResult(result);
         assertThat(result.getSetSessionProperties()).isEqualTo(ImmutableMap.of(TESTING_CATALOG + ".connector_string", "baz"));
 
-        result = computeActual(format("SET SESSION %s.connector_string = 'ban' || 'ana'", TESTING_CATALOG));
+        result = computeActual("SET SESSION %s.connector_string = 'ban' || 'ana'".formatted(TESTING_CATALOG));
         assertNoRelationalResult(result);
         assertThat(result.getSetSessionProperties()).isEqualTo(ImmutableMap.of(TESTING_CATALOG + ".connector_string", "banana"));
 
-        result = computeActual(format("SET SESSION %s.connector_long = 444", TESTING_CATALOG));
+        result = computeActual("SET SESSION %s.connector_long = 444".formatted(TESTING_CATALOG));
         assertNoRelationalResult(result);
         assertThat(result.getSetSessionProperties()).isEqualTo(ImmutableMap.of(TESTING_CATALOG + ".connector_long", "444"));
 
-        result = computeActual(format("SET SESSION %s.connector_long = 111 + 111", TESTING_CATALOG));
+        result = computeActual("SET SESSION %s.connector_long = 111 + 111".formatted(TESTING_CATALOG));
         assertNoRelationalResult(result);
         assertThat(result.getSetSessionProperties()).isEqualTo(ImmutableMap.of(TESTING_CATALOG + ".connector_long", "222"));
 
-        result = computeActual(format("SET SESSION %s.connector_boolean = 111 < 3", TESTING_CATALOG));
+        result = computeActual("SET SESSION %s.connector_boolean = 111 < 3".formatted(TESTING_CATALOG));
         assertNoRelationalResult(result);
         assertThat(result.getSetSessionProperties()).isEqualTo(ImmutableMap.of(TESTING_CATALOG + ".connector_boolean", "false"));
 
-        result = computeActual(format("SET SESSION %s.connector_double = 11.1", TESTING_CATALOG));
+        result = computeActual("SET SESSION %s.connector_double = 11.1".formatted(TESTING_CATALOG));
         assertNoRelationalResult(result);
         assertThat(result.getSetSessionProperties()).isEqualTo(ImmutableMap.of(TESTING_CATALOG + ".connector_double", "11.1"));
 
-        assertThatThrownBy(() -> computeActual(format("SET SESSION %s.connector_l = 1", TESTING_CATALOG)))
+        assertThatThrownBy(() -> computeActual("SET SESSION %s.connector_l = 1".formatted(TESTING_CATALOG)))
                 .hasMessage("line 1:43: Session property 'testing_catalog.connector_l' does not exist. Did you mean to use 'testing_catalog.connector_long', 'testing_catalog.connector_double' or 'testing_catalog.connector_boolean'?");
 
         assertThatThrownBy(() -> computeActual("SET SESSION task_writer_count = 1"))
@@ -5570,7 +5567,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertNoRelationalResult(result);
         assertThat(result.getResetSessionProperties()).isEqualTo(ImmutableSet.of("test_string"));
 
-        result = computeActual(getSession(), format("RESET SESSION %s.connector_string", TESTING_CATALOG));
+        result = computeActual(getSession(), "RESET SESSION %s.connector_string".formatted(TESTING_CATALOG));
         assertNoRelationalResult(result);
         assertThat(result.getResetSessionProperties()).isEqualTo(ImmutableSet.of(TESTING_CATALOG + ".connector_string"));
     }
@@ -6336,7 +6333,7 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testShowCatalogsLike()
     {
-        MaterializedResult result = computeActual(format("SHOW CATALOGS LIKE '%s'", getSession().getCatalog().get()));
+        MaterializedResult result = computeActual("SHOW CATALOGS LIKE '%s'".formatted(getSession().getCatalog().get()));
         assertThat(result.getOnlyColumnAsSet()).isEqualTo(ImmutableSet.of(getSession().getCatalog().get()));
     }
 
@@ -6411,14 +6408,14 @@ public abstract class AbstractTestEngineOnlyQueries
                 .collect(joining(", "));
 
         String literals = IntStream.range(0, columnsCount)
-                .mapToObj(columnNumber -> format("%d", columnNumber))
+                .mapToObj(columnNumber -> "%d".formatted(columnNumber))
                 .collect(joining(", "));
 
         String columns = IntStream.range(0, columnsCount)
-                .mapToObj(columnNumber -> format("a%d", columnNumber))
+                .mapToObj(columnNumber -> "a%d".formatted(columnNumber))
                 .collect(joining(", "));
 
-        return format("SELECT * FROM (SELECT %s FROM region LIMIT 1) a(%s) INNER JOIN unnest(ARRAY[%s], ARRAY[%2$s]) b(b1, b2) ON true", fields, columns, literals);
+        return "SELECT * FROM (SELECT %s FROM region LIMIT 1) a(%s) INNER JOIN unnest(ARRAY[%s], ARRAY[%2$s]) b(b1, b2) ON true".formatted(fields, columns, literals);
     }
 
     /**

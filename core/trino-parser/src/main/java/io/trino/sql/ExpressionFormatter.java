@@ -705,7 +705,7 @@ public final class ExpressionFormatter
 
             parts.add("END");
 
-            return "(" + Joiner.on(' ').join(parts.build()) + ")";
+            return "(" + String.join(" ", parts.build()) + ")";
         }
 
         @Override
@@ -725,7 +725,7 @@ public final class ExpressionFormatter
 
             parts.add("END");
 
-            return "(" + Joiner.on(' ').join(parts.build()) + ")";
+            return "(" + String.join(" ", parts.build()) + ")";
         }
 
         @Override
@@ -1099,7 +1099,7 @@ public final class ExpressionFormatter
             parts.add(formatFrame(windowSpecification.getFrame().get()));
         }
 
-        return '(' + Joiner.on(' ').join(parts) + ')';
+        return '(' + String.join(" ", parts) + ')';
     }
 
     private static String formatFrame(WindowFrame windowFrame)

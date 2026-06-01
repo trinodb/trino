@@ -21,7 +21,6 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -44,7 +43,7 @@ public class TestOAuth2Config
                 .setScopes(ImmutableSet.of("openid"))
                 .setChallengeTimeout(new Duration(15, MINUTES))
                 .setPrincipalField("sub")
-                .setAdditionalAudiences(Collections.emptyList())
+                .setAdditionalAudiences(List.of())
                 .setMaxClockSkew(new Duration(1, MINUTES))
                 .setJwtType(null)
                 .setUserMappingPattern(null)

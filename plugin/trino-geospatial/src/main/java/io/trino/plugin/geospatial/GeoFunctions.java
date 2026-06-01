@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.geospatial;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -63,7 +62,6 @@ import org.locationtech.jts.operation.valid.TopologyValidationError;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
@@ -102,13 +100,12 @@ import static java.lang.Math.sin;
 import static java.lang.Math.sqrt;
 import static java.lang.Math.toIntExact;
 import static java.lang.Math.toRadians;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static org.locationtech.jts.simplify.TopologyPreservingSimplifier.simplify;
 
 public final class GeoFunctions
 {
-    private static final Joiner OR_JOINER = Joiner.on(" or ");
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
     private static final double EARTH_RADIUS_KM = 6371.01;
     private static final double EARTH_RADIUS_M = EARTH_RADIUS_KM * 1000.0;
@@ -151,23 +148,23 @@ public final class GeoFunctions
             Slice slice = GEOMETRY.getSlice(input, i);
 
             if (slice.getInput().available() == 0) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_LineString: null point at index %s", i + 1));
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_LineString: null point at index %s".formatted(i + 1));
             }
 
             Geometry geometry = JtsGeometrySerde.deserialize(slice);
             if (!(geometry instanceof Point point)) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("ST_LineString takes only an array of valid points, %s was passed", geometry.getGeometryType()));
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "ST_LineString takes only an array of valid points, %s was passed".formatted(geometry.getGeometryType()));
             }
 
             if (point.isEmpty()) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_LineString: empty point at index %s", i + 1));
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_LineString: empty point at index %s".formatted(i + 1));
             }
 
             Coordinate coordinate = point.getCoordinate();
             if (coordinate.equals(previousCoordinate)) {
                 throw new TrinoException(
                         INVALID_FUNCTION_ARGUMENT,
-                        format("Invalid input to ST_LineString: consecutive duplicate points at index %s", i + 1));
+                        "Invalid input to ST_LineString: consecutive duplicate points at index %s".formatted(i + 1));
             }
             coordinates.add(coordinate);
             previousCoordinate = coordinate;
@@ -196,16 +193,16 @@ public final class GeoFunctions
         List<Point> points = new ArrayList<>();
         for (int i = 0; i < input.getPositionCount(); i++) {
             if (input.isNull(i)) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_MultiPoint: null at index %s", i + 1));
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_MultiPoint: null at index %s".formatted(i + 1));
             }
 
             Slice slice = GEOMETRY.getSlice(input, i);
             Geometry geometry = JtsGeometrySerde.deserialize(slice);
             if (!(geometry instanceof Point point)) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_MultiPoint: geometry is not a point: %s at index %s", geometry.getGeometryType(), i + 1));
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_MultiPoint: geometry is not a point: %s at index %s".formatted(geometry.getGeometryType(), i + 1));
             }
             if (point.isEmpty()) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_MultiPoint: empty point at index %s", i + 1));
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_MultiPoint: empty point at index %s".formatted(i + 1));
             }
 
             points.add(point);
@@ -568,7 +565,7 @@ public final class GeoFunctions
 
         Coordinate coordinate = error.getCoordinate();
         if (coordinate != null) {
-            return utf8Slice(format("%s at or near (%s %s)", error.getMessage(), coordinate.getX(), coordinate.getY()));
+            return utf8Slice("%s at or near (%s %s)".formatted(error.getMessage(), coordinate.getX(), coordinate.getY()));
         }
         return utf8Slice(error.getMessage());
     }
@@ -628,12 +625,12 @@ public final class GeoFunctions
 
         GeometryType lineType = GeometryType.getForJtsGeometryType(line.getGeometryType());
         if (lineType != LINE_STRING && lineType != MULTI_LINE_STRING) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("First argument to line_locate_point must be a LineString or a MultiLineString. Got: %s", line.getGeometryType()));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "First argument to line_locate_point must be a LineString or a MultiLineString. Got: %s".formatted(line.getGeometryType()));
         }
 
         GeometryType pointType = GeometryType.getForJtsGeometryType(point.getGeometryType());
         if (pointType != POINT) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Second argument to line_locate_point must be a Point. Got: %s", point.getGeometryType()));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Second argument to line_locate_point must be a Point. Got: %s".formatted(point.getGeometryType()));
         }
 
         return new LengthIndexedLine(line).indexOf(point.getCoordinate()) / line.getLength();
@@ -687,10 +684,10 @@ public final class GeoFunctions
         double lineLength = lineString.getLength();
 
         if (fractionStep == 0) {
-            return Collections.singletonList(lineString.getStartPoint());
+            return List.of(lineString.getStartPoint());
         }
         if (fractionStep == 1) {
-            return Collections.singletonList(lineString.getEndPoint());
+            return List.of(lineString.getEndPoint());
         }
 
         int pointCount = repeated ? (int) Math.floor(1 / fractionStep) : 1;
@@ -838,7 +835,7 @@ public final class GeoFunctions
             else if (srid != 0 && srid != expectedSrid) {
                 throw new TrinoException(
                         INVALID_FUNCTION_ARGUMENT,
-                        format("SRID mismatch: %d vs %d", expectedSrid, srid));
+                        "SRID mismatch: %d vs %d".formatted(expectedSrid, srid));
             }
             if (!geometry.isEmpty()) {
                 // Flatten geometry collections to get individual geometries
@@ -1544,7 +1541,7 @@ public final class GeoFunctions
                     return blockBuilder.build();
                 }
             }
-            throw new VerifyException(format("Cannot find half-open partition extent for a point: (%s, %s)", envelope.getXMin(), envelope.getYMin()));
+            throw new VerifyException("Cannot find half-open partition extent for a point: (%s, %s)".formatted(envelope.getXMin(), envelope.getYMin()));
         }
 
         BlockBuilder blockBuilder = IntegerType.INTEGER.createFixedSizeBlockBuilder(partitions.size());
@@ -1624,7 +1621,7 @@ public final class GeoFunctions
     {
         GeometryType type = GeometryType.getForJtsGeometryType(geometry.getGeometryType());
         if (!validTypes.contains(type)) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("%s only applies to %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "%s only applies to %s. Input type is: %s".formatted(function, validTypes.stream().map(Object::toString).collect(joining(" or ")), type));
         }
     }
 
@@ -1677,7 +1674,7 @@ public final class GeoFunctions
     {
         GeometryType type = GeometryType.getForJtsGeometryType(geometry.getGeometryType());
         if (!validTypes.contains(type)) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("When applied to SphericalGeography inputs, %s only supports %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "When applied to SphericalGeography inputs, %s only supports %s. Input type is: %s".formatted(function, validTypes.stream().map(Object::toString).collect(joining(" or ")), type));
         }
     }
 

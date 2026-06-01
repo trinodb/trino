@@ -73,7 +73,6 @@ import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.Failures.internalError;
 import static io.trino.util.Reflection.methodHandle;
-import static java.lang.String.format;
 
 public final class FormatFunction
         extends SqlScalarFunction
@@ -166,11 +165,11 @@ public final class FormatFunction
     private static Slice sqlFormat(ConnectorSession session, String format, Object[] args)
     {
         try {
-            return utf8Slice(format(session.getLocale(), format, args));
+            return utf8Slice(String.format(session.getLocale(), format, args));
         }
         catch (IllegalFormatException e) {
             String message = JAVA_UTIL_EXCEPTION_PATTERN.matcher(e.toString()).replaceFirst("$1");
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid format string: %s (%s)", format, message), e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid format string: %s (%s)".formatted(format, message), e);
         }
     }
 

@@ -57,7 +57,6 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.JsonType.JSON;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -467,7 +466,7 @@ public abstract class BaseSqlServerTypeMapping
         dateTest(Function.identity())
                 .execute(getQueryRunner(), session, sqlServerCreateAndInsert("test_date"));
 
-        dateTest(inputLiteral -> format("DATE %s", inputLiteral))
+        dateTest(inputLiteral -> "DATE %s".formatted(inputLiteral))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
@@ -505,9 +504,9 @@ public abstract class BaseSqlServerTypeMapping
         // SQL Server does not support > 4 digit years, this test will fail once > 4 digit years support will be added
         String unsupportedDate = "\'11111-01-01\'";
         String tableName = "test_date_unsupported" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (test_date date)", tableName));
+        assertUpdate("CREATE TABLE %s (test_date date)".formatted(tableName));
         try {
-            assertQueryFails(format("INSERT INTO %s VALUES (date %s)", tableName, unsupportedDate),
+            assertQueryFails("INSERT INTO %s VALUES (date %s)".formatted(tableName, unsupportedDate),
                     "Failed to insert data: Conversion failed when converting date and/or time from character string.");
         }
         finally {

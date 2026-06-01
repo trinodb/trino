@@ -43,13 +43,10 @@ import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.type.TypeUtils.typeHasNaN;
-import static java.lang.String.format;
-import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static java.util.stream.Collectors.toUnmodifiableList;
 
 /**
  * Defines a set of valid tuples according to the constraints on each of its constituent columns
@@ -59,7 +56,7 @@ public final class TupleDomain<T>
     private static final int INSTANCE_SIZE = instanceSize(TupleDomain.class);
 
     private static final TupleDomain<?> NONE = new TupleDomain<>(Optional.empty());
-    private static final TupleDomain<?> ALL = new TupleDomain<>(Optional.of(emptyMap()));
+    private static final TupleDomain<?> ALL = new TupleDomain<>(Optional.of(Map.of()));
 
     /**
      * TupleDomain is internally represented as a normalized map of each column to its
@@ -188,7 +185,7 @@ public final class TupleDomain<T>
     {
         return domains.map(map -> map.entrySet().stream()
                 .map(entry -> new ColumnDomain<>(entry.getKey(), entry.getValue()))
-                .collect(toUnmodifiableList()));
+                .toList());
     }
 
     private static <T> boolean containsNoneDomain(Map<T, Domain> domains)
@@ -635,11 +632,11 @@ public final class TupleDomain<T>
         HashMap<U, Domain> result = new LinkedHashMap<>(domains.size());
         for (Entry<T, Domain> entry : domains.entrySet()) {
             U key = function.apply(entry.getKey());
-            requireNonNull(key, () -> format("mapping function %s returned null for %s", function, entry.getKey()));
+            requireNonNull(key, () -> "mapping function %s returned null for %s".formatted(function, entry.getKey()));
 
             Domain previous = result.put(key, entry.getValue());
             if (previous != null) {
-                throw new IllegalArgumentException(format("Every argument must have a unique mapping. %s maps to %s and %s", entry.getKey(), entry.getValue(), previous));
+                throw new IllegalArgumentException("Every argument must have a unique mapping. %s maps to %s and %s".formatted(entry.getKey(), entry.getValue(), previous));
             }
         }
 
@@ -722,7 +719,7 @@ public final class TupleDomain<T>
         return toMap(
                 keyMapper,
                 valueMapper,
-                (u, v) -> { throw new IllegalStateException(format("Duplicate values for a key: %s and %s", u, v)); },
+                (u, v) -> { throw new IllegalStateException("Duplicate values for a key: %s and %s".formatted(u, v)); },
                 LinkedHashMap::new);
     }
 

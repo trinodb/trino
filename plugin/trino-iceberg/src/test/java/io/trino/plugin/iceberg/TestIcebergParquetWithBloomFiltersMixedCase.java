@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
@@ -33,7 +32,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
-import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -75,13 +74,12 @@ public class TestIcebergParquetWithBloomFiltersMixedCase
     {
         minio.copyResources("iceberg/mixed_case_bloom_filter", BUCKET_NAME, "mixed_case_bloom_filter");
         String tableName = "test_iceberg_write_mixed_case_bloom_filter" + randomNameSuffix();
-        assertUpdate(format(
-                "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')",
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(
                 tableName,
-                format("s3://%s/mixed_case_bloom_filter", BUCKET_NAME)));
+                "s3://%s/mixed_case_bloom_filter".formatted(BUCKET_NAME)));
 
         CatalogSchemaTableName catalogSchemaTableName = new CatalogSchemaTableName("iceberg", new SchemaTableName("tpch", tableName));
-        assertUpdate(format("INSERT INTO %s SELECT * FROM (VALUES %s) t(%s)", catalogSchemaTableName, Joiner.on(", ").join(testValues), columnName), testValues.size());
+        assertUpdate("INSERT INTO %s SELECT * FROM (VALUES %s) t(%s)".formatted(catalogSchemaTableName, testValues.stream().map(Object::toString).collect(joining(", ")), columnName), testValues.size());
 
         checkTableProperties(tableName);
 

@@ -46,7 +46,6 @@ import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_IS
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -187,16 +186,16 @@ public abstract class AbstractTestHiveViews
         String tableName = "test_table";
         String viewName = "test_view";
 
-        onHive().executeQuery(format("CREATE SCHEMA %s", schemaX));
-        onHive().executeQuery(format("CREATE SCHEMA %s", schemaY));
+        onHive().executeQuery("CREATE SCHEMA %s".formatted(schemaX));
+        onHive().executeQuery("CREATE SCHEMA %s".formatted(schemaY));
 
-        onTrino().executeQuery(format("CREATE TABLE %s.%s AS SELECT * FROM tpch.tiny.nation", schemaY, tableName));
-        onHive().executeQuery(format("CREATE VIEW %s.%s AS SELECT * FROM %s.%s", schemaX, viewName, schemaY, tableName));
+        onTrino().executeQuery("CREATE TABLE %s.%s AS SELECT * FROM tpch.tiny.nation".formatted(schemaY, tableName));
+        onHive().executeQuery("CREATE VIEW %s.%s AS SELECT * FROM %s.%s".formatted(schemaX, viewName, schemaY, tableName));
 
-        assertThat(onTrino().executeQuery(format("SELECT COUNT(*) FROM %s.%s", schemaX, viewName))).containsOnly(row(25));
+        assertThat(onTrino().executeQuery("SELECT COUNT(*) FROM %s.%s".formatted(schemaX, viewName))).containsOnly(row(25));
 
-        onHive().executeQuery(format("DROP SCHEMA %s CASCADE", schemaX));
-        onHive().executeQuery(format("DROP SCHEMA %s CASCADE", schemaY));
+        onHive().executeQuery("DROP SCHEMA %s CASCADE".formatted(schemaX));
+        onHive().executeQuery("DROP SCHEMA %s CASCADE".formatted(schemaY));
     }
 
     @Test
@@ -207,15 +206,15 @@ public abstract class AbstractTestHiveViews
         String tableName = "test_table";
         String viewName = "test_view";
 
-        onHive().executeQuery(format("CREATE SCHEMA %s", schemaX));
+        onHive().executeQuery("CREATE SCHEMA %s".formatted(schemaX));
 
-        onTrino().executeQuery(format("CREATE TABLE %s.%s AS SELECT * FROM tpch.tiny.nation", schemaX, tableName));
-        onHive().executeQuery(format("USE %s", schemaX));
-        onHive().executeQuery(format("CREATE VIEW %s AS SELECT * FROM %s", viewName, tableName));
+        onTrino().executeQuery("CREATE TABLE %s.%s AS SELECT * FROM tpch.tiny.nation".formatted(schemaX, tableName));
+        onHive().executeQuery("USE %s".formatted(schemaX));
+        onHive().executeQuery("CREATE VIEW %s AS SELECT * FROM %s".formatted(viewName, tableName));
 
-        assertThat(onTrino().executeQuery(format("SELECT COUNT(*) FROM %s.%s", schemaX, viewName))).containsOnly(row(25));
+        assertThat(onTrino().executeQuery("SELECT COUNT(*) FROM %s.%s".formatted(schemaX, viewName))).containsOnly(row(25));
 
-        onHive().executeQuery(format("DROP SCHEMA %s CASCADE", schemaX));
+        onHive().executeQuery("DROP SCHEMA %s CASCADE".formatted(schemaX));
     }
 
     @Test
@@ -313,14 +312,14 @@ public abstract class AbstractTestHiveViews
                 "FROM\n" +
                 "  \"default\".\"nation\" \"nation\"";
 
-        QueryResult actualResult = onTrino().executeQuery(format(showCreateViewSql, "hive"));
+        QueryResult actualResult = onTrino().executeQuery(showCreateViewSql.formatted("hive"));
         assertThat(actualResult).hasRowsCount(1);
-        assertThat((String) actualResult.getOnlyValue()).isEqualTo(format(expectedResult, "hive"));
+        assertThat((String) actualResult.getOnlyValue()).isEqualTo(expectedResult.formatted("hive"));
 
         // Verify the translated view sql for a catalog other than "hive", which is configured to the same metastore
-        actualResult = onTrino().executeQuery(format(showCreateViewSql, "hive_with_external_writes"));
+        actualResult = onTrino().executeQuery(showCreateViewSql.formatted("hive_with_external_writes"));
         assertThat(actualResult).hasRowsCount(1);
-        assertThat((String) actualResult.getOnlyValue()).isEqualTo(format(expectedResult, "hive_with_external_writes"));
+        assertThat((String) actualResult.getOnlyValue()).isEqualTo(expectedResult.formatted("hive_with_external_writes"));
     }
 
     /**
@@ -597,19 +596,18 @@ public abstract class AbstractTestHiveViews
                 + "SELECT r_regionkey % 3, r_name, r_comment FROM region");
 
         for (String operator : List.of("UNION", "UNION DISTINCT")) {
-            String name = format("%s_view", operator.replace(" ", "_"));
-            onHive().executeQuery(format("DROP VIEW IF EXISTS %s", name));
+            String name = "%s_view".formatted(operator.replace(" ", "_"));
+            onHive().executeQuery("DROP VIEW IF EXISTS %s".formatted(name));
             // Add mod to one side to add duplicate and non-overlapping values
-            onHive().executeQuery(format(
-                    "CREATE VIEW %s AS\n"
-                            + "SELECT r_regionkey FROM region\n"
-                            + "%s\n"
-                            + "SELECT r_regionkey FROM union_helper\n",
+            onHive().executeQuery(("CREATE VIEW %s AS\n"
+            + "SELECT r_regionkey FROM region\n"
+            + "%s\n"
+            + "SELECT r_regionkey FROM union_helper\n").formatted(
                     name,
                     operator));
 
             assertViewQuery(
-                    format("SELECT r_regionkey FROM %s", name),
+                    "SELECT r_regionkey FROM %s".formatted(name),
                     assertion -> assertion.as("View with %s", operator)
                             .containsOnly(row(0), row(1), row(2), row(3), row(4)));
         }
@@ -787,8 +785,8 @@ public abstract class AbstractTestHiveViews
     protected void setSessionProperty(String key, String value)
     {
         // We need to setup sessions for both "trino" and "default" executors in tempto
-        onTrino().executeQuery(format("SET SESSION %s = %s", key, value));
-        onTrino().executeQuery(format("SET SESSION %s = %s", key, value));
+        onTrino().executeQuery("SET SESSION %s = %s".formatted(key, value));
+        onTrino().executeQuery("SET SESSION %s = %s".formatted(key, value));
     }
 
     protected void unsetSessionProperty(String key)

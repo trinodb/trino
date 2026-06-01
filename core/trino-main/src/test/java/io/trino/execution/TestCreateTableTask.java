@@ -87,7 +87,6 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static java.util.Collections.emptyList;
 import static java.util.Locale.ROOT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -153,12 +152,12 @@ class TestCreateTableTask
         CreateTable statement = new CreateTable(
                 new NodeLocation(1, 1),
                 QualifiedName.of("test_table_if_not_exists"),
-                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
+                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, List.of(), Optional.empty())),
                 IGNORE,
                 ImmutableList.of(),
                 Optional.empty());
         queryRunner.inTransaction(transactionSession -> {
-            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP));
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP));
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
             return null;
         });
@@ -170,13 +169,13 @@ class TestCreateTableTask
         CreateTable statement = new CreateTable(
                 new NodeLocation(1, 1),
                 QualifiedName.of("test_table_fail_if_exists"),
-                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
+                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, List.of(), Optional.empty())),
                 FAIL,
                 ImmutableList.of(),
                 Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
-            assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP)))
+            assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP)))
                     .hasErrorCode(ALREADY_EXISTS)
                     .hasMessage("Table already exists");
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
@@ -190,13 +189,13 @@ class TestCreateTableTask
         CreateTable statement = new CreateTable(
                 new NodeLocation(1, 1),
                 QualifiedName.of("test_table_replace"),
-                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
+                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, List.of(), Optional.empty())),
                 REPLACE,
                 ImmutableList.of(),
                 Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
-            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP));
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP));
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
             assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
                     .isEqualTo(ImmutableList.of(new ColumnMetadata("a", BIGINT)));
@@ -210,13 +209,13 @@ class TestCreateTableTask
         CreateTable statement = new CreateTable(
                 new NodeLocation(1, 1),
                 QualifiedName.of("test_table_with_materialized_view_property"),
-                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
+                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, List.of(), Optional.empty())),
                 FAIL,
                 ImmutableList.of(new Property(new Identifier("foo"), new StringLiteral("bar"))),
                 Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
-            assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP)))
+            assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP)))
                     .hasErrorCode(INVALID_TABLE_PROPERTY)
                     .hasMessage("Catalog 'test_catalog' table property 'foo' does not exist");
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(0);
@@ -228,13 +227,13 @@ class TestCreateTableTask
     void testCreateWithDefaultColumn()
     {
         List<TableElement> inputColumns = ImmutableList.<TableElement>builder()
-                .add(new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, emptyList(), Optional.empty()))
-                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("b"), toSqlType(VARCHAR), Optional.of(new StringLiteral(new NodeLocation(1, 1), "test default")), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, List.of(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("b"), toSqlType(VARCHAR), Optional.of(new StringLiteral(new NodeLocation(1, 1), "test default")), true, List.of(), Optional.empty()))
                 .build();
         CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
-            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP));
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP));
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
             List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().getFirst().getColumns();
             assertThat(columns).hasSize(2);
@@ -252,13 +251,13 @@ class TestCreateTableTask
     void testCreateWithDefaultColumnTypeCoercion()
     {
         List<TableElement> varcharColumn = ImmutableList.<TableElement>builder()
-                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("double_col"), toSqlType(DOUBLE), Optional.of(new LongLiteral(new NodeLocation(1, 1), "123")), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("double_col"), toSqlType(DOUBLE), Optional.of(new LongLiteral(new NodeLocation(1, 1), "123")), true, List.of(), Optional.empty()))
                 .build();
 
         CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), varcharColumn, IGNORE, ImmutableList.of(), Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
-            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP));
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP));
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
             List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().getFirst().getColumns();
             assertThat(columns).hasSize(1);
@@ -274,14 +273,14 @@ class TestCreateTableTask
     void testCreateWithDefaultColumnSupportedTypeCoercion()
     {
         List<TableElement> varcharColumn = ImmutableList.<TableElement>builder()
-                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("varchar_col"), toSqlType(createVarcharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcde")), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("varchar_col"), toSqlType(createVarcharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcde")), true, List.of(), Optional.empty()))
                 .build();
 
         CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), varcharColumn, IGNORE, ImmutableList.of(), Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
             // MockMetadata.getSupportedType method changes varchar(4) to unbounded varchar
-            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP));
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP));
 
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
             List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().getFirst().getColumns();
@@ -298,14 +297,14 @@ class TestCreateTableTask
     void testCreateWithDefaultColumnUnsupportedTypeCoercion()
     {
         List<TableElement> varcharColumn = ImmutableList.<TableElement>builder()
-                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("char_col"), toSqlType(createCharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcde")), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("char_col"), toSqlType(createCharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcde")), true, List.of(), Optional.empty()))
                 .build();
 
         CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), varcharColumn, IGNORE, ImmutableList.of(), Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
             assertTrinoExceptionThrownBy(() ->
-                    getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP)))
+                    getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP)))
                     .hasErrorCode(INVALID_DEFAULT_COLUMN_VALUE)
                     .hasMessage("line 1:1: ''abcde'' is not a valid CHAR(4) literal");
             return null;
@@ -316,14 +315,14 @@ class TestCreateTableTask
     void testInvalidDefaultLiteral()
     {
         List<TableElement> inputColumns = ImmutableList.<TableElement>builder()
-                .add(new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, emptyList(), Optional.empty()))
-                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("b"), toSqlType(BIGINT), Optional.of(new StringLiteral(new NodeLocation(1, 1), "invalid")), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, List.of(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("b"), toSqlType(BIGINT), Optional.of(new StringLiteral(new NodeLocation(1, 1), "invalid")), true, List.of(), Optional.empty()))
                 .build();
         CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
             assertTrinoExceptionThrownBy(() ->
-                    getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP)))
+                    getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP)))
                     .hasErrorCode(INVALID_DEFAULT_COLUMN_VALUE)
                     .hasMessage("line 1:1: ''invalid'' is not a valid BIGINT literal");
             return null;
@@ -334,8 +333,8 @@ class TestCreateTableTask
     void testCreateWithUnsupportedDefaultColumn()
     {
         List<TableElement> inputColumns = ImmutableList.<TableElement>builder()
-                .add(new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, emptyList(), Optional.empty()))
-                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("b"), toSqlType(VARCHAR), Optional.of(new StringLiteral(new NodeLocation(1, 1), "test default")), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, List.of(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("b"), toSqlType(VARCHAR), Optional.of(new StringLiteral(new NodeLocation(1, 1), "test default")), true, List.of(), Optional.empty()))
                 .build();
         CreateTable statement = new CreateTable(
                 new NodeLocation(1, 1),
@@ -347,7 +346,7 @@ class TestCreateTableTask
 
         queryRunner.inTransaction(transactionSession -> {
             assertTrinoExceptionThrownBy(() ->
-                    getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP)))
+                    getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP)))
                     .hasErrorCode(NOT_SUPPORTED)
                     .hasMessage("line 1:1: Catalog 'other_catalog' does not support default value for column name 'b'");
             return null;
@@ -358,13 +357,13 @@ class TestCreateTableTask
     void testCreateWithNotNullColumns()
     {
         List<TableElement> inputColumns = ImmutableList.of(
-                new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, emptyList(), Optional.empty()),
-                new ColumnDefinition(QualifiedName.of("b"), toSqlType(VARCHAR), false, emptyList(), Optional.empty()),
-                new ColumnDefinition(QualifiedName.of("c"), toSqlType(VARBINARY), false, emptyList(), Optional.empty()));
+                new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, List.of(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.of("b"), toSqlType(VARCHAR), false, List.of(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.of("c"), toSqlType(VARBINARY), false, List.of(), Optional.empty()));
         CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_not_null_columns"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
-            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP));
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP));
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
             List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().get(0).getColumns();
             assertThat(columns).hasSize(3);
@@ -388,9 +387,9 @@ class TestCreateTableTask
     void testCreateWithUnsupportedConnectorThrowsWhenNotNull()
     {
         List<TableElement> inputColumns = ImmutableList.of(
-                new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, emptyList(), Optional.empty()),
-                new ColumnDefinition(QualifiedName.of("b"), toSqlType(VARCHAR), false, emptyList(), Optional.empty()),
-                new ColumnDefinition(QualifiedName.of("c"), toSqlType(VARBINARY), false, emptyList(), Optional.empty()));
+                new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, List.of(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.of("b"), toSqlType(VARCHAR), false, List.of(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.of("c"), toSqlType(VARBINARY), false, List.of(), Optional.empty()));
         CreateTable statement = new CreateTable(
                 new NodeLocation(1, 1),
                 QualifiedName.of(OTHER_CATALOG_NAME, "other_schema", "test_table_unsupported_connector"),
@@ -401,7 +400,7 @@ class TestCreateTableTask
 
         queryRunner.inTransaction(transactionSession -> {
             assertTrinoExceptionThrownBy(() ->
-                    getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP)))
+                    getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP)))
                     .hasErrorCode(NOT_SUPPORTED)
                     .hasMessage("Catalog 'other_catalog' does not support non-null column for column name 'b'");
             return null;
@@ -504,14 +503,14 @@ class TestCreateTableTask
         CreateTable statement = new CreateTable(
                 new NodeLocation(1, 1),
                 QualifiedName.of("test_table_unsupported_field_123"),
-                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a", "b"), toSqlType(DATE), true, emptyList(), Optional.empty())),
+                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a", "b"), toSqlType(DATE), true, List.of(), Optional.empty())),
                 FAIL,
                 ImmutableList.of(),
                 Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
             assertTrinoExceptionThrownBy(() ->
-                    getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP)))
+                    getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP)))
                     .hasErrorCode(NOT_SUPPORTED)
                     .hasMessage("line 1:1: Column name 'a.b' must not be qualified");
             return null;
@@ -529,7 +528,7 @@ class TestCreateTableTask
                                 QualifiedName.of("a"),
                                 toSqlType(TIMESTAMP_NANOS),
                                 true,
-                                emptyList(),
+                                List.of(),
                                 Optional.empty())),
                 IGNORE,
                 ImmutableList.of(),

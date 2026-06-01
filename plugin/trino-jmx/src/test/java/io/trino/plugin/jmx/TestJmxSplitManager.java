@@ -56,7 +56,6 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTim
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -83,7 +82,7 @@ public class TestJmxSplitManager
                     .create(CONNECTOR_ID,
                             ImmutableMap.of(
                                     "jmx.dump-tables", TEST_BEANS,
-                                    "jmx.dump-period", format("%dms", JMX_STATS_DUMP.toMillis()),
+                                    "jmx.dump-period", "%dms".formatted(JMX_STATS_DUMP.toMillis()),
                                     "jmx.max-entries", "1000",
                                     "bootstrap.quiet", "true"),
                             new TestingConnectorContext(nodeManager));
@@ -259,6 +258,6 @@ public class TestJmxSplitManager
 
     private static Node createTestingNode(String hostname)
     {
-        return new InternalNode(hostname, URI.create(format("http://%s:8080", hostname)), NodeVersion.UNKNOWN, false);
+        return new InternalNode(hostname, URI.create("http://%s:8080".formatted(hostname)), NodeVersion.UNKNOWN, false);
     }
 }

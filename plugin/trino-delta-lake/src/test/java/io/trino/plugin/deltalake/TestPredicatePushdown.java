@@ -33,7 +33,6 @@ import java.util.Set;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPredicatePushdown
@@ -71,13 +70,13 @@ public class TestPredicatePushdown
         String table = testTable.register("select_pushdown");
 
         assertPushdown(
-                format("SELECT custkey FROM %s WHERE custkey > 1495", table),
+                "SELECT custkey FROM %s WHERE custkey > 1495".formatted(table),
                 "SELECT * FROM UNNEST(ARRAY[1496, 1497, 1498, 1499, 1500])",
                 100);
 
         // 7 row groups include 500 in their range
         assertPushdown(
-                format("SELECT custkey FROM %s WHERE custkey = 500", table),
+                "SELECT custkey FROM %s WHERE custkey = 500".formatted(table),
                 "SELECT 500",
                 700);
     }
@@ -91,19 +90,19 @@ public class TestPredicatePushdown
         // Only 5 row groups have data above 1300, so pushdown to Parquet
         // should ensure only 500 rows are read.
         assertPushdownUpdate(
-                format("DELETE FROM %s WHERE custkey > 1300", table),
+                "DELETE FROM %s WHERE custkey > 1300".formatted(table),
                 200,
                 500);
         // Check that the correct data was deleted
-        assertThat(execute(format("SELECT custkey FROM %s", table)).getOnlyColumnAsSet()).isEqualTo(ContiguousSet.closed(1L, 1300L));
+        assertThat(execute("SELECT custkey FROM %s".formatted(table)).getOnlyColumnAsSet()).isEqualTo(ContiguousSet.closed(1L, 1300L));
 
         table = testTable.register("delete_pushdown_disjoint");
         // 11 groups have data outside of (500, 1100]
         assertPushdownUpdate(
-                format("DELETE FROM %s WHERE custkey <= 500 OR custkey > 1100", table),
+                "DELETE FROM %s WHERE custkey <= 500 OR custkey > 1100".formatted(table),
                 900,
                 1100);
-        assertThat(execute(format("SELECT custkey FROM %s", table)).getOnlyColumnAsSet()).isEqualTo(ContiguousSet.closed(501L, 1100L));
+        assertThat(execute("SELECT custkey FROM %s".formatted(table)).getOnlyColumnAsSet()).isEqualTo(ContiguousSet.closed(501L, 1100L));
     }
 
     @Test
@@ -114,19 +113,18 @@ public class TestPredicatePushdown
         table = testTable.register("update_pushdown_simple");
         // 7 row groups include 500 in their range
         assertPushdownUpdate(
-                format("UPDATE %s SET phone = 'phone number' WHERE custkey = 500", table),
+                "UPDATE %s SET phone = 'phone number' WHERE custkey = 500".formatted(table),
                 1,
                 700);
-        assertQuery(format("SELECT phone FROM %s WHERE custkey = 500", table), "VALUES 'phone number'");
+        assertQuery("SELECT phone FROM %s WHERE custkey = 500".formatted(table), "VALUES 'phone number'");
 
         table = testTable.register("update_pushdown_range");
         // 9 groups have data on (1000, 1200]
         assertPushdownUpdate(
-                format("UPDATE %s SET mktsegment = phone WHERE 1000 < custkey AND custkey <= 1200", table),
+                "UPDATE %s SET mktsegment = phone WHERE 1000 < custkey AND custkey <= 1200".formatted(table),
                 200,
                 900);
-        assertQueryReturnsEmptyResult(format(
-                "SELECT * FROM %s WHERE mktsegment = phone AND NOT (1000 < custkey AND custkey <= 1200)",
+        assertQueryReturnsEmptyResult("SELECT * FROM %s WHERE mktsegment = phone AND NOT (1000 < custkey AND custkey <= 1200)".formatted(
                 table));
     }
 
@@ -250,10 +248,9 @@ public class TestPredicatePushdown
          */
         String register(String namePrefix)
         {
-            String name = format("%s_%s", namePrefix, randomNameSuffix());
+            String name = "%s_%s".formatted(namePrefix, randomNameSuffix());
             hiveMinioDataLake.copyResources(RESOURCE_PATH.resolve(resourcePath).toString(), name);
-            getQueryRunner().execute(format(
-                    "CALL system.register_table(CURRENT_SCHEMA, '%2$s', 's3://%1$s/%2$s')",
+            getQueryRunner().execute("CALL system.register_table(CURRENT_SCHEMA, '%2$s', 's3://%1$s/%2$s')".formatted(
                     bucketName,
                     name));
             return name;

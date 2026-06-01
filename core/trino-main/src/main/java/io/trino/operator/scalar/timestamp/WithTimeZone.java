@@ -33,7 +33,6 @@ import static io.trino.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.type.DateTimes.getMicrosOfMilli;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
-import static java.lang.String.format;
 import static org.joda.time.DateTimeZone.UTC;
 
 @ScalarFunction("with_timezone")
@@ -52,7 +51,7 @@ public final class WithTimeZone
             toTimeZoneKey = getTimeZoneKey(zoneId.toStringUtf8());
         }
         catch (TimeZoneNotSupportedException e) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId.toStringUtf8()));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'%s' is not a valid time zone".formatted(zoneId.toStringUtf8()));
         }
         DateTimeZone toDateTimeZone = getDateTimeZone(toTimeZoneKey);
         return packDateTimeWithZone(UTC.getMillisKeepLocal(toDateTimeZone, scaleEpochMicrosToMillis(timestamp)), toTimeZoneKey);
@@ -82,7 +81,7 @@ public final class WithTimeZone
             toTimeZoneKey = getTimeZoneKey(zoneId.toStringUtf8());
         }
         catch (TimeZoneNotSupportedException e) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId.toStringUtf8()));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'%s' is not a valid time zone".formatted(zoneId.toStringUtf8()));
         }
         DateTimeZone toDateTimeZone = getDateTimeZone(toTimeZoneKey);
 

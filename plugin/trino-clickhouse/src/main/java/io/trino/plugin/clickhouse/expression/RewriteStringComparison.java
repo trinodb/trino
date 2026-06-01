@@ -41,7 +41,6 @@ import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.functi
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.type;
 import static io.trino.plugin.clickhouse.ClickHouseClient.supportsPushdown;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static java.lang.String.format;
 
 public class RewriteStringComparison
         implements ConnectorExpressionRule<Call, ParameterizedExpression>
@@ -92,7 +91,7 @@ public class RewriteStringComparison
 
         verify(expression.getFunctionName().getCatalogSchema().isEmpty()); // filtered out by the pattern
         return Optional.of(new ParameterizedExpression(
-                format("(%s) %s (%s)", left.get().expression(), comparison.getOperator(), right.get().expression()),
+                "(%s) %s (%s)".formatted(left.get().expression(), comparison.getOperator(), right.get().expression()),
                 ImmutableList.<QueryParameter>builder()
                         .addAll(left.get().parameters())
                         .addAll(right.get().parameters())

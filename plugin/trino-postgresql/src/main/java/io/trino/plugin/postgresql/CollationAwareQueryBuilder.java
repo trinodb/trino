@@ -31,7 +31,6 @@ import java.util.stream.Stream;
 
 import static io.trino.plugin.postgresql.PostgreSqlClient.isCollatable;
 import static io.trino.plugin.postgresql.PostgreSqlSessionProperties.isEnableStringPushdownWithCollate;
-import static java.lang.String.format;
 
 public class CollationAwareQueryBuilder
         extends DefaultQueryBuilder
@@ -49,8 +48,7 @@ public class CollationAwareQueryBuilder
                 .anyMatch(PostgreSqlClient::isCollatable);
 
         if (isCollatable) {
-            return format(
-                    "%s.%s COLLATE \"C\" %s %s.%s COLLATE \"C\"",
+            return "%s.%s COLLATE \"C\" %s %s.%s COLLATE \"C\"".formatted(
                     leftRelationAlias,
                     buildJoinColumn(client, condition.getLeftColumn()),
                     condition.getOperator().getValue(),
@@ -66,7 +64,7 @@ public class CollationAwareQueryBuilder
     {
         if (isCollatable(column) && isEnableStringPushdownWithCollate(session)) {
             accumulator.accept(new QueryParameter(jdbcType, type, Optional.of(value)));
-            return format("%s %s %s COLLATE \"C\"", client.quoted(column.getColumnName()), operator, writeFunction.getBindExpression());
+            return "%s %s %s COLLATE \"C\"".formatted(client.quoted(column.getColumnName()), operator, writeFunction.getBindExpression());
         }
 
         return super.toPredicate(client, session, column, jdbcType, type, writeFunction, operator, value, accumulator);

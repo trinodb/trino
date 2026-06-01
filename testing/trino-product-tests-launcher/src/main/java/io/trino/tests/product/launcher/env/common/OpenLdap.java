@@ -26,7 +26,6 @@ import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPo
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.LDAP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class OpenLdap
@@ -47,7 +46,7 @@ public class OpenLdap
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        String baseImage = format("ghcr.io/trinodb/testing/almalinux9-oj17-openldap:%s", imagesVersion);
+        String baseImage = "ghcr.io/trinodb/testing/almalinux9-oj17-openldap:%s".formatted(imagesVersion);
 
         builder.configureContainers(dockerContainer -> {
             if (isTrinoContainer(dockerContainer.getLogicalName())) {

@@ -39,7 +39,6 @@ import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.KILL_QUERY;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -78,22 +77,21 @@ public class TestKillQuery
     @Timeout(60)
     public void testKillQuery()
     {
-        killQuery(queryId -> format("CALL system.runtime.kill_query('%s', 'because')", queryId), "Message: because");
-        killQuery(queryId -> format("CALL system.runtime.kill_query('%s')", queryId), "No message provided.");
+        killQuery(queryId -> "CALL system.runtime.kill_query('%s', 'because')".formatted(queryId), "Message: because");
+        killQuery(queryId -> "CALL system.runtime.kill_query('%s')".formatted(queryId), "No message provided.");
     }
 
     private void killQuery(Function<String, String> sql, String expectedKilledMessage)
     {
         String testQueryId = "test_query_id_" + randomUUID().toString().replace("-", "");
         Future<?> queryFuture = executor.submit(() -> {
-            getQueryRunner().execute(format("SELECT count(comment) as %s FROM tpch.sf100000.lineitem", testQueryId));
+            getQueryRunner().execute("SELECT count(comment) as %s FROM tpch.sf100000.lineitem".formatted(testQueryId));
         });
 
         Optional<Object> queryIdValue = Optional.empty();
         while (queryIdValue.isEmpty()) {
             sleepUninterruptibly(50, TimeUnit.MILLISECONDS);
-            queryIdValue = computeActual(format(
-                    "SELECT query_id FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'",
+            queryIdValue = computeActual("SELECT query_id FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'".formatted(
                     testQueryId))
                     .getOnlyColumn()
                     .collect(toOptional());
@@ -104,7 +102,7 @@ public class TestKillQuery
 
         getQueryRunner().getAccessControl().deny(privilege("query", KILL_QUERY));
         try {
-            assertThatThrownBy(() -> getQueryRunner().execute(getSession("other_user"), format("CALL system.runtime.kill_query('%s', 'should fail')", queryId)))
+            assertThatThrownBy(() -> getQueryRunner().execute(getSession("other_user"), "CALL system.runtime.kill_query('%s', 'should fail')".formatted(queryId)))
                     .hasMessageContaining("Cannot kill query");
         }
         finally {

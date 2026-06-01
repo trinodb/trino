@@ -18,8 +18,6 @@ import io.trino.parquet.ParquetDataSourceId;
 
 import java.util.Optional;
 
-import static java.lang.String.format;
-
 public class ParquetCryptoException
         extends RuntimeException
 {
@@ -44,9 +42,9 @@ public class ParquetCryptoException
     private static String formatMessage(Optional<ParquetDataSourceId> dataSourceId, String messageFormat, Object[] args)
     {
         if (dataSourceId.isEmpty()) {
-            return "Parquet cryptographic error. " + format(messageFormat, args);
+            return "Parquet cryptographic error. " + messageFormat.formatted(args);
         }
 
-        return "Parquet cryptographic error. " + format(messageFormat, args) + " [" + dataSourceId + "]";
+        return "Parquet cryptographic error. " + messageFormat.formatted(args) + " [" + dataSourceId + "]";
     }
 }

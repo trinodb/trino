@@ -27,7 +27,6 @@ import java.util.concurrent.ExecutorService;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.testng.services.Listeners.reportListenerFailure;
-import static java.lang.String.format;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.Objects.requireNonNull;
@@ -81,8 +80,7 @@ public class ReportOrphanedExecutors
                     field.setAccessible(true);
                     Object value = field.get(instance);
                     if (value instanceof ExecutorService executorService && !executorService.isShutdown()) {
-                        throw new RuntimeException(format(
-                                "Executor [%s] in [%s] has not been shut down",
+                        throw new RuntimeException("Executor [%s] in [%s] has not been shut down".formatted(
                                 field,
                                 instance));
                     }

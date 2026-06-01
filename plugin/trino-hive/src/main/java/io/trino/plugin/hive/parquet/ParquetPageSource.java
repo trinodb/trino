@@ -28,7 +28,6 @@ import java.util.OptionalLong;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetPageSource
@@ -125,6 +124,6 @@ public class ParquetPageSource
         if (exception instanceof ParquetCorruptionException) {
             return new TrinoException(HIVE_BAD_DATA, exception);
         }
-        return new TrinoException(HIVE_CURSOR_ERROR, format("Failed to read Parquet file: %s", dataSourceId), exception);
+        return new TrinoException(HIVE_CURSOR_ERROR, "Failed to read Parquet file: %s".formatted(dataSourceId), exception);
     }
 }

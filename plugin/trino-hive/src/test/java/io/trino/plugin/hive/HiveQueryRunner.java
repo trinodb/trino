@@ -54,7 +54,6 @@ import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -368,14 +367,12 @@ public final class HiveQueryRunner
     {
         long start = System.nanoTime();
         @Language("SQL") String sql = switch (tableName.objectName()) {
-            case "part", "partsupp", "supplier", "nation", "region" -> format("CREATE TABLE %s AS SELECT * FROM %s", tableName.objectName(), tableName);
-            case "lineitem" -> format(
-                    "CREATE TABLE %s WITH (bucketed_by=array['%s'], bucket_count=11) AS SELECT * FROM %s",
+            case "part", "partsupp", "supplier", "nation", "region" -> "CREATE TABLE %s AS SELECT * FROM %s".formatted(tableName.objectName(), tableName);
+            case "lineitem" -> "CREATE TABLE %s WITH (bucketed_by=array['%s'], bucket_count=11) AS SELECT * FROM %s".formatted(
                     tableName.objectName(),
                     columnNaming.getName(table.getColumn("orderkey")),
                     tableName);
-            case "customer", "orders" -> format(
-                    "CREATE TABLE %s WITH (bucketed_by=array['%s'], bucket_count=11) AS SELECT * FROM %s",
+            case "customer", "orders" -> "CREATE TABLE %s WITH (bucketed_by=array['%s'], bucket_count=11) AS SELECT * FROM %s".formatted(
                     tableName.objectName(),
                     columnNaming.getName(table.getColumn("custkey")),
                     tableName);

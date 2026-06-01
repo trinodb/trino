@@ -30,6 +30,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -37,7 +38,6 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Lists.newArrayList;
 import static io.trino.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
 import static io.trino.jdbc.DriverInfo.DRIVER_NAME;
 import static io.trino.jdbc.DriverInfo.DRIVER_VERSION;
@@ -1439,11 +1439,11 @@ public class TrinoDatabaseMetaData
 
         Stream.of(ClientInfoProperty.values())
                 .sorted(Comparator.comparing(ClientInfoProperty::getPropertyName))
-                .forEach(clientInfoProperty -> results.add(newArrayList(
+                .forEach(clientInfoProperty -> results.add(new ArrayList<>(Arrays.asList(
                         clientInfoProperty.getPropertyName(),
                         VARCHAR_UNBOUNDED_LENGTH,
                         null,
-                        null)));
+                        null))));
 
         return new InMemoryTrinoResultSet(columns.build(), results.build());
     }

@@ -48,7 +48,6 @@ import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.G
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -117,7 +116,7 @@ public class TableChangesFunction
             DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) connectorTableHandle;
 
             if (sinceVersion > tableHandle.getReadVersion()) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("since_version: %d is higher then current table version: %d", sinceVersion, tableHandle.getReadVersion()));
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "since_version: %d is higher then current table version: %d".formatted(sinceVersion, tableHandle.getReadVersion()));
             }
             List<DeltaLakeColumnHandle> columnHandles = deltaLakeMetadata.getColumnHandles(session, tableHandle)
                     .values().stream()

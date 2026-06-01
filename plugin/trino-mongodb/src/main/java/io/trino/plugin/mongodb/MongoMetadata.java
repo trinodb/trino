@@ -118,7 +118,6 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -289,7 +288,7 @@ public class MongoMetadata
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         if (newTableName.toString().getBytes(UTF_8).length > MAX_QUALIFIED_IDENTIFIER_BYTE_LENGTH) {
-            throw new TrinoException(NOT_SUPPORTED, format("Qualified identifier name must be shorter than or equal to '%s' bytes: '%s'", MAX_QUALIFIED_IDENTIFIER_BYTE_LENGTH, newTableName));
+            throw new TrinoException(NOT_SUPPORTED, "Qualified identifier name must be shorter than or equal to '%s' bytes: '%s'".formatted(MAX_QUALIFIED_IDENTIFIER_BYTE_LENGTH, newTableName));
         }
         MongoTableHandle table = (MongoTableHandle) tableHandle;
         mongoSession.renameTable(table, newTableName);

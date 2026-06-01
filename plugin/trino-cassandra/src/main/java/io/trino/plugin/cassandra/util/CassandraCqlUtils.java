@@ -27,7 +27,6 @@ import java.util.List;
 
 import static com.datastax.oss.driver.internal.core.util.Strings.doubleQuote;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class CassandraCqlUtils
@@ -115,8 +114,7 @@ public final class CassandraCqlUtils
 
     private static String deleteFrom(String schemaName, String tableName, CassandraPartition partition, String clusteringKeyPredicates)
     {
-        return format(
-                "DELETE FROM \"%s\".\"%s\" WHERE %s",
+        return "DELETE FROM \"%s\".\"%s\" WHERE %s".formatted(
                 schemaName,
                 tableName,
                 getWhereCondition(partition.getPartitionId(), clusteringKeyPredicates));

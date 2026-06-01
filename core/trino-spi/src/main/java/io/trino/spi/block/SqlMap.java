@@ -31,7 +31,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static io.trino.spi.block.MapHashTables.computePosition;
 import static io.trino.spi.block.MapHashTables.createSingleTable;
-import static java.lang.String.format;
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
@@ -50,7 +49,7 @@ public class SqlMap
     {
         this.mapType = requireNonNull(mapType, "mapType is null");
         if (keyBlock.getPositionCount() != valueBlock.getPositionCount()) {
-            throw new IllegalArgumentException(format("Key and value blocks have different size: %s %s", keyBlock.getPositionCount(), valueBlock.getPositionCount()));
+            throw new IllegalArgumentException("Key and value blocks have different size: %s %s".formatted(keyBlock.getPositionCount(), valueBlock.getPositionCount()));
         }
         this.rawKeyBlock = keyBlock;
         this.rawValueBlock = valueBlock;
@@ -121,7 +120,7 @@ public class SqlMap
     @Override
     public String toString()
     {
-        return format("SqlMap{size=%d}", size);
+        return "SqlMap{size=%d}".formatted(size);
     }
 
     /**

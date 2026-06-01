@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Base64;
 
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestSqlVarbinary
@@ -52,7 +51,7 @@ final class TestSqlVarbinary
                 }
             }
 
-            builder.append(format("%02x", bytes[i] & 0xFF));
+            builder.append("%02x".formatted(bytes[i] & 0xFF));
         }
         return builder.toString();
     }

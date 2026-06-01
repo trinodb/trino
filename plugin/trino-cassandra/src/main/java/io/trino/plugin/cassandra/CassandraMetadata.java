@@ -79,7 +79,6 @@ import static io.trino.spi.connector.RelationColumnsMetadata.forTable;
 import static io.trino.spi.connector.RelationCommentMetadata.forRelation;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.SaveMode.REPLACE;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -347,7 +346,7 @@ public class CassandraMetadata
             throw new TrinoException(NOT_SUPPORTED, "Dropping materialized views not yet supported");
         }
 
-        cassandraSession.execute(format("DROP TABLE \"%s\".\"%s\"", cassandraTableHandle.getSchemaName(), cassandraTableHandle.getTableName()));
+        cassandraSession.execute("DROP TABLE \"%s\".\"%s\"".formatted(cassandraTableHandle.getSchemaName(), cassandraTableHandle.getTableName()));
     }
 
     @Override
@@ -389,7 +388,7 @@ public class CassandraMetadata
         String tableName = table.getTableName();
         List<String> columns = columnNames.build();
         List<Type> types = columnTypes.build();
-        StringBuilder queryBuilder = new StringBuilder(format("CREATE TABLE \"%s\".\"%s\"(%s uuid primary key", schemaName, tableName, ID_COLUMN_NAME));
+        StringBuilder queryBuilder = new StringBuilder("CREATE TABLE \"%s\".\"%s\"(%s uuid primary key".formatted(schemaName, tableName, ID_COLUMN_NAME));
         for (int i = 0; i < columns.size(); i++) {
             String name = columns.get(i);
             Type type = types.get(i);

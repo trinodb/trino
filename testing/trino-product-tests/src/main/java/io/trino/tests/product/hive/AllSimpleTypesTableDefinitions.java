@@ -21,7 +21,6 @@ import java.util.Optional;
 
 import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
-import static java.lang.String.format;
 
 public final class AllSimpleTypesTableDefinitions
 {
@@ -51,7 +50,7 @@ public final class AllSimpleTypesTableDefinitions
 
     private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionBuilder(String fileFormat, Optional<String> rowFormat)
     {
-        String tableName = format(tableNameFormat, fileFormat.toLowerCase(Locale.ENGLISH));
+        String tableName = tableNameFormat.formatted(fileFormat.toLowerCase(Locale.ENGLISH));
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("" +
                         "CREATE %EXTERNAL% TABLE %NAME%(" +
@@ -122,14 +121,13 @@ public final class AllSimpleTypesTableDefinitions
 
     private static HiveDataSource getTextFileDataSource()
     {
-        return createResourceDataSource(format(tableNameFormat, "textfile"), "io/trino/tests/product/hive/data/all_types/data.textfile");
+        return createResourceDataSource(tableNameFormat.formatted("textfile"), "io/trino/tests/product/hive/data/all_types/data.textfile");
     }
 
     public static void populateDataToHiveTable(String tableName)
     {
-        onHive().executeQuery(format(
-                "INSERT INTO TABLE %s SELECT * FROM %s",
+        onHive().executeQuery("INSERT INTO TABLE %s SELECT * FROM %s".formatted(
                 tableName,
-                format(tableNameFormat, "textfile")));
+                tableNameFormat.formatted("textfile")));
     }
 }

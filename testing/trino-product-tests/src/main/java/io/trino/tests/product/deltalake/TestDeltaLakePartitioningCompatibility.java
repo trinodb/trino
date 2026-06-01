@@ -26,7 +26,6 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakePartitioningCompatibility
@@ -41,7 +40,7 @@ public class TestDeltaLakePartitioningCompatibility
 
     private void testSparkCanReadFromCtasTableCreatedByTrinoWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(int interval)
     {
-        String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
+        String tableName = "test_dl_create_table_partition_by_special_char_with_%d_partitions_%s".formatted(interval, randomNameSuffix());
         String tableDirectory = "delta-compatibility-test-" + tableName;
 
         List<QueryAssert.Row> expected = ImmutableList.of(
@@ -56,20 +55,19 @@ public class TestDeltaLakePartitioningCompatibility
                 row(9, "with%percent"),
                 row(10, "with space"));
 
-        onTrino().executeQuery(format(
-                "CREATE TABLE delta.default.%s (id, col_name)" +
-                        "WITH(location = 's3://%s/%s', partitioned_by = ARRAY['col_name'], checkpoint_interval = %s) " +
-                        "AS VALUES " +
-                        "(1, 'with-hyphen')," +
-                        "(2, 'with.dot')," +
-                        "(3, 'with:colon')," +
-                        "(4, 'with/slash')," +
-                        "(5, 'with\\\\backslash')," +
-                        "(6, 'with=equal')," +
-                        "(7, 'with?question')," +
-                        "(8, 'with!exclamation')," +
-                        "(9, 'with%%percent')," +
-                        "(10, 'with space')",
+        onTrino().executeQuery(("CREATE TABLE delta.default.%s (id, col_name)" +
+        "WITH(location = 's3://%s/%s', partitioned_by = ARRAY['col_name'], checkpoint_interval = %s) " +
+        "AS VALUES " +
+        "(1, 'with-hyphen')," +
+        "(2, 'with.dot')," +
+        "(3, 'with:colon')," +
+        "(4, 'with/slash')," +
+        "(5, 'with\\\\backslash')," +
+        "(6, 'with=equal')," +
+        "(7, 'with?question')," +
+        "(8, 'with!exclamation')," +
+        "(9, 'with%%percent')," +
+        "(10, 'with space')").formatted(
                 tableName,
                 bucketName,
                 tableDirectory,
@@ -93,7 +91,7 @@ public class TestDeltaLakePartitioningCompatibility
 
     private void testTrinoCanReadFromCtasTableCreatedBySparkWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(int interval)
     {
-        String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
+        String tableName = "test_dl_create_table_partition_by_special_char_with_%d_partitions_%s".formatted(interval, randomNameSuffix());
         String tableDirectory = "delta-compatibility-test-" + tableName;
 
         List<QueryAssert.Row> expected = ImmutableList.of(
@@ -108,23 +106,22 @@ public class TestDeltaLakePartitioningCompatibility
                 row(9, "with%percent"),
                 row(10, "with space"));
 
-        onDelta().executeQuery(format(
-                "CREATE TABLE default.%s " +
-                        "USING DELTA " +
-                        "OPTIONS (checkpointInterval = %s) " +
-                        "PARTITIONED BY (`col_name`) LOCATION 's3://%s/%s' AS " +
-                        "SELECT * FROM (VALUES " +
-                        "(1, 'with-hyphen')," +
-                        "(2, 'with.dot')," +
-                        "(3, 'with:colon')," +
-                        "(4, 'with/slash')," +
-                        "(5, 'with\\\\backslash')," +
-                        "(6, 'with=equal')," +
-                        "(7, 'with?question')," +
-                        "(8, 'with!exclamation')," +
-                        "(9, 'with%%percent')," +
-                        "(10, 'with space')" +
-                        ") t(id, col_name)",
+        onDelta().executeQuery(("CREATE TABLE default.%s " +
+        "USING DELTA " +
+        "OPTIONS (checkpointInterval = %s) " +
+        "PARTITIONED BY (`col_name`) LOCATION 's3://%s/%s' AS " +
+        "SELECT * FROM (VALUES " +
+        "(1, 'with-hyphen')," +
+        "(2, 'with.dot')," +
+        "(3, 'with:colon')," +
+        "(4, 'with/slash')," +
+        "(5, 'with\\\\backslash')," +
+        "(6, 'with=equal')," +
+        "(7, 'with?question')," +
+        "(8, 'with!exclamation')," +
+        "(9, 'with%%percent')," +
+        "(10, 'with space')" +
+        ") t(id, col_name)").formatted(
                 tableName,
                 interval,
                 bucketName,
@@ -148,7 +145,7 @@ public class TestDeltaLakePartitioningCompatibility
 
     private void testSparkCanReadTableCreatedByTrinoWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(int interval)
     {
-        String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
+        String tableName = "test_dl_create_table_partition_by_special_char_with_%d_partitions_%s".formatted(interval, randomNameSuffix());
         String tableDirectory = "delta-compatibility-test-" + tableName;
 
         List<QueryAssert.Row> expected = ImmutableList.of(
@@ -163,28 +160,26 @@ public class TestDeltaLakePartitioningCompatibility
                 row(9, "with%percent"),
                 row(10, "with space"));
 
-        onTrino().executeQuery(format(
-                "CREATE TABLE delta.default.%s (id INTEGER, col_name VARCHAR) " +
-                        "WITH(location = 's3://%s/%s', partitioned_by = ARRAY['col_name'], checkpoint_interval = %s) ",
+        onTrino().executeQuery(("CREATE TABLE delta.default.%s (id INTEGER, col_name VARCHAR) " +
+        "WITH(location = 's3://%s/%s', partitioned_by = ARRAY['col_name'], checkpoint_interval = %s) ").formatted(
                 tableName,
                 bucketName,
                 tableDirectory,
                 interval));
 
         try {
-            onTrino().executeQuery(format(
-                    "INSERT INTO delta.default.%s " +
-                            "VALUES" +
-                            "(1, 'with-hyphen'), " +
-                            "(2, 'with.dot'), " +
-                            "(3, 'with:colon'), " +
-                            "(4, 'with/slash'), " +
-                            "(5, 'with\\\\backslash'), " +
-                            "(6, 'with=equal'), " +
-                            "(7, 'with?question'), " +
-                            "(8, 'with!exclamation'), " +
-                            "(9, 'with%%percent')," +
-                            "(10, 'with space')",
+            onTrino().executeQuery(("INSERT INTO delta.default.%s " +
+            "VALUES" +
+            "(1, 'with-hyphen'), " +
+            "(2, 'with.dot'), " +
+            "(3, 'with:colon'), " +
+            "(4, 'with/slash'), " +
+            "(5, 'with\\\\backslash'), " +
+            "(6, 'with=equal'), " +
+            "(7, 'with?question'), " +
+            "(8, 'with!exclamation'), " +
+            "(9, 'with%%percent')," +
+            "(10, 'with space')").formatted(
                     tableName));
             assertThat(onDelta().executeQuery("SELECT * FROM " + tableName)).containsOnly(expected);
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
@@ -203,7 +198,7 @@ public class TestDeltaLakePartitioningCompatibility
 
     private void testTrinoCanReadTableCreatedBySparkWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(int interval)
     {
-        String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
+        String tableName = "test_dl_create_table_partition_by_special_char_with_%d_partitions_%s".formatted(interval, randomNameSuffix());
         String tableDirectory = "delta-compatibility-test-" + tableName;
 
         List<QueryAssert.Row> expected = ImmutableList.of(
@@ -218,30 +213,28 @@ public class TestDeltaLakePartitioningCompatibility
                 row(9, "with%percent"),
                 row(10, "with space"));
 
-        onDelta().executeQuery(format(
-                "CREATE TABLE default.%s (id INTEGER, col_name STRING) " +
-                        "USING DELTA " +
-                        "OPTIONS (checkpointInterval = %s) " +
-                        "PARTITIONED BY (`col_name`) LOCATION 's3://%s/%s'",
+        onDelta().executeQuery(("CREATE TABLE default.%s (id INTEGER, col_name STRING) " +
+        "USING DELTA " +
+        "OPTIONS (checkpointInterval = %s) " +
+        "PARTITIONED BY (`col_name`) LOCATION 's3://%s/%s'").formatted(
                 tableName,
                 interval,
                 bucketName,
                 tableDirectory));
 
         try {
-            onDelta().executeQuery(format(
-                    "INSERT INTO default.%s " +
-                            "VALUES" +
-                            "(1, 'with-hyphen'), " +
-                            "(2, 'with.dot'), " +
-                            "(3, 'with:colon'), " +
-                            "(4, 'with/slash'), " +
-                            "(5, 'with\\\\backslash'), " +
-                            "(6, 'with=equal'), " +
-                            "(7, 'with?question'), " +
-                            "(8, 'with!exclamation'), " +
-                            "(9, 'with%%percent')," +
-                            "(10, 'with space')",
+            onDelta().executeQuery(("INSERT INTO default.%s " +
+            "VALUES" +
+            "(1, 'with-hyphen'), " +
+            "(2, 'with.dot'), " +
+            "(3, 'with:colon'), " +
+            "(4, 'with/slash'), " +
+            "(5, 'with\\\\backslash'), " +
+            "(6, 'with=equal'), " +
+            "(7, 'with?question'), " +
+            "(8, 'with!exclamation'), " +
+            "(9, 'with%%percent')," +
+            "(10, 'with space')").formatted(
                     tableName));
 
             assertThat(onDelta().executeQuery("SELECT * FROM " + tableName)).containsOnly(expected);
@@ -261,7 +254,7 @@ public class TestDeltaLakePartitioningCompatibility
 
     private void testSparkCanReadFromTableUpdatedByTrinoWithCpIntervalSet(int interval)
     {
-        String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
+        String tableName = "test_dl_create_table_partition_by_special_char_with_%d_partitions_%s".formatted(interval, randomNameSuffix());
         String tableDirectory = "delta-compatibility-test-" + tableName;
 
         List<QueryAssert.Row> expected = ImmutableList.of(
@@ -276,27 +269,26 @@ public class TestDeltaLakePartitioningCompatibility
                 row(109, "with%percent"),
                 row(110, "with space"));
 
-        onTrino().executeQuery(format(
-                "CREATE TABLE delta.default.%s (id, col_name) " +
-                        "WITH(location = 's3://%s/%s', partitioned_by = ARRAY['col_name'], checkpoint_interval = %s) " +
-                        "AS VALUES " +
-                        "(1, 'with-hyphen')," +
-                        "(2, 'with.dot')," +
-                        "(3, 'with:colon')," +
-                        "(4, 'with/slash')," +
-                        "(5, 'with\\\\backslash')," +
-                        "(6, 'with=equal')," +
-                        "(7, 'with?question')," +
-                        "(8, 'with!exclamation')," +
-                        "(9, 'with%%percent')," +
-                        "(10, 'with space')",
+        onTrino().executeQuery(("CREATE TABLE delta.default.%s (id, col_name) " +
+        "WITH(location = 's3://%s/%s', partitioned_by = ARRAY['col_name'], checkpoint_interval = %s) " +
+        "AS VALUES " +
+        "(1, 'with-hyphen')," +
+        "(2, 'with.dot')," +
+        "(3, 'with:colon')," +
+        "(4, 'with/slash')," +
+        "(5, 'with\\\\backslash')," +
+        "(6, 'with=equal')," +
+        "(7, 'with?question')," +
+        "(8, 'with!exclamation')," +
+        "(9, 'with%%percent')," +
+        "(10, 'with space')").formatted(
                 tableName,
                 bucketName,
                 tableDirectory,
                 interval));
 
         try {
-            onTrino().executeQuery(format("UPDATE delta.default.%s SET id = id + 100", tableName));
+            onTrino().executeQuery("UPDATE delta.default.%s SET id = id + 100".formatted(tableName));
 
             assertThat(onDelta().executeQuery("SELECT * FROM " + tableName)).containsOnly(expected);
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
@@ -315,7 +307,7 @@ public class TestDeltaLakePartitioningCompatibility
 
     private void testTrinoCanReadFromTableUpdatedBySparkWithCpIntervalSet(int interval)
     {
-        String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
+        String tableName = "test_dl_create_table_partition_by_special_char_with_%d_partitions_%s".formatted(interval, randomNameSuffix());
         String tableDirectory = "delta-compatibility-test-" + tableName;
 
         List<QueryAssert.Row> expected = ImmutableList.of(
@@ -330,30 +322,29 @@ public class TestDeltaLakePartitioningCompatibility
                 row(109, "with%percent"),
                 row(110, "with space"));
 
-        onDelta().executeQuery(format(
-                "CREATE TABLE default.%s " +
-                        "USING DELTA " +
-                        "OPTIONS (checkpointInterval = %s) " +
-                        "PARTITIONED BY (`col_name`) LOCATION 's3://%s/%s' AS " +
-                        "SELECT * FROM (VALUES " +
-                        "(1, 'with-hyphen')," +
-                        "(2, 'with.dot')," +
-                        "(3, 'with:colon')," +
-                        "(4, 'with/slash')," +
-                        "(5, 'with\\\\backslash')," +
-                        "(6, 'with=equal')," +
-                        "(7, 'with?question')," +
-                        "(8, 'with!exclamation')," +
-                        "(9, 'with%%percent')," +
-                        "(10, 'with space')" +
-                        ") t(id, col_name)",
+        onDelta().executeQuery(("CREATE TABLE default.%s " +
+        "USING DELTA " +
+        "OPTIONS (checkpointInterval = %s) " +
+        "PARTITIONED BY (`col_name`) LOCATION 's3://%s/%s' AS " +
+        "SELECT * FROM (VALUES " +
+        "(1, 'with-hyphen')," +
+        "(2, 'with.dot')," +
+        "(3, 'with:colon')," +
+        "(4, 'with/slash')," +
+        "(5, 'with\\\\backslash')," +
+        "(6, 'with=equal')," +
+        "(7, 'with?question')," +
+        "(8, 'with!exclamation')," +
+        "(9, 'with%%percent')," +
+        "(10, 'with space')" +
+        ") t(id, col_name)").formatted(
                 tableName,
                 interval,
                 bucketName,
                 tableDirectory));
 
         try {
-            onDelta().executeQuery(format("UPDATE default.%s SET id = id + 100", tableName));
+            onDelta().executeQuery("UPDATE default.%s SET id = id + 100".formatted(tableName));
 
             assertThat(onDelta().executeQuery("SELECT * FROM " + tableName)).containsOnly(expected);
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
@@ -371,11 +362,10 @@ public class TestDeltaLakePartitioningCompatibility
 
         List<QueryAssert.Row> expected = ImmutableList.of(row(1, "part"));
 
-        onDelta().executeQuery(format(
-                "CREATE TABLE default.%s " +
-                        "USING DELTA " +
-                        "PARTITIONED BY (`original_part_col`) LOCATION 's3://%s/%s' AS " +
-                        "SELECT 1 AS original_part_col, 'part' AS new_part_col",
+        onDelta().executeQuery(("CREATE TABLE default.%s " +
+        "USING DELTA " +
+        "PARTITIONED BY (`original_part_col`) LOCATION 's3://%s/%s' AS " +
+        "SELECT 1 AS original_part_col, 'part' AS new_part_col").formatted(
                 tableName,
                 bucketName,
                 tableDirectory));
@@ -399,11 +389,10 @@ public class TestDeltaLakePartitioningCompatibility
         String tableName = "test_dl_partitioned_by_non_lowercase_" + randomNameSuffix();
         String tableDirectory = "delta-compatibility-test-" + tableName;
 
-        onDelta().executeQuery(format(
-                "CREATE TABLE default.%s " +
-                        "USING DELTA " +
-                        "PARTITIONED BY (`PART`) LOCATION 's3://%s/%s' AS " +
-                        "SELECT 1 AS data, 2 AS `PART`",
+        onDelta().executeQuery(("CREATE TABLE default.%s " +
+        "USING DELTA " +
+        "PARTITIONED BY (`PART`) LOCATION 's3://%s/%s' AS " +
+        "SELECT 1 AS data, 2 AS `PART`").formatted(
                 tableName,
                 bucketName,
                 tableDirectory));

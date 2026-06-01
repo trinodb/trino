@@ -69,7 +69,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.assertions.Assert.assertConsistently;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -229,8 +228,8 @@ public abstract class BaseBigQueryConnectorTest
 
     private void testCreateTableUnsupportedType(String createType)
     {
-        String tableName = format("test_create_table_unsupported_type_%s_%s", createType.replaceAll("[^a-zA-Z0-9]", ""), randomNameSuffix());
-        assertQueryFails(format("CREATE TABLE %s (col1 %s)", tableName, createType), "Unsupported column type: " + createType);
+        String tableName = "test_create_table_unsupported_type_%s_%s".formatted(createType.replaceAll("[^a-zA-Z0-9]", ""), randomNameSuffix());
+        assertQueryFails("CREATE TABLE %s (col1 %s)".formatted(tableName, createType), "Unsupported column type: " + createType);
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
     }
 
@@ -462,14 +461,14 @@ public abstract class BaseBigQueryConnectorTest
         try (TestTable table = new TestTable(bigQuerySqlExecutor, "test.partition_date_column", "(value INT64) PARTITION BY _PARTITIONDATE")) {
             // BigQuery doesn't allow omitting column list for ingestion-time partitioned table
             // Using _PARTITIONTIME special column because _PARTITIONDATE is unsupported in INSERT statement
-            onBigQuery(format("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('1960-01-01', 1)", table.getName()));
-            onBigQuery(format("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('2159-12-31', 2)", table.getName()));
+            onBigQuery("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('1960-01-01', 1)".formatted(table.getName()));
+            onBigQuery("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('2159-12-31', 2)".formatted(table.getName()));
 
             assertThat(query("SELECT value, \"$partition_date\" FROM " + table.getName()))
                     .matches("VALUES (BIGINT '1', DATE '1960-01-01'), (BIGINT '2', DATE '2159-12-31')");
 
-            assertQuery(format("SELECT value FROM %s WHERE \"$partition_date\" = DATE '1960-01-01'", table.getName()), "VALUES 1");
-            assertQuery(format("SELECT value FROM %s WHERE \"$partition_date\" = DATE '2159-12-31'", table.getName()), "VALUES 2");
+            assertQuery("SELECT value FROM %s WHERE \"$partition_date\" = DATE '1960-01-01'".formatted(table.getName()), "VALUES 1");
+            assertQuery("SELECT value FROM %s WHERE \"$partition_date\" = DATE '2159-12-31'".formatted(table.getName()), "VALUES 2");
 
             // Verify DESCRIBE result doesn't have hidden columns
             assertThat(query("DESCRIBE " + table.getName())).result().projected("Column").skippingTypesCheck().matches("VALUES 'value'");
@@ -481,14 +480,14 @@ public abstract class BaseBigQueryConnectorTest
     {
         try (TestTable table = new TestTable(bigQuerySqlExecutor, "test.partition_time_column", "(value INT64) PARTITION BY DATE_TRUNC(_PARTITIONTIME, HOUR)")) {
             // BigQuery doesn't allow omitting column list for ingestion-time partitioned table
-            onBigQuery(format("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('1960-01-01 00:00:00', 1)", table.getName()));
-            onBigQuery(format("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('2159-12-31 23:00:00', 2)", table.getName())); // Hour and minute must be zero
+            onBigQuery("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('1960-01-01 00:00:00', 1)".formatted(table.getName()));
+            onBigQuery("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('2159-12-31 23:00:00', 2)".formatted(table.getName())); // Hour and minute must be zero
 
             assertThat(query("SELECT value, \"$partition_time\" FROM " + table.getName()))
                     .matches("VALUES (BIGINT '1', CAST('1960-01-01 00:00:00 UTC' AS TIMESTAMP(6) WITH TIME ZONE)), (BIGINT '2', CAST('2159-12-31 23:00:00 UTC' AS TIMESTAMP(6) WITH TIME ZONE))");
 
-            assertQuery(format("SELECT value FROM %s WHERE \"$partition_time\" = CAST('1960-01-01 00:00:00 UTC' AS TIMESTAMP(6) WITH TIME ZONE)", table.getName()), "VALUES 1");
-            assertQuery(format("SELECT value FROM %s WHERE \"$partition_time\" = CAST('2159-12-31 23:00:00 UTC' AS TIMESTAMP(6) WITH TIME ZONE)", table.getName()), "VALUES 2");
+            assertQuery("SELECT value FROM %s WHERE \"$partition_time\" = CAST('1960-01-01 00:00:00 UTC' AS TIMESTAMP(6) WITH TIME ZONE)".formatted(table.getName()), "VALUES 1");
+            assertQuery("SELECT value FROM %s WHERE \"$partition_time\" = CAST('2159-12-31 23:00:00 UTC' AS TIMESTAMP(6) WITH TIME ZONE)".formatted(table.getName()), "VALUES 2");
 
             // Verify DESCRIBE result doesn't have hidden columns
             assertThat(query("DESCRIBE " + table.getName())).result().projected("Column").skippingTypesCheck().matches("VALUES 'value'");
@@ -499,19 +498,19 @@ public abstract class BaseBigQueryConnectorTest
     public void testIngestionTimePartitionedTableInvalidValue()
     {
         try (TestTable table = new TestTable(bigQuerySqlExecutor, "test.invalid_ingestion_time", "(value INT64) PARTITION BY _PARTITIONDATE")) {
-            assertThatThrownBy(() -> onBigQuery(format("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('0001-01-01', 1)", table.getName())))
+            assertThatThrownBy(() -> onBigQuery("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('0001-01-01', 1)".formatted(table.getName())))
                     .hasMessageMatching("Cannot set pseudo column for automatic partitioned table.* Supported values are in the range \\[1960-01-01, 2159-12-31]");
 
-            assertThatThrownBy(() -> onBigQuery(format("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('1959-12-31', 1)", table.getName())))
+            assertThatThrownBy(() -> onBigQuery("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('1959-12-31', 1)".formatted(table.getName())))
                     .hasMessageMatching("Cannot set pseudo column for automatic partitioned table.* Supported values are in the range \\[1960-01-01, 2159-12-31]");
 
-            assertThatThrownBy(() -> onBigQuery(format("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('2160-01-01', 1)", table.getName())))
+            assertThatThrownBy(() -> onBigQuery("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('2160-01-01', 1)".formatted(table.getName())))
                     .hasMessageMatching("Cannot set pseudo column for automatic partitioned table.* Supported values are in the range \\[1960-01-01, 2159-12-31]");
 
-            assertThatThrownBy(() -> onBigQuery(format("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('9999-12-31', 1)", table.getName())))
+            assertThatThrownBy(() -> onBigQuery("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('9999-12-31', 1)".formatted(table.getName())))
                     .hasMessageMatching("Cannot set pseudo column for automatic partitioned table.* Supported values are in the range \\[1960-01-01, 2159-12-31]");
 
-            assertThatThrownBy(() -> onBigQuery(format("INSERT INTO %s (_PARTITIONTIME, value) VALUES (NULL, 1)", table.getName())))
+            assertThatThrownBy(() -> onBigQuery("INSERT INTO %s (_PARTITIONTIME, value) VALUES (NULL, 1)".formatted(table.getName())))
                     .hasMessageContaining("Cannot set timestamp pseudo column for automatic partitioned table to NULL");
         }
     }
@@ -642,17 +641,17 @@ public abstract class BaseBigQueryConnectorTest
         String tableName = "views_system_table_base_" + randomNameSuffix();
         String viewName = "views_system_table_view_" + randomNameSuffix();
 
-        onBigQuery(format("CREATE TABLE %s.%s (a INT64, b INT64, c INT64)", schemaName, tableName));
-        onBigQuery(format("CREATE VIEW %s.%s AS SELECT * FROM %s.%s", schemaName, viewName, schemaName, tableName));
+        onBigQuery("CREATE TABLE %s.%s (a INT64, b INT64, c INT64)".formatted(schemaName, tableName));
+        onBigQuery("CREATE VIEW %s.%s AS SELECT * FROM %s.%s".formatted(schemaName, viewName, schemaName, tableName));
 
-        assertThat(computeScalar(format("SELECT * FROM %s.\"%s$view_definition\"", schemaName, viewName))).isEqualTo(format("SELECT * FROM %s.%s", schemaName, tableName));
+        assertThat(computeScalar("SELECT * FROM %s.\"%s$view_definition\"".formatted(schemaName, viewName))).isEqualTo("SELECT * FROM %s.%s".formatted(schemaName, tableName));
 
         assertQueryFails(
-                format("SELECT * FROM %s.\"%s$view_definition\"", schemaName, tableName),
-                format("Table '%s.%s\\$view_definition' not found", schemaName, tableName));
+                "SELECT * FROM %s.\"%s$view_definition\"".formatted(schemaName, tableName),
+                "Table '%s.%s\\$view_definition' not found".formatted(schemaName, tableName));
 
-        onBigQuery(format("DROP TABLE %s.%s", schemaName, tableName));
-        onBigQuery(format("DROP VIEW %s.%s", schemaName, viewName));
+        onBigQuery("DROP TABLE %s.%s".formatted(schemaName, tableName));
+        onBigQuery("DROP VIEW %s.%s".formatted(schemaName, viewName));
     }
 
     @Test // regression test for https://github.com/trinodb/trino/issues/20627
@@ -980,9 +979,9 @@ public abstract class BaseBigQueryConnectorTest
     public void testWildcardTable()
     {
         String suffix = randomNameSuffix();
-        String firstTable = format("test_wildcard_%s_1", suffix);
-        String secondTable = format("test_wildcard_%s_2", suffix);
-        String wildcardTable = format("test_wildcard_%s_*", suffix);
+        String firstTable = "test_wildcard_%s_1".formatted(suffix);
+        String secondTable = "test_wildcard_%s_2".formatted(suffix);
+        String wildcardTable = "test_wildcard_%s_*".formatted(suffix);
         try {
             onBigQuery("CREATE TABLE test." + firstTable + " AS SELECT 1 AS value");
             onBigQuery("CREATE TABLE test." + secondTable + " AS SELECT 2 AS value");
@@ -1006,9 +1005,9 @@ public abstract class BaseBigQueryConnectorTest
     public void testWildcardTableWithDifferentColumnDefinition()
     {
         String suffix = randomNameSuffix();
-        String firstTable = format("test_invalid_wildcard_%s_1", suffix);
-        String secondTable = format("test_invalid_wildcard_%s_2", suffix);
-        String wildcardTable = format("test_invalid_wildcard_%s_*", suffix);
+        String firstTable = "test_invalid_wildcard_%s_1".formatted(suffix);
+        String secondTable = "test_invalid_wildcard_%s_2".formatted(suffix);
+        String wildcardTable = "test_invalid_wildcard_%s_*".formatted(suffix);
         try {
             onBigQuery("CREATE TABLE test." + firstTable + " AS SELECT 1 AS value");
             onBigQuery("CREATE TABLE test." + secondTable + " AS SELECT 'string' AS value");

@@ -41,7 +41,6 @@ import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTR
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class JsonTypeUtil
@@ -74,7 +73,7 @@ public final class JsonTypeUtil
             return output.slice();
         }
         catch (IOException | RuntimeException e) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Cannot convert value to JSON: '%s'", slice.toStringUtf8()), e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot convert value to JSON: '%s'".formatted(slice.toStringUtf8()), e);
         }
     }
 

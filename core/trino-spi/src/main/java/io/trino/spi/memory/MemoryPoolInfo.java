@@ -20,8 +20,6 @@ import io.trino.spi.QueryId;
 import java.util.List;
 import java.util.Map;
 
-import static java.lang.String.format;
-
 public final class MemoryPoolInfo
 {
     private final long maxBytes;
@@ -102,6 +100,6 @@ public final class MemoryPoolInfo
     @Override
     public String toString()
     {
-        return format("maxBytes=%s,reservedBytes=%s,reserveRevocableBytes=%s", maxBytes, reservedBytes, reservedRevocableBytes);
+        return "maxBytes=%s,reservedBytes=%s,reserveRevocableBytes=%s".formatted(maxBytes, reservedBytes, reservedRevocableBytes);
     }
 }

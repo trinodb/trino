@@ -21,7 +21,6 @@ import picocli.CommandLine.Parameters;
 import java.util.List;
 import java.util.Optional;
 
-import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOptionsPrinter
@@ -29,20 +28,20 @@ public class TestOptionsPrinter
     @Test
     public void shouldFormatOptions()
     {
-        assertThat(OptionsPrinter.format(new Options("test", false, emptyList()))).isEqualTo("--value test");
-        assertThat(OptionsPrinter.format(new Options("test", true, emptyList()))).isEqualTo("--value test \\\n--boolean");
+        assertThat(OptionsPrinter.format(new Options("test", false, List.of()))).isEqualTo("--value test");
+        assertThat(OptionsPrinter.format(new Options("test", true, List.of()))).isEqualTo("--value test \\\n--boolean");
     }
 
     @Test
     public void shouldSkipNullStrings()
     {
-        assertThat(OptionsPrinter.format(new Options("", false, emptyList()))).isEqualTo("");
+        assertThat(OptionsPrinter.format(new Options("", false, List.of()))).isEqualTo("");
     }
 
     @Test
     public void shouldSkipEmptyArguments()
     {
-        assertThat(OptionsPrinter.format(new Options("", false, emptyList()))).isEqualTo("");
+        assertThat(OptionsPrinter.format(new Options("", false, List.of()))).isEqualTo("");
     }
 
     @Test

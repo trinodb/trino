@@ -51,7 +51,6 @@ import static io.trino.sql.planner.plan.Patterns.join;
 import static io.trino.sql.planner.plan.Patterns.patternRecognition;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.values;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionRewriteRuleSet
@@ -138,7 +137,7 @@ public class ExpressionRewriteRuleSet
         @Override
         public String toString()
         {
-            return format("%s(%s)", getClass().getSimpleName(), rewriter);
+            return "%s(%s)".formatted(getClass().getSimpleName(), rewriter);
         }
     }
 
@@ -190,7 +189,7 @@ public class ExpressionRewriteRuleSet
         @Override
         public String toString()
         {
-            return format("%s(%s)", getClass().getSimpleName(), rewriter);
+            return "%s(%s)".formatted(getClass().getSimpleName(), rewriter);
         }
     }
 
@@ -223,7 +222,7 @@ public class ExpressionRewriteRuleSet
         @Override
         public String toString()
         {
-            return format("%s(%s)", getClass().getSimpleName(), rewriter);
+            return "%s(%s)".formatted(getClass().getSimpleName(), rewriter);
         }
     }
 
@@ -269,7 +268,7 @@ public class ExpressionRewriteRuleSet
         @Override
         public String toString()
         {
-            return format("%s(%s)", getClass().getSimpleName(), rewriter);
+            return "%s(%s)".formatted(getClass().getSimpleName(), rewriter);
         }
     }
 
@@ -323,7 +322,7 @@ public class ExpressionRewriteRuleSet
         @Override
         public String toString()
         {
-            return format("%s(%s)", getClass().getSimpleName(), rewriter);
+            return "%s(%s)".formatted(getClass().getSimpleName(), rewriter);
         }
     }
 
@@ -450,7 +449,7 @@ public class ExpressionRewriteRuleSet
         @Override
         public String toString()
         {
-            return format("%s(%s)", getClass().getSimpleName(), rewriter);
+            return "%s(%s)".formatted(getClass().getSimpleName(), rewriter);
         }
     }
 }

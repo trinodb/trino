@@ -53,7 +53,6 @@ import static io.trino.spi.function.table.Descriptor.descriptor;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.produced;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static java.lang.String.format;
 
 public class SequenceFunction
         extends AbstractConnectorTableFunction
@@ -113,11 +112,11 @@ public class SequenceFunction
         long step = (long) stepValue;
 
         if (start < stop && step <= 0) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Step must be positive for sequence [%s, %s]", start, stop));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Step must be positive for sequence [%s, %s]".formatted(start, stop));
         }
 
         if (start > stop && step >= 0) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Step must be negative for sequence [%s, %s]", start, stop));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Step must be negative for sequence [%s, %s]".formatted(start, stop));
         }
 
         return TableFunctionAnalysis.builder()

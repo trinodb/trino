@@ -20,7 +20,6 @@ import io.trino.sql.tree.Identifier;
 import java.util.Objects;
 import java.util.Optional;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class SqlPathElement
@@ -73,7 +72,7 @@ public final class SqlPathElement
     public String toString()
     {
         if (catalog.isPresent()) {
-            return format("%s.%s", catalog.get(), schema.toString());
+            return "%s.%s".formatted(catalog.get(), schema.toString());
         }
         return schema.toString();
     }

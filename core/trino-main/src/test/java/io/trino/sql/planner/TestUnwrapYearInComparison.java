@@ -60,7 +60,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.UnwrapYearInComparison.calculateRangeEndInclusive;
 import static java.lang.Math.multiplyExact;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -295,7 +294,7 @@ public class TestUnwrapYearInComparison
     {
         // smoke tests for various type combinations
         for (String type : asList("SMALLINT", "INTEGER", "BIGINT", "REAL", "DOUBLE")) {
-            testUnwrap("date", format("year(a) = %s '2022'", type), new Between(new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("2022-01-01")), new Constant(DATE, (long) DateTimeUtils.parseDate("2022-12-31"))));
+            testUnwrap("date", "year(a) = %s '2022'".formatted(type), new Between(new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("2022-01-01")), new Constant(DATE, (long) DateTimeUtils.parseDate("2022-12-31"))));
         }
     }
 
@@ -359,7 +358,7 @@ public class TestUnwrapYearInComparison
             expected = new Logical(OR, ImmutableList.of(expected, antiOptimization));
         }
 
-        String sql = format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s OR rand() = 42", inputType, inputPredicate);
+        String sql = "SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s OR rand() = 42".formatted(inputType, inputPredicate);
         try {
             assertPlan(
                     sql,

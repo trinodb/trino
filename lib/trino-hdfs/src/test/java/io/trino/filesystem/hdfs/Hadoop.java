@@ -28,7 +28,6 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.StandardSystemProperty.USER_NAME;
 import static io.trino.testing.TestingProperties.getDockerImagesVersion;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public class Hadoop
@@ -55,7 +54,7 @@ public class Hadoop
         super(IMAGE,
                 "hadoop-master",
                 Set.of(HDFS_PORT),
-                emptyMap(),
+                Map.of(),
                 Map.of("HADOOP_USER_NAME", requireNonNull(USER_NAME.value())),
                 Optional.empty(),
                 1);

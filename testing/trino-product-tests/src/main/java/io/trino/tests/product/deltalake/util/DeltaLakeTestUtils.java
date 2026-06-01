@@ -36,7 +36,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 
 public final class DeltaLakeTestUtils
 {
@@ -109,7 +108,7 @@ public final class DeltaLakeTestUtils
     public static String getColumnCommentOnDelta(String schemaName, String tableName, String columnName)
     {
         QueryResult result = Failsafe.with(DATABRICKS_COMMUNICATION_FAILURE_RETRY_POLICY)
-                .get(() -> onDelta().executeQuery(format("DESCRIBE %s.%s %s", schemaName, tableName, columnName)));
+                .get(() -> onDelta().executeQuery("DESCRIBE %s.%s %s".formatted(schemaName, tableName, columnName)));
         return (String) result.row(2).get(1);
     }
 
@@ -122,7 +121,7 @@ public final class DeltaLakeTestUtils
     public static String getTableCommentOnDelta(String schemaName, String tableName)
     {
         QueryResult result = Failsafe.with(DATABRICKS_COMMUNICATION_FAILURE_RETRY_POLICY)
-                .get(() -> onDelta().executeQuery(format("DESCRIBE EXTENDED %s.%s", schemaName, tableName)));
+                .get(() -> onDelta().executeQuery("DESCRIBE EXTENDED %s.%s".formatted(schemaName, tableName)));
         return (String) result.rows().stream()
                 .filter(row -> row.get(0).equals("Comment"))
                 .map(row -> row.get(1))

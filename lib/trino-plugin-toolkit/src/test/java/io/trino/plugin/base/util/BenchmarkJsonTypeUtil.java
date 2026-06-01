@@ -36,7 +36,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -84,12 +83,12 @@ public class BenchmarkJsonTypeUtil
         {
             try (InputStream inputStream = BenchmarkJsonTypeUtil.class.getClassLoader().getResourceAsStream(resourcePath)) {
                 if (inputStream == null) {
-                    throw new IllegalArgumentException(format("Resource not found: %s", resourcePath));
+                    throw new IllegalArgumentException("Resource not found: %s".formatted(resourcePath));
                 }
                 return new String(inputStream.readAllBytes(), UTF_8);
             }
             catch (IOException e) {
-                throw new RuntimeException(format("Failed to load resource: %s", resourcePath), e);
+                throw new RuntimeException("Failed to load resource: %s".formatted(resourcePath), e);
             }
         }
 

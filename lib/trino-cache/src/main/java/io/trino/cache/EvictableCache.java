@@ -45,7 +45,6 @@ import java.util.function.BiFunction;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -436,7 +435,7 @@ class EvictableCache<K, V>
         @Override
         public String toString()
         {
-            return format("CacheToken(%s; %s)", Integer.toHexString(hashCode()), key);
+            return "CacheToken(%s; %s)".formatted(Integer.toHexString(hashCode()), key);
         }
 
         synchronized boolean hasOngoingLoad()

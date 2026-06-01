@@ -23,7 +23,6 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.Arrays;
 import java.util.List;
 
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -40,7 +39,7 @@ public abstract class BaseTestParquetWithBloomFilters
     @Test
     public void verifyBloomFilterEnabled()
     {
-        assertThat(query(format("SHOW SESSION LIKE '%s.parquet_use_bloom_filter'", getSession().getCatalog().orElseThrow())))
+        assertThat(query("SHOW SESSION LIKE '%s.parquet_use_bloom_filter'".formatted(getSession().getCatalog().orElseThrow())))
                 .result()
                 .matches(result -> result.getRowCount() == 1)
                 .matches(result -> {

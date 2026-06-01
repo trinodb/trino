@@ -26,7 +26,6 @@ import static io.trino.plugin.jdbc.JdbcWriteConfig.MAX_ALLOWED_WRITE_BATCH_SIZE;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
-import static java.lang.String.format;
 
 public class JdbcWriteSessionProperties
         implements SessionPropertiesProvider
@@ -95,10 +94,10 @@ public class JdbcWriteSessionProperties
     private static void validateWriteBatchSize(int maxBatchSize)
     {
         if (maxBatchSize < 1) {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be greater than 0: %s", WRITE_BATCH_SIZE, maxBatchSize));
+            throw new TrinoException(INVALID_SESSION_PROPERTY, "%s must be greater than 0: %s".formatted(WRITE_BATCH_SIZE, maxBatchSize));
         }
         if (maxBatchSize > MAX_ALLOWED_WRITE_BATCH_SIZE) {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s cannot exceed %s: %s", WRITE_BATCH_SIZE, MAX_ALLOWED_WRITE_BATCH_SIZE, maxBatchSize));
+            throw new TrinoException(INVALID_SESSION_PROPERTY, "%s cannot exceed %s: %s".formatted(WRITE_BATCH_SIZE, MAX_ALLOWED_WRITE_BATCH_SIZE, maxBatchSize));
         }
     }
 }

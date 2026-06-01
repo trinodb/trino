@@ -21,7 +21,6 @@ import java.util.Optional;
 
 import static java.lang.Math.ceil;
 import static java.lang.Math.clamp;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 final class BlockUtil
@@ -39,7 +38,7 @@ final class BlockUtil
     {
         requireNonNull(array, "array is null");
         if (offset < 0 || length < 0 || offset + length > array.length) {
-            throw new IndexOutOfBoundsException(format("Invalid offset %s and length %s in array with %s elements", offset, length, array.length));
+            throw new IndexOutOfBoundsException("Invalid offset %s and length %s in array with %s elements".formatted(offset, length, array.length));
         }
     }
 
@@ -47,21 +46,21 @@ final class BlockUtil
     {
         requireNonNull(array, "array is null");
         if (offset < 0 || length < 0 || offset + length > array.length) {
-            throw new IndexOutOfBoundsException(format("Invalid offset %s and length %s in array with %s elements", offset, length, array.length));
+            throw new IndexOutOfBoundsException("Invalid offset %s and length %s in array with %s elements".formatted(offset, length, array.length));
         }
     }
 
     static void checkValidRegion(int positionCount, int positionOffset, int length)
     {
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
-            throw new IndexOutOfBoundsException(format("Invalid position %s and length %s in block with %s positions", positionOffset, length, positionCount));
+            throw new IndexOutOfBoundsException("Invalid position %s and length %s in block with %s positions".formatted(positionOffset, length, positionCount));
         }
     }
 
     static void checkValidPosition(int position, int positionCount)
     {
         if (position < 0 || position >= positionCount) {
-            throw new IllegalArgumentException(format("Invalid position %s in block with %s positions", position, positionCount));
+            throw new IllegalArgumentException("Invalid position %s in block with %s positions".formatted(position, positionCount));
         }
     }
 

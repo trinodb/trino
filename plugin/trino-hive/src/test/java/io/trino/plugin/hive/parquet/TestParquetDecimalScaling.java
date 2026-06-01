@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.parquet;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.plugin.hive.parquet.write.TestingMapredParquetOutputFormat;
@@ -43,7 +42,6 @@ import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.file.Files;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -60,7 +58,6 @@ import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.tpch.TpchTable.NATION;
 import static java.lang.Integer.MAX_VALUE;
-import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Arrays.stream;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
@@ -462,8 +459,8 @@ public class TestParquetDecimalScaling
                 ImmutableList.of(new ParquetDecimalInsert("value", forceFixedLengthArray, precision, scale, values)),
                 writerVersion);
 
-        @Language("SQL") String query = format("SELECT * FROM tpch.%s", tableName);
-        @Language("RegExp") String expectedMessage = format("Cannot cast DECIMAL\\(%d, %d\\) '.*' to DECIMAL\\(%d, %d\\)", precision, scale, schemaPrecision, schemaScale);
+        @Language("SQL") String query = "SELECT * FROM tpch.%s".formatted(tableName);
+        @Language("RegExp") String expectedMessage = "Cannot cast DECIMAL\\(%d, %d\\) '.*' to DECIMAL\\(%d, %d\\)".formatted(precision, scale, schemaPrecision, schemaScale);
 
         assertQueryFails(query, expectedMessage);
 
@@ -497,8 +494,7 @@ public class TestParquetDecimalScaling
         createTable(tableName, schemaPrecision, schemaScale);
 
         int byteArrayLength = ParquetHiveSerDe.PRECISION_TO_BYTE_COUNT[parquetPrecision - 1];
-        MessageType schema = parseMessageType(format(
-                "message hive_record { optional fixed_len_byte_array(%d) value (DECIMAL(%d, %d)); }",
+        MessageType schema = parseMessageType("message hive_record { optional fixed_len_byte_array(%d) value (DECIMAL(%d, %d)); }".formatted(
                 byteArrayLength,
                 schemaPrecision,
                 schemaScale));
@@ -509,13 +505,12 @@ public class TestParquetDecimalScaling
                 getStandardStructObjectInspector(ImmutableList.of("value"), inspectors),
                 new Iterator[] {ImmutableList.of(HiveDecimal.create(writeValue)).stream().iterator()},
                 schema,
-                Collections.singletonList("hive_record"),
+                List.of("hive_record"),
                 writerVersion);
 
         if (overflows(new BigDecimal(writeValue).unscaledValue(), schemaPrecision)) {
-            @Language("SQL") String query = format("SELECT * FROM tpch.%s", tableName);
-            @Language("RegExp") String expectedMessage = format(
-                    "Could not read unscaled value %s into a short decimal from column .*",
+            @Language("SQL") String query = "SELECT * FROM tpch.%s".formatted(tableName);
+            @Language("RegExp") String expectedMessage = "Could not read unscaled value %s into a short decimal from column .*".formatted(
                     new BigDecimal(writeValue).unscaledValue());
 
             assertQueryFails(query, expectedMessage);
@@ -529,17 +524,17 @@ public class TestParquetDecimalScaling
 
     protected void createTable(String tableName, int precision, int scale)
     {
-        assertUpdate(format("CREATE TABLE tpch.%s (value decimal(%d, %d)) WITH (format = 'PARQUET')", tableName, precision, scale));
+        assertUpdate("CREATE TABLE tpch.%s (value decimal(%d, %d)) WITH (format = 'PARQUET')".formatted(tableName, precision, scale));
     }
 
     protected void dropTable(String tableName)
     {
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE %s".formatted(tableName));
     }
 
     private void assertValues(String tableName, int scale, List<String> expected)
     {
-        MaterializedResult materializedRows = computeActual(format("SELECT value FROM tpch.%s", tableName));
+        MaterializedResult materializedRows = computeActual("SELECT value FROM tpch.%s".formatted(tableName));
 
         List<BigDecimal> actualValues = materializedRows.getMaterializedRows().stream()
                 .map(row -> row.getField(0))
@@ -555,7 +550,7 @@ public class TestParquetDecimalScaling
 
     private void assertRoundedValues(String tableName, int scale, List<String> expected)
     {
-        MaterializedResult materializedRows = computeActual(format("SELECT value FROM tpch.%s", tableName));
+        MaterializedResult materializedRows = computeActual("SELECT value FROM tpch.%s".formatted(tableName));
 
         List<BigDecimal> actualValues = materializedRows.getMaterializedRows().stream()
                 .map(row -> row.getField(0))
@@ -581,7 +576,7 @@ public class TestParquetDecimalScaling
 
     private Path getParquetWritePath(String tableName)
     {
-        return new Path(basePath.toString(), format("hive_data/hive/tpch/%s/%s", tableName, UUID.randomUUID()));
+        return new Path(basePath.toString(), "hive_data/hive/tpch/%s/%s".formatted(tableName, UUID.randomUUID()));
     }
 
     private static void createParquetFile(
@@ -592,7 +587,7 @@ public class TestParquetDecimalScaling
             List<String> columnNames,
             WriterVersion writerVersion)
     {
-        Properties tableProperties = createTableProperties(columnNames, Collections.singletonList(inspector));
+        Properties tableProperties = createTableProperties(columnNames, List.of(inspector));
 
         JobConf jobConf = new JobConf(false);
         jobConf.setEnum(COMPRESSION, UNCOMPRESSED);
@@ -634,7 +629,7 @@ public class TestParquetDecimalScaling
     private static void writeParquetDecimalsRecord(Path output, List<ParquetDecimalInsert> inserts, WriterVersion writerVersion)
     {
         List<String> fields = inserts.stream().map(ParquetDecimalInsert::schemaFieldDeclaration).collect(toImmutableList());
-        MessageType schema = parseMessageType(format("message hive_record { %s; }", Joiner.on("; ").join(fields)));
+        MessageType schema = parseMessageType("message hive_record { %s; }".formatted(String.join("; ", fields)));
         List<ObjectInspector> inspectors = inserts.stream().map(ParquetDecimalInsert::getParquetObjectInspector).collect(toImmutableList());
         List<String> columnNames = inserts.stream().map(ParquetDecimalInsert::getColumnName).collect(toImmutableList());
         Iterator<?>[] values = inserts.stream().map(ParquetDecimalInsert::getValues).map(Iterable::iterator).toArray(Iterator[]::new);
@@ -644,21 +639,21 @@ public class TestParquetDecimalScaling
                 getStandardStructObjectInspector(columnNames, inspectors),
                 values,
                 schema,
-                Collections.singletonList("hive_record"),
+                List.of("hive_record"),
                 writerVersion);
     }
 
     private static Properties createTableProperties(List<String> columnNames, List<ObjectInspector> objectInspectors)
     {
         Properties tableProperties = new Properties();
-        tableProperties.setProperty(LIST_COLUMNS, Joiner.on(',').join(columnNames));
-        tableProperties.setProperty(LIST_COLUMN_TYPES, Joiner.on(',').join(transform(objectInspectors, ObjectInspector::getTypeName)));
+        tableProperties.setProperty(LIST_COLUMNS, String.join(",", columnNames));
+        tableProperties.setProperty(LIST_COLUMN_TYPES, String.join(",", transform(objectInspectors, ObjectInspector::getTypeName)));
         return tableProperties;
     }
 
     private static String generateTableName(String testCase, int precision, int scale)
     {
-        return format("%s_%d_%d_%d", testCase, precision, scale, ThreadLocalRandom.current().nextInt(1, MAX_VALUE));
+        return "%s_%d_%d_%d".formatted(testCase, precision, scale, ThreadLocalRandom.current().nextInt(1, MAX_VALUE));
     }
 
     protected static class ParquetDecimalInsert
@@ -697,7 +692,7 @@ public class TestParquetDecimalScaling
                 throw new IllegalArgumentException("Scale cannot be greater than 38 or less than 0");
             }
 
-            return format("fixed_len_byte_array(%d)", ParquetHiveSerDe.PRECISION_TO_BYTE_COUNT[precision - 1]);
+            return "fixed_len_byte_array(%d)".formatted(ParquetHiveSerDe.PRECISION_TO_BYTE_COUNT[precision - 1]);
         }
 
         public ObjectInspector getParquetObjectInspector()
@@ -719,12 +714,12 @@ public class TestParquetDecimalScaling
 
         public String schemaFieldDeclaration()
         {
-            return format("optional %s %s (DECIMAL(%d, %d))", parquetStorage(), columnName, precision, scale);
+            return "optional %s %s (DECIMAL(%d, %d))".formatted(parquetStorage(), columnName, precision, scale);
         }
 
         public static String maximumValue(int precision, int scale)
         {
-            return format("%s.%s", "9".repeat(precision - scale), "9".repeat(scale));
+            return "%s.%s".formatted("9".repeat(precision - scale), "9".repeat(scale));
         }
 
         public static String minimumValue(int precision, int scale)

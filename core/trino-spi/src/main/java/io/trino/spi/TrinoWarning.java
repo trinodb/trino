@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class TrinoWarning
@@ -74,6 +73,6 @@ public final class TrinoWarning
     @Override
     public String toString()
     {
-        return format("%s, %s", warningCode, message);
+        return "%s, %s".formatted(warningCode, message);
     }
 }

@@ -37,7 +37,6 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDelta
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTablePropertiesOnDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
 
@@ -357,7 +356,7 @@ public class TestDeltaLakeChangeDataFeedCompatibility
 
             onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES ('testValue6', 6)");
             assertThat(onDelta().executeQuery(
-                    format("SELECT col1, updated_column, _change_type, _commit_version FROM table_changes('default.%s', %d)",
+                    "SELECT col1, updated_column, _change_type, _commit_version FROM table_changes('default.%s', %d)".formatted(
                             tableName,
                             versionWithCdfEnabled)))
                     .containsOnly(
@@ -372,7 +371,7 @@ public class TestDeltaLakeChangeDataFeedCompatibility
             onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES ('testValue7', 7)");
 
             assertThat(onDelta().executeQuery("SELECT col1, updated_column, _change_type, _commit_version " +
-                    format("FROM table_changes('default.%s', %d, %d)", tableName, versionWithCdfEnabled, lastVersionWithCdf)))
+                    "FROM table_changes('default.%s', %d, %d)".formatted(tableName, versionWithCdfEnabled, lastVersionWithCdf)))
                     .containsOnly(
                             row("testValue3", 5, "update_preimage", 6L),
                             row("testValue3", 4, "update_postimage", 6L),

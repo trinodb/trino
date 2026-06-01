@@ -36,7 +36,6 @@ import static io.trino.tests.product.launcher.cli.Launcher.EnvironmentCommand;
 import static io.trino.tests.product.launcher.cli.Launcher.SuiteCommand;
 import static io.trino.tests.product.launcher.cli.Launcher.TestCommand;
 import static io.trino.tests.product.launcher.cli.Launcher.VersionProvider;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.IVersionProvider;
 import static picocli.CommandLine.Spec;
@@ -173,7 +172,7 @@ public class Launcher
                     {"product-tests.name", "trino-product-tests"},
                     {"server.package", "core/trino-server/target/trino-server-" + getProjectVersion() + ".tar.gz"},
                     {"launcher.bin", "testing/trino-product-tests-launcher/bin/run-launcher"},
-                    {"cli.bin", format("client/trino-cli/target/trino-cli-%s-executable.jar", getProjectVersion())},
+                    {"cli.bin", "client/trino-cli/target/trino-cli-%s-executable.jar".formatted(getProjectVersion())},
                     {"jdk.current.release", getTemurinRelease()},
             };
         }

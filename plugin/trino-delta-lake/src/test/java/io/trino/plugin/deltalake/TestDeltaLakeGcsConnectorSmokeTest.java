@@ -46,7 +46,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.regex.Matcher.quoteReplacement;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -176,7 +175,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
             throw new UncheckedIOException(e);
         }
 
-        queryRunner.execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", table, getLocationForTable(bucketName, table)));
+        queryRunner.execute("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(table, getLocationForTable(bucketName, table)));
     }
 
     @Override
@@ -230,6 +229,6 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     @Override
     protected String bucketUrl()
     {
-        return format("gs://%s/%s/", gcpStorageBucket, bucketName);
+        return "gs://%s/%s/".formatted(gcpStorageBucket, bucketName);
     }
 }

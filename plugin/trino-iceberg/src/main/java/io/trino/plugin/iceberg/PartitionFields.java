@@ -30,7 +30,6 @@ import java.util.regex.Pattern;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static java.lang.Integer.parseInt;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.regex.Pattern.CASE_INSENSITIVE;
 
@@ -205,18 +204,18 @@ public final class PartitionFields
                 return name;
             }
             case "year", "month", "day", "hour", "void" -> {
-                return format("%s(%s)", transform, name);
+                return "%s(%s)".formatted(transform, name);
             }
         }
 
         Matcher matcher = ICEBERG_BUCKET_PATTERN.matcher(transform);
         if (matcher.matches()) {
-            return format("bucket(%s, %s)", name, matcher.group(1));
+            return "bucket(%s, %s)".formatted(name, matcher.group(1));
         }
 
         matcher = ICEBERG_TRUNCATE_PATTERN.matcher(transform);
         if (matcher.matches()) {
-            return format("truncate(%s, %s)", name, matcher.group(1));
+            return "truncate(%s, %s)".formatted(name, matcher.group(1));
         }
 
         throw new UnsupportedOperationException("Unsupported partition transform: " + field);

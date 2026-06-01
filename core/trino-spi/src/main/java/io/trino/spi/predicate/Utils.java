@@ -20,7 +20,6 @@ import jakarta.annotation.Nullable;
 
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
-import static java.lang.String.format;
 
 public final class Utils
 {
@@ -36,7 +35,7 @@ public final class Utils
         if (object != null) {
             Class<?> expectedClass = Primitives.wrap(type.getJavaType());
             if (!expectedClass.isInstance(object)) {
-                throw new IllegalArgumentException(format("Object '%s' (%s) is not instance of %s", object, object.getClass().getName(), expectedClass.getName()));
+                throw new IllegalArgumentException("Object '%s' (%s) is not instance of %s".formatted(object, object.getClass().getName(), expectedClass.getName()));
             }
         }
         return writeNativeValue(type, object);

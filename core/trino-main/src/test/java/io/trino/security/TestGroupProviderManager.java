@@ -27,7 +27,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Map;
 
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -125,8 +124,7 @@ public class TestGroupProviderManager
 
             assertThatThrownBy(() -> groupProviderManager.loadConfiguredGroupProvider(tempFile.file()))
                     .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining(format(
-                            "Group provider configuration %s does not contain valid group-provider.group-case. Expected one of: [KEEP, LOWER, UPPER]",
+                    .hasMessageContaining("Group provider configuration %s does not contain valid group-provider.group-case. Expected one of: [KEEP, LOWER, UPPER]".formatted(
                             tempFile.path().toAbsolutePath()));
         }
     }

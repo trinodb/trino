@@ -19,8 +19,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static java.lang.String.format;
-
 public final class ConnectorBucketNodeMap
 {
     private final int bucketCount;
@@ -43,7 +41,7 @@ public final class ConnectorBucketNodeMap
             throw new IllegalArgumentException("bucketCount must be positive");
         }
         if (bucketToNode.isPresent() && bucketToNode.get().size() != bucketCount) {
-            throw new IllegalArgumentException(format("Mismatched bucket count in bucketToNode (%s) and bucketCount (%s)", bucketToNode.get().size(), bucketCount));
+            throw new IllegalArgumentException("Mismatched bucket count in bucketToNode (%s) and bucketCount (%s)".formatted(bucketToNode.get().size(), bucketCount));
         }
         this.bucketCount = bucketCount;
         this.bucketToNode = bucketToNode.map(List::copyOf);

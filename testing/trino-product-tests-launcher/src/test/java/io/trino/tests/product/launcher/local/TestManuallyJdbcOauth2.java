@@ -24,7 +24,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.Properties;
 
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestManuallyJdbcOauth2
@@ -56,11 +55,11 @@ public class TestManuallyJdbcOauth2
         verifyEtcHostsEntries();
 
         Properties properties = new Properties();
-        String jdbcUrl = format("jdbc:trino://presto-master:7778?"
+        String jdbcUrl = ("jdbc:trino://presto-master:7778?"
                 + "SSL=true&"
                 + "SSLTrustStorePath=%s&"
                 + "SSLTrustStorePassword=123456&"
-                + "externalAuthentication=true", TestManuallyJdbcOauth2.class.getResource("/docker/trino-product-tests/conf/trino/etc/trino-master.jks").getFile());
+                + "externalAuthentication=true").formatted(TestManuallyJdbcOauth2.class.getResource("/docker/trino-product-tests/conf/trino/etc/trino-master.jks").getFile());
         try (Connection connection = DriverManager.getConnection(jdbcUrl, properties);
                 PreparedStatement statement = connection.prepareStatement("select * from tpch.tiny.nation");
                 ResultSet results = statement.executeQuery()) {

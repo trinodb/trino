@@ -40,7 +40,6 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.Objects.requireNonNull;
 
@@ -95,8 +94,7 @@ public class S3LockBasedTransactionLogSynchronizer
                 else {
                     if (lockInfo.getEntryFilename().equals(newEntryFilename)) {
                         if (currentLock.isPresent()) {
-                            throw new TransactionConflictException(format(
-                                    "Multiple live locks found for: %s; lock1: %s; lock2: %s",
+                            throw new TransactionConflictException("Multiple live locks found for: %s; lock1: %s; lock2: %s".formatted(
                                     newLogEntryPath,
                                     currentLock.get().getLockFilename(),
                                     lockInfo.getLockFilename()));
@@ -107,8 +105,7 @@ public class S3LockBasedTransactionLogSynchronizer
             }
 
             currentLock.ifPresent(lock -> {
-                throw new TransactionConflictException(format(
-                        "Transaction log locked(1); lockingCluster=%s; lockingQuery=%s; expires=%s",
+                throw new TransactionConflictException("Transaction log locked(1); lockingCluster=%s; lockingQuery=%s; expires=%s".formatted(
                         lock.getClusterId(),
                         lock.getOwningQuery(),
                         lock.getExpirationTime()));
@@ -125,8 +122,7 @@ public class S3LockBasedTransactionLogSynchronizer
                     .findFirst();
 
             if (currentLock.isPresent()) {
-                throw new TransactionConflictException(format(
-                        "Transaction log locked(2); lockingCluster=%s; lockingQuery=%s; expires=%s",
+                throw new TransactionConflictException("Transaction log locked(2); lockingCluster=%s; lockingQuery=%s; expires=%s".formatted(
                         currentLock.get().getClusterId(),
                         currentLock.get().getOwningQuery(),
                         currentLock.get().getExpirationTime()));

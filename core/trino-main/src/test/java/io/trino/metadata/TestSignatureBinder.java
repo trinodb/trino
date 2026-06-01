@@ -55,7 +55,6 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Fail.fail;
@@ -1299,7 +1298,7 @@ public class TestSignatureBinder
                     builder.add(typeSignatureProvider);
                     continue;
                 }
-                throw new IllegalArgumentException(format("argument is of type %s. It should be Type or TypeSignatureProvider", argument.getClass()));
+                throw new IllegalArgumentException("argument is of type %s. It should be Type or TypeSignatureProvider".formatted(argument.getClass()));
             }
             this.argumentTypes = builder.build();
             return this;

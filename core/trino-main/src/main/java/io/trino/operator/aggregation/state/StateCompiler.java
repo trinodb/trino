@@ -114,7 +114,6 @@ import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class StateCompiler
@@ -884,7 +883,7 @@ public final class StateCompiler
             Optional<BytecodeExpression> fieldCopy = copyField(thisVariable, fieldDefinitions.get(i), fields.get(i).getType());
             if (fieldCopy.isEmpty()) {
                 body
-                        .append(newInstance(UnsupportedOperationException.class, constantString(format("copy not supported for %s (cannot copy field of type %s)", definition.getName(), fields.get(i).getType()))))
+                        .append(newInstance(UnsupportedOperationException.class, constantString("copy not supported for %s (cannot copy field of type %s)".formatted(definition.getName(), fields.get(i).getType()))))
                         .throwObject();
 
                 return;

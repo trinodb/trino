@@ -28,7 +28,6 @@ import java.util.stream.Stream;
 import static io.trino.plugin.tpch.TpchMetadata.schemaNameToScaleFactor;
 import static io.trino.tpch.OrderColumn.ORDER_STATUS;
 import static io.trino.tpch.TpchTable.ORDERS;
-import static java.lang.String.format;
 
 /**
  * This is a tool used to record statistics for TPCH tables.
@@ -87,7 +86,7 @@ public class TpchStatisticsRecorder
         TableStatisticsData statisticsData = tableStatisticsRecorder.recordStatistics(table, predicate, scaleFactor);
 
         long duration = (System.nanoTime() - start) / 1_000_000;
-        System.out.println(format("Finished stats recording for %s[%s] sf %s, took %s ms", table.getTableName(), partitionValue.orElse(""), scaleFactor, duration));
+        System.out.println("Finished stats recording for %s[%s] sf %s, took %s ms".formatted(table.getTableName(), partitionValue.orElse(""), scaleFactor, duration));
 
         tableStatisticsDataRepository.save(schemaName, table, partitionColumn, partitionValue, statisticsData);
     }

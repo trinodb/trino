@@ -58,7 +58,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
-import static java.lang.String.format;
 import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -379,7 +378,7 @@ public class IterativeOptimizer
         public void checkTimeoutNotExhausted()
         {
             if (NANOSECONDS.toMillis(nanoTime() - startTimeInNanos) >= timeoutInMilliseconds) {
-                StringBuilder message = new StringBuilder(format("The optimizer exhausted the time limit of %d ms", timeoutInMilliseconds));
+                StringBuilder message = new StringBuilder("The optimizer exhausted the time limit of %d ms".formatted(timeoutInMilliseconds));
                 List<QueryPlanOptimizerStatistics> topRulesByTime = iterativeOptimizerStatsCollector.getTopRuleStats(5);
                 if (topRulesByTime.isEmpty()) {
                     message.append(": no rules invoked");
@@ -392,8 +391,7 @@ public class IterativeOptimizer
                             // The next rule considered is less than 0.1% of the top rule, skip the rest
                             break;
                         }
-                        message.append(format(
-                                "\n\t\t%s: %s ms, %s invocations, %s applications",
+                        message.append("\n\t\t%s: %s ms, %s invocations, %s applications".formatted(
                                 ruleStats.rule(),
                                 NANOSECONDS.toMillis(ruleStats.totalTime()),
                                 ruleStats.invocations(),

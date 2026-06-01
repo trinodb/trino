@@ -59,7 +59,6 @@ import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_COMMENTS;
-import static java.util.Collections.emptyList;
 import static java.util.function.Predicate.not;
 import static java.util.function.UnaryOperator.identity;
 
@@ -110,7 +109,7 @@ public final class AvroHiveFileUtils
         List<String> columnComments = Optional.ofNullable(schema.get(LIST_COLUMN_COMMENTS))
                 .filter(not(String::isBlank))
                 .map(Splitter.on('\0')::splitToList)
-                .orElse(emptyList());
+                .orElse(List.of());
 
         String tableName = schema.get(TABLE_NAME);
         String tableComment = schema.get(TABLE_COMMENT);

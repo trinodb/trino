@@ -18,7 +18,6 @@ import io.trino.spi.connector.ConnectorIndexHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public record ThriftIndexHandle(SchemaTableName schemaTableName, TupleDomain<ColumnHandle> tupleDomain)
@@ -33,6 +32,6 @@ public record ThriftIndexHandle(SchemaTableName schemaTableName, TupleDomain<Col
     @Override
     public String toString()
     {
-        return format("%s, constraint = %s", schemaTableName, tupleDomain.toString());
+        return "%s, constraint = %s".formatted(schemaTableName, tupleDomain.toString());
     }
 }

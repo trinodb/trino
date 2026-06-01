@@ -89,7 +89,6 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
@@ -172,7 +171,7 @@ final class ParquetWriters
         if (type instanceof UuidType) {
             return new UuidValueWriter(valuesWriter, parquetType);
         }
-        throw new TrinoException(NOT_SUPPORTED, format("Unsupported type for Parquet writer: %s", type));
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported type for Parquet writer: %s".formatted(type));
     }
 
     static List<ColumnWriter> getColumnWriters(

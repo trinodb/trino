@@ -70,7 +70,6 @@ import static io.trino.spi.type.StandardTypes.TINYINT;
 import static io.trino.spi.type.TypeSignature.functionType;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.methodHandle;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.dropArguments;
 import static java.util.Objects.requireNonNull;
 
@@ -332,8 +331,7 @@ public class JsonValueFunction
             coercion = metadata.getCoercion(typedValue.getType(), returnType);
         }
         catch (OperatorNotFoundException e) {
-            return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException(format(
-                    "Cannot cast value of type %s to declared return type of function JSON_VALUE: %s",
+            return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException("Cannot cast value of type %s to declared return type of function JSON_VALUE: %s".formatted(
                     typedValue.getType(),
                     returnType)));
         }
@@ -341,8 +339,7 @@ public class JsonValueFunction
             return new InterpretedFunctionInvoker(functionManager).invoke(coercion, session, ImmutableList.of(typedValue.getValueAsObject()));
         }
         catch (RuntimeException e) {
-            return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException(format(
-                    "Cannot cast value of type %s to declared return type of function JSON_VALUE: %s",
+            return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException("Cannot cast value of type %s to declared return type of function JSON_VALUE: %s".formatted(
                     typedValue.getType(),
                     returnType)));
         }

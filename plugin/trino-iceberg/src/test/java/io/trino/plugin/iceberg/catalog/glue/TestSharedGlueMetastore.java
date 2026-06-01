@@ -36,7 +36,6 @@ import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -135,7 +134,7 @@ public class TestSharedGlueMetastore
                 "   location = '%s'\n" +
                 ")";
 
-        return format(expectedHiveCreateSchema, catalogName, tpchSchema, dataDirectory.toUri());
+        return expectedHiveCreateSchema.formatted(catalogName, tpchSchema, dataDirectory.toUri());
     }
 
     @Override
@@ -145,6 +144,6 @@ public class TestSharedGlueMetastore
                 "WITH (\n" +
                 "   location = '%s'\n" +
                 ")";
-        return format(expectedIcebergCreateSchema, catalogName, tpchSchema, dataDirectory.toUri());
+        return expectedIcebergCreateSchema.formatted(catalogName, tpchSchema, dataDirectory.toUri());
     }
 }

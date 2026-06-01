@@ -44,7 +44,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.io.Resources.getResource;
@@ -204,7 +203,7 @@ public class ResourceHudiTablesInitializer
         {
             return Stream.of(HUDI_META_COLUMNS, regularColumns)
                     .flatMap(Collection::stream)
-                    .collect(Collectors.toUnmodifiableList());
+                    .toList();
         }
 
         public List<Column> getPartitionColumns()

@@ -32,7 +32,6 @@ import java.util.Optional;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.CASSANDRA_TYPE_MANAGER;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.createKeyspace;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -71,22 +70,22 @@ final class TestCassandraSplitManager
         String tableName = "single_partition_key_column_table";
         int partitionCount = 3;
 
-        session.execute(format(
+        session.execute(
                 """
                 CREATE TABLE %s.%s (
                       partition_key int,
                       clustering_key text,
                       PRIMARY KEY(partition_key, clustering_key))
-                """,
-                KEYSPACE,
-                tableName));
+                """.formatted(
+                        KEYSPACE,
+                        tableName));
 
         CassandraColumnHandle columnHandle = new CassandraColumnHandle("partition_key", 0, CassandraTypes.INT, true, false, false, false);
         ImmutableList.Builder<CassandraPartition> partitions = ImmutableList.builderWithExpectedSize(partitionCount);
         for (int i = 0; i < partitionCount; i++) {
             TupleDomain<ColumnHandle> tupleDomain = TupleDomain.fromFixedValues(Map.of(columnHandle, NullableValue.of(CassandraTypes.INT.trinoType(), (long) i)));
-            partitions.add(new CassandraPartition(new byte[] {0, 0, 0, (byte) i}, format("\"partition_key\" = %d", i), tupleDomain, false));
-            session.execute(format("INSERT INTO %s.%s (partition_key, clustering_key) VALUES (%d, '%d')", KEYSPACE, tableName, i, i));
+            partitions.add(new CassandraPartition(new byte[] {0, 0, 0, (byte) i}, "\"partition_key\" = %d".formatted(i), tupleDomain, false));
+            session.execute("INSERT INTO %s.%s (partition_key, clustering_key) VALUES (%d, '%d')".formatted(KEYSPACE, tableName, i, i));
         }
 
         CassandraPartitionManager partitionManager = new CassandraPartitionManager(session, CASSANDRA_TYPE_MANAGER);
@@ -102,6 +101,6 @@ final class TestCassandraSplitManager
             assertThat(((CassandraSplit) splits.get(1)).partitionId()).isEqualTo("\"partition_key\" in (2)");
         }
 
-        session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
+        session.execute("DROP TABLE %s.%s".formatted(KEYSPACE, tableName));
     }
 }

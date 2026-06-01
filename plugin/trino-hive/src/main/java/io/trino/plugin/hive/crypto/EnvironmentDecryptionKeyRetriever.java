@@ -22,7 +22,6 @@ import org.apache.parquet.hadoop.metadata.ColumnPath;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 
@@ -120,7 +119,7 @@ public final class EnvironmentDecryptionKeyRetriever
     {
         static KeySource empty()
         {
-            return new KeySource(Optional.empty(), Collections.emptyMap());
+            return new KeySource(Optional.empty(), Map.of());
         }
 
         Optional<byte[]> resolve(Optional<byte[]> keyMetadata)

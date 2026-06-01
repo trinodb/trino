@@ -34,7 +34,6 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.metadata.PropertyUtil.evaluateProperties;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class TableProceduresPropertyManager
@@ -68,7 +67,7 @@ public class TableProceduresPropertyManager
                 true,
                 supportedProperties,
                 INVALID_PROCEDURE_ARGUMENT,
-                format("catalog '%s' table procedure '%s' property", catalogName, procedureName));
+                "catalog '%s' table procedure '%s' property".formatted(catalogName, procedureName));
 
         return propertyValues.entrySet().stream()
                 .filter(entry -> entry.getValue().isPresent())

@@ -36,7 +36,6 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICK
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -440,8 +439,7 @@ public class TestDeltaLakeInsertCompatibility
         String trinoTableName = "delta.default." + tableName;
         String location = "s3://" + bucketName + "/databricks-compatibility-test-" + tableName;
 
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s (id INTEGER, str VARCHAR, bin VARBINARY) WITH (location = '%s')",
+        onTrino().executeQuery("CREATE TABLE %s (id INTEGER, str VARCHAR, bin VARBINARY) WITH (location = '%s')".formatted(
                 trinoTableName,
                 location));
 
@@ -457,9 +455,9 @@ public class TestDeltaLakeInsertCompatibility
                 if (i > 0) {
                     values.append(", ");
                 }
-                values.append(format("(%d, '%s', X'%s')", i, uuid, uuid.replace("-", "")));
+                values.append("(%d, '%s', X'%s')".formatted(i, uuid, uuid.replace("-", "")));
             }
-            onTrino().executeQuery(format("INSERT INTO %s VALUES %s", trinoTableName, values));
+            onTrino().executeQuery("INSERT INTO %s VALUES %s".formatted(trinoTableName, values));
 
             assertThat(onDelta().executeQuery("SELECT count(*) FROM default." + tableName))
                     .containsOnly(row(5000L));

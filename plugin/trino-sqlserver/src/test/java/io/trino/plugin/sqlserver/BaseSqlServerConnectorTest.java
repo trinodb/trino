@@ -37,7 +37,6 @@ import static io.trino.plugin.sqlserver.DataCompression.ROW;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -347,21 +346,21 @@ public abstract class BaseSqlServerConnectorTest
                 "test_join_collate",
                 "(collate_column_1 varchar(25) COLLATE Latin1_General_CI_AS, collate_column_2 varchar(25) COLLATE Latin1_General_CI_AS)",
                 List.of("'Collation', 'Collation'", "'collation', 'collation'"))) {
-            assertThat(query(format("SELECT n.collate_column_1, n2.collate_column_2 FROM %1$s n JOIN %1$s n2 ON n.collate_column_1 = n2.collate_column_2", testTable.getName())))
+            assertThat(query("SELECT n.collate_column_1, n2.collate_column_2 FROM %1$s n JOIN %1$s n2 ON n.collate_column_1 = n2.collate_column_2".formatted(testTable.getName())))
                     .matches("VALUES " +
                             "((CAST('Collation' AS varchar(25))), (CAST('Collation' AS varchar(25)))), " +
                             "((CAST('collation' AS varchar(25))), (CAST('collation' AS varchar(25))))")
                     .joinIsNotFullyPushedDown();
-            assertThat(query(format("SELECT n.collate_column_1, n2.collate_column_2 FROM %1$s n JOIN %1$s n2 ON n.collate_column_1 != n2.collate_column_2", testTable.getName())))
+            assertThat(query("SELECT n.collate_column_1, n2.collate_column_2 FROM %1$s n JOIN %1$s n2 ON n.collate_column_1 != n2.collate_column_2".formatted(testTable.getName())))
                     .matches("VALUES " +
                             "((CAST('collation' AS varchar(25))), (CAST('Collation' AS varchar(25)))), " +
                             "((CAST('Collation' AS varchar(25))), (CAST('collation' AS varchar(25))))")
                     .joinIsNotFullyPushedDown();
-            assertThat(query(format("SELECT n.collate_column_1, n2.collate_column_2 FROM %1$s n JOIN %1$s n2 ON n.collate_column_1 = n2.collate_column_2 WHERE n.collate_column_1 = 'Collation'", testTable.getName())))
+            assertThat(query("SELECT n.collate_column_1, n2.collate_column_2 FROM %1$s n JOIN %1$s n2 ON n.collate_column_1 = n2.collate_column_2 WHERE n.collate_column_1 = 'Collation'".formatted(testTable.getName())))
                     .matches("VALUES " +
                             "((CAST('Collation' AS varchar(25))), (CAST('Collation' AS varchar(25))))")
                     .joinIsNotFullyPushedDown();
-            assertThat(query(format("SELECT n.collate_column_1, n2.collate_column_2 FROM %1$s n JOIN %1$s n2 ON n.collate_column_1 != n2.collate_column_2 WHERE n.collate_column_1 != 'collation'", testTable.getName())))
+            assertThat(query("SELECT n.collate_column_1, n2.collate_column_2 FROM %1$s n JOIN %1$s n2 ON n.collate_column_1 != n2.collate_column_2 WHERE n.collate_column_1 != 'collation'".formatted(testTable.getName())))
                     .matches("VALUES " +
                             "((CAST('Collation' AS varchar(25))), (CAST('collation' AS varchar(25))))")
                     .joinIsNotFullyPushedDown();
@@ -455,14 +454,13 @@ public abstract class BaseSqlServerConnectorTest
     private void testCreateWithDataCompression(DataCompression dataCompression)
     {
         String tableName = "test_create_with_compression_" + randomNameSuffix();
-        String createQuery = format(
-                "CREATE TABLE sqlserver.dbo.%s (\n" +
-                        "   a bigint,\n" +
-                        "   b bigint\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   data_compression = '%s'\n" +
-                        ")",
+        String createQuery = ("CREATE TABLE sqlserver.dbo.%s (\n" +
+        "   a bigint,\n" +
+        "   b bigint\n" +
+        ")\n" +
+        "WITH (\n" +
+        "   data_compression = '%s'\n" +
+        ")").formatted(
                 tableName,
                 dataCompression);
         assertUpdate(createQuery);
@@ -599,7 +597,7 @@ public abstract class BaseSqlServerConnectorTest
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        return format("Cannot insert the value NULL into column '%s'.*", columnName);
+        return "Cannot insert the value NULL into column '%s'.*".formatted(columnName);
     }
 
     @Override
@@ -643,7 +641,7 @@ public abstract class BaseSqlServerConnectorTest
     {
         try (TestProcedure testProcedure = createTestingProcedure("SELECT * FROM nation WHERE nationkey = 1")) {
             assertQuery(
-                    format("SELECT name FROM TABLE(system.procedure(query => 'EXECUTE %s.%s'))".formatted(getSession().getSchema().orElseThrow(), testProcedure.getName()), getSession().getSchema().orElseThrow()),
+                    "SELECT name FROM TABLE(system.procedure(query => 'EXECUTE %s.%s'))".formatted(getSession().getSchema().orElseThrow(), testProcedure.getName()).formatted(getSession().getSchema().orElseThrow()),
                     "VALUES 'ARGENTINA'");
         }
     }
@@ -716,7 +714,7 @@ public abstract class BaseSqlServerConnectorTest
                     SELECT 1 as first_column;
                 """)) {
             assertQuery(
-                    format("SELECT first_column FROM TABLE(system.procedure(query => 'EXECUTE %s.%s 100')) ".formatted(getSession().getSchema().orElseThrow(), testProcedure.getName()), getSession().getSchema().orElseThrow()),
+                    "SELECT first_column FROM TABLE(system.procedure(query => 'EXECUTE %s.%s 100')) ".formatted(getSession().getSchema().orElseThrow(), testProcedure.getName()).formatted(getSession().getSchema().orElseThrow()),
                     "VALUES 1");
 
             assertQueryFails(

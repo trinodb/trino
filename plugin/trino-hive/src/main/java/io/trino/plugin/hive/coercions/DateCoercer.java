@@ -29,7 +29,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_TIMESTAMP_COERCION;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.type.DateType.DATE;
-import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 
 public final class DateCoercer
@@ -81,7 +80,7 @@ public final class DateCoercer
                 }
                 Slice converted = utf8Slice(ISO_LOCAL_DATE.format(LocalDate.ofEpochDay(value)));
                 if (!toType.isUnbounded() && countCodePoints(converted) > toType.getBoundedLength()) {
-                    throw new TrinoException(INVALID_ARGUMENTS, format("Varchar representation of '%s' exceeds %s bounds", converted.toStringUtf8(), toType));
+                    throw new TrinoException(INVALID_ARGUMENTS, "Varchar representation of '%s' exceeds %s bounds".formatted(converted.toStringUtf8(), toType));
                 }
                 toType.writeSlice(blockBuilder, converted);
             }

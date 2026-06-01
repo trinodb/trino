@@ -31,7 +31,6 @@ import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetReaderUtils.toByteExact;
 import static io.trino.parquet.reader.TestData.randomInt;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static java.lang.String.format;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 
 public class BenchmarkByteColumnReader
@@ -71,7 +70,7 @@ public class BenchmarkByteColumnReader
         else if (encoding == DELTA_BINARY_PACKED) {
             return new DeltaBinaryPackingValuesWriterForInteger(bufferSize, bufferSize, HeapByteBufferAllocator.getInstance());
         }
-        throw new UnsupportedOperationException(format("encoding %s is not supported", encoding));
+        throw new UnsupportedOperationException("encoding %s is not supported".formatted(encoding));
     }
 
     @Override

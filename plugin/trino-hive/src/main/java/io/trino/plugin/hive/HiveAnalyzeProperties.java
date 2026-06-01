@@ -30,7 +30,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.metastore.Partitions.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNullElse;
 
 public class HiveAnalyzeProperties
@@ -115,7 +114,7 @@ public class HiveAnalyzeProperties
     private static void throwIfNull(Object object, String propertyName)
     {
         if (object == null) {
-            throw new TrinoException(INVALID_ANALYZE_PROPERTY, format("Invalid null value in analyze %s property", propertyName));
+            throw new TrinoException(INVALID_ANALYZE_PROPERTY, "Invalid null value in analyze %s property".formatted(propertyName));
         }
     }
 }

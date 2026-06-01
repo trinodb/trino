@@ -75,7 +75,6 @@ import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.execution.executor.timesharing.MultilevelSplitQueue.computeLevel;
 import static io.trino.util.EmbedVersion.testingVersionEmbedder;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
@@ -911,14 +910,14 @@ public class TimeSharingTaskExecutor
             if (duration.compareTo(stuckSplitsWarningThreshold) >= 0) {
                 maxActiveSplitCount++;
                 stackTrace.append("\n");
-                stackTrace.append(format("\"%s\" tid=%s", splitInfo.getThreadId(), splitInfo.getThread().threadId())).append("\n");
+                stackTrace.append("\"%s\" tid=%s".formatted(splitInfo.getThreadId(), splitInfo.getThread().threadId())).append("\n");
                 for (StackTraceElement traceElement : splitInfo.getThread().getStackTrace()) {
                     stackTrace.append("\tat ").append(traceElement).append("\n");
                 }
             }
         }
 
-        return format(message, maxActiveSplitCount, stuckSplitsWarningThreshold).concat(stackTrace.toString());
+        return message.formatted(maxActiveSplitCount, stuckSplitsWarningThreshold).concat(stackTrace.toString());
     }
 
     @Managed

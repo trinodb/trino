@@ -19,7 +19,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 import java.util.Optional;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class IrQuantifier
@@ -98,6 +97,6 @@ public class IrQuantifier
     @Override
     public String toString()
     {
-        return format("{%s, %s}", atLeast, atMost.map(Object::toString).orElse("∞"));
+        return "{%s, %s}".formatted(atLeast, atMost.map(Object::toString).orElse("∞"));
     }
 }

@@ -66,7 +66,6 @@ import static io.trino.plugin.exchange.filesystem.FileSystemExchangeManager.PATH
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeSink.COMMITTED_MARKER_FILE_NAME;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeSink.DATA_FILE_SUFFIX;
 import static java.lang.Integer.parseInt;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -300,7 +299,7 @@ public class FileSystemExchange
                             .collect(toImmutableList());
 
                     if (committedMarkerFilePaths.isEmpty()) {
-                        throw new IllegalStateException(format("No committed attempts found under sink output path %s", sinkOutputPath));
+                        throw new IllegalStateException("No committed attempts found under sink output path %s".formatted(sinkOutputPath));
                     }
 
                     for (String committedMarkerFilePath : committedMarkerFilePaths) {

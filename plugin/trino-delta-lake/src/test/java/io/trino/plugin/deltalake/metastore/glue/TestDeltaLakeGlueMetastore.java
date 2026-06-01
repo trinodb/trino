@@ -77,7 +77,6 @@ import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -193,10 +192,10 @@ public class TestDeltaLakeGlueMetastore
         // Verify the tables were created as non Delta Lake tables
         assertThatThrownBy(() -> metadata.getTableHandle(session, nonDeltaLakeTable1, Optional.empty(), Optional.empty()))
                 .isInstanceOf(TrinoException.class)
-                .hasMessage(format("%s is not a Delta Lake table", nonDeltaLakeTable1));
+                .hasMessage("%s is not a Delta Lake table".formatted(nonDeltaLakeTable1));
         assertThatThrownBy(() -> metadata.getTableHandle(session, nonDeltaLakeTable2, Optional.empty(), Optional.empty()))
                 .isInstanceOf(TrinoException.class)
-                .hasMessage(format("%s is not a Delta Lake table", nonDeltaLakeTable2));
+                .hasMessage("%s is not a Delta Lake table".formatted(nonDeltaLakeTable2));
 
         // TODO (https://github.com/trinodb/trino/issues/5426)
         //  these assertions should use information_schema instead of metadata directly,

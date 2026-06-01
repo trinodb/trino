@@ -36,7 +36,6 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -325,7 +324,7 @@ public class TestHiveS3AndGlueMetastoreTest
         String tableName = "test_partition_projection_" + randomNameSuffix();
         String tableLocation = locationPattern.locationForTable(bucketName, schemaName, tableName);
 
-        computeActual(format(
+        computeActual(
                 """
                 CREATE TABLE %s (
                 name varchar(25),
@@ -342,13 +341,13 @@ public class TestHiveS3AndGlueMetastoreTest
                   partition_projection_enabled=true,
                   external_location = '%s'
                 )
-                """,
-                tableName,
-                tableLocation));
+                """.formatted(
+                        tableName,
+                        tableLocation));
 
         assertUpdate("INSERT INTO " + tableName + " VALUES ('name1', '2001-01-22 00')", 1);
 
-        assertQuery(format("SELECT name FROM %s", tableName), "VALUES ('name1')");
+        assertQuery("SELECT name FROM %s".formatted(tableName), "VALUES ('name1')");
     }
 
     @Test

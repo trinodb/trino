@@ -17,13 +17,12 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
-import static java.lang.String.format;
 
 public class ViewAlreadyExistsException
         extends TrinoException
 {
     public ViewAlreadyExistsException(SchemaTableName viewName)
     {
-        super(ALREADY_EXISTS, format("View already exists: '%s'", viewName));
+        super(ALREADY_EXISTS, "View already exists: '%s'".formatted(viewName));
     }
 }

@@ -18,7 +18,6 @@ import io.trino.spi.connector.SchemaTableName;
 import org.apache.iceberg.exceptions.CleanableFailure;
 
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
-import static java.lang.String.format;
 
 public class CreateTableException
         extends TrinoException
@@ -26,6 +25,6 @@ public class CreateTableException
 {
     public CreateTableException(Throwable throwable, SchemaTableName tableName)
     {
-        super(ICEBERG_COMMIT_ERROR, format("Failed to create table %s: %s", tableName, throwable.getMessage()), throwable);
+        super(ICEBERG_COMMIT_ERROR, "Failed to create table %s: %s".formatted(tableName, throwable.getMessage()), throwable);
     }
 }

@@ -31,7 +31,6 @@ import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.ORDERS;
-import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -52,11 +51,10 @@ public class TestHiveCreateExternalTable
     public void testCreateExternalTableWithData()
     {
         Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
-        @Language("SQL") String createTableSql = format(
-                "" +
-                        "CREATE TABLE test_create_external " +
-                        "WITH (external_location = '%s') AS " +
-                        "SELECT * FROM tpch.tiny.nation",
+        @Language("SQL") String createTableSql = ("" +
+        "CREATE TABLE test_create_external " +
+        "WITH (external_location = '%s') AS " +
+        "SELECT * FROM tpch.tiny.nation").formatted(
                 tempDir);
 
         assertUpdate(createTableSql, 25);
@@ -78,11 +76,10 @@ public class TestHiveCreateExternalTable
     {
         Path tempDir = createTempDirectory(null);
 
-        @Language("SQL") String createTableSql = format(
-                "" +
-                        "CREATE TABLE test_create_external_exists " +
-                        "WITH (external_location = '%s') AS " +
-                        "SELECT * FROM tpch.tiny.nation",
+        @Language("SQL") String createTableSql = ("" +
+        "CREATE TABLE test_create_external_exists " +
+        "WITH (external_location = '%s') AS " +
+        "SELECT * FROM tpch.tiny.nation").formatted(
                 tempDir.toUri().toASCIIString());
 
         assertQueryFails(createTableSql, "Target directory for table '.*' already exists:.*");
@@ -94,16 +91,15 @@ public class TestHiveCreateExternalTable
         Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
         String tableName = "test_create_external_non_exists_" + randomNameSuffix();
 
-        @Language("SQL") String createTableSql = format(
-                "" +
-                        "CREATE TABLE %s.%s.%s (\n" +
-                        "   col1 varchar,\n" +
-                        "   col2 varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   external_location = '%s',\n" +
-                        "   format = 'TEXTFILE'\n" +
-                        ")",
+        @Language("SQL") String createTableSql = ("" +
+        "CREATE TABLE %s.%s.%s (\n" +
+        "   col1 varchar,\n" +
+        "   col2 varchar\n" +
+        ")\n" +
+        "WITH (\n" +
+        "   external_location = '%s',\n" +
+        "   format = 'TEXTFILE'\n" +
+        ")").formatted(
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 tableName,
@@ -123,7 +119,7 @@ public class TestHiveCreateExternalTable
         tempFile.deleteOnExit();
         String tableName = "test_create_external_on_file_" + randomNameSuffix();
 
-        @Language("SQL") String createTableSql = format(
+        @Language("SQL") String createTableSql =
                 """
                 CREATE TABLE %s.%s.%s (
                     col1 varchar,
@@ -131,11 +127,11 @@ public class TestHiveCreateExternalTable
                 )WITH (
                     external_location = '%s',
                     format = 'TEXTFILE')
-                """,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
-                tableName,
-                tempFile.toPath().toUri().toASCIIString());
+                """.formatted(
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get(),
+                        tableName,
+                        tempFile.toPath().toUri().toASCIIString());
 
         assertQueryFails(createTableSql, ".*Destination exists and is not a directory.*");
     }

@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.base.Joiner;
 import io.trino.spi.type.ArrayType;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
@@ -26,6 +25,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.Collections.nCopies;
+import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -53,13 +53,13 @@ public class TestArrayFunctions
     public void testArrayConstructor()
     {
         // large constant array
-        assertThat(assertions.expression("array[" + Joiner.on(", ").join(nCopies(20000, "rand()")) + "]"))
+        assertThat(assertions.expression("array[" + String.join(", ", nCopies(20000, "rand()")) + "]"))
                 .hasType(new ArrayType(DOUBLE));
 
         // large non-constant array
         // 1900 is close to the max number of elements for the expression below. The actual limit depends
         // currently depends on the number of bytecodes in the expression containing the array constructor
-        assertThat(assertions.expression("array[a, " + Joiner.on(", ").join(nCopies(1900, "1")) + "]")
+        assertThat(assertions.expression("array[a, " + String.join(", ", nCopies(1900, "1")) + "]")
                 .binding("a", "1"))
                 .hasType(new ArrayType(INTEGER));
 
@@ -73,14 +73,14 @@ public class TestArrayFunctions
     @Test
     public void testArrayConcat()
     {
-        assertThat(assertions.expression("CONCAT(" + Joiner.on(", ").join(nCopies(127, "array[1]")) + ")"))
+        assertThat(assertions.expression("CONCAT(" + String.join(", ", nCopies(127, "array[1]")) + ")"))
                 .hasType(new ArrayType(INTEGER))
-                .matches("ARRAY[%s]".formatted(Joiner.on(",").join(nCopies(127, 1))));
+                .matches("ARRAY[%s]".formatted(nCopies(127, 1).stream().map(Object::toString).collect(joining(","))));
 
         assertThat(assertions.function("concat", "ARRAY[1]", "ARRAY[2]", "ARRAY[3]"))
                 .matches("ARRAY[1, 2, 3]");
 
-        assertTrinoExceptionThrownBy(assertions.expression("CONCAT(" + Joiner.on(", ").join(nCopies(128, "array[1]")) + ")")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.expression("CONCAT(" + String.join(", ", nCopies(128, "array[1]")) + ")")::evaluate)
                 .hasMessage("line 1:12: Too many arguments for function call concat()");
     }
 }

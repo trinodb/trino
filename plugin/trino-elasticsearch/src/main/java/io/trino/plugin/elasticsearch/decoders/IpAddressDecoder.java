@@ -31,7 +31,6 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
-import static java.lang.String.format;
 import static java.lang.System.arraycopy;
 import static java.util.Objects.requireNonNull;
 
@@ -59,7 +58,7 @@ public class IpAddressDecoder
             ipAddressType.writeSlice(output, slice);
         }
         else {
-            throw new TrinoException(TYPE_MISMATCH, format("Expected a string value for field '%s' of type IP: %s [%s]", path, value, value.getClass().getSimpleName()));
+            throw new TrinoException(TYPE_MISMATCH, "Expected a string value for field '%s' of type IP: %s [%s]".formatted(path, value, value.getClass().getSimpleName()));
         }
     }
 

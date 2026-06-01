@@ -25,7 +25,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static io.airlift.slice.SizeOf.instanceSize;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -106,7 +105,7 @@ public class AllOrNoneValueSet
         requireNonNull(value, "value is null");
         Class<?> expectedClass = Primitives.wrap(type.getJavaType());
         if (!expectedClass.isInstance(value)) {
-            throw new IllegalArgumentException(format("Value class %s does not match required class %s", value.getClass().getName(), expectedClass.getName()));
+            throw new IllegalArgumentException("Value class %s does not match required class %s".formatted(value.getClass().getName(), expectedClass.getName()));
         }
         return all;
     }
@@ -206,10 +205,10 @@ public class AllOrNoneValueSet
     private AllOrNoneValueSet checkCompatibility(ValueSet other)
     {
         if (!getType().equals(other.getType())) {
-            throw new IllegalArgumentException(format("Mismatched types: %s vs %s", getType(), other.getType()));
+            throw new IllegalArgumentException("Mismatched types: %s vs %s".formatted(getType(), other.getType()));
         }
         if (!(other instanceof AllOrNoneValueSet allOrNoneValueSet)) {
-            throw new IllegalArgumentException(format("ValueSet is not a AllOrNoneValueSet: %s", other.getClass()));
+            throw new IllegalArgumentException("ValueSet is not a AllOrNoneValueSet: %s".formatted(other.getClass()));
         }
         return allOrNoneValueSet;
     }

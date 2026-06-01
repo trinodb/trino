@@ -15,8 +15,6 @@ package io.trino.spi.connector;
 
 import com.google.errorprone.annotations.FormatMethod;
 
-import static java.lang.String.format;
-
 final class Preconditions
 {
     private Preconditions() {}
@@ -25,7 +23,7 @@ final class Preconditions
     static void checkArgument(boolean test, String message, Object... args)
     {
         if (!test) {
-            throw new IllegalArgumentException(format(message, args));
+            throw new IllegalArgumentException(message.formatted(args));
         }
     }
 
@@ -33,7 +31,7 @@ final class Preconditions
     static void checkState(boolean test, String message, Object... args)
     {
         if (!test) {
-            throw new IllegalStateException(format(message, args));
+            throw new IllegalStateException(message.formatted(args));
         }
     }
 }

@@ -20,7 +20,6 @@ import io.trino.tpcds.Table;
 import java.util.List;
 
 import static io.trino.plugin.tpcds.TpcdsMetadata.schemaNameToScaleFactor;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -58,12 +57,12 @@ public class TpcdsStatisticsRecorder
 
         double scaleFactor = schemaNameToScaleFactor(schemaName);
 
-        System.out.print(format("Recording stats for %s.%s ...", schemaName, table.getName()));
+        System.out.print("Recording stats for %s.%s ...".formatted(schemaName, table.getName()));
 
         long start = System.nanoTime();
         TableStatisticsData statisticsData = tableStatisticsRecorder.recordStatistics(table, scaleFactor);
         long duration = (System.nanoTime() - start) / 1_000_000;
-        System.out.println(format("\tfinished in %s ms", duration));
+        System.out.println("\tfinished in %s ms".formatted(duration));
 
         tableStatisticsDataRepository.save(schemaName, table, statisticsData);
     }

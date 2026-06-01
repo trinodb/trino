@@ -36,7 +36,6 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.connectToTrino;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRoles
@@ -70,7 +69,7 @@ public class TestRoles
         Set<String> existentRoles = listRoles();
         for (String role : TEST_ROLES) {
             if (existentRoles.contains(role)) {
-                onHive().executeQuery(format("DROP ROLE %s", role));
+                onHive().executeQuery("DROP ROLE %s".formatted(role));
             }
         }
     }
@@ -86,23 +85,23 @@ public class TestRoles
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testCreateRole()
     {
-        onTrino().executeQuery(format("CREATE ROLE %s IN hive", ROLE1));
+        onTrino().executeQuery("CREATE ROLE %s IN hive".formatted(ROLE1));
         assertThat(listRoles()).contains(ROLE1);
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testDropRole()
     {
-        onHive().executeQuery(format("CREATE ROLE %s", ROLE1));
+        onHive().executeQuery("CREATE ROLE %s".formatted(ROLE1));
         assertThat(listRoles()).contains(ROLE1);
-        onTrino().executeQuery(format("DROP ROLE %s IN hive", ROLE1));
+        onTrino().executeQuery("DROP ROLE %s IN hive".formatted(ROLE1));
         assertThat(listRoles()).doesNotContain(ROLE1);
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testListRoles()
     {
-        onTrino().executeQuery(format("CREATE ROLE %s IN hive", ROLE1));
+        onTrino().executeQuery("CREATE ROLE %s IN hive".formatted(ROLE1));
         QueryResult expected = onHive().executeQuery("SHOW ROLES");
         QueryResult actual = onTrino().executeQuery("SELECT * FROM hive.information_schema.roles");
         assertThat(actual.rows()).containsOnly(expected.rows().toArray(new List[] {}));
@@ -111,15 +110,15 @@ public class TestRoles
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testCreateDuplicateRole()
     {
-        onTrino().executeQuery(format("CREATE ROLE %s IN hive", ROLE1));
-        assertQueryFailure(() -> onTrino().executeQuery(format("CREATE ROLE %s IN hive", ROLE1)))
+        onTrino().executeQuery("CREATE ROLE %s IN hive".formatted(ROLE1));
+        assertQueryFailure(() -> onTrino().executeQuery("CREATE ROLE %s IN hive".formatted(ROLE1)))
                 .hasMessageContaining("Role '%s' already exists", ROLE1);
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testDropNonExistentRole()
     {
-        assertQueryFailure(() -> onTrino().executeQuery(format("DROP ROLE %s IN hive", ROLE3)))
+        assertQueryFailure(() -> onTrino().executeQuery("DROP ROLE %s IN hive".formatted(ROLE3)))
                 .hasMessageContaining("Role '%s' does not exist", ROLE3);
     }
 
@@ -128,9 +127,9 @@ public class TestRoles
     {
         // Only users that are granted with "admin" role can create, drop and list roles
         // Alice is not granted with "admin" role
-        assertQueryFailure(() -> onTrinoAlice().executeQuery(format("CREATE ROLE %s IN hive", ROLE3)))
+        assertQueryFailure(() -> onTrinoAlice().executeQuery("CREATE ROLE %s IN hive".formatted(ROLE3)))
                 .hasMessageContaining("Cannot create role %s", ROLE3);
-        assertQueryFailure(() -> onTrinoAlice().executeQuery(format("DROP ROLE %s IN hive", ROLE3)))
+        assertQueryFailure(() -> onTrinoAlice().executeQuery("DROP ROLE %s IN hive".formatted(ROLE3)))
                 .hasMessageContaining("Cannot drop role %s", ROLE3);
         assertQueryFailure(() -> onTrinoAlice().executeQuery("SELECT * FROM hive.information_schema.roles"))
                 .hasMessageContaining("Cannot select from table information_schema.roles");

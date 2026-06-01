@@ -21,7 +21,6 @@ import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tests.product.TestGroups.KAFKA;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestKafkaAvroWritesSmokeTest
@@ -36,19 +35,17 @@ public class TestKafkaAvroWritesSmokeTest
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     public void testInsertPrimitiveDataType()
     {
-        assertThat(onTrino().executeQuery(format(
-                "INSERT INTO %s.%s VALUES " +
-                        "('jasio', 9223372036854775807, 1234567890.123456789, true), " +
-                        "('stasio', -9223372036854775808, -1234567890.123456789, false), " +
-                        "(null, null, null, null), " +
-                        "('krzysio', 9223372036854775807, 1234567890.123456789, false), " +
-                        "('kasia', 9223372036854775807, null, null)",
+        assertThat(onTrino().executeQuery(("INSERT INTO %s.%s VALUES " +
+        "('jasio', 9223372036854775807, 1234567890.123456789, true), " +
+        "('stasio', -9223372036854775808, -1234567890.123456789, false), " +
+        "(null, null, null, null), " +
+        "('krzysio', 9223372036854775807, 1234567890.123456789, false), " +
+        "('kasia', 9223372036854775807, null, null)").formatted(
                 KAFKA_CATALOG,
                 ALL_DATATYPES_AVRO_TABLE_NAME)))
                 .updatedRowsCountIsEqualTo(5);
 
-        assertThat(onTrino().executeQuery(format(
-                "SELECT * FROM %s.%s",
+        assertThat(onTrino().executeQuery("SELECT * FROM %s.%s".formatted(
                 KAFKA_CATALOG,
                 ALL_DATATYPES_AVRO_TABLE_NAME)))
                 .containsOnly(
@@ -62,9 +59,8 @@ public class TestKafkaAvroWritesSmokeTest
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     public void testInsertStructuralDataType()
     {
-        assertQueryFailure(() -> onTrino().executeQuery(format(
-                "INSERT INTO %s.%s VALUES " +
-                        "(ARRAY[100, 102], map_from_entries(ARRAY[('key1', 'value1')]))",
+        assertQueryFailure(() -> onTrino().executeQuery(("INSERT INTO %s.%s VALUES " +
+        "(ARRAY[100, 102], map_from_entries(ARRAY[('key1', 'value1')]))").formatted(
                 KAFKA_CATALOG,
                 STRUCTURAL_AVRO_TABLE_NAME)))
                 .hasMessageMatching("Query failed \\(.+\\): Unsupported column type 'array\\(bigint\\)' for column 'c_array'");

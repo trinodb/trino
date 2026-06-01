@@ -30,7 +30,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static io.trino.plugin.tpch.util.Optionals.withBoth;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.WRITE;
@@ -87,7 +86,7 @@ public class TableStatisticsDataRepository
             }
         }
         catch (Exception e) {
-            throw new RuntimeException(format("Failed to parse stats from resource [%s]", resourcePath), e);
+            throw new RuntimeException("Failed to parse stats from resource [%s]".formatted(resourcePath), e);
         }
     }
 

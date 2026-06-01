@@ -45,7 +45,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RowConstructorCodeGenerator
@@ -215,7 +214,7 @@ public class RowConstructorCodeGenerator
         for (int i = 0; i < fieldBuilders.length; i++) {
             fieldBlocks[i] = fieldBuilders[i].build();
             if (fieldBlocks[i].getPositionCount() != 1) {
-                throw new IllegalArgumentException(format("builder must only contain a single position, found: %s positions", fieldBlocks[i].getPositionCount()));
+                throw new IllegalArgumentException("builder must only contain a single position, found: %s positions".formatted(fieldBlocks[i].getPositionCount()));
             }
         }
         return new SqlRow(0, fieldBlocks);

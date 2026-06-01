@@ -30,7 +30,6 @@ import static io.trino.operator.scalar.StringFunctions.upper;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.util.Failures.checkCondition;
-import static java.lang.String.format;
 
 public final class ColorFunctions
 {
@@ -100,7 +99,7 @@ public final class ColorFunctions
             return -(index + 1);
         }
         catch (IllegalArgumentException e) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid color: '%s'", color.toStringUtf8()), e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid color: '%s'".formatted(color.toStringUtf8()), e);
         }
     }
 

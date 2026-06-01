@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -170,7 +169,7 @@ public class IndexJoinNode
         @Override
         public String toString()
         {
-            return format("%s = %s", probe, index);
+            return "%s = %s".formatted(probe, index);
         }
     }
 }

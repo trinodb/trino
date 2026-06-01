@@ -60,7 +60,6 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryAssertions.assertEventually;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static io.trino.tests.product.utils.SchemaRegistryClientUtils.getSchemaRegistryClient;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -96,7 +95,7 @@ public class TestKafkaAvroReadsSmokeTest
         assertEventually(
                 new Duration(30, SECONDS),
                 () -> {
-                    QueryResult queryResult = onTrino().executeQuery(format("select * from %s.%s", kafkaCatalog.catalogName(), KAFKA_SCHEMA + "." + topicName));
+                    QueryResult queryResult = onTrino().executeQuery("select * from %s.%s".formatted(kafkaCatalog.catalogName(), KAFKA_SCHEMA + "." + topicName));
                     assertThat(queryResult).containsOnly(row(
                             "foobar",
                             127,
@@ -114,7 +113,7 @@ public class TestKafkaAvroReadsSmokeTest
         assertEventually(
                 new Duration(30, SECONDS),
                 () -> {
-                    QueryResult queryResult = onTrino().executeQuery(format("select * from %s.%s", kafkaCatalog.catalogName(), KAFKA_SCHEMA + "." + topicName));
+                    QueryResult queryResult = onTrino().executeQuery("select * from %s.%s".formatted(kafkaCatalog.catalogName(), KAFKA_SCHEMA + "." + topicName));
                     assertThat(queryResult).containsOnly(row(
                             null,
                             null,
@@ -135,8 +134,7 @@ public class TestKafkaAvroReadsSmokeTest
         assertEventually(
                 new Duration(30, SECONDS),
                 () -> {
-                    QueryResult queryResult = onTrino().executeQuery(format(
-                            "SELECT a[1], a[2], m['key1'] FROM (SELECT %s as a, %s as m FROM %s.%s) t",
+                    QueryResult queryResult = onTrino().executeQuery("SELECT a[1], a[2], m['key1'] FROM (SELECT %s as a, %s as m FROM %s.%s) t".formatted(
                             kafkaCatalog.columnMappingSupported() ? "c_array" : "a_array",
                             kafkaCatalog.columnMappingSupported() ? "c_map" : "a_map",
                             kafkaCatalog.catalogName(),
@@ -205,7 +203,7 @@ public class TestKafkaAvroReadsSmokeTest
         assertEventually(
                 new Duration(30, SECONDS),
                 () -> {
-                    QueryResult queryResult = onTrino().executeQuery(format("select reference.a_varchar, reference.a_double from kafka_schema_registry.%s.%s", KAFKA_SCHEMA, AVRO_SCHEMA_WITH_REFERENCES_TOPIC_NAME));
+                    QueryResult queryResult = onTrino().executeQuery("select reference.a_varchar, reference.a_double from kafka_schema_registry.%s.%s".formatted(KAFKA_SCHEMA, AVRO_SCHEMA_WITH_REFERENCES_TOPIC_NAME));
                     assertThat(queryResult).containsOnly(row(
                             "foobar",
                             234.567));

@@ -23,7 +23,6 @@ import org.bson.Document;
 import java.util.List;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class MongoCreateAndInsertDataSetup
@@ -61,7 +60,7 @@ public final class MongoCreateAndInsertDataSetup
         int i = 0;
         StringBuilder json = new StringBuilder("{");
         for (ColumnSetup columnSetup : inputs) {
-            json.append(format("col_%d: ", i++));
+            json.append("col_%d: ".formatted(i++));
             json.append(columnSetup.getInputLiteral());
             if (i != inputs.size()) {
                 json.append(",");

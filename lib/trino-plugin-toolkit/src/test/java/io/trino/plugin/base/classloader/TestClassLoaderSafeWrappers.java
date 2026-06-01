@@ -38,7 +38,6 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
-import static java.lang.String.format;
 import static org.assertj.core.api.Fail.fail;
 
 public class TestClassLoaderSafeWrappers
@@ -83,10 +82,10 @@ public class TestClassLoaderSafeWrappers
             }
             Method implementation = clazz.getDeclaredMethod(method.getName(), method.getParameterTypes());
             if (Stream.class.isAssignableFrom(implementation.getReturnType())) {
-                fail(format("Method %s returns a Stream, breaks class-loader safety", method));
+                fail("Method %s returns a Stream, breaks class-loader safety".formatted(method));
             }
             if (Iterator.class.isAssignableFrom(implementation.getReturnType()) && !ClassLoaderSafeIterator.class.isAssignableFrom(implementation.getReturnType())) {
-                fail(format("Method %s returns an Iterator (but not ClassLoaderSafeIterator), breaks class-loader safety", method));
+                fail("Method %s returns an Iterator (but not ClassLoaderSafeIterator), breaks class-loader safety".formatted(method));
             }
         }
     }

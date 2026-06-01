@@ -26,7 +26,7 @@ public class Failure
 
     Failure(ExecutionFailureInfo failureInfo)
     {
-        super(failureInfo.message(), failureInfo.cause() == null ? null : new Failure(failureInfo.cause()));
+        super(failureInfo.message(), null);
         this.failureInfo = failureInfo;
 
         for (ExecutionFailureInfo suppressed : failureInfo.suppressed()) {

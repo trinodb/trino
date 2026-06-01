@@ -21,7 +21,6 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -164,34 +163,32 @@ public abstract class BaseSharedMetastoreTest
             throws InterruptedException
     {
         try {
-            assertUpdate(format("CREATE TABLE iceberg.%s.nation_test AS SELECT * FROM nation", testSchema), 25);
+            assertUpdate("CREATE TABLE iceberg.%s.nation_test AS SELECT * FROM nation".formatted(testSchema), 25);
             assertQuery("SELECT * FROM hive_with_redirections." + testSchema + ".nation_test", "SELECT * FROM nation");
             long snapshot1 = getLatestSnapshotId(testSchema);
             long v1EpochMillis = getCommittedAtInEpochMilliSeconds(snapshot1, testSchema);
             Thread.sleep(1);
-            assertUpdate(format("INSERT INTO hive_with_redirections.%s.nation_test VALUES(25, 'POLAND', 3, 'test 1')", testSchema), 1);
+            assertUpdate("INSERT INTO hive_with_redirections.%s.nation_test VALUES(25, 'POLAND', 3, 'test 1')".formatted(testSchema), 1);
             long snapshot2 = getLatestSnapshotId(testSchema);
             long v2EpochMillis = getCommittedAtInEpochMilliSeconds(snapshot2, testSchema);
             Thread.sleep(1);
-            assertUpdate(format("INSERT INTO hive_with_redirections.%s.nation_test VALUES(26, 'CHILE', 1, 'test 2')", testSchema), 1);
+            assertUpdate("INSERT INTO hive_with_redirections.%s.nation_test VALUES(26, 'CHILE', 1, 'test 2')".formatted(testSchema), 1);
             long snapshot3 = getLatestSnapshotId(testSchema);
             long v3EpochMillis = getCommittedAtInEpochMilliSeconds(snapshot3, testSchema);
             long incorrectSnapshot = 2324324333L;
             Thread.sleep(1);
-            assertQuery(format("SELECT * FROM hive_with_redirections.%s.nation_test FOR VERSION AS OF %d", testSchema, snapshot1), "SELECT * FROM nation");
-            assertQuery(format("SELECT * FROM hive_with_redirections.%s.nation_test FOR TIMESTAMP AS OF %s", testSchema, timestampLiteral(v1EpochMillis)), "SELECT * FROM nation");
-            assertQuery(format("SELECT count(*) FROM hive_with_redirections.%s.nation_test FOR VERSION AS OF %d", testSchema, snapshot2), "VALUES(26)");
-            assertQuery(format(
-                    "SELECT count(*) FROM iceberg_with_redirections.%s.nation_test FOR TIMESTAMP AS OF %s", testSchema, timestampLiteral(v2EpochMillis)), "VALUES(26)");
-            assertQuery(format("SELECT count(*) FROM hive_with_redirections.%s.nation_test FOR VERSION AS OF %d", testSchema, snapshot3), "VALUES(27)");
-            assertQuery(format(
-                    "SELECT count(*) FROM hive_with_redirections.%s.nation_test FOR TIMESTAMP AS OF %s", testSchema, timestampLiteral(v3EpochMillis)), "VALUES(27)");
-            assertQueryFails(format("SELECT * FROM hive_with_redirections.%s.nation_test FOR VERSION AS OF %d", testSchema, incorrectSnapshot), "Iceberg snapshot ID does not exists: " + incorrectSnapshot);
+            assertQuery("SELECT * FROM hive_with_redirections.%s.nation_test FOR VERSION AS OF %d".formatted(testSchema, snapshot1), "SELECT * FROM nation");
+            assertQuery("SELECT * FROM hive_with_redirections.%s.nation_test FOR TIMESTAMP AS OF %s".formatted(testSchema, timestampLiteral(v1EpochMillis)), "SELECT * FROM nation");
+            assertQuery("SELECT count(*) FROM hive_with_redirections.%s.nation_test FOR VERSION AS OF %d".formatted(testSchema, snapshot2), "VALUES(26)");
+            assertQuery("SELECT count(*) FROM iceberg_with_redirections.%s.nation_test FOR TIMESTAMP AS OF %s".formatted(testSchema, timestampLiteral(v2EpochMillis)), "VALUES(26)");
+            assertQuery("SELECT count(*) FROM hive_with_redirections.%s.nation_test FOR VERSION AS OF %d".formatted(testSchema, snapshot3), "VALUES(27)");
+            assertQuery("SELECT count(*) FROM hive_with_redirections.%s.nation_test FOR TIMESTAMP AS OF %s".formatted(testSchema, timestampLiteral(v3EpochMillis)), "VALUES(27)");
+            assertQueryFails("SELECT * FROM hive_with_redirections.%s.nation_test FOR VERSION AS OF %d".formatted(testSchema, incorrectSnapshot), "Iceberg snapshot ID does not exists: " + incorrectSnapshot);
             assertQueryFails(
-                    format("SELECT * FROM hive_with_redirections.%s.nation_test FOR TIMESTAMP AS OF TIMESTAMP '1970-01-01 00:00:00.001000000 Z'", testSchema),
-                    format("\\QNo version history table \"%s\".\"nation_test\" at or before 1970-01-01T00:00:00.001Z", testSchema));
+                    "SELECT * FROM hive_with_redirections.%s.nation_test FOR TIMESTAMP AS OF TIMESTAMP '1970-01-01 00:00:00.001000000 Z'".formatted(testSchema),
+                    "\\QNo version history table \"%s\".\"nation_test\" at or before 1970-01-01T00:00:00.001Z".formatted(testSchema));
             assertQueryFails(
-                    format("SELECT * FROM iceberg_with_redirections.%s.region FOR TIMESTAMP AS OF TIMESTAMP '1970-01-01 00:00:00.001000000 Z'", tpchSchema),
+                    "SELECT * FROM iceberg_with_redirections.%s.region FOR TIMESTAMP AS OF TIMESTAMP '1970-01-01 00:00:00.001000000 Z'".formatted(tpchSchema),
                     "\\QThis connector does not support versioned tables");
         }
         finally {
@@ -308,12 +305,12 @@ public abstract class BaseSharedMetastoreTest
 
     private long getLatestSnapshotId(String schema)
     {
-        return (long) computeScalar(format("SELECT snapshot_id FROM iceberg.%s.\"nation_test$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", schema));
+        return (long) computeScalar("SELECT snapshot_id FROM iceberg.%s.\"nation_test$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES".formatted(schema));
     }
 
     private long getCommittedAtInEpochMilliSeconds(long snapshotId, String schema)
     {
-        return ((ZonedDateTime) computeScalar(format("SELECT committed_at FROM iceberg.%s.\"nation_test$snapshots\" WHERE snapshot_id=%s", schema, snapshotId)))
+        return ((ZonedDateTime) computeScalar("SELECT committed_at FROM iceberg.%s.\"nation_test$snapshots\" WHERE snapshot_id=%s".formatted(schema, snapshotId)))
                 .toInstant().toEpochMilli();
     }
 

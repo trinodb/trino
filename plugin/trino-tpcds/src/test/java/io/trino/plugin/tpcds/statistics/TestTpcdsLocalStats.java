@@ -24,6 +24,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.Map;
+
 import static io.trino.SystemSessionProperties.COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.statistics.MetricComparisonStrategies.absoluteError;
@@ -32,7 +34,6 @@ import static io.trino.testing.statistics.MetricComparisonStrategies.noError;
 import static io.trino.testing.statistics.MetricComparisonStrategies.relativeError;
 import static io.trino.testing.statistics.Metrics.OUTPUT_ROW_COUNT;
 import static io.trino.testing.statistics.Metrics.distinctValuesCount;
-import static java.util.Collections.emptyMap;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -54,7 +55,7 @@ public class TestTpcdsLocalStats
 
         QueryRunner queryRunner = new StandaloneQueryRunner(defaultSession);
         queryRunner.installPlugin(new TpcdsPlugin());
-        queryRunner.createCatalog("tpcds", "tpcds", emptyMap());
+        queryRunner.createCatalog("tpcds", "tpcds", Map.of());
         statisticsAssertion = new StatisticsAssertion(queryRunner);
     }
 

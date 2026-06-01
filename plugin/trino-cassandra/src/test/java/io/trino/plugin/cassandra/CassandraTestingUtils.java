@@ -33,7 +33,6 @@ import java.util.UUID;
 
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.literal;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public final class CassandraTestingUtils
@@ -98,8 +97,8 @@ public final class CassandraTestingUtils
                 " key int PRIMARY KEY, " +
                 " typetuple frozen<tuple<int, text, float>>" +
                 ")");
-        session.execute(format("INSERT INTO %s (key, typetuple) VALUES (1, (1, 'text-1', 1.11))", table));
-        session.execute(format("INSERT INTO %s (key, typetuple) VALUES (2, (2, 'text-2', 2.22))", table));
+        session.execute("INSERT INTO %s (key, typetuple) VALUES (1, (1, 'text-1', 1.11))".formatted(table));
+        session.execute("INSERT INTO %s (key, typetuple) VALUES (2, (2, 'text-2', 2.22))".formatted(table));
 
         assertThat(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0)).isEqualTo(2);
     }
@@ -110,10 +109,10 @@ public final class CassandraTestingUtils
         String nestedTypeName = "type_nested_user_defined";
 
         session.execute("DROP TABLE IF EXISTS " + table);
-        session.execute(format("DROP TYPE IF EXISTS %s.%s", table.getSchemaName(), typeName));
+        session.execute("DROP TYPE IF EXISTS %s.%s".formatted(table.getSchemaName(), typeName));
 
-        session.execute(format("CREATE TYPE %s.%s (nestedinteger int)", table.getSchemaName(), nestedTypeName));
-        session.execute(format("CREATE TYPE %s.%s (" +
+        session.execute("CREATE TYPE %s.%s (nestedinteger int)".formatted(table.getSchemaName(), nestedTypeName));
+        session.execute(("CREATE TYPE %s.%s (" +
                 "typetext text, " +
                 "typeuuid uuid, " +
                 "typeinteger int, " +
@@ -134,14 +133,14 @@ public final class CassandraTestingUtils
                 "typeset frozen <set<boolean>>, " +
                 "typetuple frozen <tuple<int>>, " +
                 "typenestedudt frozen <%s> " +
-                ")", table.getSchemaName(), typeName, nestedTypeName));
+                ")").formatted(table.getSchemaName(), typeName, nestedTypeName));
 
-        session.execute(format("CREATE TABLE %s (" +
+        session.execute(("CREATE TABLE %s (" +
                 "key text PRIMARY KEY, " +
                 "typeudt frozen <%s>, " +
-                ")", table, typeName));
+                ")").formatted(table, typeName));
 
-        session.execute(format("INSERT INTO %s (key, typeudt) VALUES (" +
+        session.execute(("INSERT INTO %s (key, typeudt) VALUES (" +
                 "'key'," +
                 "{ " +
                 "typetext: 'text', " +
@@ -165,7 +164,7 @@ public final class CassandraTestingUtils
                 "typetuple: (123), " +
                 "typenestedudt: {nestedinteger: 999} " +
                 "}" +
-                ");", table));
+                ");").formatted(table));
 
         assertThat(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0)).isEqualTo(1);
     }
@@ -175,7 +174,7 @@ public final class CassandraTestingUtils
         for (int rowNumber = 1; rowNumber <= rowsCount; rowNumber++) {
             SimpleStatement insert = QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
                     .value("key", literal("key " + rowNumber))
-                    .value("typeuuid", literal(UUID.fromString(format("00000000-0000-0000-0000-%012d", rowNumber))))
+                    .value("typeuuid", literal(UUID.fromString("00000000-0000-0000-0000-%012d".formatted(rowNumber))))
                     .value("typetinyint", literal(rowNumber))
                     .value("typesmallint", literal(rowNumber))
                     .value("typeinteger", literal(rowNumber))
@@ -191,7 +190,7 @@ public final class CassandraTestingUtils
                     .value("typeinet", literal(InetAddresses.forString("127.0.0.1")))
                     .value("typevarchar", literal("varchar " + rowNumber))
                     .value("typevarint", literal(BigInteger.TEN.pow(rowNumber)))
-                    .value("typetimeuuid", literal(UUID.fromString(format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber))))
+                    .value("typetimeuuid", literal(UUID.fromString("d2177dd0-eaa2-11de-a572-001b779c76e%d".formatted(rowNumber))))
                     .value("typelist", literal(ImmutableList.of("list-value-1" + rowNumber, "list-value-2" + rowNumber)))
                     .value("typemap", literal(ImmutableMap.of(rowNumber, rowNumber + 1L, rowNumber + 2, rowNumber + 3L)))
                     .value("typeset", literal(ImmutableSet.of(false, true)))

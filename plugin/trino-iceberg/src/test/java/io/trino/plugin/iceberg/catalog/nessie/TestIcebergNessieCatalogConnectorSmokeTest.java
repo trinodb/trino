@@ -49,7 +49,6 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static org.apache.iceberg.CatalogProperties.CATALOG_IMPL;
 import static org.apache.iceberg.CatalogProperties.URI;
 import static org.apache.iceberg.CatalogProperties.WAREHOUSE_LOCATION;
@@ -401,7 +400,7 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
     @Override
     protected String schemaPath()
     {
-        return format("%s/%s", tempDir, getSession().getSchema().orElseThrow());
+        return "%s/%s".formatted(tempDir, getSession().getSchema().orElseThrow());
     }
 
     @Override

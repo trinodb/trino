@@ -99,7 +99,6 @@ import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.floorDiv;
-import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Objects.requireNonNull;
 
@@ -398,7 +397,7 @@ public class CheckpointEntryIterator
         if (fieldCount < minProtocolFields || fieldCount > maxProtocolFields) {
             throw new TrinoException(
                     DELTA_LAKE_INVALID_SCHEMA,
-                    format("Expected block %s to have between %d and %d children, but found %s", block, minProtocolFields, maxProtocolFields, fieldCount));
+                    "Expected block %s to have between %d and %d children, but found %s".formatted(block, minProtocolFields, maxProtocolFields, fieldCount));
         }
 
         CheckpointFieldReader protocol = new CheckpointFieldReader(protocolEntryRow, type);
@@ -426,13 +425,13 @@ public class CheckpointEntryIterator
         if (metadataEntryRow.getFieldCount() != metadataFields) {
             throw new TrinoException(
                     DELTA_LAKE_INVALID_SCHEMA,
-                    format("Expected block %s to have %d children, but found %s", block, metadataFields, metadataEntryRow.getFieldCount()));
+                    "Expected block %s to have %d children, but found %s".formatted(block, metadataFields, metadataEntryRow.getFieldCount()));
         }
         SqlRow formatRow = metadata.getRow("format");
         if (formatRow.getFieldCount() != formatFields) {
             throw new TrinoException(
                     DELTA_LAKE_INVALID_SCHEMA,
-                    format("Expected block %s to have %d children, but found %s", formatRow, formatFields, formatRow.getFieldCount()));
+                    "Expected block %s to have %d children, but found %s".formatted(formatRow, formatFields, formatRow.getFieldCount()));
         }
 
         RowType.Field formatField = type.getFields().stream().filter(field -> field.getName().orElseThrow().equals("format")).collect(onlyElement());
@@ -465,7 +464,7 @@ public class CheckpointEntryIterator
         if (removeEntryRow.getFieldCount() != removeFields) {
             throw new TrinoException(
                     DELTA_LAKE_INVALID_SCHEMA,
-                    format("Expected block %s to have %d children, but found %s", block, removeFields, removeEntryRow.getFieldCount()));
+                    "Expected block %s to have %d children, but found %s".formatted(block, removeFields, removeEntryRow.getFieldCount()));
         }
         CheckpointFieldReader remove = new CheckpointFieldReader(removeEntryRow, type);
         Optional<DeletionVectorEntry> deletionVector = Optional.empty();
@@ -494,7 +493,7 @@ public class CheckpointEntryIterator
         if (sidecarEntryRow.getFieldCount() != sidecarFields) {
             throw new TrinoException(
                     DELTA_LAKE_INVALID_SCHEMA,
-                    format("Expected block %s to have %d children, but found %s", block, sidecarFields, sidecarEntryRow.getFieldCount()));
+                    "Expected block %s to have %d children, but found %s".formatted(block, sidecarFields, sidecarEntryRow.getFieldCount()));
         }
         RowType type = sidecarType.orElseThrow();
         CheckpointFieldReader sidecar = new CheckpointFieldReader(sidecarEntryRow, type);
@@ -679,7 +678,7 @@ public class CheckpointEntryIterator
         if (txnEntryRow.getFieldCount() != txnFields) {
             throw new TrinoException(
                     DELTA_LAKE_INVALID_SCHEMA,
-                    format("Expected block %s to have %d children, but found %s", block, txnFields, txnEntryRow.getFieldCount()));
+                    "Expected block %s to have %d children, but found %s".formatted(block, txnFields, txnEntryRow.getFieldCount()));
         }
         CheckpointFieldReader txn = new CheckpointFieldReader(txnEntryRow, type);
         TransactionEntry result = new TransactionEntry(
@@ -730,7 +729,7 @@ public class CheckpointEntryIterator
             int requiredExtractorChannels = extractors.size();
             if (page.getChannelCount() != requiredExtractorChannels) {
                 throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA,
-                        format("Expected page in %s to contain %d channels, but found %d",
+                        "Expected page in %s to contain %d channels, but found %d".formatted(
                                 checkpointPath,
                                 requiredExtractorChannels,
                                 page.getChannelCount()));

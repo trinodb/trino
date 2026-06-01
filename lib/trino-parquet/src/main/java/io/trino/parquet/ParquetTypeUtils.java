@@ -44,7 +44,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VariantType.VARIANT;
-import static java.lang.String.format;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;
 
@@ -256,8 +255,7 @@ public final class ParquetTypeUtils
         byte expectedValue = (byte) (bytes[endOffset] >> 7);
         for (int i = offset; i < endOffset; i++) {
             if (bytes[i] != expectedValue) {
-                throw new TrinoException(NOT_SUPPORTED, format(
-                        "Could not read unscaled value %s into a short decimal from column %s",
+                throw new TrinoException(NOT_SUPPORTED, "Could not read unscaled value %s into a short decimal from column %s".formatted(
                         new BigInteger(bytes, offset, length + Long.BYTES),
                         descriptor));
             }
@@ -350,7 +348,7 @@ public final class ParquetTypeUtils
             //      2. repeated binary colors (STRING);
             if (columnIO instanceof PrimitiveColumnIO primitiveColumnIO) {
                 if (columnIO.getType().getRepetition() != REPEATED || repetitionLevel == 0 || definitionLevel == 0) {
-                    throw new TrinoException(NOT_SUPPORTED, format("Unsupported schema for Parquet column (%s)", primitiveColumnIO.getColumnDescriptor()));
+                    throw new TrinoException(NOT_SUPPORTED, "Unsupported schema for Parquet column (%s)".formatted(primitiveColumnIO.getColumnDescriptor()));
                 }
                 PrimitiveField primitiveFieldElement = new PrimitiveField(arrayType.getElementType(), true, primitiveColumnIO.getColumnDescriptor(), primitiveColumnIO.getId());
                 return Optional.of(new GroupField(type, repetitionLevel - 1, definitionLevel - 1, true, ImmutableList.of(Optional.of(primitiveFieldElement))));
@@ -364,7 +362,7 @@ public final class ParquetTypeUtils
         }
         PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
         if (primitiveColumnIO.getType().getRepetition() == REPEATED && isTopLevel) {
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, primitiveColumnIO.getColumnDescriptor()));
+            throw new TrinoException(NOT_SUPPORTED, "Unsupported Trino column type (%s) for Parquet column (%s)".formatted(type, primitiveColumnIO.getColumnDescriptor()));
         }
         return Optional.of(new PrimitiveField(type, required, primitiveColumnIO.getColumnDescriptor(), primitiveColumnIO.getId()));
     }

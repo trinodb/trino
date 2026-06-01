@@ -37,7 +37,6 @@ import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.CacheOperati
 import static io.trino.plugin.deltalake.DeltaLakeAlluxioCacheTestUtils.getCacheOperations;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
-import static java.lang.String.format;
 
 @Execution(ExecutionMode.SAME_THREAD)
 public class TestDeltaLakeAlluxioCacheFileOperations
@@ -71,7 +70,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
     private void registerTable(String name, String resourcePath)
     {
         String dataPath = getResourceLocation(resourcePath).toExternalForm();
-        getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", name, dataPath));
+        getQueryRunner().execute("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(name, dataPath));
     }
 
     @Test
@@ -542,7 +541,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
     {
         String dataPath = getResourceLocation("deltalake/v2_checkpoint_json").toExternalForm();
         assertFileSystemAccesses(
-                format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", "v2_checkpoint_json", dataPath),
+                "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted("v2_checkpoint_json", dataPath),
                 ImmutableMultiset.<CacheOperation>builder()
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.73a4ddb8-2bfc-40d8-b09f-1b6a0abdfb04.json", 0, 765))
                         .add(new CacheOperation("Alluxio.writeCache", "00000000000000000001.checkpoint.73a4ddb8-2bfc-40d8-b09f-1b6a0abdfb04.json", 0, 765))
@@ -588,7 +587,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
     {
         String dataPath = getResourceLocation("deltalake/v2_checkpoint_parquet").toExternalForm();
         assertFileSystemAccesses(
-                format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", "v2_checkpoint_parquet", dataPath),
+                "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted("v2_checkpoint_parquet", dataPath),
                 ImmutableMultiset.<CacheOperation>builder()
                         .add(new CacheOperation("InputFile.length", "00000000000000000002.json"))
                         .add(new CacheOperation("InputFile.newStream", "_last_checkpoint"))

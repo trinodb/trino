@@ -48,7 +48,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.fs.FileSystem.getFileSystemClass;
@@ -124,7 +123,7 @@ public class TrinoFileSystemCache
                     // ConcurrentHashMap.compute guarantees that remapping function is invoked at most once, so cacheSize remains eventually consistent with cache.size()
                     if (cacheSize.getAndUpdate(currentSize -> Math.min(currentSize + 1, maxSize)) >= maxSize) {
                         throw new RuntimeException(
-                                new IOException(format("FileSystem max cache size has been reached: %s", maxSize)));
+                                new IOException("FileSystem max cache size has been reached: %s".formatted(maxSize)));
                     }
                     return new FileSystemHolder(conf, privateCredentials);
                 }

@@ -39,7 +39,6 @@ import java.util.Optional;
 import static io.trino.plugin.kafka.KafkaErrorCode.KAFKA_SCHEMA_ERROR;
 import static io.trino.plugin.kafka.encoder.KafkaFieldType.KEY;
 import static io.trino.plugin.kafka.encoder.KafkaFieldType.MESSAGE;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class KafkaPageSinkProvider
@@ -81,7 +80,7 @@ public class KafkaPageSinkProvider
         ImmutableList.Builder<EncoderColumnHandle> messageColumns = ImmutableList.builder();
         handle.columns().forEach(col -> {
             if (col.isInternal()) {
-                throw new IllegalArgumentException(format("unexpected internal column '%s'", col.getName()));
+                throw new IllegalArgumentException("unexpected internal column '%s'".formatted(col.getName()));
             }
             if (col.isKeyCodec()) {
                 keyColumns.add(col);
@@ -123,7 +122,7 @@ public class KafkaPageSinkProvider
                 return Files.readString(Path.of(location));
             }
             catch (IOException e) {
-                throw new TrinoException(KAFKA_SCHEMA_ERROR, format("Unable to read data schema at '%s'", location), e);
+                throw new TrinoException(KAFKA_SCHEMA_ERROR, "Unable to read data schema at '%s'".formatted(location), e);
             }
         });
     }

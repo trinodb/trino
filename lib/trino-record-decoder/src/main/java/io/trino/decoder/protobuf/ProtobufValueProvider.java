@@ -64,7 +64,6 @@ import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Float.floatToIntBits;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ProtobufValueProvider
@@ -97,7 +96,7 @@ public class ProtobufValueProvider
         if (value instanceof Double || value instanceof Float) {
             return ((Number) value).doubleValue();
         }
-        throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), columnType, columnName));
+        throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, "cannot decode object of '%s' as '%s' for column '%s'".formatted(value.getClass(), columnType, columnName));
     }
 
     @Override
@@ -107,7 +106,7 @@ public class ProtobufValueProvider
         if (value instanceof Boolean booleanValue) {
             return booleanValue;
         }
-        throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), columnType, columnName));
+        throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, "cannot decode object of '%s' as '%s' for column '%s'".formatted(value.getClass(), columnType, columnName));
     }
 
     @Override
@@ -127,7 +126,7 @@ public class ProtobufValueProvider
             checkArgument(columnType instanceof TimestampType, "type should be an instance of Timestamp");
             return parseTimestamp(((TimestampType) columnType).getPrecision(), dynamicMessage);
         }
-        throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), columnType, columnName));
+        throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, "cannot decode object of '%s' as '%s' for column '%s'".formatted(value.getClass(), columnType, columnName));
     }
 
     @Override
@@ -157,7 +156,7 @@ public class ProtobufValueProvider
             return (Slice) value;
         }
 
-        throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), type, columnName));
+        throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, "cannot decode object of '%s' as '%s' for column '%s'".formatted(value.getClass(), type, columnName));
     }
 
     @Nullable
@@ -243,7 +242,7 @@ public class ProtobufValueProvider
             return;
         }
 
-        throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), type, columnName));
+        throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, "cannot decode object of '%s' as '%s' for column '%s'".formatted(value.getClass(), type, columnName));
     }
 
     @Nullable

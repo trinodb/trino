@@ -44,6 +44,7 @@ import io.trino.sql.planner.plan.WindowNode;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
@@ -87,7 +88,6 @@ import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.type.JsonType.JSON;
-import static java.util.Collections.singletonList;
 
 public class TestPushDownDereferencesRules
         extends BaseRuleTest
@@ -573,7 +573,7 @@ public class TestPushDownDereferencesRules
                                         .put("msg3_x", expression(new Reference(BIGINT, "expr")))
                                         .buildOrThrow(),
                                 topNRanking(
-                                        pattern -> pattern.specification(singletonList("msg1"), singletonList("msg2"), ImmutableMap.of("msg2", ASC_NULLS_FIRST)),
+                                        pattern -> pattern.specification(List.of("msg1"), List.of("msg2"), ImmutableMap.of("msg2", ASC_NULLS_FIRST)),
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                                         .put("expr", expression(new FieldReference(new Reference(ROW_TYPE, "msg3"), 0)))
@@ -666,8 +666,8 @@ public class TestPushDownDereferencesRules
                                         .buildOrThrow(),
                                 window(
                                         windowMatcherBuilder -> windowMatcherBuilder
-                                                .specification(singletonList("msg1"), singletonList("msg2"), ImmutableMap.of("msg2", SortOrder.ASC_NULLS_FIRST))
-                                                .addFunction(windowFunction("min", singletonList("msg3"), DEFAULT_FRAME)),
+                                                .specification(List.of("msg1"), List.of("msg2"), ImmutableMap.of("msg2", SortOrder.ASC_NULLS_FIRST))
+                                                .addFunction(windowFunction("min", List.of("msg3"), DEFAULT_FRAME)),
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                                         .put("msg1", expression(new Reference(ROW_TYPE, "msg1")))
@@ -718,7 +718,7 @@ public class TestPushDownDereferencesRules
                                         .build(),
                                 p.markDistinct(
                                         p.symbol("is_distinct", BOOLEAN),
-                                        singletonList(p.symbol("msg2", ROW_TYPE)),
+                                        List.of(p.symbol("msg2", ROW_TYPE)),
                                         p.values(p.symbol("msg1", ROW_TYPE), p.symbol("msg2", ROW_TYPE)))))
                 .matches(
                         strictProject(
@@ -727,7 +727,7 @@ public class TestPushDownDereferencesRules
                                         "msg2_x", expression(new FieldReference(new Reference(ROW_TYPE, "msg2"), 0))),   // not pushed down because used in markDistinct
                                 markDistinct(
                                         "is_distinct",
-                                        singletonList("msg2"),
+                                        List.of("msg2"),
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                                         .put("msg1", expression(new Reference(ROW_TYPE, "msg1")))

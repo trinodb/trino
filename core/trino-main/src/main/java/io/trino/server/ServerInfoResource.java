@@ -36,7 +36,6 @@ import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_WR
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @Path("/v1/info")
@@ -102,7 +101,7 @@ public class ServerInfoResource
             return Response.ok().build();
         }
         catch (IllegalStateException e) {
-            throw new BadRequestException(format("Invalid state transition to %s", state));
+            throw new BadRequestException("Invalid state transition to %s".formatted(state));
         }
     }
 

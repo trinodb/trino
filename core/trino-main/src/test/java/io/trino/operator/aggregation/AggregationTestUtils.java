@@ -41,7 +41,6 @@ import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
 
@@ -145,9 +144,9 @@ public final class AggregationTestUtils
         if (!isEqual.apply(actualValue, expectedValue)) {
             StringBuilder sb = new StringBuilder();
             if (testDescription != null) {
-                sb.append(format("Test: %s, ", testDescription));
+                sb.append("Test: %s, ".formatted(testDescription));
             }
-            sb.append(format("Expected: %s, actual: %s", expectedValue, actualValue));
+            sb.append("Expected: %s, actual: %s".formatted(expectedValue, actualValue));
             fail(sb.toString());
         }
     }

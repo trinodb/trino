@@ -37,6 +37,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.URI;
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
@@ -45,7 +46,6 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.testing.TestingSession.testSession;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
-import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -136,7 +136,7 @@ public class TestSetPathTask
         getFutureValue(new SetPathTask(metadata).execute(
                 new SetPath(new NodeLocation(1, 1), pathSpecification),
                 stateMachine,
-                emptyList(),
+                List.of(),
                 WarningCollector.NOOP));
     }
 }

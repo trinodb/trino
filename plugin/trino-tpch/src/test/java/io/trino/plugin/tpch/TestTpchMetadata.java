@@ -66,7 +66,6 @@ import static io.trino.tpch.TpchTable.PART;
 import static io.trino.tpch.TpchTable.PART_SUPPLIER;
 import static io.trino.tpch.TpchTable.REGION;
 import static io.trino.tpch.TpchTable.SUPPLIER;
-import static java.lang.String.format;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -401,7 +400,7 @@ public class TestTpchMetadata
     private void assertTupleDomainEquals(TupleDomain<?> actual, TupleDomain<?> expected)
     {
         if (!Objects.equals(actual, expected)) {
-            throw new AssertionError(format("expected [%s] but found [%s]", expected.toString(), actual.toString()));
+            throw new AssertionError("expected [%s] but found [%s]".formatted(expected.toString(), actual.toString()));
         }
     }
 

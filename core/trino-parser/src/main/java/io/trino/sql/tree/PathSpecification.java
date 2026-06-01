@@ -13,13 +13,13 @@
  */
 package io.trino.sql.tree;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public final class PathSpecification
         extends Node
@@ -71,6 +71,6 @@ public final class PathSpecification
     @Override
     public String toString()
     {
-        return Joiner.on(", ").join(path);
+        return path.stream().map(Object::toString).collect(joining(", "));
     }
 }

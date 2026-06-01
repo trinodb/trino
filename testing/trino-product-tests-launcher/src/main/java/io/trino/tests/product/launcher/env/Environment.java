@@ -20,7 +20,6 @@ import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Ulimit;
-import com.google.common.base.Joiner;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -74,7 +73,6 @@ import static io.trino.tests.product.launcher.env.EnvironmentListener.compose;
 import static io.trino.tests.product.launcher.env.EnvironmentListener.printStartupLogs;
 import static io.trino.tests.product.launcher.env.Environments.pruneEnvironment;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
-import static java.lang.String.format;
 import static java.lang.System.getenv;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Duration.ofMinutes;
@@ -82,6 +80,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.function.UnaryOperator.identity;
+import static java.util.stream.Collectors.joining;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public final class Environment
@@ -167,14 +166,13 @@ public final class Environment
 
             ConsoleTable table = new ConsoleTable();
             table.addHeader("container", "name", "image", "startup", "ports");
-            Joiner joiner = Joiner.on(", ");
 
             containers.forEach(container -> table.addRow(
                     container.getLogicalName(),
                     container.getContainerName().substring(1), // first char is always slash
                     container.getDockerImageName(),
                     container.getStartupTime(),
-                    joiner.join(container.getExposedPorts())));
+                    container.getExposedPorts().stream().map(Object::toString).collect(joining(", "))));
             table.addSeparator();
 
             log.info("Started environment %s with containers:\n%s", name, table.render());
@@ -674,7 +672,7 @@ public final class Environment
 
         private static Consumer<OutputFrame> printContainerLogs(PrintStream output, DockerContainer container)
         {
-            return new PrintingLogConsumer(output, format("%-20s| ", container.getLogicalName()));
+            return new PrintingLogConsumer(output, "%-20s| ".formatted(container.getLogicalName()));
         }
 
         private static Consumer<OutputFrame> discardContainerLogs(DockerContainer container)

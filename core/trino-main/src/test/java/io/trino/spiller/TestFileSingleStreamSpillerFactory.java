@@ -47,7 +47,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
 import static io.trino.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
 import static java.nio.file.Files.setPosixFilePermissions;
-import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
@@ -161,7 +160,7 @@ public class TestFileSingleStreamSpillerFactory
     @Test
     public void throwIfNoSpillPaths()
     {
-        List<Path> spillPaths = emptyList();
+        List<Path> spillPaths = List.of();
         List<Type> types = ImmutableList.of(BIGINT);
         FileSingleStreamSpillerFactory spillerFactory = spillerFactoryFactory(spillPaths);
 

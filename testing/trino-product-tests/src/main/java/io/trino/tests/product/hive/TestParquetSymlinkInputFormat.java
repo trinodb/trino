@@ -27,7 +27,6 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -59,7 +58,7 @@ public class TestParquetSymlinkInputFormat
         String dataDir = warehouseDirectory + "/data_test_parquet_symlink";
 
         saveResourceOnHdfs("data.parquet", dataDir + "/data.parquet");
-        hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs:%s/data.parquet", dataDir));
+        hdfsClient.saveFile(tableRoot + "/symlink.txt", "hdfs:%s/data.parquet".formatted(dataDir));
         assertThat(onTrino().executeQuery("SELECT * FROM " + table)).containsExactlyInOrder(row(42));
 
         onHive().executeQuery("DROP TABLE " + table);
@@ -85,7 +84,7 @@ public class TestParquetSymlinkInputFormat
         String dataDir = warehouseDirectory + "/data_test_parquet_invalid_symlink";
 
         saveResourceOnHdfs("data.parquet", dataDir + "/data.parquet");
-        hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs:%s/data.parquet\nhdfs:%s/missingfile.parquet", dataDir, dataDir));
+        hdfsClient.saveFile(tableRoot + "/symlink.txt", "hdfs:%s/data.parquet\nhdfs:%s/missingfile.parquet".formatted(dataDir, dataDir));
         assertThatThrownBy(() -> onTrino().executeQuery("SELECT * FROM " + table))
                 .hasMessageMatching(".*Manifest file from the location \\[.*data_test_parquet_invalid_symlink\\] contains non-existent path:.*missingfile.parquet");
 
@@ -115,7 +114,7 @@ public class TestParquetSymlinkInputFormat
         saveResourceOnHdfs("data.parquet", dataDir + "/data.parquet");
         saveResourceOnHdfs("data.parquet", anotherDataDir + "/data.parquet");
         hdfsClient.saveFile(dataDir + "/dontread.txt", "This file will cause an error if read as avro.");
-        hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs:%s/data.parquet\nhdfs:%s/data.parquet", dataDir, anotherDataDir));
+        hdfsClient.saveFile(tableRoot + "/symlink.txt", "hdfs:%s/data.parquet\nhdfs:%s/data.parquet".formatted(dataDir, anotherDataDir));
         assertThat(onTrino().executeQuery("SELECT COUNT(*) as cnt FROM " + table)).containsExactlyInOrder(row(2));
 
         onHive().executeQuery("DROP TABLE " + table);

@@ -60,7 +60,6 @@ import static io.trino.type.TypeCalculation.calculateLiteralValue;
 import static io.trino.type.TypeCoercion.isCovariantTypeBase;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
@@ -501,7 +500,7 @@ public class SignatureBinder
         BindingsBuilder boundVariables = new BindingsBuilder();
         for (int i = 0; true; i++) {
             if (i == SOLVE_ITERATION_LIMIT) {
-                throw new VerifyException(format("SignatureBinder.iterativeSolve does not converge after %d iterations.", SOLVE_ITERATION_LIMIT));
+                throw new VerifyException("SignatureBinder.iterativeSolve does not converge after %d iterations.".formatted(SOLVE_ITERATION_LIMIT));
             }
             SolverReturnStatusMerger statusMerger = new SolverReturnStatusMerger();
             for (TypeConstraintSolver constraint : constraints) {

@@ -44,7 +44,6 @@ import static io.trino.plugin.pinot.PinotSessionProperties.isPreferBrokerQueries
 import static io.trino.plugin.pinot.PinotSplit.createBrokerSplit;
 import static io.trino.plugin.pinot.PinotSplit.createSegmentSplit;
 import static io.trino.spi.ErrorType.USER_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class PinotSplitManager
@@ -152,7 +151,7 @@ public class PinotSplitManager
         @Override
         public String getMessage()
         {
-            return super.getMessage() + format(" table: %s:%s", connectorId, connectorTableHandle);
+            return super.getMessage() + " table: %s:%s".formatted(connectorId, connectorTableHandle);
         }
     }
 

@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraQueryRelationHandle
@@ -41,7 +40,7 @@ public class CassandraQueryRelationHandle
     @Override
     public String toString()
     {
-        return format("Query[%s]", query);
+        return "Query[%s]".formatted(query);
     }
 
     @Override

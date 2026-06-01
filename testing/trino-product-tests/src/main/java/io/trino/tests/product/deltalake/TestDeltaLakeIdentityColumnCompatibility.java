@@ -32,7 +32,6 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumn
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTableCommentOnDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeIdentityColumnCompatibility
@@ -46,14 +45,14 @@ public class TestDeltaLakeIdentityColumnCompatibility
         String tableName = "test_identity_column_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onDelta().executeQuery(format(
+        onDelta().executeQuery(
                 """
                 CREATE TABLE default.%s (a INT, b BIGINT GENERATED ALWAYS AS IDENTITY)
                 USING DELTA LOCATION 's3://%s/%s'
-                """,
-                tableName,
-                bucketName,
-                tableDirectory));
+                """.formatted(
+                        tableName,
+                        bucketName,
+                        tableDirectory));
         try {
             onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".b IS 'test column comment'");
             assertThat(getColumnCommentOnDelta("default", tableName, "b")).isEqualTo("test column comment");

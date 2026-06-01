@@ -23,7 +23,6 @@ import java.util.function.Supplier;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
-import static java.lang.String.format;
 
 public class JsonDecoder
         implements Decoder
@@ -40,7 +39,7 @@ public class JsonDecoder
             ((VariableWidthBlockBuilder) output).writeEntry(slice);
         }
         else {
-            throw new TrinoException(TYPE_MISMATCH, format("Expected a json value of type STRING: %s [%s]", value, value.getClass().getSimpleName()));
+            throw new TrinoException(TYPE_MISMATCH, "Expected a json value of type STRING: %s [%s]".formatted(value, value.getClass().getSimpleName()));
         }
     }
 }

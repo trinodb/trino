@@ -26,7 +26,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ConfluentContentSchemaProvider
@@ -54,7 +53,7 @@ public class ConfluentContentSchemaProvider
                     .map(Object::toString);
         }
         catch (IOException | RestClientException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Could not resolve schema for the '%s' subject", subject.get()), e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Could not resolve schema for the '%s' subject".formatted(subject.get()), e);
         }
     }
 }

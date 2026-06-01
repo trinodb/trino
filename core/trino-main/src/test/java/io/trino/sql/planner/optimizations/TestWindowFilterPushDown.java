@@ -51,7 +51,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.RANK;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
-import static java.lang.String.format;
 
 public class TestWindowFilterPushDown
         extends BasePlanTest
@@ -68,8 +67,7 @@ public class TestWindowFilterPushDown
 
     private void assertLimitAbovePartitionedWindow(String rankingFunction, RankingType rankingType)
     {
-        @Language("SQL") String sql = format(
-                "SELECT %s() OVER (PARTITION BY suppkey ORDER BY orderkey) partition_row_number FROM lineitem LIMIT 10",
+        @Language("SQL") String sql = "SELECT %s() OVER (PARTITION BY suppkey ORDER BY orderkey) partition_row_number FROM lineitem LIMIT 10".formatted(
                 rankingFunction);
 
         assertPlanWithSession(
@@ -138,10 +136,9 @@ public class TestWindowFilterPushDown
 
     private void assertFilterAboveWindow(String rankingFunction, RankingType rankingType)
     {
-        @Language("SQL") String sql = format(
-                "SELECT * FROM " +
-                        "(SELECT %s() OVER (PARTITION BY suppkey ORDER BY orderkey) partition_ranking FROM lineitem) " +
-                        "WHERE partition_ranking < 10",
+        @Language("SQL") String sql = ("SELECT * FROM " +
+        "(SELECT %s() OVER (PARTITION BY suppkey ORDER BY orderkey) partition_ranking FROM lineitem) " +
+        "WHERE partition_ranking < 10").formatted(
                 rankingFunction);
 
         assertPlanWithSession(
@@ -170,7 +167,7 @@ public class TestWindowFilterPushDown
 
         // remove subplan if predicate on row number symbol can't be satisfied
         assertPlanWithSession(
-                format("SELECT * FROM (SELECT name, %s() OVER(ORDER BY name) FROM nation) t(name, ranking) WHERE ranking < 0", rankingFunction),
+                "SELECT * FROM (SELECT name, %s() OVER(ORDER BY name) FROM nation) t(name, ranking) WHERE ranking < 0".formatted(rankingFunction),
                 optimizeTopNRanking(true),
                 true,
                 output(
@@ -179,8 +176,7 @@ public class TestWindowFilterPushDown
 
         // optimize to TopNRanking on the basis of predicate; remove filter because predicate is satisfied
         assertPlanWithSession(
-                format(
-                        "SELECT * FROM (SELECT name, %s() OVER(ORDER BY name) FROM nation) t(name, ranking) WHERE ranking > 0 AND ranking < 2", rankingFunction),
+                "SELECT * FROM (SELECT name, %s() OVER(ORDER BY name) FROM nation) t(name, ranking) WHERE ranking > 0 AND ranking < 2".formatted(rankingFunction),
                 optimizeTopNRanking(true),
                 true,
                 output(
@@ -196,8 +192,7 @@ public class TestWindowFilterPushDown
 
         // optimize to TopNRanking on the basis of predicate; remove filter because predicate is satisfied
         assertPlanWithSession(
-                format(
-                        "SELECT * FROM (SELECT name, %s() OVER(ORDER BY name) FROM nation) t(name, ranking) WHERE ranking <= 1", rankingFunction),
+                "SELECT * FROM (SELECT name, %s() OVER(ORDER BY name) FROM nation) t(name, ranking) WHERE ranking <= 1".formatted(rankingFunction),
                 optimizeTopNRanking(true),
                 true,
                 output(
@@ -213,8 +208,7 @@ public class TestWindowFilterPushDown
 
         // optimize to TopNRanking on the basis of predicate; remove filter because predicate is satisfied
         assertPlanWithSession(
-                format(
-                        "SELECT * FROM (SELECT name, %s() OVER(ORDER BY name) FROM nation) t(name, ranking) WHERE ranking <= 1 AND ranking > -10", rankingFunction),
+                "SELECT * FROM (SELECT name, %s() OVER(ORDER BY name) FROM nation) t(name, ranking) WHERE ranking <= 1 AND ranking > -10".formatted(rankingFunction),
                 optimizeTopNRanking(true),
                 true,
                 output(
@@ -230,7 +224,7 @@ public class TestWindowFilterPushDown
 
         // optimize to TopNRanking on the basis of predicate; cannot remove filter because predicate is not satisfied
         assertPlanWithSession(
-                format("SELECT * FROM (SELECT name, %s() OVER(ORDER BY name) FROM nation) t(name, ranking) WHERE ranking > 1 AND ranking < 3", rankingFunction),
+                "SELECT * FROM (SELECT name, %s() OVER(ORDER BY name) FROM nation) t(name, ranking) WHERE ranking > 1 AND ranking < 3".formatted(rankingFunction),
                 optimizeTopNRanking(true),
                 true,
                 output(

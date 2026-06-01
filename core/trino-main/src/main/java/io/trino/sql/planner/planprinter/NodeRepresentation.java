@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class NodeRepresentation
@@ -86,7 +85,7 @@ public class NodeRepresentation
             details.add(string);
         }
         else {
-            details.add(format(string, args));
+            details.add(string.formatted(args));
         }
     }
 

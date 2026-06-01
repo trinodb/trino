@@ -13,7 +13,6 @@
  */
 package io.trino.sql.gen;
 
-import com.google.common.base.Joiner;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.SqlScalarFunction;
@@ -39,9 +38,8 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.gen.TestVarArgsToArrayAdapterGenerator.TestVarArgsSum.VAR_ARGS_SUM;
 import static io.trino.sql.gen.VarArgsToArrayAdapterGenerator.generateVarArgsToArrayAdapter;
 import static io.trino.util.Reflection.methodHandle;
-import static java.lang.String.format;
 import static java.util.Collections.nCopies;
-import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -89,7 +87,7 @@ public class TestVarArgsToArrayAdapterGenerator
 
         // var_args_sum(1, 2, 3, ..., k)
         int k = 100;
-        String expression = format("var_args_sum(%s)", Joiner.on(",").join(IntStream.rangeClosed(1, k).boxed().collect(toSet())));
+        String expression = "var_args_sum(%s)".formatted(IntStream.rangeClosed(1, k).boxed().map(Object::toString).collect(joining(",")));
         assertThat(assertions.expression(expression))
                 .isEqualTo((1 + k) * k / 2);
     }

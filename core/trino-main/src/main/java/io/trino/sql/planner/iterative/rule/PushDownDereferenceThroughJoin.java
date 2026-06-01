@@ -45,7 +45,6 @@ import static io.trino.sql.planner.iterative.rule.DereferencePushdown.getBase;
 import static io.trino.sql.planner.plan.Patterns.join;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 
 /**
@@ -134,7 +133,7 @@ public class PushDownDereferenceThroughJoin
                         rightAssignmentsBuilder.put(entry.getKey(), entry.getValue());
                     }
                     else {
-                        throw new IllegalArgumentException(format("Unexpected symbol %s in projectNode", baseSymbol));
+                        throw new IllegalArgumentException("Unexpected symbol %s in projectNode".formatted(baseSymbol));
                     }
                 });
 

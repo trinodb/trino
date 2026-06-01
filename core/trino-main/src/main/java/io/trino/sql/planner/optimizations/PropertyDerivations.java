@@ -111,7 +111,6 @@ import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.RowsPerMatch.ONE;
 import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
 import static io.trino.sql.planner.plan.SkipToPosition.PAST_LAST;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.toMap;
 
 public final class PropertyDerivations
@@ -337,7 +336,7 @@ public final class PropertyDerivations
         @Override
         public ActualProperties visitTableFunction(TableFunctionNode node, List<ActualProperties> inputProperties)
         {
-            throw new IllegalStateException(format("Unexpected node: TableFunctionNode (%s)", node.getName()));
+            throw new IllegalStateException("Unexpected node: TableFunctionNode (%s)".formatted(node.getName()));
         }
 
         @Override

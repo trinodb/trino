@@ -34,7 +34,6 @@ import org.openjdk.jmh.runner.RunnerException;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 import static org.openjdk.jmh.annotations.Scope.Thread;
@@ -86,7 +85,7 @@ public class BenchmarkReorderInterconnectedJoins
             StringBuilder stringBuilder = new StringBuilder();
             stringBuilder.append("EXPLAIN SELECT * FROM nation n1");
             for (int i = 2; i <= numberOfTables; i++) {
-                stringBuilder.append(format(" JOIN nation n%s ON n%s.nationkey = n%s.nationkey", i, i - 1, i));
+                stringBuilder.append(" JOIN nation n%s ON n%s.nationkey = n%s.nationkey".formatted(i, i - 1, i));
             }
             query = stringBuilder.toString();
         }

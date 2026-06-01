@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -244,8 +243,7 @@ public class IcebergRestCatalogConfig
                     .collect(toImmutableMap(kvs -> kvs.split(":", 2)[0], kvs -> kvs.split(":", 2)[1]));
         }
         catch (IndexOutOfBoundsException e) {
-            throw new IllegalArgumentException(format(
-                    "Cannot parse http headers from property iceberg.rest-catalog.http-headers; value provided was %s, expected format is \"Header-Name-1: header value 1, Header-Value-2: header value 2, ...\"",
+            throw new IllegalArgumentException("Cannot parse http headers from property iceberg.rest-catalog.http-headers; value provided was %s, expected format is \"Header-Name-1: header value 1, Header-Value-2: header value 2, ...\"".formatted(
                     String.join(", ", httpHeaders)), e);
         }
         return this;

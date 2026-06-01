@@ -23,7 +23,6 @@ import static io.trino.tests.product.TestGroups.MYSQL;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onMySql;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJdbcDynamicFilteringJmx
@@ -35,19 +34,19 @@ public class TestJdbcDynamicFilteringJmx
     @AfterMethodWithContext
     public void dropTestTable()
     {
-        onMySql().executeQuery(format("DROP TABLE IF EXISTS %s", TABLE_NAME));
+        onMySql().executeQuery("DROP TABLE IF EXISTS %s".formatted(TABLE_NAME));
     }
 
     @Test(groups = {MYSQL, PROFILE_SPECIFIC_TESTS})
     public void testDynamicFilteringStats()
     {
-        assertThat(onTrino().executeQuery(format("CREATE TABLE mysql.%s AS SELECT * FROM tpch.tiny.nation", TABLE_NAME)))
+        assertThat(onTrino().executeQuery("CREATE TABLE mysql.%s AS SELECT * FROM tpch.tiny.nation".formatted(TABLE_NAME)))
                 .containsOnly(row(25));
 
         onTrino().executeQuery("SET SESSION mysql.dynamic_filtering_wait_timeout = '1h'");
         onTrino().executeQuery("SET SESSION join_reordering_strategy = 'NONE'");
         onTrino().executeQuery("SET SESSION join_distribution_type = 'BROADCAST'");
-        assertThat(onTrino().executeQuery(format("SELECT COUNT(*) FROM mysql.%s a JOIN tpch.tiny.nation b ON a.nationkey = b.nationkey AND b.name = 'INDIA'", TABLE_NAME)))
+        assertThat(onTrino().executeQuery("SELECT COUNT(*) FROM mysql.%s a JOIN tpch.tiny.nation b ON a.nationkey = b.nationkey AND b.name = 'INDIA'".formatted(TABLE_NAME)))
                 .containsOnly(row(1));
 
         assertThat(onTrino().executeQuery("SELECT \"completeddynamicfilters.totalcount\" FROM jmx.current.\"io.trino.plugin.jdbc:name=mysql,type=dynamicfilteringstats\" WHERE node = 'presto-master'"))

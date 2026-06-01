@@ -42,7 +42,6 @@ import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
 public abstract class AbstractIntType
@@ -107,10 +106,10 @@ public abstract class AbstractIntType
     protected void checkValueValid(long value)
     {
         if (value > Integer.MAX_VALUE) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_INT for type %s", value, getTypeSignature()));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Value %d exceeds MAX_INT for type %s".formatted(value, getTypeSignature()));
         }
         if (value < Integer.MIN_VALUE) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_INT for type %s", value, getTypeSignature()));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Value %d is less than MIN_INT for type %s".formatted(value, getTypeSignature()));
         }
     }
 

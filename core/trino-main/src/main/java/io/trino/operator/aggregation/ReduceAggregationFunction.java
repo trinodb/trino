@@ -44,7 +44,6 @@ import static io.trino.operator.aggregation.AggregationFunctionAdapter.Aggregati
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.TypeSignature.functionType;
 import static io.trino.util.Reflection.methodHandle;
-import static java.lang.String.format;
 
 public class ReduceAggregationFunction
         extends SqlAggregationFunction
@@ -151,7 +150,7 @@ public class ReduceAggregationFunction
         // State with Block as native container type is intentionally not supported yet,
         // as it may result in excessive JVM memory usage of remembered set.
         // See JDK-8017163.
-        throw new TrinoException(NOT_SUPPORTED, format("State type not supported for %s: %s", NAME, stateType.getDisplayName()));
+        throw new TrinoException(NOT_SUPPORTED, "State type not supported for %s: %s".formatted(NAME, stateType.getDisplayName()));
     }
 
     private static MethodHandle normalizeInputMethod(BoundSignature boundSignature, Type inputType, MethodHandle inputMethodHandle)

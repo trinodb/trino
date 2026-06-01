@@ -143,7 +143,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Objects.requireNonNull;
@@ -278,7 +277,7 @@ public class SnowflakeClient
             return WriteMapping.doubleMapping("DOUBLE", doubleWriteFunction());
         }
         if (type instanceof DecimalType decimalType) {
-            String dataType = format("NUMBER(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            String dataType = "NUMBER(%s, %s)".formatted(decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
@@ -304,7 +303,7 @@ public class SnowflakeClient
             return WriteMapping.longMapping("DATE", snowFlakeDateWriteFunction());
         }
         if (type instanceof TimeType timeType) {
-            return WriteMapping.longMapping(format("TIME(%s)", timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
+            return WriteMapping.longMapping("TIME(%s)".formatted(timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
         }
         if (type instanceof TimestampType timestampType) {
             return snowflakeTimestampWriteMapping(timestampType.getPrecision());
@@ -389,7 +388,7 @@ public class SnowflakeClient
     protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
         checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
-        return ImmutableList.of(format("CREATE TABLE %s (%s) COMMENT = %s", quoted(remoteTableName), join(", ", columns), snowflakeVarcharLiteral(tableMetadata.getComment().orElse(""))));
+        return ImmutableList.of("CREATE TABLE %s (%s) COMMENT = %s".formatted(quoted(remoteTableName), join(", ", columns), snowflakeVarcharLiteral(tableMetadata.getComment().orElse(""))));
     }
 
     @Override
@@ -517,9 +516,9 @@ public class SnowflakeClient
     {
         checkArgument(precision <= MAX_SUPPORTED_TEMPORAL_PRECISION, "The max timestamp precision in Snowflake is " + MAX_SUPPORTED_TEMPORAL_PRECISION);
         if (precision <= TimestampType.MAX_SHORT_PRECISION) {
-            return WriteMapping.longMapping(format("timestamp_ntz(%d)", precision), shortTimestampWriteFunction());
+            return WriteMapping.longMapping("timestamp_ntz(%d)".formatted(precision), shortTimestampWriteFunction());
         }
-        return WriteMapping.objectMapping(format("timestamp_ntz(%d)", precision), longTimestampWriteFunction(precision));
+        return WriteMapping.objectMapping("timestamp_ntz(%d)".formatted(precision), longTimestampWriteFunction(precision));
     }
 
     private static LongWriteFunction shortTimestampWriteFunction()
@@ -538,9 +537,9 @@ public class SnowflakeClient
     {
         checkArgument(precision <= MAX_SUPPORTED_TEMPORAL_PRECISION, "Max Snowflake precision is is " + MAX_SUPPORTED_TEMPORAL_PRECISION);
         if (precision <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
-            return WriteMapping.longMapping(format("timestamp_tz(%d)", precision), shortTimestampWithTimeZoneWriteFunction());
+            return WriteMapping.longMapping("timestamp_tz(%d)".formatted(precision), shortTimestampWithTimeZoneWriteFunction());
         }
-        return WriteMapping.objectMapping(format("timestamp_tz(%d)", precision), longTimestampWithTimeZoneWriteFunction());
+        return WriteMapping.objectMapping("timestamp_tz(%d)".formatted(precision), longTimestampWithTimeZoneWriteFunction());
     }
 
     private static LongWriteFunction shortTimestampWithTimeZoneWriteFunction()

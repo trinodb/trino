@@ -48,7 +48,6 @@ import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMulti
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.kafka.KafkaErrorCode.SCHEMA_REGISTRY_AMBIGUOUS_SUBJECT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -125,8 +124,7 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
         if (subjects.size() != 1) {
             throw new TrinoException(
                     SCHEMA_REGISTRY_AMBIGUOUS_SUBJECT,
-                    format(
-                            "Subject '%s' is ambiguous, and may refer to one of the following: %s",
+                    "Subject '%s' is ambiguous, and may refer to one of the following: %s".formatted(
                             candidate,
                             join(", ", subjects)));
         }
@@ -183,8 +181,7 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
             if (topicAndSubjectsCollection.size() != 1) {
                 throw new TrinoException(
                         SCHEMA_REGISTRY_AMBIGUOUS_SUBJECT,
-                        format(
-                                "Unable to access '%s' table. Subject is ambiguous, and may refer to one of the following: %s",
+                        "Unable to access '%s' table. Subject is ambiguous, and may refer to one of the following: %s".formatted(
                                 schemaTableName.getTableName(),
                                 topicAndSubjectsCollection.stream().map(TopicAndSubjects::topic).collect(joining(", "))));
             }
@@ -226,7 +223,7 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
             return schemaRegistryClient.getLatestSchemaMetadata(subject);
         }
         catch (IOException | RestClientException e) {
-            throw new RuntimeException(format("Unable to get field group for '%s' subject", subject), e);
+            throw new RuntimeException("Unable to get field group for '%s' subject".formatted(subject), e);
         }
     }
 

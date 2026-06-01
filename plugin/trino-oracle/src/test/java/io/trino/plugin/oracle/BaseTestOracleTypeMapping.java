@@ -63,7 +63,6 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.datatype.DataType.timestampDataType;
 import static io.trino.testing.datatype.DataType.timestampWithTimeZoneDataType;
-import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_EVEN;
 import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
@@ -183,10 +182,10 @@ public abstract class BaseTestOracleTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("varchar(10)", "'string 010'", createVarcharType(10), "CAST('string 010' AS VARCHAR(10))")
                 .addRoundTrip("varchar(20)", "'string 20'", createVarcharType(20), "CAST('string 20' AS VARCHAR(20))")
-                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE),
+                .addRoundTrip("varchar(%d)".formatted(MAX_VARCHAR2_ON_WRITE),
                         "'string max size'",
                         createVarcharType(MAX_VARCHAR2_ON_WRITE),
-                        format("CAST('string max size' AS VARCHAR(%d))", MAX_VARCHAR2_ON_WRITE))
+                        "CAST('string max size' AS VARCHAR(%d))".formatted(MAX_VARCHAR2_ON_WRITE))
                 .addRoundTrip("varchar(5)", "NULL", createVarcharType(5), "CAST(NULL AS VARCHAR(5))")
                 .execute(getQueryRunner(), trinoCreateAsSelect("varchar"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("varchar"));
@@ -199,24 +198,24 @@ public abstract class BaseTestOracleTypeMapping
                 .addRoundTrip("varchar2(5 char)", "NULL", createVarcharType(5), "CAST(NULL AS VARCHAR(5))")
                 .addRoundTrip("varchar2(10 char)", "'string 010'", createVarcharType(10), "CAST('string 010' AS VARCHAR(10))")
                 .addRoundTrip("varchar2(20 char)", "'string 20'", createVarcharType(20), "CAST('string 20' AS VARCHAR(20))")
-                .addRoundTrip(format("varchar2(%d char)", MAX_VARCHAR2_ON_WRITE),
+                .addRoundTrip("varchar2(%d char)".formatted(MAX_VARCHAR2_ON_WRITE),
                         "'string max size'",
                         createVarcharType(MAX_VARCHAR2_ON_WRITE),
-                        format("CAST('string max size' AS VARCHAR(%d))", MAX_VARCHAR2_ON_WRITE))
+                        "CAST('string max size' AS VARCHAR(%d))".formatted(MAX_VARCHAR2_ON_WRITE))
                 .addRoundTrip("varchar2(5 byte)", "NULL", createVarcharType(5), "CAST(NULL AS VARCHAR(5))")
                 .addRoundTrip("varchar2(10 byte)", "'string 010'", createVarcharType(10), "CAST('string 010' AS VARCHAR(10))")
                 .addRoundTrip("varchar2(20 byte)", "'string 20'", createVarcharType(20), "CAST('string 20' AS VARCHAR(20))")
-                .addRoundTrip(format("varchar2(%d byte)", MAX_VARCHAR2_ON_READ),
+                .addRoundTrip("varchar2(%d byte)".formatted(MAX_VARCHAR2_ON_READ),
                         "'string max size'",
                         createVarcharType(MAX_VARCHAR2_ON_READ),
-                        format("CAST('string max size' AS VARCHAR(%d))", MAX_VARCHAR2_ON_READ))
+                        "CAST('string max size' AS VARCHAR(%d))".formatted(MAX_VARCHAR2_ON_READ))
                 .addRoundTrip("nvarchar2(5)", "NULL", createVarcharType(5), "CAST(NULL AS VARCHAR(5))")
                 .addRoundTrip("nvarchar2(10)", "'string 010'", createVarcharType(10), "CAST('string 010' AS VARCHAR(10))")
                 .addRoundTrip("nvarchar2(20)", "'string 20'", createVarcharType(20), "CAST('string 20' AS VARCHAR(20))")
-                .addRoundTrip(format("nvarchar2(%d)", MAX_NVARCHAR2),
+                .addRoundTrip("nvarchar2(%d)".formatted(MAX_NVARCHAR2),
                         "'string max size'",
                         createVarcharType(MAX_NVARCHAR2),
-                        format("CAST('string max size' AS VARCHAR(%d))", MAX_NVARCHAR2))
+                        "CAST('string max size' AS VARCHAR(%d))".formatted(MAX_NVARCHAR2))
                 .execute(getQueryRunner(), oracleCreateAndInsert("read_varchar"));
     }
 
@@ -232,10 +231,10 @@ public abstract class BaseTestOracleTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("varchar(5)", "'攻殻機動隊'", createVarcharType(5), "CAST('攻殻機動隊' AS varchar(5))")
                 .addRoundTrip("varchar(13)", "'攻殻機動隊'", createVarcharType(13), "CAST('攻殻機動隊' AS varchar(13))")
-                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE),
+                .addRoundTrip("varchar(%d)".formatted(MAX_VARCHAR2_ON_WRITE),
                         "'攻殻機動隊'",
                         createVarcharType(MAX_VARCHAR2_ON_WRITE),
-                        format("CAST('攻殻機動隊' AS varchar(%d))", MAX_VARCHAR2_ON_WRITE))
+                        "CAST('攻殻機動隊' AS varchar(%d))".formatted(MAX_VARCHAR2_ON_WRITE))
                 .addRoundTrip("varchar(1)", "'😂'", createVarcharType(1), "CAST('😂' AS varchar(1))")
                 .addRoundTrip("varchar(6)", "'😂'", createVarcharType(6), "CAST('😂' AS varchar(6))")
                 .execute(getQueryRunner(), trinoCreateAsSelect("varchar_unicode"))
@@ -249,28 +248,28 @@ public abstract class BaseTestOracleTypeMapping
                 // the number of Unicode code points in 攻殻機動隊 is 5, and in 😂 is 1.
                 .addRoundTrip("varchar2(5 char)", "'攻殻機動隊'", createVarcharType(5), "CAST('攻殻機動隊' AS varchar(5))")
                 .addRoundTrip("varchar2(13 char)", "'攻殻機動隊'", createVarcharType(13), "CAST('攻殻機動隊' AS varchar(13))")
-                .addRoundTrip(format("varchar2(%d char)", MAX_VARCHAR2_ON_READ),
+                .addRoundTrip("varchar2(%d char)".formatted(MAX_VARCHAR2_ON_READ),
                         "'攻殻機動隊'",
                         createVarcharType(MAX_VARCHAR2_ON_READ),
-                        format("CAST('攻殻機動隊' AS varchar(%d))", MAX_VARCHAR2_ON_READ))
+                        "CAST('攻殻機動隊' AS varchar(%d))".formatted(MAX_VARCHAR2_ON_READ))
                 .addRoundTrip("varchar2(1 char)", "'😂'", createVarcharType(1), "CAST('😂' AS varchar(1))")
                 .addRoundTrip("varchar2(6 char)", "'😂'", createVarcharType(6), "CAST('😂' AS varchar(6))")
                 // the number of bytes using charset UTF-8 in 攻殻機動隊 is 15, and in '😂' is 4.
                 .addRoundTrip("varchar2(15 byte)", "'攻殻機動隊'", createVarcharType(15), "CAST('攻殻機動隊' AS varchar(15))")
                 .addRoundTrip("varchar2(23 byte)", "'攻殻機動隊'", createVarcharType(23), "CAST('攻殻機動隊' AS varchar(23))")
-                .addRoundTrip(format("varchar2(%d byte)", MAX_VARCHAR2_ON_READ),
+                .addRoundTrip("varchar2(%d byte)".formatted(MAX_VARCHAR2_ON_READ),
                         "'攻殻機動隊'",
                         createVarcharType(MAX_VARCHAR2_ON_READ),
-                        format("CAST('攻殻機動隊' AS varchar(%d))", MAX_VARCHAR2_ON_READ))
+                        "CAST('攻殻機動隊' AS varchar(%d))".formatted(MAX_VARCHAR2_ON_READ))
                 .addRoundTrip("varchar2(4 byte)", "'😂'", createVarcharType(4), "CAST('😂' AS varchar(4))")
                 .addRoundTrip("varchar2(9 byte)", "'😂'", createVarcharType(9), "CAST('😂' AS varchar(9))")
                 // the length of string in 攻殻機動隊 is 5, and in 😂 is 2.
                 .addRoundTrip("nvarchar2(5)", "'攻殻機動隊'", createVarcharType(5), "CAST('攻殻機動隊' AS varchar(5))")
                 .addRoundTrip("nvarchar2(13)", "'攻殻機動隊'", createVarcharType(13), "CAST('攻殻機動隊' AS varchar(13))")
-                .addRoundTrip(format("nvarchar2(%d)", MAX_NVARCHAR2),
+                .addRoundTrip("nvarchar2(%d)".formatted(MAX_NVARCHAR2),
                         "'攻殻機動隊'",
                         createVarcharType(MAX_NVARCHAR2),
-                        format("CAST('攻殻機動隊' AS varchar(%d))", MAX_NVARCHAR2))
+                        "CAST('攻殻機動隊' AS varchar(%d))".formatted(MAX_NVARCHAR2))
                 .addRoundTrip("nvarchar2(2)", "'😂'", createVarcharType(2), "CAST('😂' AS varchar(2))")
                 .addRoundTrip("nvarchar2(7)", "'😂'", createVarcharType(7), "CAST('😂' AS varchar(7))")
                 .execute(getQueryRunner(), oracleCreateAndInsert("read_varchar_unicode"));
@@ -284,14 +283,14 @@ public abstract class BaseTestOracleTypeMapping
                 .addRoundTrip("varchar", "'😂'", createUnboundedVarcharType(), "VARCHAR '😂'")
                 .addRoundTrip("varchar", "'clob'", createUnboundedVarcharType(), "VARCHAR 'clob'")
                 .addRoundTrip("varchar", "NULL", createUnboundedVarcharType(), "CAST(NULL AS varchar)")
-                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE + 1), "'攻殻機動隊'", createUnboundedVarcharType(), "VARCHAR '攻殻機動隊'")
-                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE + 1), "'😂'", createUnboundedVarcharType(), "VARCHAR '😂'")
-                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE + 1), "'clob'", createUnboundedVarcharType(), "VARCHAR 'clob'")
-                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE + 1), "NULL", createUnboundedVarcharType(), "CAST(NULL AS varchar)")
-                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE + 1), "'攻殻機動隊'", createUnboundedVarcharType(), "VARCHAR '攻殻機動隊'")
-                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE + 1), "'😂'", createUnboundedVarcharType(), "VARCHAR '😂'")
-                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE + 1), "'clob'", createUnboundedVarcharType(), "VARCHAR 'clob'")
-                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE + 1), "NULL", createUnboundedVarcharType(), "CAST(NULL AS varchar)")
+                .addRoundTrip("varchar(%d)".formatted(MAX_VARCHAR2_ON_WRITE + 1), "'攻殻機動隊'", createUnboundedVarcharType(), "VARCHAR '攻殻機動隊'")
+                .addRoundTrip("varchar(%d)".formatted(MAX_VARCHAR2_ON_WRITE + 1), "'😂'", createUnboundedVarcharType(), "VARCHAR '😂'")
+                .addRoundTrip("varchar(%d)".formatted(MAX_VARCHAR2_ON_WRITE + 1), "'clob'", createUnboundedVarcharType(), "VARCHAR 'clob'")
+                .addRoundTrip("varchar(%d)".formatted(MAX_VARCHAR2_ON_WRITE + 1), "NULL", createUnboundedVarcharType(), "CAST(NULL AS varchar)")
+                .addRoundTrip("char(%d)".formatted(MAX_CHAR_ON_WRITE + 1), "'攻殻機動隊'", createUnboundedVarcharType(), "VARCHAR '攻殻機動隊'")
+                .addRoundTrip("char(%d)".formatted(MAX_CHAR_ON_WRITE + 1), "'😂'", createUnboundedVarcharType(), "VARCHAR '😂'")
+                .addRoundTrip("char(%d)".formatted(MAX_CHAR_ON_WRITE + 1), "'clob'", createUnboundedVarcharType(), "VARCHAR 'clob'")
+                .addRoundTrip("char(%d)".formatted(MAX_CHAR_ON_WRITE + 1), "NULL", createUnboundedVarcharType(), "CAST(NULL AS varchar)")
                 .execute(getQueryRunner(), trinoCreateAsSelect("unbounded"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("unbounded"));
     }
@@ -323,10 +322,10 @@ public abstract class BaseTestOracleTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("char(10)", "'string 010'", createCharType(10), "CAST('string 010' AS CHAR(10))")
                 .addRoundTrip("char(20)", "'string 20'", createCharType(20), "CAST('string 20' AS CHAR(20))")
-                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE),
+                .addRoundTrip("char(%d)".formatted(MAX_CHAR_ON_WRITE),
                         "'string max size'",
                         createCharType(MAX_CHAR_ON_WRITE),
-                        format("CAST('string max size' AS CHAR(%d))", MAX_CHAR_ON_WRITE))
+                        "CAST('string max size' AS CHAR(%d))".formatted(MAX_CHAR_ON_WRITE))
                 .addRoundTrip("char(5)", "NULL", createCharType(5), "CAST(NULL AS CHAR(5))")
                 .execute(getQueryRunner(), trinoCreateAsSelect("char"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("char"));
@@ -340,25 +339,25 @@ public abstract class BaseTestOracleTypeMapping
                 .addRoundTrip("char(10 char)", "'string 010'", createCharType(10), "CAST('string 010' AS CHAR(10))")
                 .addRoundTrip("char(20 char)", "'string 20'", createCharType(20), "CAST('string 20' AS CHAR(20))")
 
-                .addRoundTrip(format("char(%d char)", MAX_CHAR_ON_READ),
+                .addRoundTrip("char(%d char)".formatted(MAX_CHAR_ON_READ),
                         "'string max size'",
                         createCharType(MAX_CHAR_ON_READ),
-                        format("CAST('string max size' AS CHAR(%d))", MAX_CHAR_ON_READ))
+                        "CAST('string max size' AS CHAR(%d))".formatted(MAX_CHAR_ON_READ))
                 .addRoundTrip("char(5 byte)", "NULL", createCharType(5), "CAST(NULL AS CHAR(5))")
                 .addRoundTrip("char(10 byte)", "'string 010'", createCharType(10), "CAST('string 010' AS CHAR(10))")
                 .addRoundTrip("char(20 byte)", "'string 20'", createCharType(20), "CAST('string 20' AS CHAR(20))")
 
-                .addRoundTrip(format("char(%d byte)", MAX_CHAR_ON_READ),
+                .addRoundTrip("char(%d byte)".formatted(MAX_CHAR_ON_READ),
                         "'string max size'",
                         createCharType(MAX_CHAR_ON_READ),
-                        format("CAST('string max size' AS CHAR(%d))", MAX_CHAR_ON_READ))
+                        "CAST('string max size' AS CHAR(%d))".formatted(MAX_CHAR_ON_READ))
                 .addRoundTrip("nchar(5)", "NULL", createCharType(5), "CAST(NULL AS CHAR(5))")
                 .addRoundTrip("nchar(10)", "'string 010'", createCharType(10), "CAST('string 010' AS CHAR(10))")
                 .addRoundTrip("nchar(20)", "'string 20'", createCharType(20), "CAST('string 20' AS CHAR(20))")
-                .addRoundTrip(format("nchar(%d)", MAX_NCHAR),
+                .addRoundTrip("nchar(%d)".formatted(MAX_NCHAR),
                         "'string max size'",
                         createCharType(MAX_NCHAR),
-                        format("CAST('string max size' AS CHAR(%d))", MAX_NCHAR))
+                        "CAST('string max size' AS CHAR(%d))".formatted(MAX_NCHAR))
                 .execute(getQueryRunner(), oracleCreateAndInsert("read_char"));
     }
 
@@ -368,10 +367,10 @@ public abstract class BaseTestOracleTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("char(5)", "'攻殻機動隊'", createCharType(5), "CAST('攻殻機動隊' AS char(5))")
                 .addRoundTrip("char(13)", "'攻殻機動隊'", createCharType(13), "CAST('攻殻機動隊' AS char(13))")
-                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE),
+                .addRoundTrip("char(%d)".formatted(MAX_CHAR_ON_WRITE),
                         "'攻殻機動隊'",
                         createCharType(MAX_CHAR_ON_WRITE),
-                        format("CAST('攻殻機動隊' AS char(%d))", MAX_CHAR_ON_WRITE))
+                        "CAST('攻殻機動隊' AS char(%d))".formatted(MAX_CHAR_ON_WRITE))
                 .addRoundTrip("char(1)", "'😂'", createCharType(1), "CAST('😂' AS char(1))")
                 .addRoundTrip("char(6)", "'😂'", createCharType(6), "CAST('😂' AS char(6))")
                 .execute(getQueryRunner(), trinoCreateAsSelect("char_unicode"));
@@ -384,28 +383,28 @@ public abstract class BaseTestOracleTypeMapping
                 // the number of Unicode code points in 攻殻機動隊 is 5, and in 😂 is 1.
                 .addRoundTrip("char(5 char)", "'攻殻機動隊'", createCharType(5), "CAST('攻殻機動隊' AS CHAR(5))")
                 .addRoundTrip("char(13 char)", "'攻殻機動隊'", createCharType(13), "CAST('攻殻機動隊' AS CHAR(13))")
-                .addRoundTrip(format("char(%d char)", MAX_CHAR_ON_READ),
+                .addRoundTrip("char(%d char)".formatted(MAX_CHAR_ON_READ),
                         "'攻殻機動隊'",
                         createCharType(MAX_CHAR_ON_READ),
-                        format("CAST('攻殻機動隊' AS char(%d))", MAX_CHAR_ON_READ))
+                        "CAST('攻殻機動隊' AS char(%d))".formatted(MAX_CHAR_ON_READ))
                 .addRoundTrip("char(1 char)", "'😂'", createCharType(1), "CAST('😂' AS CHAR(1))")
                 .addRoundTrip("char(6 char)", "'😂'", createCharType(6), "CAST('😂' AS CHAR(6))")
                 // the number of bytes using charset UTF-8 in 攻殻機動隊 is 15, and in 😂 is 4.
                 .addRoundTrip("char(15 byte)", "'攻殻機動隊'", createCharType(15), "CAST('攻殻機動隊' AS CHAR(15))")
                 .addRoundTrip("char(23 byte)", "'攻殻機動隊'", createCharType(23), "CAST('攻殻機動隊' AS CHAR(23))")
-                .addRoundTrip(format("char(%d byte)", MAX_CHAR_ON_READ),
+                .addRoundTrip("char(%d byte)".formatted(MAX_CHAR_ON_READ),
                         "'攻殻機動隊'",
                         createCharType(MAX_CHAR_ON_READ),
-                        format("CAST('攻殻機動隊' AS CHAR(%d))", MAX_CHAR_ON_READ))
+                        "CAST('攻殻機動隊' AS CHAR(%d))".formatted(MAX_CHAR_ON_READ))
                 .addRoundTrip("char(4 byte)", "'😂'", createCharType(4), "CAST('😂' AS CHAR(4))")
                 .addRoundTrip("char(9 byte)", "'😂'", createCharType(9), "CAST('😂' AS CHAR(9))")
                 // the length of string in 攻殻機動隊 is 5, and in 😂 is 2.
                 .addRoundTrip("nchar(5)", "'攻殻機動隊'", createCharType(5), "CAST('攻殻機動隊' AS CHAR(5))")
                 .addRoundTrip("nchar(13)", "'攻殻機動隊'", createCharType(13), "CAST('攻殻機動隊' AS CHAR(13))")
-                .addRoundTrip(format("nchar(%d)", MAX_NCHAR),
+                .addRoundTrip("nchar(%d)".formatted(MAX_NCHAR),
                         "'攻殻機動隊'",
                         createCharType(MAX_NCHAR),
-                        format("CAST('攻殻機動隊' AS CHAR(%d))", MAX_NCHAR))
+                        "CAST('攻殻機動隊' AS CHAR(%d))".formatted(MAX_NCHAR))
                 .addRoundTrip("nchar(2)", "'😂'", createCharType(2), "CAST('😂' AS CHAR(2))")
                 .addRoundTrip("nchar(7)", "'😂'", createCharType(7), "CAST('😂' AS CHAR(7))")
                 .execute(getQueryRunner(), oracleCreateAndInsert("read_char_unicode"));
@@ -794,7 +793,7 @@ public abstract class BaseTestOracleTypeMapping
     {
         // Oracle TO_DATE function returns +10 days during julian and gregorian calendar switch
         try (TestTable table = newTrinoTable("test_julian_dt", "(ts date)")) {
-            assertUpdate(format("INSERT INTO %s VALUES (DATE '1582-10-05')", table.getName()), 1);
+            assertUpdate("INSERT INTO %s VALUES (DATE '1582-10-05')".formatted(table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES TIMESTAMP '1582-10-15 00:00:00'");
         }
     }
@@ -804,14 +803,14 @@ public abstract class BaseTestOracleTypeMapping
     {
         try (TestTable table = newTrinoTable("test_unsupported_dt", "(ts date)")) {
             assertQueryFails(
-                    format("INSERT INTO %s VALUES (DATE '-4713-12-31')", table.getName()),
+                    "INSERT INTO %s VALUES (DATE '-4713-12-31')".formatted(table.getName()),
                     """
                     \\QFailed to insert data: ORA-01841: (full) year must be between -4713 and +9999, and not be 0
                     \n\
                     https://docs.oracle.com/error-help/db/ora-01841/\\E\
                     """);
             assertQueryFails(
-                    format("INSERT INTO %s VALUES (DATE '0000-01-01')", table.getName()),
+                    "INSERT INTO %s VALUES (DATE '0000-01-01')".formatted(table.getName()),
                     """
                     \\QFailed to insert data: ORA-01841: (full) year must be between -4713 and +9999, and not be 0
                     \n\
@@ -819,7 +818,7 @@ public abstract class BaseTestOracleTypeMapping
                     """);
             // The error message sounds invalid date format in the connector, but it's no problem as the max year is 9999 in Oracle
             assertQueryFails(
-                    format("INSERT INTO %s VALUES (DATE '10000-01-01')", table.getName()),
+                    "INSERT INTO %s VALUES (DATE '10000-01-01')".formatted(table.getName()),
                     """
                     \\QFailed to insert data: ORA-01861: literal does not match format string
                     \n\
@@ -1062,7 +1061,7 @@ public abstract class BaseTestOracleTypeMapping
     {
         // Oracle TO_DATE function returns +10 days during julian and gregorian calendar switch
         try (TestTable table = newTrinoTable("test_julian_ts", "(ts date)")) {
-            assertUpdate(format("INSERT INTO %s VALUES (timestamp '1582-10-05')", table.getName()), 1);
+            assertUpdate("INSERT INTO %s VALUES (timestamp '1582-10-05')".formatted(table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES TIMESTAMP '1582-10-15 00:00:00'");
         }
     }
@@ -1072,21 +1071,21 @@ public abstract class BaseTestOracleTypeMapping
     {
         try (TestTable table = newTrinoTable("test_unsupported_ts", "(ts timestamp)")) {
             assertQueryFails(
-                    format("INSERT INTO %s VALUES (TIMESTAMP '-4713-12-31 00:00:00.000')", table.getName()),
+                    "INSERT INTO %s VALUES (TIMESTAMP '-4713-12-31 00:00:00.000')".formatted(table.getName()),
                     """
                     \\QFailed to insert data: ORA-01841: (full) year must be between -4713 and +9999, and not be 0
                     \n\
                     https://docs.oracle.com/error-help/db/ora-01841/\\E\
                     """);
             assertQueryFails(
-                    format("INSERT INTO %s VALUES (TIMESTAMP '0000-01-01 00:00:00.000')", table.getName()),
+                    "INSERT INTO %s VALUES (TIMESTAMP '0000-01-01 00:00:00.000')".formatted(table.getName()),
                     """
                     \\QFailed to insert data: ORA-01841: (full) year must be between -4713 and +9999, and not be 0
                     \n\
                     https://docs.oracle.com/error-help/db/ora-01841/\\E\
                     """);
             assertQueryFails(
-                    format("INSERT INTO %s VALUES (TIMESTAMP '10000-01-01 00:00:00.000')", table.getName()),
+                    "INSERT INTO %s VALUES (TIMESTAMP '10000-01-01 00:00:00.000')".formatted(table.getName()),
                     """
                     \\QFailed to insert data: ORA-01862: the numeric value does not match the length of the format item
                     \n\
@@ -1357,7 +1356,7 @@ public abstract class BaseTestOracleTypeMapping
      */
     private void testUnsupportedOracleType(String dataTypeName)
     {
-        try (TestTable table = new TestTable(onRemoteDatabase(), "unsupported_type", format("(unsupported_type %s)", dataTypeName))) {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "unsupported_type", "(unsupported_type %s)".formatted(dataTypeName))) {
             assertQueryFails("SELECT * FROM " + table.getName(), NO_SUPPORTED_COLUMNS);
         }
     }
@@ -1411,6 +1410,6 @@ public abstract class BaseTestOracleTypeMapping
 
     private TestTable oracleTable(String tableName, String schema, String data)
     {
-        return new TestTable(onRemoteDatabase(), tableName, format("(%s)", schema), ImmutableList.of(data));
+        return new TestTable(onRemoteDatabase(), tableName, "(%s)".formatted(schema), ImmutableList.of(data));
     }
 }

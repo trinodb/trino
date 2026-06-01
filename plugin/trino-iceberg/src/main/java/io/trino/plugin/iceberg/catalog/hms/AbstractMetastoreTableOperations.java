@@ -39,7 +39,6 @@ import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameFrom;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
@@ -96,7 +95,7 @@ public abstract class AbstractMetastoreTableOperations
 
         String metadataLocation = table.getParameters().get(METADATA_LOCATION_PROP);
         if (metadataLocation == null) {
-            throw new TrinoException(ICEBERG_INVALID_METADATA, format("Table is missing [%s] property: %s", METADATA_LOCATION_PROP, getSchemaTableName()));
+            throw new TrinoException(ICEBERG_INVALID_METADATA, "Table is missing [%s] property: %s".formatted(METADATA_LOCATION_PROP, getSchemaTableName()));
         }
 
         return metadataLocation;

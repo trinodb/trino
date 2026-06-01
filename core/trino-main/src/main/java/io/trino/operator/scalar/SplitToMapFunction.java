@@ -32,7 +32,6 @@ import java.util.Map;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.Failures.checkCondition;
-import static java.lang.String.format;
 
 @Description("Creates a map using entryDelimiter and keyValueDelimiter")
 @ScalarFunction("split_to_map")
@@ -77,7 +76,7 @@ public class SplitToMapFunction
                     throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Key-value delimiter must appear exactly once in each entry. Bad input: '" + keyValuePair.toStringUtf8() + "'");
                 }
                 if (map.containsKey(key)) {
-                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Duplicate keys (%s) are not allowed", key.toStringUtf8()));
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Duplicate keys (%s) are not allowed".formatted(key.toStringUtf8()));
                 }
 
                 map.put(key, value);

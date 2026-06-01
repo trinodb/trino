@@ -23,7 +23,6 @@ import static io.trino.spi.block.EncoderUtil.decodeNullBitsScalar;
 import static io.trino.spi.block.EncoderUtil.decodeNullBitsVectorized;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsScalar;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsVectorized;
-import static java.lang.String.format;
 import static java.util.Objects.checkFromIndexSize;
 
 public class VariableWidthBlockEncoding
@@ -140,11 +139,11 @@ public class VariableWidthBlockEncoding
     private static int[] readOffsetsWithNullsCompacted(SliceInput sliceInput, @Nullable boolean[] valueIsNull, int positionCount)
     {
         if (valueIsNull != null && valueIsNull.length != positionCount) {
-            throw new IllegalArgumentException(format("valueIsNull length must match positionCount, found %s <> %s", valueIsNull.length, positionCount));
+            throw new IllegalArgumentException("valueIsNull length must match positionCount, found %s <> %s".formatted(valueIsNull.length, positionCount));
         }
         int nonNullOffsetCount = sliceInput.readInt();
         if (nonNullOffsetCount > positionCount) {
-            throw new IllegalArgumentException(format("nonNullOffsetCount must be <= positionCount, found: %s > %s", nonNullOffsetCount, positionCount));
+            throw new IllegalArgumentException("nonNullOffsetCount must be <= positionCount, found: %s > %s".formatted(nonNullOffsetCount, positionCount));
         }
         // Offsets are read into the end of the array, expansion will pull values down into the lower range until null positions are expanded in place
         int[] offsets = new int[positionCount + 1];
@@ -152,7 +151,7 @@ public class VariableWidthBlockEncoding
         sliceInput.readInts(offsets, compactIndex, nonNullOffsetCount);
         if (valueIsNull == null || compactIndex == 1) {
             if (positionCount != nonNullOffsetCount) {
-                throw new IllegalArgumentException(format("nonNullOffsetCount must match positionCount, found %s <> %s", nonNullOffsetCount, positionCount));
+                throw new IllegalArgumentException("nonNullOffsetCount must match positionCount, found %s <> %s".formatted(nonNullOffsetCount, positionCount));
             }
             return offsets;
         }

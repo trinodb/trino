@@ -51,7 +51,6 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -78,7 +77,6 @@ import static java.lang.Integer.parseInt;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
@@ -138,7 +136,7 @@ public final class BigQueryTypeManager
 
     private static String floatToStringConverter(Object value)
     {
-        return format("CAST('%s' AS float64)", value);
+        return "CAST('%s' AS float64)".formatted(value);
     }
 
     private static String simpleToStringConverter(Object value)
@@ -209,7 +207,7 @@ public final class BigQueryTypeManager
     static String bytesToStringConverter(Object value)
     {
         Slice slice = (Slice) value;
-        return format("FROM_BASE64('%s')", Base64.getEncoder().encodeToString(slice.getBytes()));
+        return "FROM_BASE64('%s')".formatted(Base64.getEncoder().encodeToString(slice.getBytes()));
     }
 
     public Field toField(String name, Type type, Optional<String> comment)
@@ -301,9 +299,9 @@ public final class BigQueryTypeManager
                 String bigqueryTypeName = bigqueryType.name();
                 DecimalType decimalType = (DecimalType) type;
                 if (decimalType.isShort()) {
-                    yield format("%s '%s'", bigqueryTypeName, Decimals.toString((long) value, ((DecimalType) type).getScale()));
+                    yield "%s '%s'".formatted(bigqueryTypeName, Decimals.toString((long) value, ((DecimalType) type).getScale()));
                 }
-                yield format("%s '%s'", bigqueryTypeName, Decimals.toString((Int128) value, ((DecimalType) type).getScale()));
+                yield "%s '%s'".formatted(bigqueryTypeName, Decimals.toString((Int128) value, ((DecimalType) type).getScale()));
             }
             case STRING -> stringToStringConverter(value);
             case TIME -> timeToStringConverter(value);
@@ -362,7 +360,7 @@ public final class BigQueryTypeManager
     {
         FieldList subFields = field.getSubFields();
         List<BigQueryColumnHandle> subColumns = subFields == null ?
-                Collections.emptyList() :
+                List.of() :
                 subFields.stream()
                 .filter(column -> isSupportedType(column, useStorageApi))
                 .map(column -> toColumnHandle(column, useStorageApi))

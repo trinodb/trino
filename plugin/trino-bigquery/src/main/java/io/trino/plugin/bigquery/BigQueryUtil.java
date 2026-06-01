@@ -28,7 +28,6 @@ import java.util.Set;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.http.BaseHttpServiceException.UNKNOWN_CODE;
 import static com.google.common.base.Throwables.getCausalChain;
-import static java.lang.String.format;
 
 public final class BigQueryUtil
 {
@@ -104,6 +103,6 @@ public final class BigQueryUtil
 
     public static String quoted(RemoteTableName table)
     {
-        return format("%s.%s.%s", quote(table.projectId()), quote(table.datasetName()), quote(table.tableName()));
+        return "%s.%s.%s".formatted(quote(table.projectId()), quote(table.datasetName()), quote(table.tableName()));
     }
 }

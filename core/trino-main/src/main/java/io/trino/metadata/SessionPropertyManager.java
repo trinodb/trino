@@ -56,7 +56,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
@@ -206,8 +205,7 @@ public final class SessionPropertyManager
     private static <T> T decodePropertyValue(String fullPropertyName, @Nullable String propertyValue, Class<T> type, PropertyMetadata<?> metadata)
     {
         if (metadata.getJavaType() != type) {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, format(
-                    "Session property '%s' has type '%s', but requested type was %s",
+            throw new TrinoException(INVALID_SESSION_PROPERTY, "Session property '%s' has type '%s', but requested type was %s".formatted(
                     fullPropertyName,
                     metadata.getJavaType().getName(),
                     type.getName()));
@@ -224,7 +222,7 @@ public final class SessionPropertyManager
         }
         catch (Exception e) {
             // the system property decoder can throw any exception
-            throw new TrinoException(INVALID_SESSION_PROPERTY, format("Session property '%s' is invalid: %s".formatted(fullPropertyName, e.getMessage())));
+            throw new TrinoException(INVALID_SESSION_PROPERTY, "Session property '%s' is invalid: %s".formatted(fullPropertyName, e.getMessage()).formatted());
         }
     }
 
@@ -266,7 +264,7 @@ public final class SessionPropertyManager
         if (type instanceof ArrayType || type instanceof MapType) {
             return getJsonCodecForType(type).toJson(value);
         }
-        throw new TrinoException(INVALID_SESSION_PROPERTY, format("Session property type '%s' is not supported", type));
+        throw new TrinoException(INVALID_SESSION_PROPERTY, "Session property type '%s' is not supported".formatted(type));
     }
 
     private static Object deserializeSessionProperty(Type type, String value)
@@ -292,7 +290,7 @@ public final class SessionPropertyManager
         if (type instanceof ArrayType || type instanceof MapType) {
             return getJsonCodecForType(type).fromJson(value);
         }
-        throw new TrinoException(INVALID_SESSION_PROPERTY, format("Session property type '%s' is not supported", type));
+        throw new TrinoException(INVALID_SESSION_PROPERTY, "Session property type '%s' is not supported".formatted(type));
     }
 
     private static <T> JsonCodec<T> getJsonCodecForType(Type type)
@@ -321,7 +319,7 @@ public final class SessionPropertyManager
             Type valueType = mapType.getValueType();
             return (JsonCodec<T>) JSON_CODEC_FACTORY.mapJsonCodec(getMapKeyType(keyType), getJsonCodecForType(valueType));
         }
-        throw new TrinoException(INVALID_SESSION_PROPERTY, format("Session property type '%s' is not supported", type));
+        throw new TrinoException(INVALID_SESSION_PROPERTY, "Session property type '%s' is not supported".formatted(type));
     }
 
     private static Class<?> getMapKeyType(Type type)
@@ -341,7 +339,7 @@ public final class SessionPropertyManager
         if (DoubleType.DOUBLE.equals(type)) {
             return Double.class;
         }
-        throw new TrinoException(INVALID_SESSION_PROPERTY, format("Session property map key type '%s' is not supported", type));
+        throw new TrinoException(INVALID_SESSION_PROPERTY, "Session property map key type '%s' is not supported".formatted(type));
     }
 
     public static class SessionPropertyValue

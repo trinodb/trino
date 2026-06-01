@@ -37,7 +37,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class AvroRowEncoder
@@ -136,7 +135,7 @@ public class AvroRowEncoder
     public byte[] toByteArray()
     {
         // make sure entire row has been updated with new values
-        checkArgument(currentColumnIndex == columnHandles.size(), format("Missing %d columns", columnHandles.size() - currentColumnIndex + 1));
+        checkArgument(currentColumnIndex == columnHandles.size(), "Missing %d columns".formatted(columnHandles.size() - currentColumnIndex + 1));
 
         try {
             byteArrayOutputStream.reset();

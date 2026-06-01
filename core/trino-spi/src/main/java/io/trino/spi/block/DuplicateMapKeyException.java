@@ -20,7 +20,6 @@ import io.trino.spi.type.Type;
 import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static java.lang.String.format;
 
 public class DuplicateMapKeyException
         extends TrinoException
@@ -47,7 +46,7 @@ public class DuplicateMapKeyException
         if (hasDetailedMessage) {
             return this;
         }
-        String detailedMessage = format("Duplicate map keys (%s) are not allowed", keyType.getObjectValue(block, position));
+        String detailedMessage = "Duplicate map keys (%s) are not allowed".formatted(keyType.getObjectValue(block, position));
         return new DuplicateMapKeyException(block, position, Optional.of(detailedMessage));
     }
 }

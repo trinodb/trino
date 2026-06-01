@@ -22,8 +22,6 @@ import io.trino.spi.block.VariableWidthBlockBuilder;
 
 import java.util.List;
 
-import static java.util.Collections.singletonList;
-
 public class QuantileDigestType
         extends AbstractVariableWidthType
 {
@@ -81,6 +79,6 @@ public class QuantileDigestType
     @Override
     public List<Type> getTypeParameters()
     {
-        return singletonList(valueType);
+        return List.of(valueType);
     }
 }

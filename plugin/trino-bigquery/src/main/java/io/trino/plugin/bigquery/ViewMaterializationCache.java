@@ -35,7 +35,6 @@ import java.util.function.Supplier;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.bigquery.BigQueryUtil.convertToBigQueryException;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -71,7 +70,7 @@ public class ViewMaterializationCache
         String project = viewMaterializationProject.orElseGet(remoteTableId::getProject);
         String dataset = viewMaterializationDataset.orElseGet(remoteTableId::getDataset);
 
-        String name = format("%s%s", TEMP_TABLE_PREFIX, randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
+        String name = "%s%s".formatted(TEMP_TABLE_PREFIX, randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
         return TableId.of(project, dataset, name);
     }
 
@@ -128,7 +127,7 @@ public class ViewMaterializationCache
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new BigQueryException(BaseServiceException.UNKNOWN_CODE, format("Job %s has been interrupted", job.getJobId()), e);
+                throw new BigQueryException(BaseServiceException.UNKNOWN_CODE, "Job %s has been interrupted".formatted(job.getJobId()), e);
             }
         }
     }

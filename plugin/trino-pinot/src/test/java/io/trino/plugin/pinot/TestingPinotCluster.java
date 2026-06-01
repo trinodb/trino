@@ -63,7 +63,6 @@ import static io.airlift.http.client.ResponseHandlerUtils.isJsonUtf8Content;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.apache.pinot.common.utils.http.HttpClient.DEFAULT_SOCKET_TIMEOUT_MS;
@@ -161,7 +160,7 @@ public class TestingPinotCluster
 
     private static String getZookeeperInternalHostPort()
     {
-        return format("%s:%s", ZOOKEEPER_INTERNAL_HOST, ZOOKEEPER_PORT);
+        return "%s:%s".formatted(ZOOKEEPER_INTERNAL_HOST, ZOOKEEPER_PORT);
     }
 
     public String getControllerConnectString()
@@ -198,14 +197,14 @@ public class TestingPinotCluster
                     .build();
 
             PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)));
-            checkState(response.getStatus().equals(format("%s successfully added", tableName)), "Unexpected response: '%s'", response.getStatus());
+            checkState(response.getStatus().equals("%s successfully added".formatted(tableName)), "Unexpected response: '%s'", response.getStatus());
             verifySchema(tableName);
         }
     }
 
     private URI getControllerUri(String path)
     {
-        return URI.create(format("http://%s/%s", getControllerConnectString(), path));
+        return URI.create("http://%s/%s".formatted(getControllerConnectString(), path));
     }
 
     private void verifySchema(String tableName)
@@ -236,7 +235,7 @@ public class TestingPinotCluster
                     .build();
 
             PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)));
-            checkState(response.getStatus().startsWith(format("Table %s_REALTIME successfully added", tableName)), "Unexpected response: '%s'", response.getStatus());
+            checkState(response.getStatus().startsWith("Table %s_REALTIME successfully added".formatted(tableName)), "Unexpected response: '%s'", response.getStatus());
         }
     }
 
@@ -283,7 +282,7 @@ public class TestingPinotCluster
                                     return PINOT_SUCCESS_RESPONSE_JSON_CODEC.fromJson(bytes);
                                 }
                             }));
-            checkState(response.getStatus().startsWith(format("Table %s_OFFLINE successfully added", tableName)), "Unexpected response: '%s'", response.getStatus());
+            checkState(response.getStatus().startsWith("Table %s_OFFLINE successfully added".formatted(tableName)), "Unexpected response: '%s'", response.getStatus());
         }
     }
 

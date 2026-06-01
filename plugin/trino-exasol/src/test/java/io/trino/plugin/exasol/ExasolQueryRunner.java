@@ -32,7 +32,6 @@ import static io.trino.plugin.exasol.TestingExasolServer.TEST_SCHEMA;
 import static io.trino.plugin.exasol.TestingExasolServer.TEST_USER;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class ExasolQueryRunner
@@ -93,7 +92,7 @@ public final class ExasolQueryRunner
                 for (TpchTable<?> table : initialTables) {
                     log.info("Running import for %s", table.getTableName());
                     String tpchTableName = table.getTableName();
-                    MaterializedResult rows = queryRunner.execute(format("SELECT * FROM tpch.%s.%s", TINY_SCHEMA_NAME, tpchTableName));
+                    MaterializedResult rows = queryRunner.execute("SELECT * FROM tpch.%s.%s".formatted(TINY_SCHEMA_NAME, tpchTableName));
                     copyAndIngestTpchData(rows, server, table.getTableName());
                     log.info("Imported %s rows for %s", rows.getRowCount(), table.getTableName());
                 }

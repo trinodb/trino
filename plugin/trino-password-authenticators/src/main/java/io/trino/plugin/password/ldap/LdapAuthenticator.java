@@ -38,7 +38,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
-import static java.lang.String.format;
 import static java.time.Duration.ofMillis;
 import static java.util.Objects.requireNonNull;
 
@@ -126,7 +125,7 @@ public class LdapAuthenticator
                     String searchBase = userBaseDistinguishedName.orElseThrow();
                     String groupSearch = replaceUser(groupAuthorizationSearchPattern.get(), user);
                     if (!client.isGroupMember(searchBase, groupSearch, userDistinguishedName, credential.getPassword())) {
-                        String message = format("User [%s] not a member of an authorized group", user);
+                        String message = "User [%s] not a member of an authorized group".formatted(user);
                         log.debug("%s", message);
                         throw new AccessDeniedException(message);
                     }
@@ -190,12 +189,12 @@ public class LdapAuthenticator
         Set<String> userDistinguishedNames = client.lookupUserDistinguishedNames(searchBase, searchFilter, bindDistinguishedName.orElseThrow(), bindPassword.orElseThrow());
 
         if (userDistinguishedNames.isEmpty()) {
-            String message = format("User [%s] not a member of an authorized group", user);
+            String message = "User [%s] not a member of an authorized group".formatted(user);
             log.debug("%s", message);
             throw new AccessDeniedException(message);
         }
         if (userDistinguishedNames.size() > 1) {
-            String message = format("Multiple group membership results for user [%s]: %s", user, userDistinguishedNames);
+            String message = "Multiple group membership results for user [%s]: %s".formatted(user, userDistinguishedNames);
             log.debug("%s", message);
             throw new AccessDeniedException(message);
         }

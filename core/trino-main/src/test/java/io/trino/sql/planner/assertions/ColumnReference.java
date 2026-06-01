@@ -28,7 +28,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnReference
@@ -100,6 +99,6 @@ public class ColumnReference
     @Override
     public String toString()
     {
-        return format("Column %s:%s", tableName, columnName);
+        return "Column %s:%s".formatted(tableName, columnName);
     }
 }

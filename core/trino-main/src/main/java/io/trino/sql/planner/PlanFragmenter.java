@@ -87,7 +87,6 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.planprinter.PlanPrinter.jsonFragmentPlan;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -179,15 +178,13 @@ public class PlanFragmenter
         subPlan.sanityCheck();
         int fragmentCount = subPlan.getAllFragments().size();
         if (fragmentCount > maxStageCount) {
-            throw new TrinoException(QUERY_HAS_TOO_MANY_STAGES, format(
-                    "Number of stages in the query (%s) exceeds the allowed maximum (%s). %s",
+            throw new TrinoException(QUERY_HAS_TOO_MANY_STAGES, "Number of stages in the query (%s) exceeds the allowed maximum (%s). %s".formatted(
                     fragmentCount,
                     maxStageCount,
                     TOO_MANY_STAGES_MESSAGE));
         }
         if (fragmentCount > stageCountSoftLimit) {
-            warningCollector.add(new TrinoWarning(TOO_MANY_STAGES, format(
-                    "Number of stages in the query (%s) exceeds the soft limit (%s). %s",
+            warningCollector.add(new TrinoWarning(TOO_MANY_STAGES, "Number of stages in the query (%s) exceeds the soft limit (%s). %s".formatted(
                     fragmentCount,
                     stageCountSoftLimit,
                     TOO_MANY_STAGES_MESSAGE)));
@@ -431,7 +428,7 @@ public class PlanFragmenter
         @Override
         public PlanNode visitTableFunction(TableFunctionNode node, RewriteContext<FragmentProperties> context)
         {
-            throw new IllegalStateException(format("Unexpected node: TableFunctionNode (%s)", node.getName()));
+            throw new IllegalStateException("Unexpected node: TableFunctionNode (%s)".formatted(node.getName()));
         }
 
         @Override
@@ -682,8 +679,7 @@ public class PlanFragmenter
                 return this;
             }
 
-            throw new IllegalStateException(format(
-                    "Cannot set distribution to %s. Already set to %s",
+            throw new IllegalStateException("Cannot set distribution to %s. Already set to %s".formatted(
                     distribution,
                     this.partitioningHandle));
         }
@@ -759,7 +755,7 @@ public class PlanFragmenter
                 return this;
             }
 
-            throw new IllegalStateException(format("Cannot overwrite distribution with %s (currently set to %s)", distribution, currentPartitioning));
+            throw new IllegalStateException("Cannot overwrite distribution with %s (currently set to %s)".formatted(distribution, currentPartitioning));
         }
 
         public FragmentProperties addChildren(List<SubPlan> children)

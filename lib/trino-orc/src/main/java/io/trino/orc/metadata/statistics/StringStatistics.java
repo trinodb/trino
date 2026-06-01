@@ -22,7 +22,6 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.airlift.slice.SizeOf.instanceSize;
-import static java.lang.String.format;
 
 public class StringStatistics
         implements RangeStatistics<Slice>, Hashable
@@ -41,8 +40,7 @@ public class StringStatistics
     public StringStatistics(@Nullable Slice minimum, @Nullable Slice maximum, long sum)
     {
         if (minimum != null && maximum != null && minimum.compareTo(maximum) > 0) {
-            throw new IllegalArgumentException(format(
-                    "minimum is not less than or equal to maximum: '%s' [%s], '%s' [%s]",
+            throw new IllegalArgumentException("minimum is not less than or equal to maximum: '%s' [%s], '%s' [%s]".formatted(
                     minimum.toStringUtf8(),
                     base16().encode(minimum.getBytes()),
                     maximum.toStringUtf8(),

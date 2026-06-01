@@ -68,7 +68,6 @@ import static io.trino.spi.StandardErrorCode.QUERY_QUEUE_FULL;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -586,7 +585,7 @@ public class TestQueuesDb
                 .describedAs("Query should have a resource group")
                 .isTrue();
         assertThat(resourceGroupId.get())
-                .describedAs(format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId.get()))
+                .describedAs("Expected: '%s' resource group, found: %s".formatted(expectedResourceGroup, resourceGroupId.get()))
                 .isEqualTo(expectedResourceGroup);
     }
 }

@@ -40,7 +40,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SpoolingManagerRegistry
@@ -73,7 +72,7 @@ public class SpoolingManagerRegistry
     {
         requireNonNull(factory, "factory is null");
         if (spoolingManagerFactories.putIfAbsent(factory.getName(), factory) != null) {
-            throw new IllegalArgumentException(format("Spooling manager factory '%s' is already registered", factory.getName()));
+            throw new IllegalArgumentException("Spooling manager factory '%s' is already registered".formatted(factory.getName()));
         }
     }
 

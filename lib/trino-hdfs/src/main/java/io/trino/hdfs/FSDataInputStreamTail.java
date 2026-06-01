@@ -23,7 +23,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class FSDataInputStreamTail
@@ -98,7 +97,7 @@ public final class FSDataInputStreamTail
     private static IOException rejectInvalidFileSize(String path, long reportedSize)
             throws IOException
     {
-        throw new IOException(format("Incorrect file size (%s) for file (end of stream not reached): %s", reportedSize, path));
+        throw new IOException("Incorrect file size (%s) for file (end of stream not reached): %s".formatted(reportedSize, path));
     }
 
     public long getFileSize()

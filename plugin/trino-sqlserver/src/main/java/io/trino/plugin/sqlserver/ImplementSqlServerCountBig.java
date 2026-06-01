@@ -32,7 +32,6 @@ import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleA
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.variable;
 import static io.trino.plugin.sqlserver.SqlServerClient.BIGINT_TYPE;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static java.lang.String.format;
 
 /**
  * Implements specialized version of {@code count(x)} that returns bigint in SQL Server.
@@ -58,7 +57,7 @@ public class ImplementSqlServerCountBig
 
         ParameterizedExpression rewrittenArgument = context.rewriteExpression(argument).orElseThrow();
         return Optional.of(new JdbcExpression(
-                format("count_big(%s)", rewrittenArgument.expression()),
+                "count_big(%s)".formatted(rewrittenArgument.expression()),
                 rewrittenArgument.parameters(),
                 BIGINT_TYPE));
     }

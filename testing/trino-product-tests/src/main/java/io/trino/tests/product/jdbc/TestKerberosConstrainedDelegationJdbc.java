@@ -37,7 +37,6 @@ import java.util.Properties;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.query.QueryResult.forResultSet;
 import static io.trino.tests.product.TestGroups.JDBC_KERBEROS_CONSTRAINED_DELEGATION;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.ietf.jgss.GSSCredential.DEFAULT_LIFETIME;
@@ -95,7 +94,7 @@ public class TestKerberosConstrainedDelegationJdbc
         GSSCredential credential = createGssCredential();
         driverProperties.put("KerberosConstrainedDelegation", credential);
         try (Connection connection = DriverManager.getConnection(jdbcUrl, driverProperties);
-                PreparedStatement statement = connection.prepareStatement(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.nation", "test_kerberos_ctas"))) {
+                PreparedStatement statement = connection.prepareStatement("CREATE TABLE %s AS SELECT * FROM tpch.tiny.nation".formatted("test_kerberos_ctas"))) {
             int results = statement.executeUpdate();
             assertThat(results).isEqualTo(25);
         }

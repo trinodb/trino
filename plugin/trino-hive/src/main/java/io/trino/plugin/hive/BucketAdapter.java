@@ -27,7 +27,6 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucket;
-import static java.lang.String.format;
 
 public class BucketAdapter
 {
@@ -58,8 +57,7 @@ public class BucketAdapter
         for (int position = 0; position < page.getPositionCount(); position++) {
             int bucket = getHiveBucket(bucketingVersion, tableBucketCount, typeInfoList, bucketColumnsPage, position);
             if ((bucket - bucketToKeep) % partitionBucketCount != 0) {
-                throw new TrinoException(HIVE_INVALID_BUCKET_FILES, format(
-                        "A row that is supposed to be in bucket %s is encountered. Only rows in bucket %s (modulo %s) are expected",
+                throw new TrinoException(HIVE_INVALID_BUCKET_FILES, "A row that is supposed to be in bucket %s is encountered. Only rows in bucket %s (modulo %s) are expected".formatted(
                         bucket,
                         bucketToKeep % partitionBucketCount,
                         partitionBucketCount));

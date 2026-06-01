@@ -35,7 +35,6 @@ import java.nio.file.Path;
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
 import static com.fasterxml.jackson.databind.MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 import static java.nio.file.Files.exists;
 import static java.nio.file.Files.isReadable;
 import static java.util.Objects.requireNonNull;
@@ -64,7 +63,7 @@ public final class JsonUtils
             return parseJson(json, javaType);
         }
         catch (IOException | RuntimeException e) {
-            throw new IllegalArgumentException(format("Invalid JSON file '%s' for '%s'", path, javaType), e);
+            throw new IllegalArgumentException("Invalid JSON file '%s' for '%s'".formatted(path, javaType), e);
         }
     }
 

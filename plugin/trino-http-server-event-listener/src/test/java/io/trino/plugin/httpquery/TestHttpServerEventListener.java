@@ -36,7 +36,6 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.net.URI;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -67,7 +66,7 @@ final class TestHttpServerEventListener
     private static final String queryCompleteEventJson2;
 
     static {
-        QueryIOMetadata queryIOMetadata = new QueryIOMetadata(Collections.emptyList(), Optional.empty());
+        QueryIOMetadata queryIOMetadata = new QueryIOMetadata(List.of(), Optional.empty());
 
         QueryContext queryContext = new QueryContext(
                 "user",
@@ -160,16 +159,16 @@ final class TestHttpServerEventListener
                 0L,
                 0L,
                 0.0f,
-                Collections.emptyList(),
+                List.of(),
                 0,
                 true,
-                Collections.emptyList(),
+                List.of(),
                 List.of(new StageOutputBufferUtilization(0, 10, 0.1, 0.5, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99, 0.0, 1.0, ofSeconds(1234))),
-                Collections.emptyList(),
-                Collections.emptyList(),
-                Collections.emptyList(),
-                Collections.emptyList(),
-                Collections.emptyList(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 Optional.empty());
@@ -181,7 +180,7 @@ final class TestHttpServerEventListener
                 queryIOMetadata,
                 Optional.empty(),
                 Optional.empty(),
-                Collections.emptyList(),
+                List.of(),
                 Instant.now(),
                 Instant.now(),
                 Instant.now());
@@ -193,7 +192,7 @@ final class TestHttpServerEventListener
                 queryIOMetadata,
                 Optional.empty(),
                 Optional.empty(),
-                Collections.emptyList(),
+                List.of(),
                 Instant.now(),
                 Instant.now(),
                 Instant.now());
@@ -266,12 +265,12 @@ final class TestHttpServerEventListener
 
     private static URI getQueryCompletedListUri(int serverPort)
     {
-        return URI.create(String.format("http://localhost:%s/v1/events/completedQueries/list", serverPort));
+        return URI.create("http://localhost:%s/v1/events/completedQueries/list".formatted(serverPort));
     }
 
     private static URI getQueryCompletedGetUri(int serverPort, String queryId)
     {
-        return URI.create(String.format("http://localhost:%s/v1/events/completedQueries/get/%s", serverPort, queryId));
+        return URI.create("http://localhost:%s/v1/events/completedQueries/get/%s".formatted(serverPort, queryId));
     }
 
     private HttpServerEventListener createEventListener()

@@ -57,7 +57,6 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
@@ -313,7 +312,7 @@ public class FileSystemExchangeSink
 
             int requiredPageStorageSize = Integer.BYTES + data.length();
             if (requiredPageStorageSize > maxPageStorageSizeInBytes) {
-                throw new TrinoException(NOT_SUPPORTED, format("Max row size of %s exceeded: %s", succinctBytes(maxPageStorageSizeInBytes), succinctBytes(requiredPageStorageSize)));
+                throw new TrinoException(NOT_SUPPORTED, "Max row size of %s exceeded: %s".formatted(succinctBytes(maxPageStorageSizeInBytes), succinctBytes(requiredPageStorageSize)));
             }
 
             if (currentFileSize + requiredPageStorageSize > maxFileSizeInBytes && !preserveOrderWithinPartition) {

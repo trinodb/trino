@@ -33,7 +33,6 @@ import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static io.trino.spi.block.MapHashTables.HashBuildMode.DUPLICATE_NOT_CHECKED;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class MapBlock
@@ -141,7 +140,7 @@ public final class MapBlock
         requireNonNull(keyBlock, "keyBlock is null");
         requireNonNull(valueBlock, "valueBlock is null");
         if (keyBlock.getPositionCount() != valueBlock.getPositionCount()) {
-            throw new IllegalArgumentException(format("keyBlock and valueBlock has different size: %s %s", keyBlock.getPositionCount(), valueBlock.getPositionCount()));
+            throw new IllegalArgumentException("keyBlock and valueBlock has different size: %s %s".formatted(keyBlock.getPositionCount(), valueBlock.getPositionCount()));
         }
 
         requireNonNull(mapType, "mapType is null");
@@ -165,7 +164,7 @@ public final class MapBlock
 
         int[] rawHashTables = hashTables.tryGet().orElse(null);
         if (rawHashTables != null && rawHashTables.length < keyBlock.getPositionCount() * HASH_MULTIPLIER) {
-            throw new IllegalArgumentException(format("keyBlock/valueBlock size does not match hash table size: %s %s", keyBlock.getPositionCount(), rawHashTables.length));
+            throw new IllegalArgumentException("keyBlock/valueBlock size does not match hash table size: %s %s".formatted(keyBlock.getPositionCount(), rawHashTables.length));
         }
 
         this.startOffset = startOffset;

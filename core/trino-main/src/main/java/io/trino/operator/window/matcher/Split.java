@@ -15,8 +15,6 @@ package io.trino.operator.window.matcher;
 
 import java.util.Objects;
 
-import static java.lang.String.format;
-
 class Split
         implements Instruction
 {
@@ -42,7 +40,7 @@ class Split
     @Override
     public String toString()
     {
-        return format("split %s, %s", first, second);
+        return "split %s, %s".formatted(first, second);
     }
 
     @Override

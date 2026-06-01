@@ -34,7 +34,6 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.connectToTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestImpersonation
@@ -87,17 +86,17 @@ public class TestImpersonation
 
         String tableNameBob = "bob_external_table" + randomNameSuffix();
         String tableLocationBob = commonExternalLocationPath + "/bob_table";
-        bobExecutor.executeQuery(format("CREATE TABLE %s (a bigint) WITH (external_location = '%s')", tableNameBob, tableLocationBob));
+        bobExecutor.executeQuery("CREATE TABLE %s (a bigint) WITH (external_location = '%s')".formatted(tableNameBob, tableLocationBob));
         String owner = hdfsClient.getOwner(commonExternalLocationPath);
         assertThat(owner).isEqualTo(bobJdbcUser);
 
         String tableNameAlice = "alice_external_table" + randomNameSuffix();
         String tableLocationAlice = commonExternalLocationPath + "/alice_table";
-        assertQueryFailure(() -> aliceExecutor.executeQuery(format("CREATE TABLE %s (a bigint) WITH (external_location = '%s')", tableNameAlice, tableLocationAlice)))
+        assertQueryFailure(() -> aliceExecutor.executeQuery("CREATE TABLE %s (a bigint) WITH (external_location = '%s')".formatted(tableNameAlice, tableLocationAlice)))
                 .hasStackTraceContaining("Permission denied");
 
-        bobExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableNameBob));
-        aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableNameAlice));
+        bobExecutor.executeQuery("DROP TABLE IF EXISTS %s".formatted(tableNameBob));
+        aliceExecutor.executeQuery("DROP TABLE IF EXISTS %s".formatted(tableNameAlice));
     }
 
     @Test(groups = {HDFS_NO_IMPERSONATION, PROFILE_SPECIFIC_TESTS})
@@ -107,19 +106,19 @@ public class TestImpersonation
 
         String tableNameBob = "bob_external_table" + randomNameSuffix();
         String tableLocationBob = commonExternalLocationPath + "/bob_table";
-        bobExecutor.executeQuery(format("CREATE TABLE %s (a bigint) WITH (external_location = '%s')", tableNameBob, tableLocationBob));
+        bobExecutor.executeQuery("CREATE TABLE %s (a bigint) WITH (external_location = '%s')".formatted(tableNameBob, tableLocationBob));
         String owner = hdfsClient.getOwner(tableLocationBob);
         assertThat(owner).isEqualTo(configuredHdfsUser);
 
         String tableNameAlice = "alice_external_table" + randomNameSuffix();
         String tableLocationAlice = commonExternalLocationPath + "/alice_table";
-        aliceExecutor.executeQuery(format("CREATE TABLE %s (a bigint) WITH (external_location = '%s')", tableNameAlice, tableLocationAlice));
-        assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableNameAlice))).hasRowsCount(0);
+        aliceExecutor.executeQuery("CREATE TABLE %s (a bigint) WITH (external_location = '%s')".formatted(tableNameAlice, tableLocationAlice));
+        assertThat(aliceExecutor.executeQuery("SELECT * FROM %s".formatted(tableNameAlice))).hasRowsCount(0);
         owner = hdfsClient.getOwner(tableLocationAlice);
         assertThat(owner).isEqualTo(configuredHdfsUser);
 
-        bobExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableNameBob));
-        aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableNameAlice));
+        bobExecutor.executeQuery("DROP TABLE IF EXISTS %s".formatted(tableNameBob));
+        aliceExecutor.executeQuery("DROP TABLE IF EXISTS %s".formatted(tableNameAlice));
     }
 
     @Test(groups = {HDFS_NO_IMPERSONATION, PROFILE_SPECIFIC_TESTS})
@@ -141,7 +140,7 @@ public class TestImpersonation
 
     private static String getTableLocation(QueryExecutor executor, String tableName)
     {
-        String location = getOnlyElement(executor.executeQuery(format("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM %s", tableName)).column(1));
+        String location = getOnlyElement(executor.executeQuery("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM %s".formatted(tableName)).column(1));
         if (location.startsWith("hdfs://")) {
             return URI.create(location).getPath();
         }
@@ -150,18 +149,18 @@ public class TestImpersonation
 
     private void checkTableOwner(String tableName, String expectedOwner, QueryExecutor executor)
     {
-        executor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-        executor.executeQuery(format("CREATE TABLE %s AS SELECT 'abc' c", tableName));
+        executor.executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
+        executor.executeQuery("CREATE TABLE %s AS SELECT 'abc' c".formatted(tableName));
         String tableLocation = getTableLocation(executor, tableName);
         String owner = hdfsClient.getOwner(tableLocation);
         assertThat(owner).isEqualTo(expectedOwner);
-        executor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+        executor.executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
     }
 
     private void checkTableGroup(String tableName, QueryExecutor executor)
     {
-        executor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-        executor.executeQuery(format("CREATE TABLE %s AS SELECT 'abc' c", tableName));
+        executor.executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
+        executor.executeQuery("CREATE TABLE %s AS SELECT 'abc' c".formatted(tableName));
         String tableLocation = getTableLocation(executor, tableName);
         String warehouseLocation = tableLocation.substring(0, tableLocation.lastIndexOf("/"));
 

@@ -19,9 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toUnmodifiableList;
 
 public class ConnectorTableMetadata
 {
@@ -33,7 +31,7 @@ public class ConnectorTableMetadata
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns)
     {
-        this(table, columns, emptyMap());
+        this(table, columns, Map.of());
     }
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, Map<String, Object> properties)
@@ -98,7 +96,7 @@ public class ConnectorTableMetadata
                 table,
                 columns.stream()
                         .map(ColumnMetadata::getColumnSchema)
-                        .collect(toUnmodifiableList()),
+                        .toList(),
                 checkConstraints);
     }
 

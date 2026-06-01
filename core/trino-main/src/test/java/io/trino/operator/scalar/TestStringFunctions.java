@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -199,11 +198,11 @@ public class TestStringFunctions
                 .isEqualTo("\u4FE1\u5FF5,\u7231,\u5E0C\u671B");
 
         // Test argument count limit
-        assertThat(assertions.expression("CONCAT(" + Joiner.on(", ").join(nCopies(127, "'x'")) + ")"))
+        assertThat(assertions.expression("CONCAT(" + String.join(", ", nCopies(127, "'x'")) + ")"))
                 .hasType(VARCHAR)
-                .isEqualTo(Joiner.on("").join(nCopies(127, "x")));
+                .isEqualTo(String.join("", nCopies(127, "x")));
 
-        assertTrinoExceptionThrownBy(assertions.expression("CONCAT(" + Joiner.on(", ").join(nCopies(128, "'x'")) + ")")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.expression("CONCAT(" + String.join(", ", nCopies(128, "'x'")) + ")")::evaluate)
                 .hasErrorCode(TOO_MANY_ARGUMENTS)
                 .hasMessage("line 1:12: Too many arguments for function call concat()");
     }

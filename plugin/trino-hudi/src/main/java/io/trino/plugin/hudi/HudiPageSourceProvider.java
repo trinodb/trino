@@ -117,7 +117,6 @@ import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
 import static java.lang.Long.parseLong;
-import static java.lang.String.format;
 import static java.util.Objects.isNull;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -159,7 +158,7 @@ public class HudiPageSourceProvider
         String path = split.location();
         HoodieFileFormat hudiFileFormat = getHudiFileFormat(path);
         if (PARQUET != hudiFileFormat) {
-            throw new TrinoException(HUDI_UNSUPPORTED_FILE_FORMAT, format("File format %s not supported", hudiFileFormat));
+            throw new TrinoException(HUDI_UNSUPPORTED_FILE_FORMAT, "File format %s not supported".formatted(hudiFileFormat));
         }
 
         List<HiveColumnHandle> hiveColumns = columns.stream()
@@ -304,7 +303,7 @@ public class HudiPageSourceProvider
         if (exception instanceof ParquetCorruptionException) {
             return new TrinoException(HUDI_BAD_DATA, exception);
         }
-        return new TrinoException(HUDI_CURSOR_ERROR, format("Failed to read Parquet file: %s", dataSourceId), exception);
+        return new TrinoException(HUDI_CURSOR_ERROR, "Failed to read Parquet file: %s".formatted(dataSourceId), exception);
     }
 
     private static Map<String, Block> convertPartitionValues(
@@ -350,13 +349,13 @@ public class HudiPageSourceProvider
                 case DECIMAL -> Optional.of(Decimals.parse(partitionValue).getObject());
                 default -> throw new TrinoException(
                         HUDI_INVALID_PARTITION_VALUE,
-                        format("Unsupported data type '%s' for partition column %s", partitionDataType, partitionColumnName));
+                        "Unsupported data type '%s' for partition column %s".formatted(partitionDataType, partitionColumnName));
             };
         }
         catch (IllegalArgumentException | DateTimeParseException e) {
             throw new TrinoException(
                     HUDI_INVALID_PARTITION_VALUE,
-                    format("Can not parse partition value '%s' of type '%s' for partition column '%s'", partitionValue, partitionDataType, partitionColumnName),
+                    "Can not parse partition value '%s' of type '%s' for partition column '%s'".formatted(partitionValue, partitionDataType, partitionColumnName),
                     e);
         }
     }

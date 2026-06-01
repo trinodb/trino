@@ -1487,7 +1487,7 @@ class TestVariantOperators
     {
         String hexMetadata = VarbinaryFunctions.toHex(variant.metadata().toSlice()).toStringUtf8();
         String hexValue = VarbinaryFunctions.toHex(variant.data()).toStringUtf8();
-        return String.format("decode_variant(X'%s', X'%s')", hexMetadata, hexValue);
+        return "decode_variant(X'%s', X'%s')".formatted(hexMetadata, hexValue);
     }
 
     private static Variant createObjectWithSortedFields(Metadata metadata, List<ObjectField> fields)

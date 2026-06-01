@@ -25,7 +25,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.Collections.emptyMap;
 
 /**
  * The row decoder for the Redis values that are stored in Hash format.
@@ -46,7 +45,7 @@ public class HashRedisRowDecoder
     public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(Map<String, String> dataMap)
     {
         if (dataMap == null) {
-            return Optional.of(emptyMap());
+            return Optional.of(Map.of());
         }
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = new HashMap<>();

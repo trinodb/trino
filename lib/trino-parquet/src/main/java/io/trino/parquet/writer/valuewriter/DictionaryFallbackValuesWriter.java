@@ -155,11 +155,10 @@ public class DictionaryFallbackValuesWriter
     @Override
     public String memUsageString(String prefix)
     {
-        return String.format(
-                "%s FallbackValuesWriter{\n"
-                        + "%s\n"
-                        + "%s\n"
-                        + "%s}\n",
+        return ("%s FallbackValuesWriter{\n"
+        + "%s\n"
+        + "%s\n"
+        + "%s}\n").formatted(
                 prefix,
                 initialWriter != null ? initialWriter.memUsageString(prefix + " initial:") : "",
                 fallBackWriter.memUsageString(prefix + " fallback:"),

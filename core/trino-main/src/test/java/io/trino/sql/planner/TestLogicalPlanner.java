@@ -188,7 +188,6 @@ import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
 import static io.trino.tests.QueryTemplate.queryTemplate;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLogicalPlanner
@@ -1999,7 +1998,7 @@ public class TestLogicalPlanner
         assertThat(searchFrom(plan(query, OPTIMIZED).getRoot())
                 .where(LimitNode.class::isInstance)
                 .matches())
-                .describedAs(format("Unexpected limit node for query: '%s'", query))
+                .describedAs("Unexpected limit node for query: '%s'".formatted(query))
                 .isFalse();
 
         assertPlan(
@@ -2052,7 +2051,7 @@ public class TestLogicalPlanner
         assertThat(searchFrom(plan(query, OPTIMIZED).getRoot())
                 .whereIsInstanceOfAny(SortNode.class)
                 .matches())
-                .describedAs(format("Unexpected sort node for query: '%s'", query))
+                .describedAs("Unexpected sort node for query: '%s'".formatted(query))
                 .isFalse();
 
         assertPlan(
@@ -2070,7 +2069,7 @@ public class TestLogicalPlanner
         assertThat(searchFrom(plan(query, OPTIMIZED).getRoot())
                 .whereIsInstanceOfAny(TopNNode.class, SortNode.class)
                 .matches())
-                .describedAs(format("Unexpected TopN node for query: '%s'", query))
+                .describedAs("Unexpected TopN node for query: '%s'".formatted(query))
                 .isFalse();
 
         assertPlan(
@@ -2102,7 +2101,7 @@ public class TestLogicalPlanner
         assertThat(searchFrom(plan(query, OPTIMIZED).getRoot())
                 .whereIsInstanceOfAny(DistinctLimitNode.class)
                 .matches())
-                .describedAs(format("Unexpected DistinctLimit node for query: '%s'", query))
+                .describedAs("Unexpected DistinctLimit node for query: '%s'".formatted(query))
                 .isFalse();
 
         assertPlan(

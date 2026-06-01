@@ -43,7 +43,6 @@ import static io.trino.parquet.reader.ParquetReader.COLUMN_INDEX_ROWS_FILTERED;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestParquetPageSkipping
@@ -108,14 +107,13 @@ public class TestParquetPageSkipping
     {
         Location dataFile = copyInDataFile("parquet_page_skipping/random/data.parquet");
         String tableName = "test_random_" + randomNameSuffix();
-        assertUpdate(format(
-                "CREATE TABLE %s (col double) WITH (format = 'PARQUET', external_location = '%s')",
+        assertUpdate("CREATE TABLE %s (col double) WITH (format = 'PARQUET', external_location = '%s')".formatted(
                 tableName,
                 dataFile.parentDirectory()));
         // These queries select a subset of pages which are stored at non-sequential offsets
         // This reproduces the issue identified in https://github.com/trinodb/trino/issues/9097
         for (double i = 0; i < 1; i += 0.1) {
-            assertColumnIndexResults(format("SELECT * FROM %s WHERE col BETWEEN %f AND %f", tableName, i - 0.00001, i + 0.00001));
+            assertColumnIndexResults("SELECT * FROM %s WHERE col BETWEEN %f AND %f".formatted(tableName, i - 0.00001, i + 0.00001));
         }
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -129,8 +127,7 @@ public class TestParquetPageSkipping
         String nameInSql = "\"a.dot\"";
         String tableName = "test_column_name_with_dot_" + randomNameSuffix();
 
-        assertUpdate(format(
-                "CREATE TABLE %s (key varchar(50), %s varchar(50)) WITH (format = 'PARQUET', external_location = '%s')",
+        assertUpdate("CREATE TABLE %s (key varchar(50), %s varchar(50)) WITH (format = 'PARQUET', external_location = '%s')".formatted(
                 tableName,
                 nameInSql,
                 dataFile.parentDirectory()));
@@ -149,8 +146,7 @@ public class TestParquetPageSkipping
 
         // Test for https://github.com/trinodb/trino/issues/16801
         Location dataFile = copyInDataFile("parquet_page_skipping/unsupported_column_index/data.parquet");
-        assertUpdate(format(
-                "CREATE TABLE %s (stime timestamp(3), btime timestamp(3), detail varchar) WITH (format = 'PARQUET', external_location = '%s')",
+        assertUpdate("CREATE TABLE %s (stime timestamp(3), btime timestamp(3), detail varchar) WITH (format = 'PARQUET', external_location = '%s')".formatted(
                 tableName,
                 dataFile.parentDirectory()));
 
@@ -200,19 +196,19 @@ public class TestParquetPageSkipping
             Object middleLowValue = values[1];
             Object middleHighValue = values[2];
             Object highValue = values[3];
-            assertColumnIndexResults(format("SELECT %s FROM %s WHERE %s = %s", sortByColumn, tableName, sortByColumn, middleLowValue));
-            assertThat(assertColumnIndexResults(format("SELECT %s FROM %s WHERE %s < %s", sortByColumn, tableName, sortByColumn, lowValue))).isGreaterThan(0);
-            assertThat(assertColumnIndexResults(format("SELECT %s FROM %s WHERE %s > %s", sortByColumn, tableName, sortByColumn, highValue))).isGreaterThan(0);
-            assertThat(assertColumnIndexResults(format("SELECT %s FROM %s WHERE %s BETWEEN %s AND %s", sortByColumn, tableName, sortByColumn, middleLowValue, middleHighValue))).isGreaterThan(0);
+            assertColumnIndexResults("SELECT %s FROM %s WHERE %s = %s".formatted(sortByColumn, tableName, sortByColumn, middleLowValue));
+            assertThat(assertColumnIndexResults("SELECT %s FROM %s WHERE %s < %s".formatted(sortByColumn, tableName, sortByColumn, lowValue))).isGreaterThan(0);
+            assertThat(assertColumnIndexResults("SELECT %s FROM %s WHERE %s > %s".formatted(sortByColumn, tableName, sortByColumn, highValue))).isGreaterThan(0);
+            assertThat(assertColumnIndexResults("SELECT %s FROM %s WHERE %s BETWEEN %s AND %s".formatted(sortByColumn, tableName, sortByColumn, middleLowValue, middleHighValue))).isGreaterThan(0);
             // Tests synchronization of reading values across columns
-            assertColumnIndexResults(format("SELECT * FROM %s WHERE %s = %s", tableName, sortByColumn, middleLowValue));
-            assertThat(assertColumnIndexResults(format("SELECT * FROM %s WHERE %s < %s", tableName, sortByColumn, lowValue))).isGreaterThan(0);
-            assertThat(assertColumnIndexResults(format("SELECT * FROM %s WHERE %s > %s", tableName, sortByColumn, highValue))).isGreaterThan(0);
-            assertThat(assertColumnIndexResults(format("SELECT * FROM %s WHERE %s BETWEEN %s AND %s", tableName, sortByColumn, middleLowValue, middleHighValue))).isGreaterThan(0);
+            assertColumnIndexResults("SELECT * FROM %s WHERE %s = %s".formatted(tableName, sortByColumn, middleLowValue));
+            assertThat(assertColumnIndexResults("SELECT * FROM %s WHERE %s < %s".formatted(tableName, sortByColumn, lowValue))).isGreaterThan(0);
+            assertThat(assertColumnIndexResults("SELECT * FROM %s WHERE %s > %s".formatted(tableName, sortByColumn, highValue))).isGreaterThan(0);
+            assertThat(assertColumnIndexResults("SELECT * FROM %s WHERE %s BETWEEN %s AND %s".formatted(tableName, sortByColumn, middleLowValue, middleHighValue))).isGreaterThan(0);
             // Nested data
-            assertColumnIndexResults(format("SELECT rvalues FROM %s WHERE %s IN (%s, %s, %s, %s)", tableName, sortByColumn, lowValue, middleLowValue, middleHighValue, highValue));
+            assertColumnIndexResults("SELECT rvalues FROM %s WHERE %s IN (%s, %s, %s, %s)".formatted(tableName, sortByColumn, lowValue, middleLowValue, middleHighValue, highValue));
             // Without nested data
-            assertColumnIndexResults(format("SELECT orderkey, orderdate FROM %s WHERE %s IN (%s, %s, %s, %s)", tableName, sortByColumn, lowValue, middleLowValue, middleHighValue, highValue));
+            assertColumnIndexResults("SELECT orderkey, orderdate FROM %s WHERE %s IN (%s, %s, %s, %s)".formatted(tableName, sortByColumn, lowValue, middleLowValue, middleHighValue, highValue));
         }
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -223,9 +219,8 @@ public class TestParquetPageSkipping
     {
         Location dataFile = copyInDataFile("parquet_page_skipping/lineitem_sorted_by_suppkey/data.parquet");
         String tableName = "test_page_filtering_" + randomNameSuffix();
-        assertUpdate(format(
-                "CREATE TABLE %s (suppkey bigint, extendedprice decimal(12, 2), shipmode varchar(10), comment varchar(44)) " +
-                        "WITH (format = 'PARQUET', external_location = '%s')",
+        assertUpdate(("CREATE TABLE %s (suppkey bigint, extendedprice decimal(12, 2), shipmode varchar(10), comment varchar(44)) " +
+        "WITH (format = 'PARQUET', external_location = '%s')").formatted(
                 tableName,
                 dataFile.parentDirectory()));
 
@@ -342,8 +337,7 @@ public class TestParquetPageSkipping
                         ")";
         createTableTemplate = createTableTemplate.replaceFirst(sortByColumnName + "[ ]+([^,]*)", sortByColumnName + " " + sortByColumnType);
 
-        assertUpdate(format(
-                createTableTemplate,
+        assertUpdate(createTableTemplate.formatted(
                 tableName,
                 sortByColumnName));
         String catalog = getSession().getCatalog().orElseThrow();
@@ -352,7 +346,7 @@ public class TestParquetPageSkipping
                         .setCatalogSessionProperty(catalog, "parquet_writer_page_size", "10000B")
                         .setCatalogSessionProperty(catalog, "parquet_writer_row_group_size", "2GB")
                         .build(),
-                format("INSERT INTO %s SELECT *, ARRAY[rand(), rand(), rand()] FROM tpch.tiny.orders", tableName),
+                "INSERT INTO %s SELECT *, ARRAY[rand(), rand(), rand()] FROM tpch.tiny.orders".formatted(tableName),
                 15000);
     }
 

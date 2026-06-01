@@ -13,7 +13,6 @@
  */
 package io.trino.tests.product.launcher.cli;
 
-import com.google.common.base.Joiner;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
@@ -21,6 +20,7 @@ import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -32,8 +32,6 @@ import static java.util.stream.Collectors.toList;
 
 public final class OptionsPrinter
 {
-    private static final Joiner JOINER = Joiner.on(" \\\n")
-            .skipNulls();
     private static final Pattern NO_PREFIX_PATTERN = Pattern.compile("--no-");
 
     private OptionsPrinter() {}
@@ -45,7 +43,7 @@ public final class OptionsPrinter
                 .flatMap(Collection::stream)
                 .collect(toList());
 
-        return JOINER.join(arguments);
+        return arguments.stream().filter(Objects::nonNull).collect(joining(" \\\n"));
     }
 
     private static List<String> extractArguments(Object object)
@@ -113,11 +111,11 @@ public final class OptionsPrinter
                 return null;
             }
             return ((Map<?, ?>) value).keySet().stream()
-                    .map(key -> String.format("%s %s=%s", annotation.names()[0], key, ((Map<?, ?>) value).get(key)))
+                    .map(key -> "%s %s=%s".formatted(annotation.names()[0], key, ((Map<?, ?>) value).get(key)))
                     .collect(joining(" "));
         }
 
-        return String.format("%s %s", annotation.names()[0], value);
+        return "%s %s".formatted(annotation.names()[0], value);
     }
 
     private static String formatArguments(Object value)
@@ -125,9 +123,7 @@ public final class OptionsPrinter
         List<String> values = (List<String>) value;
 
         if (values.size() > 0) {
-            return String.format("-- %s", Joiner.on(' ')
-                    .skipNulls()
-                    .join((List<String>) value));
+            return "-- %s".formatted(values.stream().filter(Objects::nonNull).collect(joining(" ")));
         }
 
         return null;

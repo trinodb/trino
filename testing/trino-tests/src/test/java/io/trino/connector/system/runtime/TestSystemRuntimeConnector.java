@@ -50,7 +50,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -206,10 +205,10 @@ public class TestSystemRuntimeConnector
     {
         getColumns = DEFAULT_GET_COLUMNS;
         String testQueryId = "test_query_id_" + counter.incrementAndGet();
-        getQueryRunner().execute(format("EXPLAIN SELECT 1 AS %s FROM test_table", testQueryId));
+        getQueryRunner().execute("EXPLAIN SELECT 1 AS %s FROM test_table".formatted(testQueryId));
 
         assertQuery(
-                format("SELECT state FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'", testQueryId),
+                "SELECT state FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'".formatted(testQueryId),
                 "VALUES 'FINISHED'");
     }
 
@@ -228,12 +227,12 @@ public class TestSystemRuntimeConnector
         };
         String testQueryId = "test_query_id_" + counter.incrementAndGet();
         Future<?> queryFuture = executor.submit(() -> {
-            getQueryRunner().execute(format("EXPLAIN SELECT 1 AS %s FROM test_table", testQueryId));
+            getQueryRunner().execute("EXPLAIN SELECT 1 AS %s FROM test_table".formatted(testQueryId));
         });
 
         assertQueryEventually(
                 getSession(),
-                format("SELECT state FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'", testQueryId),
+                "SELECT state FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'".formatted(testQueryId),
                 "VALUES 'WAITING_FOR_RESOURCES'",
                 new Duration(10, SECONDS));
         assertThat(metadataFuture.isDone()).isFalse();
@@ -243,7 +242,7 @@ public class TestSystemRuntimeConnector
 
         assertQueryEventually(
                 getSession(),
-                format("SELECT state FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'", testQueryId),
+                "SELECT state FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'".formatted(testQueryId),
                 "VALUES 'FINISHED'",
                 new Duration(10, SECONDS));
         // Client should receive query result immediately afterwards
@@ -270,24 +269,24 @@ public class TestSystemRuntimeConnector
         };
         String testQueryId = "test_query_id_" + counter.incrementAndGet();
         Future<?> queryFuture = executor.submit(() -> {
-            getQueryRunner().execute(format("EXPLAIN SELECT 1 AS %s FROM test_table", testQueryId));
+            getQueryRunner().execute("EXPLAIN SELECT 1 AS %s FROM test_table".formatted(testQueryId));
         });
 
         // Wait for query to start
         assertQueryEventually(
                 getSession(),
-                format("SELECT count(*) FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'", testQueryId),
+                "SELECT count(*) FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'".formatted(testQueryId),
                 "VALUES 1",
                 new Duration(5, SECONDS));
 
-        Optional<Object> queryId = computeActual(format("SELECT query_id FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'", testQueryId))
+        Optional<Object> queryId = computeActual("SELECT query_id FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'".formatted(testQueryId))
                 .getOnlyColumn()
                 .collect(toOptional());
         assertThat(metadataFuture.isDone()).isFalse();
         assertThat(queryFuture.isDone()).isFalse();
         assertThat(queryId).isPresent();
 
-        getQueryRunner().execute(format("CALL system.runtime.kill_query('%s', 'because')", queryId.get()));
+        getQueryRunner().execute("CALL system.runtime.kill_query('%s', 'because')".formatted(queryId.get()));
         // Cancellation should happen within kill_query, but it still needs to be propagated to the thread performing analysis.
         assertEventually(new Duration(5, SECONDS), () -> assertThat(metadataFuture.isCancelled()).isTrue());
         // Client should receive query result (failure) immediately afterwards

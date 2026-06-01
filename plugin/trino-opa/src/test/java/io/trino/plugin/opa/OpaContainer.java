@@ -65,7 +65,7 @@ public class OpaContainer
             throw new IllegalStateException("Container is not running");
         }
         if (this.resolvedUri == null) {
-            this.resolvedUri = URI.create(String.format("http://%s:%d/", container.getHost(), container.getMappedPort(OPA_PORT)));
+            this.resolvedUri = URI.create("http://%s:%d/".formatted(container.getHost(), container.getMappedPort(OPA_PORT)));
         }
         return this.resolvedUri;
     }

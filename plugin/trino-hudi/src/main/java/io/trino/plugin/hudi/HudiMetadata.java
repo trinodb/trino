@@ -73,7 +73,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
-import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -116,7 +115,7 @@ public class HudiMetadata
             return null;
         }
         if (!isHudiTable(table.get())) {
-            throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Not a Hudi table: %s", tableName));
+            throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Not a Hudi table: %s".formatted(tableName));
         }
         Location location = Location.of(table.get().getStorage().getLocation());
         if (!hudiMetadataExists(fileSystemFactory.create(session), location)) {
@@ -257,7 +256,7 @@ public class HudiMetadata
         SchemaTablePrefix prefix = schemaName.map(SchemaTablePrefix::new)
                 .orElseGet(SchemaTablePrefix::new);
         List<SchemaTableName> tables = prefix.getTable()
-                .map(_ -> singletonList(prefix.toSchemaTableName()))
+                .map(_ -> List.of(prefix.toSchemaTableName()))
                 .orElseGet(() -> listTables(session, prefix.getSchema()));
 
         Map<SchemaTableName, RelationColumnsMetadata> relationColumns = tables.stream()
@@ -284,7 +283,7 @@ public class HudiMetadata
                 if (Collections.disjoint(constraintColumns, partitionColumns)) {
                     throw new TrinoException(
                             QUERY_REJECTED,
-                            format("Filter required on %s for at least one of the partition columns: %s", hudiTableHandle.getSchemaTableName(), String.join(", ", partitionColumns)));
+                            "Filter required on %s for at least one of the partition columns: %s".formatted(hudiTableHandle.getSchemaTableName(), String.join(", ", partitionColumns)));
                 }
             }
         }

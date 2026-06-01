@@ -13,11 +13,9 @@
  */
 package io.trino.type;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.operator.scalar.CombineHashFunction;
@@ -72,9 +70,8 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.MoreMaps.asMap;
 import static io.trino.util.StructuralTestUtil.mapType;
-import static java.lang.String.format;
 import static java.util.Arrays.asList;
-import static java.util.Collections.emptyList;
+import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -159,7 +156,7 @@ public class TestRowOperators
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ROW(TIMESTAMP '1970-01-01 00:00:01', CAST(null as TIMESTAMP))"))
                 .hasType(JSON)
-                .isEqualTo(format("{\"\":\"%s\",\"\":null}", sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0)));
+                .isEqualTo("{\"\":\"%s\",\"\":null}".formatted(sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0)));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ROW(ARRAY[1, 2], ARRAY[3, null], ARRAY[], ARRAY[null, null], CAST(null as ARRAY(BIGINT)))"))
@@ -251,14 +248,14 @@ public class TestRowOperators
         assertThat(assertions.expression("CAST(a as ROW(VARCHAR, BIGINT))")
                 .binding("a", "JSON '[null, null]'"))
                 .hasType(RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT)))
-                .isEqualTo(Lists.newArrayList(null, null));
+                .isEqualTo(new ArrayList<>(Arrays.asList(null, null)));
 
         assertThat(assertions.expression("CAST(a as ROW(k1 VARCHAR, k2 BIGINT))")
                 .binding("a", "JSON '{\"k2\": null, \"k1\": null}'"))
                 .hasType(RowType.from(ImmutableList.of(
                         RowType.field("k1", VARCHAR),
                         RowType.field("k2", BIGINT))))
-                .isEqualTo(Lists.newArrayList(null, null));
+                .isEqualTo(new ArrayList<>(Arrays.asList(null, null)));
 
         // allow json object contains non-exist field names
         assertThat(assertions.expression("CAST(a as ROW(used BIGINT))")
@@ -430,7 +427,7 @@ public class TestRowOperators
                                 RowType.from(ImmutableList.of(RowType.field("nothing", BIGINT))))))
                 .isEqualTo(asList(
                         asList(1L, 2L, null, 3L),
-                        emptyList(),
+                        List.of(),
                         null,
                         asMap(ImmutableList.of("a", "b", "none", "three"), asList(1L, 2L, null, 3L)),
                         ImmutableMap.of(),
@@ -471,7 +468,7 @@ public class TestRowOperators
                                 RowType.field("three", BIGINT),
                                 RowType.field("none", BIGINT)))))))
                 .isEqualTo(asList(
-                        emptyList(),
+                        List.of(),
                         asList(1L, 2L, null, 3L),
                         null,
                         ImmutableMap.of(),
@@ -621,7 +618,7 @@ public class TestRowOperators
             Arrays.fill(chars, (char) ('a' + i));
             fields[i] = new String(chars);
         }
-        assertThat(assertions.expression(format(longFieldNameCast, fields[0], fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]))
+        assertThat(assertions.expression(longFieldNameCast.formatted(fields[0], fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]))
                 .binding("a", "row(1.2E0, ARRAY[row(233, 6.9E0)], row(1000, 6.3E0))"))
                 .hasType(VARCHAR)
                 .isEqualTo("233");
@@ -934,7 +931,7 @@ public class TestRowOperators
 
     private static String toRowLiteral(List<Object> data)
     {
-        return "ROW(" + Joiner.on(", ").useForNull("null").join(data) + ")";
+        return "ROW(" + data.stream().map(String::valueOf).collect(joining(", ")) + ")";
     }
 
     private void assertRowHashOperator(String inputString, List<Type> types, List<Object> elements)

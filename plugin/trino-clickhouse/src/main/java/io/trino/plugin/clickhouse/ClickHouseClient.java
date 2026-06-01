@@ -191,7 +191,6 @@ import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.lang.System.arraycopy;
 import static java.math.RoundingMode.UNNECESSARY;
@@ -283,10 +282,10 @@ public class ClickHouseClient
                     .map(sortItem -> {
                         String ordering = sortItem.sortOrder().isAscending() ? "ASC" : "DESC";
                         String nullsHandling = sortItem.sortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
-                        return format("%s %s %s", quoted(sortItem.column().getColumnName()), ordering, nullsHandling);
+                        return "%s %s %s".formatted(quoted(sortItem.column().getColumnName()), ordering, nullsHandling);
                     })
                     .collect(joining(", "));
-            return format("%s ORDER BY %s LIMIT %d", query, orderBy, limit);
+            return "%s ORDER BY %s LIMIT %d".formatted(query, orderBy, limit);
         });
     }
 
@@ -342,8 +341,7 @@ public class ClickHouseClient
         // ClickHouse supports the following two methods to copy schema
         // 1. create table tbl as tbl2
         // 2. create table tbl1 ENGINE=<engine> as select * from tbl2
-        String sql = format(
-                "CREATE TABLE %s AS %s ",
+        String sql = "CREATE TABLE %s AS %s ".formatted(
                 quoted(null, schemaName, newTableName),
                 quoted(null, schemaName, tableName));
         try {
@@ -397,9 +395,9 @@ public class ClickHouseClient
         formatProperty(ClickHouseTableProperties.getPrimaryKey(tableProperties)).ifPresent(value -> tableOptions.add("PRIMARY KEY " + value));
         formatProperty(ClickHouseTableProperties.getPartitionBy(tableProperties)).ifPresent(value -> tableOptions.add("PARTITION BY " + value));
         ClickHouseTableProperties.getSampleBy(tableProperties).ifPresent(value -> tableOptions.add("SAMPLE BY " + quoted(value)));
-        tableMetadata.getComment().ifPresent(comment -> tableOptions.add(format("COMMENT %s", clickhouseVarcharLiteral(comment))));
+        tableMetadata.getComment().ifPresent(comment -> tableOptions.add("COMMENT %s".formatted(clickhouseVarcharLiteral(comment))));
 
-        return ImmutableList.of(format("CREATE TABLE %s (%s) %s", quoted(remoteTableName), join(", ", columns), join(" ", tableOptions.build())));
+        return ImmutableList.of("CREATE TABLE %s (%s) %s".formatted(quoted(remoteTableName), join(", ", columns), join(" ", tableOptions.build())));
     }
 
     @Override
@@ -463,8 +461,7 @@ public class ClickHouseClient
         ClickHouseTableProperties.getSampleBy(properties).ifPresent(value -> tableOptions.add("SAMPLE BY " + quoted(value)));
 
         try (Connection connection = connectionFactory.openConnection(session)) {
-            String sql = format(
-                    "ALTER TABLE %s MODIFY %s",
+            String sql = "ALTER TABLE %s MODIFY %s".formatted(
                     quoted(handle.asPlainTable().getRemoteTableName()),
                     join(" ", tableOptions.build()));
             execute(session, connection, sql);
@@ -488,7 +485,7 @@ public class ClickHouseClient
             // By default, the clickhouse column is not allowed to be null
             sb.append(toWriteMapping(session, column.getType()).getDataType());
         }
-        column.getComment().ifPresent(comment -> sb.append(format(" COMMENT %s", clickhouseVarcharLiteral(comment))));
+        column.getComment().ifPresent(comment -> sb.append(" COMMENT %s".formatted(clickhouseVarcharLiteral(comment))));
         return sb.toString();
     }
 
@@ -535,8 +532,7 @@ public class ClickHouseClient
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
             String remoteColumnName = getIdentifierMapping().toRemoteColumnName(getRemoteIdentifiers(connection), column.getName());
-            String sql = format(
-                    "ALTER TABLE %s ADD COLUMN %s",
+            String sql = "ALTER TABLE %s ADD COLUMN %s".formatted(
                     quoted(table),
                     getColumnDefinitionSql(session, column, remoteColumnName));
             execute(session, connection, sql);
@@ -549,8 +545,7 @@ public class ClickHouseClient
     @Override
     public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
     {
-        String sql = format(
-                "ALTER TABLE %s MODIFY COMMENT %s",
+        String sql = "ALTER TABLE %s MODIFY COMMENT %s".formatted(
                 quoted(handle.asPlainTable().getRemoteTableName()),
                 clickhouseVarcharLiteral(comment.orElse(NO_COMMENT)));
         execute(session, sql);
@@ -559,8 +554,7 @@ public class ClickHouseClient
     @Override
     public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
-        String sql = format(
-                "ALTER TABLE %s COMMENT COLUMN %s %s",
+        String sql = "ALTER TABLE %s COMMENT COLUMN %s %s".formatted(
                 quoted(handle.asPlainTable().getRemoteTableName()),
                 quoted(column.getColumnName()),
                 clickhouseVarcharLiteral(comment.orElse("")));
@@ -595,8 +589,7 @@ public class ClickHouseClient
     protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
             throws SQLException
     {
-        execute(session, connection, format(
-                "RENAME TABLE %s TO %s",
+        execute(session, connection, "RENAME TABLE %s TO %s".formatted(
                 quoted(catalogName, remoteSchemaName, remoteTableName),
                 quoted(catalogName, newRemoteSchemaName, newRemoteTableName)));
     }
@@ -778,7 +771,7 @@ public class ClickHouseClient
             return WriteMapping.doubleMapping("Float64", doubleWriteFunction());
         }
         if (type instanceof DecimalType decimalType) {
-            String dataType = format("Decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            String dataType = "Decimal(%s, %s)".formatted(decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
@@ -979,7 +972,7 @@ public class ClickHouseClient
             @Override
             public String getBindExpression()
             {
-                return format("CAST(? AS %s)", clickhouseType);
+                return "CAST(? AS %s)".formatted(clickhouseType);
             }
 
             @Override

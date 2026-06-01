@@ -197,7 +197,6 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.Math.addExact;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
@@ -205,7 +204,6 @@ import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
-import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
 import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
@@ -716,10 +714,10 @@ public class IcebergPageSourceProvider
                 }
             }
 
-            Map<Integer, List<List<Integer>>> projectionsByFieldId = columns.stream()
+            Map<Integer, ImmutableList<List<Integer>>> projectionsByFieldId = columns.stream()
                     .collect(groupingBy(
                             column -> column.getBaseColumnIdentity().getId(),
-                            mapping(IcebergColumnHandle::getPath, toUnmodifiableList())));
+                            mapping(IcebergColumnHandle::getPath, toImmutableList())));
 
             List<IcebergColumnHandle> baseColumns = new ArrayList<>(columns.size());
             Map<Integer, Integer> baseColumnIdToOrdinal = new HashMap<>();
@@ -994,7 +992,7 @@ public class IcebergPageSourceProvider
         {
             int fieldId = requireNonNull(
                     nameToIdMappingForTableColumns.get(fieldName),
-                    () -> format("Id mapping for field %s not found", fieldName));
+                    () -> "Id mapping for field %s not found".formatted(fieldName));
             return idToColumnMappingForFile.get(fieldId);
         }
     }
@@ -1525,8 +1523,8 @@ public class IcebergPageSourceProvider
                 return fullyProjectedLayout();
             }
 
-            Map<Integer, List<List<Integer>>> dereferencesByField = fieldIdDereferences.stream()
-                    .collect(groupingBy(List::getFirst, mapping(sequence -> sequence.subList(1, sequence.size()), toUnmodifiableList())));
+            Map<Integer, ImmutableList<List<Integer>>> dereferencesByField = fieldIdDereferences.stream()
+                    .collect(groupingBy(List::getFirst, mapping(sequence -> sequence.subList(1, sequence.size()), toImmutableList())));
 
             ImmutableMap.Builder<Integer, ProjectedLayout> fieldLayouts = ImmutableMap.builder();
             for (OrcColumn nestedColumn : root.getNestedColumns()) {
@@ -1657,7 +1655,7 @@ public class IcebergPageSourceProvider
         if (exception instanceof OrcCorruptionException) {
             return new TrinoException(ICEBERG_BAD_DATA, exception);
         }
-        return new TrinoException(ICEBERG_CURSOR_ERROR, format("Failed to read ORC file: %s", dataSourceId), exception);
+        return new TrinoException(ICEBERG_CURSOR_ERROR, "Failed to read ORC file: %s".formatted(dataSourceId), exception);
     }
 
     private static TrinoException handleException(ParquetDataSourceId dataSourceId, Exception exception)
@@ -1668,7 +1666,7 @@ public class IcebergPageSourceProvider
         if (exception instanceof ParquetCorruptionException) {
             return new TrinoException(ICEBERG_BAD_DATA, exception);
         }
-        return new TrinoException(ICEBERG_CURSOR_ERROR, format("Failed to read Parquet file: %s", dataSourceId), exception);
+        return new TrinoException(ICEBERG_CURSOR_ERROR, "Failed to read Parquet file: %s".formatted(dataSourceId), exception);
     }
 
     public record ReaderPageSourceWithRowPositions(

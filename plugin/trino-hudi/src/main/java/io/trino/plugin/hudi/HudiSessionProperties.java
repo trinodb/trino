@@ -35,7 +35,6 @@ import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
 public class HudiSessionProperties
@@ -85,7 +84,7 @@ public class HudiSessionProperties
                             if (value < 128 || value > 65536) {
                                 throw new TrinoException(
                                         INVALID_SESSION_PROPERTY,
-                                        format("%s must be between 128 and 65536: %s", PARQUET_MAX_READ_BLOCK_ROW_COUNT, value));
+                                        "%s must be between 128 and 65536: %s".formatted(PARQUET_MAX_READ_BLOCK_ROW_COUNT, value));
                             }
                         },
                         false),
@@ -102,7 +101,7 @@ public class HudiSessionProperties
                         false),
                 booleanProperty(
                         SIZE_BASED_SPLIT_WEIGHTS_ENABLED,
-                        format("If enabled, size-based splitting ensures that each batch of splits has enough data to process as defined by %s", STANDARD_SPLIT_WEIGHT_SIZE),
+                        "If enabled, size-based splitting ensures that each batch of splits has enough data to process as defined by %s".formatted(STANDARD_SPLIT_WEIGHT_SIZE),
                         hudiConfig.isSizeBasedSplitWeightsEnabled(),
                         false),
                 dataSizeProperty(
@@ -116,7 +115,7 @@ public class HudiSessionProperties
                         hudiConfig.getMinimumAssignedSplitWeight(),
                         value -> {
                             if (!Double.isFinite(value) || value <= 0 || value > 1) {
-                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be > 0 and <= 1.0: %s", MINIMUM_ASSIGNED_SPLIT_WEIGHT, value));
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, "%s must be > 0 and <= 1.0: %s".formatted(MINIMUM_ASSIGNED_SPLIT_WEIGHT, value));
                             }
                         },
                         false),

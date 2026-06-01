@@ -46,7 +46,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.JsonType.JSON;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -295,7 +294,7 @@ public abstract class BaseBigQueryTypeMapping
     {
         String tableName = "test.invalid_numeric_scale_" + randomNameSuffix();
         try {
-            assertThatThrownBy(() -> getBigQuerySqlExecutor().execute(format("CREATE TABLE %s (invalid_type NUMERIC(38, 10))", tableName)))
+            assertThatThrownBy(() -> getBigQuerySqlExecutor().execute("CREATE TABLE %s (invalid_type NUMERIC(38, 10))".formatted(tableName)))
                     .hasMessageContaining("In NUMERIC(P, S), S must be between 0 and 9");
         }
         finally {
@@ -382,7 +381,7 @@ public abstract class BaseBigQueryTypeMapping
 
     private void testUnsupportedBigNumericMapping(String unsupportedTypeName)
     {
-        try (TestTable table = new TestTable(getBigQuerySqlExecutor(), "test.unsupported_bignumeric", format("(supported_column INT64, unsupported_column %s)", unsupportedTypeName))) {
+        try (TestTable table = new TestTable(getBigQuerySqlExecutor(), "test.unsupported_bignumeric", "(supported_column INT64, unsupported_column %s)".formatted(unsupportedTypeName))) {
             assertQuery(
                     "DESCRIBE " + table.getName(),
                     "VALUES ('supported_column', 'bigint', '', '')");

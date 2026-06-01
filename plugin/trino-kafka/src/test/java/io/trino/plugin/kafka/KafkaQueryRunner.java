@@ -52,7 +52,6 @@ import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.kafka.util.TestUtils.loadTpchTopicDescription;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -207,7 +206,7 @@ public final class KafkaQueryRunner
         for (TpchTable<?> table : tables) {
             long start = System.nanoTime();
             log.info("Running import for %s", table.getTableName());
-            queryRunner.execute(format("INSERT INTO %1$s SELECT * FROM tpch.tiny.%1$s", table.getTableName()));
+            queryRunner.execute("INSERT INTO %1$s SELECT * FROM tpch.tiny.%1$s".formatted(table.getTableName()));
             log.info("Imported %s in %s", table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
         }
         log.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
@@ -216,7 +215,7 @@ public final class KafkaQueryRunner
     private static KafkaTopicDescription createTable(SchemaTableName table, JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec)
             throws IOException
     {
-        String fileName = format("/%s/%s.json", table.getSchemaName(), table.getTableName());
+        String fileName = "/%s/%s.json".formatted(table.getSchemaName(), table.getTableName());
         KafkaTopicDescription tableTemplate = topicDescriptionJsonCodec.fromJson(KafkaQueryRunner.class.getResourceAsStream(fileName));
 
         Optional<KafkaTopicFieldGroup> key = tableTemplate.key()

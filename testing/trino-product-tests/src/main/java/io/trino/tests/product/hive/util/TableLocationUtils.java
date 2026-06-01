@@ -19,7 +19,6 @@ import java.util.regex.Pattern;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 
 public final class TableLocationUtils
 {
@@ -38,7 +37,7 @@ public final class TableLocationUtils
         for (int i = 0; i < partitionColumns; i++) {
             regex.insert(0, "/[^/]*");
         }
-        String tableLocation = getOnlyElement(onTrino().executeQuery(format("SELECT DISTINCT regexp_replace(\"$path\", '%s', '') FROM %s", regex, tableName)).column(1));
+        String tableLocation = getOnlyElement(onTrino().executeQuery("SELECT DISTINCT regexp_replace(\"$path\", '%s', '') FROM %s".formatted(regex, tableName)).column(1));
 
         // trim the /delta_... suffix for ACID tables
         Matcher acidLocationMatcher = ACID_LOCATION_PATTERN.matcher(tableLocation);

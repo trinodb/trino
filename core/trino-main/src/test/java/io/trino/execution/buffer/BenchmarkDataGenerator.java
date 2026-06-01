@@ -110,7 +110,7 @@ public class BenchmarkDataGenerator
                 row.add(randomLongDecimal(random));
             }
             else {
-                throw new UnsupportedOperationException(String.format("The %s is not supported", type));
+                throw new UnsupportedOperationException("The %s is not supported".formatted(type));
             }
         }
         return row;

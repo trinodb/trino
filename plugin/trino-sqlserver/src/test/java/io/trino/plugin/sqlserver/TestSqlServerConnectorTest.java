@@ -32,7 +32,6 @@ import static io.trino.plugin.sqlserver.SqlServerQueryRunner.CATALOG;
 import static io.trino.plugin.sqlserver.SqlServerSessionProperties.BULK_COPY_FOR_WRITE;
 import static io.trino.plugin.sqlserver.SqlServerSessionProperties.BULK_COPY_FOR_WRITE_LOCK_DESTINATION_TABLE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -77,12 +76,12 @@ public class TestSqlServerConnectorTest
                 .build();
 
         // there should be enough rows in source table to minimal logging be enabled. `nation` table is too small.
-        assertQuerySucceeds(session, format("CREATE TABLE %s as SELECT * FROM tpch.tiny.customer", table));
+        assertQuerySucceeds(session, "CREATE TABLE %s as SELECT * FROM tpch.tiny.customer".formatted(table));
         assertQuery("SELECT * FROM " + table, "SELECT * FROM customer");
 
         // check that there are no locks remaining on the target table after bulk copy
         assertQuery("SELECT count(*) FROM " + table, "SELECT count(*) FROM customer");
-        assertUpdate(format("INSERT INTO %s SELECT * FROM tpch.tiny.customer LIMIT 1", table), 1);
+        assertUpdate("INSERT INTO %s SELECT * FROM tpch.tiny.customer LIMIT 1".formatted(table), 1);
         assertQuery("SELECT count(*) FROM " + table, "SELECT count(*) + 1 FROM customer");
 
         assertUpdate("DROP TABLE " + table);
@@ -106,7 +105,7 @@ public class TestSqlServerConnectorTest
             throws SQLException
     {
         String table = "bulk_copy_insert_" + randomNameSuffix();
-        assertQuerySucceeds(format("CREATE TABLE %s as SELECT * FROM tpch.tiny.customer WHERE 0 = 1", table));
+        assertQuerySucceeds("CREATE TABLE %s as SELECT * FROM tpch.tiny.customer WHERE 0 = 1".formatted(table));
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty(CATALOG, NON_TRANSACTIONAL_INSERT, Boolean.toString(nonTransactionalInsert))
                 .setCatalogSessionProperty(CATALOG, BULK_COPY_FOR_WRITE, Boolean.toString(bulkCopyForWrite))
@@ -114,7 +113,7 @@ public class TestSqlServerConnectorTest
                 .build();
 
         // there should be enough rows in source table to minimal logging be enabled. `nation` table is too small.
-        assertQuerySucceeds(session, format("INSERT INTO %s SELECT * FROM tpch.tiny.customer", table));
+        assertQuerySucceeds(session, "INSERT INTO %s SELECT * FROM tpch.tiny.customer".formatted(table));
         assertQuery("SELECT * FROM " + table, "SELECT * FROM customer");
 
         // check whether minimal logging was applied.
@@ -125,7 +124,7 @@ public class TestSqlServerConnectorTest
 
         // check that there are no locks remaining on the target table after bulk copy
         assertQuery("SELECT count(*) FROM " + table, "SELECT count(*) FROM customer");
-        assertUpdate(format("INSERT INTO %s SELECT * FROM tpch.tiny.customer LIMIT 1", table), 1);
+        assertUpdate("INSERT INTO %s SELECT * FROM tpch.tiny.customer LIMIT 1".formatted(table), 1);
         assertQuery("SELECT count(*) FROM " + table, "SELECT count(*) + 1 FROM customer");
 
         assertUpdate("DROP TABLE " + table);
@@ -148,7 +147,7 @@ public class TestSqlServerConnectorTest
                 .setCatalogSessionProperty(CATALOG, BULK_COPY_FOR_WRITE_LOCK_DESTINATION_TABLE, "true")
                 .build();
 
-        try (TestTable table = new TestTable((String sql) -> getQueryRunner().execute(session, sql), "bulk_copy_insert", format("(timestamp_col %s)", timestampType))) {
+        try (TestTable table = new TestTable((String sql) -> getQueryRunner().execute(session, sql), "bulk_copy_insert", "(timestamp_col %s)".formatted(timestampType))) {
             // Insert values without using TestTable to ensure all the rows are written in a single batch
             List<String> timestampValues = ImmutableList.of(
                     "TIMESTAMP '1958-01-01 13:18:03'",
@@ -163,12 +162,12 @@ public class TestSqlServerConnectorTest
                     "TIMESTAMP '1970-01-01 00:13:42.000000000'",
                     "TIMESTAMP '2018-04-01 02:13:55.123000000'",
                     "TIMESTAMP '1986-01-01 00:13:07.000000000000'");
-            String valuesList = timestampValues.stream().map(s -> format("(%s)", s)).collect(joining(","));
-            assertUpdate(format("INSERT INTO %s VALUES %s", table.getName(), valuesList), 12);
+            String valuesList = timestampValues.stream().map(s -> "(%s)".formatted(s)).collect(joining(","));
+            assertUpdate("INSERT INTO %s VALUES %s".formatted(table.getName(), valuesList), 12);
 
             // check that there are no locks remaining on the target table after bulk copy
             assertQuery("SELECT count(*) FROM " + table.getName(), "SELECT 12");
-            assertUpdate(format("INSERT INTO %s VALUES (TIMESTAMP '2022-01-01 00:13:07.0000000')", table.getName()), 1);
+            assertUpdate("INSERT INTO %s VALUES (TIMESTAMP '2022-01-01 00:13:07.0000000')".formatted(table.getName()), 1);
             assertQuery("SELECT count(*) FROM " + table.getName(), "SELECT 13");
         }
     }
@@ -288,6 +287,6 @@ public class TestSqlServerConnectorTest
     {
         String trimmed = name.stripTrailing();
         String trailingWhitespace = name.substring(trimmed.length());
-        return format("%s%s%s", trimmed, randomNameSuffix(), trailingWhitespace);
+        return "%s%s%s".formatted(trimmed, randomNameSuffix(), trailingWhitespace);
     }
 }

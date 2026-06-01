@@ -17,7 +17,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
-import static java.lang.String.format;
 
 public class InvalidProjectionException
         extends TrinoException
@@ -39,6 +38,6 @@ public class InvalidProjectionException
 
     public static String invalidProjectionMessage(String columnName, String message)
     {
-        return format("Column projection for column '%s' failed. %s", columnName, message);
+        return "Column projection for column '%s' failed. %s".formatted(columnName, message);
     }
 }

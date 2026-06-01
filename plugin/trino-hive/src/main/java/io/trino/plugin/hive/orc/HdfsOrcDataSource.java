@@ -27,7 +27,6 @@ import java.io.IOException;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HdfsOrcDataSource
@@ -80,7 +79,7 @@ public class HdfsOrcDataSource
             throw e;
         }
         catch (Exception e) {
-            String message = format("Error reading from %s at position %s", this, position);
+            String message = "Error reading from %s at position %s".formatted(this, position);
             if (e instanceof IOException) {
                 throw new TrinoException(HIVE_FILESYSTEM_ERROR, message, e);
             }

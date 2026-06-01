@@ -68,7 +68,6 @@ import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.expressions.Expressions.alwaysFalse;
@@ -165,7 +164,7 @@ public final class ExpressionConverter
             return or(nullExpression, or(values, ranges));
         }
 
-        throw new VerifyException(format("Unsupported type %s with domain values %s", type, domain));
+        throw new VerifyException("Unsupported type %s with domain values %s".formatted(type, domain));
     }
 
     private static Expression toIcebergExpression(String columnName, Range range)

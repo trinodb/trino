@@ -19,7 +19,6 @@ import libsvm.svm_parameter;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
 public final class LibSvmUtils
@@ -58,7 +57,7 @@ public final class LibSvmUtils
                 case "C" -> params.C = Double.parseDouble(value);
                 case "nu" -> params.nu = Double.parseDouble(value);
                 case "eps" -> params.eps = Double.parseDouble(value);
-                default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Unknown parameter %s", pair[0]));
+                default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Unknown parameter %s".formatted(pair[0]));
             }
         }
 
@@ -72,7 +71,7 @@ public final class LibSvmUtils
             case "poly" -> svm_parameter.POLY;
             case "rbf" -> svm_parameter.RBF;
             case "sigmoid" -> svm_parameter.SIGMOID;
-            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Unknown kernel type %s", value));
+            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Unknown kernel type %s".formatted(value));
         };
     }
 }

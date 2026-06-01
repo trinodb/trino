@@ -142,7 +142,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static io.trino.spi.security.PrincipalType.USER;
 import static java.lang.Long.parseLong;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -713,8 +712,7 @@ public class SemiTransactionalHiveMetastore
         setExclusive(_ -> {
             RecursiveDeleteResult recursiveDeleteResult = recursiveDeleteFiles(fileSystem, location, ImmutableSet.of(""), false);
             if (!recursiveDeleteResult.notDeletedEligibleItems().isEmpty()) {
-                throw new TrinoException(HIVE_FILESYSTEM_ERROR, format(
-                        "Error deleting from unpartitioned table %s. These items cannot be deleted: %s",
+                throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Error deleting from unpartitioned table %s. These items cannot be deleted: %s".formatted(
                         schemaTableName,
                         recursiveDeleteResult.notDeletedEligibleItems()));
             }
@@ -812,7 +810,7 @@ public class SemiTransactionalHiveMetastore
         partitionNames = switch (tableSource) {
             case CREATED_IN_THIS_TRANSACTION -> ImmutableList.of();
             case PRE_EXISTING_TABLE -> getOptionalPartitions(databaseName, tableName, columnNames, partitionKeysFilter)
-                    .orElseThrow(() -> new TrinoException(TRANSACTION_CONFLICT, format("Table '%s.%s' was dropped by another transaction", databaseName, tableName)));
+                    .orElseThrow(() -> new TrinoException(TRANSACTION_CONFLICT, "Table '%s.%s' was dropped by another transaction".formatted(databaseName, tableName)));
         };
         Set<String> duplicatePartitionNames = ImmutableMultiset.copyOf(partitionNames)
                 .entrySet().stream()
@@ -820,7 +818,7 @@ public class SemiTransactionalHiveMetastore
                 .map(Multiset.Entry::getElement)
                 .collect(toImmutableSet());
         if (!duplicatePartitionNames.isEmpty()) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, format("Metastore returned duplicate partition names for %s", duplicatePartitionNames));
+            throw new TrinoException(HIVE_METASTORE_ERROR, "Metastore returned duplicate partition names for %s".formatted(duplicatePartitionNames));
         }
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(table.get().getSchemaTableName(), _ -> new HashMap<>());
         ImmutableList.Builder<String> resultBuilder = ImmutableList.builder();
@@ -833,7 +831,7 @@ public class SemiTransactionalHiveMetastore
                 continue;
             }
             switch (partitionAction.type()) {
-                case ADD -> throw new TrinoException(TRANSACTION_CONFLICT, format("Another transaction created partition %s in table %s.%s", partitionValues, databaseName, tableName));
+                case ADD -> throw new TrinoException(TRANSACTION_CONFLICT, "Another transaction created partition %s in table %s.%s".formatted(partitionValues, databaseName, tableName));
                 case DROP, DROP_PRESERVE_DATA -> {
                     // do nothing
                 }
@@ -922,7 +920,7 @@ public class SemiTransactionalHiveMetastore
                         partition.getValues(),
                         new Action<>(ActionType.ALTER, new PartitionAndMore(partition, currentLocation, files, statistics, statistics, SHOULD_MERGE_STATISTICS, cleanExtraOutputFilesOnCommit), session.getIdentity(), session.getQueryId()));
             }
-            case ADD, ALTER, INSERT_EXISTING, MERGE -> throw new TrinoException(ALREADY_EXISTS, format("Partition already exists for table '%s.%s': %s", databaseName, tableName, partition.getValues()));
+            case ADD, ALTER, INSERT_EXISTING, MERGE -> throw new TrinoException(ALREADY_EXISTS, "Partition already exists for table '%s.%s': %s".formatted(databaseName, tableName, partition.getValues()));
         }
     }
 
@@ -1619,7 +1617,7 @@ public class SemiTransactionalHiveMetastore
         private void prepareDropTable(SchemaTableName schemaTableName)
         {
             metastoreDeleteOperations.add(new IrreversibleMetastoreOperation(
-                    format("drop table %s", schemaTableName),
+                    "drop table %s".formatted(schemaTableName),
                     () -> {
                         Optional<Table> droppedTable = delegate.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
                         try {
@@ -1729,7 +1727,7 @@ public class SemiTransactionalHiveMetastore
                             else {
                                 throw new TrinoException(
                                         HIVE_PATH_ALREADY_EXISTS,
-                                        format("Unable to create directory %s: target directory already exists", targetPath));
+                                        "Unable to create directory %s: target directory already exists".formatted(targetPath));
                             }
                         }
                         else {
@@ -1799,7 +1797,7 @@ public class SemiTransactionalHiveMetastore
         private void prepareDropPartition(SchemaTableName schemaTableName, List<String> partitionValues, boolean deleteData)
         {
             metastoreDeleteOperations.add(new IrreversibleMetastoreOperation(
-                    format("drop partition %s.%s %s", schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues),
+                    "drop partition %s.%s %s".formatted(schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues),
                     () -> {
                         Optional<Partition> droppedPartition = getOptionalPartition(delegate, schemaTableName, partitionValues);
                         try {
@@ -1822,7 +1820,7 @@ public class SemiTransactionalHiveMetastore
             Partition oldPartition = getOptionalPartition(delegate, partition.getSchemaTableName(), partition.getValues())
                     .orElseThrow(() -> new TrinoException(
                             TRANSACTION_CONFLICT,
-                            format("The partition that this transaction modified was deleted in another transaction. %s %s", partition.getTableName(), partition.getValues())));
+                            "The partition that this transaction modified was deleted in another transaction. %s %s".formatted(partition.getTableName(), partition.getValues())));
             String partitionName = getPartitionName(partition.getDatabaseName(), partition.getTableName(), partition.getValues());
             PartitionStatistics oldPartitionStatistics = getExistingPartitionStatistics(partition, partitionName);
             String oldPartitionLocation = oldPartition.getStorage().getLocation();
@@ -1906,7 +1904,7 @@ public class SemiTransactionalHiveMetastore
                 if (columnStatistics == null) {
                     throw new TrinoException(
                             TRANSACTION_CONFLICT,
-                            format("The partition that this transaction modified was deleted in another transaction. %s %s", partition.getTableName(), partition.getValues()));
+                            "The partition that this transaction modified was deleted in another transaction. %s %s".formatted(partition.getTableName(), partition.getValues()));
                 }
                 return new PartitionStatistics(basicStatistics, columnStatistics);
             }
@@ -2280,7 +2278,7 @@ public class SemiTransactionalHiveMetastore
                             rootPath,
                             ImmutableSet.of(declaredIntentionToWrite.queryId()),
                             true,
-                            format("staging/target_new directory rollback for table %s", declaredIntentionToWrite.schemaTableName()));
+                            "staging/target_new directory rollback for table %s".formatted(declaredIntentionToWrite.schemaTableName()));
                 }
                 case DIRECT_TO_TARGET_EXISTING_DIRECTORY -> {
                     Set<Location> pathsToClean = new HashSet<>();
@@ -2332,7 +2330,7 @@ public class SemiTransactionalHiveMetastore
                                 path,
                                 ImmutableSet.of(declaredIntentionToWrite.queryId()),
                                 false,
-                                format("target_existing directory rollback for table %s", schemaTableName));
+                                "target_existing directory rollback for table %s".formatted(schemaTableName));
                     }
                 }
             }
@@ -2424,7 +2422,7 @@ public class SemiTransactionalHiveMetastore
                     fileSystem.renameFile(source, target);
                 }
                 catch (IOException e) {
-                    throw new TrinoException(HIVE_FILESYSTEM_ERROR, format("Error moving data files from %s to final location %s", source, target), e);
+                    throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Error moving data files from %s to final location %s".formatted(source, target), e);
                 }
             }, executor));
         }
@@ -2596,7 +2594,7 @@ public class SemiTransactionalHiveMetastore
     private static void renameDirectory(TrinoFileSystem fileSystem, Location source, Location target, Runnable runWhenPathDoesntExist)
     {
         if (directoryExists(fileSystem, target)) {
-            throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, format("Unable to rename from %s to %s: target directory already exists", source, target));
+            throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, "Unable to rename from %s to %s: target directory already exists".formatted(source, target));
         }
 
         Location parent = asFileLocation(target).parentDirectory();
@@ -2612,7 +2610,7 @@ public class SemiTransactionalHiveMetastore
             fileSystem.renameDirectory(source, target);
         }
         catch (IOException e) {
-            throw new TrinoException(HIVE_FILESYSTEM_ERROR, format("Failed to rename %s to %s", source, target), e);
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed to rename %s to %s".formatted(source, target), e);
         }
     }
 
@@ -2667,7 +2665,7 @@ public class SemiTransactionalHiveMetastore
         // This method should not have a significant performance impact. If it does, it may be reasonably to remove this method.
         // This intentionally does not use checkState.
         if (!Thread.holdsLock(this)) {
-            throw new IllegalStateException(format("Thread must hold a lock on the %s", getClass().getSimpleName()));
+            throw new IllegalStateException("Thread must hold a lock on the %s".formatted(getClass().getSimpleName()));
         }
     }
 
@@ -2954,7 +2952,7 @@ public class SemiTransactionalHiveMetastore
 
         public String getDescription()
         {
-            return format("add table %s.%s", newTable.getDatabaseName(), newTable.getTableName());
+            return "add table %s.%s".formatted(newTable.getDatabaseName(), newTable.getTableName());
         }
 
         public void run(HiveMetastore metastore, AcidTransaction transaction)
@@ -2983,7 +2981,7 @@ public class SemiTransactionalHiveMetastore
                             // This may be a problem if there is an insert after this step.
                             if (!hasTheSameSchema(newTable, table)) {
                                 // produce an understandable error message
-                                failure = new TrinoException(TRANSACTION_CONFLICT, format("Table already exists with a different schema: '%s'", newTable.getTableName()));
+                                failure = new TrinoException(TRANSACTION_CONFLICT, "Table already exists with a different schema: '%s'".formatted(newTable.getTableName()));
                             }
                             else if (ignoreExisting) {
                                 // if the statement is "CREATE TABLE IF NOT EXISTS", then ignore the exception
@@ -3056,8 +3054,7 @@ public class SemiTransactionalHiveMetastore
 
         public String getDescription()
         {
-            return format(
-                    "alter table %s.%s",
+            return "alter table %s.%s".formatted(
                     newTable.getDatabaseName(),
                     newTable.getTableName());
         }
@@ -3105,8 +3102,7 @@ public class SemiTransactionalHiveMetastore
 
         public String getDescription()
         {
-            return format(
-                    "alter partition %s.%s %s",
+            return "alter partition %s.%s %s".formatted(
                     newPartition.getPartition().getDatabaseName(),
                     newPartition.getPartition().getTableName(),
                     newPartition.getPartition().getValues());
@@ -3180,9 +3176,9 @@ public class SemiTransactionalHiveMetastore
         public String getDescription()
         {
             if (partitionName.isPresent()) {
-                return format("replace partition parameters %s %s", tableName, partitionName.get());
+                return "replace partition parameters %s %s".formatted(tableName, partitionName.get());
             }
-            return format("replace table parameters %s", tableName);
+            return "replace table parameters %s".formatted(tableName);
         }
     }
 
@@ -3357,7 +3353,7 @@ public class SemiTransactionalHiveMetastore
             // Still, we cannot do much better for non-transactional Hive tables.
             throw new TrinoException(
                     HIVE_FILESYSTEM_ERROR,
-                    format("Error deleting failed retry attempt files from %s; remaining files %s; manual cleanup may be required", path, filesToDelete),
+                    "Error deleting failed retry attempt files from %s; remaining files %s; manual cleanup may be required".formatted(path, filesToDelete),
                     e);
         }
     }

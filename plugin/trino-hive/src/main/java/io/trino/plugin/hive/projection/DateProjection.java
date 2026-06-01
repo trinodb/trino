@@ -60,7 +60,6 @@ import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static java.time.temporal.ChronoUnit.HOURS;
@@ -136,8 +135,7 @@ final class DateProjection
         if (!DATE_PROJECTION_INTERVAL_UNITS.contains(intervalUnit)) {
             throw new InvalidProjectionException(
                     columnName,
-                    format(
-                            "Property: '%s' value '%s' is invalid. Available options: %s",
+                    "Property: '%s' value '%s' is invalid. Available options: %s".formatted(
                             COLUMN_PROJECTION_INTERVAL_UNIT,
                             intervalUnit,
                             DATE_PROJECTION_INTERVAL_UNITS));
@@ -224,7 +222,7 @@ final class DateProjection
             catch (IllegalArgumentException e) {
                 throw new TrinoException(
                         NOT_SUPPORTED,
-                        format("Writing to date partition projection column '%s' with format '%s' is not supported", columnName, dateFormatPattern));
+                        "Writing to date partition projection column '%s' with format '%s' is not supported".formatted(columnName, dateFormatPattern));
             }
         }
 
@@ -235,7 +233,7 @@ final class DateProjection
             catch (IllegalArgumentException e) {
                 throw new TrinoException(
                         NOT_SUPPORTED,
-                        format("Writing to date partition projection column '%s' with format '%s' is not supported", columnName, dateFormatPattern));
+                        "Writing to date partition projection column '%s' with format '%s' is not supported".formatted(columnName, dateFormatPattern));
             }
         }
     }
@@ -267,8 +265,7 @@ final class DateProjection
             // When the provided dates are at single-day or single-month precision.
             throw new InvalidProjectionException(
                     columnName,
-                    format(
-                            "Property: '%s' needs to be set when provided '%s' is less that single-day precision. Interval defaults to 1 day or 1 month, respectively. Otherwise, interval is required",
+                    "Property: '%s' needs to be set when provided '%s' is less that single-day precision. Interval defaults to 1 day or 1 month, respectively. Otherwise, interval is required".formatted(
                             COLUMN_PROJECTION_INTERVAL_UNIT,
                             COLUMN_PROJECTION_FORMAT));
         }
@@ -320,8 +317,7 @@ final class DateProjection
     {
         throw new InvalidProjectionException(
                 columnName,
-                format(
-                        "Property: '%s' needs to be a list of 2 valid dates formatted as '%s' or '%s' that are sequential%s",
+                "Property: '%s' needs to be a list of 2 valid dates formatted as '%s' or '%s' that are sequential%s".formatted(
                         COLUMN_PROJECTION_RANGE,
                         dateFormatPattern,
                         DATE_RANGE_BOUND_EXPRESSION_PATTERN.pattern(),

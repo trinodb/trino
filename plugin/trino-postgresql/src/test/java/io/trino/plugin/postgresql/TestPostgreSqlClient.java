@@ -71,7 +71,6 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ir.IrExpressions.not;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPostgreSqlClient
@@ -292,12 +291,12 @@ public class TestPostgreSqlClient
             switch (operator) {
                 case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> {
                     assertThat(converted).isPresent();
-                    assertThat(converted.get().expression()).isEqualTo(format("(\"c_bigint\") %s (?)", operator.getValue()));
+                    assertThat(converted.get().expression()).isEqualTo("(\"c_bigint\") %s (?)".formatted(operator.getValue()));
                     assertThat(converted.get().parameters()).isEqualTo(List.of(new QueryParameter(BIGINT, Optional.of(42L))));
                 }
                 case IDENTICAL -> {
                     assertThat(converted).isPresent();
-                    assertThat(converted.get().expression()).isEqualTo(format("(\"c_bigint\") IS NOT DISTINCT FROM (?)"));
+                    assertThat(converted.get().expression()).isEqualTo("(\"c_bigint\") IS NOT DISTINCT FROM (?)".formatted());
                     assertThat(converted.get().parameters()).isEqualTo(List.of(new QueryParameter(BIGINT, Optional.of(42L))));
                 }
             }

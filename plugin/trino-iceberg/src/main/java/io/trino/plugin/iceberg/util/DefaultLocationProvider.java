@@ -20,7 +20,6 @@ import org.apache.iceberg.io.LocationProvider;
 
 import java.util.Map;
 
-import static java.lang.String.format;
 import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 
 // based on org.apache.iceberg.LocationProviders.DefaultLocationProvider
@@ -41,7 +40,7 @@ public class DefaultLocationProvider
         if (dataLocation == null) {
             dataLocation = properties.get(TableProperties.WRITE_FOLDER_STORAGE_LOCATION);
             if (dataLocation == null) {
-                dataLocation = format("%s/data", stripTrailingSlash(tableLocation));
+                dataLocation = "%s/data".formatted(stripTrailingSlash(tableLocation));
             }
         }
         return dataLocation;

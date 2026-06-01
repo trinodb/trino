@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toUnmodifiableList;
 import static java.util.stream.Stream.concat;
 
 public class Signature
@@ -81,7 +80,7 @@ public class Signature
     {
         return arguments.stream()
                 .map(Argument::type)
-                .collect(toUnmodifiableList());
+                .toList();
     }
 
     @JsonProperty

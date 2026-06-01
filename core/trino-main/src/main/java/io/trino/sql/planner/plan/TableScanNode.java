@@ -40,7 +40,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -136,9 +135,8 @@ public class TableScanNode
                 .filter(column -> !visibleColumns.contains(column))
                 .findAny()
                 .ifPresent(_ -> {
-                    throw new IllegalArgumentException(format(
-                            "enforcedConstraint references a column that is not part of the plan. " +
-                                    "enforcedConstraint keys: %s, visibleColumns: %s",
+                    throw new IllegalArgumentException(("enforcedConstraint references a column that is not part of the plan. " +
+                    "enforcedConstraint keys: %s, visibleColumns: %s").formatted(
                             domains.keySet(),
                             visibleColumns));
                 });

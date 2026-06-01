@@ -53,7 +53,6 @@ import static io.trino.testing.TestingEventListenerManager.emptyEventListenerMan
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
-import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -123,7 +122,7 @@ public class TestDeallocateTask
                 Optional.empty(),
                 new NodeVersion("test"));
         Deallocate deallocate = new Deallocate(new NodeLocation(1, 1), new Identifier(statementName));
-        new DeallocateTask().execute(deallocate, stateMachine, emptyList(), WarningCollector.NOOP);
+        new DeallocateTask().execute(deallocate, stateMachine, List.of(), WarningCollector.NOOP);
         return stateMachine.getDeallocatedPreparedStatements();
     }
 }

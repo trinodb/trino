@@ -27,7 +27,6 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.function.Consumer;
 
-import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 import static java.util.Objects.requireNonNull;
 
@@ -40,7 +39,7 @@ public final class Benchmarks
         ChainedOptionsBuilder optionsBuilder = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
                 .resultFormat(ResultFormatType.JSON)
-                .result(format("%s/%s-result-%s.json", System.getProperty("java.io.tmpdir"), benchmarkClass.getSimpleName(), ISO_DATE_TIME.format(LocalDateTime.now())));
+                .result("%s/%s-result-%s.json".formatted(System.getProperty("java.io.tmpdir"), benchmarkClass.getSimpleName(), ISO_DATE_TIME.format(LocalDateTime.now())));
         return new BenchmarkBuilder(optionsBuilder, benchmarkClass);
     }
 

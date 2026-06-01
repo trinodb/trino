@@ -26,7 +26,6 @@ import static io.trino.tests.product.TestGroups.HIVE4;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveOnOrcLegacyDateCompatibility
@@ -39,7 +38,7 @@ public class TestHiveOnOrcLegacyDateCompatibility
     public void testReadLegacyDateFromOrcWrittenByTrino()
     {
         String hiveTableName = "test_hive_orc_legacy_date_compatibility_%s".formatted(randomNameSuffix());
-        String trinoTableName = format("%s.%s.%s", TRINO_CATALOG, SCHEMA, hiveTableName);
+        String trinoTableName = "%s.%s.%s".formatted(TRINO_CATALOG, SCHEMA, hiveTableName);
 
         try {
             onTrino().executeQuery("CREATE TABLE %s (date_col date, t timestamp) WITH (format = 'ORC')".formatted(trinoTableName));
@@ -72,7 +71,7 @@ public class TestHiveOnOrcLegacyDateCompatibility
     public void testReadLegacyDateFromOrcWrittenByHive()
     {
         String hiveTableName = "test_hive_orc_legacy_date_compatibility_%s".formatted(randomNameSuffix());
-        String trinoTableName = format("%s.%s.%s", TRINO_CATALOG, SCHEMA, hiveTableName);
+        String trinoTableName = "%s.%s.%s".formatted(TRINO_CATALOG, SCHEMA, hiveTableName);
 
         try {
             onHive().executeQuery("CREATE TABLE %s (date_col date, t timestamp) STORED AS ORC".formatted(hiveTableName));

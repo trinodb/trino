@@ -25,7 +25,6 @@ import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.tpch.TpchTable.NATION;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TestBigQueryWithBothProjectIdsSet
@@ -60,17 +59,16 @@ class TestBigQueryWithBothProjectIdsSet
         // tpch schema is available in both projects
         assertThat(computeScalar("SELECT name FROM bigquery.tpch.nation WHERE nationkey = 0")).isEqualTo("ALGERIA");
         assertThat(computeScalar("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT name FROM tpch.nation WHERE nationkey = 0'))")).isEqualTo("ALGERIA");
-        assertThat(computeScalar(format("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT name FROM %s.tpch.nation WHERE nationkey = 0'))", projectId)))
+        assertThat(computeScalar("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT name FROM %s.tpch.nation WHERE nationkey = 0'))".formatted(projectId)))
                 .isEqualTo("ALGERIA");
-        assertThat(computeScalar(format("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT name FROM %s.tpch.nation WHERE nationkey = 0'))", parentProjectId)))
+        assertThat(computeScalar("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT name FROM %s.tpch.nation WHERE nationkey = 0'))".formatted(parentProjectId)))
                 .isEqualTo("ALGERIA");
 
         String trinoSchema = "someschema_" + randomNameSuffix();
         try (AutoCloseable ignored = withSchema(trinoSchema); TestTable table = newTrinoTable("%s.table".formatted(trinoSchema), "(col1 INT)")) {
             String tableName = table.getName().split("\\.")[1];
             // schema created in projectId is present in projectId and NOT present in parentProjectId
-            assertThat(computeActual(format(
-                    "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT schema_name FROM `%s.region-us.INFORMATION_SCHEMA.SCHEMATA`'))",
+            assertThat(computeActual("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT schema_name FROM `%s.region-us.INFORMATION_SCHEMA.SCHEMATA`'))".formatted(
                     projectId)))
                     .contains(row(trinoSchema));
             // confusion point: this implicitly points to Parent project!
@@ -78,24 +76,20 @@ class TestBigQueryWithBothProjectIdsSet
             // PTF calls to unprefixed datasets go to credentials default project ID.
             assertThat(computeActual("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT schema_name FROM INFORMATION_SCHEMA.SCHEMATA'))"))
                     .doesNotContain(row(trinoSchema));
-            assertThat(computeActual(format(
-                    "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT schema_name FROM `%s.region-us.INFORMATION_SCHEMA.SCHEMATA`'))",
+            assertThat(computeActual("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT schema_name FROM `%s.region-us.INFORMATION_SCHEMA.SCHEMATA`'))".formatted(
                     parentProjectId)))
                     .doesNotContain(row(trinoSchema));
             // table created in projectId is present in projectId and NOT present in parentProjectId
             assertThat(computeActual("SHOW TABLES FROM " + trinoSchema).getOnlyColumn()).contains(tableName);
-            assertThat(computeActual(format(
-                    "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT table_name FROM `%s.region-us.INFORMATION_SCHEMA.TABLES` WHERE table_schema = \"%s\"'))",
+            assertThat(computeActual("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT table_name FROM `%s.region-us.INFORMATION_SCHEMA.TABLES` WHERE table_schema = \"%s\"'))".formatted(
                     projectId,
                     trinoSchema)))
                     .contains(row(tableName));
-            assertThat(query(format(
-                    "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT table_name FROM INFORMATION_SCHEMA.TABLES WHERE table_schema = \"%s\"'))",
+            assertThat(query("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT table_name FROM INFORMATION_SCHEMA.TABLES WHERE table_schema = \"%s\"'))".formatted(
                     trinoSchema)))
                     .failure()
                     .hasMessageContaining("Table \"INFORMATION_SCHEMA.TABLES\" must be qualified with a dataset (e.g. dataset.table)");
-            assertThat(computeActual(format(
-                    "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT table_name FROM `%s.region-us.INFORMATION_SCHEMA.TABLES` WHERE table_schema = \"%s\"'))",
+            assertThat(computeActual("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT table_name FROM `%s.region-us.INFORMATION_SCHEMA.TABLES` WHERE table_schema = \"%s\"'))".formatted(
                     parentProjectId,
                     trinoSchema)))
                     .doesNotContain(row(tableName));

@@ -49,7 +49,6 @@ import static io.trino.util.JsonUtil.createJsonFactory;
 import static io.trino.util.JsonUtil.createJsonParser;
 import static io.trino.util.JsonUtil.truncateIfNecessaryForErrorMessage;
 import static io.trino.util.Reflection.methodHandle;
-import static java.lang.String.format;
 
 public class JsonToMapCast
         extends SqlScalarFunction
@@ -95,7 +94,7 @@ public class JsonToMapCast
             jsonParser.nextToken();
             if (jsonParser.getCurrentToken() == JsonToken.VALUE_NULL) {
                 if (jsonParser.nextToken() != null) {
-                    throw new JsonCastException(format("Unexpected trailing token: %s", jsonParser.getText()));
+                    throw new JsonCastException("Unexpected trailing token: %s".formatted(jsonParser.getText()));
                 }
                 return null;
             }
@@ -103,16 +102,16 @@ public class JsonToMapCast
             BlockBuilder blockBuilder = mapType.createBlockBuilder(null, 1);
             mapAppender.append(jsonParser, blockBuilder);
             if (jsonParser.nextToken() != null) {
-                throw new JsonCastException(format("Unexpected trailing token: %s", jsonParser.getText()));
+                throw new JsonCastException("Unexpected trailing token: %s".formatted(jsonParser.getText()));
             }
             Block block = blockBuilder.build();
             return mapType.getObject(block, 0);
         }
         catch (TrinoException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", mapType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast to %s. %s\n%s".formatted(mapType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);
         }
         catch (Exception e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s.\n%s", mapType, truncateIfNecessaryForErrorMessage(json)), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast to %s.\n%s".formatted(mapType, truncateIfNecessaryForErrorMessage(json)), e);
         }
     }
 }

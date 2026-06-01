@@ -111,7 +111,6 @@ import static io.trino.spi.block.RowBlock.fromFieldBlocks;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -503,8 +502,8 @@ public class OrcPageSourceFactory
         if (hiveAcidVersion.isEmpty() || hiveAcidVersion.get() < 2) {
             throw new TrinoException(
                     NOT_SUPPORTED,
-                    format("Hive transactional tables are supported since Hive 3.0. Expected `hive.acid.version` in ORC metadata in %s to be >=2 but was %s. " +
-                                    "If you have upgraded from an older version of Hive, make sure a major compaction has been run at least once after the upgrade.",
+                    ("Hive transactional tables are supported since Hive 3.0. Expected `hive.acid.version` in ORC metadata in %s to be >=2 but was %s. " +
+                    "If you have upgraded from an older version of Hive, make sure a major compaction has been run at least once after the upgrade.").formatted(
                             path,
                             hiveAcidVersion.map(String::valueOf).orElse("<empty>")));
         }
@@ -635,11 +634,10 @@ public class OrcPageSourceFactory
         if (nestedColumns.size() != 6) {
             throw new TrinoException(
                     HIVE_BAD_DATA,
-                    format(
-                            "ORC ACID file should have 6 columns, found %s %s in %s",
+                    "ORC ACID file should have 6 columns, found %s %s in %s".formatted(
                             nestedColumns.size(),
                             nestedColumns.stream()
-                                    .map(column -> format("%s (%s)", column.getColumnName(), column.getColumnType()))
+                                    .map(column -> "%s (%s)".formatted(column.getColumnName(), column.getColumnType()))
                                     .collect(toImmutableList()),
                             path));
         }
@@ -655,10 +653,10 @@ public class OrcPageSourceFactory
     {
         OrcColumn column = orcReader.getRootColumn().getNestedColumns().get(columnIndex);
         if (!column.getColumnName().toLowerCase(ENGLISH).equals(columnName.toLowerCase(ENGLISH))) {
-            throw new TrinoException(HIVE_BAD_DATA, format("ORC ACID file column %s should be named %s: %s", columnIndex, columnName, path));
+            throw new TrinoException(HIVE_BAD_DATA, "ORC ACID file column %s should be named %s: %s".formatted(columnIndex, columnName, path));
         }
         if (column.getColumnType().getOrcTypeKind() != columnType) {
-            throw new TrinoException(HIVE_BAD_DATA, format("ORC ACID file %s column should be type %s: %s", columnName, columnType, path));
+            throw new TrinoException(HIVE_BAD_DATA, "ORC ACID file %s column should be type %s: %s".formatted(columnName, columnType, path));
         }
     }
 

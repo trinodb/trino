@@ -20,7 +20,6 @@ import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static java.lang.String.format;
 
 public class BooleanDecoder
         implements Decoder
@@ -36,7 +35,7 @@ public class BooleanDecoder
             BOOLEAN.writeBoolean(output, booleanValue);
         }
         else {
-            throw new TrinoException(TYPE_MISMATCH, format("Expected a boolean value of type BOOLEAN: %s [%s]", value, value.getClass().getSimpleName()));
+            throw new TrinoException(TYPE_MISMATCH, "Expected a boolean value of type BOOLEAN: %s [%s]".formatted(value, value.getClass().getSimpleName()));
         }
     }
 }

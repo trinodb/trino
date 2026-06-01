@@ -30,7 +30,6 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class ParquetCompressionUtils
@@ -66,7 +65,7 @@ public final class ParquetCompressionUtils
         byte[] buffer = new byte[uncompressedSize + SIZE_OF_LONG];
         int actualUncompressedSize = decompress(SnappyDecompressor.create(), input, 0, input.length(), buffer, 0);
         if (actualUncompressedSize != uncompressedSize) {
-            throw new IllegalArgumentException(format("Invalid uncompressedSize for SNAPPY input. Expected %s, actual: %s", uncompressedSize, actualUncompressedSize));
+            throw new IllegalArgumentException("Invalid uncompressedSize for SNAPPY input. Expected %s, actual: %s".formatted(uncompressedSize, actualUncompressedSize));
         }
         return wrappedBuffer(buffer, 0, uncompressedSize);
     }
@@ -89,7 +88,7 @@ public final class ParquetCompressionUtils
             byte[] buffer = new byte[uncompressedSize];
             int bytesRead = gzipInputStream.readNBytes(buffer, 0, buffer.length);
             if (bytesRead != uncompressedSize) {
-                throw new IllegalArgumentException(format("Invalid uncompressedSize for GZIP input. Expected %s, actual: %s", uncompressedSize, bytesRead));
+                throw new IllegalArgumentException("Invalid uncompressedSize for GZIP input. Expected %s, actual: %s".formatted(uncompressedSize, bytesRead));
             }
             // Verify we're at EOF and aren't truncating the input
             checkArgument(gzipInputStream.read() == -1, "Invalid uncompressedSize for GZIP input. Actual size exceeds %s bytes", uncompressedSize);

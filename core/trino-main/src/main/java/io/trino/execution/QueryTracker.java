@@ -43,7 +43,6 @@ import static io.trino.SystemSessionProperties.getQueryMaxRunTime;
 import static io.trino.spi.StandardErrorCode.ABANDONED_QUERY;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static io.trino.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
-import static java.lang.String.format;
 import static java.util.Collections.unmodifiableCollection;
 import static java.util.Objects.requireNonNull;
 
@@ -273,8 +272,7 @@ public class QueryTracker<T extends TrackedQuery>
 
                 if (isAbandoned(query)) {
                     log.info("Failing abandoned query %s", query.getQueryId());
-                    query.fail(new TrinoException(ABANDONED_QUERY, format(
-                            "Query %s was abandoned by the client, as it may have exited or stopped checking for query results. Query results have not been accessed since %s: currentTime %s",
+                    query.fail(new TrinoException(ABANDONED_QUERY, "Query %s was abandoned by the client, as it may have exited or stopped checking for query results. Query results have not been accessed since %s: currentTime %s".formatted(
                             query.getQueryId(),
                             query.getLastHeartbeat(),
                             Instant.now())));

@@ -25,7 +25,6 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -110,7 +109,7 @@ public abstract class BaseBigQueryCaseInsensitiveMapping
     {
         String bigQuerySchema = "SomeSchema_" + randomNameSuffix();
         String trinoSchema = bigQuerySchema.toLowerCase(ENGLISH);
-        String namePrefix = format("%s.Test_Case", bigQuerySchema);
+        String namePrefix = "%s.Test_Case".formatted(bigQuerySchema);
 
         try (AutoCloseable _ = withSchema(bigQuerySchema);
                 TestView view = new TestView(bigQuerySqlExecutor, namePrefix, "SELECT 'a' AS lower_case_name, 'b' AS Mixed_Case_Name, 'c' AS UPPER_CASE_NAME")) {
@@ -121,10 +120,10 @@ public abstract class BaseBigQueryCaseInsensitiveMapping
                     .collect(toImmutableSet())).isEqualTo(ImmutableSet.of("lower_case_name", "mixed_case_name", "upper_case_name"));
 
             assertQuery(
-                    format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", trinoSchema),
-                    format("VALUES '%s'", viewName));
+                    "SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'".formatted(trinoSchema),
+                    "VALUES '%s'".formatted(viewName));
             assertQuery(
-                    format("SELECT column_name FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'", trinoSchema, viewName),
+                    "SELECT column_name FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'".formatted(trinoSchema, viewName),
                     "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
 
             // Note: until https://github.com/trinodb/trino/issues/17 is resolved, this is *the* way to access the tables.
@@ -211,7 +210,7 @@ public abstract class BaseBigQueryCaseInsensitiveMapping
         String schemaName = ("Test_Create_Case_Sensitive_" + randomNameSuffix()).toLowerCase(ENGLISH);
         try {
             assertUpdate("CREATE SCHEMA " + schemaName);
-            assertQuery(format("SELECT schema_name FROM information_schema.schemata WHERE schema_name = '%s'", schemaName), format("VALUES '%s'", schemaName));
+            assertQuery("SELECT schema_name FROM information_schema.schemata WHERE schema_name = '%s'".formatted(schemaName), "VALUES '%s'".formatted(schemaName));
         }
         finally {
             assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
@@ -262,7 +261,7 @@ public abstract class BaseBigQueryCaseInsensitiveMapping
     @Deprecated
     private AutoCloseable withTable(String tableName, String tableDefinition)
     {
-        bigQuerySqlExecutor.execute(format("CREATE TABLE %s %s", tableName, tableDefinition));
-        return () -> bigQuerySqlExecutor.execute(format("DROP TABLE %s", tableName));
+        bigQuerySqlExecutor.execute("CREATE TABLE %s %s".formatted(tableName, tableDefinition));
+        return () -> bigQuerySqlExecutor.execute("DROP TABLE %s".formatted(tableName));
     }
 }

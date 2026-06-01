@@ -16,7 +16,6 @@ package io.trino.testing;
 import java.util.Arrays;
 import java.util.stream.IntStream;
 
-import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
 /**
@@ -64,7 +63,7 @@ public final class Bytes
     public String toString()
     {
         return IntStream.range(0, bytes.length)
-                .mapToObj(i -> format("%02x", bytes[i] & 0xFF))
+                .mapToObj(i -> "%02x".formatted(bytes[i] & 0xFF))
                 .collect(joining(" ", "X'", "'"));
     }
 }

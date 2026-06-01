@@ -39,7 +39,6 @@ import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.JoinType.RIGHT;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -368,7 +367,7 @@ public class JoinNode
         @Override
         public String toString()
         {
-            return format("%s = %s", left, right);
+            return "%s = %s".formatted(left, right);
         }
     }
 }

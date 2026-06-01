@@ -49,7 +49,6 @@ import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_UNKNOWN_TABLE
 import static io.trino.plugin.google.sheets.ptf.Sheet.SheetFunctionHandle;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SheetsMetadata
@@ -169,7 +168,7 @@ public class SheetsMetadata
         }
 
         if (!(tableHandle instanceof SheetsNamedTableHandle namedTableHandle)) {
-            throw new TrinoException(NOT_SUPPORTED, format("Can only insert into named tables. Found table handle type: %s", tableHandle));
+            throw new TrinoException(NOT_SUPPORTED, "Can only insert into named tables. Found table handle type: %s".formatted(tableHandle));
         }
 
         SheetsTable table = sheetsClient.getTable(namedTableHandle.tableName())

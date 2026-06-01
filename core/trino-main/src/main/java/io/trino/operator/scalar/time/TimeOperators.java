@@ -39,7 +39,6 @@ import static io.trino.type.DateTimes.parseTime;
 import static io.trino.type.DateTimes.rescaleWithRounding;
 import static io.trino.type.DateTimes.round;
 import static io.trino.type.DateTimes.scaleFactor;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
 public final class TimeOperators
@@ -155,7 +154,7 @@ public final class TimeOperators
         if (bytes.length <= x) {
             return Slices.wrappedBuffer(bytes);
         }
-        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", new String(bytes, US_ASCII), x));
+        throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to varchar(%s)".formatted(new String(bytes, US_ASCII), x));
     }
 
     private static void appendTwoDecimalDigits(int index, byte[] bytes, int value)

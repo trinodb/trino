@@ -57,7 +57,6 @@ import static io.trino.tests.product.utils.JdbcDriverUtils.setSessionProperty;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.io.InputStream.nullInputStream;
-import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Comparator.comparingInt;
 import static java.util.Locale.ENGLISH;
@@ -219,16 +218,14 @@ public class TestHiveStorageFormats
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testSelectFromZeroByteFile(StorageFormat storageFormat)
     {
-        String tableName = format(
-                "test_storage_format_%s_zero_byte_file",
+        String tableName = "test_storage_format_%s_zero_byte_file".formatted(
                 storageFormat.getName());
-        hdfsClient.saveFile(format("%s/%s/zero_byte", warehouseDirectory, tableName), nullInputStream());
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s" +
-                        " (name varchar) " +
-                        "WITH ( " +
-                        "   format = '%s'" +
-                        ")",
+        hdfsClient.saveFile("%s/%s/zero_byte".formatted(warehouseDirectory, tableName), nullInputStream());
+        onTrino().executeQuery(("CREATE TABLE %s" +
+        " (name varchar) " +
+        "WITH ( " +
+        "   format = '%s'" +
+        ")").formatted(
                 tableName,
                 storageFormat.getName()));
         assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).hasNoRows();
@@ -241,26 +238,23 @@ public class TestHiveStorageFormats
     public void testSelectWithNullFormat(StorageFormat storageFormat)
     {
         String nullFormat = "null_value";
-        String tableName = format(
-                "test_storage_format_%s_select_with_null_format",
+        String tableName = "test_storage_format_%s_select_with_null_format".formatted(
                 storageFormat.getName());
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s (value VARCHAR) " +
-                        "WITH (format = '%s', null_format = '%s')",
+        onTrino().executeQuery(("CREATE TABLE %s (value VARCHAR) " +
+        "WITH (format = '%s', null_format = '%s')").formatted(
                 tableName,
                 storageFormat.getName(),
                 nullFormat));
 
         // Manually format data for insertion b/c Hive's PreparedStatement can't handle nulls
-        onHive().executeQuery(format(
-                "INSERT INTO %s VALUES ('non-null'), (NULL), ('%s')",
+        onHive().executeQuery("INSERT INTO %s VALUES ('non-null'), (NULL), ('%s')".formatted(
                 tableName,
                 nullFormat));
 
-        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName)))
+        assertThat(onTrino().executeQuery("SELECT * FROM %s".formatted(tableName)))
                 .containsOnly(row("non-null"), row((Object) null), row((Object) null));
 
-        onHive().executeQuery(format("DROP TABLE %s", tableName));
+        onHive().executeQuery("DROP TABLE %s".formatted(tableName));
     }
 
     @Test(groups = STORAGE_FORMATS)
@@ -376,21 +370,19 @@ public class TestHiveStorageFormats
         ensureDummyExists();
         onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
 
-        onHive().executeQuery(format(
-                "CREATE TABLE %s (" +
-                        "   c_bigint BIGINT," +
-                        "   c_struct struct<testCustId:string, requestDate:string>)" +
-                        "STORED AS ORC ",
+        onHive().executeQuery(("CREATE TABLE %s (" +
+        "   c_bigint BIGINT," +
+        "   c_struct struct<testCustId:string, requestDate:string>)" +
+        "STORED AS ORC ").formatted(
                 tableName));
 
-        onHive().executeQuery(format(
-                "INSERT INTO %s"
-                        // insert with SELECT because hive does not support array/map/struct functions in VALUES
-                        + " SELECT"
-                        + "   1,"
-                        + "   named_struct('testCustId', '1234', 'requestDate', 'some day')"
-                        // some hive versions don't allow INSERT from SELECT without FROM
-                        + " FROM dummy",
+        onHive().executeQuery(("INSERT INTO %s"
+        // insert with SELECT because hive does not support array/map/struct functions in VALUES
+        + " SELECT"
+        + "   1,"
+        + "   named_struct('testCustId', '1234', 'requestDate', 'some day')"
+        // some hive versions don't allow INSERT from SELECT without FROM
+        + " FROM dummy").formatted(
                 tableName));
 
         setSessionProperty(onTrino().getConnection(), "hive.projection_pushdown_enabled", "true");
@@ -413,7 +405,7 @@ public class TestHiveStorageFormats
         // allows us to exercise predicate push-down in Parquet (which only
         // works when the value range has a min = max)
         for (TimestampAndPrecision entry : TIMESTAMPS_FROM_HIVE) {
-            onHive().executeQuery(format("INSERT INTO %s VALUES (%s, '%s')", tableName, entry.getId(), entry.getWriteValue()));
+            onHive().executeQuery("INSERT INTO %s VALUES (%s, '%s')".formatted(tableName, entry.getId(), entry.getWriteValue()));
         }
 
         assertSimpleTimestamps(tableName, TIMESTAMPS_FROM_HIVE);
@@ -431,24 +423,23 @@ public class TestHiveStorageFormats
         // Insert one at a time because inserting with UNION ALL sometimes makes
         // data invisible to Trino (see https://github.com/trinodb/trino/issues/6485)
         for (TimestampAndPrecision entry : TIMESTAMPS_FROM_HIVE) {
-            onHive().executeQuery(format(
-                    "INSERT INTO %1$s"
-                            // insert with SELECT because hive does not support array/map/struct functions in VALUES
-                            + " SELECT"
-                            + "   %3$s,"
-                            + "   array(%2$s),"
-                            + "   map(%2$s, %2$s),"
-                            + "   named_struct('col', %2$s),"
-                            + "   array(map(%2$s, named_struct('col', array(%2$s))))"
-                            // some hive versions don't allow INSERT from SELECT without FROM
-                            + " FROM dummy",
+            onHive().executeQuery(("INSERT INTO %1$s"
+            // insert with SELECT because hive does not support array/map/struct functions in VALUES
+            + " SELECT"
+            + "   %3$s,"
+            + "   array(%2$s),"
+            + "   map(%2$s, %2$s),"
+            + "   named_struct('col', %2$s),"
+            + "   array(map(%2$s, named_struct('col', array(%2$s))))"
+            // some hive versions don't allow INSERT from SELECT without FROM
+            + " FROM dummy").formatted(
                     tableName,
-                    format("TIMESTAMP '%s'", entry.getWriteValue()),
+                    "TIMESTAMP '%s'".formatted(entry.getWriteValue()),
                     entry.getId()));
         }
 
         assertStructTimestamps(tableName, TIMESTAMPS_FROM_HIVE);
-        onTrino().executeQuery(format("DROP TABLE %s", tableName));
+        onTrino().executeQuery("DROP TABLE %s".formatted(tableName));
     }
 
     // These are regression tests for issue: https://github.com/trinodb/trino/issues/5518
@@ -499,7 +490,7 @@ public class TestHiveStorageFormats
                 setTimestampPrecision(precision);
                 // Assert also with `CAST AS varchar` on the server side to avoid any JDBC-related issues
                 softly.check(() -> assertThat(onTrino().executeQuery(
-                        format("SELECT id, typeof(ts), CAST(ts AS varchar), ts FROM %s WHERE id = %s", tableName, entry.getId())))
+                        "SELECT id, typeof(ts), CAST(ts AS varchar), ts FROM %s WHERE id = %s".formatted(tableName, entry.getId())))
                         .as("timestamp(%d)", precision.getPrecision())
                         .containsOnly(row(
                                 entry.getId(),
@@ -533,37 +524,35 @@ public class TestHiveStorageFormats
             setTimestampPrecision(precision);
 
             // Check that the correct types are read
-            String type = format("timestamp(%d)", precision.getPrecision());
+            String type = "timestamp(%d)".formatted(precision.getPrecision());
             softly.check(() -> assertThat(onTrino()
-                    .executeQuery(format(
-                            "SELECT"
-                                    + "   typeof(arr),"
-                                    + "   typeof(map),"
-                                    + "   typeof(row),"
-                                    + "   typeof(nested)"
-                                    + " FROM %s"
-                                    + " LIMIT 1",
+                    .executeQuery(("SELECT"
+                    + "   typeof(arr),"
+                    + "   typeof(map),"
+                    + "   typeof(row),"
+                    + "   typeof(nested)"
+                    + " FROM %s"
+                    + " LIMIT 1").formatted(
                             tableName)))
                     .as("timestamp container types")
                     .containsOnly(row(
-                            format("array(%s)", type),
-                            format("map(%1$s, %1$s)", type),
-                            format("row(\"col\" %s)", type),
-                            format("array(map(%1$s, row(\"col\" array(%1$s))))", type))));
+                            "array(%s)".formatted(type),
+                            "map(%1$s, %1$s)".formatted(type),
+                            "row(\"col\" %s)".formatted(type),
+                            "array(map(%1$s, row(\"col\" array(%1$s))))".formatted(type))));
 
             // Check the values as varchar
             softly.check(() -> assertThat(onTrino()
-                    .executeQuery(format(
-                            "SELECT"
-                                    + "   id,"
-                                    + "   CAST(arr[1] AS VARCHAR),"
-                                    + "   CAST(map_entries(map)[1][1] AS VARCHAR)," // key
-                                    + "   CAST(map_entries(map)[1][2] AS VARCHAR)," // value
-                                    + "   CAST(row.col AS VARCHAR),"
-                                    + "   CAST(map_entries(nested[1])[1][1] AS VARCHAR)," // key
-                                    + "   CAST(map_entries(nested[1])[1][2].col[1] AS VARCHAR)" // value
-                                    + " FROM %s"
-                                    + " ORDER BY id",
+                    .executeQuery(("SELECT"
+                    + "   id,"
+                    + "   CAST(arr[1] AS VARCHAR),"
+                    + "   CAST(map_entries(map)[1][1] AS VARCHAR)," // key
+                    + "   CAST(map_entries(map)[1][2] AS VARCHAR)," // value
+                    + "   CAST(row.col AS VARCHAR),"
+                    + "   CAST(map_entries(nested[1])[1][1] AS VARCHAR)," // key
+                    + "   CAST(map_entries(nested[1])[1][2].col[1] AS VARCHAR)" // value
+                    + " FROM %s"
+                    + " ORDER BY id").formatted(
                             tableName)))
                     .as("timestamp containers as varchar")
                     .containsExactlyInOrder(data.stream()
@@ -575,17 +564,16 @@ public class TestHiveStorageFormats
 
             // Check the values directly
             softly.check(() -> assertThat(onTrino()
-                    .executeQuery(format(
-                            "SELECT"
-                                    + "   id,"
-                                    + "   arr[1],"
-                                    + "   map_entries(map)[1][1]," // key
-                                    + "   map_entries(map)[1][2]," // value
-                                    + "   row.col,"
-                                    + "   map_entries(nested[1])[1][1]," // key
-                                    + "   map_entries(nested[1])[1][2].col[1]" // value
-                                    + " FROM %s"
-                                    + " ORDER BY id",
+                    .executeQuery(("SELECT"
+                    + "   id,"
+                    + "   arr[1],"
+                    + "   map_entries(map)[1][1]," // key
+                    + "   map_entries(map)[1][2]," // value
+                    + "   row.col,"
+                    + "   map_entries(nested[1])[1][1]," // key
+                    + "   map_entries(nested[1])[1][2].col[1]" // value
+                    + " FROM %s"
+                    + " ORDER BY id").formatted(
                             tableName)))
                     .as("timestamp containers")
                     .containsExactlyInOrder(data.stream()
@@ -605,9 +593,9 @@ public class TestHiveStorageFormats
         setSessionProperties(onTrino().getConnection(), format);
 
         String formatName = format.getName().toLowerCase(ENGLISH);
-        String tableName = format("%s_%s_%s", tableNamePrefix, formatName, randomNameSuffix());
+        String tableName = "%s_%s_%s".formatted(tableNamePrefix, formatName, randomNameSuffix());
         onTrino().executeQuery(
-                format("CREATE TABLE %s %s WITH (%s)", tableName, sql, format.getStoragePropertiesAsSql()));
+                "CREATE TABLE %s %s WITH (%s)".formatted(tableName, sql, format.getStoragePropertiesAsSql()));
         return tableName;
     }
 
@@ -722,7 +710,7 @@ public class TestHiveStorageFormats
             return Stream.concat(
                             Stream.of(immutableEntry("format", name)),
                             properties.entrySet().stream())
-                    .map(entry -> format("%s = '%s'", entry.getKey(), entry.getValue()))
+                    .map(entry -> "%s = '%s'".formatted(entry.getKey(), entry.getValue()))
                     .collect(joining(", "));
         }
 
@@ -806,7 +794,7 @@ public class TestHiveStorageFormats
 
         public String getReadType(HiveTimestampPrecision precision)
         {
-            return format("timestamp(%s)", precision.getPrecision());
+            return "timestamp(%s)".formatted(precision.getPrecision());
         }
     }
 

@@ -83,8 +83,6 @@ import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static java.lang.Math.cos;
-import static java.lang.String.format;
-import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -2149,7 +2147,7 @@ public class TestExpressionCompiler
                 .isEqualTo(false);
 
         String stringValues = range(2000, 7000)
-                .mapToObj(i -> format("'%s'", i))
+                .mapToObj(i -> "'%s'".formatted(i))
                 .collect(joining(", "));
 
         assertThat(assertions.expression("a IN ('hello', " + stringValues + ")")
@@ -2163,7 +2161,7 @@ public class TestExpressionCompiler
                 .isEqualTo(false);
 
         String timestampValues = range(0, 2_000)
-                .mapToObj(i -> format("TIMESTAMP '1970-01-01 01:01:0%s.%s+01:00'", i / 1000, i % 1000))
+                .mapToObj(i -> "TIMESTAMP '1970-01-01 01:01:0%s.%s+01:00'".formatted(i / 1000, i % 1000))
                 .collect(joining(", "));
 
         assertThat(assertions.expression("a IN (" + timestampValues + ")")
@@ -2177,7 +2175,7 @@ public class TestExpressionCompiler
                 .isEqualTo(false);
 
         String shortDecimalValues = range(2000, 7000)
-                .mapToObj(value -> format("decimal '%s'", value))
+                .mapToObj(value -> "decimal '%s'".formatted(value))
                 .collect(joining(", "));
 
         assertThat(assertions.expression("a IN (1234, " + shortDecimalValues + ")")
@@ -2191,7 +2189,7 @@ public class TestExpressionCompiler
                 .isEqualTo(false);
 
         String longDecimalValues = range(2000, 7000)
-                .mapToObj(value -> format("decimal '123456789012345678901234567890%s'", value))
+                .mapToObj(value -> "decimal '123456789012345678901234567890%s'".formatted(value))
                 .collect(joining(", "));
 
         assertThat(assertions.expression("a IN (1234, " + longDecimalValues + ")")
@@ -2788,7 +2786,7 @@ public class TestExpressionCompiler
 
         assertThat(assertions.function("nullif", "ARRAY[CAST(NULL AS BIGINT)]", "ARRAY[CAST(NULL AS BIGINT)]"))
                 .hasType(new ArrayType(BIGINT))
-                .isEqualTo(singletonList(null));
+                .isEqualTo(List.of(null));
 
         // Test coercion in which the CAST function takes ConnectorSession (e.g. MapToMapCast)
         assertThat(assertions.function("nullif", "map(array[1], array[smallint '1'])", "map(array[1], array[integer '1'])"))

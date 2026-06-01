@@ -17,8 +17,6 @@ import com.google.errorprone.annotations.Immutable;
 
 import java.util.Optional;
 
-import static java.lang.String.format;
-
 @Immutable
 public sealed interface TypeParameter
         permits TypeParameter.Numeric,
@@ -66,7 +64,7 @@ public sealed interface TypeParameter
         public String toString()
         {
             if (name.isPresent()) {
-                return format("\"%s\" %s", name.get().replace("\"", "\"\""), type.toString());
+                return "\"%s\" %s".formatted(name.get().replace("\"", "\"\""), type.toString());
             }
             return type.toString();
         }
@@ -77,7 +75,7 @@ public sealed interface TypeParameter
             String prefix = "";
 
             if (name.isPresent()) {
-                prefix = format("\"%s\" ", name.get().replace("\"", "\"\""));
+                prefix = "\"%s\" ".formatted(name.get().replace("\"", "\"\""));
             }
 
             return prefix + type.jsonValue();

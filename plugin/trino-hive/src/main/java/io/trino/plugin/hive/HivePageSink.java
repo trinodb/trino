@@ -57,7 +57,6 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -389,7 +388,7 @@ public class HivePageSink
         verify(writers.size() == pagePartitioner.getMaxIndex() + 1);
 
         if (currentOpenWriters > maxOpenWriters) {
-            throw new TrinoException(HIVE_TOO_MANY_OPEN_PARTITIONS, format("Exceeded limit of %s open writers for partitions/buckets", maxOpenWriters));
+            throw new TrinoException(HIVE_TOO_MANY_OPEN_PARTITIONS, "Exceeded limit of %s open writers for partitions/buckets".formatted(maxOpenWriters));
         }
 
         return writerIndexes;

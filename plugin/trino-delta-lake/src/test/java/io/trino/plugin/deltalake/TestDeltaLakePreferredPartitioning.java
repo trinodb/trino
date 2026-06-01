@@ -31,7 +31,6 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
-import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 
 public class TestDeltaLakePreferredPartitioning
@@ -95,10 +94,9 @@ public class TestDeltaLakePreferredPartitioning
 
         assertUpdate(
                 withForcedPreferredPartitioning(),
-                format(
-                        "CREATE TABLE IF NOT EXISTS %s " +
-                                "WITH (location = '%s', partitioned_by = ARRAY['partkey']) AS " +
-                                "SELECT orderkey, partkey %% %d AS partkey FROM tpch.tiny.lineitem",
+                ("CREATE TABLE IF NOT EXISTS %s " +
+                "WITH (location = '%s', partitioned_by = ARRAY['partkey']) AS " +
+                "SELECT orderkey, partkey %% %d AS partkey FROM tpch.tiny.lineitem").formatted(
                         partitionedTableName1,
                         getLocationForTable(partitionedTableName1),
                         WRITE_PARTITIONING_TEST_PARTITIONS_COUNT),
@@ -107,10 +105,9 @@ public class TestDeltaLakePreferredPartitioning
         // cannot create > 100 partitions when preferred write partitioning is disabled
         assertQueryFails(
                 withoutPreferredPartitioning(),
-                format(
-                        "CREATE TABLE IF NOT EXISTS %s " +
-                                "WITH (location = '%s', partitioned_by = ARRAY['partkey']) AS " +
-                                "SELECT orderkey, partkey %% %d AS partkey FROM tpch.tiny.lineitem",
+                ("CREATE TABLE IF NOT EXISTS %s " +
+                "WITH (location = '%s', partitioned_by = ARRAY['partkey']) AS " +
+                "SELECT orderkey, partkey %% %d AS partkey FROM tpch.tiny.lineitem").formatted(
                         partitionedTableName2,
                         getLocationForTable(partitionedTableName2),
                         WRITE_PARTITIONING_TEST_PARTITIONS_COUNT),
@@ -125,8 +122,7 @@ public class TestDeltaLakePreferredPartitioning
 
         assertUpdate(
                 withForcedPreferredPartitioning(),
-                format(
-                        "INSERT INTO %s SELECT orderkey, partkey %% %d AS partkey FROM tpch.tiny.lineitem",
+                "INSERT INTO %s SELECT orderkey, partkey %% %d AS partkey FROM tpch.tiny.lineitem".formatted(
                         partitionedTableName,
                         WRITE_PARTITIONING_TEST_PARTITIONS_COUNT),
                 60175);
@@ -134,8 +130,7 @@ public class TestDeltaLakePreferredPartitioning
         // cannot insert > 100 records to N partitions when preferred write partitioning is disabled
         assertQueryFails(
                 withoutPreferredPartitioning(),
-                format(
-                        "INSERT INTO %s SELECT orderkey, partkey %% %d AS partkey FROM tpch.tiny.lineitem",
+                "INSERT INTO %s SELECT orderkey, partkey %% %d AS partkey FROM tpch.tiny.lineitem".formatted(
                         partitionedTableName,
                         WRITE_PARTITIONING_TEST_PARTITIONS_COUNT),
                 "Exceeded limit of 100 open writers for partitions");
@@ -145,9 +140,8 @@ public class TestDeltaLakePreferredPartitioning
     {
         getQueryRunner().execute(
                 withForcedPreferredPartitioning(),
-                format(
-                        "CREATE TABLE IF NOT EXISTS %s (orderkey bigint, partkey bigint) " +
-                                "WITH (location = '%s', partitioned_by = ARRAY['partkey'])",
+                ("CREATE TABLE IF NOT EXISTS %s (orderkey bigint, partkey bigint) " +
+                "WITH (location = '%s', partitioned_by = ARRAY['partkey'])").formatted(
                         tableName,
                         getLocationForTable(tableName)));
     }
@@ -159,7 +153,7 @@ public class TestDeltaLakePreferredPartitioning
 
     private String getLocationForTable(String tableName)
     {
-        return format("s3://%s/%s", bucketName, tableName);
+        return "s3://%s/%s".formatted(bucketName, tableName);
     }
 
     private Session withForcedPreferredPartitioning()

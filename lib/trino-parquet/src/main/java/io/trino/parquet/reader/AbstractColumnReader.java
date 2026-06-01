@@ -38,7 +38,6 @@ import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
 import static io.trino.parquet.reader.flat.DictionaryDecoder.DictionaryDecoderProvider;
 import static io.trino.parquet.reader.flat.RowRangesIterator.createRowRangesIterator;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractColumnReader<BufferType>
@@ -99,7 +98,7 @@ public abstract class AbstractColumnReader<BufferType>
         ValueDecoder<BufferType> valueDecoder;
         if (encoding == PLAIN_DICTIONARY || encoding == RLE_DICTIONARY) {
             if (dictionaryDecoder == null) {
-                throw new ParquetDecodingException(format("Dictionary is missing for %s", field));
+                throw new ParquetDecodingException("Dictionary is missing for %s".formatted(field));
             }
             valueDecoder = dictionaryDecoder;
         }
@@ -112,7 +111,7 @@ public abstract class AbstractColumnReader<BufferType>
 
     protected static void throwEndOfBatchException(int remainingInBatch)
     {
-        throw new ParquetDecodingException(format("Corrupted Parquet file: extra %d values to be consumed when scanning current batch", remainingInBatch));
+        throw new ParquetDecodingException("Corrupted Parquet file: extra %d values to be consumed when scanning current batch".formatted(remainingInBatch));
     }
 
     protected static void unpackDictionaryNullId(

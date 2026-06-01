@@ -24,7 +24,6 @@ import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.TupleDomain;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -33,7 +32,6 @@ import static io.trino.metastore.Partitions.toPartitionValues;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_PARTITION_NOT_FOUND;
 import static io.trino.plugin.hudi.HudiUtil.buildPartitionKeys;
 import static io.trino.plugin.hudi.HudiUtil.partitionMatchesPredicates;
-import static java.lang.String.format;
 
 public class HiveHudiPartitionInfo
         implements HudiPartitionInfo
@@ -64,7 +62,7 @@ public class HiveHudiPartitionInfo
         this.partitionColumns = partitionColumns;
         if (partitionColumns.isEmpty()) {
             this.relativePartitionPath = NON_PARTITION;
-            this.hivePartitionKeys = Collections.emptyList();
+            this.hivePartitionKeys = List.of();
         }
         this.hiveMetastore = hiveMetastore;
     }
@@ -101,7 +99,7 @@ public class HiveHudiPartitionInfo
     public void loadPartitionInfo(Optional<Partition> partition)
     {
         if (partition.isEmpty()) {
-            throw new TrinoException(HUDI_PARTITION_NOT_FOUND, format("Cannot find partition in Hive Metastore: %s", hivePartitionName));
+            throw new TrinoException(HUDI_PARTITION_NOT_FOUND, "Cannot find partition in Hive Metastore: %s".formatted(hivePartitionName));
         }
         this.relativePartitionPath = getRelativePartitionPath(
                 Location.of(table.getStorage().getLocation()),

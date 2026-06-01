@@ -14,7 +14,6 @@
 package io.trino.plugin.resourcegroups;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.resourcegroups.ResourceGroupId;
@@ -26,9 +25,9 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class ResourceGroupIdTemplate
 {
@@ -46,7 +45,7 @@ public class ResourceGroupIdTemplate
 
     public static ResourceGroupIdTemplate forSubGroupNamed(ResourceGroupIdTemplate parent, String name)
     {
-        return new ResourceGroupIdTemplate(format("%s.%s", requireNonNull(parent, "parent is null"), requireNonNull(name, "name is null")));
+        return new ResourceGroupIdTemplate("%s.%s".formatted(requireNonNull(parent, "parent is null"), requireNonNull(name, "name is null")));
     }
 
     public static ResourceGroupIdTemplate fromSegments(List<ResourceGroupNameTemplate> segments)
@@ -84,7 +83,7 @@ public class ResourceGroupIdTemplate
     @Override
     public String toString()
     {
-        return Joiner.on(".").join(segments);
+        return segments.stream().map(ResourceGroupNameTemplate::toString).collect(joining("."));
     }
 
     @Override

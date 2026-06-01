@@ -25,7 +25,6 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -59,10 +58,10 @@ public final class PropertyMetadata<T>
         requireNonNull(encoder, "encoder is null");
 
         if (name.isEmpty() || !name.trim().toLowerCase(ENGLISH).equals(name) || name.contains(".")) {
-            throw new IllegalArgumentException(format("Invalid property name '%s'", name));
+            throw new IllegalArgumentException("Invalid property name '%s'".formatted(name));
         }
         if (description.isEmpty() || !description.trim().equals(description)) {
-            throw new IllegalArgumentException(format("Invalid property description '%s'", description));
+            throw new IllegalArgumentException("Invalid property description '%s'".formatted(description));
         }
 
         this.name = name;
@@ -267,7 +266,7 @@ public final class PropertyMetadata<T>
                 .collect(joining(", ", "[", "]"));
         return new PropertyMetadata<>(
                 name,
-                format("%s. Possible values: %s", descriptionPrefix, allValues),
+                "%s. Possible values: %s".formatted(descriptionPrefix, allValues),
                 createUnboundedVarcharType(),
                 type,
                 defaultValue,
@@ -278,7 +277,7 @@ public final class PropertyMetadata<T>
                         enumValue = Enum.valueOf(type, ((String) value).toUpperCase(ENGLISH));
                     }
                     catch (IllegalArgumentException e) {
-                        throw new IllegalArgumentException(format("Invalid value [%s]. Valid values: %s", value, allValues), e);
+                        throw new IllegalArgumentException("Invalid value [%s]. Valid values: %s".formatted(value, allValues), e);
                     }
                     validation.accept(enumValue);
                     return enumValue;

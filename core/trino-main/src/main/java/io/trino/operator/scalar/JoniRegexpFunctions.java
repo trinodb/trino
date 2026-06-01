@@ -43,7 +43,6 @@ import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 
 public final class JoniRegexpFunctions
 {
@@ -303,7 +302,7 @@ public final class JoniRegexpFunctions
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Group cannot be negative");
         }
         if (group > region.numRegs - 1) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Pattern has %d groups. Cannot access group %d", region.numRegs - 1, group));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Pattern has %d groups. Cannot access group %d".formatted(region.numRegs - 1, group));
         }
     }
 

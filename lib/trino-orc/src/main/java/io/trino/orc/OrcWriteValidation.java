@@ -105,7 +105,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.floorDiv;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -692,7 +691,7 @@ public class OrcWriteValidation
                         .collect(toImmutableList());
             }
             else {
-                throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
+                throw new TrinoException(NOT_SUPPORTED, "Unsupported Hive type: %s".formatted(type));
             }
         }
 

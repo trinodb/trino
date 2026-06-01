@@ -28,7 +28,6 @@ import java.util.Properties;
 
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static io.trino.tpch.TpchTable.ORDERS;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static org.junit.jupiter.api.Assumptions.abort;
 
@@ -61,7 +60,7 @@ public class TestPostgreSqlTableStatistics
     {
         String tableName = "test_stats_orders";
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
+        computeActual("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders".formatted(tableName));
         try {
             gatherStats(tableName);
             assertQuery(
@@ -89,9 +88,9 @@ public class TestPostgreSqlTableStatistics
     {
         String tableName = "test_stats_table_all_nulls";
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        computeActual(format("CREATE TABLE %s AS SELECT orderkey, custkey, orderpriority, comment FROM tpch.tiny.orders WHERE false", tableName));
+        computeActual("CREATE TABLE %s AS SELECT orderkey, custkey, orderpriority, comment FROM tpch.tiny.orders WHERE false".formatted(tableName));
         try {
-            computeActual(format("INSERT INTO %s (orderkey) VALUES NULL, NULL, NULL", tableName));
+            computeActual("INSERT INTO %s (orderkey) VALUES NULL, NULL, NULL".formatted(tableName));
             gatherStats(tableName);
             assertQuery(
                     "SHOW STATS FOR " + tableName,
@@ -216,10 +215,10 @@ public class TestPostgreSqlTableStatistics
                             "(null, null, null, null, null, null, null)");
 
             // Create child tables
-            executeInPostgres(format("CREATE TABLE %s PARTITION OF %s FOR VALUES FROM ('1990-01-01') TO ('1995-01-01')", firstPartitionedTable, tableName));
-            executeInPostgres(format("CREATE TABLE %s PARTITION OF %s FOR VALUES FROM ('1995-01-01') TO ('1999-12-31')", secondPartitionedTable, tableName));
-            executeInPostgres(format("INSERT INTO %s SELECT * FROM orders WHERE orderdate <= '1994-12-31'", firstPartitionedTable));
-            executeInPostgres(format("INSERT INTO %s SELECT * FROM orders WHERE orderdate >= '1995-01-01'", secondPartitionedTable));
+            executeInPostgres("CREATE TABLE %s PARTITION OF %s FOR VALUES FROM ('1990-01-01') TO ('1995-01-01')".formatted(firstPartitionedTable, tableName));
+            executeInPostgres("CREATE TABLE %s PARTITION OF %s FOR VALUES FROM ('1995-01-01') TO ('1999-12-31')".formatted(secondPartitionedTable, tableName));
+            executeInPostgres("INSERT INTO %s SELECT * FROM orders WHERE orderdate <= '1994-12-31'".formatted(firstPartitionedTable));
+            executeInPostgres("INSERT INTO %s SELECT * FROM orders WHERE orderdate >= '1995-01-01'".formatted(secondPartitionedTable));
 
             // Analyzing child tables doesn't expose the statistics
             gatherStats(firstPartitionedTable);
@@ -393,7 +392,7 @@ public class TestPostgreSqlTableStatistics
                 long actualCount = handle.createQuery("SELECT count(*) FROM " + tableName)
                         .mapTo(Long.class)
                         .one();
-                long estimatedCount = handle.createQuery(format("SELECT reltuples FROM pg_class WHERE oid = '%s'::regclass::oid", tableName))
+                long estimatedCount = handle.createQuery("SELECT reltuples FROM pg_class WHERE oid = '%s'::regclass::oid".formatted(tableName))
                         .mapTo(Long.class)
                         .one();
                 if (actualCount == estimatedCount) {
@@ -408,7 +407,7 @@ public class TestPostgreSqlTableStatistics
     private void gatherStatsPartitionedTable(String parentTableName, List<String> childTableNames)
     {
         String parameter = childTableNames.stream()
-                .map(tableName -> format("'%s'::regclass::oid", tableName))
+                .map(tableName -> "'%s'::regclass::oid".formatted(tableName))
                 .collect(joining(", "));
         inPostgres(handle -> {
             handle.execute("ANALYZE " + parentTableName);
@@ -416,7 +415,7 @@ public class TestPostgreSqlTableStatistics
                 long actualCount = handle.createQuery("SELECT count(*) FROM " + parentTableName)
                         .mapTo(Long.class)
                         .one();
-                long estimatedCount = handle.createQuery(format("SELECT SUM(reltuples) FROM pg_class WHERE oid IN (%s)", parameter))
+                long estimatedCount = handle.createQuery("SELECT SUM(reltuples) FROM pg_class WHERE oid IN (%s)".formatted(parameter))
                         .mapTo(Long.class)
                         .one();
                 if (actualCount == estimatedCount) {

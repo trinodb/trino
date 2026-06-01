@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.StringWriter;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
@@ -123,13 +124,13 @@ public final class QueryPreprocessor
 
                     // read stderr
                     readStderr = executeInNewThread("Query preprocessor read stderr", () -> {
-                        StringBuilder builder = new StringBuilder();
+                        StringWriter writer = new StringWriter();
                         try (InputStream inputStream = process.getErrorStream()) {
-                            CharStreams.copy(new InputStreamReader(inputStream, UTF_8), builder);
+                            new InputStreamReader(inputStream, UTF_8).transferTo(writer);
                         }
                         catch (IOException | RuntimeException ignored) {
                         }
-                        return builder.toString();
+                        return writer.toString();
                     });
 
                     // read response

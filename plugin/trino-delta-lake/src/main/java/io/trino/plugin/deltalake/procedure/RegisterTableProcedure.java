@@ -54,7 +54,6 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilege
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
@@ -159,11 +158,11 @@ public class RegisterTableProcedure
             try {
                 Location transactionLogDir = Location.of(getTransactionLogDir(tableLocation));
                 if (!fileSystem.listFiles(transactionLogDir).hasNext()) {
-                    throw new TrinoException(GENERIC_USER_ERROR, format("No transaction log found in location %s", transactionLogDir));
+                    throw new TrinoException(GENERIC_USER_ERROR, "No transaction log found in location %s".formatted(transactionLogDir));
                 }
             }
             catch (IOException e) {
-                throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Failed checking table location %s", tableLocation), e);
+                throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Failed checking table location %s".formatted(tableLocation), e);
             }
 
             statisticsAccess.invalidateCache(schemaTableName, Optional.of(tableLocation));

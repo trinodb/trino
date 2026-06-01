@@ -89,7 +89,6 @@ import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
-import static java.lang.String.format;
 import static java.util.Collections.emptyIterator;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -189,7 +188,7 @@ public class TestHashAggregationOperator
         assertPagesEqualIgnoreOrder(driverContext, pages, expected);
 
         assertThat(spillEnabled == (spillerFactory.getSpillsCount() > 0))
-                .describedAs(format("Spill state mismatch. Expected spill: %s, spill count: %s", spillEnabled, spillerFactory.getSpillsCount()))
+                .describedAs("Spill state mismatch. Expected spill: %s, spill count: %s".formatted(spillEnabled, spillerFactory.getSpillsCount()))
                 .isTrue();
     }
 

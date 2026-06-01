@@ -101,7 +101,6 @@ import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
-import static java.lang.String.format;
 import static java.lang.System.arraycopy;
 import static java.util.Objects.requireNonNull;
 
@@ -180,7 +179,7 @@ public class CassandraTypeManager
         List<CqlIdentifier> fieldNames = userDefinedType.getFieldNames();
         List<DataType> fieldTypes = userDefinedType.getFieldTypes();
         if (fieldNames.size() != fieldTypes.size()) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Mismatch between the number of field names (%s) and the number of field types (%s) for the data type %s", fieldNames.size(), fieldTypes.size(), dataType));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Mismatch between the number of field names (%s) and the number of field types (%s) for the data type %s".formatted(fieldNames.size(), fieldTypes.size(), dataType));
         }
         for (int i = 0; i < fieldNames.size(); i++) {
             Optional<CassandraType> cassandraType = toCassandraType(fieldTypes.get(i));

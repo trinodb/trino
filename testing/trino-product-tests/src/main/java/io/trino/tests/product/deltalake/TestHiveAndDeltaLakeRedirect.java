@@ -38,7 +38,6 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static java.sql.JDBCType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -54,7 +53,7 @@ public class TestHiveAndDeltaLakeRedirect
 
         try {
             QueryResult sparkResult = onDelta().executeQuery("SELECT * FROM " + tableName);
-            QueryResult hiveResult = onTrino().executeQuery(format("SELECT * FROM hive.default.\"%s\"", tableName));
+            QueryResult hiveResult = onTrino().executeQuery("SELECT * FROM hive.default.\"%s\"".formatted(tableName));
             assertThat(sparkResult).containsOnly(hiveResult.rows().stream()
                     .map(Row::new)
                     .collect(toImmutableList()));
@@ -70,18 +69,18 @@ public class TestHiveAndDeltaLakeRedirect
         String schemaName = "test_extraordinary_" + randomNameSuffix();
         String tableName = "test_redirect_to_delta_non_default_schema_" + randomNameSuffix();
 
-        String schemaLocation = format("s3://%s/delta-redirect-test-%s", bucketName, schemaName);
-        onDelta().executeQuery(format("CREATE SCHEMA IF NOT EXISTS %s LOCATION \"%s\"", schemaName, schemaLocation));
+        String schemaLocation = "s3://%s/delta-redirect-test-%s".formatted(bucketName, schemaName);
+        onDelta().executeQuery("CREATE SCHEMA IF NOT EXISTS %s LOCATION \"%s\"".formatted(schemaName, schemaLocation));
         onDelta().executeQuery(createTableOnDelta(schemaName, tableName, false));
         try {
-            QueryResult sparkResult = onDelta().executeQuery(format("SELECT * FROM %s.%s", schemaName, tableName));
-            QueryResult hiveResult = onTrino().executeQuery(format("SELECT * FROM hive.%s.\"%s\"", schemaName, tableName));
+            QueryResult sparkResult = onDelta().executeQuery("SELECT * FROM %s.%s".formatted(schemaName, tableName));
+            QueryResult hiveResult = onTrino().executeQuery("SELECT * FROM hive.%s.\"%s\"".formatted(schemaName, tableName));
             assertThat(sparkResult).containsOnly(hiveResult.rows().stream()
                     .map(Row::new)
                     .collect(toImmutableList()));
         }
         finally {
-            dropDeltaTableWithRetry(format("%s.%s", schemaName, tableName));
+            dropDeltaTableWithRetry("%s.%s".formatted(schemaName, tableName));
             onDelta().executeQuery("DROP SCHEMA " + schemaName);
         }
     }
@@ -96,7 +95,7 @@ public class TestHiveAndDeltaLakeRedirect
 
             onTrino().executeQuery("SET SESSION hive.delta_lake_catalog_name = 'epsilon'");
 
-            assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM hive.default.\"%s\"", tableName)))
+            assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM hive.default.\"%s\"".formatted(tableName)))
                     .hasMessageMatching(".*Table 'hive.default.test_redirect_to_nonexistent_delta_.*' redirected to 'epsilon.default.test_redirect_to_nonexistent_delta_.*', but the target catalog 'epsilon' does not exist");
         }
         finally {
@@ -116,7 +115,7 @@ public class TestHiveAndDeltaLakeRedirect
             onTrino().executeQuery("USE hive.default");
 
             QueryResult sparkResult = onDelta().executeQuery("SELECT * FROM " + tableName);
-            QueryResult hiveResult = onTrino().executeQuery(format("SELECT * FROM \"%s\"", tableName));
+            QueryResult hiveResult = onTrino().executeQuery("SELECT * FROM \"%s\"".formatted(tableName));
             assertThat(sparkResult).containsOnly(hiveResult.rows().stream()
                     .map(Row::new)
                     .collect(toImmutableList()));
@@ -134,7 +133,7 @@ public class TestHiveAndDeltaLakeRedirect
         onDelta().executeQuery(createTableOnDelta(tableName, false));
 
         try {
-            assertThat(onTrino().executeQuery(format("SELECT * FROM hive.default.\"%s$partitions\"", tableName)))
+            assertThat(onTrino().executeQuery("SELECT * FROM hive.default.\"%s$partitions\"".formatted(tableName)))
                     .hasRowsCount(0);
         }
         finally {
@@ -156,8 +155,8 @@ public class TestHiveAndDeltaLakeRedirect
                     row(3, false, 0),
                     row(4, false, 1),
                     row(5, true, 37));
-            QueryResult deltaResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\"", tableName));
-            QueryResult hiveResult = onTrino().executeQuery(format("SELECT * FROM hive.default.\"%s\"", tableName));
+            QueryResult deltaResult = onTrino().executeQuery("SELECT * FROM delta.default.\"%s\"".formatted(tableName));
+            QueryResult hiveResult = onTrino().executeQuery("SELECT * FROM hive.default.\"%s\"".formatted(tableName));
             assertThat(deltaResult).containsOnly(expectedResults);
             assertThat(hiveResult).containsOnly(expectedResults);
         }
@@ -170,10 +169,10 @@ public class TestHiveAndDeltaLakeRedirect
     public void testDeltaToHiveNonDefaultSchemaRedirect()
     {
         String schemaName = "test_extraordinary" + randomNameSuffix();
-        String schemaLocation = format("s3://%s/delta-redirect-test-%s", bucketName, schemaName);
+        String schemaLocation = "s3://%s/delta-redirect-test-%s".formatted(bucketName, schemaName);
         String tableName = "test_redirect_to_hive_non_default_schema_" + randomNameSuffix();
 
-        onTrino().executeQuery(format("CREATE SCHEMA IF NOT EXISTS hive.%s WITH (location='%s')", schemaName, schemaLocation));
+        onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS hive.%s WITH (location='%s')".formatted(schemaName, schemaLocation));
 
         onTrino().executeQuery(createTableInHiveConnector(schemaName, tableName, false));
 
@@ -184,13 +183,13 @@ public class TestHiveAndDeltaLakeRedirect
                     row(3, false, 0),
                     row(4, false, 1),
                     row(5, true, 37));
-            QueryResult deltaResult = onTrino().executeQuery(format("SELECT * FROM delta.%s.\"%s\"", schemaName, tableName));
-            QueryResult hiveResult = onTrino().executeQuery(format("SELECT * FROM hive.%s.\"%s\"", schemaName, tableName));
+            QueryResult deltaResult = onTrino().executeQuery("SELECT * FROM delta.%s.\"%s\"".formatted(schemaName, tableName));
+            QueryResult hiveResult = onTrino().executeQuery("SELECT * FROM hive.%s.\"%s\"".formatted(schemaName, tableName));
             assertThat(deltaResult).containsOnly(expectedResults);
             assertThat(hiveResult).containsOnly(expectedResults);
         }
         finally {
-            onTrino().executeQuery(format("DROP TABLE hive.%s.%s", schemaName, tableName));
+            onTrino().executeQuery("DROP TABLE hive.%s.%s".formatted(schemaName, tableName));
             onTrino().executeQuery("DROP SCHEMA " + schemaName);
         }
     }
@@ -205,7 +204,7 @@ public class TestHiveAndDeltaLakeRedirect
         try {
             onTrino().executeQuery("SET SESSION delta.hive_catalog_name = 'spark'");
 
-            assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\"", tableName)))
+            assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM delta.default.\"%s\"".formatted(tableName)))
                     .hasMessageMatching(".*Table 'delta.default.test_redirect_to_nonexistent_hive_.*' redirected to 'spark.default.test_redirect_to_nonexistent_hive_.*', but the target catalog 'spark' does not exist");
         }
         finally {
@@ -230,8 +229,8 @@ public class TestHiveAndDeltaLakeRedirect
                     row(3, false, 0),
                     row(4, false, 1),
                     row(5, true, 37));
-            QueryResult deltaResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\"", tableName));
-            QueryResult hiveResult = onTrino().executeQuery(format("SELECT * FROM \"%s\"", tableName));
+            QueryResult deltaResult = onTrino().executeQuery("SELECT * FROM delta.default.\"%s\"".formatted(tableName));
+            QueryResult hiveResult = onTrino().executeQuery("SELECT * FROM \"%s\"".formatted(tableName));
             assertThat(deltaResult).containsOnly(expectedResults);
             assertThat(hiveResult).containsOnly(expectedResults);
         }
@@ -254,8 +253,8 @@ public class TestHiveAndDeltaLakeRedirect
                     row(0),
                     row(1),
                     row(37));
-            QueryResult deltaResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s$partitions\"", tableName));
-            QueryResult hiveResult = onTrino().executeQuery(format("SELECT * FROM hive.default.\"%s$partitions\"", tableName));
+            QueryResult deltaResult = onTrino().executeQuery("SELECT * FROM delta.default.\"%s$partitions\"".formatted(tableName));
+            QueryResult hiveResult = onTrino().executeQuery("SELECT * FROM hive.default.\"%s$partitions\"".formatted(tableName));
             assertThat(deltaResult).containsOnly(expectedResults);
             assertThat(hiveResult).containsOnly(expectedResults);
         }
@@ -272,7 +271,7 @@ public class TestHiveAndDeltaLakeRedirect
         onTrino().executeQuery(createTableInHiveConnector("default", tableName, false));
 
         try {
-            assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s$partitions\"", tableName)))
+            assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM delta.default.\"%s$partitions\"".formatted(tableName)))
                     .hasMessageMatching(".*Table 'delta.default.\"test_hive_unpartitioned_table.*partitions\"' does not exist");
         }
         finally {
@@ -288,7 +287,7 @@ public class TestHiveAndDeltaLakeRedirect
         onTrino().executeQuery(createTableInHiveConnector("default", tableName, true));
 
         try {
-            onTrino().executeQuery(format("INSERT INTO delta.default.\"%s\" VALUES (6, false, -17), (7, true, 1)", tableName));
+            onTrino().executeQuery("INSERT INTO delta.default.\"%s\" VALUES (6, false, -17), (7, true, 1)".formatted(tableName));
 
             List<Row> expectedResults = ImmutableList.of(
                     row(1, false, -128),
@@ -299,8 +298,8 @@ public class TestHiveAndDeltaLakeRedirect
                     row(6, false, -17),
                     row(7, true, 1));
 
-            QueryResult deltaResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\"", tableName));
-            QueryResult hiveResult = onTrino().executeQuery(format("SELECT * FROM hive.default.\"%s\"", tableName));
+            QueryResult deltaResult = onTrino().executeQuery("SELECT * FROM delta.default.\"%s\"".formatted(tableName));
+            QueryResult hiveResult = onTrino().executeQuery("SELECT * FROM hive.default.\"%s\"".formatted(tableName));
             assertThat(deltaResult).containsOnly(expectedResults);
             assertThat(hiveResult).containsOnly(expectedResults);
         }
@@ -317,10 +316,10 @@ public class TestHiveAndDeltaLakeRedirect
         onDelta().executeQuery(createTableOnDelta(tableName, true));
 
         try {
-            onTrino().executeQuery(format("INSERT INTO hive.default.\"%s\" VALUES (1234567890, 'San Escobar', 5, 'If I had a world of my own, everything would be nonsense')", tableName));
+            onTrino().executeQuery("INSERT INTO hive.default.\"%s\" VALUES (1234567890, 'San Escobar', 5, 'If I had a world of my own, everything would be nonsense')".formatted(tableName));
 
-            assertThat(onTrino().executeQuery(format("SELECT count(*) FROM delta.default.\"%s\"", tableName))).containsOnly(row(5));
-            assertThat(onTrino().executeQuery(format("SELECT count(*) FROM hive.default.\"%s\"", tableName))).containsOnly(row(5));
+            assertThat(onTrino().executeQuery("SELECT count(*) FROM delta.default.\"%s\"".formatted(tableName))).containsOnly(row(5));
+            assertThat(onTrino().executeQuery("SELECT count(*) FROM hive.default.\"%s\"".formatted(tableName))).containsOnly(row(5));
         }
         finally {
             dropDeltaTableWithRetry(tableName);
@@ -339,7 +338,7 @@ public class TestHiveAndDeltaLakeRedirect
                     row("id", "integer", "", ""),
                     row("flag", "boolean", "", ""),
                     row("rate", "tinyint", "partition key", ""));
-            assertThat(onTrino().executeQuery(format("DESCRIBE delta.default.\"%s\"", tableName)))
+            assertThat(onTrino().executeQuery("DESCRIBE delta.default.\"%s\"".formatted(tableName)))
                     .containsOnly(expectedResults);
         }
         finally {
@@ -360,7 +359,7 @@ public class TestHiveAndDeltaLakeRedirect
                     row("name", "varchar", "", ""),
                     row("regionkey", "bigint", "", ""),
                     row("comment", "varchar", "", ""));
-            assertThat(onTrino().executeQuery(format("DESCRIBE hive.default.\"%s\"", tableName)))
+            assertThat(onTrino().executeQuery("DESCRIBE hive.default.\"%s\"".formatted(tableName)))
                     .containsOnly(expectedResults);
         }
         finally {
@@ -376,7 +375,7 @@ public class TestHiveAndDeltaLakeRedirect
         onTrino().executeQuery(createTableInHiveConnector("default", tableName, true));
 
         try {
-            assertThat(onTrino().executeQuery(format("SHOW CREATE TABLE delta.default.\"%s\"", tableName)))
+            assertThat(onTrino().executeQuery("SHOW CREATE TABLE delta.default.\"%s\"".formatted(tableName)))
                     .hasRowsCount(1);
         }
         finally {
@@ -392,7 +391,7 @@ public class TestHiveAndDeltaLakeRedirect
         onDelta().executeQuery(createTableOnDelta(tableName, true));
 
         try {
-            assertThat(onTrino().executeQuery(format("SHOW CREATE TABLE hive.default.\"%s\"", tableName)))
+            assertThat(onTrino().executeQuery("SHOW CREATE TABLE hive.default.\"%s\"".formatted(tableName)))
                     .hasRowsCount(1);
         }
         finally {
@@ -453,7 +452,7 @@ public class TestHiveAndDeltaLakeRedirect
             assertThat(onTrino().executeQuery("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = 'hive' AND schema_name = 'default' AND table_name = '" + tableName + "'"))
                     .is(new Condition<>(queryResult -> queryResult.getOnlyValue() == null, "Unexpected table comment"));
             String tableComment = "This is my table, there are many like it but this one is mine";
-            onTrino().executeQuery(format("COMMENT ON TABLE delta.default.\"%s\" IS '%s'", tableName, tableComment));
+            onTrino().executeQuery("COMMENT ON TABLE delta.default.\"%s\" IS '%s'".formatted(tableName, tableComment));
 
             assertTableComment("hive", "default", tableName).isEqualTo(tableComment);
             assertTableComment("delta", "default", tableName).isEqualTo(tableComment);
@@ -475,7 +474,7 @@ public class TestHiveAndDeltaLakeRedirect
                     .is(new Condition<>(queryResult -> queryResult.getOnlyValue() == null, "Unexpected table comment"));
 
             String tableComment = "This is my table, there are many like it but this one is mine";
-            onTrino().executeQuery(format("COMMENT ON TABLE hive.default.\"%s\" IS '%s'", tableName, tableComment));
+            onTrino().executeQuery("COMMENT ON TABLE hive.default.\"%s\" IS '%s'".formatted(tableName, tableComment));
             assertTableComment("hive", "default", tableName).isEqualTo(tableComment);
             assertTableComment("delta", "default", tableName).isEqualTo(tableComment);
         }
@@ -496,7 +495,7 @@ public class TestHiveAndDeltaLakeRedirect
             assertColumnComment("delta", "default", tableName, columnName).isNull();
 
             String columnComment = "Internal identifier";
-            onTrino().executeQuery(format("COMMENT ON COLUMN delta.default.%s.%s IS '%s'", tableName, columnName, columnComment));
+            onTrino().executeQuery("COMMENT ON COLUMN delta.default.%s.%s IS '%s'".formatted(tableName, columnName, columnComment));
 
             assertColumnComment("hive", "default", tableName, columnName).isEqualTo(columnComment);
             assertColumnComment("delta", "default", tableName, columnName).isEqualTo(columnComment);
@@ -519,7 +518,7 @@ public class TestHiveAndDeltaLakeRedirect
             assertColumnComment("delta", "default", tableName, columnName).isNull();
 
             String columnComment = "Internal identifier for the nation";
-            onTrino().executeQuery(format("COMMENT ON COLUMN hive.default.%s.%s IS '%s'", tableName, columnName, columnComment));
+            onTrino().executeQuery("COMMENT ON COLUMN hive.default.%s.%s IS '%s'".formatted(tableName, columnName, columnComment));
 
             assertColumnComment("hive", "default", tableName, columnName).isEqualTo(columnComment);
             assertColumnComment("delta", "default", tableName, columnName).isEqualTo(columnComment);
@@ -535,15 +534,15 @@ public class TestHiveAndDeltaLakeRedirect
         String destSchema = "test_extraordinary_" + randomNameSuffix();
         String destTableName = "test_create_delta_table_from_hive_non_default_schema_" + randomNameSuffix();
 
-        String schemaLocation = format("s3://%s/delta-redirect-test-%s", bucketName, destSchema);
-        onDelta().executeQuery(format("CREATE SCHEMA IF NOT EXISTS %s LOCATION \"%s\"", destSchema, schemaLocation));
+        String schemaLocation = "s3://%s/delta-redirect-test-%s".formatted(bucketName, destSchema);
+        onDelta().executeQuery("CREATE SCHEMA IF NOT EXISTS %s LOCATION \"%s\"".formatted(destSchema, schemaLocation));
         onDelta().executeQuery(createTableOnDelta(destSchema, destTableName, false));
 
         try {
-            onTrino().executeQuery(format("INSERT INTO hive.%s.\"%s\" (nationkey, name, regionkey) VALUES (26, 'POLAND', 3)", destSchema, destTableName));
+            onTrino().executeQuery("INSERT INTO hive.%s.\"%s\" (nationkey, name, regionkey) VALUES (26, 'POLAND', 3)".formatted(destSchema, destTableName));
 
-            QueryResult hiveResult = onTrino().executeQuery(format("SELECT * FROM hive.%s.\"%s\"", destSchema, destTableName));
-            QueryResult deltaResult = onTrino().executeQuery(format("SELECT * FROM delta.%s.\"%s\"", destSchema, destTableName));
+            QueryResult hiveResult = onTrino().executeQuery("SELECT * FROM hive.%s.\"%s\"".formatted(destSchema, destTableName));
+            QueryResult deltaResult = onTrino().executeQuery("SELECT * FROM delta.%s.\"%s\"".formatted(destSchema, destTableName));
 
             List<Row> expectedDestinationTableRows = ImmutableList.<Row>builder()
                     .add(new Row(0, "ALGERIA", 0, "haggle. carefully final deposits detect slyly agai"))
@@ -559,7 +558,7 @@ public class TestHiveAndDeltaLakeRedirect
                     .containsOnly(expectedDestinationTableRows);
         }
         finally {
-            dropDeltaTableWithRetry(format("%s.%s", destSchema, destTableName));
+            dropDeltaTableWithRetry("%s.%s".formatted(destSchema, destTableName));
             onTrino().executeQuery("DROP SCHEMA " + destSchema);
         }
     }
@@ -569,8 +568,8 @@ public class TestHiveAndDeltaLakeRedirect
     {
         // use dedicated schema so we control the number and shape of tables
         String schemaName = "test_redirect_to_delta_information_schema_columns_schema_" + randomNameSuffix();
-        String schemaLocation = format("s3://%s/delta-redirect-test-%s", bucketName, schemaName);
-        onTrino().executeQuery(format("CREATE SCHEMA IF NOT EXISTS hive.%s WITH (location = '%s')", schemaName, schemaLocation));
+        String schemaLocation = "s3://%s/delta-redirect-test-%s".formatted(bucketName, schemaName);
+        onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS hive.%s WITH (location = '%s')".formatted(schemaName, schemaLocation));
 
         String tableName = "redirect_to_delta_information_schema_columns_table_" + randomNameSuffix();
         try {
@@ -578,7 +577,7 @@ public class TestHiveAndDeltaLakeRedirect
 
             // via redirection with table filter
             assertThat(onTrino().executeQuery(
-                    format("SELECT * FROM hive.information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'", schemaName, tableName)))
+                    "SELECT * FROM hive.information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'".formatted(schemaName, tableName)))
                     .containsOnly(
                             row("hive", schemaName, tableName, "nationkey", 1, null, "YES", "bigint"),
                             row("hive", schemaName, tableName, "name", 2, null, "YES", "varchar"),
@@ -587,7 +586,7 @@ public class TestHiveAndDeltaLakeRedirect
 
             // test via redirection with just schema filter
             assertThat(onTrino().executeQuery(
-                    format("SELECT * FROM hive.information_schema.columns WHERE table_schema = '%s'", schemaName)))
+                    "SELECT * FROM hive.information_schema.columns WHERE table_schema = '%s'".formatted(schemaName)))
                     .containsOnly(
                             row("hive", schemaName, tableName, "nationkey", 1, null, "YES", "bigint"),
                             row("hive", schemaName, tableName, "name", 2, null, "YES", "varchar"),
@@ -596,7 +595,7 @@ public class TestHiveAndDeltaLakeRedirect
 
             // sanity check that getting columns info without redirection produces matching result
             assertThat(onTrino().executeQuery(
-                    format("SELECT * FROM delta.information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'", schemaName, tableName)))
+                    "SELECT * FROM delta.information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'".formatted(schemaName, tableName)))
                     .containsOnly(
                             row("delta", schemaName, tableName, "nationkey", 1, null, "YES", "bigint"),
                             row("delta", schemaName, tableName, "name", 2, null, "YES", "varchar"),
@@ -604,7 +603,7 @@ public class TestHiveAndDeltaLakeRedirect
                             row("delta", schemaName, tableName, "comment", 4, null, "YES", "varchar"));
         }
         finally {
-            dropDeltaTableWithRetry(format("%s.%s", schemaName, tableName));
+            dropDeltaTableWithRetry("%s.%s".formatted(schemaName, tableName));
             onTrino().executeQuery("DROP SCHEMA " + schemaName);
         }
     }
@@ -614,8 +613,8 @@ public class TestHiveAndDeltaLakeRedirect
     {
         // use dedicated schema so we control the number and shape of tables
         String schemaName = "test_redirect_to_hive_information_schema_columns_schema_" + randomNameSuffix();
-        String schemaLocation = format("s3://%s/delta-redirect-test-%s", bucketName, schemaName);
-        onTrino().executeQuery(format("CREATE SCHEMA IF NOT EXISTS hive.%s WITH (location='%s')", schemaName, schemaLocation));
+        String schemaLocation = "s3://%s/delta-redirect-test-%s".formatted(bucketName, schemaName);
+        onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS hive.%s WITH (location='%s')".formatted(schemaName, schemaLocation));
 
         String tableName = "test_redirect_to_hive_information_schema_columns_table_" + randomNameSuffix();
         try {
@@ -623,7 +622,7 @@ public class TestHiveAndDeltaLakeRedirect
 
             // via redirection with table filter
             assertThat(onTrino().executeQuery(
-                    format("SELECT * FROM delta.information_schema.columns WHERE table_schema = '%s' AND table_name='%s'", schemaName, tableName)))
+                    "SELECT * FROM delta.information_schema.columns WHERE table_schema = '%s' AND table_name='%s'".formatted(schemaName, tableName)))
                     .containsOnly(
                             row("delta", schemaName, tableName, "id", 1, null, "YES", "integer"),
                             row("delta", schemaName, tableName, "flag", 2, null, "YES", "boolean"),
@@ -631,7 +630,7 @@ public class TestHiveAndDeltaLakeRedirect
 
             // test via redirection with just schema filter
             assertThat(onTrino().executeQuery(
-                    format("SELECT * FROM delta.information_schema.columns WHERE table_schema = '%s'", schemaName)))
+                    "SELECT * FROM delta.information_schema.columns WHERE table_schema = '%s'".formatted(schemaName)))
                     .containsOnly(
                             row("delta", schemaName, tableName, "id", 1, null, "YES", "integer"),
                             row("delta", schemaName, tableName, "flag", 2, null, "YES", "boolean"),
@@ -639,14 +638,14 @@ public class TestHiveAndDeltaLakeRedirect
 
             // sanity check that getting columns info without redirection produces matching result
             assertThat(onTrino().executeQuery(
-                    format("SELECT * FROM hive.information_schema.columns WHERE table_schema = '%s' AND table_name='%s'", schemaName, tableName)))
+                    "SELECT * FROM hive.information_schema.columns WHERE table_schema = '%s' AND table_name='%s'".formatted(schemaName, tableName)))
                     .containsOnly(
                             row("hive", schemaName, tableName, "id", 1, null, "YES", "integer"),
                             row("hive", schemaName, tableName, "flag", 2, null, "YES", "boolean"),
                             row("hive", schemaName, tableName, "rate", 3, null, "YES", "tinyint"));
         }
         finally {
-            onTrino().executeQuery(format("DROP TABLE IF EXISTS hive.%s.%s", schemaName, tableName));
+            onTrino().executeQuery("DROP TABLE IF EXISTS hive.%s.%s".formatted(schemaName, tableName));
             onTrino().executeQuery("DROP SCHEMA " + schemaName);
         }
     }
@@ -656,8 +655,8 @@ public class TestHiveAndDeltaLakeRedirect
     {
         // use dedicated schema so we control the number and shape of tables
         String schemaName = "test_redirect_to_delta_system_jdbc_columns_schema_" + randomNameSuffix();
-        String schemaLocation = format("s3://%s/delta-redirect-test-%s", bucketName, schemaName);
-        onTrino().executeQuery(format("CREATE SCHEMA IF NOT EXISTS hive.%s WITH (location='%s')", schemaName, schemaLocation));
+        String schemaLocation = "s3://%s/delta-redirect-test-%s".formatted(bucketName, schemaName);
+        onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS hive.%s WITH (location='%s')".formatted(schemaName, schemaLocation));
 
         String tableName = "test_redirect_to_delta_system_jdbc_columns_table_" + randomNameSuffix();
         try {
@@ -665,7 +664,7 @@ public class TestHiveAndDeltaLakeRedirect
 
             // via redirection with table filter
             assertThat(onTrino().executeQuery(
-                    format("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns  WHERE table_cat = 'hive' AND table_schem = '%s' AND table_name = '%s'", schemaName, tableName)))
+                    "SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns  WHERE table_cat = 'hive' AND table_schem = '%s' AND table_name = '%s'".formatted(schemaName, tableName)))
                     .containsOnly(
                             row("hive", schemaName, tableName, "nationkey"),
                             row("hive", schemaName, tableName, "name"),
@@ -675,7 +674,7 @@ public class TestHiveAndDeltaLakeRedirect
             // test via redirection with just schema filter
             // via redirection with table filter
             assertThat(onTrino().executeQuery(
-                    format("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns  WHERE table_cat = 'hive' AND table_schem = '%s'", schemaName)))
+                    "SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns  WHERE table_cat = 'hive' AND table_schem = '%s'".formatted(schemaName)))
                     .containsOnly(
                             row("hive", schemaName, tableName, "nationkey"),
                             row("hive", schemaName, tableName, "name"),
@@ -684,7 +683,7 @@ public class TestHiveAndDeltaLakeRedirect
 
             // sanity check that getting columns info without redirection produces matching result
             assertThat(onTrino().executeQuery(
-                    format("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns  WHERE table_cat = 'delta' AND table_schem = '%s' AND table_name = '%s'", schemaName, tableName)))
+                    "SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns  WHERE table_cat = 'delta' AND table_schem = '%s' AND table_name = '%s'".formatted(schemaName, tableName)))
                     .containsOnly(
                             row("delta", schemaName, tableName, "nationkey"),
                             row("delta", schemaName, tableName, "name"),
@@ -692,7 +691,7 @@ public class TestHiveAndDeltaLakeRedirect
                             row("delta", schemaName, tableName, "comment"));
         }
         finally {
-            dropDeltaTableWithRetry(format("%s.%s", schemaName, tableName));
+            dropDeltaTableWithRetry("%s.%s".formatted(schemaName, tableName));
             onTrino().executeQuery("DROP SCHEMA " + schemaName);
         }
     }
@@ -702,8 +701,8 @@ public class TestHiveAndDeltaLakeRedirect
     {
         // use dedicated schema so we control the number and shape of tables
         String schemaName = "test_redirect_to_hive_system_jdbc_columns_schema_" + randomNameSuffix();
-        String schemaLocation = format("s3://%s/delta-redirect-test-%s", bucketName, schemaName);
-        onTrino().executeQuery(format("CREATE SCHEMA IF NOT EXISTS hive.%s WITH (location='%s')", schemaName, schemaLocation));
+        String schemaLocation = "s3://%s/delta-redirect-test-%s".formatted(bucketName, schemaName);
+        onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS hive.%s WITH (location='%s')".formatted(schemaName, schemaLocation));
 
         String tableName = "test_redirect_to_hive_system_jdbc_columns_table_" + randomNameSuffix();
         try {
@@ -711,7 +710,7 @@ public class TestHiveAndDeltaLakeRedirect
 
             // via redirection with table filter
             assertThat(onTrino().executeQuery(
-                    format("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns  WHERE table_cat = 'delta' AND table_schem = '%s' AND table_name = '%s'", schemaName, tableName)))
+                    "SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns  WHERE table_cat = 'delta' AND table_schem = '%s' AND table_name = '%s'".formatted(schemaName, tableName)))
                     .containsOnly(
                             row("delta", schemaName, tableName, "id"),
                             row("delta", schemaName, tableName, "flag"),
@@ -719,7 +718,7 @@ public class TestHiveAndDeltaLakeRedirect
 
             // test via redirection with just schema filter
             assertThat(onTrino().executeQuery(
-                    format("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns  WHERE table_cat = 'delta' AND table_schem = '%s'", schemaName)))
+                    "SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns  WHERE table_cat = 'delta' AND table_schem = '%s'".formatted(schemaName)))
                     .containsOnly(
                             row("delta", schemaName, tableName, "id"),
                             row("delta", schemaName, tableName, "flag"),
@@ -727,14 +726,14 @@ public class TestHiveAndDeltaLakeRedirect
 
             // sanity check that getting columns info without redirection produces matching result
             assertThat(onTrino().executeQuery(
-                    format("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns  WHERE table_cat = 'hive' AND table_schem = '%s' AND table_name = '%s'", schemaName, tableName)))
+                    "SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns  WHERE table_cat = 'hive' AND table_schem = '%s' AND table_name = '%s'".formatted(schemaName, tableName)))
                     .containsOnly(
                             row("hive", schemaName, tableName, "id"),
                             row("hive", schemaName, tableName, "flag"),
                             row("hive", schemaName, tableName, "rate"));
         }
         finally {
-            onTrino().executeQuery(format("DROP TABLE IF EXISTS hive.%s.%s", schemaName, tableName));
+            onTrino().executeQuery("DROP TABLE IF EXISTS hive.%s.%s".formatted(schemaName, tableName));
             onTrino().executeQuery("DROP SCHEMA " + schemaName);
         }
     }
@@ -840,8 +839,8 @@ public class TestHiveAndDeltaLakeRedirect
                 row("location", locationForTable(tableName)));
 
         try {
-            assertThat(onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s$properties\"", tableName))).containsOnly(expected);
-            assertThat(onTrino().executeQuery(format("SELECT * FROM hive.default.\"%s$properties\"", tableName))).containsOnly(expected);
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default.\"%s$properties\"".formatted(tableName))).containsOnly(expected);
+            assertThat(onTrino().executeQuery("SELECT * FROM hive.default.\"%s$properties\"".formatted(tableName))).containsOnly(expected);
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
@@ -917,7 +916,7 @@ public class TestHiveAndDeltaLakeRedirect
     private static QueryResult readColumnComment(String catalog, String schema, String tableName, String columnName)
     {
         return onTrino().executeQuery(
-                format("SELECT comment FROM %s.information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?", catalog),
+                "SELECT comment FROM %s.information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?".formatted(catalog),
                 param(VARCHAR, schema),
                 param(VARCHAR, tableName),
                 param(VARCHAR, columnName));

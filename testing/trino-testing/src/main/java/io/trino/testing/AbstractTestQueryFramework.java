@@ -88,8 +88,6 @@ import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -161,7 +159,7 @@ public abstract class AbstractTestQueryFramework
 
     private void assertMemoryPoolReleased(TestingTrinoServer coordinator, TestingTrinoServer server, long serverId)
     {
-        String serverName = format("server_%d(%s)", serverId, server.isCoordinator() ? "coordinator" : "worker");
+        String serverName = "server_%d(%s)".formatted(serverId, server.isCoordinator() ? "coordinator" : "worker");
         long reservedBytes = server.getLocalMemoryManager().getMemoryPool().getReservedBytes();
 
         if (reservedBytes != 0) {
@@ -252,26 +250,26 @@ public abstract class AbstractTestQueryFramework
 
     private static String createQueryDebuggingSummary(BasicQueryInfo basicQueryInfo, QueryInfo queryInfo)
     {
-        String queryDetails = format("Query %s [%s]: %s", basicQueryInfo.getQueryId(), basicQueryInfo.getState(), basicQueryInfo.getQuery());
+        String queryDetails = "Query %s [%s]: %s".formatted(basicQueryInfo.getQueryId(), basicQueryInfo.getState(), basicQueryInfo.getQuery());
         if (queryInfo.getStages().isEmpty()) {
             return queryDetails + " -- <no output stage present>";
         }
         else {
             return queryDetails + getAllStages(queryInfo.getStages()).stream()
                     .map(stageInfo -> {
-                        String stageDetail = format("Stage %s [%s]", stageInfo.stageId(), stageInfo.state());
+                        String stageDetail = "Stage %s [%s]".formatted(stageInfo.stageId(), stageInfo.state());
                         if (stageInfo.tasks().isEmpty()) {
                             return stageDetail;
                         }
                         return stageDetail + stageInfo.tasks().stream()
                                 .map(TaskInfo::taskStatus)
                                 .map(task -> {
-                                    String taskDetail = format("Task %s [%s]", task.taskId(), task.state());
+                                    String taskDetail = "Task %s [%s]".formatted(task.taskId(), task.state());
                                     if (task.failures().isEmpty()) {
                                         return taskDetail;
                                     }
                                     return " -- Failures: " + task.failures().stream()
-                                            .map(failure -> format("%s %s: %s", failure.errorCode(), failure.type(), failure.message()))
+                                            .map(failure -> "%s %s: %s".formatted(failure.errorCode(), failure.type(), failure.message()))
                                             .collect(Collectors.joining(", ", "[", "]"));
                                 })
                                 .collect(Collectors.joining("\n\t\t", ":\n\t\t", ""));
@@ -639,7 +637,7 @@ public abstract class AbstractTestQueryFramework
         return newTransaction()
                 .singleStatement()
                 .execute(session, transactionSession -> {
-                    return explainer.getPlan(transactionSession, SQL_PARSER.createStatement(query), planType, emptyList(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+                    return explainer.getPlan(transactionSession, SQL_PARSER.createStatement(query), planType, List.of(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                 });
     }
 
@@ -649,7 +647,7 @@ public abstract class AbstractTestQueryFramework
         return newTransaction()
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getGraphvizPlan(session, SQL_PARSER.createStatement(query), planType, emptyList(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+                    return explainer.getGraphvizPlan(session, SQL_PARSER.createStatement(query), planType, List.of(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                 });
     }
 
@@ -659,7 +657,7 @@ public abstract class AbstractTestQueryFramework
         return newTransaction()
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getJsonPlan(session, SQL_PARSER.createStatement(query), planType, emptyList(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+                    return explainer.getJsonPlan(session, SQL_PARSER.createStatement(query), planType, List.of(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                 });
     }
 

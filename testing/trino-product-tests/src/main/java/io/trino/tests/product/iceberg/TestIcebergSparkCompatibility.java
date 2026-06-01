@@ -74,7 +74,6 @@ import static io.trino.tests.product.iceberg.util.IcebergTestUtils.stripNamenode
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -119,7 +118,7 @@ public class TestIcebergSparkCompatibility
     public void setUp()
     {
         // we create default schema so that we can re-use the same test for the Iceberg REST catalog (since Iceberg itself doesn't support a default schema)
-        onTrino().executeQuery(format("CREATE SCHEMA IF NOT EXISTS %s.%s", TRINO_CATALOG, TEST_SCHEMA_NAME));
+        onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS %s.%s".formatted(TRINO_CATALOG, TEST_SCHEMA_NAME));
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC, ICEBERG_NESSIE}, dataProvider = "storageFormatsWithSpecVersion")
@@ -131,44 +130,42 @@ public class TestIcebergSparkCompatibility
 
         onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
 
-        onSpark().executeQuery(format(
-                "CREATE TABLE %s (" +
-                        "  _string STRING" +
-                        ", _bigint BIGINT" +
-                        ", _integer INTEGER" +
-                        ", _real REAL" +
-                        ", _double DOUBLE" +
-                        ", _short_decimal decimal(8,2)" +
-                        ", _long_decimal decimal(38,19)" +
-                        ", _boolean BOOLEAN" +
-                        ", _timestamp TIMESTAMP" +
-                        ", _date DATE" +
-                        ", _binary BINARY" +
-                        ") USING ICEBERG " +
-                        "TBLPROPERTIES ('write.format.default'='%s', 'format-version' = %s)",
+        onSpark().executeQuery(("CREATE TABLE %s (" +
+        "  _string STRING" +
+        ", _bigint BIGINT" +
+        ", _integer INTEGER" +
+        ", _real REAL" +
+        ", _double DOUBLE" +
+        ", _short_decimal decimal(8,2)" +
+        ", _long_decimal decimal(38,19)" +
+        ", _boolean BOOLEAN" +
+        ", _timestamp TIMESTAMP" +
+        ", _date DATE" +
+        ", _binary BINARY" +
+        ") USING ICEBERG " +
+        "TBLPROPERTIES ('write.format.default'='%s', 'format-version' = %s)").formatted(
                 sparkTableName,
                 storageFormat,
                 specVersion));
 
         // Validate queries on an empty table created by Spark
-        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName("\"" + baseTableName + "$snapshots\"")))).hasNoRows();
-        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName))).hasNoRows();
-        assertThat(onTrino().executeQuery(format("SELECT * FROM %s WHERE _integer > 0", trinoTableName))).hasNoRows();
+        assertThat(onTrino().executeQuery("SELECT * FROM %s".formatted(trinoTableName("\"" + baseTableName + "$snapshots\"")))).hasNoRows();
+        assertThat(onTrino().executeQuery("SELECT * FROM %s".formatted(trinoTableName))).hasNoRows();
+        assertThat(onTrino().executeQuery("SELECT * FROM %s WHERE _integer > 0".formatted(trinoTableName))).hasNoRows();
 
-        onSpark().executeQuery(format(
-                "INSERT INTO %s VALUES (" +
-                        "'a_string'" +
-                        ", 1000000000000000" +
-                        ", 1000000000" +
-                        ", 10000000.123" +
-                        ", 100000000000.123" +
-                        ", CAST('123456.78' AS decimal(8,2))" +
-                        ", CAST('1234567890123456789.0123456789012345678' AS decimal(38,19))" +
-                        ", true" +
-                        ", TIMESTAMP '2020-06-28 14:16:00.456'" +
-                        ", DATE '1950-06-28'" +
-                        ", X'000102f0feff'" +
-                        ")",
+        onSpark().executeQuery(("INSERT INTO %s VALUES (" +
+        "'a_string'" +
+        ", 1000000000000000" +
+        ", 1000000000" +
+        ", 10000000.123" +
+        ", 100000000000.123" +
+        ", CAST('123456.78' AS decimal(8,2))" +
+        ", CAST('1234567890123456789.0123456789012345678' AS decimal(38,19))" +
+        ", true" +
+        ", TIMESTAMP '2020-06-28 14:16:00.456'" +
+        ", DATE '1950-06-28'" +
+        ", X'000102f0feff'" +
+        ")").formatted(
                 sparkTableName));
 
         Row row = row(
@@ -247,7 +244,7 @@ public class TestIcebergSparkCompatibility
                 """;
 
         switch (createMode) {
-            case CREATE_TABLE_AND_INSERT:
+            case CREATE_TABLE_AND_INSERT -> {
                 onTrino().executeQuery(
                         """
                         CREATE TABLE %s (
@@ -266,20 +263,14 @@ public class TestIcebergSparkCompatibility
                         , _uuid UUID
                         ) WITH (format = '%s')""".formatted(trinoTableName, storageFormat));
 
-                onTrino().executeQuery(format("INSERT INTO %s %s", trinoTableName, namedValues));
-                break;
-
-            case CREATE_TABLE_AS_SELECT:
-                onTrino().executeQuery(format("CREATE TABLE %s AS %s", trinoTableName, namedValues));
-                break;
-
-            case CREATE_TABLE_WITH_NO_DATA_AND_INSERT:
-                onTrino().executeQuery(format("CREATE TABLE %s AS %s WITH NO DATA", trinoTableName, namedValues));
-                onTrino().executeQuery(format("INSERT INTO %s %s", trinoTableName, namedValues));
-                break;
-
-            default:
-                throw new UnsupportedOperationException("Unsupported create mode: " + createMode);
+                onTrino().executeQuery("INSERT INTO %s %s".formatted(trinoTableName, namedValues));
+            }
+            case CREATE_TABLE_AS_SELECT -> onTrino().executeQuery("CREATE TABLE %s AS %s".formatted(trinoTableName, namedValues));
+            case CREATE_TABLE_WITH_NO_DATA_AND_INSERT -> {
+                onTrino().executeQuery("CREATE TABLE %s AS %s WITH NO DATA".formatted(trinoTableName, namedValues));
+                onTrino().executeQuery("INSERT INTO %s %s".formatted(trinoTableName, namedValues));
+            }
+            default -> throw new UnsupportedOperationException("Unsupported create mode: " + createMode);
         }
 
         Row row = row(
@@ -378,42 +369,35 @@ public class TestIcebergSparkCompatibility
                 "";
 
         switch (createMode) {
-            case CREATE_TABLE_AND_INSERT:
-                onTrino().executeQuery(format(
-                        "CREATE TABLE %s (" +
-                                "  _string VARCHAR" +
-                                ", _bigint BIGINT" +
-                                ", _integer INTEGER" +
-                                ", _real REAL" +
-                                ", _double DOUBLE" +
-                                ", _short_decimal decimal(8,2)" +
-                                ", _long_decimal decimal(38,19)" +
-                                ", _boolean BOOLEAN" +
-                                ", _timestamp TIMESTAMP" +
-                                ", _timestamptz timestamp(6) with time zone" +
-                                ", _date DATE" +
-                                ", _binary VARBINARY" +
-                                ", _uuid UUID" +
-                                // ", _time time(6)" + -- per https://iceberg.apache.org/spark-writes/ Iceberg's time is currently not supported with Spark
-                                ") WITH (format = '%s', format_version = %d)",
+            case CREATE_TABLE_AND_INSERT -> {
+                onTrino().executeQuery(("CREATE TABLE %s (" +
+                "  _string VARCHAR" +
+                ", _bigint BIGINT" +
+                ", _integer INTEGER" +
+                ", _real REAL" +
+                ", _double DOUBLE" +
+                ", _short_decimal decimal(8,2)" +
+                ", _long_decimal decimal(38,19)" +
+                ", _boolean BOOLEAN" +
+                ", _timestamp TIMESTAMP" +
+                ", _timestamptz timestamp(6) with time zone" +
+                ", _date DATE" +
+                ", _binary VARBINARY" +
+                ", _uuid UUID" +
+                // ", _time time(6)" + -- per https://iceberg.apache.org/spark-writes/ Iceberg's time is currently not supported with Spark
+                ") WITH (format = '%s', format_version = %d)").formatted(
                         trinoTableName,
                         storageFormat,
                         specVersion));
 
-                onTrino().executeQuery(format("INSERT INTO %s %s", trinoTableName, namedValues));
-                break;
-
-            case CREATE_TABLE_AS_SELECT:
-                onTrino().executeQuery(format("CREATE TABLE %s WITH (format_version = %d) AS %s", trinoTableName, specVersion, namedValues));
-                break;
-
-            case CREATE_TABLE_WITH_NO_DATA_AND_INSERT:
-                onTrino().executeQuery(format("CREATE TABLE %s WITH (format_version = %d) AS %s WITH NO DATA", trinoTableName, specVersion, namedValues));
-                onTrino().executeQuery(format("INSERT INTO %s %s", trinoTableName, namedValues));
-                break;
-
-            default:
-                throw new UnsupportedOperationException("Unsupported create mode: " + createMode);
+                onTrino().executeQuery("INSERT INTO %s %s".formatted(trinoTableName, namedValues));
+            }
+            case CREATE_TABLE_AS_SELECT -> onTrino().executeQuery("CREATE TABLE %s WITH (format_version = %d) AS %s".formatted(trinoTableName, specVersion, namedValues));
+            case CREATE_TABLE_WITH_NO_DATA_AND_INSERT -> {
+                onTrino().executeQuery("CREATE TABLE %s WITH (format_version = %d) AS %s WITH NO DATA".formatted(trinoTableName, specVersion, namedValues));
+                onTrino().executeQuery("INSERT INTO %s %s".formatted(trinoTableName, namedValues));
+            }
+            default -> throw new UnsupportedOperationException("Unsupported create mode: " + createMode);
         }
 
         Row row = row(
@@ -490,7 +474,7 @@ public class TestIcebergSparkCompatibility
     public void testSparkCreatesTrinoDrops(int specVersion)
     {
         String baseTableName = "test_spark_creates_trino_drops";
-        onSpark().executeQuery(format("CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG TBLPROPERTIES('format-version' = %s)", sparkTableName(baseTableName), specVersion));
+        onSpark().executeQuery("CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG TBLPROPERTIES('format-version' = %s)".formatted(sparkTableName(baseTableName), specVersion));
         onTrino().executeQuery("DROP TABLE " + trinoTableName(baseTableName));
     }
 
@@ -498,7 +482,7 @@ public class TestIcebergSparkCompatibility
     public void testTrinoCreatesSparkDrops()
     {
         String baseTableName = "test_trino_creates_spark_drops";
-        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT)", trinoTableName(baseTableName)));
+        onTrino().executeQuery("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT)".formatted(trinoTableName(baseTableName)));
         onSpark().executeQuery("DROP TABLE " + sparkTableName(baseTableName));
     }
 
@@ -510,21 +494,21 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
 
-        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _varbinary VARBINARY, _bigint BIGINT) WITH (partitioning = ARRAY['_string', '_varbinary'], format = '%s')", trinoTableName, storageFormat));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', X'0ff102f0feff', 1001), ('b', X'0ff102f0fefe', 1002), ('c', X'0ff102fdfeff', 1003)", trinoTableName));
+        onTrino().executeQuery("CREATE TABLE %s (_string VARCHAR, _varbinary VARBINARY, _bigint BIGINT) WITH (partitioning = ARRAY['_string', '_varbinary'], format = '%s')".formatted(trinoTableName, storageFormat));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('a', X'0ff102f0feff', 1001), ('b', X'0ff102f0fefe', 1002), ('c', X'0ff102fdfeff', 1003)".formatted(trinoTableName));
 
         Row row1 = row("b", new byte[] {15, -15, 2, -16, -2, -2}, 1002);
         String selectByString = "SELECT * FROM %s WHERE _string = 'b'";
-        assertThat(onTrino().executeQuery(format(selectByString, trinoTableName)))
+        assertThat(onTrino().executeQuery(selectByString.formatted(trinoTableName)))
                 .containsOnly(row1);
-        assertThat(onSpark().executeQuery(format(selectByString, sparkTableName)))
+        assertThat(onSpark().executeQuery(selectByString.formatted(sparkTableName)))
                 .containsOnly(row1);
 
         Row row2 = row("a", new byte[] {15, -15, 2, -16, -2, -1}, 1001);
         String selectByVarbinary = "SELECT * FROM %s WHERE _varbinary = X'0ff102f0feff'";
-        assertThat(onTrino().executeQuery(format(selectByVarbinary, trinoTableName)))
+        assertThat(onTrino().executeQuery(selectByVarbinary.formatted(trinoTableName)))
                 .containsOnly(row2);
-        assertThat(onSpark().executeQuery(format(selectByVarbinary, sparkTableName)))
+        assertThat(onSpark().executeQuery(selectByVarbinary.formatted(sparkTableName)))
                 .containsOnly(row2);
 
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
@@ -538,25 +522,24 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
         onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
 
-        onSpark().executeQuery(format(
-                "CREATE TABLE %s (_string STRING, _varbinary BINARY, _bigint BIGINT) USING ICEBERG PARTITIONED BY (_string, _varbinary) TBLPROPERTIES ('write.format.default'='%s', 'format-version' = %s)",
+        onSpark().executeQuery("CREATE TABLE %s (_string STRING, _varbinary BINARY, _bigint BIGINT) USING ICEBERG PARTITIONED BY (_string, _varbinary) TBLPROPERTIES ('write.format.default'='%s', 'format-version' = %s)".formatted(
                 sparkTableName,
                 storageFormat,
                 specVersion));
-        onSpark().executeQuery(format("INSERT INTO %s VALUES ('a', X'0ff102f0feff', 1001), ('b', X'0ff102f0fefe', 1002), ('c', X'0ff102fdfeff', 1003)", sparkTableName));
+        onSpark().executeQuery("INSERT INTO %s VALUES ('a', X'0ff102f0feff', 1001), ('b', X'0ff102f0fefe', 1002), ('c', X'0ff102fdfeff', 1003)".formatted(sparkTableName));
 
         Row row1 = row("a", new byte[] {15, -15, 2, -16, -2, -1}, 1001);
         String select = "SELECT * FROM %s WHERE _string = 'a'";
-        assertThat(onSpark().executeQuery(format(select, sparkTableName)))
+        assertThat(onSpark().executeQuery(select.formatted(sparkTableName)))
                 .containsOnly(row1);
-        assertThat(onTrino().executeQuery(format(select, trinoTableName)))
+        assertThat(onTrino().executeQuery(select.formatted(trinoTableName)))
                 .containsOnly(row1);
 
         Row row2 = row("c", new byte[] {15, -15, 2, -3, -2, -1}, 1003);
         String selectByVarbinary = "SELECT * FROM %s WHERE _varbinary = X'0ff102fdfeff'";
-        assertThat(onTrino().executeQuery(format(selectByVarbinary, trinoTableName)))
+        assertThat(onTrino().executeQuery(selectByVarbinary.formatted(trinoTableName)))
                 .containsOnly(row2);
-        assertThat(onSpark().executeQuery(format(selectByVarbinary, sparkTableName)))
+        assertThat(onSpark().executeQuery(selectByVarbinary.formatted(sparkTableName)))
                 .containsOnly(row2);
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
@@ -569,16 +552,14 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s (_string VARCHAR, _bigint BIGINT, _struct ROW(_field INT, _another_field VARCHAR))" +
-                        " WITH (partitioning = ARRAY['\"_struct._field\"'], format = '%s')",
+        onTrino().executeQuery(("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT, _struct ROW(_field INT, _another_field VARCHAR))" +
+        " WITH (partitioning = ARRAY['\"_struct._field\"'], format = '%s')").formatted(
                 trinoTableName,
                 storageFormat));
-        onTrino().executeQuery(format(
-                "INSERT INTO %s VALUES" +
-                        " ('update', 1001, ROW(1, 'x'))," +
-                        " ('b', 1002, ROW(2, 'y'))," +
-                        " ('c', 1003, ROW(3, 'z'))",
+        onTrino().executeQuery(("INSERT INTO %s VALUES" +
+        " ('update', 1001, ROW(1, 'x'))," +
+        " ('b', 1002, ROW(2, 'y'))," +
+        " ('c', 1003, ROW(3, 'z'))").formatted(
                 trinoTableName));
 
         onTrino().executeQuery("UPDATE " + trinoTableName + " SET _string = 'a' WHERE _struct._field = 1");
@@ -593,9 +574,9 @@ public class TestIcebergSparkCompatibility
         String select = "SELECT _string, _bigint, _struct._field, _struct._another_field FROM %s" +
                 " WHERE _struct._field = 1 OR _struct._another_field = 'z'";
 
-        assertThat(onTrino().executeQuery(format(select, trinoTableName)))
+        assertThat(onTrino().executeQuery(select.formatted(trinoTableName)))
                 .containsOnly(expectedRows);
-        assertThat(onSpark().executeQuery(format(select, sparkTableName)))
+        assertThat(onSpark().executeQuery(select.formatted(sparkTableName)))
                 .containsOnly(expectedRows);
 
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
@@ -608,16 +589,14 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        onSpark().executeQuery(format(
-                "CREATE TABLE %s (_string STRING, _varbinary BINARY, _bigint BIGINT, _struct STRUCT<_field:INT, _another_field:STRING>)" +
-                        " USING ICEBERG PARTITIONED BY (_struct._field) TBLPROPERTIES ('write.format.default'='%s', 'format-version' = 2)",
+        onSpark().executeQuery(("CREATE TABLE %s (_string STRING, _varbinary BINARY, _bigint BIGINT, _struct STRUCT<_field:INT, _another_field:STRING>)" +
+        " USING ICEBERG PARTITIONED BY (_struct._field) TBLPROPERTIES ('write.format.default'='%s', 'format-version' = 2)").formatted(
                 sparkTableName,
                 storageFormat));
-        onSpark().executeQuery(format(
-                "INSERT INTO %s VALUES" +
-                        " ('update', X'0ff102f0feff', 1001, named_struct('_field', 1, '_another_field', 'x'))," +
-                        " ('b', X'0ff102f0fefe', 1002, named_struct('_field', 2, '_another_field', 'y'))," +
-                        " ('c', X'0ff102fdfeff', 1003, named_struct('_field', 3, '_another_field', 'z'))",
+        onSpark().executeQuery(("INSERT INTO %s VALUES" +
+        " ('update', X'0ff102f0feff', 1001, named_struct('_field', 1, '_another_field', 'x'))," +
+        " ('b', X'0ff102f0fefe', 1002, named_struct('_field', 2, '_another_field', 'y'))," +
+        " ('c', X'0ff102fdfeff', 1003, named_struct('_field', 3, '_another_field', 'z'))").formatted(
                 sparkTableName));
 
         onSpark().executeQuery("UPDATE " + sparkTableName + " SET _string = 'a' WHERE _struct._field = 1");
@@ -632,9 +611,9 @@ public class TestIcebergSparkCompatibility
         String select = "SELECT _string, _varbinary, _bigint, _struct._field, _struct._another_field FROM %s" +
                 " WHERE _struct._field = 1 OR _struct._another_field = 'z'";
 
-        assertThat(onTrino().executeQuery(format(select, trinoTableName)))
+        assertThat(onTrino().executeQuery(select.formatted(trinoTableName)))
                 .containsOnly(expectedRows);
-        assertThat(onSpark().executeQuery(format(select, sparkTableName)))
+        assertThat(onSpark().executeQuery(select.formatted(sparkTableName)))
                 .containsOnly(expectedRows);
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
@@ -647,31 +626,29 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s (_string VARCHAR, _bigint BIGINT, _struct ROW(_field BIGINT))" +
-                        " WITH (partitioning = ARRAY['\"_struct._field\"'], format = '%s')",
+        onTrino().executeQuery(("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT, _struct ROW(_field BIGINT))" +
+        " WITH (partitioning = ARRAY['\"_struct._field\"'], format = '%s')").formatted(
                 trinoTableName,
                 storageFormat));
-        onTrino().executeQuery(format(
-                "INSERT INTO %s VALUES" +
-                        " ('a', 1001, ROW(1))," +
-                        " ('b', 1002, ROW(2))," +
-                        " ('c', 1003, ROW(3))",
+        onTrino().executeQuery(("INSERT INTO %s VALUES" +
+        " ('a', 1001, ROW(1))," +
+        " ('b', 1002, ROW(2))," +
+        " ('c', 1003, ROW(3))").formatted(
                 trinoTableName));
 
         Row expectedRow = row("a", 1001, 1);
         String select = "SELECT _string, _bigint, _struct._field FROM %s WHERE _string = 'a'";
 
-        assertThat(onTrino().executeQuery(format(select, trinoTableName)))
+        assertThat(onTrino().executeQuery(select.formatted(trinoTableName)))
                 .containsOnly(expectedRow);
 
         if (storageFormat == StorageFormat.ORC) {
             // Open iceberg issue https://github.com/apache/iceberg/issues/3139 to read ORC table with nested partition column
-            assertThatThrownBy(() -> onSpark().executeQuery(format(select, sparkTableName)))
+            assertThatThrownBy(() -> onSpark().executeQuery(select.formatted(sparkTableName)))
                     .hasMessageContaining("java.lang.IndexOutOfBoundsException: Index 2 out of bounds for length 2");
         }
         else {
-            assertThat(onSpark().executeQuery(format(select, sparkTableName)))
+            assertThat(onSpark().executeQuery(select.formatted(sparkTableName)))
                     .containsOnly(expectedRow);
         }
 
@@ -685,31 +662,29 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        onSpark().executeQuery(format(
-                "CREATE TABLE %s (_string STRING, _bigint BIGINT, _struct STRUCT<_field:STRING>)" +
-                        " USING ICEBERG PARTITIONED BY (_struct._field) TBLPROPERTIES ('write.format.default'='%s', 'format-version' = 2)",
+        onSpark().executeQuery(("CREATE TABLE %s (_string STRING, _bigint BIGINT, _struct STRUCT<_field:STRING>)" +
+        " USING ICEBERG PARTITIONED BY (_struct._field) TBLPROPERTIES ('write.format.default'='%s', 'format-version' = 2)").formatted(
                 sparkTableName,
                 storageFormat));
-        onSpark().executeQuery(format(
-                "INSERT INTO %s VALUES" +
-                        " ('a', 1001, named_struct('_field', 'field1'))," +
-                        " ('b', 1002, named_struct('_field', 'field2'))," +
-                        " ('c', 1003, named_struct('_field', 'field3'))",
+        onSpark().executeQuery(("INSERT INTO %s VALUES" +
+        " ('a', 1001, named_struct('_field', 'field1'))," +
+        " ('b', 1002, named_struct('_field', 'field2'))," +
+        " ('c', 1003, named_struct('_field', 'field3'))").formatted(
                 sparkTableName));
 
         Row expectedRow = row("a", 1001, "field1");
         String selectNested = "SELECT _string, _bigint, _struct._field FROM %s WHERE _struct._field = 'field1'";
 
-        assertThat(onTrino().executeQuery(format(selectNested, trinoTableName)))
+        assertThat(onTrino().executeQuery(selectNested.formatted(trinoTableName)))
                 .containsOnly(expectedRow);
 
         if (storageFormat == StorageFormat.ORC) {
             // Open iceberg issue https://github.com/apache/iceberg/issues/3139 to read ORC table with nested partition column
-            assertThatThrownBy(() -> onSpark().executeQuery(format(selectNested, sparkTableName)))
+            assertThatThrownBy(() -> onSpark().executeQuery(selectNested.formatted(sparkTableName)))
                     .hasMessageContaining("java.lang.IndexOutOfBoundsException: Index 2 out of bounds for length 2");
         }
         else {
-            assertThat(onSpark().executeQuery(format(selectNested, sparkTableName)))
+            assertThat(onSpark().executeQuery(selectNested.formatted(sparkTableName)))
                     .containsOnly(expectedRow);
         }
 
@@ -780,22 +755,20 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        onSpark().executeQuery(format(
-                "" +
-                        "CREATE TABLE %s (" +
-                        "  doc_id string,\n" +
-                        "  info MAP<STRING, INT>,\n" +
-                        "  pets ARRAY<STRING>,\n" +
-                        "  user_info STRUCT<name:STRING, surname:STRING, age:INT, gender:STRING>)" +
-                        "  USING ICEBERG" +
-                        " TBLPROPERTIES ('write.format.default'='%s', 'format-version' = %s)",
+        onSpark().executeQuery(("" +
+        "CREATE TABLE %s (" +
+        "  doc_id string,\n" +
+        "  info MAP<STRING, INT>,\n" +
+        "  pets ARRAY<STRING>,\n" +
+        "  user_info STRUCT<name:STRING, surname:STRING, age:INT, gender:STRING>)" +
+        "  USING ICEBERG" +
+        " TBLPROPERTIES ('write.format.default'='%s', 'format-version' = %s)").formatted(
                 sparkTableName,
                 storageFormat,
                 specVersion));
 
-        onSpark().executeQuery(format(
-                "INSERT INTO TABLE %s SELECT 'Doc213', map('age', 28, 'children', 3), array('Dog', 'Cat', 'Pig'), \n" +
-                        "named_struct('name', 'Santa', 'surname', 'Claus','age', 1000,'gender', 'MALE')",
+        onSpark().executeQuery(("INSERT INTO TABLE %s SELECT 'Doc213', map('age', 28, 'children', 3), array('Dog', 'Cat', 'Pig'), \n" +
+        "named_struct('name', 'Santa', 'surname', 'Claus','age', 1000,'gender', 'MALE')").formatted(
                 sparkTableName));
 
         assertThat(onTrino().executeQuery("SELECT doc_id, info['age'], pets[2], user_info.surname FROM " + trinoTableName))
@@ -811,18 +784,16 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s (" +
-                        "  doc_id VARCHAR,\n" +
-                        "  info MAP(VARCHAR, INTEGER),\n" +
-                        "  pets ARRAY(VARCHAR),\n" +
-                        "  user_info ROW(name VARCHAR, surname VARCHAR, age INTEGER, gender VARCHAR)) " +
-                        "  WITH (format = '%s')",
+        onTrino().executeQuery(("CREATE TABLE %s (" +
+        "  doc_id VARCHAR,\n" +
+        "  info MAP(VARCHAR, INTEGER),\n" +
+        "  pets ARRAY(VARCHAR),\n" +
+        "  user_info ROW(name VARCHAR, surname VARCHAR, age INTEGER, gender VARCHAR)) " +
+        "  WITH (format = '%s')").formatted(
                 trinoTableName,
                 storageFormat));
 
-        onTrino().executeQuery(format(
-                "INSERT INTO %s VALUES('Doc213', MAP(ARRAY['age', 'children'], ARRAY[28, 3]), ARRAY['Dog', 'Cat', 'Pig'], ROW('Santa', 'Claus', 1000, 'MALE'))",
+        onTrino().executeQuery("INSERT INTO %s VALUES('Doc213', MAP(ARRAY['age', 'children'], ARRAY[28, 3]), ARRAY['Dog', 'Cat', 'Pig'], ROW('Santa', 'Claus', 1000, 'MALE'))".formatted(
                 trinoTableName));
 
         assertThat(onSpark().executeQuery("SELECT doc_id, info['age'], pets[1], user_info.surname FROM " + sparkTableName))
@@ -840,15 +811,14 @@ public class TestIcebergSparkCompatibility
         String trinoPropertiesTableName = trinoTableName(propertiesTableName);
 
         onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
-        onSpark().executeQuery(format(
-                "CREATE TABLE %s (\n" +
-                        " doc_id STRING)\n" +
-                        " USING ICEBERG TBLPROPERTIES (" +
-                        " 'write.format.default'='%s'," +
-                        " 'write.object-storage.enabled'=true," +
-                        " 'write.data.path'='local:///write-data-path'," +
-                        " 'format-version' = %s," +
-                        " 'custom.table-property' = 'my_custom_value')",
+        onSpark().executeQuery(("CREATE TABLE %s (\n" +
+        " doc_id STRING)\n" +
+        " USING ICEBERG TBLPROPERTIES (" +
+        " 'write.format.default'='%s'," +
+        " 'write.object-storage.enabled'=true," +
+        " 'write.data.path'='local:///write-data-path'," +
+        " 'format-version' = %s," +
+        " 'custom.table-property' = 'my_custom_value')").formatted(
                 sparkTableName,
                 storageFormat.toString(),
                 specVersion));
@@ -895,26 +865,24 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        onSpark().executeQuery(format(
-                "CREATE TABLE %s (\n" +
-                        "  doc_id STRING\n" +
-                        ", nested_map MAP<STRING, ARRAY<STRUCT<sname: STRING, snumber: INT>>>\n" +
-                        ", nested_array ARRAY<MAP<STRING, ARRAY<STRUCT<mname: STRING, mnumber: INT>>>>\n" +
-                        ", nested_struct STRUCT<name:STRING, complicated: ARRAY<MAP<STRING, ARRAY<STRUCT<mname: STRING, mnumber: INT>>>>>)\n" +
-                        " USING ICEBERG TBLPROPERTIES ('write.format.default'='%s', 'format-version' = %s)",
+        onSpark().executeQuery(("CREATE TABLE %s (\n" +
+        "  doc_id STRING\n" +
+        ", nested_map MAP<STRING, ARRAY<STRUCT<sname: STRING, snumber: INT>>>\n" +
+        ", nested_array ARRAY<MAP<STRING, ARRAY<STRUCT<mname: STRING, mnumber: INT>>>>\n" +
+        ", nested_struct STRUCT<name:STRING, complicated: ARRAY<MAP<STRING, ARRAY<STRUCT<mname: STRING, mnumber: INT>>>>>)\n" +
+        " USING ICEBERG TBLPROPERTIES ('write.format.default'='%s', 'format-version' = %s)").formatted(
                 sparkTableName,
                 storageFormat,
                 specVersion));
 
-        onSpark().executeQuery(format(
-                "INSERT INTO TABLE %s SELECT" +
-                        "  'Doc213'" +
-                        ", map('s1', array(named_struct('sname', 'ASName1', 'snumber', 201), named_struct('sname', 'ASName2', 'snumber', 202)))" +
-                        ", array(map('m1', array(named_struct('mname', 'MAS1Name1', 'mnumber', 301), named_struct('mname', 'MAS1Name2', 'mnumber', 302)))" +
-                        "       ,map('m2', array(named_struct('mname', 'MAS2Name1', 'mnumber', 401), named_struct('mname', 'MAS2Name2', 'mnumber', 402))))" +
-                        ", named_struct('name', 'S1'," +
-                        "               'complicated', array(map('m1', array(named_struct('mname', 'SAMA1Name1', 'mnumber', 301), named_struct('mname', 'SAMA1Name2', 'mnumber', 302)))" +
-                        "                                   ,map('m2', array(named_struct('mname', 'SAMA2Name1', 'mnumber', 401), named_struct('mname', 'SAMA2Name2', 'mnumber', 402)))))",
+        onSpark().executeQuery(("INSERT INTO TABLE %s SELECT" +
+        "  'Doc213'" +
+        ", map('s1', array(named_struct('sname', 'ASName1', 'snumber', 201), named_struct('sname', 'ASName2', 'snumber', 202)))" +
+        ", array(map('m1', array(named_struct('mname', 'MAS1Name1', 'mnumber', 301), named_struct('mname', 'MAS1Name2', 'mnumber', 302)))" +
+        "       ,map('m2', array(named_struct('mname', 'MAS2Name1', 'mnumber', 401), named_struct('mname', 'MAS2Name2', 'mnumber', 402))))" +
+        ", named_struct('name', 'S1'," +
+        "               'complicated', array(map('m1', array(named_struct('mname', 'SAMA1Name1', 'mnumber', 301), named_struct('mname', 'SAMA1Name2', 'mnumber', 302)))" +
+        "                                   ,map('m2', array(named_struct('mname', 'SAMA2Name1', 'mnumber', 401), named_struct('mname', 'SAMA2Name2', 'mnumber', 402)))))").formatted(
                 sparkTableName));
 
         Row row = row("Doc213", "ASName2", 201, "MAS2Name1", 302, "SAMA1Name1", 402);
@@ -952,25 +920,23 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s (\n" +
-                        "  doc_id VARCHAR\n" +
-                        ", nested_map MAP(VARCHAR, ARRAY(ROW(sname VARCHAR, snumber INT)))\n" +
-                        ", nested_array ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))\n" +
-                        ", nested_struct ROW(name VARCHAR, complicated ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))))" +
-                        "  WITH (format = '%s')",
+        onTrino().executeQuery(("CREATE TABLE %s (\n" +
+        "  doc_id VARCHAR\n" +
+        ", nested_map MAP(VARCHAR, ARRAY(ROW(sname VARCHAR, snumber INT)))\n" +
+        ", nested_array ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))\n" +
+        ", nested_struct ROW(name VARCHAR, complicated ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))))" +
+        "  WITH (format = '%s')").formatted(
                 trinoTableName,
                 storageFormat));
 
-        onTrino().executeQuery(format(
-                "INSERT INTO %s SELECT" +
-                        "  'Doc213'" +
-                        ", map(array['s1'], array[array[row('ASName1', 201), row('ASName2', 202)]])" +
-                        ", array[map(array['m1'], array[array[row('MAS1Name1', 301), row('MAS1Name2', 302)]])" +
-                        "       ,map(array['m2'], array[array[row('MAS2Name1', 401), row('MAS2Name2', 402)]])]" +
-                        ", row('S1'" +
-                        "      ,array[map(array['m1'], array[array[row('SAMA1Name1', 301), row('SAMA1Name2', 302)]])" +
-                        "            ,map(array['m2'], array[array[row('SAMA2Name1', 401), row('SAMA2Name2', 402)]])])",
+        onTrino().executeQuery(("INSERT INTO %s SELECT" +
+        "  'Doc213'" +
+        ", map(array['s1'], array[array[row('ASName1', 201), row('ASName2', 202)]])" +
+        ", array[map(array['m1'], array[array[row('MAS1Name1', 301), row('MAS1Name2', 302)]])" +
+        "       ,map(array['m2'], array[array[row('MAS2Name1', 401), row('MAS2Name2', 402)]])]" +
+        ", row('S1'" +
+        "      ,array[map(array['m1'], array[array[row('SAMA1Name1', 301), row('SAMA1Name2', 302)]])" +
+        "            ,map(array['m2'], array[array[row('SAMA2Name1', 401), row('SAMA2Name2', 402)]])])").formatted(
                 trinoTableName));
 
         Row row = row("Doc213", "ASName2", 201, "MAS2Name1", 302, "SAMA1Name1", 402);
@@ -1010,44 +976,43 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
 
         onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
-        onSpark().executeQuery(format(
-                "CREATE TABLE %s (" +
-                        "remove_col BIGINT, " +
-                        "rename_col BIGINT, " +
-                        "keep_col BIGINT, " +
-                        "drop_and_add_col BIGINT, " +
-                        "CaseSensitiveCol BIGINT, " +
-                        "a_struct STRUCT<removed: BIGINT, rename:BIGINT, keep:BIGINT, drop_and_add:BIGINT, CaseSensitive:BIGINT>, " +
-                        "a_partition BIGINT) "
-                        + " USING ICEBERG"
-                        + " PARTITIONED BY (a_partition)"
-                        + " TBLPROPERTIES ('write.format.default' = '%s', 'format-version' = %s)",
+        onSpark().executeQuery(("CREATE TABLE %s (" +
+        "remove_col BIGINT, " +
+        "rename_col BIGINT, " +
+        "keep_col BIGINT, " +
+        "drop_and_add_col BIGINT, " +
+        "CaseSensitiveCol BIGINT, " +
+        "a_struct STRUCT<removed: BIGINT, rename:BIGINT, keep:BIGINT, drop_and_add:BIGINT, CaseSensitive:BIGINT>, " +
+        "a_partition BIGINT) "
+        + " USING ICEBERG"
+        + " PARTITIONED BY (a_partition)"
+        + " TBLPROPERTIES ('write.format.default' = '%s', 'format-version' = %s)").formatted(
                 sparkTableName,
                 storageFormat,
                 specVersion));
 
-        onSpark().executeQuery(format(
-                "INSERT INTO TABLE %s SELECT " +
-                        "1, " + // remove_col
-                        "2, " + // rename_col
-                        "3, " + // keep_col
-                        "4, " + // drop_and_add_col,
-                        "5, " + // CaseSensitiveCol,
-                        " named_struct('removed', 10, 'rename', 11, 'keep', 12, 'drop_and_add', 13, 'CaseSensitive', 14), " // a_struct
-                        + "1001", // a_partition
+        onSpark().executeQuery(("INSERT INTO TABLE %s SELECT " +
+        "1, " + // remove_col
+        "2, " + // rename_col
+        "3, " + // keep_col
+        "4, " + // drop_and_add_col,
+        "5, " + // CaseSensitiveCol,
+        " named_struct('removed', 10, 'rename', 11, 'keep', 12, 'drop_and_add', 13, 'CaseSensitive', 14), " // a_struct
+        + "1001").formatted(
+                // a_partition
                 sparkTableName));
 
-        onSpark().executeQuery(format("ALTER TABLE %s DROP COLUMN remove_col", sparkTableName));
-        onSpark().executeQuery(format("ALTER TABLE %s RENAME COLUMN rename_col TO quite_renamed_col", sparkTableName));
-        onSpark().executeQuery(format("ALTER TABLE %s DROP COLUMN drop_and_add_col", sparkTableName));
-        onSpark().executeQuery(format("ALTER TABLE %s ADD COLUMN drop_and_add_col BIGINT", sparkTableName));
-        onSpark().executeQuery(format("ALTER TABLE %s ADD COLUMN add_col BIGINT", sparkTableName));
+        onSpark().executeQuery("ALTER TABLE %s DROP COLUMN remove_col".formatted(sparkTableName));
+        onSpark().executeQuery("ALTER TABLE %s RENAME COLUMN rename_col TO quite_renamed_col".formatted(sparkTableName));
+        onSpark().executeQuery("ALTER TABLE %s DROP COLUMN drop_and_add_col".formatted(sparkTableName));
+        onSpark().executeQuery("ALTER TABLE %s ADD COLUMN drop_and_add_col BIGINT".formatted(sparkTableName));
+        onSpark().executeQuery("ALTER TABLE %s ADD COLUMN add_col BIGINT".formatted(sparkTableName));
 
-        onSpark().executeQuery(format("ALTER TABLE %s DROP COLUMN a_struct.removed", sparkTableName));
-        onSpark().executeQuery(format("ALTER TABLE %s RENAME COLUMN a_struct.rename TO renamed", sparkTableName));
-        onSpark().executeQuery(format("ALTER TABLE %s DROP COLUMN a_struct.drop_and_add", sparkTableName));
-        onSpark().executeQuery(format("ALTER TABLE %s ADD COLUMN a_struct.drop_and_add BIGINT", sparkTableName));
-        onSpark().executeQuery(format("ALTER TABLE %s ADD COLUMN a_struct.added BIGINT", sparkTableName));
+        onSpark().executeQuery("ALTER TABLE %s DROP COLUMN a_struct.removed".formatted(sparkTableName));
+        onSpark().executeQuery("ALTER TABLE %s RENAME COLUMN a_struct.rename TO renamed".formatted(sparkTableName));
+        onSpark().executeQuery("ALTER TABLE %s DROP COLUMN a_struct.drop_and_add".formatted(sparkTableName));
+        onSpark().executeQuery("ALTER TABLE %s ADD COLUMN a_struct.drop_and_add BIGINT".formatted(sparkTableName));
+        onSpark().executeQuery("ALTER TABLE %s ADD COLUMN a_struct.added BIGINT".formatted(sparkTableName));
 
         assertThat(onTrino().executeQuery("DESCRIBE " + trinoTableName).project(1, 2))
                 .containsOnly(
@@ -1059,7 +1024,7 @@ public class TestIcebergSparkCompatibility
                         row("a_struct", "row(\"renamed\" bigint, \"keep\" bigint, \"CaseSensitive\" bigint, \"drop_and_add\" bigint, \"added\" bigint)"),
                         row("a_partition", "bigint"));
 
-        assertThat(onTrino().executeQuery(format("SELECT quite_renamed_col, keep_col, drop_and_add_col, add_col, casesensitivecol, a_struct, a_partition FROM %s", trinoTableName)))
+        assertThat(onTrino().executeQuery("SELECT quite_renamed_col, keep_col, drop_and_add_col, add_col, casesensitivecol, a_struct, a_partition FROM %s".formatted(trinoTableName)))
                 .containsOnly(row(
                         2L, // quite_renamed_col
                         3L, // keep_col
@@ -1077,32 +1042,32 @@ public class TestIcebergSparkCompatibility
                                 .build(),
                         1001L));
         // make sure predicates are also ID based
-        assertThat(onTrino().executeQuery(format("SELECT keep_col FROM %s WHERE drop_and_add_col IS NULL", trinoTableName))).containsOnly(row(3L));
+        assertThat(onTrino().executeQuery("SELECT keep_col FROM %s WHERE drop_and_add_col IS NULL".formatted(trinoTableName))).containsOnly(row(3L));
 
         // smoke test for dereference
-        assertThat(onTrino().executeQuery(format("SELECT a_struct.renamed FROM %s", trinoTableName))).containsOnly(row(11L));
-        assertThat(onTrino().executeQuery(format("SELECT a_struct.keep FROM %s", trinoTableName))).containsOnly(row(12L));
-        assertThat(onTrino().executeQuery(format("SELECT a_struct.casesensitive FROM %s", trinoTableName))).containsOnly(row(14L));
-        assertThat(onTrino().executeQuery(format("SELECT a_struct.drop_and_add FROM %s", trinoTableName))).containsOnly(row((Object) null));
-        assertThat(onTrino().executeQuery(format("SELECT a_struct.added FROM %s", trinoTableName))).containsOnly(row((Object) null));
+        assertThat(onTrino().executeQuery("SELECT a_struct.renamed FROM %s".formatted(trinoTableName))).containsOnly(row(11L));
+        assertThat(onTrino().executeQuery("SELECT a_struct.keep FROM %s".formatted(trinoTableName))).containsOnly(row(12L));
+        assertThat(onTrino().executeQuery("SELECT a_struct.casesensitive FROM %s".formatted(trinoTableName))).containsOnly(row(14L));
+        assertThat(onTrino().executeQuery("SELECT a_struct.drop_and_add FROM %s".formatted(trinoTableName))).containsOnly(row((Object) null));
+        assertThat(onTrino().executeQuery("SELECT a_struct.added FROM %s".formatted(trinoTableName))).containsOnly(row((Object) null));
 
         // smoke test for dereference in a predicate
-        assertThat(onTrino().executeQuery(format("SELECT keep_col FROM %s WHERE a_struct.renamed = 11", trinoTableName))).containsOnly(row(3L));
-        assertThat(onTrino().executeQuery(format("SELECT keep_col FROM %s WHERE a_struct.keep = 12", trinoTableName))).containsOnly(row(3L));
-        assertThat(onTrino().executeQuery(format("SELECT keep_col FROM %s WHERE a_struct.casesensitive = 14", trinoTableName))).containsOnly(row(3L));
+        assertThat(onTrino().executeQuery("SELECT keep_col FROM %s WHERE a_struct.renamed = 11".formatted(trinoTableName))).containsOnly(row(3L));
+        assertThat(onTrino().executeQuery("SELECT keep_col FROM %s WHERE a_struct.keep = 12".formatted(trinoTableName))).containsOnly(row(3L));
+        assertThat(onTrino().executeQuery("SELECT keep_col FROM %s WHERE a_struct.casesensitive = 14".formatted(trinoTableName))).containsOnly(row(3L));
         // make sure predicates are also ID based
-        assertThat(onTrino().executeQuery(format("SELECT keep_col FROM %s WHERE a_struct.drop_and_add IS NULL", trinoTableName))).containsOnly(row(3L));
-        assertThat(onTrino().executeQuery(format("SELECT keep_col FROM %s WHERE a_struct.added IS NULL", trinoTableName))).containsOnly(row(3L));
+        assertThat(onTrino().executeQuery("SELECT keep_col FROM %s WHERE a_struct.drop_and_add IS NULL".formatted(trinoTableName))).containsOnly(row(3L));
+        assertThat(onTrino().executeQuery("SELECT keep_col FROM %s WHERE a_struct.added IS NULL".formatted(trinoTableName))).containsOnly(row(3L));
 
-        onSpark().executeQuery(format(
-                "INSERT INTO TABLE %s SELECT " +
-                        "12, " + // quite_renamed_col
-                        "13, " + // keep_col
-                        "15, " + // CaseSensitiveCol,
-                        "named_struct('renamed', 111, 'keep', 112, 'CaseSensitive', 113, 'drop_and_add', 114, 'added', 115), " + // a_struct
-                        "1001, " + // a_partition,
-                        "14, " + // drop_and_add_col
-                        "15", // add_col
+        onSpark().executeQuery(("INSERT INTO TABLE %s SELECT " +
+        "12, " + // quite_renamed_col
+        "13, " + // keep_col
+        "15, " + // CaseSensitiveCol,
+        "named_struct('renamed', 111, 'keep', 112, 'CaseSensitive', 113, 'drop_and_add', 114, 'added', 115), " + // a_struct
+        "1001, " + // a_partition,
+        "14, " + // drop_and_add_col
+        "15").formatted(
+                // add_col
                 sparkTableName));
 
         assertThat(onTrino().executeQuery("SELECT DISTINCT a_struct.renamed, a_struct.added, a_struct.keep FROM " + trinoTableName)).containsOnly(
@@ -1131,13 +1096,12 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
 
         onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
-        onSpark().executeQuery(format(
-                "CREATE TABLE %s (" +
-                        "int_col BIGINT, " +
-                        "struct_col STRUCT<field_one: INT, field_two: INT>, " +
-                        "timestamp_col TIMESTAMP) "
-                        + " USING ICEBERG"
-                        + " TBLPROPERTIES ('write.format.default' = '%s', 'format-version' = %s)",
+        onSpark().executeQuery(("CREATE TABLE %s (" +
+        "int_col BIGINT, " +
+        "struct_col STRUCT<field_one: INT, field_two: INT>, " +
+        "timestamp_col TIMESTAMP) "
+        + " USING ICEBERG"
+        + " TBLPROPERTIES ('write.format.default' = '%s', 'format-version' = %s)").formatted(
                 sparkTableName,
                 storageFormat,
                 specVersion));
@@ -1210,10 +1174,10 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTable);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTable);
 
-        onSpark().executeQuery(format("CREATE TABLE %s (_integer INTEGER ) USING ICEBERG TBLPROPERTIES('format-version' = %s)", sparkTableName(sparkTable), specVersion));
-        onTrino().executeQuery(format("CREATE TABLE %s (_integer INTEGER )", trinoTableName(trinoTable)));
+        onSpark().executeQuery("CREATE TABLE %s (_integer INTEGER ) USING ICEBERG TBLPROPERTIES('format-version' = %s)".formatted(sparkTableName(sparkTable), specVersion));
+        onTrino().executeQuery("CREATE TABLE %s (_integer INTEGER )".formatted(trinoTableName(trinoTable)));
 
-        assertThat(onTrino().executeQuery(format("SHOW TABLES FROM %s.%s LIKE '%s'", TRINO_CATALOG, TEST_SCHEMA_NAME, "test_table_listing_for_%")))
+        assertThat(onTrino().executeQuery("SHOW TABLES FROM %s.%s LIKE '%s'".formatted(TRINO_CATALOG, TEST_SCHEMA_NAME, "test_table_listing_for_%")))
                 .containsOnly(row(sparkTable), row(trinoTable));
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName(sparkTable));
@@ -1227,22 +1191,20 @@ public class TestIcebergSparkCompatibility
         String tableSameLocation1 = "test_same_location_spark_1_" + randomNameSuffix();
         String tableSameLocation2 = "test_same_location_spark_2_" + randomNameSuffix();
 
-        onSpark().executeQuery(format(
-                "CREATE TABLE %s (_integer INTEGER ) USING ICEBERG LOCATION '%s' TBLPROPERTIES('format-version' = %s)",
+        onSpark().executeQuery("CREATE TABLE %s (_integer INTEGER ) USING ICEBERG LOCATION '%s' TBLPROPERTIES('format-version' = %s)".formatted(
                 sparkTableName(tableSameLocation1),
                 dataPath,
                 specVersion));
-        onSpark().executeQuery(format(
-                "CREATE TABLE %s (_integer INTEGER ) USING ICEBERG LOCATION '%s' TBLPROPERTIES('format-version' = %s)",
+        onSpark().executeQuery("CREATE TABLE %s (_integer INTEGER ) USING ICEBERG LOCATION '%s' TBLPROPERTIES('format-version' = %s)".formatted(
                 sparkTableName(tableSameLocation2),
                 dataPath,
                 specVersion));
 
-        onSpark().executeQuery(format("DROP TABLE IF EXISTS %s", sparkTableName(tableSameLocation1)));
+        onSpark().executeQuery("DROP TABLE IF EXISTS %s".formatted(sparkTableName(tableSameLocation1)));
 
-        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName(tableSameLocation2)))).hasNoRows();
+        assertThat(onTrino().executeQuery("SELECT * FROM %s".formatted(trinoTableName(tableSameLocation2)))).hasNoRows();
 
-        onSpark().executeQuery(format("DROP TABLE %s", sparkTableName(tableSameLocation2)));
+        onSpark().executeQuery("DROP TABLE %s".formatted(sparkTableName(tableSameLocation2)));
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "specVersions")
@@ -1252,23 +1214,21 @@ public class TestIcebergSparkCompatibility
         String tableSameLocation1 = "test_same_location_trino_1_" + randomNameSuffix();
         String tableSameLocation2 = "test_same_location_trino_2_" + randomNameSuffix();
 
-        onSpark().executeQuery(format(
-                "CREATE TABLE %s (_integer INTEGER ) USING ICEBERG LOCATION '%s' TBLPROPERTIES('format-version' = %s)",
+        onSpark().executeQuery("CREATE TABLE %s (_integer INTEGER ) USING ICEBERG LOCATION '%s' TBLPROPERTIES('format-version' = %s)".formatted(
                 sparkTableName(tableSameLocation1),
                 dataPath,
                 specVersion));
-        onSpark().executeQuery(format(
-                "CREATE TABLE %s (_integer INTEGER ) USING ICEBERG LOCATION '%s' TBLPROPERTIES('format-version' = %s)",
+        onSpark().executeQuery("CREATE TABLE %s (_integer INTEGER ) USING ICEBERG LOCATION '%s' TBLPROPERTIES('format-version' = %s)".formatted(
                 sparkTableName(tableSameLocation2),
                 dataPath,
                 specVersion));
 
-        onTrino().executeQuery(format("DROP TABLE %s", trinoTableName(tableSameLocation1)));
+        onTrino().executeQuery("DROP TABLE %s".formatted(trinoTableName(tableSameLocation1)));
 
-        assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName(tableSameLocation2))))
+        assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM %s".formatted(trinoTableName(tableSameLocation2))))
                 .hasMessageMatching(".*Metadata not found in metadata location for table default." + tableSameLocation2);
 
-        onTrino().executeQuery(format("DROP TABLE %s", trinoTableName(tableSameLocation2)));
+        onTrino().executeQuery("DROP TABLE %s".formatted(trinoTableName(tableSameLocation2)));
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC, ICEBERG_NESSIE})
@@ -1297,23 +1257,22 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String dataPath = "hdfs://hadoop-master:9000/user/hive/warehouse/test_object_storage_location_provider/obj-data";
 
-        onSpark().executeQuery(format(
-                "CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG TBLPROPERTIES (" +
-                        "'write.object-storage.enabled'=true," +
-                        "'write.object-storage.path'='%s'," +
-                        "'write.format.default' = '%s'," +
-                        "'format-version' = %s)",
+        onSpark().executeQuery(("CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG TBLPROPERTIES (" +
+        "'write.object-storage.enabled'=true," +
+        "'write.object-storage.path'='%s'," +
+        "'write.format.default' = '%s'," +
+        "'format-version' = %s)").formatted(
                 sparkTableName,
                 dataPath,
                 storageFormat,
                 specVersion));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a_string', 1000000000000000)", trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('a_string', 1000000000000000)".formatted(trinoTableName));
 
         Row result = row("a_string", 1000000000000000L);
-        assertThat(onSpark().executeQuery(format("SELECT _string, _bigint FROM %s", sparkTableName))).containsOnly(result);
-        assertThat(onTrino().executeQuery(format("SELECT _string, _bigint FROM %s", trinoTableName))).containsOnly(result);
+        assertThat(onSpark().executeQuery("SELECT _string, _bigint FROM %s".formatted(sparkTableName))).containsOnly(result);
+        assertThat(onTrino().executeQuery("SELECT _string, _bigint FROM %s".formatted(trinoTableName))).containsOnly(result);
 
-        QueryResult queryResult = onTrino().executeQuery(format("SELECT file_path FROM %s", trinoTableName("\"" + baseTableName + "$files\"")));
+        QueryResult queryResult = onTrino().executeQuery("SELECT file_path FROM %s".formatted(trinoTableName("\"" + baseTableName + "$files\"")));
         assertThat(queryResult).hasRowsCount(1).hasColumnsCount(1);
         assertThat(((String) queryResult.getOnlyValue())).contains(dataPath);
 
@@ -1328,22 +1287,21 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String dataPath = "hdfs://hadoop-master:9000/user/hive/warehouse/test_writer_data_path_/obj-data";
 
-        onSpark().executeQuery(format(
-                "CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG TBLPROPERTIES (" +
-                        "'write.data.path'='%s'," +
-                        "'write.format.default' = '%s'," +
-                        "'format-version' = %s)",
+        onSpark().executeQuery(("CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG TBLPROPERTIES (" +
+        "'write.data.path'='%s'," +
+        "'write.format.default' = '%s'," +
+        "'format-version' = %s)").formatted(
                 sparkTableName,
                 dataPath,
                 storageFormat,
                 specVersion));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a_string', 1000000000000000)", trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('a_string', 1000000000000000)".formatted(trinoTableName));
 
         Row result = row("a_string", 1000000000000000L);
-        assertThat(onSpark().executeQuery(format("SELECT _string, _bigint FROM %s", sparkTableName))).containsOnly(result);
-        assertThat(onTrino().executeQuery(format("SELECT _string, _bigint FROM %s", trinoTableName))).containsOnly(result);
+        assertThat(onSpark().executeQuery("SELECT _string, _bigint FROM %s".formatted(sparkTableName))).containsOnly(result);
+        assertThat(onTrino().executeQuery("SELECT _string, _bigint FROM %s".formatted(trinoTableName))).containsOnly(result);
 
-        QueryResult queryResult = onTrino().executeQuery(format("SELECT file_path FROM %s", trinoTableName("\"" + baseTableName + "$files\"")));
+        QueryResult queryResult = onTrino().executeQuery("SELECT file_path FROM %s".formatted(trinoTableName("\"" + baseTableName + "$files\"")));
         assertThat(queryResult).hasRowsCount(1).hasColumnsCount(1);
         assertThat(((String) queryResult.getOnlyValue())).contains(dataPath);
 
@@ -1358,23 +1316,22 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String dataPath = "hdfs://hadoop-master:9000/user/hive/warehouse/test_trino_object_storage_location_provider/obj-data";
 
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (" +
-                        "object_store_layout_enabled = true," +
-                        "data_location = '%s'," +
-                        "format = '%s'," +
-                        "format_version = %s)",
+        onTrino().executeQuery(("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (" +
+        "object_store_layout_enabled = true," +
+        "data_location = '%s'," +
+        "format = '%s'," +
+        "format_version = %s)").formatted(
                 trinoTableName,
                 dataPath,
                 storageFormat,
                 specVersion));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a_string', 1000000000000000)", trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('a_string', 1000000000000000)".formatted(trinoTableName));
 
         Row result = row("a_string", 1000000000000000L);
         assertThat(onSpark().executeQuery("SELECT _string, _bigint FROM " + sparkTableName)).containsOnly(result);
         assertThat(onTrino().executeQuery("SELECT _string, _bigint FROM " + trinoTableName)).containsOnly(result);
 
-        QueryResult queryResult = onTrino().executeQuery(format("SELECT file_path FROM %s", trinoTableName("\"" + baseTableName + "$files\"")));
+        QueryResult queryResult = onTrino().executeQuery("SELECT file_path FROM %s".formatted(trinoTableName("\"" + baseTableName + "$files\"")));
         assertThat(queryResult).hasRowsCount(1).hasColumnsCount(1);
         assertThat(((String) queryResult.getOnlyValue())).contains(dataPath);
 
@@ -1409,11 +1366,11 @@ public class TestIcebergSparkCompatibility
             "👨‍🏭 ");
 
     private static final String TRINO_INSERTED_PARTITION_VALUES =
-            Streams.mapWithIndex(SPECIAL_CHARACTER_VALUES.stream(), (value, index) -> format("(%d, '%s')", index, escapeTrinoString(value)))
+            Streams.mapWithIndex(SPECIAL_CHARACTER_VALUES.stream(), (value, index) -> "(%d, '%s')".formatted(index, escapeTrinoString(value)))
                     .collect(Collectors.joining(", "));
 
     private static final String SPARK_INSERTED_PARTITION_VALUES =
-            Streams.mapWithIndex(SPECIAL_CHARACTER_VALUES.stream(), (value, index) -> format("(%d, '%s')", index, escapeSparkString(value)))
+            Streams.mapWithIndex(SPECIAL_CHARACTER_VALUES.stream(), (value, index) -> "(%d, '%s')".formatted(index, escapeSparkString(value)))
                     .collect(Collectors.joining(", "));
 
     private static final List<Row> EXPECTED_PARTITION_VALUES =
@@ -1428,10 +1385,9 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
 
         onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s (id, part_col) " +
-                        "WITH (partitioning = ARRAY['part_col']) " +
-                        "AS VALUES %s",
+        onTrino().executeQuery(("CREATE TABLE %s (id, part_col) " +
+        "WITH (partitioning = ARRAY['part_col']) " +
+        "AS VALUES %s").formatted(
                 trinoTableName,
                 TRINO_INSERTED_PARTITION_VALUES));
         assertSelectsOnSpecialCharacters(trinoTableName, sparkTableName);
@@ -1446,10 +1402,9 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
 
         onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s (id BIGINT, part_col VARCHAR) WITH (partitioning = ARRAY['part_col'])",
+        onTrino().executeQuery("CREATE TABLE %s (id BIGINT, part_col VARCHAR) WITH (partitioning = ARRAY['part_col'])".formatted(
                 trinoTableName));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES %s", trinoTableName, TRINO_INSERTED_PARTITION_VALUES));
+        onTrino().executeQuery("INSERT INTO %s VALUES %s".formatted(trinoTableName, TRINO_INSERTED_PARTITION_VALUES));
         assertSelectsOnSpecialCharacters(trinoTableName, sparkTableName);
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
@@ -1462,10 +1417,9 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
 
         onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s (id BIGINT, part_col VARCHAR) WITH (partitioning = ARRAY['part_col'])",
+        onTrino().executeQuery("CREATE TABLE %s (id BIGINT, part_col VARCHAR) WITH (partitioning = ARRAY['part_col'])".formatted(
                 trinoTableName));
-        onSpark().executeQuery(format("INSERT INTO %s VALUES %s", sparkTableName, SPARK_INSERTED_PARTITION_VALUES));
+        onSpark().executeQuery("INSERT INTO %s VALUES %s".formatted(sparkTableName, SPARK_INSERTED_PARTITION_VALUES));
         assertSelectsOnSpecialCharacters(trinoTableName, sparkTableName);
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
@@ -1506,8 +1460,7 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
 
         onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
-        onSpark().executeQuery(format(
-                "CREATE TABLE %s (id INTEGER, `mIxEd_COL` STRING) USING ICEBERG",
+        onSpark().executeQuery("CREATE TABLE %s (id INTEGER, `mIxEd_COL` STRING) USING ICEBERG".formatted(
                 sparkTableName));
         assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + trinoTableName + " SET PROPERTIES partitioning = ARRAY['mIxEd_COL']"))
                 .hasMessageContaining("Unable to parse partitioning value");
@@ -1679,20 +1632,17 @@ public class TestIcebergSparkCompatibility
                                             String engineName = engine.name().toLowerCase(ENGLISH);
                                             long value = i;
                                             switch (engine) {
-                                                case TRINO:
+                                                case TRINO -> {
                                                     try {
-                                                        onTrino.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", trinoTableName, engineName, value));
+                                                        onTrino.executeQuery("INSERT INTO %s VALUES ('%s', %d)".formatted(trinoTableName, engineName, value));
                                                     }
                                                     catch (QueryExecutionException queryExecutionException) {
                                                         // failed to insert
                                                         continue; // next loop iteration
                                                     }
-                                                    break;
-                                                case SPARK:
-                                                    onSpark.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", sparkTableName, engineName, value));
-                                                    break;
-                                                default:
-                                                    throw new UnsupportedOperationException("Unexpected engine: " + engine);
+                                                }
+                                                case SPARK -> onSpark.executeQuery("INSERT INTO %s VALUES ('%s', %d)".formatted(sparkTableName, engineName, value));
+                                                default -> throw new UnsupportedOperationException("Unexpected engine: " + engine);
                                             }
 
                                             inserted.add(row(engineName, value));
@@ -1731,8 +1681,7 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        String createTable = format(
-                "CREATE TABLE %s (a string, b bigint) USING ICEBERG TBLPROPERTIES ('write.format.default'='%s','%s'='%s')",
+        String createTable = "CREATE TABLE %s (a string, b bigint) USING ICEBERG TBLPROPERTIES ('write.format.default'='%s','%s'='%s')".formatted(
                 sparkTableName,
                 storageFormat.name(),
                 getIcebergCompressionCodecTableProperty(storageFormat),
@@ -1746,7 +1695,7 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery(
                 "INSERT INTO " + sparkTableName + " VALUES " +
                         sparkRows.stream()
-                                .map(row -> format("('%s', %s)", row.getValues().get(0), row.getValues().get(1)))
+                                .map(row -> "('%s', %s)".formatted(row.getValues().get(0), row.getValues().get(1)))
                                 .collect(Collectors.joining(", ")));
 
         assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName))
@@ -1759,7 +1708,7 @@ public class TestIcebergSparkCompatibility
                 .collect(toImmutableList());
         String insertQuery = "INSERT INTO " + trinoTableName + " VALUES " +
                 trinoRows.stream()
-                        .map(row -> format("('%s', %s)", row.getValues().get(0), row.getValues().get(1)))
+                        .map(row -> "('%s', %s)".formatted(row.getValues().get(0), row.getValues().get(1)))
                         .collect(Collectors.joining(", "));
 
         // https://github.com/trinodb/trino/issues/9142
@@ -1788,8 +1737,7 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        String createTable = format(
-                "CREATE TABLE %s (a VARCHAR, b BIGINT) WITH (format='%s',compression_codec='%s')",
+        String createTable = "CREATE TABLE %s (a VARCHAR, b BIGINT) WITH (format='%s',compression_codec='%s')".formatted(
                 trinoTableName,
                 storageFormat.name(),
                 compressionCodec.name());
@@ -1807,7 +1755,7 @@ public class TestIcebergSparkCompatibility
                 .collect(toImmutableList());
         onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES " +
                 trinoRows.stream()
-                        .map(row -> format("('%s', %s)", row.getValues().get(0), row.getValues().get(1)))
+                        .map(row -> "('%s', %s)".formatted(row.getValues().get(0), row.getValues().get(1)))
                         .collect(Collectors.joining(", ")));
 
         assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName))
@@ -1820,7 +1768,7 @@ public class TestIcebergSparkCompatibility
                 .collect(toImmutableList());
         onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES " +
                 sparkRows.stream()
-                        .map(row -> format("('%s', %s)", row.getValues().get(0), row.getValues().get(1)))
+                        .map(row -> "('%s', %s)".formatted(row.getValues().get(0), row.getValues().get(1)))
                         .collect(Collectors.joining(", ")));
 
         assertThat(onTrino().executeQuery("SELECT * FROM %s WHERE a LIKE 'spark%%'".formatted(trinoTableName)))
@@ -1901,7 +1849,7 @@ public class TestIcebergSparkCompatibility
                 ", nested_array ARRAY<MAP<STRING, ARRAY<STRUCT<mName: STRING, mNumber: INT>>>>\n" +
                 ", nested_struct STRUCT<id:INT, name:STRING, address:STRUCT<street_number:INT, street_name:STRING>>)\n" +
                 " USING %s";
-        onSpark().executeQuery(format(sparkTableDefinition, defaultCatalogTableName, storageFormat.name().toLowerCase(ENGLISH)));
+        onSpark().executeQuery(sparkTableDefinition.formatted(defaultCatalogTableName, storageFormat.name().toLowerCase(ENGLISH)));
 
         String insert = "" +
                 "INSERT INTO TABLE %s SELECT" +
@@ -1910,9 +1858,9 @@ public class TestIcebergSparkCompatibility
                 ", array(map('m1', array(named_struct('mName', 'MAS1Name1', 'mNumber', 301), named_struct('mName', 'MAS1Name2', 'mNumber', 302)))" +
                 "       ,map('m2', array(named_struct('mName', 'MAS2Name1', 'mNumber', 401), named_struct('mName', 'MAS2Name2', 'mNumber', 402))))" +
                 ", named_struct('id', 1, 'name', 'P. Sherman', 'address', named_struct('street_number', 42, 'street_name', 'Wallaby Way'))";
-        onSpark().executeQuery(format(insert, defaultCatalogTableName));
+        onSpark().executeQuery(insert.formatted(defaultCatalogTableName));
         try {
-            onSpark().executeQuery(format("CALL system.migrate('%s')", defaultCatalogTableName));
+            onSpark().executeQuery("CALL system.migrate('%s')".formatted(defaultCatalogTableName));
         }
         catch (QueryExecutionException e) {
             if (e.getMessage().contains("Cannot use catalog spark_catalog: not a ProcedureCatalog")) {
@@ -1954,7 +1902,7 @@ public class TestIcebergSparkCompatibility
         assertThat(trinoResult).containsOnly(row);
 
         // After removing the name mapping, columns from migrated files should be null since they are missing the Iceberg Field IDs
-        onSpark().executeQuery(format("ALTER TABLE %s UNSET TBLPROPERTIES ('schema.name-mapping.default')", sparkTableName));
+        onSpark().executeQuery("ALTER TABLE %s UNSET TBLPROPERTIES ('schema.name-mapping.default')".formatted(sparkTableName));
         assertThat(onTrino().executeQuery(trinoSelect + trinoTableName)).containsOnly(row(null, null, null, null, null, null, null, null));
         assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(null, null, null, null));
         assertThat(onTrino().executeQuery("SELECT nested_struct.address.street_number, nested_struct.address.street_name FROM " + trinoTableName)).containsOnly(row(null, null));
@@ -1971,15 +1919,15 @@ public class TestIcebergSparkCompatibility
                 "  doc_id STRING\n" +
                 ", nested_struct STRUCT<id:INT, name:STRING, address:STRUCT<a:INT, b:STRING>>)\n" +
                 " USING %s";
-        onSpark().executeQuery(format(sparkTableDefinition, defaultCatalogTableName, storageFormat));
+        onSpark().executeQuery(sparkTableDefinition.formatted(defaultCatalogTableName, storageFormat));
 
         String insert = "" +
                 "INSERT INTO TABLE %s SELECT" +
                 "  'Doc213'" +
                 ", named_struct('id', 1, 'name', 'P. Sherman', 'address', named_struct('a', 42, 'b', 'Wallaby Way'))";
-        onSpark().executeQuery(format(insert, defaultCatalogTableName));
+        onSpark().executeQuery(insert.formatted(defaultCatalogTableName));
         try {
-            onSpark().executeQuery(format("CALL system.migrate('%s')", defaultCatalogTableName));
+            onSpark().executeQuery("CALL system.migrate('%s')".formatted(defaultCatalogTableName));
         }
         catch (QueryExecutionException e) {
             if (e.getMessage().contains("Cannot use catalog spark_catalog: not a ProcedureCatalog")) {
@@ -2004,7 +1952,7 @@ public class TestIcebergSparkCompatibility
         assertThat(onTrino().executeQuery(select + trinoTableName)).containsOnly(ImmutableList.of(row));
 
         // After removing the name mapping, columns from migrated files should be null since they are missing the Iceberg Field IDs
-        onSpark().executeQuery(format("ALTER TABLE %s UNSET TBLPROPERTIES ('schema.name-mapping.default')", sparkTableName));
+        onSpark().executeQuery("ALTER TABLE %s UNSET TBLPROPERTIES ('schema.name-mapping.default')".formatted(sparkTableName));
         assertThat(onTrino().executeQuery(select + trinoTableName)).containsOnly(row(null, null, null));
     }
 
@@ -2015,12 +1963,12 @@ public class TestIcebergSparkCompatibility
         String defaultCatalogTableName = sparkDefaultCatalogTableName(baseTableName);
 
         String sparkTableDefinition = "CREATE TABLE %s (a INT, b INT) USING " + storageFormat.name().toLowerCase(ENGLISH);
-        onSpark().executeQuery(format(sparkTableDefinition, defaultCatalogTableName));
+        onSpark().executeQuery(sparkTableDefinition.formatted(defaultCatalogTableName));
 
         String insert = "INSERT INTO TABLE %s SELECT 1, 2";
-        onSpark().executeQuery(format(insert, defaultCatalogTableName));
+        onSpark().executeQuery(insert.formatted(defaultCatalogTableName));
         try {
-            onSpark().executeQuery(format("CALL system.migrate('%s')", defaultCatalogTableName));
+            onSpark().executeQuery("CALL system.migrate('%s')".formatted(defaultCatalogTableName));
         }
         catch (QueryExecutionException e) {
             if (e.getMessage().contains("Cannot use catalog spark_catalog: not a ProcedureCatalog")) {
@@ -2031,8 +1979,7 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
         String trinoTableName = trinoTableName(baseTableName);
         // Test missing entry for column 'b'
-        onSpark().executeQuery(format(
-                "ALTER TABLE %s SET TBLPROPERTIES ('schema.name-mapping.default'='[{\"field-id\": 1, \"names\": [\"a\"]}, {\"field-id\": 2, \"names\": [\"c\"]} ]')",
+        onSpark().executeQuery("ALTER TABLE %s SET TBLPROPERTIES ('schema.name-mapping.default'='[{\"field-id\": 1, \"names\": [\"a\"]}, {\"field-id\": 2, \"names\": [\"c\"]} ]')".formatted(
                 sparkTableName));
         assertThat(onTrino().executeQuery("SELECT a, b FROM " + trinoTableName))
                 .containsOnly(row(1, null));
@@ -2097,7 +2044,7 @@ public class TestIcebergSparkCompatibility
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "tableFormatWithDeleteFormat")
     public void testTrinoReadsSparkRowLevelDeletes(StorageFormat tableStorageFormat, StorageFormat deleteFileStorageFormat)
     {
-        String tableName = toLowerCase(format("test_trino_reads_spark_row_level_deletes_%s_%s_%s", tableStorageFormat.name(), deleteFileStorageFormat.name(), randomNameSuffix()));
+        String tableName = toLowerCase("test_trino_reads_spark_row_level_deletes_%s_%s_%s".formatted(tableStorageFormat.name(), deleteFileStorageFormat.name(), randomNameSuffix()));
         String sparkTableName = sparkTableName(tableName);
         String trinoTableName = trinoTableName(tableName);
 
@@ -2130,7 +2077,7 @@ public class TestIcebergSparkCompatibility
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "tableFormatWithDeleteFormat")
     public void testTrinoReadsSparkRowLevelDeletesWithRowTypes(StorageFormat tableStorageFormat, StorageFormat deleteFileStorageFormat)
     {
-        String tableName = toLowerCase(format("test_trino_reads_spark_row_level_deletes_row_types_%s_%s_%s", tableStorageFormat.name(), deleteFileStorageFormat.name(), randomNameSuffix()));
+        String tableName = toLowerCase("test_trino_reads_spark_row_level_deletes_row_types_%s_%s_%s".formatted(tableStorageFormat.name(), deleteFileStorageFormat.name(), randomNameSuffix()));
         String sparkTableName = sparkTableName(tableName);
         String trinoTableName = trinoTableName(tableName);
 
@@ -2155,7 +2102,7 @@ public class TestIcebergSparkCompatibility
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
     public void testSparkReadsTrinoRowLevelDeletes(StorageFormat storageFormat)
     {
-        String tableName = toLowerCase(format("test_spark_reads_trino_row_level_deletes_%s_%s", storageFormat.name(), randomNameSuffix()));
+        String tableName = toLowerCase("test_spark_reads_trino_row_level_deletes_%s_%s".formatted(storageFormat.name(), randomNameSuffix()));
         String sparkTableName = sparkTableName(tableName);
         String trinoTableName = trinoTableName(tableName);
 
@@ -2182,7 +2129,7 @@ public class TestIcebergSparkCompatibility
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
     public void testSparkReadsTrinoRowLevelDeletesWithRowTypes(StorageFormat storageFormat)
     {
-        String tableName = toLowerCase(format("test_spark_reads_trino_row_level_deletes_row_types_%s_%s", storageFormat.name(), randomNameSuffix()));
+        String tableName = toLowerCase("test_spark_reads_trino_row_level_deletes_row_types_%s_%s".formatted(storageFormat.name(), randomNameSuffix()));
         String sparkTableName = sparkTableName(tableName);
         String trinoTableName = trinoTableName(tableName);
 
@@ -2202,7 +2149,7 @@ public class TestIcebergSparkCompatibility
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
     public void testSparkReadsTrinoV3DeletionVectors(StorageFormat storageFormat)
     {
-        String tableName = toLowerCase(format("test_spark_reads_trino_v3_dv_%s_%s", storageFormat.name(), randomNameSuffix()));
+        String tableName = toLowerCase("test_spark_reads_trino_v3_dv_%s_%s".formatted(storageFormat.name(), randomNameSuffix()));
         String sparkTableName = sparkTableName(tableName);
         String trinoTableName = trinoTableName(tableName);
 
@@ -2235,7 +2182,7 @@ public class TestIcebergSparkCompatibility
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
     public void testTrinoReadsSparkV3DeletionVectors(StorageFormat storageFormat)
     {
-        String tableName = toLowerCase(format("test_trino_reads_spark_v3_dv_%s_%s", storageFormat.name(), randomNameSuffix()));
+        String tableName = toLowerCase("test_trino_reads_spark_v3_dv_%s_%s".formatted(storageFormat.name(), randomNameSuffix()));
         String sparkTableName = sparkTableName(tableName);
         String trinoTableName = trinoTableName(tableName);
 
@@ -2265,7 +2212,7 @@ public class TestIcebergSparkCompatibility
     @Test(groups = {ICEBERG_REST, PROFILE_SPECIFIC_TESTS}, dataProvider = "variantStorageFormats")
     public void testSparkReadsTrinoVariantData(StorageFormat storageFormat)
     {
-        String tableName = toLowerCase(format("test_spark_reads_trino_variant_%s_%s", storageFormat.name(), randomNameSuffix()));
+        String tableName = toLowerCase("test_spark_reads_trino_variant_%s_%s".formatted(storageFormat.name(), randomNameSuffix()));
         String sparkTableName = sparkTableName(tableName);
         String trinoTableName = trinoTableName(tableName);
 
@@ -2302,7 +2249,7 @@ public class TestIcebergSparkCompatibility
     @Test(groups = {ICEBERG_REST, PROFILE_SPECIFIC_TESTS}, dataProvider = "variantStorageFormats")
     public void testTrinoReadsSparkVariantData(StorageFormat storageFormat)
     {
-        String tableName = toLowerCase(format("test_trino_reads_spark_variant_%s_%s", storageFormat.name(), randomNameSuffix()));
+        String tableName = toLowerCase("test_trino_reads_spark_variant_%s_%s".formatted(storageFormat.name(), randomNameSuffix()));
         String sparkTableName = sparkTableName(tableName);
         String trinoTableName = trinoTableName(tableName);
 
@@ -2345,13 +2292,12 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
 
         onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
-        onSpark().executeQuery(format(
-                "CREATE TABLE %s (" +
-                        "col0 BIGINT, " +
-                        "col1 BIGINT, " +
-                        "col2 BIGINT) "
-                        + " USING ICEBERG"
-                        + " TBLPROPERTIES ('write.format.default' = '%s', 'format-version' = 2, 'write.delete.mode' = 'merge-on-read')",
+        onSpark().executeQuery(("CREATE TABLE %s (" +
+        "col0 BIGINT, " +
+        "col1 BIGINT, " +
+        "col2 BIGINT) "
+        + " USING ICEBERG"
+        + " TBLPROPERTIES ('write.format.default' = '%s', 'format-version' = 2, 'write.delete.mode' = 'merge-on-read')").formatted(
                 sparkTableName,
                 storageFormat));
         onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1, 11, 21)");
@@ -2398,7 +2344,7 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("CREATE TABLE " + sparkTableName + " (name STRING, country STRING) USING ICEBERG " +
                 "PARTITIONED BY (country) TBLPROPERTIES ('write.metadata.metrics.default'='none')");
         onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES ('Christoph', 'AT'), (NULL, 'RO')");
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s.%s.\"%s$partitions\" WHERE data.name IS NOT NULL", TRINO_CATALOG, TEST_SCHEMA_NAME, tableName)))
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s.%s.\"%s$partitions\" WHERE data.name IS NOT NULL".formatted(TRINO_CATALOG, TEST_SCHEMA_NAME, tableName)))
                 .containsOnly(row(0));
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
@@ -2407,14 +2353,14 @@ public class TestIcebergSparkCompatibility
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
     public void testOptimizeOnV2IcebergTable()
     {
-        String tableName = format("test_optimize_on_v2_iceberg_table_%s", randomNameSuffix());
+        String tableName = "test_optimize_on_v2_iceberg_table_%s".formatted(randomNameSuffix());
         String sparkTableName = sparkTableName(tableName);
         String trinoTableName = trinoTableName(tableName);
         onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(a INT, b INT) " +
                 "USING ICEBERG PARTITIONED BY (b) " +
                 "TBLPROPERTIES ('format-version'='2', 'write.delete.mode'='merge-on-read')");
         onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1, 2), (2, 2), (3, 2), (11, 12), (12, 12), (13, 12)");
-        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE OPTIMIZE", trinoTableName));
+        onTrino().executeQuery("ALTER TABLE %s EXECUTE OPTIMIZE".formatted(trinoTableName));
 
         assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName))
                 .containsOnly(row(1, 2), row(2, 2), row(3, 2), row(11, 12), row(12, 12), row(13, 12));
@@ -2447,12 +2393,11 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        onSpark().executeQuery(format(
-                "CREATE TABLE %s (" +
-                        "  _string STRING" +
-                        ", _bigint BIGINT" +
-                        ", _integer INTEGER" +
-                        ") USING ICEBERG",
+        onSpark().executeQuery(("CREATE TABLE %s (" +
+        "  _string STRING" +
+        ", _bigint BIGINT" +
+        ", _integer INTEGER" +
+        ") USING ICEBERG").formatted(
                 sparkTableName));
 
         onTrino().executeQuery("ALTER TABLE " + trinoTableName + " EXECUTE optimize");
@@ -2474,17 +2419,17 @@ public class TestIcebergSparkCompatibility
 
     private static String sparkTableName(String tableName)
     {
-        return format("%s.%s.%s", SPARK_CATALOG, TEST_SCHEMA_NAME, tableName);
+        return "%s.%s.%s".formatted(SPARK_CATALOG, TEST_SCHEMA_NAME, tableName);
     }
 
     private static String sparkDefaultCatalogTableName(String tableName)
     {
-        return format("%s.%s", TEST_SCHEMA_NAME, tableName);
+        return "%s.%s".formatted(TEST_SCHEMA_NAME, tableName);
     }
 
     private static String trinoTableName(String tableName)
     {
-        return format("%s.%s.%s", TRINO_CATALOG, TEST_SCHEMA_NAME, tableName);
+        return "%s.%s.%s".formatted(TRINO_CATALOG, TEST_SCHEMA_NAME, tableName);
     }
 
     private io.trino.jdbc.Row.Builder rowBuilder()
@@ -2571,33 +2516,33 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
 
-        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s')", trinoTableName, storageFormat));
+        onTrino().executeQuery("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s')".formatted(trinoTableName, storageFormat));
         // separate inserts give us snapshot per insert
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1001)", trinoTableName));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1002)", trinoTableName));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1003)", trinoTableName));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('b', 1004)", trinoTableName));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('b', 1005)", trinoTableName));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('b', 1006)", trinoTableName));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('c', 1007)", trinoTableName));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('c', 1008)", trinoTableName));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('c', 1009)", trinoTableName));
-        onTrino().executeQuery(format("DELETE FROM %s WHERE _string = '%s'", trinoTableName, 'b'));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('a', 1001)".formatted(trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('a', 1002)".formatted(trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('a', 1003)".formatted(trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('b', 1004)".formatted(trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('b', 1005)".formatted(trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('b', 1006)".formatted(trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('c', 1007)".formatted(trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('c', 1008)".formatted(trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('c', 1009)".formatted(trinoTableName));
+        onTrino().executeQuery("DELETE FROM %s WHERE _string = '%s'".formatted(trinoTableName, 'b'));
         int initialNumberOfMetadataFiles = calculateMetadataFilesForPartitionedTable(baseTableName);
 
         onTrino().executeQuery("SET SESSION iceberg.expire_snapshots_min_retention = '0s'");
         onTrino().executeQuery("SET SESSION iceberg.remove_orphan_files_min_retention = '0s'");
-        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')", trinoTableName));
-        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')", trinoTableName));
+        onTrino().executeQuery("ALTER TABLE %s EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')".formatted(trinoTableName));
+        onTrino().executeQuery("ALTER TABLE %s EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')".formatted(trinoTableName));
 
         int updatedNumberOfMetadataFiles = calculateMetadataFilesForPartitionedTable(baseTableName);
         assertThat(updatedNumberOfMetadataFiles).isLessThan(initialNumberOfMetadataFiles);
 
         Row row = row(3006);
         String selectByString = "SELECT SUM(_bigint) FROM %s WHERE _string = 'a'";
-        assertThat(onTrino().executeQuery(format(selectByString, trinoTableName)))
+        assertThat(onTrino().executeQuery(selectByString.formatted(trinoTableName)))
                 .containsOnly(row);
-        assertThat(onSpark().executeQuery(format(selectByString, sparkTableName)))
+        assertThat(onSpark().executeQuery(selectByString.formatted(sparkTableName)))
                 .containsOnly(row);
 
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
@@ -2611,37 +2556,37 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
 
-        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s', format_version = %s)", trinoTableName, storageFormat, specVersion));
+        onTrino().executeQuery("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s', format_version = %s)".formatted(trinoTableName, storageFormat, specVersion));
         // separate inserts give us snapshot per insert
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1001)", trinoTableName));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1002)", trinoTableName));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1003)", trinoTableName));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('b', 1004)", trinoTableName));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('b', 1005)", trinoTableName));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('b', 1006)", trinoTableName));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('c', 1007)", trinoTableName));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('c', 1008)", trinoTableName));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('c', 1009)", trinoTableName));
-        onTrino().executeQuery(format("DELETE FROM %s WHERE _string = '%s'", trinoTableName, 'b'));
-        int initialNumberOfFiles = onTrino().executeQuery(format("SELECT * FROM iceberg.default.\"%s$files\"", baseTableName)).getRowsCount();
+        onTrino().executeQuery("INSERT INTO %s VALUES ('a', 1001)".formatted(trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('a', 1002)".formatted(trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('a', 1003)".formatted(trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('b', 1004)".formatted(trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('b', 1005)".formatted(trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('b', 1006)".formatted(trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('c', 1007)".formatted(trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('c', 1008)".formatted(trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('c', 1009)".formatted(trinoTableName));
+        onTrino().executeQuery("DELETE FROM %s WHERE _string = '%s'".formatted(trinoTableName, 'b'));
+        int initialNumberOfFiles = onTrino().executeQuery("SELECT * FROM iceberg.default.\"%s$files\"".formatted(baseTableName)).getRowsCount();
         int initialNumberOfMetadataFiles = calculateMetadataFilesForPartitionedTable(baseTableName);
 
-        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE OPTIMIZE", trinoTableName));
+        onTrino().executeQuery("ALTER TABLE %s EXECUTE OPTIMIZE".formatted(trinoTableName));
         onTrino().executeQuery("SET SESSION iceberg.expire_snapshots_min_retention = '0s'");
         onTrino().executeQuery("SET SESSION iceberg.remove_orphan_files_min_retention = '0s'");
-        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')", trinoTableName));
-        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')", trinoTableName));
+        onTrino().executeQuery("ALTER TABLE %s EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')".formatted(trinoTableName));
+        onTrino().executeQuery("ALTER TABLE %s EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')".formatted(trinoTableName));
 
-        int updatedNumberOfFiles = onTrino().executeQuery(format("SELECT * FROM iceberg.default.\"%s$files\"", baseTableName)).getRowsCount();
+        int updatedNumberOfFiles = onTrino().executeQuery("SELECT * FROM iceberg.default.\"%s$files\"".formatted(baseTableName)).getRowsCount();
         assertThat(updatedNumberOfFiles).isLessThan(initialNumberOfFiles);
         int updatedNumberOfMetadataFiles = calculateMetadataFilesForPartitionedTable(baseTableName);
         assertThat(updatedNumberOfMetadataFiles).isLessThan(initialNumberOfMetadataFiles);
 
         Row row = row(3006);
         String selectByString = "SELECT SUM(_bigint) FROM %s WHERE _string = 'a'";
-        assertThat(onTrino().executeQuery(format(selectByString, trinoTableName)))
+        assertThat(onTrino().executeQuery(selectByString.formatted(trinoTableName)))
                 .containsOnly(row);
-        assertThat(onSpark().executeQuery(format(selectByString, sparkTableName)))
+        assertThat(onSpark().executeQuery(selectByString.formatted(sparkTableName)))
                 .containsOnly(row);
 
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
@@ -2655,25 +2600,25 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
 
-        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s', format_version = %s)", trinoTableName, storageFormat, specVersion));
+        onTrino().executeQuery("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s', format_version = %s)".formatted(trinoTableName, storageFormat, specVersion));
         // separate inserts give us snapshot per insert
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1001)", trinoTableName));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1002)", trinoTableName));
-        onSpark().executeQuery(format("DELETE FROM %s WHERE _bigint = 1002", sparkTableName));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1003)", trinoTableName));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1004)", trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('a', 1001)".formatted(trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('a', 1002)".formatted(trinoTableName));
+        onSpark().executeQuery("DELETE FROM %s WHERE _bigint = 1002".formatted(sparkTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('a', 1003)".formatted(trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES ('a', 1004)".formatted(trinoTableName));
 
-        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE OPTIMIZE", trinoTableName));
+        onTrino().executeQuery("ALTER TABLE %s EXECUTE OPTIMIZE".formatted(trinoTableName));
         onTrino().executeQuery("SET SESSION iceberg.expire_snapshots_min_retention = '0s'");
         onTrino().executeQuery("SET SESSION iceberg.remove_orphan_files_min_retention = '0s'");
-        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')", trinoTableName));
-        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')", trinoTableName));
+        onTrino().executeQuery("ALTER TABLE %s EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')".formatted(trinoTableName));
+        onTrino().executeQuery("ALTER TABLE %s EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')".formatted(trinoTableName));
 
         Row row = row(3008);
         String selectByString = "SELECT SUM(_bigint) FROM %s WHERE _string = 'a'";
-        assertThat(onTrino().executeQuery(format(selectByString, trinoTableName)))
+        assertThat(onTrino().executeQuery(selectByString.formatted(trinoTableName)))
                 .containsOnly(row);
-        assertThat(onSpark().executeQuery(format(selectByString, sparkTableName)))
+        assertThat(onSpark().executeQuery(selectByString.formatted(sparkTableName)))
                 .containsOnly(row);
 
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
@@ -2700,19 +2645,19 @@ public class TestIcebergSparkCompatibility
 
         Row row = row(4);
         String selectByString = "SELECT SUM(int_t) FROM %s WHERE part_key = 1";
-        assertThat(onTrino().executeQuery(format(selectByString, trinoTableName)))
+        assertThat(onTrino().executeQuery(selectByString.formatted(trinoTableName)))
                 .containsOnly(row);
-        assertThat(onSpark().executeQuery(format(selectByString, sparkTableName)))
+        assertThat(onSpark().executeQuery(selectByString.formatted(sparkTableName)))
                 .containsOnly(row);
 
         onTrino().executeQuery("SET SESSION iceberg.expire_snapshots_min_retention = '0s'");
-        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')", trinoTableName));
+        onTrino().executeQuery("ALTER TABLE %s EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')".formatted(trinoTableName));
         onTrino().executeQuery("SET SESSION iceberg.remove_orphan_files_min_retention = '0s'");
-        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')", trinoTableName));
+        onTrino().executeQuery("ALTER TABLE %s EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')".formatted(trinoTableName));
 
-        assertThat(onTrino().executeQuery(format(selectByString, trinoTableName)))
+        assertThat(onTrino().executeQuery(selectByString.formatted(trinoTableName)))
                 .containsOnly(row);
-        assertThat(onSpark().executeQuery(format(selectByString, sparkTableName)))
+        assertThat(onSpark().executeQuery(selectByString.formatted(sparkTableName)))
                 .containsOnly(row);
     }
 
@@ -2913,39 +2858,39 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        onTrino().executeQuery(format("CREATE TABLE %s (old_partition_key INT, new_partition_key INT, value date) WITH (PARTITIONING = array['old_partition_key'])", trinoTableName));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES (1, 10, date '2022-04-10'), (2, 20, date '2022-05-11'), (3, 30, date '2022-06-12'), (2, 20, date '2022-06-13')", trinoTableName));
+        onTrino().executeQuery("CREATE TABLE %s (old_partition_key INT, new_partition_key INT, value date) WITH (PARTITIONING = array['old_partition_key'])".formatted(trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES (1, 10, date '2022-04-10'), (2, 20, date '2022-05-11'), (3, 30, date '2022-06-12'), (2, 20, date '2022-06-13')".formatted(trinoTableName));
 
         validatePartitioning(baseTableName, sparkTableName, ImmutableList.of(
                 ImmutableMap.of("old_partition_key", "1"),
                 ImmutableMap.of("old_partition_key", "2"),
                 ImmutableMap.of("old_partition_key", "3")));
 
-        onSpark().executeQuery(format("ALTER TABLE %s DROP PARTITION FIELD old_partition_key", sparkTableName));
-        onSpark().executeQuery(format("ALTER TABLE %s ADD PARTITION FIELD new_partition_key", sparkTableName));
+        onSpark().executeQuery("ALTER TABLE %s DROP PARTITION FIELD old_partition_key".formatted(sparkTableName));
+        onSpark().executeQuery("ALTER TABLE %s ADD PARTITION FIELD new_partition_key".formatted(sparkTableName));
 
         validatePartitioning(baseTableName, sparkTableName, ImmutableList.of(
                 ImmutableMap.of("old_partition_key", "1", "new_partition_key", "null"),
                 ImmutableMap.of("old_partition_key", "2", "new_partition_key", "null"),
                 ImmutableMap.of("old_partition_key", "3", "new_partition_key", "null")));
 
-        onTrino().executeQuery(format("INSERT INTO %s VALUES (4, 40, date '2022-08-15')", trinoTableName));
-        validatePartitioning(baseTableName, sparkTableName, ImmutableList.of(
-                ImmutableMap.of("old_partition_key", "1", "new_partition_key", "null"),
-                ImmutableMap.of("old_partition_key", "2", "new_partition_key", "null"),
-                ImmutableMap.of("old_partition_key", "null", "new_partition_key", "40"),
-                ImmutableMap.of("old_partition_key", "3", "new_partition_key", "null")));
-
-        onSpark().executeQuery(format("ALTER TABLE %s DROP PARTITION FIELD new_partition_key", sparkTableName));
-        onSpark().executeQuery(format("ALTER TABLE %s ADD PARTITION FIELD old_partition_key", sparkTableName));
-
+        onTrino().executeQuery("INSERT INTO %s VALUES (4, 40, date '2022-08-15')".formatted(trinoTableName));
         validatePartitioning(baseTableName, sparkTableName, ImmutableList.of(
                 ImmutableMap.of("old_partition_key", "1", "new_partition_key", "null"),
                 ImmutableMap.of("old_partition_key", "2", "new_partition_key", "null"),
                 ImmutableMap.of("old_partition_key", "null", "new_partition_key", "40"),
                 ImmutableMap.of("old_partition_key", "3", "new_partition_key", "null")));
 
-        onTrino().executeQuery(format("INSERT INTO %s VALUES (5, 50, date '2022-08-15')", trinoTableName));
+        onSpark().executeQuery("ALTER TABLE %s DROP PARTITION FIELD new_partition_key".formatted(sparkTableName));
+        onSpark().executeQuery("ALTER TABLE %s ADD PARTITION FIELD old_partition_key".formatted(sparkTableName));
+
+        validatePartitioning(baseTableName, sparkTableName, ImmutableList.of(
+                ImmutableMap.of("old_partition_key", "1", "new_partition_key", "null"),
+                ImmutableMap.of("old_partition_key", "2", "new_partition_key", "null"),
+                ImmutableMap.of("old_partition_key", "null", "new_partition_key", "40"),
+                ImmutableMap.of("old_partition_key", "3", "new_partition_key", "null")));
+
+        onTrino().executeQuery("INSERT INTO %s VALUES (5, 50, date '2022-08-15')".formatted(trinoTableName));
         validatePartitioning(baseTableName, sparkTableName, ImmutableList.of(
                 ImmutableMap.of("old_partition_key", "1", "new_partition_key", "null"),
                 ImmutableMap.of("old_partition_key", "2", "new_partition_key", "null"),
@@ -2953,8 +2898,8 @@ public class TestIcebergSparkCompatibility
                 ImmutableMap.of("old_partition_key", "5", "new_partition_key", "null"),
                 ImmutableMap.of("old_partition_key", "3", "new_partition_key", "null")));
 
-        onSpark().executeQuery(format("ALTER TABLE %s DROP PARTITION FIELD old_partition_key", sparkTableName));
-        onSpark().executeQuery(format("ALTER TABLE %s ADD PARTITION FIELD days(value)", sparkTableName));
+        onSpark().executeQuery("ALTER TABLE %s DROP PARTITION FIELD old_partition_key".formatted(sparkTableName));
+        onSpark().executeQuery("ALTER TABLE %s ADD PARTITION FIELD days(value)".formatted(sparkTableName));
 
         validatePartitioning(baseTableName, sparkTableName, ImmutableList.of(
                 ImmutableMap.of("old_partition_key", "1", "new_partition_key", "null", "value_day", "null"),
@@ -2963,7 +2908,7 @@ public class TestIcebergSparkCompatibility
                 ImmutableMap.of("old_partition_key", "5", "new_partition_key", "null", "value_day", "null"),
                 ImmutableMap.of("old_partition_key", "3", "new_partition_key", "null", "value_day", "null")));
 
-        onTrino().executeQuery(format("INSERT INTO %s VALUES (6, 60, date '2022-08-16')", trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES (6, 60, date '2022-08-16')".formatted(trinoTableName));
         validatePartitioning(baseTableName, sparkTableName, ImmutableList.of(
                 ImmutableMap.of("old_partition_key", "1", "new_partition_key", "null", "value_day", "null"),
                 ImmutableMap.of("old_partition_key", "2", "new_partition_key", "null", "value_day", "null"),
@@ -2972,8 +2917,8 @@ public class TestIcebergSparkCompatibility
                 ImmutableMap.of("old_partition_key", "5", "new_partition_key", "null", "value_day", "null"),
                 ImmutableMap.of("old_partition_key", "3", "new_partition_key", "null", "value_day", "null")));
 
-        onSpark().executeQuery(format("ALTER TABLE %s DROP PARTITION FIELD value_day", sparkTableName));
-        onSpark().executeQuery(format("ALTER TABLE %s ADD PARTITION FIELD months(value)", sparkTableName));
+        onSpark().executeQuery("ALTER TABLE %s DROP PARTITION FIELD value_day".formatted(sparkTableName));
+        onSpark().executeQuery("ALTER TABLE %s ADD PARTITION FIELD months(value)".formatted(sparkTableName));
 
         validatePartitioning(baseTableName, sparkTableName, ImmutableList.of(
                 ImmutableMap.of("old_partition_key", "1", "new_partition_key", "null", "value_day", "null", "value_month", "null"),
@@ -2983,7 +2928,7 @@ public class TestIcebergSparkCompatibility
                 ImmutableMap.of("old_partition_key", "5", "new_partition_key", "null", "value_day", "null", "value_month", "null"),
                 ImmutableMap.of("old_partition_key", "3", "new_partition_key", "null", "value_day", "null", "value_month", "null")));
 
-        onTrino().executeQuery(format("INSERT INTO %s VALUES (7, 70, date '2022-08-17')", trinoTableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES (7, 70, date '2022-08-17')".formatted(trinoTableName));
 
         validatePartitioning(baseTableName, sparkTableName, ImmutableList.of(
                 ImmutableMap.of("old_partition_key", "1", "new_partition_key", "null", "value_day", "null", "value_month", "null"),
@@ -3033,20 +2978,20 @@ public class TestIcebergSparkCompatibility
     {
         List<String> trinoResult = expectedValues.stream().map(m ->
                         m.entrySet().stream()
-                                .map(entry -> format("%s=%s", entry.getKey(), entry.getValue()))
+                                .map(entry -> "%s=%s".formatted(entry.getKey(), entry.getValue()))
                                 .collect(Collectors.joining(", ", "{", "}")))
                 .collect(toImmutableList());
-        List<Object> partitioning = onTrino().executeQuery(format("SELECT partition, record_count FROM iceberg.default.\"%s$partitions\"", baseTableName))
+        List<Object> partitioning = onTrino().executeQuery("SELECT partition, record_count FROM iceberg.default.\"%s$partitions\"".formatted(baseTableName))
                 .column(1);
         Set<String> partitions = partitioning.stream().map(String::valueOf).collect(toUnmodifiableSet());
         assertThat(partitions).hasSize(expectedValues.size());
         assertThat(partitions).containsAll(trinoResult);
         List<String> sparkResult = expectedValues.stream().map(m ->
                         m.entrySet().stream()
-                                .map(entry -> format("\"%s\":%s", entry.getKey(), entry.getValue()))
+                                .map(entry -> "\"%s\":%s".formatted(entry.getKey(), entry.getValue()))
                                 .collect(Collectors.joining(",", "{", "}")))
                 .collect(toImmutableList());
-        partitioning = onSpark().executeQuery(format("SELECT partition from %s.files", sparkTableName)).column(1);
+        partitioning = onSpark().executeQuery("SELECT partition from %s.files".formatted(sparkTableName)).column(1);
         partitions = partitioning.stream().map(String::valueOf).collect(toUnmodifiableSet());
         assertThat(partitions).hasSize(expectedValues.size());
         assertThat(partitions).containsAll(sparkResult);
@@ -3115,19 +3060,19 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        onSpark().executeQuery(format("CREATE TABLE %s (a INT, b STRING, c BOOLEAN) USING ICEBERG TBLPROPERTIES ('write.format.default' = '%s')", sparkTableName, storageFormat));
-        onSpark().executeQuery(format("INSERT INTO %s values(1, 'INDIA', true)", sparkTableName));
+        onSpark().executeQuery("CREATE TABLE %s (a INT, b STRING, c BOOLEAN) USING ICEBERG TBLPROPERTIES ('write.format.default' = '%s')".formatted(sparkTableName, storageFormat));
+        onSpark().executeQuery("INSERT INTO %s values(1, 'INDIA', true)".formatted(sparkTableName));
 
         List<Row> expected = List.of(row(1, "INDIA", true));
         String tableLocation = getTableLocation(trinoTableName);
         // Drop table from hive metastore and use the same table name to register again with the metadata
         dropTableFromMetastore(baseTableName);
 
-        onTrino().executeQuery(format("CALL iceberg.system.register_table ('%s', '%s', '%s')", TEST_SCHEMA_NAME, baseTableName, tableLocation));
+        onTrino().executeQuery("CALL iceberg.system.register_table ('%s', '%s', '%s')".formatted(TEST_SCHEMA_NAME, baseTableName, tableLocation));
 
-        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName))).containsOnly(expected);
-        assertThat(onSpark().executeQuery(format("SELECT * FROM %s", sparkTableName))).containsOnly(expected);
-        onTrino().executeQuery(format("DROP TABLE %s", trinoTableName));
+        assertThat(onTrino().executeQuery("SELECT * FROM %s".formatted(trinoTableName))).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM %s".formatted(sparkTableName))).containsOnly(expected);
+        onTrino().executeQuery("DROP TABLE %s".formatted(trinoTableName));
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
@@ -3138,26 +3083,26 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        onTrino().executeQuery(format("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')", trinoTableName, storageFormat));
-        onSpark().executeQuery(format("INSERT INTO %s values(1, 'INDIA', true)", sparkTableName));
-        onTrino().executeQuery(format("INSERT INTO %s values(2, 'USA', false)", trinoTableName));
-        onTrino().executeQuery(format("COMMENT ON TABLE %s is 'my-table-comment'", trinoTableName));
-        onTrino().executeQuery(format("COMMENT ON COLUMN %s.a is 'a-comment'", trinoTableName));
-        onTrino().executeQuery(format("COMMENT ON COLUMN %s.b is 'b-comment'", trinoTableName));
-        onTrino().executeQuery(format("COMMENT ON COLUMN %s.c is 'c-comment'", trinoTableName));
+        onTrino().executeQuery("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')".formatted(trinoTableName, storageFormat));
+        onSpark().executeQuery("INSERT INTO %s values(1, 'INDIA', true)".formatted(sparkTableName));
+        onTrino().executeQuery("INSERT INTO %s values(2, 'USA', false)".formatted(trinoTableName));
+        onTrino().executeQuery("COMMENT ON TABLE %s is 'my-table-comment'".formatted(trinoTableName));
+        onTrino().executeQuery("COMMENT ON COLUMN %s.a is 'a-comment'".formatted(trinoTableName));
+        onTrino().executeQuery("COMMENT ON COLUMN %s.b is 'b-comment'".formatted(trinoTableName));
+        onTrino().executeQuery("COMMENT ON COLUMN %s.c is 'c-comment'".formatted(trinoTableName));
 
         String tableLocation = getTableLocation(trinoTableName);
         String metadataFileName = getLatestMetadataFilename(TRINO_CATALOG, TEST_SCHEMA_NAME, baseTableName);
         // Drop table from hive metastore and use the same table name to register again with the metadata
         dropTableFromMetastore(baseTableName);
 
-        onTrino().executeQuery(format("CALL iceberg.system.register_table ('%s', '%s', '%s', '%s')", TEST_SCHEMA_NAME, baseTableName, tableLocation, metadataFileName));
+        onTrino().executeQuery("CALL iceberg.system.register_table ('%s', '%s', '%s', '%s')".formatted(TEST_SCHEMA_NAME, baseTableName, tableLocation, metadataFileName));
 
         assertThat(getTableComment(baseTableName)).isEqualTo("my-table-comment");
         assertThat(getColumnComment(baseTableName, "a")).isEqualTo("a-comment");
         assertThat(getColumnComment(baseTableName, "b")).isEqualTo("b-comment");
         assertThat(getColumnComment(baseTableName, "c")).isEqualTo("c-comment");
-        onTrino().executeQuery(format("DROP TABLE %s", trinoTableName));
+        onTrino().executeQuery("DROP TABLE %s".formatted(trinoTableName));
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
@@ -3168,9 +3113,9 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        onSpark().executeQuery(format("CREATE TABLE %s (a INT, b STRING, c BOOLEAN) USING ICEBERG TBLPROPERTIES ('write.format.default' = '%s')", sparkTableName, storageFormat));
-        onSpark().executeQuery(format("INSERT INTO %s values(1, 'INDIA', true)", sparkTableName));
-        onTrino().executeQuery(format("INSERT INTO %s values(2, 'USA', false)", trinoTableName));
+        onSpark().executeQuery("CREATE TABLE %s (a INT, b STRING, c BOOLEAN) USING ICEBERG TBLPROPERTIES ('write.format.default' = '%s')".formatted(sparkTableName, storageFormat));
+        onSpark().executeQuery("INSERT INTO %s values(1, 'INDIA', true)".formatted(sparkTableName));
+        onTrino().executeQuery("INSERT INTO %s values(2, 'USA', false)".formatted(trinoTableName));
 
         QueryResult expectedDescribeTable = onSpark().executeQuery("DESCRIBE TABLE EXTENDED " + sparkTableName);
         List<Row> expectedDescribeTableRows = expectedDescribeTable.rows().stream().map(columns -> row(columns.toArray())).collect(toImmutableList());
@@ -3183,14 +3128,14 @@ public class TestIcebergSparkCompatibility
         // Drop table from hive metastore and use the same table name to register again with the metadata
         dropTableFromMetastore(baseTableName);
 
-        onTrino().executeQuery(format("CALL iceberg.system.register_table ('%s', '%s', '%s', '%s')", TEST_SCHEMA_NAME, baseTableName, tableLocation, metadataFileName));
+        onTrino().executeQuery("CALL iceberg.system.register_table ('%s', '%s', '%s', '%s')".formatted(TEST_SCHEMA_NAME, baseTableName, tableLocation, metadataFileName));
 
         QueryResult actualDescribeTable = onSpark().executeQuery("DESCRIBE TABLE EXTENDED " + sparkTableName);
         QueryResult actualShowCreateTable = onTrino().executeQuery("SHOW CREATE TABLE " + trinoTableName);
 
         assertThat(actualDescribeTable).hasColumns(expectedDescribeTable.getColumnTypes()).containsExactlyInOrder(expectedDescribeTableRows);
         assertThat(actualShowCreateTable).hasColumns(expectedShowCreateTable.getColumnTypes()).containsExactlyInOrder(expectedShowCreateTableRows);
-        onTrino().executeQuery(format("DROP TABLE %s", trinoTableName));
+        onTrino().executeQuery("DROP TABLE %s".formatted(trinoTableName));
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
@@ -3201,23 +3146,23 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        onTrino().executeQuery(format("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')", trinoTableName, storageFormat));
-        onSpark().executeQuery(format("INSERT INTO %s values(1, 'INDIA', true)", sparkTableName));
-        onTrino().executeQuery(format("INSERT INTO %s values(2, 'USA', false)", trinoTableName));
+        onTrino().executeQuery("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')".formatted(trinoTableName, storageFormat));
+        onSpark().executeQuery("INSERT INTO %s values(1, 'INDIA', true)".formatted(sparkTableName));
+        onTrino().executeQuery("INSERT INTO %s values(2, 'USA', false)".formatted(trinoTableName));
 
         String tableLocation = getTableLocation(trinoTableName);
         String metadataFileName = getLatestMetadataFilename(TRINO_CATALOG, TEST_SCHEMA_NAME, baseTableName);
         // Drop table from hive metastore and use the same table name to register again with the metadata
         dropTableFromMetastore(baseTableName);
 
-        onTrino().executeQuery(format("CALL iceberg.system.register_table ('%s', '%s', '%s', '%s')", TEST_SCHEMA_NAME, baseTableName, tableLocation, metadataFileName));
-        onSpark().executeQuery(format("INSERT INTO %s values(3, 'POLAND', true)", sparkTableName));
+        onTrino().executeQuery("CALL iceberg.system.register_table ('%s', '%s', '%s', '%s')".formatted(TEST_SCHEMA_NAME, baseTableName, tableLocation, metadataFileName));
+        onSpark().executeQuery("INSERT INTO %s values(3, 'POLAND', true)".formatted(sparkTableName));
 
         List<Row> expected = List.of(row(1, "INDIA", true), row(2, "USA", false), row(3, "POLAND", true));
 
-        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName))).containsOnly(expected);
-        assertThat(onSpark().executeQuery(format("SELECT * FROM %s", sparkTableName))).containsOnly(expected);
-        onTrino().executeQuery(format("DROP TABLE %s", trinoTableName));
+        assertThat(onTrino().executeQuery("SELECT * FROM %s".formatted(trinoTableName))).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM %s".formatted(sparkTableName))).containsOnly(expected);
+        onTrino().executeQuery("DROP TABLE %s".formatted(trinoTableName));
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
@@ -3227,17 +3172,17 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        onSpark().executeQuery(format("CREATE TABLE %s (a INT, b STRING, c BOOLEAN) USING ICEBERG TBLPROPERTIES ('write.format.default' = '%s')", sparkTableName, storageFormat));
-        onSpark().executeQuery(format("INSERT INTO %s values(1, 'INDIA', true)", sparkTableName));
-        onTrino().executeQuery(format("INSERT INTO %s values(2, 'USA', false)", trinoTableName));
+        onSpark().executeQuery("CREATE TABLE %s (a INT, b STRING, c BOOLEAN) USING ICEBERG TBLPROPERTIES ('write.format.default' = '%s')".formatted(sparkTableName, storageFormat));
+        onSpark().executeQuery("INSERT INTO %s values(1, 'INDIA', true)".formatted(sparkTableName));
+        onTrino().executeQuery("INSERT INTO %s values(2, 'USA', false)".formatted(trinoTableName));
 
         String tableLocation = getTableLocation(trinoTableName);
         String baseTableNameNew = baseTableName + "_new";
 
         // Drop table to verify register_table call fails when no metadata can be found (table doesn't exist)
-        onTrino().executeQuery(format("DROP TABLE %s", trinoTableName));
+        onTrino().executeQuery("DROP TABLE %s".formatted(trinoTableName));
 
-        assertQueryFailure(() -> onTrino().executeQuery(format("CALL iceberg.system.register_table ('%s', '%s', '%s')", TEST_SCHEMA_NAME, baseTableNameNew, tableLocation)))
+        assertQueryFailure(() -> onTrino().executeQuery("CALL iceberg.system.register_table ('%s', '%s', '%s')".formatted(TEST_SCHEMA_NAME, baseTableNameNew, tableLocation)))
                 .hasMessageMatching(".*No versioned metadata file exists at location.*");
     }
 
@@ -3249,9 +3194,9 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        onSpark().executeQuery(format("CREATE TABLE %s (a INT, b STRING, c BOOLEAN) USING ICEBERG TBLPROPERTIES ('write.format.default' = '%s')", sparkTableName, storageFormat));
-        onSpark().executeQuery(format("INSERT INTO %s values(1, 'INDIA', true)", sparkTableName));
-        onTrino().executeQuery(format("INSERT INTO %s values(2, 'USA', false)", trinoTableName));
+        onSpark().executeQuery("CREATE TABLE %s (a INT, b STRING, c BOOLEAN) USING ICEBERG TBLPROPERTIES ('write.format.default' = '%s')".formatted(sparkTableName, storageFormat));
+        onSpark().executeQuery("INSERT INTO %s values(1, 'INDIA', true)".formatted(sparkTableName));
+        onTrino().executeQuery("INSERT INTO %s values(2, 'USA', false)".formatted(trinoTableName));
 
         String tableLocation = getTableLocation(trinoTableName);
         String metadataFileName = getLatestMetadataFilename(TRINO_CATALOG, TEST_SCHEMA_NAME, baseTableName);
@@ -3261,13 +3206,13 @@ public class TestIcebergSparkCompatibility
         // Drop table from hive metastore and use the same table name to register again with the metadata
         dropTableFromMetastore(baseTableName);
 
-        onTrino().executeQuery(format("CALL iceberg.system.register_table ('%s', '%s', '%s', '%s')", TEST_SCHEMA_NAME, baseTableNameNew, tableLocation, metadataFileName));
-        onSpark().executeQuery(format("INSERT INTO %s values(3, 'POLAND', true)", sparkTableNameNew));
+        onTrino().executeQuery("CALL iceberg.system.register_table ('%s', '%s', '%s', '%s')".formatted(TEST_SCHEMA_NAME, baseTableNameNew, tableLocation, metadataFileName));
+        onSpark().executeQuery("INSERT INTO %s values(3, 'POLAND', true)".formatted(sparkTableNameNew));
         List<Row> expected = List.of(row(1, "INDIA", true), row(2, "USA", false), row(3, "POLAND", true));
 
-        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", trinoTableNameNew))).containsOnly(expected);
-        assertThat(onSpark().executeQuery(format("SELECT * FROM %s", sparkTableNameNew))).containsOnly(expected);
-        onTrino().executeQuery(format("DROP TABLE %s", trinoTableNameNew));
+        assertThat(onTrino().executeQuery("SELECT * FROM %s".formatted(trinoTableNameNew))).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM %s".formatted(sparkTableNameNew))).containsOnly(expected);
+        onTrino().executeQuery("DROP TABLE %s".formatted(trinoTableNameNew));
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
@@ -3278,9 +3223,9 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        onSpark().executeQuery(format("CREATE TABLE %s (a INT, b STRING, c BOOLEAN) USING ICEBERG TBLPROPERTIES ('write.format.default' = '%s')", sparkTableName, storageFormat));
-        onSpark().executeQuery(format("INSERT INTO %s values(1, 'INDIA', true)", sparkTableName));
-        onTrino().executeQuery(format("INSERT INTO %s values(2, 'USA', false)", trinoTableName));
+        onSpark().executeQuery("CREATE TABLE %s (a INT, b STRING, c BOOLEAN) USING ICEBERG TBLPROPERTIES ('write.format.default' = '%s')".formatted(sparkTableName, storageFormat));
+        onSpark().executeQuery("INSERT INTO %s values(1, 'INDIA', true)".formatted(sparkTableName));
+        onTrino().executeQuery("INSERT INTO %s values(2, 'USA', false)".formatted(trinoTableName));
 
         String tableLocation = getTableLocation(trinoTableName);
         String metadataLocation = metastoreClient.getTable(TEST_SCHEMA_NAME, baseTableName).getParameters().get("metadata_location");
@@ -3288,13 +3233,13 @@ public class TestIcebergSparkCompatibility
         // Drop table from hive metastore and use the same table name to register again with the metadata
         dropTableFromMetastore(baseTableName);
 
-        onTrino().executeQuery(format("CALL iceberg.system.register_table ('%s', '%s', '%s', '%s')", TEST_SCHEMA_NAME, baseTableName, tableLocation, metadataFileName));
-        onTrino().executeQuery(format("INSERT INTO %s values(3, 'POLAND', true)", trinoTableName));
+        onTrino().executeQuery("CALL iceberg.system.register_table ('%s', '%s', '%s', '%s')".formatted(TEST_SCHEMA_NAME, baseTableName, tableLocation, metadataFileName));
+        onTrino().executeQuery("INSERT INTO %s values(3, 'POLAND', true)".formatted(trinoTableName));
         List<Row> expected = List.of(row(1, "INDIA", true), row(2, "USA", false), row(3, "POLAND", true));
 
-        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName))).containsOnly(expected);
-        assertThat(onSpark().executeQuery(format("SELECT * FROM %s", sparkTableName))).containsOnly(expected);
-        onTrino().executeQuery(format("DROP TABLE %s", trinoTableName));
+        assertThat(onTrino().executeQuery("SELECT * FROM %s".formatted(trinoTableName))).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM %s".formatted(sparkTableName))).containsOnly(expected);
+        onTrino().executeQuery("DROP TABLE %s".formatted(trinoTableName));
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
@@ -3525,33 +3470,31 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
 
         onTrino().executeQuery(
-                String.format("CREATE TABLE %s (testInteger INTEGER, testLong BIGINT, testString VARCHAR, testDouble DOUBLE, testFloat REAL) ", trinoTableName) +
+                "CREATE TABLE %s (testInteger INTEGER, testLong BIGINT, testString VARCHAR, testDouble DOUBLE, testFloat REAL) ".formatted(trinoTableName) +
                         "WITH (" +
                         "format = 'PARQUET'," +
                         "parquet_bloom_filter_columns = ARRAY['testInteger', 'testLong', 'testString', 'testDouble', 'testFloat']" +
                         ")");
 
-        onTrino().executeQuery(format(
-                "INSERT INTO %s " +
-                        "SELECT testInteger, testLong, testString, testDouble, testFloat FROM (VALUES " +
-                        "  (-999999, -999999, 'aaaaaaaaaaa', DOUBLE '-9999999999.99', REAL '-9999999.9999')" +
-                        ", (3, 30, 'fdsvxxbv33cb', DOUBLE '97662.2', REAL '98862.2')" +
-                        ", (5324, 2466, 'refgfdfrexx', DOUBLE '8796.1', REAL '-65496.1')" +
-                        ", (999999, 9999999999999, 'zzzzzzzzzzz', DOUBLE '9999999999.99', REAL '-9999999.9999')" +
-                        ", (9444, 4132455, 'ff34322vxff', DOUBLE '32137758.7892', REAL '9978.129887')) AS DATA(testInteger, testLong, testString, testDouble, testFloat)",
+        onTrino().executeQuery(("INSERT INTO %s " +
+        "SELECT testInteger, testLong, testString, testDouble, testFloat FROM (VALUES " +
+        "  (-999999, -999999, 'aaaaaaaaaaa', DOUBLE '-9999999999.99', REAL '-9999999.9999')" +
+        ", (3, 30, 'fdsvxxbv33cb', DOUBLE '97662.2', REAL '98862.2')" +
+        ", (5324, 2466, 'refgfdfrexx', DOUBLE '8796.1', REAL '-65496.1')" +
+        ", (999999, 9999999999999, 'zzzzzzzzzzz', DOUBLE '9999999999.99', REAL '-9999999.9999')" +
+        ", (9444, 4132455, 'ff34322vxff', DOUBLE '32137758.7892', REAL '9978.129887')) AS DATA(testInteger, testLong, testString, testDouble, testFloat)").formatted(
                 trinoTableName));
 
         assertTrinoBloomFilterTableSelectResult(trinoTableName);
         assertSparkBloomFilterTableSelectResult(sparkTableName);
 
-        onSpark().executeQuery(format(
-                "CREATE OR REPLACE TABLE %s AS " +
-                        "SELECT testInteger, testLong, testString, testDouble, testFloat FROM (VALUES " +
-                        "  (-999999, -999999, 'aaaaaaaaaaa', -9999999999.99D, -9999999.9999F)" +
-                        ", (3, 30, 'fdsvxxbv33cb', 97662.2D, 98862.2F)" +
-                        ", (5324, 2466, 'refgfdfrexx', 8796.1D, -65496.1F)" +
-                        ", (999999, 9999999999999, 'zzzzzzzzzzz', 9999999999.99D, -9999999.9999F)" +
-                        ", (9444, 4132455, 'ff34322vxff', 32137758.7892D, 9978.129887F)) AS DATA(testInteger, testLong, testString, testDouble, testFloat)",
+        onSpark().executeQuery(("CREATE OR REPLACE TABLE %s AS " +
+        "SELECT testInteger, testLong, testString, testDouble, testFloat FROM (VALUES " +
+        "  (-999999, -999999, 'aaaaaaaaaaa', -9999999999.99D, -9999999.9999F)" +
+        ", (3, 30, 'fdsvxxbv33cb', 97662.2D, 98862.2F)" +
+        ", (5324, 2466, 'refgfdfrexx', 8796.1D, -65496.1F)" +
+        ", (999999, 9999999999999, 'zzzzzzzzzzz', 9999999999.99D, -9999999.9999F)" +
+        ", (9444, 4132455, 'ff34322vxff', 32137758.7892D, 9978.129887F)) AS DATA(testInteger, testLong, testString, testDouble, testFloat)").formatted(
                 sparkTableName));
 
         assertTrinoBloomFilterTableSelectResult(trinoTableName);
@@ -3568,7 +3511,7 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
 
         onSpark().executeQuery(
-                String.format("CREATE TABLE %s (testInteger INTEGER, testLong BIGINT, testString STRING, testDouble DOUBLE, testFloat REAL) ", sparkTableName) +
+                "CREATE TABLE %s (testInteger INTEGER, testLong BIGINT, testString STRING, testDouble DOUBLE, testFloat REAL) ".formatted(sparkTableName) +
                         "USING ICEBERG " +
                         "TBLPROPERTIES (" +
                         "'write.parquet.bloom-filter-enabled.column.testInteger' = true," +
@@ -3578,27 +3521,25 @@ public class TestIcebergSparkCompatibility
                         "'write.parquet.bloom-filter-enabled.column.testFloat' = true" +
                         ")");
 
-        onSpark().executeQuery(format(
-                "INSERT INTO %s " +
-                        "SELECT testInteger, testLong, testString, testDouble, testFloat FROM (VALUES " +
-                        "  (-999999, -999999, 'aaaaaaaaaaa', -9999999999.99D, -9999999.9999F)" +
-                        ", (3, 30, 'fdsvxxbv33cb', 97662.2D, 98862.2F)" +
-                        ", (5324, 2466, 'refgfdfrexx', 8796.1D, -65496.1F)" +
-                        ", (999999, 9999999999999, 'zzzzzzzzzzz', 9999999999.99D, -9999999.9999F)" +
-                        ", (9444, 4132455, 'ff34322vxff', 32137758.7892D, 9978.129887F)) AS DATA(testInteger, testLong, testString, testDouble, testFloat)",
+        onSpark().executeQuery(("INSERT INTO %s " +
+        "SELECT testInteger, testLong, testString, testDouble, testFloat FROM (VALUES " +
+        "  (-999999, -999999, 'aaaaaaaaaaa', -9999999999.99D, -9999999.9999F)" +
+        ", (3, 30, 'fdsvxxbv33cb', 97662.2D, 98862.2F)" +
+        ", (5324, 2466, 'refgfdfrexx', 8796.1D, -65496.1F)" +
+        ", (999999, 9999999999999, 'zzzzzzzzzzz', 9999999999.99D, -9999999.9999F)" +
+        ", (9444, 4132455, 'ff34322vxff', 32137758.7892D, 9978.129887F)) AS DATA(testInteger, testLong, testString, testDouble, testFloat)").formatted(
                 sparkTableName));
 
         assertTrinoBloomFilterTableSelectResult(trinoTableName);
         assertSparkBloomFilterTableSelectResult(sparkTableName);
 
-        onTrino().executeQuery(format(
-                "CREATE OR REPLACE TABLE %s AS " +
-                        "SELECT testInteger, testLong, testString, testDouble, testFloat FROM (VALUES " +
-                        "  (-999999, -999999, 'aaaaaaaaaaa', DOUBLE '-9999999999.99', REAL '-9999999.9999')" +
-                        ", (3, 30, 'fdsvxxbv33cb', DOUBLE '97662.2', REAL '98862.2')" +
-                        ", (5324, 2466, 'refgfdfrexx', DOUBLE '8796.1', REAL '-65496.1')" +
-                        ", (999999, 9999999999999, 'zzzzzzzzzzz', DOUBLE '9999999999.99', REAL '-9999999.9999')" +
-                        ", (9444, 4132455, 'ff34322vxff', DOUBLE '32137758.7892', REAL '9978.129887')) AS DATA(testInteger, testLong, testString, testDouble, testFloat)",
+        onTrino().executeQuery(("CREATE OR REPLACE TABLE %s AS " +
+        "SELECT testInteger, testLong, testString, testDouble, testFloat FROM (VALUES " +
+        "  (-999999, -999999, 'aaaaaaaaaaa', DOUBLE '-9999999999.99', REAL '-9999999.9999')" +
+        ", (3, 30, 'fdsvxxbv33cb', DOUBLE '97662.2', REAL '98862.2')" +
+        ", (5324, 2466, 'refgfdfrexx', DOUBLE '8796.1', REAL '-65496.1')" +
+        ", (999999, 9999999999999, 'zzzzzzzzzzz', DOUBLE '9999999999.99', REAL '-9999999.9999')" +
+        ", (9444, 4132455, 'ff34322vxff', DOUBLE '32137758.7892', REAL '9978.129887')) AS DATA(testInteger, testLong, testString, testDouble, testFloat)").formatted(
                 trinoTableName));
 
         assertTrinoBloomFilterTableSelectResult(trinoTableName);
@@ -3615,8 +3556,7 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
 
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s (id INTEGER, str VARCHAR, bin VARBINARY) WITH (format = 'PARQUET')",
+        onTrino().executeQuery("CREATE TABLE %s (id INTEGER, str VARCHAR, bin VARBINARY) WITH (format = 'PARQUET')".formatted(
                 trinoTableName));
         try {
             // Force DELTA_LENGTH_BYTE_ARRAY fallback with high-cardinality UUID-derived
@@ -3630,11 +3570,11 @@ public class TestIcebergSparkCompatibility
                 if (i > 0) {
                     values.append(", ");
                 }
-                values.append(format("(%d, '%s', X'%s')", i, uuid, uuid.replace("-", "")));
+                values.append("(%d, '%s', X'%s')".formatted(i, uuid, uuid.replace("-", "")));
             }
-            onTrino().executeQuery(format("INSERT INTO %s VALUES %s", trinoTableName, values));
+            onTrino().executeQuery("INSERT INTO %s VALUES %s".formatted(trinoTableName, values));
 
-            assertThat(onSpark().executeQuery(format("SELECT count(DISTINCT str) FROM %s", sparkTableName)))
+            assertThat(onSpark().executeQuery("SELECT count(DISTINCT str) FROM %s".formatted(sparkTableName)))
                     .contains(row(5000));
         }
         finally {
@@ -3671,7 +3611,7 @@ public class TestIcebergSparkCompatibility
 
     private int calculateMetadataFilesForPartitionedTable(String tableName)
     {
-        String dataFilePath = (String) onTrino().executeQuery(format("SELECT file_path FROM iceberg.default.\"%s$files\" limit 1", tableName)).getOnlyValue();
+        String dataFilePath = (String) onTrino().executeQuery("SELECT file_path FROM iceberg.default.\"%s$files\" limit 1".formatted(tableName)).getOnlyValue();
         String partitionPath = dataFilePath.substring(0, dataFilePath.lastIndexOf("/"));
         String dataFolderPath = partitionPath.substring(0, partitionPath.lastIndexOf("/"));
         String tableFolderPath = dataFolderPath.substring(0, dataFolderPath.lastIndexOf("/"));

@@ -16,7 +16,6 @@ package io.trino.plugin.mariadb;
 import io.trino.testing.MaterializedRow;
 import org.junit.jupiter.api.Test;
 
-import static java.lang.String.format;
 import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseMariaDbTableIndexStatisticsTest
@@ -38,7 +37,7 @@ public abstract class BaseMariaDbTableIndexStatisticsTest
             if (columnType.startsWith("varchar")) {
                 continue;
             }
-            executeInMariaDb(format("CREATE INDEX %2$s ON %1$s (%2$s)", tableName, columnName).replace("\"", "`"));
+            executeInMariaDb("CREATE INDEX %2$s ON %1$s (%2$s)".formatted(tableName, columnName).replace("\"", "`"));
         }
         executeInMariaDb("ANALYZE TABLE " + tableName.replace("\"", "`"));
     }

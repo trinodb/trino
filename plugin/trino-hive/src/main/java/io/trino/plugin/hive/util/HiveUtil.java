@@ -134,7 +134,6 @@ import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
 import static java.lang.Math.floorDiv;
 import static java.lang.Short.parseShort;
-import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
@@ -160,7 +159,7 @@ public final class HiveUtil
 
     public static String splitError(Throwable t, Location location, long start, long length)
     {
-        return format("Error opening Hive split %s (offset=%s, length=%s): %s", location, start, length, t.getMessage());
+        return "Error opening Hive split %s (offset=%s, length=%s): %s".formatted(location, start, length, t.getMessage());
     }
 
     static {
@@ -188,7 +187,7 @@ public final class HiveUtil
     {
         LocalDateTime date = HIVE_DATE_PARSER.parseLocalDateTime(value);
         if (!date.toLocalTime().equals(LocalTime.MIDNIGHT)) {
-            throw new IllegalArgumentException(format("The value should be a whole round date: '%s'", value));
+            throw new IllegalArgumentException("The value should be a whole round date: '%s'".formatted(value));
         }
         return Days.daysBetween(EPOCH_DAY, date).getDays();
     }
@@ -213,7 +212,7 @@ public final class HiveUtil
     public static void verifyPartitionTypeSupported(String partitionName, Type type)
     {
         if (!isValidPartitionType(type)) {
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported type [%s] for partition: %s", type, partitionName));
+            throw new TrinoException(NOT_SUPPORTED, "Unsupported type [%s] for partition: %s".formatted(type, partitionName));
         }
     }
 
@@ -360,7 +359,7 @@ public final class HiveUtil
             return NullableValue.of(type, utf8Slice(value));
         }
 
-        throw new VerifyException(format("Unhandled type [%s] for partition: %s", type, partitionName));
+        throw new VerifyException("Unhandled type [%s] for partition: %s".formatted(type, partitionName));
     }
 
     public static boolean isStructuralType(Type type)
@@ -376,7 +375,7 @@ public final class HiveUtil
         if (value.equalsIgnoreCase("false")) {
             return false;
         }
-        throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for BOOLEAN partition key: %s", value, name));
+        throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, "Invalid partition value '%s' for BOOLEAN partition key: %s".formatted(value, name));
     }
 
     private static long bigintPartitionKey(String value, String name)
@@ -385,7 +384,7 @@ public final class HiveUtil
             return parseLong(value);
         }
         catch (NumberFormatException e) {
-            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for BIGINT partition key: %s", value, name));
+            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, "Invalid partition value '%s' for BIGINT partition key: %s".formatted(value, name));
         }
     }
 
@@ -395,7 +394,7 @@ public final class HiveUtil
             return parseInt(value);
         }
         catch (NumberFormatException e) {
-            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for INTEGER partition key: %s", value, name));
+            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, "Invalid partition value '%s' for INTEGER partition key: %s".formatted(value, name));
         }
     }
 
@@ -405,7 +404,7 @@ public final class HiveUtil
             return parseShort(value);
         }
         catch (NumberFormatException e) {
-            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for SMALLINT partition key: %s", value, name));
+            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, "Invalid partition value '%s' for SMALLINT partition key: %s".formatted(value, name));
         }
     }
 
@@ -415,7 +414,7 @@ public final class HiveUtil
             return parseByte(value);
         }
         catch (NumberFormatException e) {
-            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for TINYINT partition key: %s", value, name));
+            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, "Invalid partition value '%s' for TINYINT partition key: %s".formatted(value, name));
         }
     }
 
@@ -425,7 +424,7 @@ public final class HiveUtil
             return floatToRawIntBits(parseFloat(value));
         }
         catch (NumberFormatException e) {
-            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for FLOAT partition key: %s", value, name));
+            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, "Invalid partition value '%s' for FLOAT partition key: %s".formatted(value, name));
         }
     }
 
@@ -435,7 +434,7 @@ public final class HiveUtil
             return parseDouble(value);
         }
         catch (NumberFormatException e) {
-            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for DOUBLE partition key: %s", value, name));
+            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, "Invalid partition value '%s' for DOUBLE partition key: %s".formatted(value, name));
         }
     }
 
@@ -445,7 +444,7 @@ public final class HiveUtil
             return parseHiveDate(value);
         }
         catch (IllegalArgumentException e) {
-            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for DATE partition key: %s", value, name));
+            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, "Invalid partition value '%s' for DATE partition key: %s".formatted(value, name));
         }
     }
 
@@ -455,7 +454,7 @@ public final class HiveUtil
             return parseHiveTimestamp(value);
         }
         catch (IllegalArgumentException e) {
-            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for TIMESTAMP partition key: %s", value, name));
+            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, "Invalid partition value '%s' for TIMESTAMP partition key: %s".formatted(value, name));
         }
     }
 
@@ -479,12 +478,12 @@ public final class HiveUtil
             BigDecimal decimal = new BigDecimal(value);
             decimal = decimal.setScale(type.getScale(), UNNECESSARY);
             if (decimal.precision() > type.getPrecision()) {
-                throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, type, name));
+                throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, "Invalid partition value '%s' for %s partition key: %s".formatted(value, type, name));
             }
             return decimal;
         }
         catch (NumberFormatException e) {
-            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, type, name));
+            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, "Invalid partition value '%s' for %s partition key: %s".formatted(value, type, name));
         }
     }
 
@@ -493,7 +492,7 @@ public final class HiveUtil
         Slice partitionKey = utf8Slice(value);
         VarcharType varcharType = (VarcharType) columnType;
         if (!varcharType.isUnbounded() && SliceUtf8.countCodePoints(partitionKey) > varcharType.getBoundedLength()) {
-            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType, name));
+            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, "Invalid partition value '%s' for %s partition key: %s".formatted(value, columnType, name));
         }
         return partitionKey;
     }
@@ -503,7 +502,7 @@ public final class HiveUtil
         Slice partitionKey = trimTrailingSpaces(utf8Slice(value));
         CharType charType = (CharType) columnType;
         if (SliceUtf8.countCodePoints(partitionKey) > charType.getLength()) {
-            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType, name));
+            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, "Invalid partition value '%s' for %s partition key: %s".formatted(value, columnType, name));
         }
         return partitionKey;
     }
@@ -566,7 +565,7 @@ public final class HiveUtil
         for (Column field : partitionKeys) {
             HiveType hiveType = field.getType();
             if (!typeSupported(hiveType.getTypeInfo(), table.getStorage().getStorageFormat())) {
-                throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDatabaseName(), table.getTableName()));
+                throw new TrinoException(NOT_SUPPORTED, "Unsupported Hive type %s found in partition keys of table %s.%s".formatted(hiveType, table.getDatabaseName(), table.getTableName()));
             }
             columns.add(createBaseColumn(field.getName(), -1, hiveType, typeManager.getType(getTypeSignature(hiveType)), PARTITION_KEY, field.getComment()));
         }
@@ -578,7 +577,7 @@ public final class HiveUtil
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, String formatString, Object... args)
     {
         if (!condition) {
-            throw new TrinoException(errorCode, format(formatString, args));
+            throw new TrinoException(errorCode, formatString.formatted(args));
         }
     }
 
@@ -672,7 +671,7 @@ public final class HiveUtil
             return NullableValue.of(type, utf8Slice(columnValue));
         }
 
-        throw new TrinoException(NOT_SUPPORTED, format("Unsupported column type %s for prefilled column: %s", type.getDisplayName(), name));
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type %s for prefilled column: %s".formatted(type.getDisplayName(), name));
     }
 
     public static List<HiveType> extractStructFieldTypes(HiveType hiveType)
@@ -698,12 +697,12 @@ public final class HiveUtil
         try {
             int intValue = parseInt(value);
             if (intValue < 0) {
-                throw new TrinoException(HIVE_INVALID_METADATA, format("Invalid value for %s property: %s", key, value));
+                throw new TrinoException(HIVE_INVALID_METADATA, "Invalid value for %s property: %s".formatted(key, value));
             }
             return intValue;
         }
         catch (NumberFormatException e) {
-            throw new TrinoException(HIVE_INVALID_METADATA, format("Invalid value for %s property: %s", key, value));
+            throw new TrinoException(HIVE_INVALID_METADATA, "Invalid value for %s property: %s".formatted(key, value));
         }
     }
 
@@ -738,7 +737,7 @@ public final class HiveUtil
                         .withBloomFilterFpp(fpp);
             }
             catch (NumberFormatException e) {
-                throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("Invalid value for %s property: %s", ORC_BLOOM_FILTER_FPP, schema.get(ORC_BLOOM_FILTER_FPP_KEY)));
+                throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Invalid value for %s property: %s".formatted(ORC_BLOOM_FILTER_FPP, schema.get(ORC_BLOOM_FILTER_FPP_KEY)));
             }
         }
         return orcWriterOptions;
@@ -825,7 +824,7 @@ public final class HiveUtil
         if (allColumnNames.size() > Sets.newHashSet(allColumnNames).size()) {
             throw new TrinoException(
                     HIVE_INVALID_METADATA,
-                    format("Hive metadata for table %s is invalid: Table descriptor contains duplicate columns", table.getTableName()));
+                    "Hive metadata for table %s is invalid: Table descriptor contains duplicate columns".formatted(table.getTableName()));
         }
 
         List<Column> tableColumns = table.getDataColumns();

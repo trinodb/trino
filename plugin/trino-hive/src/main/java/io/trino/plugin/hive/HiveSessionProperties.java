@@ -56,7 +56,6 @@ import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -263,7 +262,7 @@ public final class HiveSessionProperties
                             if (doubleValue < 0.0 || doubleValue > 100.0) {
                                 throw new TrinoException(
                                         INVALID_SESSION_PROPERTY,
-                                        format("%s must be between 0.0 and 100.0 inclusive: %s", ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE, doubleValue));
+                                        "%s must be between 0.0 and 100.0 inclusive: %s".formatted(ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE, doubleValue));
                             }
                             return doubleValue;
                         },
@@ -354,7 +353,7 @@ public final class HiveSessionProperties
                             if (value < 128 || value > 65536) {
                                 throw new TrinoException(
                                         INVALID_SESSION_PROPERTY,
-                                        format("%s must be between 128 and 65536: %s", PARQUET_MAX_READ_BLOCK_ROW_COUNT, value));
+                                        "%s must be between 128 and 65536: %s".formatted(PARQUET_MAX_READ_BLOCK_ROW_COUNT, value));
                             }
                         },
                         false),
@@ -383,7 +382,7 @@ public final class HiveSessionProperties
                             if (value < PARQUET_WRITER_MIN_ROW_GROUP_ROW_COUNT) {
                                 throw new TrinoException(
                                         INVALID_SESSION_PROPERTY,
-                                        format("%s must be at least %s: %s", PARQUET_WRITER_ROW_GROUP_MAX_ROW_COUNT, PARQUET_WRITER_MIN_ROW_GROUP_ROW_COUNT, value));
+                                        "%s must be at least %s: %s".formatted(PARQUET_WRITER_ROW_GROUP_MAX_ROW_COUNT, PARQUET_WRITER_MIN_ROW_GROUP_ROW_COUNT, value));
                             }
                         },
                         false),
@@ -410,7 +409,7 @@ public final class HiveSessionProperties
                             if (value < PARQUET_WRITER_MIN_PAGE_VALUE_COUNT || value > PARQUET_WRITER_MAX_PAGE_VALUE_COUNT) {
                                 throw new TrinoException(
                                         INVALID_SESSION_PROPERTY,
-                                        format("%s must be between %s and %s: %s", PARQUET_WRITER_PAGE_VALUE_COUNT, PARQUET_WRITER_MIN_PAGE_VALUE_COUNT, PARQUET_WRITER_MAX_PAGE_VALUE_COUNT, value));
+                                        "%s must be between %s and %s: %s".formatted(PARQUET_WRITER_PAGE_VALUE_COUNT, PARQUET_WRITER_MIN_PAGE_VALUE_COUNT, PARQUET_WRITER_MAX_PAGE_VALUE_COUNT, value));
                             }
                         },
                         false),
@@ -431,7 +430,7 @@ public final class HiveSessionProperties
                             if (doubleValue < 0.0 || doubleValue > 100.0) {
                                 throw new TrinoException(
                                         INVALID_SESSION_PROPERTY,
-                                        format("%s must be between 0.0 and 100.0 inclusive: %s", PARQUET_OPTIMIZED_WRITER_VALIDATION_PERCENTAGE, doubleValue));
+                                        "%s must be between 0.0 and 100.0 inclusive: %s".formatted(PARQUET_OPTIMIZED_WRITER_VALIDATION_PERCENTAGE, doubleValue));
                             }
                             return doubleValue;
                         },
@@ -512,7 +511,7 @@ public final class HiveSessionProperties
                                 .map(String.class::cast)
                                 .peek(property -> {
                                     if (isNullOrEmpty(property)) {
-                                        throw new TrinoException(INVALID_SESSION_PROPERTY, format("Invalid null or empty value in %s property", QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS));
+                                        throw new TrinoException(INVALID_SESSION_PROPERTY, "Invalid null or empty value in %s property".formatted(QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS));
                                     }
                                 })
                                 .map(schema -> schema.toLowerCase(ENGLISH))
@@ -557,7 +556,7 @@ public final class HiveSessionProperties
                         hiveConfig.getMinimumAssignedSplitWeight(),
                         value -> {
                             if (!Double.isFinite(value) || value <= 0 || value > 1) {
-                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be > 0 and <= 1.0: %s", MINIMUM_ASSIGNED_SPLIT_WEIGHT, value));
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, "%s must be > 0 and <= 1.0: %s".formatted(MINIMUM_ASSIGNED_SPLIT_WEIGHT, value));
                             }
                         },
                         false),
@@ -845,7 +844,7 @@ public final class HiveSessionProperties
     {
         int size = session.getProperty(PARTITION_STATISTICS_SAMPLE_SIZE, Integer.class);
         if (size < 1) {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be greater than 0: %s", PARTITION_STATISTICS_SAMPLE_SIZE, size));
+            throw new TrinoException(INVALID_SESSION_PROPERTY, "%s must be greater than 0: %s".formatted(PARTITION_STATISTICS_SAMPLE_SIZE, size));
         }
         return size;
     }

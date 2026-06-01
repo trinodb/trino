@@ -13,7 +13,6 @@
  */
 package io.trino.sql.query;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -842,8 +841,8 @@ public class QueryAssertions
                     WHERE rand() >= 0
                     """.formatted(
                             expression,
-                            Joiner.on(",").join(values),
-                            Joiner.on(",").join(columns)));
+                            String.join(",", values),
+                            String.join(",", columns)));
 
             Result withConstantFolding = run(
                     """
@@ -853,8 +852,8 @@ public class QueryAssertions
                     ) t(%s)
                     """.formatted(
                             expression,
-                            Joiner.on(",").join(values),
-                            Joiner.on(",").join(columns)));
+                            String.join(",", values),
+                            String.join(",", columns)));
             if (!full.type().equals(withConstantFolding.type())) {
                 fail("Mismatched types between interpreter and evaluation engine: %s vs %s".formatted(full.type(), withConstantFolding.type()));
             }
@@ -892,16 +891,14 @@ public class QueryAssertions
             public String toStringOf(Object object)
             {
                 if (object instanceof SqlTimestamp timestamp) {
-                    return String.format(
-                            "%s [p = %s, epochMicros = %s, fraction = %s]",
+                    return "%s [p = %s, epochMicros = %s, fraction = %s]".formatted(
                             timestamp,
                             timestamp.getPrecision(),
                             timestamp.getEpochMicros(),
                             timestamp.getPicosOfMicros());
                 }
                 if (object instanceof SqlTimestampWithTimeZone timestamp) {
-                    return String.format(
-                            "%s [p = %s, epochMillis = %s, fraction = %s, tz = %s]",
+                    return "%s [p = %s, epochMillis = %s, fraction = %s, tz = %s]".formatted(
                             timestamp,
                             timestamp.getPrecision(),
                             timestamp.getEpochMillis(),
@@ -909,11 +906,10 @@ public class QueryAssertions
                             timestamp.getTimeZoneKey());
                 }
                 if (object instanceof SqlTime time) {
-                    return String.format("%s [picos = %s]", time, time.getPicos());
+                    return "%s [picos = %s]".formatted(time, time.getPicos());
                 }
                 if (object instanceof SqlTimeWithTimeZone time) {
-                    return String.format(
-                            "%s [picos = %s, offset = %s]",
+                    return "%s [picos = %s, offset = %s]".formatted(
                             time,
                             time.getPicos(),
                             time.getOffsetMinutes());

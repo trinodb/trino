@@ -35,7 +35,6 @@ import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_UNAVAILABLE;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -94,7 +93,7 @@ public class FileGroupProvider
 
     private static RuntimeException invalidFile(int lineNumber, String message, Throwable cause)
     {
-        return new TrinoException(CONFIGURATION_INVALID, format("Error in group file line %s: %s", lineNumber, message), cause);
+        return new TrinoException(CONFIGURATION_INVALID, "Error in group file line %s: %s".formatted(lineNumber, message), cause);
     }
 
     private static List<String> readGroupFile(File file)

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.metastore;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -98,7 +97,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.Chars.padSpaces;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -160,7 +158,7 @@ public final class MetastoreUtil
         schema.put(META_TABLE_LOCATION, sd.getLocation());
 
         if (sd.getBucketProperty().isPresent()) {
-            schema.put(BUCKET_FIELD_NAME, Joiner.on(",").join(sd.getBucketProperty().get().bucketedBy()));
+            schema.put(BUCKET_FIELD_NAME, String.join(",", sd.getBucketProperty().get().bucketedBy()));
             schema.put(BUCKET_COUNT, Integer.toString(sd.getBucketProperty().get().bucketCount()));
         }
         else {
@@ -405,7 +403,7 @@ public final class MetastoreUtil
                 || type instanceof BooleanType) {
             return value.toString();
         }
-        throw new TrinoException(NOT_SUPPORTED, format("Unsupported partition key type: %s", type.getDisplayName()));
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported partition key type: %s".formatted(type.getDisplayName()));
     }
 
     /**
@@ -456,7 +454,7 @@ public final class MetastoreUtil
             return parameters;
         }
         Long count = Longs.tryParse(existingRowCount);
-        requireNonNull(count, format("For %s, the existing row count (%s) is not a digit string", description, existingRowCount));
+        requireNonNull(count, "For %s, the existing row count (%s) is not a digit string".formatted(description, existingRowCount));
         long newRowCount = count + rowCountAdjustment;
         checkArgument(newRowCount >= 0, "For %s, the subtracted row count (%s) is less than zero, existing count %s, rows deleted %s", description, newRowCount, existingRowCount, rowCountAdjustment);
         Map<String, String> copiedParameters = new HashMap<>(parameters);

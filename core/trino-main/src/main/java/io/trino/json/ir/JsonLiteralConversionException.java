@@ -17,13 +17,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.trino.spi.TrinoException;
 
 import static io.trino.spi.StandardErrorCode.INVALID_JSON_LITERAL;
-import static java.lang.String.format;
 
 public class JsonLiteralConversionException
         extends TrinoException
 {
     public JsonLiteralConversionException(JsonNode jsonNode, String message)
     {
-        super(INVALID_JSON_LITERAL, format("cannot convert %s to Trino value (%s)", jsonNode, message));
+        super(INVALID_JSON_LITERAL, "cannot convert %s to Trino value (%s)".formatted(jsonNode, message));
     }
 }

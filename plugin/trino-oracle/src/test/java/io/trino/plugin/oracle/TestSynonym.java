@@ -18,7 +18,6 @@ import io.trino.testing.sql.SqlExecutor;
 import java.io.Closeable;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 
 public class TestSynonym
         implements Closeable
@@ -30,7 +29,7 @@ public class TestSynonym
     {
         this.sqlExecutor = sqlExecutor;
         this.name = namePrefix + "_" + randomNameSuffix();
-        sqlExecutor.execute(format("CREATE SYNONYM %s %s", name, definition));
+        sqlExecutor.execute("CREATE SYNONYM %s %s".formatted(name, definition));
     }
 
     public String getName()

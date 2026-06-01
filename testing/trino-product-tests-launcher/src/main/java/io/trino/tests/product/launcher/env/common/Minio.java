@@ -27,7 +27,6 @@ import java.time.Duration;
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -76,7 +75,7 @@ public class Minio
                         .put("MINIO_ROOT_USER", MINIO_ROOT_USER)
                         .put("MINIO_ROOT_PASSWORD", MINIO_ROOT_PASSWORD)
                         .buildOrThrow())
-                .withCommand("server", "--address", format("0.0.0.0:%d", MINIO_PORT), "--console-address", format("0.0.0.0:%d", MINIO_CONSOLE_PORT), "/data")
+                .withCommand("server", "--address", "0.0.0.0:%d".formatted(MINIO_PORT), "--console-address", "0.0.0.0:%d".formatted(MINIO_CONSOLE_PORT), "/data")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .withCreateContainerCmdModifier(cmd -> cmd.withUser("root")) // Required to create buckets externally
                 .waitingFor(forSelectedPorts(MINIO_PORT))

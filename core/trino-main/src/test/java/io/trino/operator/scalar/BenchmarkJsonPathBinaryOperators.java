@@ -74,7 +74,6 @@ import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.ir.IrExpressions.constantNull;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.type.Json2016Type.JSON_2016;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -188,9 +187,9 @@ public class BenchmarkJsonPathBinaryOperators
             for (int position = 0; position < positionCount; position++) {
                 SliceOutput slice = new DynamicSliceOutput(20);
                 slice.appendBytes("{\"first\" : ".getBytes(UTF_8))
-                        .appendBytes(format("%e", (double) position % 100).getBytes(UTF_8)) // real
+                        .appendBytes("%e".formatted((double) position % 100).getBytes(UTF_8)) // real
                         .appendBytes(", \"second\" : ".getBytes(UTF_8))
-                        .appendBytes(format("%s", position % 10).getBytes(UTF_8)) // int
+                        .appendBytes("%s".formatted(position % 10).getBytes(UTF_8)) // int
                         .appendByte('}');
                 VARCHAR.writeSlice(blockBuilder, slice.slice());
             }
@@ -204,16 +203,16 @@ public class BenchmarkJsonPathBinaryOperators
                 SliceOutput slice = new DynamicSliceOutput(20);
                 slice.appendBytes("{\"first\" : ".getBytes(UTF_8));
                 if (position % 3 == 0) {
-                    slice.appendBytes(format("%e", (double) position % 100).getBytes(UTF_8)); // real
+                    slice.appendBytes("%e".formatted((double) position % 100).getBytes(UTF_8)); // real
                 }
                 else if (position % 3 == 1) {
-                    slice.appendBytes(format("%s", (position % 100) * 1000000000000L).getBytes(UTF_8)); // bigint
+                    slice.appendBytes("%s".formatted((position % 100) * 1000000000000L).getBytes(UTF_8)); // bigint
                 }
                 else {
-                    slice.appendBytes(format("%s", position % 100).getBytes(UTF_8)); // int
+                    slice.appendBytes("%s".formatted(position % 100).getBytes(UTF_8)); // int
                 }
                 slice.appendBytes(", \"second\" : ".getBytes(UTF_8))
-                        .appendBytes(format("%s", position % 10).getBytes(UTF_8)) // int
+                        .appendBytes("%s".formatted(position % 10).getBytes(UTF_8)) // int
                         .appendByte('}');
                 VARCHAR.writeSlice(blockBuilder, slice.slice());
             }
@@ -228,27 +227,27 @@ public class BenchmarkJsonPathBinaryOperators
 
                 slice.appendBytes("{\"first\" : ".getBytes(UTF_8));
                 if (position % 3 == 0) {
-                    slice.appendBytes(format("%e", (double) position % 100).getBytes(UTF_8)); // real
+                    slice.appendBytes("%e".formatted((double) position % 100).getBytes(UTF_8)); // real
                 }
                 else if (position % 3 == 1) {
-                    slice.appendBytes(format("%s", (position % 100) * 1000000000000L).getBytes(UTF_8)); // bigint
+                    slice.appendBytes("%s".formatted((position % 100) * 1000000000000L).getBytes(UTF_8)); // bigint
                 }
                 else {
-                    slice.appendBytes(format("%s", position % 100).getBytes(UTF_8)); // int
+                    slice.appendBytes("%s".formatted(position % 100).getBytes(UTF_8)); // int
                 }
 
                 slice.appendBytes(", \"second\" : ".getBytes(UTF_8));
                 if (position % 4 == 0) {
-                    slice.appendBytes(format("%e", (double) position % 10).getBytes(UTF_8)); // real
+                    slice.appendBytes("%e".formatted((double) position % 10).getBytes(UTF_8)); // real
                 }
                 else if (position % 4 == 1) {
                     slice.appendBytes(Decimals.toString(position % 10, 2).getBytes(UTF_8)); // decimal
                 }
                 else if (position % 4 == 2) {
-                    slice.appendBytes(format("%s", (position % 10) * 1000000000000L).getBytes(UTF_8)); // bigint
+                    slice.appendBytes("%s".formatted((position % 10) * 1000000000000L).getBytes(UTF_8)); // bigint
                 }
                 else {
-                    slice.appendBytes(format("%s", position % 10).getBytes(UTF_8)); // int
+                    slice.appendBytes("%s".formatted(position % 10).getBytes(UTF_8)); // int
                 }
 
                 slice.appendByte('}');

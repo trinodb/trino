@@ -25,8 +25,6 @@ import io.trino.spi.type.VarcharType;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
-import static java.lang.String.format;
-
 /**
  * A helper class aiding migration from {@link DataTypeTest} to {@link SqlDataTypeTest}.
  * Replace call to {@link DataTypeTest#create()} with {@link DataTypeTestToSqlDataTypeTestConverter#create()} to have your test code generated.
@@ -47,8 +45,7 @@ public final class DataTypeTestToSqlDataTypeTestConverter
 
     public <T> DataTypeTestToSqlDataTypeTestConverter addRoundTrip(DataType<T> dataType, T value)
     {
-        output.append(format(
-                " .addRoundTrip(%s, %s, %s, %s)",
+        output.append(" .addRoundTrip(%s, %s, %s, %s)".formatted(
                 toJavaLiteral(dataType.getInsertType()),
                 toJavaLiteral(dataType.toLiteral(value)),
                 typeConstructor(dataType.getTrinoResultType()),
@@ -56,7 +53,7 @@ public final class DataTypeTestToSqlDataTypeTestConverter
 
         Object expected = dataType.toTrinoQueryResult(value);
         if (expected != value) {
-            output.append(format(" // TODO non-identity toTrinoQueryResult function was used: %s vs %s", value, expected));
+            output.append(" // TODO non-identity toTrinoQueryResult function was used: %s vs %s".formatted(value, expected));
         }
 
         output.append("\n");
@@ -67,28 +64,28 @@ public final class DataTypeTestToSqlDataTypeTestConverter
     private String typeConstructor(Type type)
     {
         if (type instanceof DecimalType decimalType) {
-            return format("createDecimalType(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            return "createDecimalType(%s, %s)".formatted(decimalType.getPrecision(), decimalType.getScale());
         }
         if (type instanceof CharType charType) {
-            return format("createCharType(%s)", charType.getLength());
+            return "createCharType(%s)".formatted(charType.getLength());
         }
         if (type instanceof VarcharType varcharType) {
             if (varcharType.isUnbounded()) {
                 return "createUnboundedVarcharType()";
             }
-            return format("createVarcharType(%s)", varcharType.getBoundedLength());
+            return "createVarcharType(%s)".formatted(varcharType.getBoundedLength());
         }
         if (type instanceof TimeType timeType) {
-            return format("createTimeType(%s)", timeType.getPrecision());
+            return "createTimeType(%s)".formatted(timeType.getPrecision());
         }
         if (type instanceof TimeWithTimeZoneType timeWithTimeZoneType) {
-            return format("createTimeWithTimeZoneType(%s)", timeWithTimeZoneType.getPrecision());
+            return "createTimeWithTimeZoneType(%s)".formatted(timeWithTimeZoneType.getPrecision());
         }
         if (type instanceof TimestampType timestampType) {
-            return format("createTimestampType(%s)", timestampType.getPrecision());
+            return "createTimestampType(%s)".formatted(timestampType.getPrecision());
         }
         if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
-            return format("createTimestampWithTimeZoneType(%s)", timestampWithTimeZoneType.getPrecision());
+            return "createTimestampWithTimeZoneType(%s)".formatted(timestampWithTimeZoneType.getPrecision());
         }
 
         try {
@@ -116,8 +113,8 @@ public final class DataTypeTestToSqlDataTypeTestConverter
     private static String toJavaLiteral(String value)
     {
         if (value.contains("\\") || value.contains("\"") || value.contains("\n")) {
-            throw new IllegalArgumentException(format("Unsupported value: [%s]", value));
+            throw new IllegalArgumentException("Unsupported value: [%s]".formatted(value));
         }
-        return format("\"%s\"", value);
+        return "\"%s\"".formatted(value);
     }
 }

@@ -158,7 +158,7 @@ public class TestEsriReader
             if (i > 0) {
                 jsonBuilder.append(",");
             }
-            jsonBuilder.append(String.format(
+            jsonBuilder.append(
                     """
                     {
                         "attributes": {
@@ -170,11 +170,11 @@ public class TestEsriReader
                             "y": %d
                         }
                     }
-                    """,
-                    i,
-                    i,
-                    i * 10,
-                    i * 20));
+                    """.formatted(
+                            i,
+                            i,
+                            i * 10,
+                            i * 20));
         }
         jsonBuilder.append("]}");
 

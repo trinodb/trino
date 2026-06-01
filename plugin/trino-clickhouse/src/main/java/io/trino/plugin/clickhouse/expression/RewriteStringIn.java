@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.clickhouse.expression;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
@@ -45,7 +44,6 @@ import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.getDomainCompac
 import static io.trino.spi.expression.StandardFunctions.ARRAY_CONSTRUCTOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IN_PREDICATE_FUNCTION_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static java.lang.String.format;
 
 public class RewriteStringIn
         implements ConnectorExpressionRule<Call, ParameterizedExpression>
@@ -103,7 +101,7 @@ public class RewriteStringIn
         List<String> values = rewrittenValues.build();
         verify(!values.isEmpty(), "Empty values");
         return Optional.of(new ParameterizedExpression(
-                format("(%s) IN (%s)", value.get().expression(), Joiner.on(", ").join(values)),
+                "(%s) IN (%s)".formatted(value.get().expression(), String.join(", ", values)),
                 parameters.build()));
     }
 }

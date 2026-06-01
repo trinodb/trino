@@ -36,7 +36,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.decoder.protobuf.ProtobufErrorCode.INVALID_PROTOBUF_MESSAGE;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ConfluentSchemaRegistryDynamicMessageProvider
@@ -81,7 +80,7 @@ public class ConfluentSchemaRegistryDynamicMessageProvider
             return ((ProtobufSchema) schema).toDescriptor();
         }
         catch (IOException | RestClientException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Looking up schemaId '%s' from confluent schema registry failed", schemaId), e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Looking up schemaId '%s' from confluent schema registry failed".formatted(schemaId), e);
         }
     }
 

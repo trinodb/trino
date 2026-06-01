@@ -17,7 +17,6 @@ import java.io.IOException;
 import java.util.NoSuchElementException;
 import java.util.regex.Pattern;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class EmulatedListFilesStartingFromIterator
@@ -86,7 +85,7 @@ public final class EmulatedListFilesStartingFromIterator
                 prefix = collapsedLocationPath;
             }
             else {
-                throw new IllegalStateException(format("Expected listed file to start with directory path '%s': %s", locationPath, entry.location()));
+                throw new IllegalStateException("Expected listed file to start with directory path '%s': %s".formatted(locationPath, entry.location()));
             }
 
             String entryTail = entryPath.substring(prefix.length());

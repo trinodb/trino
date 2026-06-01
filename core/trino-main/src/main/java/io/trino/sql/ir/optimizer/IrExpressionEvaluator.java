@@ -63,7 +63,6 @@ import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.invoke.MethodType.methodType;
-import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 
 public class IrExpressionEvaluator
@@ -323,7 +322,7 @@ public class IrExpressionEvaluator
         return functionInvoker.invoke(
                 metadata.getCoercion(cast.expression().type(), cast.type()),
                 session.toConnectorSession(),
-                singletonList(evaluate(cast.expression(), session, bindings)));
+                List.of(evaluate(cast.expression(), session, bindings)));
     }
 
     private Object evaluateInternal(Case expression, Session session, Map<String, Object> bindings)

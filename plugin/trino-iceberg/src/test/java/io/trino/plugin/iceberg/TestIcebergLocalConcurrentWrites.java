@@ -42,7 +42,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.trino.testing.QueryAssertions.getTrinoExceptionCause;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -951,7 +950,7 @@ final class TestIcebergLocalConcurrentWrites
             List<Future<Boolean>> futures = IntStream.range(0, threads)
                     .mapToObj(threadNumber -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
-                        getQueryRunner().execute(format("UPDATE %s SET data = data || data WHERE part = %s", tableName, partitions.get(threadNumber)));
+                        getQueryRunner().execute("UPDATE %s SET data = data || data WHERE part = %s".formatted(tableName, partitions.get(threadNumber)));
                         return true;
                     }))
                     .collect(toImmutableList());
@@ -994,7 +993,7 @@ final class TestIcebergLocalConcurrentWrites
             List<Future<Boolean>> futures = IntStream.range(0, threads)
                     .mapToObj(threadNumber -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
-                        getQueryRunner().execute(format("UPDATE %s SET data = data || data WHERE parent.part = %s", tableName, partitions.get(threadNumber)));
+                        getQueryRunner().execute("UPDATE %s SET data = data || data WHERE parent.part = %s".formatted(tableName, partitions.get(threadNumber)));
                         return true;
                     }))
                     .collect(toImmutableList());
@@ -1044,8 +1043,7 @@ final class TestIcebergLocalConcurrentWrites
             List<Future<Boolean>> futures = IntStream.range(0, threads)
                     .mapToObj(threadNumber -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
-                        getQueryRunner().execute(format(
-                                "UPDATE %s SET data = data || data WHERE part1 = %s AND part2 = %s AND part3 = %s",
+                        getQueryRunner().execute("UPDATE %s SET data = data || data WHERE part1 = %s AND part2 = %s AND part3 = %s".formatted(
                                 tableName,
                                 partitions1.get(threadNumber),
                                 partitions2.get(threadNumber),
@@ -1096,7 +1094,7 @@ final class TestIcebergLocalConcurrentWrites
                     .mapToObj(threadNumber -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
                         try {
-                            getQueryRunner().execute(format("UPDATE %s SET data = data || data WHERE part = %s", tableName, partitions.get(threadNumber)));
+                            getQueryRunner().execute("UPDATE %s SET data = data || data WHERE part = %s".formatted(tableName, partitions.get(threadNumber)));
                             return true;
                         }
                         catch (Exception e) {
@@ -1158,7 +1156,7 @@ final class TestIcebergLocalConcurrentWrites
             List<Future<Boolean>> futures = IntStream.range(0, threads)
                     .mapToObj(threadNumber -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
-                        getQueryRunner().execute(format("UPDATE %s SET data = data || data WHERE part1 = %s AND part2 = %s", tableName, partitions1.get(threadNumber), partitions2.get(threadNumber)));
+                        getQueryRunner().execute("UPDATE %s SET data = data || data WHERE part1 = %s AND part2 = %s".formatted(tableName, partitions1.get(threadNumber), partitions2.get(threadNumber)));
                         return true;
                     }))
                     .collect(toImmutableList());
@@ -1211,12 +1209,12 @@ final class TestIcebergLocalConcurrentWrites
             // Testing both situations where a file is fully removed by the delete operation and when a row level delete is required.
             if (useSmallFiles) {
                 for (int i = 0; i < rows; i++) {
-                    assertUpdate(format("INSERT INTO %s VALUES %s", tableName, i), 1);
+                    assertUpdate("INSERT INTO %s VALUES %s".formatted(tableName, i), 1);
                 }
             }
             else {
                 String values = IntStream.range(0, rows).mapToObj(String::valueOf).collect(Collectors.joining(", "));
-                assertUpdate(format("INSERT INTO %s VALUES %s", tableName, values), rows);
+                assertUpdate("INSERT INTO %s VALUES %s".formatted(tableName, values), rows);
             }
 
             List<Future<List<Boolean>>> deletionFutures = IntStream.range(0, deletionThreads)
@@ -1226,7 +1224,7 @@ final class TestIcebergLocalConcurrentWrites
                         for (int i = 0; i < rowsPerThread; i++) {
                             try {
                                 int rowNumber = threadNumber * rowsPerThread + i;
-                                getQueryRunner().execute(format("DELETE FROM %s WHERE int_col = %s OR ((SELECT count(*) FROM blackhole.default.%s) > 42)", tableName, rowNumber, blackholeTable));
+                                getQueryRunner().execute("DELETE FROM %s WHERE int_col = %s OR ((SELECT count(*) FROM blackhole.default.%s) > 42)".formatted(tableName, rowNumber, blackholeTable));
                                 successfulDeletes.add(true);
                             }
                             catch (RuntimeException e) {
@@ -1293,9 +1291,9 @@ final class TestIcebergLocalConcurrentWrites
             ImmutableList.Builder<String> expectedValues = ImmutableList.builder();
             // Add 10 files to each partition
             for (int i = 0; i < 10; i++) {
-                String values = format("(%1$d, 10), (%1$d, 20), (%1$d, NULL), (%1$d, 40)", i);
+                String values = "(%1$d, 10), (%1$d, 20), (%1$d, NULL), (%1$d, 40)".formatted(i);
                 expectedValues.add(values);
-                assertUpdate(format("INSERT INTO %s VALUES %s", table.getName(), values), 4);
+                assertUpdate("INSERT INTO %s VALUES %s".formatted(table.getName(), values), 4);
             }
 
             List<Future<Boolean>> futures = IntStream.range(0, threads)
@@ -1352,9 +1350,9 @@ final class TestIcebergLocalConcurrentWrites
             ImmutableList.Builder<String> expectedValues = ImmutableList.builder();
             // Add 10 files to each partition
             for (int i = 0; i < 10; i++) {
-                String values = format("(%1$d, 10), (%1$d, 20), (%1$d, NULL), (%1$d, 40)", i);
+                String values = "(%1$d, 10), (%1$d, 20), (%1$d, NULL), (%1$d, 40)".formatted(i);
                 expectedValues.add(values);
-                assertUpdate(format("INSERT INTO %s VALUES %s", table.getName(), values), 4);
+                assertUpdate("INSERT INTO %s VALUES %s".formatted(table.getName(), values), 4);
             }
 
             // optimize concurrently by using non-overlapping partition predicate

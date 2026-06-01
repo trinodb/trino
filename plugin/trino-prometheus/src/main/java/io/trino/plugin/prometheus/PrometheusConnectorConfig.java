@@ -30,8 +30,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import static java.lang.String.format;
-
 public class PrometheusConnectorConfig
 {
     private URI prometheusURI = URI.create("http://localhost:9090");
@@ -208,7 +206,7 @@ public class PrometheusConnectorConfig
             }
         }
         catch (IndexOutOfBoundsException e) {
-            throw new IllegalArgumentException(format("Invalid format for 'prometheus.http.additional-headers' because %s. Value provided is %s", e.getMessage(), httpHeaders), e);
+            throw new IllegalArgumentException("Invalid format for 'prometheus.http.additional-headers' because %s. Value provided is %s".formatted(e.getMessage(), httpHeaders), e);
         }
         return this;
     }

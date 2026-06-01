@@ -28,7 +28,6 @@ import java.math.BigInteger;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static java.lang.Character.isDigit;
-import static java.lang.String.format;
 
 public final class DataSizeFunctions
 {
@@ -64,7 +63,7 @@ public final class DataSizeFunctions
             return Decimals.valueOf(bytes);
         }
         catch (TrinoException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Value out of range: '%s' ('%sB')", dataSize, bytes));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Value out of range: '%s' ('%sB')".formatted(dataSize, bytes));
         }
     }
 
@@ -80,7 +79,7 @@ public final class DataSizeFunctions
 
     private static TrinoException invalidDataSize(String dataSize)
     {
-        return new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid data size: '%s'", dataSize));
+        return new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid data size: '%s'".formatted(dataSize));
     }
 
     private enum Unit

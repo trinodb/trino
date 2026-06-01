@@ -27,7 +27,6 @@ import java.math.RoundingMode;
 
 import static io.trino.testing.SystemEnvironmentUtils.isEnvSet;
 import static io.trino.testng.services.Listeners.formatTestName;
-import static java.lang.String.format;
 
 public class ProgressLoggingListener
         implements IClassListener,
@@ -152,11 +151,11 @@ public class ProgressLoggingListener
     {
         BigDecimal durationSeconds = durationInSeconds(durationInMillis);
         if (durationSeconds.longValue() < 60L) {
-            return format("%s seconds", durationSeconds);
+            return "%s seconds".formatted(durationSeconds);
         }
         long minutes = durationSeconds.longValue() / 60L;
         long restSeconds = durationSeconds.longValue() % 60L;
-        return format("%d minutes and %d seconds", minutes, restSeconds);
+        return "%d minutes and %d seconds".formatted(minutes, restSeconds);
     }
 
     private static BigDecimal durationInSeconds(long millis)

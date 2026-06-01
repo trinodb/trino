@@ -35,7 +35,6 @@ import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -347,7 +346,7 @@ public class TestSnowflakeConnectorTest
     public void testNativeQueryInsertStatementTableExists()
     {
         try (TestTable testTable = simpleTable()) {
-            assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
+            assertThat(query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))".formatted(testTable.getName())))
                     .failure().hasMessageContaining("syntax error");
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
         }

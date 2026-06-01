@@ -15,8 +15,6 @@ package io.trino.matching;
 
 import java.util.Iterator;
 
-import static java.lang.String.format;
-
 public class PatternPrinter
 {
     private final StringBuilder result = new StringBuilder();
@@ -59,6 +57,6 @@ public class PatternPrinter
 
     private void appendLine(String template, Object... arguments)
     {
-        result.append("\t".repeat(level)).append(format(template + "\n", arguments));
+        result.append("\t".repeat(level)).append((template + "\n").formatted(arguments));
     }
 }

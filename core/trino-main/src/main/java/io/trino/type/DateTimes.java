@@ -43,7 +43,6 @@ import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.multiplyExact;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 
 public final class DateTimes
@@ -206,7 +205,7 @@ public final class DateTimes
     {
         Matcher matcher = DATETIME_PATTERN.matcher(value);
         if (!matcher.matches()) {
-            throw new IllegalArgumentException(format("Invalid TIMESTAMP '%s'", value));
+            throw new IllegalArgumentException("Invalid TIMESTAMP '%s'".formatted(value));
         }
 
         return matcher.group("timezone") != null;
@@ -216,7 +215,7 @@ public final class DateTimes
     {
         Matcher matcher = DATETIME_PATTERN.matcher(value);
         if (!matcher.matches()) {
-            throw new IllegalArgumentException(format("Invalid TIMESTAMP '%s'", value));
+            throw new IllegalArgumentException("Invalid TIMESTAMP '%s'".formatted(value));
         }
 
         String fraction = matcher.group("fraction");
@@ -386,7 +385,7 @@ public final class DateTimes
         }
 
         if (precision > MAX_SHORT_PRECISION) {
-            throw new IllegalArgumentException(format("Cannot parse '%s' as short timestamp. Max allowed precision = %s", value, MAX_SHORT_PRECISION));
+            throw new IllegalArgumentException("Cannot parse '%s' as short timestamp. Max allowed precision = %s".formatted(value, MAX_SHORT_PRECISION));
         }
 
         // scale to micros
@@ -409,7 +408,7 @@ public final class DateTimes
         String fraction = matcher.group("fraction");
 
         if (fraction == null || fraction.length() <= MAX_SHORT_PRECISION) {
-            throw new IllegalArgumentException(format("Cannot parse '%s' as long timestamp. Precision must be in the range [%s, %s]", value, MAX_SHORT_PRECISION + 1, TimestampType.MAX_PRECISION));
+            throw new IllegalArgumentException("Cannot parse '%s' as long timestamp. Precision must be in the range [%s, %s]".formatted(value, MAX_SHORT_PRECISION + 1, TimestampType.MAX_PRECISION));
         }
 
         int precision = fraction.length();
@@ -446,7 +445,7 @@ public final class DateTimes
         }
 
         if (precision > MAX_SHORT_PRECISION) {
-            throw new IllegalArgumentException(format("Cannot parse '%s' as short timestamp. Max allowed precision = %s", value, MAX_SHORT_PRECISION));
+            throw new IllegalArgumentException("Cannot parse '%s' as short timestamp. Max allowed precision = %s".formatted(value, MAX_SHORT_PRECISION));
         }
 
         long epochMillis = epochSecond * 1000 + rescale(fractionValue, precision, 3);
@@ -471,7 +470,7 @@ public final class DateTimes
         String timezone = matcher.group("timezone");
 
         if (fraction == null || fraction.length() <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
-            throw new IllegalArgumentException(format("Cannot parse '%s' as long timestamp. Precision must be in the range [%s, %s]", value, TimestampWithTimeZoneType.MAX_SHORT_PRECISION + 1, TimestampWithTimeZoneType.MAX_PRECISION));
+            throw new IllegalArgumentException("Cannot parse '%s' as long timestamp. Precision must be in the range [%s, %s]".formatted(value, TimestampWithTimeZoneType.MAX_SHORT_PRECISION + 1, TimestampWithTimeZoneType.MAX_PRECISION));
         }
 
         ZoneId zoneId = ZoneId.of(timezone);
@@ -503,7 +502,7 @@ public final class DateTimes
     {
         Matcher matcher = TIME_PATTERN.matcher(value);
         if (!matcher.matches()) {
-            throw new IllegalArgumentException(format("Invalid TIME '%s'", value));
+            throw new IllegalArgumentException("Invalid TIME '%s'".formatted(value));
         }
 
         return matcher.group("offsetHour") != null && matcher.group("offsetMinute") != null;
@@ -513,7 +512,7 @@ public final class DateTimes
     {
         Matcher matcher = TIME_PATTERN.matcher(value);
         if (!matcher.matches()) {
-            throw new IllegalArgumentException(format("Invalid TIME '%s'", value));
+            throw new IllegalArgumentException("Invalid TIME '%s'".formatted(value));
         }
 
         String fraction = matcher.group("fraction");

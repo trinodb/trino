@@ -34,7 +34,6 @@ import java.util.UUID;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.parquet.ParquetEncoding.DELTA_BYTE_ARRAY;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
-import static java.lang.String.format;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 
 public class BenchmarkUuidColumnReader
@@ -71,7 +70,7 @@ public class BenchmarkUuidColumnReader
         else if (encoding.equals(DELTA_BYTE_ARRAY)) {
             return new DeltaByteArrayWriter(bufferSize, bufferSize, HeapByteBufferAllocator.getInstance());
         }
-        throw new UnsupportedOperationException(format("encoding %s is not supported", encoding));
+        throw new UnsupportedOperationException("encoding %s is not supported".formatted(encoding));
     }
 
     @Override

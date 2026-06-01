@@ -38,7 +38,6 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.CO
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.DELETION_VECTORS_CONFIGURATION_KEY;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.MAX_COLUMN_ID_CONFIGURATION_KEY;
 import static java.lang.Long.parseLong;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -162,12 +161,12 @@ public class MetadataEntry
         try {
             long tableCheckpointInterval = parseLong(value);
             if (tableCheckpointInterval <= 0) {
-                throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, format("%s must be greater than 0", DELTA_CHECKPOINT_INTERVAL_PROPERTY));
+                throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "%s must be greater than 0".formatted(DELTA_CHECKPOINT_INTERVAL_PROPERTY));
             }
             return Optional.of(tableCheckpointInterval);
         }
         catch (NumberFormatException e) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, format("Invalid value for %s property: %s", DELTA_CHECKPOINT_INTERVAL_PROPERTY, value));
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Invalid value for %s property: %s".formatted(DELTA_CHECKPOINT_INTERVAL_PROPERTY, value));
         }
     }
 
@@ -223,8 +222,7 @@ public class MetadataEntry
     @Override
     public String toString()
     {
-        return format(
-                "MetadataEntry{id=%s, name=%s, description=%s, format=%s, schemaString=%s, partitionColumns=%s, configuration=%s, createdTime=%d}",
+        return "MetadataEntry{id=%s, name=%s, description=%s, format=%s, schemaString=%s, partitionColumns=%s, configuration=%s, createdTime=%d}".formatted(
                 id,
                 name,
                 description,

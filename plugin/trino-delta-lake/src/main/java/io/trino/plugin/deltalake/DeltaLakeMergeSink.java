@@ -94,7 +94,6 @@ import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -268,7 +267,7 @@ public class DeltaLakeMergeSink
     {
         int inputChannelCount = inputPage.getChannelCount();
         if (inputChannelCount != dataColumnCount + 3) {
-            throw new IllegalArgumentException(format("inputPage channelCount (%s) == dataColumns size (%s) + 3", inputChannelCount, dataColumnCount));
+            throw new IllegalArgumentException("inputPage channelCount (%s) == dataColumns size (%s) + 3".formatted(inputChannelCount, dataColumnCount));
         }
 
         int positionCount = inputPage.getPositionCount();

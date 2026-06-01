@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -197,7 +196,6 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
 import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
-import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Comparator.comparing;
 import static java.util.Locale.ENGLISH;
@@ -792,8 +790,7 @@ public final class IcebergUtil
             }
         }
         catch (IllegalArgumentException e) {
-            throw new TrinoException(ICEBERG_INVALID_PARTITION_VALUE, format(
-                    "Invalid partition value '%s' for %s partition key: %s",
+            throw new TrinoException(ICEBERG_INVALID_PARTITION_VALUE, "Invalid partition value '%s' for %s partition key: %s".formatted(
                     valueString,
                     type.getDisplayName(),
                     name));
@@ -996,7 +993,7 @@ public final class IcebergUtil
         if (!orcBloomFilterColumns.isEmpty()) {
             checkFormatForProperty(fileFormat.toIceberg(), FileFormat.ORC, ORC_BLOOM_FILTER_COLUMNS_PROPERTY);
             validateOrcBloomFilterColumns(tableMetadata.getColumns(), orcBloomFilterColumns);
-            propertiesBuilder.put(ORC_BLOOM_FILTER_COLUMNS, Joiner.on(",").join(orcBloomFilterColumns));
+            propertiesBuilder.put(ORC_BLOOM_FILTER_COLUMNS, String.join(",", orcBloomFilterColumns));
             propertiesBuilder.put(ORC_BLOOM_FILTER_FPP, String.valueOf(IcebergTableProperties.getOrcBloomFilterFpp(tableMetadata.getProperties())));
         }
 
@@ -1044,7 +1041,7 @@ public final class IcebergUtil
         if (!illegalExtraProperties.isEmpty()) {
             throw new TrinoException(
                     INVALID_TABLE_PROPERTY,
-                    format("Illegal keys in extra_properties: %s", illegalExtraProperties));
+                    "Illegal keys in extra_properties: %s".formatted(illegalExtraProperties));
         }
     }
 
@@ -1070,14 +1067,14 @@ public final class IcebergUtil
                                 case "ZSTD" -> ZSTD;
                                 case "LZ4" -> LZ4;
                                 case "GZIP" -> GZIP;
-                                default -> throw new TrinoException(INVALID_TABLE_PROPERTY, format("Unsupported compression codec: %s", upperCaseValue));
+                                default -> throw new TrinoException(INVALID_TABLE_PROPERTY, "Unsupported compression codec: %s".formatted(upperCaseValue));
                             };
                             case AVRO -> switch (upperCaseValue) {
                                 case "UNCOMPRESSED" -> NONE;
                                 case "SNAPPY" -> SNAPPY;
                                 case "ZSTD" -> ZSTD;
                                 case "GZIP" -> GZIP;
-                                default -> throw new TrinoException(INVALID_TABLE_PROPERTY, format("Unsupported compression codec: %s", upperCaseValue));
+                                default -> throw new TrinoException(INVALID_TABLE_PROPERTY, "Unsupported compression codec: %s".formatted(upperCaseValue));
                             };
                             case ORC -> switch (upperCaseValue) {
                                 case "ZLIB" -> GZIP;
@@ -1085,7 +1082,7 @@ public final class IcebergUtil
                                 case "LZ4" -> LZ4;
                                 case "SNAPPY" -> SNAPPY;
                                 case "NONE" -> NONE;
-                                default -> throw new TrinoException(INVALID_TABLE_PROPERTY, format("Unsupported compression codec: %s", upperCaseValue));
+                                default -> throw new TrinoException(INVALID_TABLE_PROPERTY, "Unsupported compression codec: %s".formatted(upperCaseValue));
                             };
                         };
                     }
@@ -1163,14 +1160,14 @@ public final class IcebergUtil
         return table.history().stream()
                 .filter(logEntry -> logEntry.timestampMillis() <= epochMillis)
                 .max(comparing(HistoryEntry::timestampMillis))
-                .orElseThrow(() -> new TrinoException(INVALID_ARGUMENTS, format("No version history table %s at or before %s", table.name(), Instant.ofEpochMilli(epochMillis))))
+                .orElseThrow(() -> new TrinoException(INVALID_ARGUMENTS, "No version history table %s at or before %s".formatted(table.name(), Instant.ofEpochMilli(epochMillis))))
                 .snapshotId();
     }
 
     public static void checkFormatForProperty(FileFormat actualStorageFormat, FileFormat expectedStorageFormat, String propertyName)
     {
         if (actualStorageFormat != expectedStorageFormat) {
-            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Cannot specify %s table property for storage format: %s", propertyName, actualStorageFormat));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Cannot specify %s table property for storage format: %s".formatted(propertyName, actualStorageFormat));
         }
     }
 
@@ -1180,7 +1177,7 @@ public final class IcebergUtil
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableSet());
         if (!allColumns.containsAll(orcBloomFilterColumns)) {
-            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Orc bloom filter columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(orcBloomFilterColumns), allColumns)));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Orc bloom filter columns %s not present in schema".formatted(Sets.difference(ImmutableSet.copyOf(orcBloomFilterColumns), allColumns)));
         }
     }
 
@@ -1191,10 +1188,10 @@ public final class IcebergUtil
         for (String column : parquetBloomFilterColumns) {
             Type type = columnTypes.get(column);
             if (type == null) {
-                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Parquet Bloom filter column %s not present in schema", column));
+                throw new TrinoException(INVALID_TABLE_PROPERTY, "Parquet Bloom filter column %s not present in schema".formatted(column));
             }
             if (!SUPPORTED_BLOOM_FILTER_TYPES.contains(type)) {
-                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Parquet Bloom filter column %s has unsupported type %s", column, type.getDisplayName()));
+                throw new TrinoException(INVALID_TABLE_PROPERTY, "Parquet Bloom filter column %s has unsupported type %s".formatted(column, type.getDisplayName()));
             }
         }
     }
@@ -1245,7 +1242,7 @@ public final class IcebergUtil
     public static String getLatestMetadataLocation(TrinoFileSystem fileSystem, String location)
     {
         List<Location> latestMetadataLocations = new ArrayList<>();
-        String metadataDirectoryLocation = format("%s/%s", stripTrailingSlash(location), METADATA_FOLDER_NAME);
+        String metadataDirectoryLocation = "%s/%s".formatted(stripTrailingSlash(location), METADATA_FOLDER_NAME);
         try {
             int latestMetadataVersion = -1;
             FileIterator fileIterator = fileSystem.listFiles(Location.of(metadataDirectoryLocation));
@@ -1269,8 +1266,7 @@ public final class IcebergUtil
                 throw new TrinoException(ICEBERG_INVALID_METADATA, "No versioned metadata file exists at location: " + metadataDirectoryLocation);
             }
             if (latestMetadataLocations.size() > 1) {
-                throw new TrinoException(ICEBERG_INVALID_METADATA, format(
-                        "More than one latest metadata file found at location: %s, latest metadata files are %s",
+                throw new TrinoException(ICEBERG_INVALID_METADATA, "More than one latest metadata file found at location: %s, latest metadata files are %s".formatted(
                         metadataDirectoryLocation,
                         latestMetadataLocations));
             }

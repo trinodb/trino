@@ -24,7 +24,6 @@ import io.trino.spi.type.VarcharType;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static java.lang.String.format;
 
 public final class DoubleToVarcharCoercers
 {
@@ -74,7 +73,7 @@ public final class DoubleToVarcharCoercers
     {
         Slice converted = Slices.utf8Slice(Double.toString(value));
         if (!varcharType.isUnbounded() && countCodePoints(converted) > varcharType.getBoundedLength()) {
-            throw new TrinoException(INVALID_ARGUMENTS, format("Varchar representation of %s exceeds %s bounds", value, varcharType));
+            throw new TrinoException(INVALID_ARGUMENTS, "Varchar representation of %s exceeds %s bounds".formatted(value, varcharType));
         }
         varcharType.writeSlice(blockBuilder, converted);
     }

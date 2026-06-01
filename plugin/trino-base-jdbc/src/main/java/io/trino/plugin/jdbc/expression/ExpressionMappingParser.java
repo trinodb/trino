@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionMappingParser
@@ -40,7 +39,7 @@ public class ExpressionMappingParser
         @Override
         public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, String message, RecognitionException e)
         {
-            throw new IllegalArgumentException(format("Error at %s:%s: %s", line, charPositionInLine, message), e);
+            throw new IllegalArgumentException("Error at %s:%s: %s".formatted(line, charPositionInLine, message), e);
         }
     };
 

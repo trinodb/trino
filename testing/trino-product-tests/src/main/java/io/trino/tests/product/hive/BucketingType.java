@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public enum BucketingType
@@ -120,6 +119,6 @@ public enum BucketingType
     private static String defaultHiveClustering(String columnName, int buckets)
     {
         requireNonNull(columnName, "columnName is null");
-        return format("CLUSTERED BY(%s) INTO %s BUCKETS", columnName, buckets);
+        return "CLUSTERED BY(%s) INTO %s BUCKETS".formatted(columnName, buckets);
     }
 }

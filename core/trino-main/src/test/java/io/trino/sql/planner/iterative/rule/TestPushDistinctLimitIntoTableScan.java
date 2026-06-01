@@ -44,7 +44,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
-import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -137,7 +136,7 @@ public class TestPushDistinctLimitIntoTableScan
             applyAssignments.set(Map.copyOf(assignments));
             applyGroupingSets.set(groupingSets.stream()
                     .map(List::copyOf)
-                    .collect(toUnmodifiableList()));
+                    .toList());
 
             return Optional.of(new AggregationApplicationResult<>(
                     new MockConnectorTableHandle(new SchemaTableName("mock_schema", "mock_nation_aggregated")),

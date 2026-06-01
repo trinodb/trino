@@ -30,95 +30,93 @@ import io.trino.spi.spool.SpoolingManagerFactory;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 
+import java.util.List;
 import java.util.Set;
-
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptySet;
 
 public interface Plugin
 {
     default Iterable<CatalogStoreFactory> getCatalogStoreFactories()
     {
-        return emptyList();
+        return List.of();
     }
 
     default Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return emptyList();
+        return List.of();
     }
 
     default Iterable<BlockEncoding> getBlockEncodings()
     {
-        return emptyList();
+        return List.of();
     }
 
     default Iterable<Type> getTypes()
     {
-        return emptyList();
+        return List.of();
     }
 
     default Iterable<ParametricType> getParametricTypes()
     {
-        return emptyList();
+        return List.of();
     }
 
     default Set<Class<?>> getFunctions()
     {
-        return emptySet();
+        return Set.of();
     }
 
     default Iterable<LanguageFunctionEngine> getLanguageFunctionEngines()
     {
-        return emptyList();
+        return List.of();
     }
 
     default Iterable<SystemAccessControlFactory> getSystemAccessControlFactories()
     {
-        return emptyList();
+        return List.of();
     }
 
     default Iterable<GroupProviderFactory> getGroupProviderFactories()
     {
-        return emptyList();
+        return List.of();
     }
 
     default Iterable<PasswordAuthenticatorFactory> getPasswordAuthenticatorFactories()
     {
-        return emptyList();
+        return List.of();
     }
 
     default Iterable<HeaderAuthenticatorFactory> getHeaderAuthenticatorFactories()
     {
-        return emptyList();
+        return List.of();
     }
 
     default Iterable<CertificateAuthenticatorFactory> getCertificateAuthenticatorFactories()
     {
-        return emptyList();
+        return List.of();
     }
 
     default Iterable<EventListenerFactory> getEventListenerFactories()
     {
-        return emptyList();
+        return List.of();
     }
 
     default Iterable<ResourceGroupConfigurationManagerFactory> getResourceGroupConfigurationManagerFactories()
     {
-        return emptyList();
+        return List.of();
     }
 
     default Iterable<SessionPropertyConfigurationManagerFactory> getSessionPropertyConfigurationManagerFactories()
     {
-        return emptyList();
+        return List.of();
     }
 
     default Iterable<ExchangeManagerFactory> getExchangeManagerFactories()
     {
-        return emptyList();
+        return List.of();
     }
 
     default Iterable<SpoolingManagerFactory> getSpoolingManagerFactories()
     {
-        return emptyList();
+        return List.of();
     }
 }

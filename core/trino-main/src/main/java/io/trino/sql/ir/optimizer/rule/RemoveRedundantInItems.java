@@ -38,7 +38,6 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.mayFail;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
-import static java.util.Collections.singletonList;
 
 public class RemoveRedundantInItems
         implements IrOptimizerRule
@@ -86,7 +85,7 @@ public class RemoveRedundantInItems
 
         if (exactMatchFound && mayFail.isEmpty()) {
             ResolvedFunction indeterminate = metadata.resolveOperator(INDETERMINATE, ImmutableList.of(value.type()));
-            return Optional.of(ifExpression(new Call(indeterminate, singletonList(value)), NULL_BOOLEAN, TRUE));
+            return Optional.of(ifExpression(new Call(indeterminate, List.of(value)), NULL_BOOLEAN, TRUE));
         }
 
         if (!removed && list.size() > 1) {

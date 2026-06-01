@@ -30,7 +30,6 @@ import static io.trino.spi.block.ColumnarTestUtils.createTestDictionaryExpectedV
 import static io.trino.spi.block.ColumnarTestUtils.createTestRleBlock;
 import static io.trino.spi.block.ColumnarTestUtils.createTestRleExpectedValues;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestColumnarMap
@@ -47,9 +46,9 @@ final class TestColumnarMap
             expectedValues[mapIndex] = new Slice[MAP_SIZES[mapIndex]][];
             for (int entryIndex = 0; entryIndex < MAP_SIZES[mapIndex]; entryIndex++) {
                 Slice[] entry = new Slice[2];
-                entry[0] = Slices.utf8Slice(format("key.%d.%d", mapIndex, entryIndex));
+                entry[0] = Slices.utf8Slice("key.%d.%d".formatted(mapIndex, entryIndex));
                 if (entryIndex % 3 != 1) {
-                    entry[1] = Slices.utf8Slice(format("value.%d.%d", mapIndex, entryIndex));
+                    entry[1] = Slices.utf8Slice("value.%d.%d".formatted(mapIndex, entryIndex));
                 }
                 expectedValues[mapIndex][entryIndex] = entry;
             }

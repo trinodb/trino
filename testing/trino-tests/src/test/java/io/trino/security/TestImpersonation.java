@@ -39,7 +39,6 @@ import java.util.stream.Stream;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.trino.jdbc.BaseTrinoDriverTest.getCurrentUser;
 import static io.trino.spi.security.PrincipalType.USER;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -141,7 +140,7 @@ public class TestImpersonation
     private Connection createConnection(String catalog, String schema, String user)
             throws SQLException
     {
-        String url = format("jdbc:trino://%s/%s/%s", server.getAddress(), catalog, schema);
+        String url = "jdbc:trino://%s/%s/%s".formatted(server.getAddress(), catalog, schema);
         return DriverManager.getConnection(url, user, null);
     }
 

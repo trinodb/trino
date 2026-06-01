@@ -54,7 +54,6 @@ import static io.trino.sql.analyzer.QueryType.EXPLAIN;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.planprinter.IoPlanPrinter.textIoPlan;
 import static io.trino.util.StatementUtils.isDataDefinitionStatement;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class QueryExplainer
@@ -158,7 +157,7 @@ public class QueryExplainer
                 yield jsonDistributedPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
             }
             case DISTRIBUTED -> jsonDistributedPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
-            default -> throw new TrinoException(NOT_SUPPORTED, format("Unsupported explain plan type %s for JSON format", planType));
+            default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported explain plan type %s for JSON format".formatted(planType));
         };
     }
 

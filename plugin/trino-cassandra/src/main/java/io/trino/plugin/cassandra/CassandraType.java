@@ -18,7 +18,6 @@ import io.trino.spi.type.Type;
 
 import java.util.List;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public record CassandraType(Kind kind, Type trinoType, List<CassandraType> argumentTypes)
@@ -81,7 +80,7 @@ public record CassandraType(Kind kind, Type trinoType, List<CassandraType> argum
     @Override
     public String toString()
     {
-        String result = format("%s(%s", kind, trinoType);
+        String result = "%s(%s".formatted(kind, trinoType);
         if (!argumentTypes.isEmpty()) {
             result += "; " + argumentTypes;
         }

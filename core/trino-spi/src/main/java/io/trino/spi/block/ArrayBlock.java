@@ -27,7 +27,6 @@ import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.compactOffsets;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class ArrayBlock
@@ -57,7 +56,7 @@ public final class ArrayBlock
             int offset = arrayOffset[i];
             int length = arrayOffset[i + 1] - offset;
             if (length < 0) {
-                throw new IllegalArgumentException(format("Offset is not monotonically ascending. offsets[%s]=%s, offsets[%s]=%s", i, arrayOffset[i], i + 1, arrayOffset[i + 1]));
+                throw new IllegalArgumentException("Offset is not monotonically ascending. offsets[%s]=%s, offsets[%s]=%s".formatted(i, arrayOffset[i], i + 1, arrayOffset[i + 1]));
             }
             if (valueIsNull != null && valueIsNull[i] && length != 0) {
                 throw new IllegalArgumentException("A null array must have zero entries");

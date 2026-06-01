@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.base.Joiner;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.BaseTestParquetWithBloomFilters;
@@ -26,7 +25,7 @@ import java.util.List;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergParquetWithBloomFilters
@@ -45,7 +44,7 @@ public class TestIcebergParquetWithBloomFilters
         // create the managed table
         String tableName = "parquet_with_bloom_filters_" + randomNameSuffix();
         CatalogSchemaTableName catalogSchemaTableName = new CatalogSchemaTableName("iceberg", new SchemaTableName("tpch", tableName));
-        assertUpdate(format("CREATE TABLE %s WITH (format = 'PARQUET', parquet_bloom_filter_columns = ARRAY['%s']) AS SELECT * FROM (VALUES %s) t(%s)", catalogSchemaTableName, columnName, Joiner.on(", ").join(testValues), columnName), testValues.size());
+        assertUpdate("CREATE TABLE %s WITH (format = 'PARQUET', parquet_bloom_filter_columns = ARRAY['%s']) AS SELECT * FROM (VALUES %s) t(%s)".formatted(catalogSchemaTableName, columnName, testValues.stream().map(Object::toString).collect(joining(", ")), columnName), testValues.size());
 
         return catalogSchemaTableName;
     }

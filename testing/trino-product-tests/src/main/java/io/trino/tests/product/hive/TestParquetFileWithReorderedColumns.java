@@ -31,7 +31,6 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestParquetFileWithReorderedColumns
@@ -66,17 +65,16 @@ public class TestParquetFileWithReorderedColumns
         String sourceTableName = "test_reordered_columns_table_" + randomNameSuffix();
         String tableName = "test_read_reordered_columns_table_" + randomNameSuffix();
         try {
-            onTrino().executeQuery(format(
-                    "CREATE TABLE %s" +
-                            " (id bigint, buyplan_style_detail_id bigint, last_modified_on bigint) " +
-                            "WITH ( " +
-                            "   format = 'PARQUET', " +
-                            "   external_location = 'hdfs://hadoop-master:9000%s/TestParquetFileWithReorderedColumns/' " +
-                            ")",
+            onTrino().executeQuery(("CREATE TABLE %s" +
+            " (id bigint, buyplan_style_detail_id bigint, last_modified_on bigint) " +
+            "WITH ( " +
+            "   format = 'PARQUET', " +
+            "   external_location = 'hdfs://hadoop-master:9000%s/TestParquetFileWithReorderedColumns/' " +
+            ")").formatted(
                     sourceTableName,
                     warehouseDirectory));
             // Write parquet file with Trino parquet writer using an existing file as the source which reproduces the problem of Apache Spark not reading the file
-            onTrino().executeQuery(format("CREATE TABLE %s WITH (format = 'PARQUET') AS SELECT * FROM %s", tableName, sourceTableName));
+            onTrino().executeQuery("CREATE TABLE %s WITH (format = 'PARQUET') AS SELECT * FROM %s".formatted(tableName, sourceTableName));
             String sql = "SELECT COUNT(*), SUM(id), SUM(buyplan_style_detail_id), SUM(last_modified_on) FROM " + tableName;
             assertThat(onTrino().executeQuery(sql))
                     .containsExactlyInOrder(row(50438L, 323043905052L, 67694121262L, 83905381446283000L));

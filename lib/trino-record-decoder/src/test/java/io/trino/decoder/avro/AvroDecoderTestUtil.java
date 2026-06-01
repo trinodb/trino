@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
 
@@ -57,7 +56,7 @@ public final class AvroDecoderTestUtil
                 assertThat(ByteBuffer.wrap(sqlVarbinary.getBytes())).isEqualTo(byteBuffer);
             }
             else {
-                fail(format("Unexpected value type %s", actual.getClass()));
+                fail("Unexpected value type %s".formatted(actual.getClass()));
             }
         }
         else if (isIntegralType(actual) && isIntegralType(expected)) {

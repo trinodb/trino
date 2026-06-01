@@ -50,7 +50,6 @@ import java.util.concurrent.Future;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
-import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
@@ -126,8 +125,8 @@ public final class TestingKafka
             // write directly to System.out, bypassing logging & io.airlift.log.Logging#rewireStdStreams
             //noinspection resource
             PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, Charset.defaultCharset().name());
-            kafka.withLogConsumer(new PrintingLogConsumer(out, format("%-20s| ", "kafka")));
-            schemaRegistry.withLogConsumer(new PrintingLogConsumer(out, format("%-20s| ", "schema-registry")));
+            kafka.withLogConsumer(new PrintingLogConsumer(out, "%-20s| ".formatted("kafka")));
+            schemaRegistry.withLogConsumer(new PrintingLogConsumer(out, "%-20s| ".formatted("schema-registry")));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

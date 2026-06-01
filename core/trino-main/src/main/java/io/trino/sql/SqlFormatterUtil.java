@@ -20,7 +20,6 @@ import io.trino.sql.tree.Statement;
 import jakarta.annotation.Nullable;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static java.lang.String.format;
 
 public final class SqlFormatterUtil
 {
@@ -49,7 +48,7 @@ public final class SqlFormatterUtil
     {
         TrinoException exception = new TrinoException(GENERIC_INTERNAL_ERROR, message, cause);
         exception.addSuppressed(new RuntimeException("Statement: " + statement));
-        exception.addSuppressed(new RuntimeException(format("Formatted: [%s]", sql)));
+        exception.addSuppressed(new RuntimeException("Formatted: [%s]".formatted(sql)));
         return exception;
     }
 }

@@ -26,7 +26,6 @@ import static com.google.common.collect.Sets.filter;
 import static com.google.common.collect.Sets.intersection;
 import static io.trino.spi.type.TimeZoneKey.isUtcZoneId;
 import static java.lang.Math.abs;
-import static java.lang.String.format;
 
 public final class GenerateTimeZoneIndex
 {
@@ -57,7 +56,7 @@ public final class GenerateTimeZoneIndex
         //
         short nextZoneKey = 1;
         for (int offset = 14 * 60; offset > 0; offset--) {
-            String zoneId = format("-%02d:%02d", offset / 60, abs(offset % 60));
+            String zoneId = "-%02d:%02d".formatted(offset / 60, abs(offset % 60));
 
             short zoneKey = nextZoneKey++;
 
@@ -68,7 +67,7 @@ public final class GenerateTimeZoneIndex
         // Positive offset
         //
         for (int offset = 1; offset <= 14 * 60; offset++) {
-            String zoneId = format("+%02d:%02d", offset / 60, abs(offset % 60));
+            String zoneId = "+%02d:%02d".formatted(offset / 60, abs(offset % 60));
 
             short zoneKey = nextZoneKey++;
 

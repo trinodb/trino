@@ -29,7 +29,6 @@ import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_IS
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCsv
@@ -51,15 +50,14 @@ public class TestCsv
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
 
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s(" +
-                        "  name varchar, " +
-                        "  comment varchar " +
-                        ") WITH (format='CSV' %s)",
+        onTrino().executeQuery(("CREATE TABLE %s(" +
+        "  name varchar, " +
+        "  comment varchar " +
+        ") WITH (format='CSV' %s)").formatted(
                 tableName,
                 additionalTableProperties));
 
-        onTrino().executeQuery(format("INSERT INTO %s SELECT name, comment FROM tpch.tiny.nation", tableName));
+        onTrino().executeQuery("INSERT INTO %s SELECT name, comment FROM tpch.tiny.nation".formatted(tableName));
 
         assertSelect("SELECT max(name), max(comment) FROM %s", tableName);
 
@@ -85,11 +83,10 @@ public class TestCsv
         String tableName = "test_csv_table";
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
 
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s WITH (format='CSV' %s) AS " +
-                        "SELECT " +
-                        "CAST(nationkey AS varchar) AS nationkey, CAST(name AS varchar) AS name, CAST(comment AS varchar) AS comment " +
-                        "FROM tpch.tiny.nation",
+        onTrino().executeQuery(("CREATE TABLE %s WITH (format='CSV' %s) AS " +
+        "SELECT " +
+        "CAST(nationkey AS varchar) AS nationkey, CAST(name AS varchar) AS name, CAST(comment AS varchar) AS comment " +
+        "FROM tpch.tiny.nation").formatted(
                 tableName,
                 additionalParameters));
 
@@ -116,16 +113,15 @@ public class TestCsv
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
 
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s(" +
-                        "  name varchar, " +
-                        "  comment varchar, " +
-                        "  regionkey bigint " +
-                        ") WITH (format='CSV' %s, partitioned_by = ARRAY['regionkey'])",
+        onTrino().executeQuery(("CREATE TABLE %s(" +
+        "  name varchar, " +
+        "  comment varchar, " +
+        "  regionkey bigint " +
+        ") WITH (format='CSV' %s, partitioned_by = ARRAY['regionkey'])").formatted(
                 tableName,
                 additionalParameters));
 
-        onTrino().executeQuery(format("INSERT INTO %s SELECT name, comment, regionkey FROM tpch.tiny.nation", tableName));
+        onTrino().executeQuery("INSERT INTO %s SELECT name, comment, regionkey FROM tpch.tiny.nation".formatted(tableName));
 
         assertSelect("SELECT max(name), max(comment), max(regionkey) FROM %s", tableName);
 
@@ -152,9 +148,8 @@ public class TestCsv
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
 
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s WITH (format='CSV', partitioned_by = ARRAY['regionkey'] %s) AS " +
-                        "SELECT cast(nationkey AS varchar) AS nationkey, cast(name AS varchar) AS name, regionkey FROM tpch.tiny.nation",
+        onTrino().executeQuery(("CREATE TABLE %s WITH (format='CSV', partitioned_by = ARRAY['regionkey'] %s) AS " +
+        "SELECT cast(nationkey AS varchar) AS nationkey, cast(name AS varchar) AS name, regionkey FROM tpch.tiny.nation").formatted(
                 tableName,
                 additionalParameters));
 
@@ -165,11 +160,11 @@ public class TestCsv
 
     private static void assertSelect(String query, String tableName)
     {
-        QueryResult expected = onTrino().executeQuery(format(query, "tpch.tiny.nation"));
+        QueryResult expected = onTrino().executeQuery(query.formatted("tpch.tiny.nation"));
         List<Row> expectedRows = expected.rows().stream()
                 .map(columns -> row(columns.toArray()))
                 .collect(toImmutableList());
-        QueryResult actual = onTrino().executeQuery(format(query, tableName));
+        QueryResult actual = onTrino().executeQuery(query.formatted(tableName));
         assertThat(actual)
                 .hasColumns(expected.getColumnTypes())
                 .containsOnly(expectedRows);
@@ -179,62 +174,58 @@ public class TestCsv
     public void testReadCsvTableWithMultiCharProperties()
     {
         String tableName = "storage_formats_test_read_csv_table_with_multi_char_properties";
-        onHive().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-        onHive().executeQuery(format(
-                "CREATE TABLE %s(" +
-                        "   a  string," +
-                        "   b  string," +
-                        "   c  string" +
-                        ") ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde' " +
-                        "WITH SERDEPROPERTIES ('escapeChar'='ee','separatorChar'='ss','quoteChar'='qq') " +
-                        "STORED AS " +
-                        "INPUTFORMAT 'org.apache.hadoop.mapred.TextInputFormat' " +
-                        "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'",
+        onHive().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
+        onHive().executeQuery(("CREATE TABLE %s(" +
+        "   a  string," +
+        "   b  string," +
+        "   c  string" +
+        ") ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde' " +
+        "WITH SERDEPROPERTIES ('escapeChar'='ee','separatorChar'='ss','quoteChar'='qq') " +
+        "STORED AS " +
+        "INPUTFORMAT 'org.apache.hadoop.mapred.TextInputFormat' " +
+        "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'").formatted(
                 tableName));
 
-        onHive().executeQuery(format(
-                "INSERT INTO %s(a, b, c) VALUES " +
-                        "('1', 'a', 'A'), " +
-                        "('2', 'b', 'B'), " +
-                        "('3', 'c', 'C')",
+        onHive().executeQuery(("INSERT INTO %s(a, b, c) VALUES " +
+        "('1', 'a', 'A'), " +
+        "('2', 'b', 'B'), " +
+        "('3', 'c', 'C')").formatted(
                 tableName));
 
-        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName)))
+        assertThat(onTrino().executeQuery("SELECT * FROM %s".formatted(tableName)))
                 .containsOnly(
                         row("1", "a", "A"),
                         row("2", "b", "B"),
                         row("3", "c", "C"));
-        onHive().executeQuery(format("DROP TABLE %s", tableName));
+        onHive().executeQuery("DROP TABLE %s".formatted(tableName));
     }
 
     @Test(groups = STORAGE_FORMATS)
     public void testWriteCsvTableWithMultiCharProperties()
     {
         String tableName = "storage_formats_test_write_csv_table_with_multi_char_properties";
-        onHive().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-        onHive().executeQuery(format(
-                "CREATE TABLE %s(" +
-                        "   a  string," +
-                        "   b  string," +
-                        "   c  string" +
-                        ") ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde' " +
-                        "WITH SERDEPROPERTIES ('escapeChar'='ee','separatorChar'='ss','quoteChar'='qq') " +
-                        "STORED AS " +
-                        "INPUTFORMAT 'org.apache.hadoop.mapred.TextInputFormat' " +
-                        "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'",
+        onHive().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
+        onHive().executeQuery(("CREATE TABLE %s(" +
+        "   a  string," +
+        "   b  string," +
+        "   c  string" +
+        ") ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde' " +
+        "WITH SERDEPROPERTIES ('escapeChar'='ee','separatorChar'='ss','quoteChar'='qq') " +
+        "STORED AS " +
+        "INPUTFORMAT 'org.apache.hadoop.mapred.TextInputFormat' " +
+        "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'").formatted(
                 tableName));
 
-        onTrino().executeQuery(format(
-                "INSERT INTO %s(a, b, c) VALUES " +
-                        "('1', 'a', 'A'), " +
-                        "('2', 'b', 'B'), " +
-                        "('3', 'c', 'C')",
+        onTrino().executeQuery(("INSERT INTO %s(a, b, c) VALUES " +
+        "('1', 'a', 'A'), " +
+        "('2', 'b', 'B'), " +
+        "('3', 'c', 'C')").formatted(
                 tableName));
-        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName)))
+        assertThat(onTrino().executeQuery("SELECT * FROM %s".formatted(tableName)))
                 .containsOnly(
                         row("1", "a", "A"),
                         row("2", "b", "B"),
                         row("3", "c", "C"));
-        onHive().executeQuery(format("DROP TABLE %s", tableName));
+        onHive().executeQuery("DROP TABLE %s".formatted(tableName));
     }
 }

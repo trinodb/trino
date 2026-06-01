@@ -37,7 +37,6 @@ import java.util.Set;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -144,12 +143,11 @@ public class EnvMultinodeClickhouse
             customConfig.toFile().deleteOnExit();
             Files.writeString(
                     customConfig,
-                    format(
-                            "<?xml version=\"1.0\"?>\n" +
-                                    "<yandex>\n" +
-                                    "    <http_port>%s</http_port>\n" +
-                                    "    <tcp_port>%s</tcp_port>\n" +
-                                    "</yandex>\n",
+                    ("<?xml version=\"1.0\"?>\n" +
+                    "<yandex>\n" +
+                    "    <http_port>%s</http_port>\n" +
+                    "    <tcp_port>%s</tcp_port>\n" +
+                    "</yandex>\n").formatted(
                             httpPort,
                             nativePort),
                     UTF_8);

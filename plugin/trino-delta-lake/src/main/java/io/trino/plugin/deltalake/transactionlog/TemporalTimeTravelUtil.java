@@ -40,7 +40,6 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTra
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
-import static java.lang.String.format;
 
 public final class TemporalTimeTravelUtil
 {
@@ -76,7 +75,7 @@ public final class TemporalTimeTravelUtil
             return version;
         }
 
-        throw new TrinoException(INVALID_ARGUMENTS, format("No temporal version history at or before %s", Instant.ofEpochMilli(epochMillis)));
+        throw new TrinoException(INVALID_ARGUMENTS, "No temporal version history at or before %s".formatted(Instant.ofEpochMilli(epochMillis)));
     }
 
     private static long findLatestVersionUsingTemporalInternal(TrinoFileSystem fileSystem, String tableLocation, long epochMillis, Executor executor, int maxLinearSearchSize)

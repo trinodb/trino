@@ -21,7 +21,6 @@ import io.trino.spi.type.Type;
 import java.util.List;
 
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
-import static java.lang.String.format;
 import static java.util.Objects.checkIndex;
 
 public class PageBuilder
@@ -158,7 +157,7 @@ public class PageBuilder
         for (int i = 0; i < blocks.length; i++) {
             blocks[i] = blockBuilders[i].build();
             if (blocks[i].getPositionCount() != declaredPositions) {
-                throw new IllegalStateException(format("Declared positions (%s) does not match block %s's number of entries (%s)", declaredPositions, i, blocks[i].getPositionCount()));
+                throw new IllegalStateException("Declared positions (%s) does not match block %s's number of entries (%s)".formatted(declaredPositions, i, blocks[i].getPositionCount()));
             }
         }
 

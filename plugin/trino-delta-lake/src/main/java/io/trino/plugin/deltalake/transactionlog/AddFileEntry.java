@@ -32,7 +32,6 @@ import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.canonicalizePartitionValues;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class AddFileEntry
@@ -191,8 +190,7 @@ public class AddFileEntry
     @Override
     public String toString()
     {
-        return format(
-                "AddFileEntry{path=%s, partitionValues=%s, size=%d, modificationTime=%d, dataChange=%b, parsedStats=%s, tags=%s}",
+        return "AddFileEntry{path=%s, partitionValues=%s, size=%d, modificationTime=%d, dataChange=%b, parsedStats=%s, tags=%s}".formatted(
                 path,
                 partitionValues,
                 size,

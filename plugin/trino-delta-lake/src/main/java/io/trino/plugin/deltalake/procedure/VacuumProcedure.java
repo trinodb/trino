@@ -74,7 +74,6 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSA
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Comparator.naturalOrder;
 import static java.util.Objects.requireNonNull;
@@ -142,11 +141,11 @@ public class VacuumProcedure
             throw e;
         }
         catch (IOException e) {
-            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Failure when vacuuming %s.%s with retention %s: %s", schema, table, retention, e), e);
+            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Failure when vacuuming %s.%s with retention %s: %s".formatted(schema, table, retention, e), e);
         }
         catch (RuntimeException e) {
             // This is not categorized as TrinoException. All possible external failures should be handled explicitly.
-            throw new RuntimeException(format("Failure when vacuuming %s.%s with retention %s: %s", schema, table, retention, e), e);
+            throw new RuntimeException("Failure when vacuuming %s.%s with retention %s: %s".formatted(schema, table, retention, e), e);
         }
     }
 

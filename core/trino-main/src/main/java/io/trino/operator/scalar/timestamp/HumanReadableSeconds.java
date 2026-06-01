@@ -26,7 +26,6 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static java.lang.String.format;
 import static org.joda.time.DateTimeConstants.SECONDS_PER_DAY;
 import static org.joda.time.DateTimeConstants.SECONDS_PER_HOUR;
 import static org.joda.time.DateTimeConstants.SECONDS_PER_MINUTE;
@@ -49,7 +48,7 @@ public final class HumanReadableSeconds
     public static Slice humanReadableSeconds(@SqlType(StandardTypes.DOUBLE) double inputSeconds)
     {
         if (Double.isNaN(inputSeconds) || Double.isInfinite(inputSeconds)) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid argument found: %s", inputSeconds));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid argument found: %s".formatted(inputSeconds));
         }
 
         long seconds = Math.round(Math.abs(inputSeconds));

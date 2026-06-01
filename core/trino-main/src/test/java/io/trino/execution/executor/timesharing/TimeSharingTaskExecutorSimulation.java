@@ -46,7 +46,6 @@ import static io.trino.execution.executor.timesharing.Histogram.fromContinuous;
 import static io.trino.execution.executor.timesharing.Histogram.fromDiscrete;
 import static io.trino.execution.executor.timesharing.SimulationController.TaskSpecification.Type.INTERMEDIATE;
 import static io.trino.execution.executor.timesharing.SimulationController.TaskSpecification.Type.LEAF;
-import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -440,8 +439,7 @@ public class TimeSharingTaskExecutorSimulation
     private static String formatNanos(List<Long> list)
     {
         LongSummaryStatistics stats = list.stream().mapToLong(value -> value).summaryStatistics();
-        return format(
-                "Min: %8s  Max: %8s  Avg: %8s  Sum: %8s",
+        return "Min: %8s  Max: %8s  Avg: %8s  Sum: %8s".formatted(
                 succinctNanos(stats.getMin() == Long.MAX_VALUE ? 0 : stats.getMin()),
                 succinctNanos(stats.getMax() == Long.MIN_VALUE ? 0 : stats.getMax()),
                 succinctNanos((long) stats.getAverage()),

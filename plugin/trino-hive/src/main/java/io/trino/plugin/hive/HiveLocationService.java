@@ -35,7 +35,6 @@ import static io.trino.plugin.hive.util.HiveWriteUtils.createTemporaryPath;
 import static io.trino.plugin.hive.util.HiveWriteUtils.directoryExists;
 import static io.trino.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HiveLocationService
@@ -61,7 +60,7 @@ public class HiveLocationService
 
         // verify the target directory for table
         if (directoryExists(fileSystem, targetPath).orElse(false)) {
-            throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s.%s' already exists: %s", schemaName, tableName, targetPath));
+            throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, "Target directory for table '%s.%s' already exists: %s".formatted(schemaName, tableName, targetPath));
         }
         return targetPath;
     }
@@ -74,7 +73,7 @@ public class HiveLocationService
 
         // verify the target directory for the table
         if (directoryExists(fileSystem, targetPath).orElse(false)) {
-            throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s.%s' already exists: %s", schemaName, tableName, targetPath));
+            throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, "Target directory for table '%s.%s' already exists: %s".formatted(schemaName, tableName, targetPath));
         }
 
         // Skip using temporary directory if the destination is external. Target may be on a different file system.
@@ -147,7 +146,7 @@ public class HiveLocationService
         return switch (writeMode) {
             case STAGE_AND_MOVE_TO_TARGET_DIRECTORY -> locationHandle.getWritePath().appendPath(partitionName);
             case DIRECT_TO_TARGET_EXISTING_DIRECTORY -> targetPath;
-            case DIRECT_TO_TARGET_NEW_DIRECTORY -> throw new UnsupportedOperationException(format("inserting into existing partition is not supported for %s", writeMode));
+            case DIRECT_TO_TARGET_NEW_DIRECTORY -> throw new UnsupportedOperationException("inserting into existing partition is not supported for %s".formatted(writeMode));
         };
     }
 }

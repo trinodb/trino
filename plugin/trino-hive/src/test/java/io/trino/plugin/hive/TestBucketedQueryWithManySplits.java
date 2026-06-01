@@ -19,8 +19,6 @@ import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
-import static java.lang.String.format;
-
 public class TestBucketedQueryWithManySplits
         extends AbstractTestQueryFramework
 {
@@ -46,8 +44,8 @@ public class TestBucketedQueryWithManySplits
         queryRunner.execute("CREATE TABLE tbl_b (col bigint, bucket bigint) WITH (bucketed_by=array['bucket'], bucket_count=10)");
 
         for (int i = 0; i < 50; i++) {
-            queryRunner.execute(format("INSERT INTO tbl_a VALUES (%s, %s)", i, i));
-            queryRunner.execute(format("INSERT INTO tbl_b VALUES (%s, %s)", i, i));
+            queryRunner.execute("INSERT INTO tbl_a VALUES (%s, %s)".formatted(i, i));
+            queryRunner.execute("INSERT INTO tbl_b VALUES (%s, %s)".formatted(i, i));
         }
 
         // query should not deadlock

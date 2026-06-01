@@ -31,7 +31,6 @@ import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.util.DateTimeUtils.parseDate;
 import static io.trino.util.DateTimeUtils.printDate;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 
 public final class DateOperators
 {
@@ -48,7 +47,7 @@ public final class DateOperators
             return utf8Slice(stringValue);
         }
 
-        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s cannot be represented as varchar(%s)", stringValue, x));
+        throw new TrinoException(INVALID_CAST_ARGUMENT, "Value %s cannot be represented as varchar(%s)".formatted(stringValue, x));
     }
 
     @ScalarFunction("date")

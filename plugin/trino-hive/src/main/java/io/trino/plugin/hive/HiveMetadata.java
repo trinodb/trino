@@ -14,7 +14,6 @@
 package io.trino.plugin.hive;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Suppliers;
 import com.google.common.base.VerifyException;
@@ -349,7 +348,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Boolean.parseBoolean;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
@@ -542,13 +540,13 @@ public class HiveMetadata
             return null;
         }
         if (isDeltaLakeTable(table)) {
-            throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Cannot query Delta Lake table '%s'", tableName));
+            throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Cannot query Delta Lake table '%s'".formatted(tableName));
         }
         if (isIcebergTable(table)) {
-            throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Cannot query Iceberg table '%s'", tableName));
+            throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Cannot query Iceberg table '%s'".formatted(tableName));
         }
         if (isHudiTable(table)) {
-            throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Cannot query Hudi table '%s'", tableName));
+            throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Cannot query Hudi table '%s'".formatted(tableName));
         }
 
         // we must not allow system tables due to how permissions are checked in SystemTableAwareAccessControl
@@ -606,7 +604,7 @@ public class HiveMetadata
             if (!allColumnNames.containsAll(columnNames)) {
                 throw new TrinoException(
                         INVALID_ANALYZE_PROPERTY,
-                        format("Invalid columns specified for analysis: %s", Sets.difference(columnNames, allColumnNames)));
+                        "Invalid columns specified for analysis: %s".formatted(Sets.difference(columnNames, allColumnNames)));
             }
         }
 
@@ -668,7 +666,7 @@ public class HiveMetadata
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
         if (isIcebergTable(table) || isDeltaLakeTable(table)) {
-            throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Not a Hive table '%s'", tableName));
+            throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Not a Hive table '%s'".formatted(tableName));
         }
 
         boolean isTrinoView = isTrinoView(table);
@@ -807,7 +805,7 @@ public class HiveMetadata
             // in Hive one can set conflicting values for the same property, in such a case it looks like table properties are used
             throw new TrinoException(
                     HIVE_INVALID_METADATA,
-                    format("Different values for '%s' set in serde properties and table properties: '%s' and '%s'", key, serdePropertyValue, tablePropertyValue));
+                    "Different values for '%s' set in serde properties and table properties: '%s' and '%s'".formatted(key, serdePropertyValue, tablePropertyValue));
         }
         return firstNonNullable(tablePropertyValue, serdePropertyValue);
     }
@@ -1167,7 +1165,7 @@ public class HiveMetadata
         if (orcBloomFilterColumns != null && !orcBloomFilterColumns.isEmpty()) {
             checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.ORC, ORC_BLOOM_FILTER_COLUMNS);
             validateOrcBloomFilterColumns(tableMetadata, orcBloomFilterColumns);
-            tableProperties.put(ORC_BLOOM_FILTER_COLUMNS_KEY, Joiner.on(",").join(orcBloomFilterColumns));
+            tableProperties.put(ORC_BLOOM_FILTER_COLUMNS_KEY, String.join(",", orcBloomFilterColumns));
             tableProperties.put(ORC_BLOOM_FILTER_FPP_KEY, String.valueOf(getOrcBloomFilterFpp(tableMetadata.getProperties())));
         }
 
@@ -1175,7 +1173,7 @@ public class HiveMetadata
         if (parquetBloomFilterColumns != null && !parquetBloomFilterColumns.isEmpty()) {
             checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.PARQUET, PARQUET_BLOOM_FILTER_COLUMNS);
             validateParquetBloomFilterColumns(tableMetadata, parquetBloomFilterColumns);
-            tableProperties.put(PARQUET_BLOOM_FILTER_COLUMNS_KEY, Joiner.on(",").join(parquetBloomFilterColumns));
+            tableProperties.put(PARQUET_BLOOM_FILTER_COLUMNS_KEY, String.join(",", parquetBloomFilterColumns));
             // TODO: Enable specifying FPP
         }
 
@@ -1200,7 +1198,7 @@ public class HiveMetadata
                 tableProperties.put(SKIP_HEADER_COUNT_KEY, String.valueOf(headerSkipCount));
             }
             if (headerSkipCount < 0) {
-                throw new TrinoException(HIVE_INVALID_METADATA, format("Invalid value for %s property: %s", SKIP_HEADER_LINE_COUNT, headerSkipCount));
+                throw new TrinoException(HIVE_INVALID_METADATA, "Invalid value for %s property: %s".formatted(SKIP_HEADER_LINE_COUNT, headerSkipCount));
             }
         });
 
@@ -1210,7 +1208,7 @@ public class HiveMetadata
                 tableProperties.put(SKIP_FOOTER_COUNT_KEY, String.valueOf(footerSkipCount));
             }
             if (footerSkipCount < 0) {
-                throw new TrinoException(HIVE_INVALID_METADATA, format("Invalid value for %s property: %s", SKIP_FOOTER_LINE_COUNT, footerSkipCount));
+                throw new TrinoException(HIVE_INVALID_METADATA, "Invalid value for %s property: %s".formatted(SKIP_FOOTER_LINE_COUNT, footerSkipCount));
             }
         });
 
@@ -1268,7 +1266,7 @@ public class HiveMetadata
                         },
                         () -> {
                             if (hiveStorageFormat == HiveStorageFormat.REGEX) {
-                                throw new TrinoException(INVALID_TABLE_PROPERTY, format("REGEX format requires the '%s' table property", REGEX_PATTERN));
+                                throw new TrinoException(INVALID_TABLE_PROPERTY, "REGEX format requires the '%s' table property".formatted(REGEX_PATTERN));
                             }
                         });
         isRegexCaseInsensitive(tableMetadata.getProperties())
@@ -1322,14 +1320,14 @@ public class HiveMetadata
     private static void checkFormatForProperty(HiveStorageFormat actualStorageFormat, HiveStorageFormat expectedStorageFormat, String propertyName)
     {
         if (actualStorageFormat != expectedStorageFormat) {
-            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Cannot specify %s table property for storage format: %s", propertyName, actualStorageFormat));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Cannot specify %s table property for storage format: %s".formatted(propertyName, actualStorageFormat));
         }
     }
 
     private static void checkFormatForProperty(HiveStorageFormat actualStorageFormat, Set<HiveStorageFormat> expectedStorageFormats, String propertyName)
     {
         if (!expectedStorageFormats.contains(actualStorageFormat)) {
-            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Cannot specify %s table property for storage format: %s", propertyName, actualStorageFormat));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Cannot specify %s table property for storage format: %s".formatted(propertyName, actualStorageFormat));
         }
     }
 
@@ -1339,7 +1337,7 @@ public class HiveMetadata
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableSet());
         if (!allColumns.containsAll(orcBloomFilterColumns)) {
-            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Orc bloom filter columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(orcBloomFilterColumns), allColumns)));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Orc bloom filter columns %s not present in schema".formatted(Sets.difference(ImmutableSet.copyOf(orcBloomFilterColumns), allColumns)));
         }
     }
 
@@ -1350,10 +1348,10 @@ public class HiveMetadata
         for (String column : parquetBloomFilterColumns) {
             Type type = columnTypes.get(column);
             if (type == null) {
-                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Parquet Bloom filter column %s not present in schema", column));
+                throw new TrinoException(INVALID_TABLE_PROPERTY, "Parquet Bloom filter column %s not present in schema".formatted(column));
             }
             if (!SUPPORTED_BLOOM_FILTER_TYPES.contains(type)) {
-                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Parquet Bloom filter column %s has unsupported type %s", column, type.getDisplayName()));
+                throw new TrinoException(INVALID_TABLE_PROPERTY, "Parquet Bloom filter column %s has unsupported type %s".formatted(column, type.getDisplayName()));
             }
         }
     }
@@ -1806,13 +1804,13 @@ public class HiveMetadata
 
         getHeaderSkipCount(tableMetadata.getProperties()).ifPresent(headerSkipCount -> {
             if (headerSkipCount > 1) {
-                throw new TrinoException(NOT_SUPPORTED, format("Creating Hive table with data with value of %s property greater than 1 is not supported", SKIP_HEADER_COUNT_KEY));
+                throw new TrinoException(NOT_SUPPORTED, "Creating Hive table with data with value of %s property greater than 1 is not supported".formatted(SKIP_HEADER_COUNT_KEY));
             }
         });
 
         getFooterSkipCount(tableMetadata.getProperties()).ifPresent(footerSkipCount -> {
             if (footerSkipCount > 0) {
-                throw new TrinoException(NOT_SUPPORTED, format("Creating Hive table with data with value of %s property greater than 0 is not supported", SKIP_FOOTER_COUNT_KEY));
+                throw new TrinoException(NOT_SUPPORTED, "Creating Hive table with data with value of %s property greater than 0 is not supported".formatted(SKIP_FOOTER_COUNT_KEY));
             }
         });
 
@@ -2151,7 +2149,7 @@ public class HiveMetadata
 
         for (Column column : table.getDataColumns()) {
             if (!isWritableType(column.getType())) {
-                throw new TrinoException(NOT_SUPPORTED, format("%s Hive table %s with column type %s not supported", description, tableName, column.getType()));
+                throw new TrinoException(NOT_SUPPORTED, "%s Hive table %s with column type %s not supported".formatted(description, tableName, column.getType()));
             }
         }
 
@@ -2173,7 +2171,7 @@ public class HiveMetadata
         HiveStorageFormat tableStorageFormat = extractHiveStorageFormat(table);
         Optional.ofNullable(table.getParameters().get(SKIP_HEADER_COUNT_KEY)).map(Integer::parseInt).ifPresent(headerSkipCount -> {
             if (headerSkipCount > 1) {
-                throw new TrinoException(NOT_SUPPORTED, format("%s Hive table with value of %s property greater than 1 is not supported", description, SKIP_HEADER_COUNT_KEY));
+                throw new TrinoException(NOT_SUPPORTED, "%s Hive table with value of %s property greater than 1 is not supported".formatted(description, SKIP_HEADER_COUNT_KEY));
             }
         });
 
@@ -2183,7 +2181,7 @@ public class HiveMetadata
         }
 
         if (table.getParameters().containsKey(SKIP_FOOTER_COUNT_KEY)) {
-            throw new TrinoException(NOT_SUPPORTED, format("%s Hive table with %s property not supported", description, SKIP_FOOTER_COUNT_KEY));
+            throw new TrinoException(NOT_SUPPORTED, "%s Hive table with %s property not supported".formatted(description, SKIP_FOOTER_COUNT_KEY));
         }
         LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
 
@@ -2406,7 +2404,7 @@ public class HiveMetadata
                 }
             }
             else {
-                throw new IllegalArgumentException(format("Unsupported update mode: %s", partitionUpdate.getUpdateMode()));
+                throw new IllegalArgumentException("Unsupported update mode: %s".formatted(partitionUpdate.getUpdateMode()));
             }
         }
 
@@ -2438,7 +2436,7 @@ public class HiveMetadata
         catch (Exception ex) {
             throw new TrinoException(
                     HIVE_FILESYSTEM_ERROR,
-                    format("Failed to delete partition %s files during overwrite", partitionLocation),
+                    "Failed to delete partition %s files during overwrite".formatted(partitionLocation),
                     ex);
         }
     }
@@ -2555,16 +2553,16 @@ public class HiveMetadata
 
         for (Column column : table.getDataColumns()) {
             if (!isWritableType(column.getType())) {
-                throw new TrinoException(NOT_SUPPORTED, format("Optimizing Hive table %s with column type %s not supported", tableName, column.getType()));
+                throw new TrinoException(NOT_SUPPORTED, "Optimizing Hive table %s with column type %s not supported".formatted(tableName, column.getType()));
             }
         }
 
         if (isTransactionalTable(table.getParameters())) {
-            throw new TrinoException(NOT_SUPPORTED, format("Optimizing transactional Hive table %s is not supported", tableName));
+            throw new TrinoException(NOT_SUPPORTED, "Optimizing transactional Hive table %s is not supported".formatted(tableName));
         }
 
         if (table.getStorage().getBucketProperty().isPresent()) {
-            throw new TrinoException(NOT_SUPPORTED, format("Optimizing bucketed Hive table %s is not supported", tableName));
+            throw new TrinoException(NOT_SUPPORTED, "Optimizing bucketed Hive table %s is not supported".formatted(tableName));
         }
 
         // TODO forcing NANOSECONDS precision here so we do not loose data. In future we may be smarter; options:
@@ -2577,12 +2575,12 @@ public class HiveMetadata
         HiveStorageFormat tableStorageFormat = extractHiveStorageFormat(table);
         Optional.ofNullable(table.getParameters().get(SKIP_HEADER_COUNT_KEY)).map(Integer::parseInt).ifPresent(headerSkipCount -> {
             if (headerSkipCount > 1) {
-                throw new TrinoException(NOT_SUPPORTED, format("Optimizing Hive table %s with value of %s property greater than 1 is not supported", tableName, SKIP_HEADER_COUNT_KEY));
+                throw new TrinoException(NOT_SUPPORTED, "Optimizing Hive table %s with value of %s property greater than 1 is not supported".formatted(tableName, SKIP_HEADER_COUNT_KEY));
             }
         });
 
         if (table.getParameters().containsKey(SKIP_FOOTER_COUNT_KEY)) {
-            throw new TrinoException(NOT_SUPPORTED, format("Optimizing Hive table %s with %s property not supported", tableName, SKIP_FOOTER_COUNT_KEY));
+            throw new TrinoException(NOT_SUPPORTED, "Optimizing Hive table %s with %s property not supported".formatted(tableName, SKIP_FOOTER_COUNT_KEY));
         }
         LocationHandle locationHandle = locationService.forOptimize(metastore, session, table);
 
@@ -3036,8 +3034,7 @@ public class HiveMetadata
                 if (partitionIds.size() > maxPartitionDropsPerQuery) {
                     throw new TrinoException(
                             NOT_SUPPORTED,
-                            format(
-                                    "Failed to drop partitions. The number of partitions to be dropped is greater than the maximum allowed partitions (%s).",
+                            "Failed to drop partitions. The number of partitions to be dropped is greater than the maximum allowed partitions (%s).".formatted(
                                     maxPartitionDropsPerQuery));
                 }
             }
@@ -3161,7 +3158,7 @@ public class HiveMetadata
                             .collect(joining(", "));
                     throw new TrinoException(
                             StandardErrorCode.QUERY_REJECTED,
-                            format("Filter required on %s.%s for at least one partition column: %s", handle.getSchemaName(), handle.getTableName(), partitionColumnNames));
+                            "Filter required on %s.%s for at least one partition column: %s".formatted(handle.getSchemaName(), handle.getTableName(), partitionColumnNames));
                 }
             }
         }
@@ -3406,7 +3403,7 @@ public class HiveMetadata
         for (HivePartition partition : partitions) {
             NullableValue value = partition.getKeys().get(column);
             if (value == null) {
-                throw new TrinoException(HIVE_UNKNOWN_ERROR, format("Partition %s does not have a value for partition column %s", partition, column));
+                throw new TrinoException(HIVE_UNKNOWN_ERROR, "Partition %s does not have a value for partition column %s".formatted(partition, column));
             }
 
             if (value.isNull()) {
@@ -3555,10 +3552,10 @@ public class HiveMetadata
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
         if (table.getStorage().getBucketProperty().isPresent()) {
-            throw new TrinoException(NOT_SUPPORTED, format("Optimizing bucketed Hive table %s is not supported", tableName));
+            throw new TrinoException(NOT_SUPPORTED, "Optimizing bucketed Hive table %s is not supported".formatted(tableName));
         }
         if (isTransactionalTable(table.getParameters())) {
-            throw new TrinoException(NOT_SUPPORTED, format("Optimizing transactional Hive table %s is not supported", tableName));
+            throw new TrinoException(NOT_SUPPORTED, "Optimizing transactional Hive table %s is not supported".formatted(tableName));
         }
 
         List<Column> partitionColumns = table.getPartitionColumns();
@@ -3748,7 +3745,7 @@ public class HiveMetadata
                 return format;
             }
         }
-        throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("Output format %s with SerDe %s is not supported", outputFormat, serde));
+        throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Output format %s with SerDe %s is not supported".formatted(outputFormat, serde));
     }
 
     private static void validateBucketColumns(ConnectorTableMetadata tableMetadata)
@@ -3763,23 +3760,23 @@ public class HiveMetadata
 
         List<String> bucketedBy = bucketInfo.get().bucketedBy();
         if (!allColumns.containsAll(bucketedBy)) {
-            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Bucketing columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(bucketedBy), allColumns)));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Bucketing columns %s not present in schema".formatted(Sets.difference(ImmutableSet.copyOf(bucketedBy), allColumns)));
         }
 
         Set<String> partitionColumns = ImmutableSet.copyOf(getPartitionedBy(tableMetadata.getProperties()));
         if (bucketedBy.stream().anyMatch(partitionColumns::contains)) {
-            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Bucketing columns %s are also used as partitioning columns", Sets.intersection(ImmutableSet.copyOf(bucketedBy), partitionColumns)));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Bucketing columns %s are also used as partitioning columns".formatted(Sets.intersection(ImmutableSet.copyOf(bucketedBy), partitionColumns)));
         }
 
         List<String> sortedBy = bucketInfo.get().sortedBy().stream()
                 .map(SortingColumn::columnName)
                 .collect(toImmutableList());
         if (!allColumns.containsAll(sortedBy)) {
-            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Sorting columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(sortedBy), allColumns)));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Sorting columns %s not present in schema".formatted(Sets.difference(ImmutableSet.copyOf(sortedBy), allColumns)));
         }
 
         if (sortedBy.stream().anyMatch(partitionColumns::contains)) {
-            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Sorting columns %s are also used as partitioning columns", Sets.intersection(ImmutableSet.copyOf(sortedBy), partitionColumns)));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Sorting columns %s are also used as partitioning columns".formatted(Sets.intersection(ImmutableSet.copyOf(sortedBy), partitionColumns)));
         }
 
         List<Column> dataColumns = tableMetadata.getColumns().stream()
@@ -3799,7 +3796,7 @@ public class HiveMetadata
                 .collect(toImmutableList());
 
         if (!ImmutableSet.copyOf(allColumns).containsAll(partitionedBy)) {
-            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Partition columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(partitionedBy), ImmutableSet.copyOf(allColumns))));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Partition columns %s not present in schema".formatted(Sets.difference(ImmutableSet.copyOf(partitionedBy), ImmutableSet.copyOf(allColumns))));
         }
 
         if (allColumns.size() == partitionedBy.size()) {
@@ -3865,7 +3862,7 @@ public class HiveMetadata
 
         if (!unsupportedColumns.isEmpty()) {
             String joinedUnsupportedColumns = unsupportedColumns.stream()
-                    .map(columnMetadata -> format("%s %s", columnMetadata.getName(), columnMetadata.getType()))
+                    .map(columnMetadata -> "%s %s".formatted(columnMetadata.getName(), columnMetadata.getType()))
                     .collect(joining(", "));
             throw new TrinoException(NOT_SUPPORTED, "Hive CSV storage format only supports VARCHAR (unbounded). Unsupported columns: " + joinedUnsupportedColumns);
         }
@@ -3874,13 +3871,13 @@ public class HiveMetadata
     public static void verifyHiveColumnName(String columnName)
     {
         if (columnName.startsWith(" ")) {
-            throw new TrinoException(NOT_SUPPORTED, format("Hive column names must not start with a space: '%s'", columnName));
+            throw new TrinoException(NOT_SUPPORTED, "Hive column names must not start with a space: '%s'".formatted(columnName));
         }
         if (columnName.endsWith(" ")) {
-            throw new TrinoException(NOT_SUPPORTED, format("Hive column names must not end with a space: '%s'", columnName));
+            throw new TrinoException(NOT_SUPPORTED, "Hive column names must not end with a space: '%s'".formatted(columnName));
         }
         if (columnName.contains(",")) {
-            throw new TrinoException(NOT_SUPPORTED, format("Hive column names must not contain commas: '%s'", columnName));
+            throw new TrinoException(NOT_SUPPORTED, "Hive column names must not contain commas: '%s'".formatted(columnName));
         }
     }
 
@@ -3895,8 +3892,7 @@ public class HiveMetadata
     {
         if (type instanceof TimestampType timestampType) {
             if (timestampType.getPrecision() != precision.getPrecision()) {
-                throw new TrinoException(NOT_SUPPORTED, format(
-                        "Incorrect timestamp precision for %s; the configured precision is %s; column name: %s",
+                throw new TrinoException(NOT_SUPPORTED, "Incorrect timestamp precision for %s; the configured precision is %s; column name: %s".formatted(
                         type,
                         precision,
                         column.getName()));

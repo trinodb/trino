@@ -18,7 +18,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -95,7 +94,7 @@ public class TestRowPatternMatching
                 "                ) AS m";
 
         // empty pattern (need to declare at least one pattern variable. It is in non-preferred branch of pattern alternation and will not be matched)
-        assertThat(assertions.query(format(query, "PATTERN (() | A) " +
+        assertThat(assertions.query(query.formatted("PATTERN (() | A) " +
                 "                  DEFINE A AS true ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), CAST(null AS integer), CAST(null AS varchar)), " +
@@ -104,29 +103,29 @@ public class TestRowPatternMatching
                         "     (4, 4, null, null) ");
 
         // anchor pattern: partition start
-        assertThat(assertions.query(format(query, "PATTERN (^A) " +
+        assertThat(assertions.query(query.formatted("PATTERN (^A) " +
                 "                  DEFINE A AS true ")))
                 .matches("VALUES (1, CAST(1 AS bigint), 90, VARCHAR 'A') ");
-        assertThat(assertions.query(format(query, "PATTERN (A^) " +
+        assertThat(assertions.query(query.formatted("PATTERN (A^) " +
                 "                  DEFINE A AS true ")))
                 .returnsEmptyResult();
-        assertThat(assertions.query(format(query, "PATTERN (^A^) " +
+        assertThat(assertions.query(query.formatted("PATTERN (^A^) " +
                 "                  DEFINE A AS true ")))
                 .returnsEmptyResult();
 
         // anchor pattern: partition end
-        assertThat(assertions.query(format(query, "PATTERN (A$) " +
+        assertThat(assertions.query(query.formatted("PATTERN (A$) " +
                 "                  DEFINE A AS true ")))
                 .matches("VALUES (4, CAST(1 AS bigint), 70, VARCHAR 'A') ");
-        assertThat(assertions.query(format(query, "PATTERN ($A) " +
+        assertThat(assertions.query(query.formatted("PATTERN ($A) " +
                 "                  DEFINE A AS true ")))
                 .returnsEmptyResult();
-        assertThat(assertions.query(format(query, "PATTERN ($A$) " +
+        assertThat(assertions.query(query.formatted("PATTERN ($A$) " +
                 "                  DEFINE A AS true ")))
                 .returnsEmptyResult();
 
         // pattern concatenation
-        assertThat(assertions.query(format(query, "PATTERN (A B C) " +
+        assertThat(assertions.query(query.formatted("PATTERN (A B C) " +
                 "                  DEFINE " +
                 "                          B AS B.value < PREV (B.value), " +
                 "                          C AS C.value = PREV (C.value) ")))
@@ -136,7 +135,7 @@ public class TestRowPatternMatching
                         "     (4, 1, 70, 'C') ");
 
         // pattern alternation: when multiple alternatives match, the first in order of declaration is preferred
-        assertThat(assertions.query(format(query, "PATTERN (B | C | A) " +
+        assertThat(assertions.query(query.formatted("PATTERN (B | C | A) " +
                 "                  DEFINE " +
                 "                          B AS B.value < PREV (B.value), " +
                 "                          C AS C.value <= PREV (C.value) ")))
@@ -147,7 +146,7 @@ public class TestRowPatternMatching
                         "     (4, 4, 70, 'C') ");
 
         // pattern permutation: when multiple permutations match, the first in lexicographical order is preferred
-        assertThat(assertions.query(format(query, "PATTERN (PERMUTE(B, C)) " +
+        assertThat(assertions.query(query.formatted("PATTERN (PERMUTE(B, C)) " +
                 "                  DEFINE " +
                 "                          B AS B.value < PREV (B.value), " +
                 "                          C AS C.value < PREV (C.value) ")))
@@ -156,7 +155,7 @@ public class TestRowPatternMatching
                         "     (3, 1, 70, 'C') ");
 
         // grouped pattern
-        assertThat(assertions.query(format(query, "PATTERN (((A) (B (C)))) " +
+        assertThat(assertions.query(query.formatted("PATTERN (((A) (B (C)))) " +
                 "                  DEFINE " +
                 "                          B AS B.value < PREV (B.value), " +
                 "                          C AS C.value = PREV (C.value) ")))
@@ -188,187 +187,187 @@ public class TestRowPatternMatching
                 "                  DEFINE B AS B.value <= PREV (B.value) " +
                 "                ) AS m";
 
-        assertThat(assertions.query(format(query, "PATTERN (B*) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B*) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), null, CAST(null AS varchar)), " +
                         "     (2, 2, 80, 'B'), " +
                         "     (3, 2, 70, 'B'), " +
                         "     (4, 2, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B*?) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B*?) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), CAST(null AS integer), CAST(null AS varchar)), " +
                         "     (2, 2, null, null), " +
                         "     (3, 3, null, null), " +
                         "     (4, 4, null, null) ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B+) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B+) ")))
                 .matches("VALUES " +
                         "     (2, CAST(1 AS bigint), 80, VARCHAR 'B'), " +
                         "     (3, 1, 70, 'B'), " +
                         "     (4, 1, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B+?) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B+?) ")))
                 .matches("VALUES " +
                         "     (2, CAST(1 AS bigint), 80, VARCHAR 'B'), " +
                         "     (3, 2, 70, 'B'), " +
                         "     (4, 3, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B?) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B?) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), null, CAST(null AS varchar)), " +
                         "     (2, 2, 80, 'B'), " +
                         "     (3, 3, 70, 'B'), " +
                         "     (4, 4, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B??) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B??) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), CAST(null AS integer), CAST(null AS varchar)), " +
                         "     (2, 2, null, null), " +
                         "     (3, 3, null, null), " +
                         "     (4, 4, null, null) ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B{,}) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{,}) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), null, CAST(null AS varchar)), " +
                         "     (2, 2, 80, 'B'), " +
                         "     (3, 2, 70, 'B'), " +
                         "     (4, 2, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B{,}?) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{,}?) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), CAST(null AS integer), CAST(null AS varchar)), " +
                         "     (2, 2, null, null), " +
                         "     (3, 3, null, null), " +
                         "     (4, 4, null, null) ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B{1,}) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{1,}) ")))
                 .matches("VALUES " +
                         "     (2, CAST(1 AS bigint), 80, VARCHAR 'B'), " +
                         "     (3, 1, 70, 'B'), " +
                         "     (4, 1, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B{1,}?) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{1,}?) ")))
                 .matches("VALUES " +
                         "     (2, CAST(1 AS bigint), 80, VARCHAR 'B'), " +
                         "     (3, 2, 70, 'B'), " +
                         "     (4, 3, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B{2,}) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{2,}) ")))
                 .matches("VALUES " +
                         "     (2, CAST(1 AS bigint), 80, VARCHAR 'B'), " +
                         "     (3, 1, 70, 'B'), " +
                         "     (4, 1, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B{2,}?) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{2,}?) ")))
                 .matches("VALUES " +
                         "     (2, CAST(1 AS bigint), 80, VARCHAR 'B'), " +
                         "     (3, 1, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B{5,}) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{5,}) ")))
                 .returnsEmptyResult();
 
-        assertThat(assertions.query(format(query, "PATTERN (B{5,}?) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{5,}?) ")))
                 .returnsEmptyResult();
 
-        assertThat(assertions.query(format(query, "PATTERN (B{,1}) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{,1}) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), null, CAST(null AS varchar)), " +
                         "     (2, 2, 80, 'B'), " +
                         "     (3, 3, 70, 'B'), " +
                         "     (4, 4, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B{,1}?) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{,1}?) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), CAST(null AS integer), CAST(null AS varchar)), " +
                         "     (2, 2, null, null), " +
                         "     (3, 3, null, null), " +
                         "     (4, 4, null, null) ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B{,2}) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{,2}) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), null, CAST(null AS varchar)), " +
                         "     (2, 2, 80, 'B'), " +
                         "     (3, 2, 70, 'B'), " +
                         "     (4, 3, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B{,2}?) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{,2}?) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), CAST(null AS integer), CAST(null AS varchar)), " +
                         "     (2, 2, null, null), " +
                         "     (3, 3, null, null), " +
                         "     (4, 4, null, null) ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B{,5}) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{,5}) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), null, CAST(null AS varchar)), " +
                         "     (2, 2, 80, 'B'), " +
                         "     (3, 2, 70, 'B'), " +
                         "     (4, 2, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B{,5}?) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{,5}?) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), CAST(null AS integer), CAST(null AS varchar)), " +
                         "     (2, 2, null, null), " +
                         "     (3, 3, null, null), " +
                         "     (4, 4, null, null) ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B{1,1}) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{1,1}) ")))
                 .matches("VALUES " +
                         "     (2, CAST(1 AS bigint), 80, VARCHAR 'B'), " +
                         "     (3, 2, 70, 'B'), " +
                         "     (4, 3, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B{1,1}?) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{1,1}?) ")))
                 .matches("VALUES " +
                         "     (2, CAST(1 AS bigint), 80, VARCHAR 'B'), " +
                         "     (3, 2, 70, 'B'), " +
                         "     (4, 3, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B{1,5}) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{1,5}) ")))
                 .matches("VALUES " +
                         "     (2, CAST(1 AS bigint), 80, VARCHAR 'B'), " +
                         "     (3, 1, 70, 'B'), " +
                         "     (4, 1, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B{1,5}?) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{1,5}?) ")))
                 .matches("VALUES " +
                         "     (2, CAST(1 AS bigint), 80, VARCHAR 'B'), " +
                         "     (3, 2, 70, 'B'), " +
                         "     (4, 3, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B{5,7}) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{5,7}) ")))
                 .returnsEmptyResult();
 
-        assertThat(assertions.query(format(query, "PATTERN (B{5,7}?) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{5,7}?) ")))
                 .returnsEmptyResult();
 
-        assertThat(assertions.query(format(query, "PATTERN (B{1}) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{1}) ")))
                 .matches("VALUES " +
                         "     (2, CAST(1 AS bigint), 80, VARCHAR 'B'), " +
                         "     (3, 2, 70, 'B'), " +
                         "     (4, 3, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B{1}?) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{1}?) ")))
                 .matches("VALUES " +
                         "     (2, CAST(1 AS bigint), 80, VARCHAR 'B'), " +
                         "     (3, 2, 70, 'B'), " +
                         "     (4, 3, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B{2}) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{2}) ")))
                 .matches("VALUES " +
                         "     (2, CAST(1 AS bigint), 80, VARCHAR 'B'), " +
                         "     (3, 1, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B{2}?) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{2}?) ")))
                 .matches("VALUES " +
                         "     (2, CAST(1 AS bigint), 80, VARCHAR 'B'), " +
                         "     (3, 1, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B{5}) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{5}) ")))
                 .returnsEmptyResult();
 
-        assertThat(assertions.query(format(query, "PATTERN (B{5}?) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B{5}?) ")))
                 .returnsEmptyResult();
     }
 
@@ -401,7 +400,7 @@ public class TestRowPatternMatching
                 "                ) AS m";
 
         // no exclusion -- outputting all matched rows
-        assertThat(assertions.query(format(query, "PATTERN (A B+ C+) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (A B+ C+) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
                         "     (2, 1, 80, 'B'), " +
@@ -413,7 +412,7 @@ public class TestRowPatternMatching
                         "     (8, 2, 60, 'C') ");
 
         // exclude rows matched to 'B'
-        assertThat(assertions.query(format(query, "PATTERN (A {- B+ -} C+) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (A {- B+ -} C+) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
                         "     (4, 1, 80, 'C'), " +
@@ -422,24 +421,24 @@ public class TestRowPatternMatching
                         "     (8, 2, 60, 'C') ");
 
         // adjacent exclusions: exclude rows matched to 'A' and 'B'
-        assertThat(assertions.query(format(query, "PATTERN ({- A -} {- B+ -} C+) ")))
+        assertThat(assertions.query(query.formatted("PATTERN ({- A -} {- B+ -} C+) ")))
                 .matches("VALUES " +
                         "     (4, CAST(1 AS bigint), 80, VARCHAR 'C'), " +
                         "     (5, 1, 90, 'C'), " +
                         "     (8, 2, 60, 'C') ");
 
         // nested exclusions: exclude all rows from outermost exclusion
-        assertThat(assertions.query(format(query, "PATTERN (A {- {- B+ -} C+ -}) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (A {- {- B+ -} C+ -}) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
                         "     (6, 2, 50, 'A') ");
 
         // exclude all rows
-        assertThat(assertions.query(format(query, "PATTERN ({- A B+ C+ -}) ")))
+        assertThat(assertions.query(query.formatted("PATTERN ({- A B+ C+ -}) ")))
                 .returnsEmptyResult();
 
         // exclude empty pattern: effectively does not exclude any rows
-        assertThat(assertions.query(format(query, "PATTERN (A B+ {- ()* -} C+) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (A B+ {- ()* -} C+) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
                         "     (2, 1, 80, 'B'), " +
@@ -451,22 +450,22 @@ public class TestRowPatternMatching
                         "     (8, 2, 60, 'C') ");
 
         // quantified exclusion
-        assertThat(assertions.query(format(query, "PATTERN ( A {- B -}+ {- C -}+) ")))
+        assertThat(assertions.query(query.formatted("PATTERN ( A {- B -}+ {- C -}+) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
                         "     (6, 2, 50, 'A') ");
 
-        assertThat(assertions.query(format(query, "PATTERN ( A {- B -}* {- C -}*) ")))
+        assertThat(assertions.query(query.formatted("PATTERN ( A {- B -}* {- C -}*) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
                         "     (6, 2, 50, 'A') ");
 
-        assertThat(assertions.query(format(query, "PATTERN ( A {- B -}{1,2} {- C -}{1,2}) ")))
+        assertThat(assertions.query(query.formatted("PATTERN ( A {- B -}{1,2} {- C -}{1,2}) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
                         "     (6, 2, 50, 'A') ");
 
-        assertThat(assertions.query(format(query, "PATTERN ( A {- C -}{2,3} {- B -}{2,3}) ")))
+        assertThat(assertions.query(query.formatted("PATTERN ( A {- C -}{2,3} {- B -}{2,3}) ")))
                 .matches("VALUES (3, CAST(1 AS bigint), 70, VARCHAR 'A') ");
     }
 
@@ -562,42 +561,42 @@ public class TestRowPatternMatching
                 "                  DEFINE B AS B.value < PREV (B.value) " +
                 "                ) AS m";
 
-        assertThat(assertions.query(format(query, "PATTERN (()* | B) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (()* | B) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), CAST(null AS integer), CAST(null AS varchar)), " +
                         "     (2, 2, null, null), " +
                         "     (3, 3, null, null), " +
                         "     (4, 4, null, null) ");
 
-        assertThat(assertions.query(format(query, "PATTERN (()+ | B) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (()+ | B) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), CAST(null AS integer), CAST(null AS varchar)), " +
                         "     (2, 2, null, null), " +
                         "     (3, 3, null, null), " +
                         "     (4, 4, null, null) ");
 
-        assertThat(assertions.query(format(query, "PATTERN ((){5,} | B) ")))
+        assertThat(assertions.query(query.formatted("PATTERN ((){5,} | B) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), CAST(null AS integer), CAST(null AS varchar)), " +
                         "     (2, 2, null, null), " +
                         "     (3, 3, null, null), " +
                         "     (4, 4, null, null) ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B | ()*) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B | ()*) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), CAST(null AS integer), CAST(null AS varchar)), " +
                         "     (2, 2, 80, 'B'), " +
                         "     (3, 3, 70, 'B'), " +
                         "     (4, 4, null, null) ");
 
-        assertThat(assertions.query(format(query, "PATTERN ((B ()*)*) ")))
+        assertThat(assertions.query(query.formatted("PATTERN ((B ()*)*) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), CAST(null AS integer), CAST(null AS varchar)), " +
                         "     (2, 2, 80, 'B'), " +
                         "     (3, 2, 70, 'B'), " +
                         "     (4, 3, null, null) ");
 
-        assertThat(assertions.query(format(query, "PATTERN ((B ()*)*?) ")))
+        assertThat(assertions.query(query.formatted("PATTERN ((B ()*)*?) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), CAST(null AS integer), CAST(null AS varchar)), " +
                         "     (2, 2, null, null), " +
@@ -605,37 +604,37 @@ public class TestRowPatternMatching
                         "     (4, 4, null, null) ");
 
         // quantified anchor pattern
-        assertThat(assertions.query(format(query, "PATTERN (^* | B) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (^* | B) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), CAST(null AS integer), CAST(null AS varchar)), " +
                         "     (2, 2, null, null), " +
                         "     (3, 3, null, null), " +
                         "     (4, 4, null, null) ");
 
-        assertThat(assertions.query(format(query, "PATTERN (^+ | B) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (^+ | B) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), null, CAST(null AS varchar)), " +
                         "     (2, 2, 80, 'B'), " +
                         "     (3, 3, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN (^* A B) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (^* A B) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
                         "     (2, 1, 80, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN ($* | B) ")))
+        assertThat(assertions.query(query.formatted("PATTERN ($* | B) ")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), CAST(null AS integer), CAST(null AS varchar)), " +
                         "     (2, 2, null, null), " +
                         "     (3, 3, null, null), " +
                         "     (4, 4, null, null) ");
 
-        assertThat(assertions.query(format(query, "PATTERN ($+ | B) ")))
+        assertThat(assertions.query(query.formatted("PATTERN ($+ | B) ")))
                 .matches("VALUES " +
                         "     (2, CAST(1 AS bigint), 80, VARCHAR 'B'), " +
                         "     (3, 2, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "PATTERN (B A $+) ")))
+        assertThat(assertions.query(query.formatted("PATTERN (B A $+) ")))
                 .matches("VALUES " +
                         "     (3, CAST(1 AS bigint), 70, VARCHAR 'B'), " +
                         "     (4, 1, 70, 'A') ");
@@ -664,25 +663,25 @@ public class TestRowPatternMatching
                 "                ) AS m";
 
         // ONE ROW PER MATCH shows empty matches by default
-        assertThat(assertions.query(format(query, "ONE ROW PER MATCH", "PATTERN (B*) ")))
+        assertThat(assertions.query(query.formatted("ONE ROW PER MATCH", "PATTERN (B*) ")))
                 .matches("VALUES " +
                         "     (CAST(1 AS bigint), CAST(null AS integer), CAST(null AS varchar)), " +
                         "     (2, 70, 'B'), " +
                         "     (3, null, null) ");
 
         // defaults to ONE ROW PER MATCH
-        assertThat(assertions.query(format(query, "", "PATTERN (B*) ")))
+        assertThat(assertions.query(query.formatted("", "PATTERN (B*) ")))
                 .matches("VALUES " +
                         "     (CAST(1 AS bigint), CAST(null AS integer), CAST(null AS varchar)), " +
                         "     (2, 70, 'B'), " +
                         "     (3, null, null) ");
 
         // ONE ROW PER MATCH omits unmatched rows
-        assertThat(assertions.query(format(query, "ONE ROW PER MATCH", "PATTERN (B+) ")))
+        assertThat(assertions.query(query.formatted("ONE ROW PER MATCH", "PATTERN (B+) ")))
                 .matches("VALUES (CAST(1 AS bigint), 70, VARCHAR 'B') ");
 
         // ALL ROWS PER MATCH shows empty matches by default
-        assertThat(assertions.query(format(query, "ALL ROWS PER MATCH", "PATTERN (B*) ")))
+        assertThat(assertions.query(query.formatted("ALL ROWS PER MATCH", "PATTERN (B*) ")))
                 .matches("VALUES " +
                         "     (CAST(1 AS bigint), CAST(null AS integer), CAST(null AS varchar)), " +
                         "     (2, 80, 'B'), " +
@@ -690,30 +689,30 @@ public class TestRowPatternMatching
                         "     (3, null, null) ");
 
         // ALL ROWS PER MATCH omits unmatched rows by default
-        assertThat(assertions.query(format(query, "ALL ROWS PER MATCH", "PATTERN (B+) ")))
+        assertThat(assertions.query(query.formatted("ALL ROWS PER MATCH", "PATTERN (B+) ")))
                 .matches("VALUES " +
                         "     (CAST(1 AS bigint), 80, VARCHAR 'B'), " +
                         "     (1, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "ALL ROWS PER MATCH SHOW EMPTY MATCHES", "PATTERN (B*) ")))
+        assertThat(assertions.query(query.formatted("ALL ROWS PER MATCH SHOW EMPTY MATCHES", "PATTERN (B*) ")))
                 .matches("VALUES " +
                         "     (CAST(1 AS bigint), CAST(null AS integer), CAST(null AS varchar)), " +
                         "     (2, 80, 'B'), " +
                         "     (2, 70, 'B'), " +
                         "     (3, null, null) ");
 
-        assertThat(assertions.query(format(query, "ALL ROWS PER MATCH OMIT EMPTY MATCHES", "PATTERN (B*) ")))
+        assertThat(assertions.query(query.formatted("ALL ROWS PER MATCH OMIT EMPTY MATCHES", "PATTERN (B*) ")))
                 .matches("VALUES " +
                         "     (CAST(2 AS bigint), 80, VARCHAR 'B'), " +
                         "     (2, 70, 'B') ");
 
         // ALL ROWS PER MATCH OMIT EMPTY MATCHES omits unmatched rows
-        assertThat(assertions.query(format(query, "ALL ROWS PER MATCH OMIT EMPTY MATCHES", "PATTERN (B+) ")))
+        assertThat(assertions.query(query.formatted("ALL ROWS PER MATCH OMIT EMPTY MATCHES", "PATTERN (B+) ")))
                 .matches("VALUES " +
                         "     (CAST(1 AS bigint), 80, VARCHAR 'B'), " +
                         "     (1, 70, 'B') ");
 
-        assertThat(assertions.query(format(query, "ALL ROWS PER MATCH WITH UNMATCHED ROWS", "PATTERN (B+) ")))
+        assertThat(assertions.query(query.formatted("ALL ROWS PER MATCH WITH UNMATCHED ROWS", "PATTERN (B+) ")))
                 .matches("VALUES " +
                         "     (CAST(null AS bigint), CAST(null AS integer), CAST(null AS varchar)), " +
                         "     (1, 80, 'B'), " +
@@ -750,7 +749,7 @@ public class TestRowPatternMatching
                 "                ) AS m";
 
         // after rows 1, 2, 3, 4 are matched, matching starts at row 5 and no other match is found
-        assertThat(assertions.query(format(query, "AFTER MATCH SKIP PAST LAST ROW")))
+        assertThat(assertions.query(query.formatted("AFTER MATCH SKIP PAST LAST ROW")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
                         "     (2, 1, 80, 'B'), " +
@@ -758,7 +757,7 @@ public class TestRowPatternMatching
                         "     (4, 1, 80, 'C') ");
 
         // after rows 1, 2, 3, 4 are matched, matching starts at row 2. Two more matches are found starting at rows 2 and 4.
-        assertThat(assertions.query(format(query, "AFTER MATCH SKIP TO NEXT ROW")))
+        assertThat(assertions.query(query.formatted("AFTER MATCH SKIP TO NEXT ROW")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
                         "     (2, 1, 80, 'B'), " +
@@ -772,7 +771,7 @@ public class TestRowPatternMatching
                         "     (6, 3, 80, 'C') ");
 
         // after rows 1, 2, 3, 4 are matched, matching starts at row 4. Another match is found starting at row 4.
-        assertThat(assertions.query(format(query, "AFTER MATCH SKIP TO FIRST C")))
+        assertThat(assertions.query(query.formatted("AFTER MATCH SKIP TO FIRST C")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
                         "     (2, 1, 80, 'B'), " +
@@ -784,7 +783,7 @@ public class TestRowPatternMatching
 
         // after rows 1, 2, 3, 4 are matched, matching starts at row 4. Another match is found starting at row 4.
         // test using lowercase label
-        assertThat(assertions.query(format(query, "AFTER MATCH SKIP TO FIRST c")))
+        assertThat(assertions.query(query.formatted("AFTER MATCH SKIP TO FIRST c")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
                         "     (2, 1, 80, 'B'), " +
@@ -795,7 +794,7 @@ public class TestRowPatternMatching
                         "     (6, 2, 80, 'C') ");
 
         // after rows 1, 2, 3, 4 are matched, matching starts at row 3. Another match is found starting at row 4.
-        assertThat(assertions.query(format(query, "AFTER MATCH SKIP TO LAST B")))
+        assertThat(assertions.query(query.formatted("AFTER MATCH SKIP TO LAST B")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
                         "     (2, 1, 80, 'B'), " +
@@ -807,7 +806,7 @@ public class TestRowPatternMatching
 
         // after rows 1, 2, 3, 4 are matched, matching starts at row 3. Another match is found starting at row 4.
         // test using lowercase label
-        assertThat(assertions.query(format(query, "AFTER MATCH SKIP TO LAST b")))
+        assertThat(assertions.query(query.formatted("AFTER MATCH SKIP TO LAST b")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
                         "     (2, 1, 80, 'B'), " +
@@ -818,7 +817,7 @@ public class TestRowPatternMatching
                         "     (6, 2, 80, 'C') ");
 
         // 'SKIP TO B' defaults to 'SKIP TO LAST B', which is the same as above
-        assertThat(assertions.query(format(query, "AFTER MATCH SKIP TO B")))
+        assertThat(assertions.query(query.formatted("AFTER MATCH SKIP TO B")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
                         "     (2, 1, 80, 'B'), " +
@@ -830,7 +829,7 @@ public class TestRowPatternMatching
 
         // 'SKIP TO B' defaults to 'SKIP TO LAST B', which is the same as above
         // test using lowercase label
-        assertThat(assertions.query(format(query, "AFTER MATCH SKIP TO b")))
+        assertThat(assertions.query(query.formatted("AFTER MATCH SKIP TO b")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
                         "     (2, 1, 80, 'B'), " +
@@ -842,7 +841,7 @@ public class TestRowPatternMatching
 
         // 'SKIP TO U' skips to last C or D. D never matches, so it skips to the last C, which is the last row of the match.
         // after rows 1, 2, 3, 4 are matched, matching starts at row 4. Another match is found starting at row 4.
-        assertThat(assertions.query(format(query, "AFTER MATCH SKIP TO U")))
+        assertThat(assertions.query(query.formatted("AFTER MATCH SKIP TO U")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
                         "     (2, 1, 80, 'B'), " +
@@ -855,7 +854,7 @@ public class TestRowPatternMatching
         // 'SKIP TO U' skips to last C or D. D never matches, so it skips to the last C, which is the last row of the match.
         // after rows 1, 2, 3, 4 are matched, matching starts at row 4. Another match is found starting at row 4.
         // test using lowercase label
-        assertThat(assertions.query(format(query, "AFTER MATCH SKIP TO u")))
+        assertThat(assertions.query(query.formatted("AFTER MATCH SKIP TO u")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
                         "     (2, 1, 80, 'B'), " +
@@ -866,11 +865,11 @@ public class TestRowPatternMatching
                         "     (6, 2, 80, 'C') ");
 
         // Exception: trying to resume matching from the first row of the match. If uncaught, it would cause an infinite loop.
-        assertThat(assertions.query(format(query, "AFTER MATCH SKIP TO A")))
+        assertThat(assertions.query(query.formatted("AFTER MATCH SKIP TO A")))
                 .failure().hasMessage("AFTER MATCH SKIP failed: cannot skip to first row of match");
 
         // Exception: trying to skip to label which was not matched
-        assertThat(assertions.query(format(query, "AFTER MATCH SKIP TO D")))
+        assertThat(assertions.query(query.formatted("AFTER MATCH SKIP TO D")))
                 .failure().hasMessage("AFTER MATCH SKIP failed: pattern variable is not present in match");
     }
 
@@ -967,70 +966,70 @@ public class TestRowPatternMatching
                 "                ) AS m";
 
         // defaults to RUNNING LAST(value)
-        assertThat(assertions.query(format(query, "value")))
+        assertThat(assertions.query(query.formatted("value")))
                 .matches("VALUES " +
                         "     (1, 10), " +
                         "     (2, 20), " +
                         "     (3, 30) ");
 
         // defaults to RUNNING LAST(value)
-        assertThat(assertions.query(format(query, "LAST(value)")))
+        assertThat(assertions.query(query.formatted("LAST(value)")))
                 .matches("VALUES " +
                         "     (1, 10), " +
                         "     (2, 20), " +
                         "     (3, 30) ");
 
-        assertThat(assertions.query(format(query, "RUNNING LAST(value)")))
+        assertThat(assertions.query(query.formatted("RUNNING LAST(value)")))
                 .matches("VALUES " +
                         "     (1, 10), " +
                         "     (2, 20), " +
                         "     (3, 30) ");
 
-        assertThat(assertions.query(format(query, "FINAL LAST(value)")))
+        assertThat(assertions.query(query.formatted("FINAL LAST(value)")))
                 .matches("VALUES " +
                         "     (1, 30), " +
                         "     (2, 30), " +
                         "     (3, 30) ");
 
         // defaults to RUNNING FIRST(value)
-        assertThat(assertions.query(format(query, "FIRST(value)")))
+        assertThat(assertions.query(query.formatted("FIRST(value)")))
                 .matches("VALUES " +
                         "     (1, 10), " +
                         "     (2, 10), " +
                         "     (3, 10) ");
 
-        assertThat(assertions.query(format(query, "RUNNING FIRST(value)")))
+        assertThat(assertions.query(query.formatted("RUNNING FIRST(value)")))
                 .matches("VALUES " +
                         "     (1, 10), " +
                         "     (2, 10), " +
                         "     (3, 10) ");
 
-        assertThat(assertions.query(format(query, "FINAL FIRST(value)")))
+        assertThat(assertions.query(query.formatted("FINAL FIRST(value)")))
                 .matches("VALUES " +
                         "     (1, 10), " +
                         "     (2, 10), " +
                         "     (3, 10) ");
 
         // with logical offset
-        assertThat(assertions.query(format(query, "FINAL LAST(value, 2)")))
+        assertThat(assertions.query(query.formatted("FINAL LAST(value, 2)")))
                 .matches("VALUES " +
                         "     (1, 10), " +
                         "     (2, 10), " +
                         "     (3, 10) ");
 
-        assertThat(assertions.query(format(query, "FIRST(value, 2)")))
+        assertThat(assertions.query(query.formatted("FIRST(value, 2)")))
                 .matches("VALUES " +
                         "     (1, null), " +
                         "     (2, null), " +
                         "     (3, 30) ");
 
-        assertThat(assertions.query(format(query, "LAST(value, 10)")))
+        assertThat(assertions.query(query.formatted("LAST(value, 10)")))
                 .matches("VALUES " +
                         "     (1, CAST(null AS integer)), " +
                         "     (2, null), " +
                         "     (3, null) ");
 
-        assertThat(assertions.query(format(query, "FIRST(value, 10)")))
+        assertThat(assertions.query(query.formatted("FIRST(value, 10)")))
                 .matches("VALUES " +
                         "     (1, CAST(null AS integer)), " +
                         "     (2, null), " +
@@ -1038,44 +1037,44 @@ public class TestRowPatternMatching
 
         // with physical offset
         // defaults to PREV(RUNNING LAST(value), 1)
-        assertThat(assertions.query(format(query, "PREV(value)")))
+        assertThat(assertions.query(query.formatted("PREV(value)")))
                 .matches("VALUES " +
                         "     (1, null), " +
                         "     (2, 10), " +
                         "     (3, 20) ");
 
         // defaults to NEXT(RUNNING LAST(value), 1)
-        assertThat(assertions.query(format(query, "NEXT(value)")))
+        assertThat(assertions.query(query.formatted("NEXT(value)")))
                 .matches("VALUES " +
                         "     (1, 20), " +
                         "     (2, 30), " +
                         "     (3, null) ");
 
-        assertThat(assertions.query(format(query, "NEXT(FIRST(value), 2)")))
+        assertThat(assertions.query(query.formatted("NEXT(FIRST(value), 2)")))
                 .matches("VALUES " +
                         "     (1, 30), " +
                         "     (2, 30), " +
                         "     (3, 30) ");
 
-        assertThat(assertions.query(format(query, "NEXT(FIRST(value), 10)")))
+        assertThat(assertions.query(query.formatted("NEXT(FIRST(value), 10)")))
                 .matches("VALUES " +
                         "     (1, CAST(null AS integer)), " +
                         "     (2, null), " +
                         "     (3, null) ");
 
-        assertThat(assertions.query(format(query, "PREV(FIRST(value), 10)")))
+        assertThat(assertions.query(query.formatted("PREV(FIRST(value), 10)")))
                 .matches("VALUES " +
                         "     (1, CAST(null AS integer)), " +
                         "     (2, null), " +
                         "     (3, null) ");
 
-        assertThat(assertions.query(format(query, "PREV(FIRST(value, 10), 2)")))
+        assertThat(assertions.query(query.formatted("PREV(FIRST(value, 10), 2)")))
                 .matches("VALUES " +
                         "     (1, CAST(null AS integer)), " +
                         "     (2, null), " +
                         "     (3, null) ");
 
-        assertThat(assertions.query(format(query, "PREV(LAST(value, 10), 2)")))
+        assertThat(assertions.query(query.formatted("PREV(LAST(value, 10), 2)")))
                 .matches("VALUES " +
                         "     (1, CAST(null AS integer)), " +
                         "     (2, null), " +
@@ -1100,23 +1099,23 @@ public class TestRowPatternMatching
                 "                ) AS m";
 
         // row 0 - out of partition bounds (before partition start)
-        assertThat(assertions.query(format(query, "PREV(B.value, 4)")))
+        assertThat(assertions.query(query.formatted("PREV(B.value, 4)")))
                 .matches("VALUES CAST(null AS integer) ");
 
         // row 1 (out of match, but within partition - value can be accessed)
-        assertThat(assertions.query(format(query, "PREV(B.value, 3)")))
+        assertThat(assertions.query(query.formatted("PREV(B.value, 3)")))
                 .matches("VALUES 10 ");
 
         // row 2 (out of match, but within partition - value can be accessed)
-        assertThat(assertions.query(format(query, "PREV(B.value, 2)")))
+        assertThat(assertions.query(query.formatted("PREV(B.value, 2)")))
                 .matches("VALUES 20 ");
 
         // row 5 (out of match, but within partition - value can be accessed)
-        assertThat(assertions.query(format(query, "NEXT(B.value, 1)")))
+        assertThat(assertions.query(query.formatted("NEXT(B.value, 1)")))
                 .matches("VALUES 40 ");
 
         // row 6 - out of partition bounds (after partition end)
-        assertThat(assertions.query(format(query, "NEXT(B.value, 2)")))
+        assertThat(assertions.query(query.formatted("NEXT(B.value, 2)")))
                 .matches("VALUES CAST(null AS integer) ");
     }
 
@@ -1372,11 +1371,11 @@ public class TestRowPatternMatching
                 "                ) AS m";
 
         // ALL ROWS PER MATCH: PARTITION BY columns, ORDER BY columns, measures, remaining input columns
-        assertThat(assertions.query(format(query, "ALL ROWS PER MATCH")))
+        assertThat(assertions.query(query.formatted("ALL ROWS PER MATCH")))
                 .matches("VALUES ('partitioning', 'ordering', VARCHAR 'A', 90) ");
 
         // ONE ROW PER MATCH: PARTITION BY columns, measures
-        assertThat(assertions.query(format(query, "ONE ROW PER MATCH")))
+        assertThat(assertions.query(query.formatted("ONE ROW PER MATCH")))
                 .matches("VALUES ('partitioning', VARCHAR 'A') ");
 
         // duplicate ORDER BY symbol
@@ -1450,7 +1449,7 @@ public class TestRowPatternMatching
                 "                   DEFINE A AS %s " +
                 "                ) AS m";
 
-        assertThat(assertions.query(format(query, "(SELECT 'x')", "(SELECT true)")))
+        assertThat(assertions.query(query.formatted("(SELECT 'x')", "(SELECT true)")))
                 .matches("VALUES " +
                         "     ('x'), " +
                         "     ('x'), " +
@@ -1458,7 +1457,7 @@ public class TestRowPatternMatching
                         "     ('x') ");
 
         // subquery nested in navigation
-        assertThat(assertions.query(format(query, "FINAL LAST(A.value + (SELECT 1000))", "FIRST(A.value < 0 OR (SELECT true))")))
+        assertThat(assertions.query(query.formatted("FINAL LAST(A.value + (SELECT 1000))", "FIRST(A.value < 0 OR (SELECT true))")))
                 .matches("VALUES " +
                         "     (1400), " +
                         "     (1400), " +
@@ -1466,7 +1465,7 @@ public class TestRowPatternMatching
                         "     (1400) ");
 
         // IN-predicate: value and value list without column references
-        assertThat(assertions.query(format(query, "LAST(A.id < 0 OR 1 IN (SELECT 1))", "FIRST(A.id > 0 AND 1 IN (SELECT 1))")))
+        assertThat(assertions.query(query.formatted("LAST(A.id < 0 OR 1 IN (SELECT 1))", "FIRST(A.id > 0 AND 1 IN (SELECT 1))")))
                 .matches("VALUES " +
                         "     (true), " +
                         "     (true), " +
@@ -1474,7 +1473,7 @@ public class TestRowPatternMatching
                         "     (true) ");
 
         // IN-predicate: unlabeled column reference in value
-        assertThat(assertions.query(format(query, "FIRST(id % 2 IN (SELECT 0))", "FIRST(value * 0 IN (SELECT 0))")))
+        assertThat(assertions.query(query.formatted("FIRST(id % 2 IN (SELECT 0))", "FIRST(value * 0 IN (SELECT 0))")))
                 .matches("VALUES " +
                         "     (false), " +
                         "     (true), " +
@@ -1482,7 +1481,7 @@ public class TestRowPatternMatching
                         "     (true) ");
 
         // EXISTS-predicate
-        assertThat(assertions.query(format(query, "LAST(A.value < 0 OR EXISTS(SELECT 1))", "FIRST(A.value < 0 OR EXISTS(SELECT 1))")))
+        assertThat(assertions.query(query.formatted("LAST(A.value < 0 OR EXISTS(SELECT 1))", "FIRST(A.value < 0 OR EXISTS(SELECT 1))")))
                 .matches("VALUES " +
                         "     (true), " +
                         "     (true), " +
@@ -1510,7 +1509,7 @@ public class TestRowPatternMatching
                 "                ) AS m";
 
         // navigations and labeled column references
-        assertThat(assertions.query(format(query, "FIRST(A.value) IN (300, LAST(A.value))")))
+        assertThat(assertions.query(query.formatted("FIRST(A.value) IN (300, LAST(A.value))")))
                 .matches("VALUES " +
                         "     (false), " +
                         "     (false), " +
@@ -1518,7 +1517,7 @@ public class TestRowPatternMatching
                         "     (true) ");
 
         // CLASSIFIER()
-        assertThat(assertions.query(format(query, "CLASSIFIER() IN ('X', lower(CLASSIFIER()))")))
+        assertThat(assertions.query(query.formatted("CLASSIFIER() IN ('X', lower(CLASSIFIER()))")))
                 .matches("VALUES " +
                         "     (false), " +
                         "     (false), " +
@@ -1526,7 +1525,7 @@ public class TestRowPatternMatching
                         "     (false) ");
 
         // MATCH_NUMBER()
-        assertThat(assertions.query(format(query, "MATCH_NUMBER() IN (0, MATCH_NUMBER())")))
+        assertThat(assertions.query(query.formatted("MATCH_NUMBER() IN (0, MATCH_NUMBER())")))
                 .matches("VALUES " +
                         "     (true), " +
                         "     (true), " +

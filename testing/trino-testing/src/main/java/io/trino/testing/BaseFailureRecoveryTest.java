@@ -13,7 +13,6 @@
  */
 package io.trino.testing;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.graph.Traverser;
@@ -480,8 +479,8 @@ public abstract class BaseFailureRecoveryTest
                                     .map(entry -> "\tFor queryId [%s] (prefix [%s]) remaining tables: [%s]\n\t\tWith errors: [%s]".formatted(
                                             entry.getKey(),
                                             temporaryTableNamePrefix(entry.getKey()),
-                                            Joiner.on(",").join(entry.getValue()),
-                                            Joiner.on("],\n[").join(assertionErrorMessages.get(entry.getKey())).replace("\n", "\n\t\t\t")))
+                                            String.join(",", entry.getValue()),
+                                            String.join("],\n[", assertionErrorMessages.get(entry.getKey())).replace("\n", "\n\t\t\t")))
                                     .collect(joining("\n")))
                     .isTrue();
         }

@@ -158,7 +158,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Map.entry;
@@ -352,8 +351,7 @@ public class MariaDbClient
     @Override
     public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
     {
-        String sql = format(
-                "ALTER TABLE %s COMMENT = %s",
+        String sql = "ALTER TABLE %s COMMENT = %s".formatted(
                 quoted(handle.asPlainTable().getRemoteTableName()),
                 mariaDbVarcharLiteral(comment.orElse(NO_COMMENT))); // An empty character removes the existing comment in MariaDB
         execute(session, sql);
@@ -499,7 +497,7 @@ public class MariaDbClient
             return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
         }
         if (type instanceof DecimalType decimalType) {
-            String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            String dataType = "decimal(%s, %s)".formatted(decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
@@ -535,16 +533,16 @@ public class MariaDbClient
         }
         if (type instanceof TimeType timeType) {
             if (timeType.getPrecision() <= MAX_SUPPORTED_DATE_TIME_PRECISION) {
-                return WriteMapping.longMapping(format("time(%s)", timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
+                return WriteMapping.longMapping("time(%s)".formatted(timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
             }
-            return WriteMapping.longMapping(format("time(%s)", MAX_SUPPORTED_DATE_TIME_PRECISION), timeWriteFunction(MAX_SUPPORTED_DATE_TIME_PRECISION));
+            return WriteMapping.longMapping("time(%s)".formatted(MAX_SUPPORTED_DATE_TIME_PRECISION), timeWriteFunction(MAX_SUPPORTED_DATE_TIME_PRECISION));
         }
         if (type instanceof TimestampType timestampType) {
             if (timestampType.getPrecision() <= MAX_SUPPORTED_DATE_TIME_PRECISION) {
                 verify(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION);
-                return WriteMapping.longMapping(format("timestamp(%s)", timestampType.getPrecision()), timestampWriteFunction(timestampType));
+                return WriteMapping.longMapping("timestamp(%s)".formatted(timestampType.getPrecision()), timestampWriteFunction(timestampType));
             }
-            return WriteMapping.objectMapping(format("timestamp(%s)", MAX_SUPPORTED_DATE_TIME_PRECISION), longTimestampWriteFunction(timestampType, MAX_SUPPORTED_DATE_TIME_PRECISION));
+            return WriteMapping.objectMapping("timestamp(%s)".formatted(MAX_SUPPORTED_DATE_TIME_PRECISION), longTimestampWriteFunction(timestampType, MAX_SUPPORTED_DATE_TIME_PRECISION));
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
@@ -575,8 +573,7 @@ public class MariaDbClient
             String columnName = column.getName();
             verifyColumnName(connection.getMetaData(), columnName);
             String remoteColumnName = getIdentifierMapping().toRemoteColumnName(getRemoteIdentifiers(connection), columnName);
-            String sql = format(
-                    "ALTER TABLE %s ADD %s %s",
+            String sql = "ALTER TABLE %s ADD %s %s".formatted(
                     quoted(table),
                     getColumnDefinitionSql(session, column, remoteColumnName),
                     position);
@@ -594,8 +591,7 @@ public class MariaDbClient
         try {
             // MariaDB versions earlier than 10.5.2 do not support the RENAME COLUMN syntax
             // ALTER TABLE ... CHANGE statement exists in th old versions, but it requires providing all attributes of the column
-            String sql = format(
-                    "ALTER TABLE %s RENAME COLUMN %s TO %s",
+            String sql = "ALTER TABLE %s RENAME COLUMN %s TO %s".formatted(
                     quoted(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
                     quoted(remoteColumnName),
                     quoted(newRemoteColumnName));
@@ -627,8 +623,7 @@ public class MariaDbClient
     {
         // Copy all columns for enforcing NOT NULL option in the temp table
         String tableCopyFormat = "CREATE TABLE %s AS SELECT * FROM %s WHERE 0 = 1";
-        String sql = format(
-                tableCopyFormat,
+        String sql = tableCopyFormat.formatted(
                 quoted(catalogName, schemaName, newTableName),
                 quoted(catalogName, schemaName, tableName));
         try {
@@ -643,7 +638,7 @@ public class MariaDbClient
     protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
         checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
-        return ImmutableList.of(format("CREATE TABLE %s (%s) COMMENT %s", quoted(remoteTableName), join(", ", columns), mariaDbVarcharLiteral(tableMetadata.getComment().orElse(NO_COMMENT))));
+        return ImmutableList.of("CREATE TABLE %s (%s) COMMENT %s".formatted(quoted(remoteTableName), join(", ", columns), mariaDbVarcharLiteral(tableMetadata.getComment().orElse(NO_COMMENT))));
     }
 
     private static String mariaDbVarcharLiteral(String value)
@@ -694,17 +689,17 @@ public class MariaDbClient
             String orderBy = sortItems.stream()
                     .flatMap(sortItem -> {
                         String ordering = sortItem.sortOrder().isAscending() ? "ASC" : "DESC";
-                        String columnSorting = format("%s %s", quoted(sortItem.column().getColumnName()), ordering);
+                        String columnSorting = "%s %s".formatted(quoted(sortItem.column().getColumnName()), ordering);
 
                         return switch (sortItem.sortOrder()) {
                             // In MariaDB ASC implies NULLS FIRST, DESC implies NULLS LAST
                             case ASC_NULLS_FIRST, DESC_NULLS_LAST -> Stream.of(columnSorting);
-                            case ASC_NULLS_LAST -> Stream.of(format("ISNULL(%s) ASC", quoted(sortItem.column().getColumnName())), columnSorting);
-                            case DESC_NULLS_FIRST -> Stream.of(format("ISNULL(%s) DESC", quoted(sortItem.column().getColumnName())), columnSorting);
+                            case ASC_NULLS_LAST -> Stream.of("ISNULL(%s) ASC".formatted(quoted(sortItem.column().getColumnName())), columnSorting);
+                            case DESC_NULLS_FIRST -> Stream.of("ISNULL(%s) DESC".formatted(quoted(sortItem.column().getColumnName())), columnSorting);
                         };
                     })
                     .collect(joining(", "));
-            return format("%s ORDER BY %s LIMIT %s", query, orderBy, limit);
+            return "%s ORDER BY %s LIMIT %s".formatted(query, orderBy, limit);
         });
     }
 

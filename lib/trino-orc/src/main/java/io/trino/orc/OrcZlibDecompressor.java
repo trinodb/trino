@@ -16,7 +16,6 @@ package io.trino.orc;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class OrcZlibDecompressor
@@ -51,7 +50,7 @@ class OrcZlibDecompressor
                 int oldBufferSize = buffer.length;
                 buffer = output.grow(Math.min(buffer.length * 2, maxBufferSize));
                 if (buffer.length <= oldBufferSize) {
-                    throw new IllegalStateException(format("Buffer failed to grow. Old size %d, current size %d", oldBufferSize, buffer.length));
+                    throw new IllegalStateException("Buffer failed to grow. Old size %d, current size %d".formatted(oldBufferSize, buffer.length));
                 }
             }
 

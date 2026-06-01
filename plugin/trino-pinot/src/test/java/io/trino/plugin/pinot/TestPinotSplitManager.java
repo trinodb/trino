@@ -36,7 +36,6 @@ import static io.trino.plugin.pinot.PinotSplit.SplitType.SEGMENT;
 import static io.trino.plugin.pinot.TestPinotTableHandle.newTableHandle;
 import static io.trino.plugin.pinot.query.DynamicTableBuilder.buildFromPql;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -50,7 +49,7 @@ public class TestPinotSplitManager
     @Test
     public void testSplitsBroker()
     {
-        SchemaTableName schemaTableName = new SchemaTableName("default", format("SELECT %s, %s FROM %s LIMIT %d", "AirlineID", "OriginStateName", "airlineStats", 100));
+        SchemaTableName schemaTableName = new SchemaTableName("default", "SELECT %s, %s FROM %s LIMIT %d".formatted("AirlineID", "OriginStateName", "airlineStats", 100));
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, schemaTableName, mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
 
         PinotTableHandle pinotTableHandle = new PinotTableHandle("default", dynamicTable.tableName(), false, TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable));

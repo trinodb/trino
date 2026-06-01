@@ -47,7 +47,6 @@ import static io.trino.util.JsonUtil.createJsonFactory;
 import static io.trino.util.JsonUtil.createJsonParser;
 import static io.trino.util.JsonUtil.truncateIfNecessaryForErrorMessage;
 import static io.trino.util.Reflection.methodHandle;
-import static java.lang.String.format;
 
 public class JsonToRowCast
         extends SqlScalarFunction
@@ -95,7 +94,7 @@ public class JsonToRowCast
             jsonParser.nextToken();
             if (jsonParser.getCurrentToken() == JsonToken.VALUE_NULL) {
                 if (jsonParser.nextToken() != null) {
-                    throw new JsonCastException(format("Unexpected trailing token: %s", jsonParser.getText()));
+                    throw new JsonCastException("Unexpected trailing token: %s".formatted(jsonParser.getText()));
                 }
                 return null;
             }
@@ -103,16 +102,16 @@ public class JsonToRowCast
             BlockBuilder blockBuilder = rowType.createBlockBuilder(null, 1);
             rowAppender.append(jsonParser, blockBuilder);
             if (jsonParser.nextToken() != null) {
-                throw new JsonCastException(format("Unexpected trailing token: %s", jsonParser.getText()));
+                throw new JsonCastException("Unexpected trailing token: %s".formatted(jsonParser.getText()));
             }
             Block block = blockBuilder.build();
             return rowType.getObject(block, 0);
         }
         catch (TrinoException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", rowType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast to %s. %s\n%s".formatted(rowType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);
         }
         catch (Exception e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s.\n%s", rowType, truncateIfNecessaryForErrorMessage(json)), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast to %s.\n%s".formatted(rowType, truncateIfNecessaryForErrorMessage(json)), e);
         }
     }
 }

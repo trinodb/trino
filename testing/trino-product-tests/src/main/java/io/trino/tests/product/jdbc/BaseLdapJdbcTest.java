@@ -29,7 +29,6 @@ import java.sql.Statement;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.getLdapRequirement;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseLdapJdbcTest
@@ -98,7 +97,7 @@ public abstract class BaseLdapJdbcTest
 
     protected String getLdapUrl()
     {
-        return format(getLdapUrlFormat(), trinoServer(), ldapTruststorePath, ldapTruststorePassword);
+        return getLdapUrlFormat().formatted(trinoServer(), ldapTruststorePath, ldapTruststorePassword);
     }
 
     protected abstract String getLdapUrlFormat();

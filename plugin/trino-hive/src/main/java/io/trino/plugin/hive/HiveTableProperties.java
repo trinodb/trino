@@ -43,7 +43,6 @@ import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
 public class HiveTableProperties
@@ -201,10 +200,10 @@ public class HiveTableProperties
                         value -> {
                             Map<String, String> extraProperties = (Map<String, String>) value;
                             if (extraProperties.containsValue(null)) {
-                                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Extra table property value cannot be null '%s'", extraProperties));
+                                throw new TrinoException(INVALID_TABLE_PROPERTY, "Extra table property value cannot be null '%s'".formatted(extraProperties));
                             }
                             if (extraProperties.containsKey(null)) {
-                                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Extra table property key cannot be null '%s'", extraProperties));
+                                throw new TrinoException(INVALID_TABLE_PROPERTY, "Extra table property key cannot be null '%s'".formatted(extraProperties));
                             }
                             return extraProperties;
                         },
@@ -265,15 +264,15 @@ public class HiveTableProperties
         int bucketCount = (Integer) tableProperties.get(BUCKET_COUNT_PROPERTY);
         if (bucketedBy.isEmpty() && (bucketCount == 0)) {
             if (!sortedBy.isEmpty()) {
-                throw new TrinoException(INVALID_TABLE_PROPERTY, format("%s may be specified only when %s is specified", SORTED_BY_PROPERTY, BUCKETED_BY_PROPERTY));
+                throw new TrinoException(INVALID_TABLE_PROPERTY, "%s may be specified only when %s is specified".formatted(SORTED_BY_PROPERTY, BUCKETED_BY_PROPERTY));
             }
             return Optional.empty();
         }
         if (bucketCount < 0) {
-            throw new TrinoException(INVALID_TABLE_PROPERTY, format("%s must be greater than zero", BUCKET_COUNT_PROPERTY));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "%s must be greater than zero".formatted(BUCKET_COUNT_PROPERTY));
         }
         if (bucketedBy.isEmpty() || bucketCount == 0) {
-            throw new TrinoException(INVALID_TABLE_PROPERTY, format("%s and %s must be specified together", BUCKETED_BY_PROPERTY, BUCKET_COUNT_PROPERTY));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "%s and %s must be specified together".formatted(BUCKETED_BY_PROPERTY, BUCKET_COUNT_PROPERTY));
         }
         BucketingVersion bucketingVersion = getBucketingVersion(tableProperties);
         return Optional.of(new BucketInfo(bucketedBy, bucketingVersion, bucketCount, sortedBy));
@@ -288,7 +287,7 @@ public class HiveTableProperties
         if (property == 2) {
             return BUCKETING_V2;
         }
-        throw new TrinoException(INVALID_TABLE_PROPERTY, format("%s must be between 1 and 2 (inclusive): %s", BUCKETING_VERSION, property));
+        throw new TrinoException(INVALID_TABLE_PROPERTY, "%s must be between 1 and 2 (inclusive): %s".formatted(BUCKETING_VERSION, property));
     }
 
     @SuppressWarnings("unchecked")
@@ -328,7 +327,7 @@ public class HiveTableProperties
         }
         String stringValue = (String) value;
         if (stringValue.length() != 1) {
-            throw new TrinoException(INVALID_TABLE_PROPERTY, format("%s must be a single character string, but was: '%s'", key, stringValue));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "%s must be a single character string, but was: '%s'".formatted(key, stringValue));
         }
         return Optional.of(stringValue.charAt(0));
     }

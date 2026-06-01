@@ -96,7 +96,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.util.Collections.emptyIterator;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -207,8 +206,7 @@ public class HiveSplitManager
         SemiTransactionalHiveMetastore metastore = transactionalMetadata.getMetastore();
         if (!metastore.isReadableWithinTransaction(tableName.getSchemaName(), tableName.getTableName())) {
             // Until transaction is committed, the table data may or may not be visible.
-            throw new TrinoException(NOT_SUPPORTED, format(
-                    "Cannot read from a table %s that was modified within transaction, you need to commit the transaction first",
+            throw new TrinoException(NOT_SUPPORTED, "Cannot read from a table %s that was modified within transaction, you need to commit the transaction first".formatted(
                     tableName));
         }
         Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
@@ -347,17 +345,17 @@ public class HiveSplitManager
                     Lists.transform(partitionBatch, HivePartition::getPartitionId));
 
             if (partitionBatch.size() != partitions.size()) {
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Expected %s partitions but found %s for %s", partitionBatch.size(), partitions.size(), tableName));
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Expected %s partitions but found %s for %s".formatted(partitionBatch.size(), partitions.size(), tableName));
             }
 
             ImmutableList.Builder<HivePartitionMetadata> results = ImmutableList.builderWithExpectedSize(partitionBatch.size());
             for (HivePartition hivePartition : partitionBatch) {
                 Optional<Partition> partition = partitions.get(hivePartition.getPartitionId());
                 if (partition == null) {
-                    throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Partition not loaded: %s for %s", hivePartition, tableName));
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Partition not loaded: %s for %s".formatted(hivePartition, tableName));
                 }
                 if (partition.isEmpty()) {
-                    throw new TrinoException(HIVE_PARTITION_DROPPED_DURING_QUERY, format("Partition %s no longer exists for %s", hivePartition.getPartitionId(), tableName));
+                    throw new TrinoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Partition %s no longer exists for %s".formatted(hivePartition.getPartitionId(), tableName));
                 }
                 results.add(toPartitionMetadata(
                         typeManager,
@@ -408,15 +406,14 @@ public class HiveSplitManager
         List<Column> tableColumns = table.getDataColumns();
         List<Column> partitionColumns = partition.getColumns();
         if ((tableColumns == null) || (partitionColumns == null)) {
-            throw new TrinoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partName));
+            throw new TrinoException(HIVE_INVALID_METADATA, "Table '%s' or partition '%s' has null columns".formatted(tableName, partName));
         }
 
         Map<Integer, HiveTypeName> hiveColumnCoercions = getHiveColumnCoercions(usePartitionColumnNames, typeManager, hiveTimestampPrecision, tableName, partName, tableColumns, partitionColumns, neededColumnNames);
 
         if (bucketProperty.isPresent()) {
             HiveBucketProperty partitionBucketProperty = partition.getStorage().getBucketProperty()
-                    .orElseThrow(() -> new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
-                            "Hive table (%s) is bucketed but partition (%s) is not bucketed",
+                    .orElseThrow(() -> new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, "Hive table (%s) is bucketed but partition (%s) is not bucketed".formatted(
                             tableName,
                             partName)));
             int tableBucketCount = bucketProperty.get().bucketCount();
@@ -424,8 +421,7 @@ public class HiveSplitManager
             List<String> tableBucketColumns = bucketProperty.get().bucketedBy();
             List<String> partitionBucketColumns = partitionBucketProperty.bucketedBy();
             if (!tableBucketColumns.equals(partitionBucketColumns) || !isBucketCountCompatible(tableBucketCount, partitionBucketCount)) {
-                throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
-                        "Hive table (%s) bucketing (columns=%s, buckets=%s) is not compatible with partition (%s) bucketing (columns=%s, buckets=%s)",
+                throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, "Hive table (%s) bucketing (columns=%s, buckets=%s) is not compatible with partition (%s) bucketing (columns=%s, buckets=%s)".formatted(
                         tableName,
                         tableBucketColumns,
                         tableBucketCount,
@@ -437,8 +433,7 @@ public class HiveSplitManager
                 List<SortingColumn> tableSortedColumns = bucketProperty.get().sortedBy();
                 List<SortingColumn> partitionSortedColumns = partitionBucketProperty.sortedBy();
                 if (!isSortingCompatible(tableSortedColumns, partitionSortedColumns)) {
-                    throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
-                            "Hive table (%s) sorting by %s is not compatible with partition (%s) sorting by %s. This restriction can be avoided by disabling propagate_table_scan_sorting_properties.",
+                    throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, "Hive table (%s) sorting by %s is not compatible with partition (%s) sorting by %s. This restriction can be avoided by disabling propagate_table_scan_sorting_properties.".formatted(
                             tableName,
                             tableSortedColumns.stream().map(HiveUtil::sortingColumnToString).collect(toImmutableList()),
                             partName,
@@ -536,12 +531,11 @@ public class HiveSplitManager
 
     private static TrinoException tablePartitionColumnMismatchException(SchemaTableName tableName, String partName, String tableColumnName, HiveType tableType, String partitionColumnName, HiveType partitionType)
     {
-        return new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
-                "" +
-                        "There is a mismatch between the table and partition schemas. " +
-                        "The types are incompatible and cannot be coerced. " +
-                        "The column '%s' in table '%s' is declared as type '%s', " +
-                        "but partition '%s' declared column '%s' as type '%s'.",
+        return new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, ("" +
+        "There is a mismatch between the table and partition schemas. " +
+        "The types are incompatible and cannot be coerced. " +
+        "The column '%s' in table '%s' is declared as type '%s', " +
+        "but partition '%s' declared column '%s' as type '%s'.").formatted(
                 tableColumnName,
                 tableName,
                 tableType,

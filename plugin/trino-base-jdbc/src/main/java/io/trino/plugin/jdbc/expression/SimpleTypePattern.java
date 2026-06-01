@@ -23,7 +23,6 @@ import io.trino.spi.type.TypeParameter;
 import java.util.List;
 import java.util.Objects;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -85,8 +84,7 @@ public class SimpleTypePattern
         if (parameters.isEmpty()) {
             return baseName;
         }
-        return format(
-                "%s(%s)",
+        return "%s(%s)".formatted(
                 baseName,
                 parameters.stream()
                         .map(Object::toString)
@@ -100,6 +98,6 @@ public class SimpleTypePattern
 
     private static Property<Type, ?, TypeParameter> parameter(int i)
     {
-        return Property.property(format("parameter(%s)", i), type -> type.getTypeSignature().getParameters().get(i));
+        return Property.property("parameter(%s)".formatted(i), type -> type.getTypeSignature().getParameters().get(i));
     }
 }

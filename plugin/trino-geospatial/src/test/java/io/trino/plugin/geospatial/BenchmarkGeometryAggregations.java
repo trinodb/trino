@@ -38,7 +38,6 @@ import java.util.stream.Stream;
 import static com.google.common.io.Resources.getResource;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 import static org.openjdk.jmh.annotations.Scope.Thread;
@@ -77,12 +76,12 @@ public class BenchmarkGeometryAggregations
             try (Stream<String> lines = Files.lines(path)) {
                 polygonValues = lines
                         .map(line -> line.split("\t"))
-                        .map(parts -> format("('%s', '%s')", parts[0], parts[1]))
+                        .map(parts -> "('%s', '%s')".formatted(parts[0], parts[1]))
                         .collect(Collectors.joining(","));
             }
 
             queryRunner.execute(
-                    format("CREATE TABLE memory.default.us_states AS SELECT ST_GeometryFromText(t.wkt) AS geom FROM (VALUES %s) as t (name, wkt)",
+                    "CREATE TABLE memory.default.us_states AS SELECT ST_GeometryFromText(t.wkt) AS geom FROM (VALUES %s) as t (name, wkt)".formatted(
                             polygonValues));
         }
 

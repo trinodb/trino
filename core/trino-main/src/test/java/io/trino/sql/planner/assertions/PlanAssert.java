@@ -32,7 +32,6 @@ import java.util.stream.Stream;
 import static io.trino.sql.planner.iterative.Lookup.noLookup;
 import static io.trino.sql.planner.iterative.Plans.resolveGroupReferences;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
-import static java.lang.String.format;
 
 public final class PlanAssert
 {
@@ -55,15 +54,13 @@ public final class PlanAssert
         if (!matches.isMatch()) {
             String formattedPlan = textLogicalPlan(actual.getRoot(), metadata, functionManager, StatsAndCosts.empty(), session, 0, false);
             if (!containsGroupReferences(actual.getRoot())) {
-                throw new AssertionError(format(
-                        "Plan does not match, expected [\n\n%s\n] but found [\n\n%s\n]",
+                throw new AssertionError("Plan does not match, expected [\n\n%s\n] but found [\n\n%s\n]".formatted(
                         pattern,
                         formattedPlan));
             }
             PlanNode resolvedPlan = resolveGroupReferences(actual.getRoot(), lookup);
             String resolvedFormattedPlan = textLogicalPlan(resolvedPlan, metadata, functionManager, StatsAndCosts.empty(), session, 0, false);
-            throw new AssertionError(format(
-                    "Plan does not match, expected [\n\n%s\n] but found [\n\n%s\n] which resolves to [\n\n%s\n]",
+            throw new AssertionError("Plan does not match, expected [\n\n%s\n] but found [\n\n%s\n] which resolves to [\n\n%s\n]".formatted(
                     pattern,
                     formattedPlan,
                     resolvedFormattedPlan));
@@ -71,7 +68,7 @@ public final class PlanAssert
 
         MatchingDynamicFilters matchingDynamicFilters = matches.getDynamicFilters();
         if (matchingDynamicFilters.containsUnresolvedAliases()) {
-            throw new AssertionError(format("Some dynamic filter aliases are not resolved to a single ID. \nMatched dynamic filters: %s", matchingDynamicFilters));
+            throw new AssertionError("Some dynamic filter aliases are not resolved to a single ID. \nMatched dynamic filters: %s".formatted(matchingDynamicFilters));
         }
     }
 

@@ -28,7 +28,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.units.Duration.succinctNanos;
 import static io.trino.operator.Operator.NOT_BLOCKED;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -191,8 +190,7 @@ abstract class SimulationSplit
         public String getInfo()
         {
             double pct = (100.0 * getCompletedProcessNanos() / super.scheduledTimeNanos);
-            return format(
-                    "leaf %3s%% done (total: %8s, per quanta: %8s)",
+            return "leaf %3s%% done (total: %8s, per quanta: %8s)".formatted(
                     (int) (pct > 100.00 ? 100.0 : pct),
                     succinctNanos(super.scheduledTimeNanos),
                     succinctNanos(perQuantaNanos));
@@ -272,8 +270,7 @@ abstract class SimulationSplit
         public String getInfo()
         {
             double pct = (100.0 * getCalls() / numQuantas);
-            return format(
-                    "intr %3s%% done (wall: %9s, per quanta: %8s, between quanta: %8s)",
+            return "intr %3s%% done (wall: %9s, per quanta: %8s, between quanta: %8s)".formatted(
                     (int) (pct > 100.00 ? 100.0 : pct),
                     succinctNanos(wallTimeNanos),
                     succinctNanos(perQuantaNanos),

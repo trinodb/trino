@@ -86,7 +86,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.StrictMath.toIntExact;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeZone.UTC;
@@ -366,7 +365,7 @@ public class JsonDeserializer
             }
             // out of bounds is an error
             if (overflows(bigDecimal, decimalType.getPrecision())) {
-                throw new NumberFormatException(format("Cannot convert '%s' to %s. Value too large.", value, decimalType));
+                throw new NumberFormatException("Cannot convert '%s' to %s. Value too large.".formatted(value, decimalType));
             }
             if (decimalType.isShort()) {
                 decimalType.writeLong(builder, bigDecimal.unscaledValue().longValueExact());

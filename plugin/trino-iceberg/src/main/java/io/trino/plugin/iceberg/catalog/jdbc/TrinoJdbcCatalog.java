@@ -85,7 +85,6 @@ import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.CatalogUtil.dropTableData;
@@ -366,7 +365,7 @@ public class TrinoJdbcCatalog
             throw new TableNotFoundException(schemaTableName);
         }
         if (metadataLocation.isEmpty()) {
-            throw new TrinoException(ICEBERG_INVALID_METADATA, format("Could not find metadata_location for table %s", schemaTableName));
+            throw new TrinoException(ICEBERG_INVALID_METADATA, "Could not find metadata_location for table %s".formatted(schemaTableName));
         }
         String tableLocation = METADATA_SUFFIX_PATTERN.matcher(metadataLocation.get()).replaceFirst("");
         deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, tableLocation);

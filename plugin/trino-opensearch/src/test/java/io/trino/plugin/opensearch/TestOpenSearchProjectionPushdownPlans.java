@@ -71,7 +71,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -309,7 +308,7 @@ final class TestOpenSearchProjectionPushdownPlans
             throws IOException
     {
         String json = JSON_MAPPER.writeValueAsString(document);
-        String endpoint = format("%s?refresh", indexEndpoint(index, String.valueOf(System.nanoTime())));
+        String endpoint = "%s?refresh".formatted(indexEndpoint(index, String.valueOf(System.nanoTime())));
 
         Request request = new Request("PUT", endpoint);
         request.setJsonEntity(json);
@@ -318,7 +317,7 @@ final class TestOpenSearchProjectionPushdownPlans
 
     private static String indexEndpoint(String index, String docId)
     {
-        return format("/%s/_doc/%s", index, docId);
+        return "/%s/_doc/%s".formatted(index, docId);
     }
 
     private void deleteIndex(String indexName)

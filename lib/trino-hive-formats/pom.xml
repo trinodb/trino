@@ -295,6 +295,16 @@
         </pluginManagement>
         <plugins>
             <plugin>
+                <groupId>org.gaul</groupId>
+                <artifactId>modernizer-maven-plugin</artifactId>
+                <configuration>
+                    <ignoreClassNamePatterns>
+                        <!-- protoc-generated test sources are regenerated on every build and cannot be modernized -->
+                        <ignoreClassNamePattern>io/trino/hive/formats/line/protobuf/examples/DataRecordProtos.*</ignoreClassNamePattern>
+                    </ignoreClassNamePatterns>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>com.github.os72</groupId>
                 <artifactId>protoc-jar-maven-plugin</artifactId>
                 <executions>

@@ -22,7 +22,6 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public final class TransactionLogAssertions
@@ -43,7 +42,7 @@ public final class TransactionLogAssertions
     {
         Optional<String> lastJsonEntry = listJsonLogEntries(s3Client, bucketName, tableName).stream().max(String::compareTo);
         assertThat(lastJsonEntry).isPresent();
-        assertThat(lastJsonEntry.get()).isEqualTo(format("%020d.json", versionNumber));
+        assertThat(lastJsonEntry.get()).isEqualTo("%020d.json".formatted(versionNumber));
     }
 
     private static List<String> listJsonLogEntries(S3Client s3Client, String bucketName, String tableName)

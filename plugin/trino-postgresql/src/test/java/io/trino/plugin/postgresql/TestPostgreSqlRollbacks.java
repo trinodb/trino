@@ -35,7 +35,6 @@ import static io.trino.plugin.base.TemporaryTables.TEMPORARY_TABLE_NAME_PREFIX;
 import static io.trino.plugin.jdbc.BaseJdbcConnectorTest.getQueryId;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
@@ -115,7 +114,7 @@ public class TestPostgreSqlRollbacks
                     }
                 });
 
-                QueryAssertions.assertUpdate(queryRunner, queryRunner.getDefaultSession(), format("CALL system.runtime.kill_query(query_id => '%s', message => '%s')", queryId, "Killed by test"), OptionalLong.empty());
+                QueryAssertions.assertUpdate(queryRunner, queryRunner.getDefaultSession(), "CALL system.runtime.kill_query(query_id => '%s', message => '%s')".formatted(queryId, "Killed by test"), OptionalLong.empty());
                 return null;
             });
 
@@ -170,7 +169,7 @@ public class TestPostgreSqlRollbacks
                     }
                 });
 
-                QueryAssertions.assertUpdate(queryRunner, queryRunner.getDefaultSession(), format("CALL system.runtime.kill_query(query_id => '%s', message => '%s')", queryId, "Killed by test"), OptionalLong.empty());
+                QueryAssertions.assertUpdate(queryRunner, queryRunner.getDefaultSession(), "CALL system.runtime.kill_query(query_id => '%s', message => '%s')".formatted(queryId, "Killed by test"), OptionalLong.empty());
                 return null;
             });
 

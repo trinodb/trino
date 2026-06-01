@@ -37,7 +37,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.trino.spi.StandardErrorCode.EXCHANGE_MANAGER_NOT_CONFIGURED;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ExchangeManagerRegistry
@@ -72,7 +71,7 @@ public class ExchangeManagerRegistry
     {
         requireNonNull(factory, "factory is null");
         if (exchangeManagerFactories.putIfAbsent(factory.getName(), factory) != null) {
-            throw new IllegalArgumentException(format("Exchange manager factory '%s' is already registered", factory.getName()));
+            throw new IllegalArgumentException("Exchange manager factory '%s' is already registered".formatted(factory.getName()));
         }
     }
 

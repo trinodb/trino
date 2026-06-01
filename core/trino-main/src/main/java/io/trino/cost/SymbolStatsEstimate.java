@@ -26,7 +26,6 @@ import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
-import static java.lang.String.format;
 
 public class SymbolStatsEstimate
 {
@@ -170,7 +169,7 @@ public class SymbolStatsEstimate
     public String toString()
     {
         return toStringHelper(this)
-                .add("range", format("[%s-%s]", lowValue, highValue))
+                .add("range", "[%s-%s]".formatted(lowValue, highValue))
                 .add("nulls", nullsFraction)
                 .add("ndv", distinctValuesCount)
                 .add("rowSize", averageRowSize)

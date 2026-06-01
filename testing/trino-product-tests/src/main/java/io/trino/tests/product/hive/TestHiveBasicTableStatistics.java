@@ -32,7 +32,6 @@ import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_IS
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -45,8 +44,8 @@ public class TestHiveBasicTableStatistics
     {
         String tableName = "test_basic_statistics_unpartitioned_ctas_trino";
 
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-        onTrino().executeQuery(format("CREATE TABLE %s AS SELECT * FROM nation", tableName));
+        onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
+        onTrino().executeQuery("CREATE TABLE %s AS SELECT * FROM nation".formatted(tableName));
 
         try {
             BasicStatistics statistics = getBasicStatisticsForTable(onHive(), tableName);
@@ -54,7 +53,7 @@ public class TestHiveBasicTableStatistics
             assertThat(statistics.getNumRows().getAsLong()).isEqualTo(25);
         }
         finally {
-            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+            onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
         }
     }
 
@@ -63,25 +62,24 @@ public class TestHiveBasicTableStatistics
     {
         String tableName = "test_basic_statistics_external_unpartitioned_trino";
 
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+        onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
 
         try {
             String location = getTableLocation("nation");
-            onTrino().executeQuery(format(
-                    "" +
-                            "CREATE TABLE %s (" +
-                            "   n_nationkey bigint, " +
-                            "   n_regionkey bigint, " +
-                            "   n_name varchar(25), " +
-                            "   n_comment varchar(152)) " +
-                            "WITH (external_location = '%s', format = 'TEXTFILE', textfile_field_separator = '|')",
+            onTrino().executeQuery(("" +
+            "CREATE TABLE %s (" +
+            "   n_nationkey bigint, " +
+            "   n_regionkey bigint, " +
+            "   n_name varchar(25), " +
+            "   n_comment varchar(152)) " +
+            "WITH (external_location = '%s', format = 'TEXTFILE', textfile_field_separator = '|')").formatted(
                     tableName,
                     location));
             BasicStatistics statistics = getBasicStatisticsForTable(onHive(), tableName);
             assertThatStatisticsAreNotPresent(statistics);
         }
         finally {
-            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+            onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
         }
     }
 
@@ -90,15 +88,15 @@ public class TestHiveBasicTableStatistics
     {
         String tableName = "test_basic_statistics_unpartitioned_ctas_trino_with_no_data";
 
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-        onTrino().executeQuery(format("CREATE TABLE %s AS SELECT * FROM nation WITH NO DATA", tableName));
+        onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
+        onTrino().executeQuery("CREATE TABLE %s AS SELECT * FROM nation WITH NO DATA".formatted(tableName));
 
         try {
             BasicStatistics statistics = getBasicStatisticsForTable(onHive(), tableName);
             assertThatStatisticsAreZero(statistics);
         }
         finally {
-            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+            onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
         }
     }
 
@@ -107,14 +105,14 @@ public class TestHiveBasicTableStatistics
     {
         String tableName = "test_basic_statistics_unpartitioned_insert_trino";
 
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-        onTrino().executeQuery(format("" +
+        onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
+        onTrino().executeQuery(("" +
                 "CREATE TABLE %s (" +
                 "   n_nationkey bigint, " +
                 "   n_regionkey bigint, " +
                 "   n_name varchar(25), " +
                 "   n_comment varchar(152)" +
-                ")", tableName));
+                ")").formatted(tableName));
 
         try {
             BasicStatistics statisticsEmpty = getBasicStatisticsForTable(onHive(), tableName);
@@ -134,7 +132,7 @@ public class TestHiveBasicTableStatistics
             assertThat(statisticsSecondInsert.getNumRows().getAsLong()).isEqualTo(50);
         }
         finally {
-            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+            onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
         }
     }
 
@@ -143,8 +141,8 @@ public class TestHiveBasicTableStatistics
     {
         String tableName = "test_basic_statistics_partitioned_ctas_trino";
 
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-        onTrino().executeQuery(format("" +
+        onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
+        onTrino().executeQuery(("" +
                 "CREATE TABLE %s " +
                 "WITH (" +
                 "   partitioned_by = ARRAY['n_regionkey'] " +
@@ -154,7 +152,7 @@ public class TestHiveBasicTableStatistics
                 "FROM nation " +
                 // turns out there are exactly 5 countries in each region
                 // let's change records count for one of the regions to verify statistics are different
-                "WHERE n_nationkey <> 23", tableName));
+                "WHERE n_nationkey <> 23").formatted(tableName));
 
         try {
             BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
@@ -172,7 +170,7 @@ public class TestHiveBasicTableStatistics
             assertThat(secondPartitionStatistics.getNumRows().getAsLong()).isEqualTo(4);
         }
         finally {
-            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+            onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
         }
     }
 
@@ -182,7 +180,7 @@ public class TestHiveBasicTableStatistics
         String tableName = "test_basic_statistics_analyze_partitioned";
 
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
-        onTrino().executeQuery(format("" +
+        onTrino().executeQuery(("" +
                 "CREATE TABLE %s " +
                 "WITH ( " +
                 "   partitioned_by = ARRAY['n_regionkey'], " +
@@ -192,7 +190,7 @@ public class TestHiveBasicTableStatistics
                 "AS " +
                 "SELECT n_nationkey, n_name, n_comment, n_regionkey " +
                 "FROM nation " +
-                "WHERE n_regionkey = 1", tableName));
+                "WHERE n_regionkey = 1").formatted(tableName));
 
         try {
             BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
@@ -205,7 +203,7 @@ public class TestHiveBasicTableStatistics
             assertThatStatisticsArePresent(partitionStatisticsBefore);
 
             // run ANALYZE
-            onTrino().executeQuery(format("ANALYZE %s", tableName));
+            onTrino().executeQuery("ANALYZE %s".formatted(tableName));
             BasicStatistics partitionStatisticsAfter = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=1");
 
             assertThat(partitionStatisticsAfter.getNumRows()).isEqualTo(partitionStatisticsBefore.getNumRows());
@@ -214,7 +212,7 @@ public class TestHiveBasicTableStatistics
             assertThat(partitionStatisticsAfter.getTotalSize()).isEqualTo(partitionStatisticsBefore.getTotalSize());
         }
         finally {
-            onTrino().executeQuery(format("DROP TABLE %s", tableName));
+            onTrino().executeQuery("DROP TABLE %s".formatted(tableName));
         }
     }
 
@@ -224,19 +222,19 @@ public class TestHiveBasicTableStatistics
         String tableName = "test_basic_statistics_analyze_unpartitioned";
 
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
-        onTrino().executeQuery(format("" +
+        onTrino().executeQuery(("" +
                 "CREATE TABLE %s " +
                 "AS " +
                 "SELECT n_nationkey, n_name, n_comment, n_regionkey " +
                 "FROM nation " +
-                "WHERE n_regionkey = 1", tableName));
+                "WHERE n_regionkey = 1").formatted(tableName));
 
         try {
             BasicStatistics tableStatisticsBefore = getBasicStatisticsForTable(onHive(), tableName);
             assertThatStatisticsArePresent(tableStatisticsBefore);
 
             // run ANALYZE
-            onTrino().executeQuery(format("ANALYZE %s", tableName));
+            onTrino().executeQuery("ANALYZE %s".formatted(tableName));
             BasicStatistics tableStatisticsAfter = getBasicStatisticsForTable(onHive(), tableName);
 
             // ANALYZE will clear all basic stats except for the number of rows, which should be unchanged since no data has been added
@@ -246,7 +244,7 @@ public class TestHiveBasicTableStatistics
             assertThat(tableStatisticsAfter.getTotalSize()).isEmpty();
         }
         finally {
-            onTrino().executeQuery(format("DROP TABLE %s", tableName));
+            onTrino().executeQuery("DROP TABLE %s".formatted(tableName));
         }
     }
 
@@ -255,8 +253,8 @@ public class TestHiveBasicTableStatistics
     {
         String tableName = "test_basic_statistics_partitioned_insert_trino";
 
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-        onTrino().executeQuery(format("" +
+        onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
+        onTrino().executeQuery(("" +
                 "CREATE TABLE %s (" +
                 "   n_nationkey bigint, " +
                 "   n_name varchar(25), " +
@@ -265,7 +263,7 @@ public class TestHiveBasicTableStatistics
                 ")" +
                 "WITH (" +
                 "   partitioned_by = ARRAY['n_regionkey'] " +
-                ") ", tableName));
+                ") ").formatted(tableName));
 
         try {
             BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
@@ -287,7 +285,7 @@ public class TestHiveBasicTableStatistics
             assertThatStatisticsValuesHaveIncreased(partitionStatisticsFirstInsert, statisticsSecondInsert);
         }
         finally {
-            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+            onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
         }
     }
 
@@ -297,8 +295,8 @@ public class TestHiveBasicTableStatistics
     {
         String tableName = "test_basic_statistics_bucketed_insert_trino";
 
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-        onTrino().executeQuery(format("" +
+        onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
+        onTrino().executeQuery(("" +
                 "CREATE TABLE %s " +
                 "WITH ( " +
                 "   bucketed_by = ARRAY['n_nationkey'], " +
@@ -306,7 +304,7 @@ public class TestHiveBasicTableStatistics
                 ") " +
                 "AS " +
                 "SELECT n_nationkey, n_name, n_comment, n_regionkey " +
-                "FROM nation", tableName));
+                "FROM nation").formatted(tableName));
 
         try {
             BasicStatistics statisticsAfterCreate = getBasicStatisticsForTable(onHive(), tableName);
@@ -327,7 +325,7 @@ public class TestHiveBasicTableStatistics
             assertThat(statisticsAfterInsert2.getNumFiles().getAsLong()).isEqualTo(75); // no files for empty buckets
         }
         finally {
-            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+            onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
         }
     }
 
@@ -336,8 +334,8 @@ public class TestHiveBasicTableStatistics
     {
         String tableName = "test_basic_statistics_bucketed_partitioned_insert_trino";
 
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-        onTrino().executeQuery(format("" +
+        onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
+        onTrino().executeQuery(("" +
                 "CREATE TABLE %s " +
                 "WITH ( " +
                 "   partitioned_by = ARRAY['n_regionkey'], " +
@@ -347,7 +345,7 @@ public class TestHiveBasicTableStatistics
                 "AS " +
                 "SELECT n_nationkey, n_name, n_comment, n_regionkey " +
                 "FROM nation " +
-                "WHERE n_regionkey = 1", tableName));
+                "WHERE n_regionkey = 1").formatted(tableName));
 
         try {
             BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
@@ -361,10 +359,10 @@ public class TestHiveBasicTableStatistics
             assertThat(firstPartitionStatistics.getNumRows().getAsLong()).isEqualTo(5);
             assertThat(firstPartitionStatistics.getNumFiles().getAsLong()).isEqualTo(5); // no files for empty buckets
 
-            String insert = format("INSERT INTO %s (n_nationkey, n_regionkey, n_name, n_comment) " +
+            String insert = ("INSERT INTO %s (n_nationkey, n_regionkey, n_name, n_comment) " +
                     "SELECT n_nationkey, n_regionkey, n_name, n_comment " +
                     "FROM nation " +
-                    "WHERE n_regionkey = 2", tableName);
+                    "WHERE n_regionkey = 2").formatted(tableName);
 
             onTrino().executeQuery(insert);
 
@@ -379,15 +377,15 @@ public class TestHiveBasicTableStatistics
             assertThat(secondPartitionUpdatedStatistics.getNumFiles().getAsLong()).isEqualTo(8); // no files for empty buckets
         }
         finally {
-            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+            onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
         }
     }
 
     private static void insertNationData(QueryExecutor executor, String tableName)
     {
-        executor.executeQuery(format("" +
+        executor.executeQuery(("" +
                 "INSERT INTO %s (n_nationkey, n_regionkey, n_name, n_comment) " +
-                "SELECT n_nationkey, n_regionkey, n_name, n_comment FROM nation", tableName));
+                "SELECT n_nationkey, n_regionkey, n_name, n_comment FROM nation").formatted(tableName));
     }
 
     private static void assertThatStatisticsAreNonZero(BasicStatistics statistics)
@@ -434,13 +432,13 @@ public class TestHiveBasicTableStatistics
 
     private static BasicStatistics getBasicStatisticsForTable(QueryExecutor executor, String table)
     {
-        QueryResult result = executor.executeQuery(format("DESCRIBE FORMATTED %s", table));
+        QueryResult result = executor.executeQuery("DESCRIBE FORMATTED %s".formatted(table));
         return basicStatisticsFromDescribeResult(result);
     }
 
     private static BasicStatistics getBasicStatisticsForPartition(QueryExecutor executor, String table, String partition)
     {
-        QueryResult result = executor.executeQuery(format("DESCRIBE FORMATTED %s partition (%s)", table, partition));
+        QueryResult result = executor.executeQuery("DESCRIBE FORMATTED %s partition (%s)".formatted(table, partition));
         return basicStatisticsFromDescribeResult(result);
     }
 

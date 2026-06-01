@@ -65,7 +65,6 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -123,12 +122,12 @@ public abstract class BaseIcebergConnectorSmokeTest
     public void testHiddenPathColumn()
     {
         try (TestTable table = newTrinoTable("hidden_file_path", "(a int, b VARCHAR)", ImmutableList.of("(1, 'a')"))) {
-            String filePath = (String) computeScalar(format("SELECT file_path FROM \"%s$files\"", table.getName()));
+            String filePath = (String) computeScalar("SELECT file_path FROM \"%s$files\"".formatted(table.getName()));
 
             assertQuery("SELECT DISTINCT \"$path\" FROM " + table.getName(), "VALUES " + "'" + filePath + "'");
 
             // Check whether the "$path" hidden column is correctly evaluated in the filter expression
-            assertQuery(format("SELECT a FROM %s WHERE \"$path\" = '%s'", table.getName(), filePath), "VALUES 1");
+            assertQuery("SELECT a FROM %s WHERE \"$path\" = '%s'".formatted(table.getName(), filePath), "VALUES 1");
         }
     }
 
@@ -155,7 +154,7 @@ public abstract class BaseIcebergConnectorSmokeTest
                         barrier.await(10, SECONDS);
                         String columnName = "col" + threadNumber;
                         try {
-                            getQueryRunner().execute(format("DELETE FROM %s WHERE %s = 1", tableName, columnName));
+                            getQueryRunner().execute("DELETE FROM %s WHERE %s = 1".formatted(tableName, columnName));
                             return true;
                         }
                         catch (Exception e) {
@@ -249,9 +248,9 @@ public abstract class BaseIcebergConnectorSmokeTest
     {
         String tableName = "test_register_table_with_table_location_" + randomNameSuffix();
 
-        assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean)", tableName));
-        assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s values(2, 'USA', false)", tableName), 1);
+        assertUpdate("CREATE TABLE %s (a int, b varchar, c boolean)".formatted(tableName));
+        assertUpdate("INSERT INTO %s values(1, 'INDIA', true)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s values(2, 'USA', false)".formatted(tableName), 1);
 
         String tableLocation = getTableLocation(tableName);
         // Drop table from catalog and use the same table name to register again with the metadata
@@ -259,11 +258,11 @@ public abstract class BaseIcebergConnectorSmokeTest
 
         assertUpdate("CALL system.register_table (CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "')");
 
-        assertThat(query(format("SELECT * FROM %s", tableName)))
+        assertThat(query("SELECT * FROM %s".formatted(tableName)))
                 .matches("VALUES " +
                         "ROW(INT '1', VARCHAR 'INDIA', BOOLEAN 'true'), " +
                         "ROW(INT '2', VARCHAR 'USA', BOOLEAN 'false')");
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE %s".formatted(tableName));
     }
 
     @Test
@@ -271,12 +270,12 @@ public abstract class BaseIcebergConnectorSmokeTest
     {
         String tableName = "test_register_table_with_comments_" + randomNameSuffix();
 
-        assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean)", tableName));
-        assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
-        assertUpdate(format("COMMENT ON TABLE %s is 'my-table-comment'", tableName));
-        assertUpdate(format("COMMENT ON COLUMN %s.a is 'a-comment'", tableName));
-        assertUpdate(format("COMMENT ON COLUMN %s.b is 'b-comment'", tableName));
-        assertUpdate(format("COMMENT ON COLUMN %s.c is 'c-comment'", tableName));
+        assertUpdate("CREATE TABLE %s (a int, b varchar, c boolean)".formatted(tableName));
+        assertUpdate("INSERT INTO %s values(1, 'INDIA', true)".formatted(tableName), 1);
+        assertUpdate("COMMENT ON TABLE %s is 'my-table-comment'".formatted(tableName));
+        assertUpdate("COMMENT ON COLUMN %s.a is 'a-comment'".formatted(tableName));
+        assertUpdate("COMMENT ON COLUMN %s.b is 'b-comment'".formatted(tableName));
+        assertUpdate("COMMENT ON COLUMN %s.c is 'c-comment'".formatted(tableName));
 
         String tableLocation = getTableLocation(tableName);
         // Drop table from catalog and use the same table name to register again with the metadata
@@ -288,7 +287,7 @@ public abstract class BaseIcebergConnectorSmokeTest
         assertThat(getColumnComment(tableName, "a")).isEqualTo("a-comment");
         assertThat(getColumnComment(tableName, "b")).isEqualTo("b-comment");
         assertThat(getColumnComment(tableName, "c")).isEqualTo("c-comment");
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE %s".formatted(tableName));
     }
 
     @Test
@@ -296,8 +295,8 @@ public abstract class BaseIcebergConnectorSmokeTest
     {
         String tableName = "test_register_table_with_show_create_table_" + randomNameSuffix();
 
-        assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean)", tableName));
-        assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
+        assertUpdate("CREATE TABLE %s (a int, b varchar, c boolean)".formatted(tableName));
+        assertUpdate("INSERT INTO %s values(1, 'INDIA', true)".formatted(tableName), 1);
 
         String tableLocation = getTableLocation(tableName);
         String showCreateTableOld = (String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue();
@@ -308,7 +307,7 @@ public abstract class BaseIcebergConnectorSmokeTest
         String showCreateTableNew = (String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue();
 
         assertThat(showCreateTableOld).isEqualTo(showCreateTableNew);
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE %s".formatted(tableName));
     }
 
     @Test
@@ -316,23 +315,23 @@ public abstract class BaseIcebergConnectorSmokeTest
     {
         String tableName = "test_register_table_with_re_insert_" + randomNameSuffix();
 
-        assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean)", tableName));
-        assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s values(2, 'USA', false)", tableName), 1);
+        assertUpdate("CREATE TABLE %s (a int, b varchar, c boolean)".formatted(tableName));
+        assertUpdate("INSERT INTO %s values(1, 'INDIA', true)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s values(2, 'USA', false)".formatted(tableName), 1);
 
         String tableLocation = getTableLocation(tableName);
         // Drop table from catalog and use the same table name to register again with the metadata
         dropTableFromCatalog(tableName);
 
         assertUpdate("CALL system.register_table (CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "')");
-        assertUpdate(format("INSERT INTO %s values(3, 'POLAND', true)", tableName), 1);
+        assertUpdate("INSERT INTO %s values(3, 'POLAND', true)".formatted(tableName), 1);
 
-        assertThat(query(format("SELECT * FROM %s", tableName)))
+        assertThat(query("SELECT * FROM %s".formatted(tableName)))
                 .matches("VALUES " +
                         "ROW(INT '1', VARCHAR 'INDIA', BOOLEAN 'true'), " +
                         "ROW(INT '2', VARCHAR 'USA', BOOLEAN 'false'), " +
                         "ROW(INT '3', VARCHAR 'POLAND', BOOLEAN 'true')");
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE %s".formatted(tableName));
     }
 
     @Test
@@ -340,15 +339,15 @@ public abstract class BaseIcebergConnectorSmokeTest
     {
         String tableName = "test_register_table_with_dropped_table_" + randomNameSuffix();
 
-        assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean)", tableName));
-        assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
+        assertUpdate("CREATE TABLE %s (a int, b varchar, c boolean)".formatted(tableName));
+        assertUpdate("INSERT INTO %s values(1, 'INDIA', true)".formatted(tableName), 1);
 
         String tableLocation = getTableLocation(tableName);
         String tableNameNew = tableName + "_new";
         // Drop table to verify register_table call fails when no metadata can be found (table doesn't exist)
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE %s".formatted(tableName));
 
-        assertQueryFails(format("CALL system.register_table (CURRENT_SCHEMA, '%s', '%s')", tableNameNew, tableLocation),
+        assertQueryFails("CALL system.register_table (CURRENT_SCHEMA, '%s', '%s')".formatted(tableNameNew, tableLocation),
                 ".*No versioned metadata file exists at location.*");
     }
 
@@ -357,24 +356,24 @@ public abstract class BaseIcebergConnectorSmokeTest
     {
         String tableName = "test_register_table_with_different_table_name_" + randomNameSuffix();
 
-        assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean)", tableName));
-        assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s values(2, 'USA', false)", tableName), 1);
+        assertUpdate("CREATE TABLE %s (a int, b varchar, c boolean)".formatted(tableName));
+        assertUpdate("INSERT INTO %s values(1, 'INDIA', true)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s values(2, 'USA', false)".formatted(tableName), 1);
 
         String tableLocation = getTableLocation(tableName);
         String tableNameNew = tableName + "_new";
         // Drop table from glue metastore and use the same table name to register again with the metadata
         dropTableFromCatalog(tableName);
 
-        assertUpdate(format("CALL system.register_table (CURRENT_SCHEMA, '%s', '%s')", tableNameNew, tableLocation));
-        assertUpdate(format("INSERT INTO %s values(3, 'POLAND', true)", tableNameNew), 1);
+        assertUpdate("CALL system.register_table (CURRENT_SCHEMA, '%s', '%s')".formatted(tableNameNew, tableLocation));
+        assertUpdate("INSERT INTO %s values(3, 'POLAND', true)".formatted(tableNameNew), 1);
 
-        assertThat(query(format("SELECT * FROM %s", tableNameNew)))
+        assertThat(query("SELECT * FROM %s".formatted(tableNameNew)))
                 .matches("VALUES " +
                         "ROW(INT '1', VARCHAR 'INDIA', BOOLEAN 'true'), " +
                         "ROW(INT '2', VARCHAR 'USA', BOOLEAN 'false'), " +
                         "ROW(INT '3', VARCHAR 'POLAND', BOOLEAN 'true')");
-        assertUpdate(format("DROP TABLE %s", tableNameNew));
+        assertUpdate("DROP TABLE %s".formatted(tableNameNew));
     }
 
     @Test
@@ -382,9 +381,9 @@ public abstract class BaseIcebergConnectorSmokeTest
     {
         String tableName = "test_register_table_with_metadata_file_" + randomNameSuffix();
 
-        assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean)", tableName));
-        assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s values(2, 'USA', false)", tableName), 1);
+        assertUpdate("CREATE TABLE %s (a int, b varchar, c boolean)".formatted(tableName));
+        assertUpdate("INSERT INTO %s values(1, 'INDIA', true)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s values(2, 'USA', false)".formatted(tableName), 1);
 
         String tableLocation = getTableLocation(tableName);
         String metadataLocation = getMetadataLocation(tableName);
@@ -393,14 +392,14 @@ public abstract class BaseIcebergConnectorSmokeTest
         dropTableFromCatalog(tableName);
 
         assertUpdate("CALL iceberg.system.register_table (CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "', '" + metadataFileName + "')");
-        assertUpdate(format("INSERT INTO %s values(3, 'POLAND', true)", tableName), 1);
+        assertUpdate("INSERT INTO %s values(3, 'POLAND', true)".formatted(tableName), 1);
 
-        assertThat(query(format("SELECT * FROM %s", tableName)))
+        assertThat(query("SELECT * FROM %s".formatted(tableName)))
                 .matches("VALUES " +
                         "ROW(INT '1', VARCHAR 'INDIA', BOOLEAN 'true'), " +
                         "ROW(INT '2', VARCHAR 'USA', BOOLEAN 'false'), " +
                         "ROW(INT '3', VARCHAR 'POLAND', BOOLEAN 'true')");
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE %s".formatted(tableName));
     }
 
     @Test
@@ -409,7 +408,7 @@ public abstract class BaseIcebergConnectorSmokeTest
         String tableName = "test_create_table_with_trailing_space_" + randomNameSuffix();
         String tableLocationWithTrailingSpace = schemaPath() + "/" + tableName + " ";
 
-        assertQuerySucceeds(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace));
+        assertQuerySucceeds("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c".formatted(tableName, tableLocationWithTrailingSpace));
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'INDIA', true)");
 
         assertThat(getTableLocation(tableName)).isEqualTo(tableLocationWithTrailingSpace);
@@ -423,10 +422,10 @@ public abstract class BaseIcebergConnectorSmokeTest
         String tableName = "test_create_table_with_trailing_space_" + randomNameSuffix();
         String tableLocationWithTrailingSpace = schemaPath() + tableName + " ";
 
-        assertQuerySucceeds(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace));
+        assertQuerySucceeds("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c".formatted(tableName, tableLocationWithTrailingSpace));
 
         String registeredTableName = "test_register_table_with_trailing_space_" + randomNameSuffix();
-        assertUpdate(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", registeredTableName, tableLocationWithTrailingSpace));
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(registeredTableName, tableLocationWithTrailingSpace));
         assertQuery("SELECT * FROM " + registeredTableName, "VALUES (1, 'INDIA', true)");
 
         assertThat(getTableLocation(registeredTableName)).isEqualTo(tableLocationWithTrailingSpace);
@@ -962,13 +961,13 @@ public abstract class BaseIcebergConnectorSmokeTest
 
     private long getMostRecentSnapshotId(String tableName)
     {
-        return (long) Iterables.getOnlyElement(getQueryRunner().execute(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC LIMIT 1", tableName))
+        return (long) Iterables.getOnlyElement(getQueryRunner().execute("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC LIMIT 1".formatted(tableName))
                 .getOnlyColumnAsSet());
     }
 
     private ZonedDateTime getSnapshotTime(String tableName, long snapshotId)
     {
-        return (ZonedDateTime) Iterables.getOnlyElement(getQueryRunner().execute(format("SELECT committed_at FROM \"%s$snapshots\" WHERE snapshot_id = %s", tableName, snapshotId))
+        return (ZonedDateTime) Iterables.getOnlyElement(getQueryRunner().execute("SELECT committed_at FROM \"%s$snapshots\" WHERE snapshot_id = %s".formatted(tableName, snapshotId))
                 .getOnlyColumnAsSet());
     }
 

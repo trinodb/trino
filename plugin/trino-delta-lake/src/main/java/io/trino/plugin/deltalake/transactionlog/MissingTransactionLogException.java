@@ -16,13 +16,12 @@ package io.trino.plugin.deltalake.transactionlog;
 import io.trino.spi.TrinoException;
 
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_TABLE;
-import static java.lang.String.format;
 
 public class MissingTransactionLogException
         extends TrinoException
 {
     public MissingTransactionLogException(String transactionLogPath)
     {
-        super(DELTA_LAKE_INVALID_TABLE, format("The transaction log file %s was not found", transactionLogPath));
+        super(DELTA_LAKE_INVALID_TABLE, "The transaction log file %s was not found".formatted(transactionLogPath));
     }
 }

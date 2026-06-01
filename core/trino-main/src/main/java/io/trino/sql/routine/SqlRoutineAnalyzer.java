@@ -86,7 +86,6 @@ import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
-import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -528,7 +527,7 @@ public class SqlRoutineAnalyzer
             if (targetType == null) {
                 throw semanticException(NOT_FOUND, name, "Variable cannot be resolved: %s", name);
             }
-            analyzeExpression(context, node.getValue(), targetType, format("Value of SET '%s'", name));
+            analyzeExpression(context, node.getValue(), targetType, "Value of SET '%s'".formatted(name));
             return null;
         }
 

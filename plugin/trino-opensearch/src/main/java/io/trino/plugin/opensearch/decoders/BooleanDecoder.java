@@ -25,7 +25,6 @@ import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class BooleanDecoder
@@ -56,11 +55,11 @@ public class BooleanDecoder
                 BOOLEAN.writeBoolean(output, false);
             }
             else {
-                throw new TrinoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as BOOLEAN: %s", path, value));
+                throw new TrinoException(TYPE_MISMATCH, "Cannot parse value for field '%s' as BOOLEAN: %s".formatted(path, value));
             }
         }
         else {
-            throw new TrinoException(TYPE_MISMATCH, format("Expected a boolean value for field %s of type BOOLEAN: %s [%s]", path, value, value.getClass().getSimpleName()));
+            throw new TrinoException(TYPE_MISMATCH, "Expected a boolean value for field %s of type BOOLEAN: %s [%s]".formatted(path, value, value.getClass().getSimpleName()));
         }
     }
 

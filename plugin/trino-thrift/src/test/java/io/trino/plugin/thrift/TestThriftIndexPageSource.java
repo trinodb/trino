@@ -39,7 +39,7 @@ import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -214,7 +214,7 @@ public class TestThriftIndexPageSource
             }
         }
 
-        Collections.sort(actual);
+        actual.sort(Comparator.naturalOrder());
         List<Integer> expected = new ArrayList<>(splits * rowsPerSplit);
         for (int split = 1; split <= splits; split++) {
             for (int row = 0; row < rowsPerSplit; row++) {

@@ -39,7 +39,6 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
-import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_DATE;
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
@@ -103,7 +102,7 @@ public class ISO8601JsonFieldDecoder
             if (!value.isValueNode()) {
                 throw new TrinoException(
                         DECODER_CONVERSION_NOT_SUPPORTED,
-                        format("could not parse non-value node as '%s' for column '%s'", columnType, columnHandle.getName()));
+                        "could not parse non-value node as '%s' for column '%s'".formatted(columnType, columnHandle.getName()));
             }
 
             try {
@@ -141,7 +140,7 @@ public class ISO8601JsonFieldDecoder
             catch (DateTimeParseException e) {
                 throw new TrinoException(
                         DECODER_CONVERSION_NOT_SUPPORTED,
-                        format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnType, columnHandle.getName()));
+                        "could not parse value '%s' as '%s' for column '%s'".formatted(value.asText(), columnType, columnHandle.getName()));
             }
         }
     }

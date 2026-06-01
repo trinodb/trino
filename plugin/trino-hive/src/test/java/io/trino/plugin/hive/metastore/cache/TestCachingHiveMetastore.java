@@ -57,7 +57,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -102,7 +101,6 @@ import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TE
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -1072,8 +1070,8 @@ public class TestCachingHiveMetastore
                 new AcidTransactionOwner("test"),
                 "queryId",
                 5,
-                Collections.singletonList(new SchemaTableName("test", "test")),
-                Collections.emptyList());
+                List.of(new SchemaTableName("test", "test")),
+                List.of());
     }
 
     private static HiveColumnStatistics intColumnStats(int nullsCount)
@@ -1135,8 +1133,7 @@ public class TestCachingHiveMetastore
                 int currentAccessCount = thriftClient.getAccessCount();
                 int timesCacheHasBeenOmitted = (currentAccessCount - startingAccessCount) / i;
                 assertThat(timesCacheHasBeenOmitted)
-                        .describedAs(format(
-                                "Metastore is expected to not use cache %s times, but it does not use it %s times.",
+                        .describedAs("Metastore is expected to not use cache %s times, but it does not use it %s times.".formatted(
                                 expectedCacheOmittingOperations,
                                 timesCacheHasBeenOmitted))
                         .isEqualTo(expectedCacheOmittingOperations);

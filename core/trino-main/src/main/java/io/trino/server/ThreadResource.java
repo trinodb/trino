@@ -30,7 +30,6 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 import static io.trino.server.ThreadResource.Info.byName;
 import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
@@ -49,7 +48,7 @@ public class ThreadResource
         List<Info> threads = Arrays.stream(mbean.getThreadInfo(mbean.getAllThreadIds(), Integer.MAX_VALUE))
                 .filter(Objects::nonNull)
                 .map(ThreadResource::toInfo)
-                .collect(Collectors.toUnmodifiableList());
+                .toList();
 
         return Ordering.from(byName()).sortedCopy(threads);
     }

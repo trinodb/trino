@@ -17,14 +17,12 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
 public class TableStatisticsMetadata
 {
-    private static final TableStatisticsMetadata EMPTY_STATISTICS_METADATA = new TableStatisticsMetadata(emptySet(), emptySet(), emptyList());
+    private static final TableStatisticsMetadata EMPTY_STATISTICS_METADATA = new TableStatisticsMetadata(Set.of(), Set.of(), List.of());
 
     private final Set<ColumnStatisticMetadata> columnStatistics;
     private final Set<TableStatisticType> tableStatistics;

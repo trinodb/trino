@@ -14,13 +14,14 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -55,15 +56,15 @@ public class TestIcebergPartitionEvolution
         List<List<Object>> partitionColumn = files.stream().map(materializedRow -> ((MaterializedRow) materializedRow.getField(0)).getFields()).toList();
         assertThat(partitionColumn).containsExactlyInAnyOrder(
                 // ['regionkey', 'truncate(name, 1)']
-                Lists.newArrayList(1L, "B", null),
-                Lists.newArrayList(0L, "A", null),
-                Lists.newArrayList(1L, "A", null),
+                new ArrayList<>(Arrays.asList(1L, "B", null)),
+                new ArrayList<>(Arrays.asList(0L, "A", null)),
+                new ArrayList<>(Arrays.asList(1L, "A", null)),
                 // DEFAULT
-                Lists.newArrayList(null, null, null),
+                new ArrayList<>(Arrays.asList(null, null, null)),
                 // ['nationkey', 'regionkey', 'truncate(name, 1)']
-                Lists.newArrayList(1L, "B", 2L),
-                Lists.newArrayList(0L, "A", 0L),
-                Lists.newArrayList(1L, "A", 1L));
+                new ArrayList<>(Arrays.asList(1L, "B", 2L)),
+                new ArrayList<>(Arrays.asList(0L, "A", 0L)),
+                new ArrayList<>(Arrays.asList(1L, "A", 1L)));
         assertUpdate("DROP TABLE " + tableName);
     }
 

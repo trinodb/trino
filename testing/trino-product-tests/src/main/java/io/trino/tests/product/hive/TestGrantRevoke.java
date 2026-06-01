@@ -37,7 +37,6 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.connectToTrino;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGrantRevoke
@@ -75,8 +74,8 @@ public class TestGrantRevoke
         bobExecutor = connectToTrino("bob@trino");
         charlieExecutor = connectToTrino("charlie@trino");
 
-        aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-        aliceExecutor.executeQuery(format("CREATE TABLE %s(month bigint, day bigint)", tableName));
+        aliceExecutor.executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
+        aliceExecutor.executeQuery("CREATE TABLE %s(month bigint, day bigint)".formatted(tableName));
 
         onTrino().executeQuery("SET ROLE admin IN hive");
         onHive().executeQuery("SET ROLE admin");
@@ -86,8 +85,8 @@ public class TestGrantRevoke
     @AfterMethodWithContext
     public void cleanup()
     {
-        aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-        aliceExecutor.executeQuery(format("DROP VIEW IF EXISTS %s", viewName));
+        aliceExecutor.executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
+        aliceExecutor.executeQuery("DROP VIEW IF EXISTS %s".formatted(viewName));
         cleanupRoles();
 
         // should not be closed, this would close a shared, global QueryExecutor
@@ -101,7 +100,7 @@ public class TestGrantRevoke
     {
         for (String role : listRoles()) {
             if (!PREDEFINED_ROLES.contains(role)) {
-                onHive().executeQuery(format("DROP ROLE %s", role));
+                onHive().executeQuery("DROP ROLE %s".formatted(role));
             }
         }
     }
@@ -119,29 +118,29 @@ public class TestGrantRevoke
     public void testGrantRevoke()
     {
         // test GRANT
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
-        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
-        aliceExecutor.executeQuery(format("GRANT INSERT, SELECT ON %s TO bob", tableName));
-        assertThat(bobExecutor.executeQuery(format("INSERT INTO %s VALUES (3, 22)", tableName))).hasRowsCount(1);
-        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasRowsCount(1);
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("DELETE FROM %s WHERE day=3", tableName)))
+        aliceExecutor.executeQuery("GRANT SELECT ON %s TO bob".formatted(tableName));
+        assertThat(bobExecutor.executeQuery("SELECT * FROM %s".formatted(tableName))).hasNoRows();
+        aliceExecutor.executeQuery("GRANT INSERT, SELECT ON %s TO bob".formatted(tableName));
+        assertThat(bobExecutor.executeQuery("INSERT INTO %s VALUES (3, 22)".formatted(tableName))).hasRowsCount(1);
+        assertThat(bobExecutor.executeQuery("SELECT * FROM %s".formatted(tableName))).hasRowsCount(1);
+        assertQueryFailure(() -> bobExecutor.executeQuery("DELETE FROM %s WHERE day=3".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot delete from table default.%s", tableName);
 
         // test REVOKE
-        aliceExecutor.executeQuery(format("REVOKE INSERT ON %s FROM bob", tableName));
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("INSERT INTO %s VALUES ('y', 5)", tableName)))
+        aliceExecutor.executeQuery("REVOKE INSERT ON %s FROM bob".formatted(tableName));
+        assertQueryFailure(() -> bobExecutor.executeQuery("INSERT INTO %s VALUES ('y', 5)".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot insert into table default.%s", tableName);
-        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasRowsCount(1);
-        aliceExecutor.executeQuery(format("REVOKE INSERT, SELECT ON %s FROM bob", tableName));
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+        assertThat(bobExecutor.executeQuery("SELECT * FROM %s".formatted(tableName))).hasRowsCount(1);
+        aliceExecutor.executeQuery("REVOKE INSERT, SELECT ON %s FROM bob".formatted(tableName));
+        assertQueryFailure(() -> bobExecutor.executeQuery("SELECT * FROM %s".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot select from table default.%s", tableName);
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testGrantOptionsOnGrantedPrivilege()
     {
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
-        assertQueryFailure(() -> aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob WITH GRANT OPTION", tableName)))
+        aliceExecutor.executeQuery("GRANT SELECT ON %s TO bob".formatted(tableName));
+        assertQueryFailure(() -> aliceExecutor.executeQuery("GRANT SELECT ON %s TO bob WITH GRANT OPTION".formatted(tableName)))
                 // Updating a privilege with GRANT OPTION is not supported by Hive. https://issues.apache.org/jira/browse/HIVE-15689
                 .hasMessageContaining("Granting SELECT WITH GRANT OPTION is not supported while USER bob possesses SELECT");
     }
@@ -154,22 +153,22 @@ public class TestGrantRevoke
         onTrino().executeQuery("GRANT role1 TO USER charlie IN hive");
 
         // test GRANT WITH GRANT OPTION
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob WITH GRANT OPTION", tableName));
-        assertQueryFailure(() -> charlieExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+        aliceExecutor.executeQuery("GRANT SELECT ON %s TO bob WITH GRANT OPTION".formatted(tableName));
+        assertQueryFailure(() -> charlieExecutor.executeQuery("SELECT * FROM %s".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot select from table default.%s", tableName);
-        bobExecutor.executeQuery(format("GRANT SELECT ON %s TO ROLE role1", tableName));
-        assertThat(charlieExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+        bobExecutor.executeQuery("GRANT SELECT ON %s TO ROLE role1".formatted(tableName));
+        assertThat(charlieExecutor.executeQuery("SELECT * FROM %s".formatted(tableName))).hasNoRows();
 
         // test REVOKE WITH GRANT OPTION
-        aliceExecutor.executeQuery(format("REVOKE GRANT OPTION FOR SELECT ON %s FROM bob", tableName));
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("GRANT SELECT ON %s TO ROLE role1 ", tableName)))
+        aliceExecutor.executeQuery("REVOKE GRANT OPTION FOR SELECT ON %s FROM bob".formatted(tableName));
+        assertQueryFailure(() -> bobExecutor.executeQuery("GRANT SELECT ON %s TO ROLE role1 ".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot grant privilege SELECT on table default.%s", tableName);
-        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+        assertThat(bobExecutor.executeQuery("SELECT * FROM %s".formatted(tableName))).hasNoRows();
         // Since Hive doesn't support REVOKE with CASCADE, charlie would still have access to table
-        assertThat(charlieExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+        assertThat(charlieExecutor.executeQuery("SELECT * FROM %s".formatted(tableName))).hasNoRows();
 
         // test GRANT WITH GRANT OPTION post revoke
-        assertQueryFailure(() -> aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob WITH GRANT OPTION", tableName)))
+        assertQueryFailure(() -> aliceExecutor.executeQuery("GRANT SELECT ON %s TO bob WITH GRANT OPTION".formatted(tableName)))
                 // Updating a privilege with GRANT OPTION is not supported by Hive. https://issues.apache.org/jira/browse/HIVE-15689
                 .hasMessageContaining("Granting SELECT WITH GRANT OPTION is not supported while USER bob possesses SELECT");
     }
@@ -178,12 +177,12 @@ public class TestGrantRevoke
     public void testShowGrants()
     {
         onTrino().executeQuery("CREATE ROLE role1 IN hive");
-        onTrino().executeQuery(format("GRANT SELECT ON %s TO ROLE role1", tableName));
+        onTrino().executeQuery("GRANT SELECT ON %s TO ROLE role1".formatted(tableName));
         onTrino().executeQuery("GRANT role1 TO USER bob IN hive");
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob WITH GRANT OPTION", tableName));
-        aliceExecutor.executeQuery(format("GRANT INSERT ON %s TO bob", tableName));
+        aliceExecutor.executeQuery("GRANT SELECT ON %s TO bob WITH GRANT OPTION".formatted(tableName));
+        aliceExecutor.executeQuery("GRANT INSERT ON %s TO bob".formatted(tableName));
 
-        assertThat(bobExecutor.executeQuery(format("SHOW GRANTS ON %s", tableName)))
+        assertThat(bobExecutor.executeQuery("SHOW GRANTS ON %s".formatted(tableName)))
                 .containsOnly(ImmutableList.of(
                         row("alice", "USER", "bob", "USER", "hive", "default", "alice_owned_table", "SELECT", "YES", null),
                         row("alice", "USER", "bob", "USER", "hive", "default", "alice_owned_table", "INSERT", "NO", null),
@@ -193,27 +192,27 @@ public class TestGrantRevoke
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAll()
     {
-        aliceExecutor.executeQuery(format("GRANT ALL PRIVILEGES ON %s TO USER bob", tableName));
-        assertThat(bobExecutor.executeQuery(format("INSERT INTO %s VALUES (4, 13)", tableName))).hasRowsCount(1);
-        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasRowsCount(1);
-        bobExecutor.executeQuery(format("DELETE FROM %s", tableName));
-        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+        aliceExecutor.executeQuery("GRANT ALL PRIVILEGES ON %s TO USER bob".formatted(tableName));
+        assertThat(bobExecutor.executeQuery("INSERT INTO %s VALUES (4, 13)".formatted(tableName))).hasRowsCount(1);
+        assertThat(bobExecutor.executeQuery("SELECT * FROM %s".formatted(tableName))).hasRowsCount(1);
+        bobExecutor.executeQuery("DELETE FROM %s".formatted(tableName));
+        assertThat(bobExecutor.executeQuery("SELECT * FROM %s".formatted(tableName))).hasNoRows();
 
-        aliceExecutor.executeQuery(format("REVOKE ALL PRIVILEGES ON %s FROM USER bob", tableName));
+        aliceExecutor.executeQuery("REVOKE ALL PRIVILEGES ON %s FROM USER bob".formatted(tableName));
         assertAccessDeniedOnAllOperationsOnTable(bobExecutor, tableName);
 
-        assertThat(bobExecutor.executeQuery(format("SHOW GRANTS ON %s", tableName))).hasNoRows();
+        assertThat(bobExecutor.executeQuery("SHOW GRANTS ON %s".formatted(tableName))).hasNoRows();
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testPublic()
     {
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO ROLE PUBLIC", tableName));
-        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
-        aliceExecutor.executeQuery(format("REVOKE SELECT ON %s FROM ROLE PUBLIC", tableName));
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+        aliceExecutor.executeQuery("GRANT SELECT ON %s TO ROLE PUBLIC".formatted(tableName));
+        assertThat(bobExecutor.executeQuery("SELECT * FROM %s".formatted(tableName))).hasNoRows();
+        aliceExecutor.executeQuery("REVOKE SELECT ON %s FROM ROLE PUBLIC".formatted(tableName));
+        assertQueryFailure(() -> bobExecutor.executeQuery("SELECT * FROM %s".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot select from table default.%s", tableName);
-        assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+        assertThat(aliceExecutor.executeQuery("SELECT * FROM %s".formatted(tableName))).hasNoRows();
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -221,12 +220,12 @@ public class TestGrantRevoke
     {
         onTrino().executeQuery("CREATE ROLE role1 IN hive");
         onTrino().executeQuery("GRANT role1 TO USER bob IN hive");
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO ROLE role1", tableName));
-        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
-        aliceExecutor.executeQuery(format("REVOKE SELECT ON %s FROM ROLE role1", tableName));
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+        aliceExecutor.executeQuery("GRANT SELECT ON %s TO ROLE role1".formatted(tableName));
+        assertThat(bobExecutor.executeQuery("SELECT * FROM %s".formatted(tableName))).hasNoRows();
+        aliceExecutor.executeQuery("REVOKE SELECT ON %s FROM ROLE role1".formatted(tableName));
+        assertQueryFailure(() -> bobExecutor.executeQuery("SELECT * FROM %s".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot select from table default.%s", tableName);
-        assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+        assertThat(aliceExecutor.executeQuery("SELECT * FROM %s".formatted(tableName))).hasNoRows();
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -236,12 +235,12 @@ public class TestGrantRevoke
         onTrino().executeQuery("CREATE ROLE role2 IN hive");
         onTrino().executeQuery("GRANT role1 TO USER bob IN hive");
         onTrino().executeQuery("GRANT role2 TO ROLE role1 IN hive");
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO ROLE role2", tableName));
-        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
-        aliceExecutor.executeQuery(format("REVOKE SELECT ON %s FROM ROLE role2", tableName));
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+        aliceExecutor.executeQuery("GRANT SELECT ON %s TO ROLE role2".formatted(tableName));
+        assertThat(bobExecutor.executeQuery("SELECT * FROM %s".formatted(tableName))).hasNoRows();
+        aliceExecutor.executeQuery("REVOKE SELECT ON %s FROM ROLE role2".formatted(tableName));
+        assertQueryFailure(() -> bobExecutor.executeQuery("SELECT * FROM %s".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot select from table default.%s", tableName);
-        assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+        assertThat(aliceExecutor.executeQuery("SELECT * FROM %s".formatted(tableName))).hasNoRows();
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -249,19 +248,19 @@ public class TestGrantRevoke
     {
         onTrino().executeQuery("CREATE ROLE role1 IN hive");
         onTrino().executeQuery("GRANT role1 TO USER bob IN hive");
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO ROLE role1", tableName));
-        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+        aliceExecutor.executeQuery("GRANT SELECT ON %s TO ROLE role1".formatted(tableName));
+        assertThat(bobExecutor.executeQuery("SELECT * FROM %s".formatted(tableName))).hasNoRows();
         onTrino().executeQuery("DROP ROLE role1 IN hive");
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+        assertQueryFailure(() -> bobExecutor.executeQuery("SELECT * FROM %s".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot select from table default.%s", tableName);
-        assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+        assertThat(aliceExecutor.executeQuery("SELECT * FROM %s".formatted(tableName))).hasNoRows();
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testTableOwnerPrivileges()
     {
         onHive().executeQuery("set role admin;");
-        assertThat(onHive().executeQuery(format("SHOW GRANT USER alice ON TABLE %s", tableName))
+        assertThat(onHive().executeQuery("SHOW GRANT USER alice ON TABLE %s".formatted(tableName))
                 .project(7, 8)) // Project only two relevant columns of SHOW GRANT: Privilege and Grant Option
                 .containsOnly(ownerGrants());
     }
@@ -270,8 +269,8 @@ public class TestGrantRevoke
     public void testViewOwnerPrivileges()
     {
         onHive().executeQuery("set role admin;");
-        executeWith(createViewAs(viewName, format("SELECT * FROM %s", tableName), aliceExecutor), _ -> {
-            assertThat(onHive().executeQuery(format("SHOW GRANT USER alice ON %s", viewName))
+        executeWith(createViewAs(viewName, "SELECT * FROM %s".formatted(tableName), aliceExecutor), _ -> {
+            assertThat(onHive().executeQuery("SHOW GRANT USER alice ON %s".formatted(viewName))
                     .project(7, 8)) // Project only two relevant columns of SHOW GRANT: Privilege and Grant Option
                     .containsOnly(ownerGrants());
         });
@@ -280,7 +279,7 @@ public class TestGrantRevoke
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testTablePrivilegesWithHiveOnlyViews()
     {
-        executeWith(createViewAs("hive_only_view", format("SELECT * FROM %s", tableName), onHive()), view -> {
+        executeWith(createViewAs("hive_only_view", "SELECT * FROM %s".formatted(tableName), onHive()), view -> {
             assertThat(onTrino().executeQuery("SELECT DISTINCT table_name FROM information_schema.table_privileges"))
                     .contains(row(tableName))
                     .contains(row(view.getName()));
@@ -297,11 +296,11 @@ public class TestGrantRevoke
 
     private static void assertAccessDeniedOnAllOperationsOnTable(QueryExecutor queryExecutor, String tableName)
     {
-        assertQueryFailure(() -> queryExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+        assertQueryFailure(() -> queryExecutor.executeQuery("SELECT * FROM %s".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot select from table default.%s", tableName);
-        assertQueryFailure(() -> queryExecutor.executeQuery(format("INSERT INTO %s VALUES (3, 22)", tableName)))
+        assertQueryFailure(() -> queryExecutor.executeQuery("INSERT INTO %s VALUES (3, 22)".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot insert into table default.%s", tableName);
-        assertQueryFailure(() -> queryExecutor.executeQuery(format("DELETE FROM %s WHERE day=3", tableName)))
+        assertQueryFailure(() -> queryExecutor.executeQuery("DELETE FROM %s WHERE day=3".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot delete from table default.%s", tableName);
     }
 }

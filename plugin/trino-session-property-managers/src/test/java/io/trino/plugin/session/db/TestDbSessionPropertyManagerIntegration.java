@@ -54,7 +54,6 @@ import java.util.Optional;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.testing.TestingSession.DEFAULT_TIME_ZONE_KEY;
-import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -79,7 +78,7 @@ public class TestDbSessionPropertyManagerIntegration
             throws Exception
     {
         Session session = testSessionBuilder().build();
-        assertThat(session.getSystemProperties()).isEqualTo(emptyMap());
+        assertThat(session.getSystemProperties()).isEqualTo(Map.of());
 
         Duration sessionValue = session.getSystemProperty(EXAMPLE_PROPERTY, Duration.class);
         assertThat(sessionValue).isEqualTo(EXAMPLE_VALUE_DEFAULT);

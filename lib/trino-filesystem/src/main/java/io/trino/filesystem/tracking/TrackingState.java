@@ -13,7 +13,6 @@
  */
 package io.trino.filesystem.tracking;
 
-import com.google.common.base.Joiner;
 import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 
@@ -24,12 +23,12 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class TrackingState
         implements Runnable
 {
     private static final Logger LOG = Logger.get(TrackingState.class);
-    private static final Joiner JOINER = Joiner.on("\n\t\t");
 
     private final Location location;
     private final Closeable closeable;
@@ -65,7 +64,7 @@ public class TrackingState
 
         // This is invoked by cleaner when associated closeable is phantom reachable.
         // If close was not called prior to the invocation, resource is considered leaked.
-        LOG.error("%s with location '%s' was not closed properly and leaked. Created by: %s", closeable.getClass().getSimpleName(), location, JOINER.join(stacktrace));
+        LOG.error("%s with location '%s' was not closed properly and leaked. Created by: %s", closeable.getClass().getSimpleName(), location, stacktrace.stream().map(Object::toString).collect(joining("\n\t\t")));
 
         try {
             closeable.close();

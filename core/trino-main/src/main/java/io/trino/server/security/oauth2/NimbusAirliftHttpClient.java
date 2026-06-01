@@ -40,7 +40,6 @@ import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
@@ -130,7 +129,7 @@ public class NimbusAirliftHttpClient
                 return parser.parse(nimbusResponse);
             }
             catch (ParseException e) {
-                throw new RuntimeException(format("Unable to parse response status=[%d], body=[%s]", stringResponse.getStatusCode(), stringResponse.getBody()), e);
+                throw new RuntimeException("Unable to parse response status=[%d], body=[%s]".formatted(stringResponse.getStatusCode(), stringResponse.getBody()), e);
             }
         }
     }

@@ -85,7 +85,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
@@ -146,7 +145,7 @@ public class TupleDomainParquetPredicate
 
             Long columnValueCount = valueCounts.get(column);
             if (columnValueCount == null) {
-                throw new IllegalArgumentException(format("Missing columnValueCount for column %s in %s", column, id));
+                throw new IllegalArgumentException("Missing columnValueCount for column %s in %s".formatted(column, id));
             }
             Domain domain = getDomain(
                     column,
@@ -224,7 +223,7 @@ public class TupleDomainParquetPredicate
 
             Long columnValueCount = valueCounts.get(column);
             if (columnValueCount == null) {
-                throw new IllegalArgumentException(format("Missing columnValueCount for column %s in %s", column, id));
+                throw new IllegalArgumentException("Missing columnValueCount for column %s in %s".formatted(column, id));
             }
             Domain domain = getDomain(effectivePredicateDomain.getType(), columnValueCount, columnIndex, id, column, timeZone);
             if (!effectivePredicateDomain.overlaps(domain)) {

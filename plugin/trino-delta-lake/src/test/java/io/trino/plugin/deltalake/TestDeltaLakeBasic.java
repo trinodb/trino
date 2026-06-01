@@ -110,7 +110,6 @@ import static io.trino.spi.type.SqlDecimal.decimal;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static java.lang.String.format;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -188,7 +187,7 @@ public class TestDeltaLakeBasic
         for (ResourceTable table : Iterables.concat(PERSON_TABLES, OTHER_TABLES)) {
             String dataPath = getResourceLocation(table.resourcePath()).toExternalForm();
             getQueryRunner().execute(
-                    format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", table.tableName(), dataPath));
+                    "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(table.tableName(), dataPath));
         }
     }
 
@@ -220,7 +219,7 @@ public class TestDeltaLakeBasic
         for (ResourceTable table : PERSON_TABLES) {
             // the schema is actually defined in the transaction log
             assertQuery(
-                    format("DESCRIBE %s", table.tableName()),
+                    "DESCRIBE %s".formatted(table.tableName()),
                     "VALUES " +
                             "('name', 'varchar', '', ''), " +
                             "('age', 'integer', '', ''), " +
@@ -236,12 +235,12 @@ public class TestDeltaLakeBasic
     public void testSimpleQueries()
     {
         for (ResourceTable table : PERSON_TABLES) {
-            assertQuery(format("SELECT COUNT(*) FROM %s", table.tableName()), "VALUES 12");
-            assertQuery(format("SELECT income FROM %s WHERE name = 'Bob'", table.tableName()), "VALUES 99000.00");
-            assertQuery(format("SELECT name FROM %s WHERE name LIKE 'B%%'", table.tableName()), "VALUES ('Bob'), ('Betty')");
-            assertQuery(format("SELECT DISTINCT gender FROM %s", table.tableName()), "VALUES ('M'), ('F'), (null)");
-            assertQuery(format("SELECT DISTINCT age FROM %s", table.tableName()), "VALUES (21), (25), (28), (29), (30), (42)");
-            assertQuery(format("SELECT name FROM %s WHERE age = 42", table.tableName()), "VALUES ('Alice'), ('Emma')");
+            assertQuery("SELECT COUNT(*) FROM %s".formatted(table.tableName()), "VALUES 12");
+            assertQuery("SELECT income FROM %s WHERE name = 'Bob'".formatted(table.tableName()), "VALUES 99000.00");
+            assertQuery("SELECT name FROM %s WHERE name LIKE 'B%%'".formatted(table.tableName()), "VALUES ('Bob'), ('Betty')");
+            assertQuery("SELECT DISTINCT gender FROM %s".formatted(table.tableName()), "VALUES ('M'), ('F'), (null)");
+            assertQuery("SELECT DISTINCT age FROM %s".formatted(table.tableName()), "VALUES (21), (25), (28), (29), (30), (42)");
+            assertQuery("SELECT name FROM %s WHERE age = 42".formatted(table.tableName()), "VALUES ('Alice'), ('Emma')");
         }
     }
 
@@ -870,9 +869,9 @@ public class TestDeltaLakeBasic
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "query_partition_filter_required", "true")
                 .build();
 
-        assertQuery(session, format("SELECT * FROM %s WHERE \"part\" = 11", tableName), "VALUES (1, 11)");
-        assertQuery(session, format("SELECT * FROM %s WHERE \"PART\" = 11", tableName), "VALUES (1, 11)");
-        assertQuery(session, format("SELECT * FROM %s WHERE \"Part\" = 11", tableName), "VALUES (1, 11)");
+        assertQuery(session, "SELECT * FROM %s WHERE \"part\" = 11".formatted(tableName), "VALUES (1, 11)");
+        assertQuery(session, "SELECT * FROM %s WHERE \"PART\" = 11".formatted(tableName), "VALUES (1, 11)");
+        assertQuery(session, "SELECT * FROM %s WHERE \"Part\" = 11".formatted(tableName), "VALUES (1, 11)");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -980,7 +979,7 @@ public class TestDeltaLakeBasic
                 (null, null, null, null, 3.0, null, null)
                 """);
 
-        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh')", tableName), 3);
+        assertUpdate("ANALYZE %s WITH(mode = 'full_refresh')".formatted(tableName), 3);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -2021,7 +2020,7 @@ public class TestDeltaLakeBasic
         Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(Path.of(getResourceLocation("databricks73/person").toURI()), tableLocation);
         getQueryRunner().execute(
-                format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, tableLocation));
+                "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation));
         testCorruptedTableLocation(tableName, tableLocation, false);
     }
 

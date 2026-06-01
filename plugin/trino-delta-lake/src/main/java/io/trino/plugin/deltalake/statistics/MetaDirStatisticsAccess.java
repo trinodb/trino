@@ -33,7 +33,6 @@ import java.util.Optional;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class MetaDirStatisticsAccess
@@ -87,7 +86,7 @@ public class MetaDirStatisticsAccess
             }
         }
         catch (IOException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("failed to read statistics with table location %s", tableLocation), e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "failed to read statistics with table location %s".formatted(tableLocation), e);
         }
     }
 

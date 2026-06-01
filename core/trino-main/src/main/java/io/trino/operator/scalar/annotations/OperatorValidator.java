@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar.annotations;
 
-import com.google.common.base.Joiner;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeParameter;
@@ -23,6 +22,7 @@ import io.trino.type.UnknownType;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.stream.Collectors.joining;
 
 public final class OperatorValidator
 {
@@ -83,6 +83,6 @@ public final class OperatorValidator
 
     private static String formatSignature(OperatorType operatorType, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
-        return operatorType + "(" + Joiner.on(", ").join(argumentTypes) + ")::" + returnType;
+        return operatorType + "(" + argumentTypes.stream().map(Object::toString).collect(joining(", ")) + ")::" + returnType;
     }
 }

@@ -57,7 +57,6 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -125,7 +124,7 @@ public final class InternalResourceGroupManager<C>
     public void addConfigurationManagerFactory(ResourceGroupConfigurationManagerFactory factory)
     {
         if (configurationManagerFactories.putIfAbsent(factory.getName(), factory) != null) {
-            throw new IllegalArgumentException(format("Resource group configuration manager '%s' is already registered", factory.getName()));
+            throw new IllegalArgumentException("Resource group configuration manager '%s' is already registered".formatted(factory.getName()));
         }
     }
 

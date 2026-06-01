@@ -31,7 +31,6 @@ import java.util.List;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.TestGroups.TLS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -94,14 +93,14 @@ public class TestTls
     private static void assertPortIsClosed(String host, Integer port)
     {
         if (isPortOpen(host, port)) {
-            fail(format("Port %d at %s is expected to be closed", port, host));
+            fail("Port %d at %s is expected to be closed".formatted(port, host));
         }
     }
 
     private static void assertPortIsOpen(String host, Integer port)
     {
         if (!isPortOpen(host, port)) {
-            fail(format("Port %d at %s is expected to be open", port, host));
+            fail("Port %d at %s is expected to be open".formatted(port, host));
         }
     }
 

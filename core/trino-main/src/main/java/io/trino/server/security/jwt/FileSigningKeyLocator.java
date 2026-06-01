@@ -39,7 +39,6 @@ import java.util.concurrent.ConcurrentMap;
 import static com.google.common.base.CharMatcher.inRange;
 import static com.google.common.io.Files.asCharSource;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Base64.getMimeDecoder;
 import static java.util.Objects.requireNonNull;
@@ -163,13 +162,13 @@ public class FileSigningKeyLocator
         {
             if (algorithm instanceof MacAlgorithm) {
                 if (secretKey == null) {
-                    throw new UnsupportedJwtException(format("JWT is signed with %s, but no HMAC key is configured", algorithm));
+                    throw new UnsupportedJwtException("JWT is signed with %s, but no HMAC key is configured".formatted(algorithm));
                 }
                 return secretKey;
             }
 
             if (publicKey == null) {
-                throw new UnsupportedJwtException(format("JWT is signed with %s, but no key is configured", algorithm));
+                throw new UnsupportedJwtException("JWT is signed with %s, but no key is configured".formatted(algorithm));
             }
             return publicKey;
         }

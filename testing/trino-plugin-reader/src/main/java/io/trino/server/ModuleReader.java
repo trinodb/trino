@@ -34,7 +34,6 @@ import java.util.stream.Stream;
 import java.util.zip.ZipFile;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.function.Function.identity;
@@ -61,10 +60,10 @@ public class ModuleReader
                     .collect(toImmutableList());
         }
         catch (IOException e) {
-            throw new UncheckedIOException(format("Couldn't read file %s", rootPom), e);
+            throw new UncheckedIOException("Couldn't read file %s".formatted(rootPom), e);
         }
         catch (XmlPullParserException e) {
-            throw new RuntimeException(format("Couldn't parse file %s", rootPom), e);
+            throw new RuntimeException("Couldn't parse file %s".formatted(rootPom), e);
         }
     }
 
@@ -77,10 +76,10 @@ public class ModuleReader
             return model.getPackaging().equals("trino-plugin");
         }
         catch (IOException e) {
-            throw new UncheckedIOException(format("Couldn't read file %s", modulePom), e);
+            throw new UncheckedIOException("Couldn't read file %s".formatted(modulePom), e);
         }
         catch (XmlPullParserException e) {
-            throw new RuntimeException(format("Couldn't parse file %s", modulePom), e);
+            throw new RuntimeException("Couldn't parse file %s".formatted(modulePom), e);
         }
     }
 
@@ -92,12 +91,12 @@ public class ModuleReader
             return files.findFirst()
                     .map(jarFile -> readPluginClassName(jarFile.toFile()))
                     .orElseThrow(() -> new MissingResourceException(
-                            format("Couldn't find plugin name in services jar for module %s", module),
+                            "Couldn't find plugin name in services jar for module %s".formatted(module),
                             Plugin.class.getName(),
                             module));
         }
         catch (IOException e) {
-            throw new UncheckedIOException(format("Couldn't read services jar for module %s", module), e);
+            throw new UncheckedIOException("Couldn't read services jar for module %s".formatted(module), e);
         }
     }
 
@@ -113,16 +112,16 @@ public class ModuleReader
                             return new String(bis.readAllBytes(), UTF_8).trim();
                         }
                         catch (IOException e) {
-                            throw new UncheckedIOException(format("Couldn't read plugin's service descriptor in %s", serviceJar), e);
+                            throw new UncheckedIOException("Couldn't read plugin's service descriptor in %s".formatted(serviceJar), e);
                         }
                     })
                     .orElseThrow(() -> new MissingResourceException(
-                            format("Couldn't find 'META-INF/services/io.trino.spi.Plugin' file in the service JAR %s", serviceJar.getPath()),
+                            "Couldn't find 'META-INF/services/io.trino.spi.Plugin' file in the service JAR %s".formatted(serviceJar.getPath()),
                             Plugin.class.getName(),
                             serviceJar.getPath()));
         }
         catch (IOException e) {
-            throw new UncheckedIOException(format("Couldn't process service JAR %s", serviceJar), e);
+            throw new UncheckedIOException("Couldn't process service JAR %s".formatted(serviceJar), e);
         }
     }
 }

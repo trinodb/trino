@@ -30,7 +30,6 @@ import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SC
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.PATH_PROPERTY;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.ViewReaderUtil.isSomeKindOfAView;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HiveMetastoreBackedDeltaLakeMetastore
@@ -139,7 +138,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
         Map<String, String> serdeParameters = table.getStorage().getSerdeParameters();
         String location = serdeParameters.get(PATH_PROPERTY);
         if (location == null) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, format("No %s property defined for table: %s", PATH_PROPERTY, table));
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "No %s property defined for table: %s".formatted(PATH_PROPERTY, table));
         }
         return location;
     }

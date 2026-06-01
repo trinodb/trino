@@ -67,7 +67,6 @@ import static java.lang.Double.NaN;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Double.min;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FilterStatsCalculator
@@ -411,7 +410,7 @@ public class FilterStatsCalculator
         {
             if (expression instanceof Reference) {
                 Symbol symbol = Symbol.from(expression);
-                return requireNonNull(input.getSymbolStatistics(symbol), () -> format("No statistics for symbol %s", symbol));
+                return requireNonNull(input.getSymbolStatistics(symbol), () -> "No statistics for symbol %s".formatted(symbol));
             }
             return scalarStatsCalculator.calculate(expression, input, session);
         }

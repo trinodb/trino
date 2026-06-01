@@ -52,7 +52,6 @@ import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.SUPPLIER;
 import static io.trino.util.DynamicFiltersTestUtil.getSimplifiedDomainString;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -455,20 +454,20 @@ public abstract class BaseDynamicPartitionPruningTest
         // t0 table scan depends on DFs from t1 and t2
         assertDynamicFilters(
                 noJoinReordering(joinDistributionType),
-                format("SELECT v0, v1, v2 FROM (%s JOIN %s ON k0 = i2) JOIN %s ON k0 = i1", t0, t2, t1),
+                "SELECT v0, v1, v2 FROM (%s JOIN %s ON k0 = i2) JOIN %s ON k0 = i1".formatted(t0, t2, t1),
                 0);
 
         // DF evaluation order is: t1 => t2 => t0
         assertDynamicFilters(
                 noJoinReordering(joinDistributionType),
-                format("SELECT v0, v1, v2 FROM (%s JOIN %s ON k0 = i2) JOIN %s ON k2 = i1", t0, t2, t1),
+                "SELECT v0, v1, v2 FROM (%s JOIN %s ON k0 = i2) JOIN %s ON k2 = i1".formatted(t0, t2, t1),
                 0);
 
         // t2 table scan depends on t1 DFs, but t0 <-> t2 join is blocked on t2 data
         // "(k0 * -1) + 2 = i2)" prevents DF to be used on t0
         assertDynamicFilters(
                 noJoinReordering(joinDistributionType),
-                format("SELECT v0, v1, v2 FROM (%s JOIN %s ON (k0 * -1) + 2 = i2) JOIN %s ON k2 = i1", t0, t2, t1),
+                "SELECT v0, v1, v2 FROM (%s JOIN %s ON (k0 * -1) + 2 = i2) JOIN %s ON k2 = i1".formatted(t0, t2, t1),
                 0);
     }
 

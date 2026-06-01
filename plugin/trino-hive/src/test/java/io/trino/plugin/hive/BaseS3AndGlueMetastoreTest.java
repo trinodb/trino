@@ -37,7 +37,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Sets.union;
 import static io.trino.plugin.hive.S3Assert.s3Path;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -341,7 +340,7 @@ public abstract class BaseS3AndGlueMetastoreTest
         String fileKey = matcher.group(1);
         return s3.listObjectsV2(request -> request.bucket(bucketName).prefix(fileKey)).contents().stream()
                 .map(S3Object::key)
-                .map(key -> format("s3://%s/%s", bucketName, key))
+                .map(key -> "s3://%s/%s".formatted(bucketName, key))
                 .toList();
     }
 

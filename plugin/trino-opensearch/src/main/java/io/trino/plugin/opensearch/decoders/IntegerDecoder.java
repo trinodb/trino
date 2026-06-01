@@ -25,7 +25,6 @@ import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class IntegerDecoder
@@ -61,15 +60,15 @@ public class IntegerDecoder
                 decoded = Long.parseLong(stringValue);
             }
             catch (NumberFormatException e) {
-                throw new TrinoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as INTEGER: %s", path, value));
+                throw new TrinoException(TYPE_MISMATCH, "Cannot parse value for field '%s' as INTEGER: %s".formatted(path, value));
             }
         }
         else {
-            throw new TrinoException(TYPE_MISMATCH, format("Expected a numeric value for field '%s' of type INTEGER: %s [%s]", path, value, value.getClass().getSimpleName()));
+            throw new TrinoException(TYPE_MISMATCH, "Expected a numeric value for field '%s' of type INTEGER: %s [%s]".formatted(path, value, value.getClass().getSimpleName()));
         }
 
         if (decoded < Integer.MIN_VALUE || decoded > Integer.MAX_VALUE) {
-            throw new TrinoException(TYPE_MISMATCH, format("Value out of range for field '%s' of type INTEGER: %s", path, decoded));
+            throw new TrinoException(TYPE_MISMATCH, "Value out of range for field '%s' of type INTEGER: %s".formatted(path, decoded));
         }
 
         INTEGER.writeLong(output, decoded);

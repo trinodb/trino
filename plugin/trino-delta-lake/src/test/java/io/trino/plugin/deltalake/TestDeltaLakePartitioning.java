@@ -20,7 +20,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -41,7 +40,7 @@ public class TestDeltaLakePartitioning
     public void registerTables()
     {
         String dataPath = getClass().getClassLoader().getResource("deltalake/partitions").toExternalForm();
-        getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, 'partitions', '%s')", dataPath));
+        getQueryRunner().execute("CALL system.register_table(CURRENT_SCHEMA, 'partitions', '%s')".formatted(dataPath));
     }
 
     @Test

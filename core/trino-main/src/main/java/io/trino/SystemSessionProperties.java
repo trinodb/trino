@@ -55,7 +55,6 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class SystemSessionProperties
@@ -342,7 +341,7 @@ public final class SystemSessionProperties
                         taskManagerConfig.getScaleWritersMaxWriterMemoryPercentage(),
                         value -> {
                             if (value < 0.0 || value > 100.0) {
-                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be between 0.0 and 100.0: %s", TASK_SCALE_WRITERS_MAX_WRITER_MEMORY_PERCENTAGE, value));
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, "%s must be between 0.0 and 100.0: %s".formatted(TASK_SCALE_WRITERS_MAX_WRITER_MEMORY_PERCENTAGE, value));
                             }
                         },
                         false),
@@ -478,7 +477,7 @@ public final class SystemSessionProperties
                         value -> {
                             int intValue = (int) value;
                             if (intValue < 2) {
-                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be greater than or equal to 2: %s", MAX_REORDERED_JOINS, intValue));
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, "%s must be greater than or equal to 2: %s".formatted(MAX_REORDERED_JOINS, intValue));
                             }
                             return intValue;
                         },
@@ -697,7 +696,7 @@ public final class SystemSessionProperties
                         dynamicFilterConfig.getDynamicRowFilterSelectivityThreshold(),
                         value -> {
                             if (value < 0 || value > 1) {
-                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be in the range [0, 1]: %s", DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD, value));
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, "%s must be in the range [0, 1]: %s".formatted(DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD, value));
                             }
                         },
                         false),
@@ -788,7 +787,7 @@ public final class SystemSessionProperties
                         queryManagerConfig.getRetryPolicy(),
                         value -> {
                             if (!queryManagerConfig.getAllowedRetryPolicies().contains(value)) {
-                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("Retry policy %s not allowed. Must be one of %s", value, queryManagerConfig.getAllowedRetryPolicies()));
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, "Retry policy %s not allowed. Must be one of %s".formatted(value, queryManagerConfig.getAllowedRetryPolicies()));
                             }
                         },
                         true),
@@ -805,7 +804,7 @@ public final class SystemSessionProperties
                             if (value < 0 || value > MAX_TASK_RETRY_ATTEMPTS) {
                                 throw new TrinoException(
                                         INVALID_SESSION_PROPERTY,
-                                        format("%s must be greater than or equal to 0 and not not greater than %s", TASK_RETRY_ATTEMPTS_PER_TASK, MAX_TASK_RETRY_ATTEMPTS));
+                                        "%s must be greater than or equal to 0 and not not greater than %s".formatted(TASK_RETRY_ATTEMPTS_PER_TASK, MAX_TASK_RETRY_ATTEMPTS));
                             }
                         },
                         false),
@@ -837,7 +836,7 @@ public final class SystemSessionProperties
                             if (value < 1.0) {
                                 throw new TrinoException(
                                         INVALID_SESSION_PROPERTY,
-                                        format("%s must be greater than or equal to 1.0", RETRY_DELAY_SCALE_FACTOR));
+                                        "%s must be greater than or equal to 1.0".formatted(RETRY_DELAY_SCALE_FACTOR));
                             }
                         },
                         false),
@@ -1000,7 +999,7 @@ public final class SystemSessionProperties
                             if (value < 1.0) {
                                 throw new TrinoException(
                                         INVALID_SESSION_PROPERTY,
-                                        format("%s must be greater than or equal to 1.0: %s", FAULT_TOLERANT_EXECUTION_SMALL_STAGE_SOURCE_SIZE_MULTIPLIER, value));
+                                        "%s must be greater than or equal to 1.0: %s".formatted(FAULT_TOLERANT_EXECUTION_SMALL_STAGE_SOURCE_SIZE_MULTIPLIER, value));
                             }
                         },
                         true),
@@ -1032,7 +1031,7 @@ public final class SystemSessionProperties
                             if (value < 1.0) {
                                 throw new TrinoException(
                                         INVALID_SESSION_PROPERTY,
-                                        format("%s must be greater than or equal to 1.0: %s", FAULT_TOLERANT_EXECUTION_SMALL_STAGE_SOURCE_SIZE_MULTIPLIER, value));
+                                        "%s must be greater than or equal to 1.0: %s".formatted(FAULT_TOLERANT_EXECUTION_SMALL_STAGE_SOURCE_SIZE_MULTIPLIER, value));
                             }
                         },
                         true),
@@ -1159,7 +1158,7 @@ public final class SystemSessionProperties
                         spoolingEnabledConfig.isEnabled() && spoolingEnabledConfig.isUnsupportedWarningEnabled(),
                         _ -> {
                             if (!spoolingEnabledConfig.isEnabled()) {
-                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s cannot be set when spooling is disabled", SPOOLING_UNSUPPORTED_WARNING));
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, "%s cannot be set when spooling is disabled".formatted(SPOOLING_UNSUPPORTED_WARNING));
                             }
                         },
                         false));
@@ -1520,7 +1519,7 @@ public final class SystemSessionProperties
     private static void validateHideInaccessibleColumns(boolean value, boolean defaultValue)
     {
         if (defaultValue && !value) {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s cannot be disabled with session property when it was enabled with configuration", HIDE_INACCESSIBLE_COLUMNS));
+            throw new TrinoException(INVALID_SESSION_PROPERTY, "%s cannot be disabled with session property when it was enabled with configuration".formatted(HIDE_INACCESSIBLE_COLUMNS));
         }
     }
 
@@ -1539,7 +1538,7 @@ public final class SystemSessionProperties
         if (Integer.bitCount(intValue) != 1) {
             throw new TrinoException(
                     INVALID_SESSION_PROPERTY,
-                    format("%s must be a power of 2: %s", property, intValue));
+                    "%s must be a power of 2: %s".formatted(property, intValue));
         }
     }
 
@@ -1556,7 +1555,7 @@ public final class SystemSessionProperties
     private static Integer validateIntegerValue(Object value, String property, int lowerBoundIncluded, int upperBoundIncluded, boolean allowNull)
     {
         if (value == null && !allowNull) {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be non-null", property));
+            throw new TrinoException(INVALID_SESSION_PROPERTY, "%s must be non-null".formatted(property));
         }
 
         if (value == null) {
@@ -1565,10 +1564,10 @@ public final class SystemSessionProperties
 
         int intValue = (int) value;
         if (intValue < lowerBoundIncluded) {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be equal or greater than %s", property, lowerBoundIncluded));
+            throw new TrinoException(INVALID_SESSION_PROPERTY, "%s must be equal or greater than %s".formatted(property, lowerBoundIncluded));
         }
         if (intValue > upperBoundIncluded) {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be equal or less than %s", property, upperBoundIncluded));
+            throw new TrinoException(INVALID_SESSION_PROPERTY, "%s must be equal or less than %s".formatted(property, upperBoundIncluded));
         }
 
         return intValue;
@@ -1577,7 +1576,7 @@ public final class SystemSessionProperties
     private static void validateNonNegativeLongValue(Long value, String property)
     {
         if (value < 0) {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be equal or greater than 0", property));
+            throw new TrinoException(INVALID_SESSION_PROPERTY, "%s must be equal or greater than 0".formatted(property));
         }
     }
 
@@ -1587,7 +1586,7 @@ public final class SystemSessionProperties
         if (doubleValue < lowerBoundIncluded || doubleValue > upperBoundIncluded) {
             throw new TrinoException(
                     INVALID_SESSION_PROPERTY,
-                    format("%s must be in the range [%.2f, %.2f]: %.2f", property, lowerBoundIncluded, upperBoundIncluded, doubleValue));
+                    "%s must be in the range [%.2f, %.2f]: %.2f".formatted(property, lowerBoundIncluded, upperBoundIncluded, doubleValue));
         }
         return doubleValue;
     }

@@ -23,14 +23,13 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 
 public final class ImmutableLdapObjectDefinitions
 {
     private static final String DOMAIN = "dc=trino,dc=testldap,dc=com";
-    private static final String AMERICA_DISTINGUISHED_NAME = format("ou=America,%s", DOMAIN);
-    private static final String ASIA_DISTINGUISHED_NAME = format("ou=Asia,%s", DOMAIN);
-    private static final String EUROPE_DISTINGUISHED_NAME = format("ou=Europe,%s", DOMAIN);
+    private static final String AMERICA_DISTINGUISHED_NAME = "ou=America,%s".formatted(DOMAIN);
+    private static final String ASIA_DISTINGUISHED_NAME = "ou=Asia,%s".formatted(DOMAIN);
+    private static final String EUROPE_DISTINGUISHED_NAME = "ou=Europe,%s".formatted(DOMAIN);
     private static final String LDAP_PASSWORD = "LDAPPass123";
     private static final String MEMBER = "member";
 
@@ -112,10 +111,10 @@ public final class ImmutableLdapObjectDefinitions
             List<LdapObjectDefinition> memberAttributes)
     {
         return LdapObjectDefinition.builder(groupName)
-                .setDistinguishedName(format("cn=%s,%s", groupName, groupOrganizationName))
+                .setDistinguishedName("cn=%s,%s".formatted(groupName, groupOrganizationName))
                 .setAttributes(ImmutableMap.of(
                         "cn", groupName,
-                        "member", format("uid=%s,%s", userName, userOrganizationName)))
+                        "member", "uid=%s,%s".formatted(userName, userOrganizationName)))
                 .setModificationAttributes(ImmutableMap.of(
                         MEMBER, memberAttributes.stream()
                                 .map(LdapObjectDefinition::getDistinguishedName)
@@ -132,7 +131,7 @@ public final class ImmutableLdapObjectDefinitions
     public static LdapObjectDefinition buildLdapUserObject(String userName, String userOrganizationName, String password)
     {
         return LdapObjectDefinition.builder(userName)
-                .setDistinguishedName(format("uid=%s,%s", userName, userOrganizationName))
+                .setDistinguishedName("uid=%s,%s".formatted(userName, userOrganizationName))
                 .setAttributes(ImmutableMap.of(
                         "cn", userName,
                         "sn", userName,

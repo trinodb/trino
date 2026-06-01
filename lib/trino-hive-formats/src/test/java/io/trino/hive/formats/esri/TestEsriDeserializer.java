@@ -294,7 +294,7 @@ public class TestEsriDeserializer
         };
 
         for (String dateStr : validIsoFormats) {
-            String json = String.format(
+            String json =
                     """
                     {
                         "attributes": {
@@ -302,8 +302,8 @@ public class TestEsriDeserializer
                         },
                         "geometry": null
                     }
-                    """,
-                    dateStr);
+                    """.formatted(
+                            dateStr);
 
             page = parse(json);
             assertThat(DATE.getLong(page.getBlock(4), 0)).isEqualTo(20150);
@@ -316,7 +316,7 @@ public class TestEsriDeserializer
         };
 
         for (String dateStr : invalidDateFormats) {
-            String json = String.format(
+            String json =
                     """
                     {
                         "attributes": {
@@ -324,8 +324,8 @@ public class TestEsriDeserializer
                         },
                         "geometry": null
                     }
-                    """,
-                    dateStr);
+                    """.formatted(
+                            dateStr);
 
             page = parse(json);
             assertThat(page.getBlock(4).isNull(0))
@@ -372,7 +372,7 @@ public class TestEsriDeserializer
 
         // Test valid timestamps
         for (String timestampStr : validTimestampFormats) {
-            String json = String.format(
+            String json =
                     """
                     {
                         "attributes": {
@@ -380,8 +380,8 @@ public class TestEsriDeserializer
                         },
                         "geometry": null
                     }
-                    """,
-                    timestampStr);
+                    """.formatted(
+                            timestampStr);
 
             page = parse(json);
             assertThat(TIMESTAMP_MILLIS.getLong(page.getBlock(5), 0))
@@ -390,7 +390,7 @@ public class TestEsriDeserializer
 
         // Test invalid timestamps
         for (String timestampStr : invalidTimestampFormats) {
-            String json = String.format(
+            String json =
                     """
                     {
                         "attributes": {
@@ -398,8 +398,8 @@ public class TestEsriDeserializer
                         },
                         "geometry": null
                     }
-                    """,
-                    timestampStr);
+                    """.formatted(
+                            timestampStr);
 
             page = parse(json);
             assertThat(page.getBlock(5).isNull(0))

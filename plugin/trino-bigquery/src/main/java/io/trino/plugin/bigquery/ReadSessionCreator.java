@@ -43,7 +43,6 @@ import static com.google.cloud.bigquery.storage.v1.ArrowSerializationOptions.Com
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_CREATE_READ_SESSION_ERROR;
 import static io.trino.plugin.bigquery.BigQuerySessionProperties.isViewMaterializationWithFilter;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
@@ -138,7 +137,7 @@ public class ReadSessionCreator
 
     String toTableResourceName(TableId tableId)
     {
-        return format("projects/%s/datasets/%s/tables/%s", tableId.getProject(), tableId.getDataset(), tableId.getTable());
+        return "projects/%s/datasets/%s/tables/%s".formatted(tableId.getProject(), tableId.getDataset(), tableId.getTable());
     }
 
     private TableInfo getActualTable(
@@ -154,16 +153,14 @@ public class ReadSessionCreator
         }
         if (tableType == VIEW || tableType == MATERIALIZED_VIEW) {
             if (!viewEnabled) {
-                throw new TrinoException(NOT_SUPPORTED, format(
-                        "Views are not enabled. You can enable views by setting '%s' to true. Notice additional cost may occur.",
+                throw new TrinoException(NOT_SUPPORTED, "Views are not enabled. You can enable views by setting '%s' to true. Notice additional cost may occur.".formatted(
                         BigQueryConfig.VIEWS_ENABLED));
             }
             // get it from the view
             return client.getCachedTable(viewExpiration, remoteTable, requiredColumns, filter);
         }
         // Storage API doesn't support reading other table types (materialized views, non-biglake external tables)
-        throw new TrinoException(NOT_SUPPORTED, format(
-                "Table type '%s' of table '%s.%s' is not supported",
+        throw new TrinoException(NOT_SUPPORTED, "Table type '%s' of table '%s.%s' is not supported".formatted(
                 tableType,
                 remoteTable.getTableId().getDataset(),
                 remoteTable.getTableId().getTable()));

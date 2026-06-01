@@ -41,7 +41,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -117,7 +116,7 @@ final class TestBlackHoleSmoke
     void testNotAllPropertiesSetForDataGeneration()
     {
         assertThat(query(
-                format("CREATE TABLE nation WITH ( %s = 3, %s = 1 ) as SELECT * FROM tpch.tiny.nation",
+                "CREATE TABLE nation WITH ( %s = 3, %s = 1 ) as SELECT * FROM tpch.tiny.nation".formatted(
                         ROWS_PER_PAGE_PROPERTY,
                         SPLIT_COUNT_PROPERTY)))
                 .failure().hasMessage("All properties [split_count, pages_per_split, rows_per_page] must be set if any are set");
@@ -192,7 +191,7 @@ final class TestBlackHoleSmoke
 
         assertUpdate(
                 session,
-                format("CREATE TABLE nation WITH ( %s = 3, %s = 2, %s = 1 ) as SELECT * FROM tpch.tiny.nation",
+                "CREATE TABLE nation WITH ( %s = 3, %s = 2, %s = 1 ) as SELECT * FROM tpch.tiny.nation".formatted(
                         ROWS_PER_PAGE_PROPERTY,
                         PAGES_PER_SPLIT_PROPERTY,
                         SPLIT_COUNT_PROPERTY),
@@ -259,8 +258,8 @@ final class TestBlackHoleSmoke
 
         assertUpdate(
                 session,
-                format("CREATE TABLE nation WITH ( %s = 8, %s = 1, %s = 1, %s = 1 ) AS " +
-                                "SELECT nationkey, name, regionkey, comment, 'abc' short_varchar FROM tpch.tiny.nation",
+                ("CREATE TABLE nation WITH ( %s = 8, %s = 1, %s = 1, %s = 1 ) AS " +
+                "SELECT nationkey, name, regionkey, comment, 'abc' short_varchar FROM tpch.tiny.nation").formatted(
                         FIELD_LENGTH_PROPERTY,
                         ROWS_PER_PAGE_PROPERTY,
                         PAGES_PER_SPLIT_PROPERTY,
@@ -339,21 +338,21 @@ final class TestBlackHoleSmoke
     private void createBlackholeAllTypesTable()
     {
         assertUpdate(
-                format("CREATE TABLE blackhole_all_types (" +
-                                "  _varchar VARCHAR(10)" +
-                                ", _bigint BIGINT" +
-                                ", _integer INTEGER" +
-                                ", _smallint SMALLINT" +
-                                ", _tinyint TINYINT" +
-                                ", _real REAL" +
-                                ", _double DOUBLE" +
-                                ", _boolean BOOLEAN" +
-                                ", _date DATE" +
-                                ", _timestamp TIMESTAMP" +
-                                ", _varbinary VARBINARY" +
-                                ", _decimal_short DECIMAL(3,2)" +
-                                ", _decimal_long DECIMAL(30,10)" +
-                                ") WITH ( %s = 1, %s = 1, %s = 1 ) ",
+                ("CREATE TABLE blackhole_all_types (" +
+                "  _varchar VARCHAR(10)" +
+                ", _bigint BIGINT" +
+                ", _integer INTEGER" +
+                ", _smallint SMALLINT" +
+                ", _tinyint TINYINT" +
+                ", _real REAL" +
+                ", _double DOUBLE" +
+                ", _boolean BOOLEAN" +
+                ", _date DATE" +
+                ", _timestamp TIMESTAMP" +
+                ", _varbinary VARBINARY" +
+                ", _decimal_short DECIMAL(3,2)" +
+                ", _decimal_long DECIMAL(30,10)" +
+                ") WITH ( %s = 1, %s = 1, %s = 1 ) ").formatted(
                         ROWS_PER_PAGE_PROPERTY,
                         PAGES_PER_SPLIT_PROPERTY,
                         SPLIT_COUNT_PROPERTY));
@@ -376,8 +375,8 @@ final class TestBlackHoleSmoke
 
         assertUpdate(
                 session,
-                format("CREATE TABLE nation WITH ( %s = 8, %s = 1, %s = 1, %s = 1, %s = '%s' ) AS " +
-                                "SELECT * FROM tpch.tiny.nation",
+                ("CREATE TABLE nation WITH ( %s = 8, %s = 1, %s = 1, %s = 1, %s = '%s' ) AS " +
+                "SELECT * FROM tpch.tiny.nation").formatted(
                         FIELD_LENGTH_PROPERTY,
                         ROWS_PER_PAGE_PROPERTY,
                         PAGES_PER_SPLIT_PROPERTY,

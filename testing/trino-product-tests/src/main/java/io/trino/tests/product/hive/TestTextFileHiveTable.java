@@ -27,7 +27,6 @@ import java.io.InputStream;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -61,41 +60,38 @@ public class TestTextFileHiveTable
     public void testCreateTextFileSkipHeaderFooter()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_create_textfile_skip_header");
-        onTrino().executeQuery(format(
-                "CREATE TABLE test_create_textfile_skip_header" +
-                        " (name varchar) " +
-                        "WITH ( " +
-                        "   format = 'TEXTFILE', " +
-                        "   external_location = 'hdfs://hadoop-master:9000%s/TestTextFileHiveTable/single_column', " +
-                        "   skip_header_line_count = 1 " +
-                        ")",
+        onTrino().executeQuery(("CREATE TABLE test_create_textfile_skip_header" +
+        " (name varchar) " +
+        "WITH ( " +
+        "   format = 'TEXTFILE', " +
+        "   external_location = 'hdfs://hadoop-master:9000%s/TestTextFileHiveTable/single_column', " +
+        "   skip_header_line_count = 1 " +
+        ")").formatted(
                 warehouseDirectory));
         assertThat(onTrino().executeQuery("SELECT * FROM test_create_textfile_skip_header")).containsOnly(row("value"), row("footer"));
         onHive().executeQuery("DROP TABLE test_create_textfile_skip_header");
 
         onHive().executeQuery("DROP TABLE IF EXISTS test_create_textfile_skip_footer");
-        onTrino().executeQuery(format(
-                "CREATE TABLE test_create_textfile_skip_footer" +
-                        " (name varchar) " +
-                        "WITH ( " +
-                        "   format = 'TEXTFILE', " +
-                        "   external_location = 'hdfs://hadoop-master:9000%s/TestTextFileHiveTable/single_column', " +
-                        "   skip_footer_line_count = 1 " +
-                        ")",
+        onTrino().executeQuery(("CREATE TABLE test_create_textfile_skip_footer" +
+        " (name varchar) " +
+        "WITH ( " +
+        "   format = 'TEXTFILE', " +
+        "   external_location = 'hdfs://hadoop-master:9000%s/TestTextFileHiveTable/single_column', " +
+        "   skip_footer_line_count = 1 " +
+        ")").formatted(
                 warehouseDirectory));
         assertThat(onTrino().executeQuery("SELECT * FROM test_create_textfile_skip_footer")).containsOnly(row("header"), row("value"));
         onHive().executeQuery("DROP TABLE test_create_textfile_skip_footer");
 
         onHive().executeQuery("DROP TABLE IF EXISTS test_create_textfile_skip_header_footer");
-        onTrino().executeQuery(format(
-                "CREATE TABLE test_create_textfile_skip_header_footer" +
-                        " (name varchar) " +
-                        "WITH ( " +
-                        "   format = 'TEXTFILE', " +
-                        "   external_location = 'hdfs://hadoop-master:9000%s/TestTextFileHiveTable/single_column', " +
-                        "   skip_header_line_count = 1, " +
-                        "   skip_footer_line_count = 1 " +
-                        ")",
+        onTrino().executeQuery(("CREATE TABLE test_create_textfile_skip_header_footer" +
+        " (name varchar) " +
+        "WITH ( " +
+        "   format = 'TEXTFILE', " +
+        "   external_location = 'hdfs://hadoop-master:9000%s/TestTextFileHiveTable/single_column', " +
+        "   skip_header_line_count = 1, " +
+        "   skip_footer_line_count = 1 " +
+        ")").formatted(
                 warehouseDirectory));
         assertThat(onTrino().executeQuery("SELECT * FROM test_create_textfile_skip_header_footer")).containsExactlyInOrder(row("value"));
         onHive().executeQuery("DROP TABLE test_create_textfile_skip_header_footer");

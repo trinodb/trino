@@ -245,7 +245,6 @@ import static java.lang.Math.clamp;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.sql.DatabaseMetaData.columnNoNulls;
@@ -412,7 +411,7 @@ public class PostgreSqlClient
     {
         checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
         ImmutableList.Builder<String> createTableSqlsBuilder = ImmutableList.builder();
-        createTableSqlsBuilder.add(format("CREATE TABLE %s (%s)", quoted(remoteTableName), join(", ", columns)));
+        createTableSqlsBuilder.add("CREATE TABLE %s (%s)".formatted(quoted(remoteTableName), join(", ", columns)));
         Optional<String> tableComment = tableMetadata.getComment();
         if (tableComment.isPresent()) {
             createTableSqlsBuilder.add(buildTableCommentSql(remoteTableName, tableComment));
@@ -428,8 +427,7 @@ public class PostgreSqlClient
 
     private String buildTableCommentSql(RemoteTableName remoteTableName, Optional<String> comment)
     {
-        return format(
-                "COMMENT ON TABLE %s IS %s",
+        return "COMMENT ON TABLE %s IS %s".formatted(
                 quoted(remoteTableName),
                 comment.map(BaseJdbcClient::varcharLiteral).orElse("NULL"));
     }
@@ -442,8 +440,7 @@ public class PostgreSqlClient
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
 
-        execute(session, connection, format(
-                "ALTER TABLE %s RENAME TO %s",
+        execute(session, connection, "ALTER TABLE %s RENAME TO %s".formatted(
                 quoted(catalogName, remoteSchemaName, remoteTableName),
                 quoted(newRemoteTableName)));
     }
@@ -519,7 +516,7 @@ public class PostgreSqlClient
                     // A table may have no supported columns. In rare cases a table might have no columns at all.
                     throw new TableNotFoundException(
                             schemaTableName,
-                            format("Table '%s' has no supported columns (all %s columns are not supported)", schemaTableName, allColumns));
+                            "Table '%s' has no supported columns (all %s columns are not supported)".formatted(schemaTableName, allColumns));
                 }
                 return ImmutableList.copyOf(columns);
             }
@@ -804,7 +801,7 @@ public class PostgreSqlClient
         }
 
         if (type instanceof DecimalType decimalType) {
-            String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            String dataType = "decimal(%s, %s)".formatted(decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
@@ -839,16 +836,16 @@ public class PostgreSqlClient
 
         if (type instanceof TimeType timeType) {
             verify(timeType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION);
-            return WriteMapping.longMapping(format("time(%s)", timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
+            return WriteMapping.longMapping("time(%s)".formatted(timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
         }
 
         if (type instanceof TimestampType timestampType) {
             verify(timestampType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION);
-            return WriteMapping.longMapping(format("timestamp(%s)", timestampType.getPrecision()), PostgreSqlClient::shortTimestampWriteFunction);
+            return WriteMapping.longMapping("timestamp(%s)".formatted(timestampType.getPrecision()), PostgreSqlClient::shortTimestampWriteFunction);
         }
         if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
             verify(timestampWithTimeZoneType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION);
-            String dataType = format("timestamptz(%d)", timestampWithTimeZoneType.getPrecision());
+            String dataType = "timestamptz(%d)".formatted(timestampWithTimeZoneType.getPrecision());
             if (timestampWithTimeZoneType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortTimestampWithTimeZoneWriteFunction());
             }
@@ -926,10 +923,10 @@ public class PostgreSqlClient
                         if (isCollatable(sortItem.column())) {
                             collation = "COLLATE \"C\"";
                         }
-                        return format("%s %s %s %s", quoted(sortItem.column().getColumnName()), collation, ordering, nullsHandling);
+                        return "%s %s %s %s".formatted(quoted(sortItem.column().getColumnName()), collation, ordering, nullsHandling);
                     })
                     .collect(joining(", "));
-            return format("%s ORDER BY %s LIMIT %d", query, orderBy, limit);
+            return "%s ORDER BY %s LIMIT %d".formatted(query, orderBy, limit);
         });
     }
 
@@ -1406,7 +1403,7 @@ public class PostgreSqlClient
     {
         // PostgreSQL truncates schema name to 63 chars silently
         if (schemaName.length() > databaseMetadata.getMaxSchemaNameLength()) {
-            throw new TrinoException(NOT_SUPPORTED, format("Schema name must be shorter than or equal to '%s' characters but got '%s'", databaseMetadata.getMaxSchemaNameLength(), schemaName.length()));
+            throw new TrinoException(NOT_SUPPORTED, "Schema name must be shorter than or equal to '%s' characters but got '%s'".formatted(databaseMetadata.getMaxSchemaNameLength(), schemaName.length()));
         }
     }
 
@@ -1416,7 +1413,7 @@ public class PostgreSqlClient
     {
         // PostgreSQL truncates table name to 63 chars silently
         if (tableName.length() > databaseMetadata.getMaxTableNameLength()) {
-            throw new TrinoException(NOT_SUPPORTED, format("Table name must be shorter than or equal to '%s' characters but got '%s'", databaseMetadata.getMaxTableNameLength(), tableName.length()));
+            throw new TrinoException(NOT_SUPPORTED, "Table name must be shorter than or equal to '%s' characters but got '%s'".formatted(databaseMetadata.getMaxTableNameLength(), tableName.length()));
         }
     }
 
@@ -1427,7 +1424,7 @@ public class PostgreSqlClient
         // PostgreSQL truncates table name to 63 chars silently
         // PostgreSQL driver caches the max column name length in a DatabaseMetaData object. The cost to call this method per column is low.
         if (columnName.length() > databaseMetadata.getMaxColumnNameLength()) {
-            throw new TrinoException(NOT_SUPPORTED, format("Column name must be shorter than or equal to '%s' characters but got '%s': '%s'", databaseMetadata.getMaxColumnNameLength(), columnName.length(), columnName));
+            throw new TrinoException(NOT_SUPPORTED, "Column name must be shorter than or equal to '%s' characters but got '%s': '%s'".formatted(databaseMetadata.getMaxColumnNameLength(), columnName.length(), columnName));
         }
     }
 
@@ -1506,7 +1503,7 @@ public class PostgreSqlClient
     private static LongWriteFunction timeWriteFunction(int precision)
     {
         checkArgument(precision <= 6, "Unsupported precision: %s", precision); // PostgreSQL limit but also assumption within this method
-        String bindExpression = format("CAST(? AS time(%s))", precision);
+        String bindExpression = "CAST(? AS time(%s))".formatted(precision);
         return new LongWriteFunction()
         {
             @Override
@@ -1544,8 +1541,7 @@ public class PostgreSqlClient
     public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
         // PostgreSQL doesn't support prepared statement for COMMENT statement
-        String sql = format(
-                "COMMENT ON COLUMN %s.%s IS %s",
+        String sql = "COMMENT ON COLUMN %s.%s IS %s".formatted(
                 quoted(handle.asPlainTable().getRemoteTableName()),
                 quoted(column.getColumnName()),
                 comment.map(BaseJdbcClient::varcharLiteral).orElse("NULL"));
@@ -1799,7 +1795,7 @@ public class PostgreSqlClient
     {
         requireNonNull(jdbcTypeName, "jdbcTypeName is null");
         String quotedJdbcTypeName = jdbcTypeName.startsWith("\"") && jdbcTypeName.endsWith("\"") ? jdbcTypeName : "\"%s\"".formatted(jdbcTypeName.replace("\"", "\"\""));
-        String bindExpression = format("CAST(? AS %s)", quotedJdbcTypeName);
+        String bindExpression = "CAST(? AS %s)".formatted(quotedJdbcTypeName);
 
         return new SliceWriteFunction()
         {
@@ -1997,7 +1993,7 @@ public class PostgreSqlClient
                             "JOIN pg_namespace parent_ns ON parent_ns.oid = parent.relnamespace " +
                             "JOIN pg_namespace child_ns ON child_ns.oid = child.relnamespace " +
                             "WHERE parent.oid = :schema_table_name::regclass")
-                    .bind("schema_table_name", format("%s.%s", schema, tableName))
+                    .bind("schema_table_name", "%s.%s".formatted(schema, tableName))
                     .mapTo(Long.class)
                     .findOne();
         }
@@ -2013,7 +2009,7 @@ public class PostgreSqlClient
                             "JOIN pg_namespace child_ns ON child_ns.oid = child.relnamespace " +
                             "JOIN pg_stat_all_tables stat ON stat.schemaname = child_ns.nspname AND stat.relname = child.relname " +
                             "WHERE parent.oid = :schema_table_name::regclass")
-                    .bind("schema_table_name", format("%s.%s", schema, tableName))
+                    .bind("schema_table_name", "%s.%s".formatted(schema, tableName))
                     .mapTo(Long.class)
                     .findOne();
         }

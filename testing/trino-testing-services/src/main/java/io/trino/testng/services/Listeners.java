@@ -19,8 +19,6 @@ import org.testng.ITestClass;
 import org.testng.ITestNGListener;
 import org.testng.ITestResult;
 
-import static java.lang.String.format;
-
 /**
  * @see io.trino.testing.services.junit.Listeners for utlity class for JUnit listeners
  * @deprecated Deprecated because TestNG is deprecated. Use JUnit instead.
@@ -38,7 +36,7 @@ public final class Listeners
     @FormatMethod
     public static void reportListenerFailure(Class<? extends ITestNGListener> listenerClass, String format, Object... args)
     {
-        System.err.println(format("FATAL: %s: ", listenerClass.getName()) + format(format, args));
+        System.err.println("FATAL: %s: ".formatted(listenerClass.getName()) + format.formatted(args));
         System.err.println("JVM will be terminated");
 
         // TestNG may or may not propagate listener's exception as test execution exception.
@@ -54,7 +52,7 @@ public final class Listeners
     public static String formatTestName(ITestResult testCase)
     {
         // See LogTestDurationListener.getName
-        return format("%s.%s%s", testCase.getTestClass().getName(), testCase.getName(), formatTestParameters(testCase));
+        return "%s.%s%s".formatted(testCase.getTestClass().getName(), testCase.getName(), formatTestParameters(testCase));
     }
 
     private static String formatTestParameters(ITestResult testCase)
@@ -63,6 +61,6 @@ public final class Listeners
         if (parameters == null || parameters.length == 0) {
             return "";
         }
-        return format(" [%s]", Joiner.on(", ").useForNull("null").join(parameters));
+        return " [%s]".formatted(Joiner.on(", ").useForNull("null").join(parameters));
     }
 }

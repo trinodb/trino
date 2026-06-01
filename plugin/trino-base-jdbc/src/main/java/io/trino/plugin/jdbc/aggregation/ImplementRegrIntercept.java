@@ -37,7 +37,6 @@ import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variabl
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.expressionTypes;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
-import static java.lang.String.format;
 
 public class ImplementRegrIntercept
         implements AggregateFunctionRule<JdbcExpression, ParameterizedExpression>
@@ -69,7 +68,7 @@ public class ImplementRegrIntercept
         ParameterizedExpression rewrittenArgument1 = context.rewriteExpression(argument1).orElseThrow();
         ParameterizedExpression rewrittenArgument2 = context.rewriteExpression(argument2).orElseThrow();
         return Optional.of(new JdbcExpression(
-                format("regr_intercept(%s, %s)", rewrittenArgument1.expression(), rewrittenArgument2.expression()),
+                "regr_intercept(%s, %s)".formatted(rewrittenArgument1.expression(), rewrittenArgument2.expression()),
                 ImmutableList.<QueryParameter>builder()
                         .addAll(rewrittenArgument1.parameters())
                         .addAll(rewrittenArgument2.parameters())

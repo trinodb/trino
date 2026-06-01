@@ -109,7 +109,6 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
@@ -300,7 +299,7 @@ public abstract class AbstractTrinoCatalog
             fileSystem.deleteDirectory(Location.of(tableLocation));
         }
         catch (IOException e) {
-            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("Failed to delete directory %s of the table %s", tableLocation, schemaTableName), e);
+            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to delete directory %s of the table %s".formatted(tableLocation, schemaTableName), e);
         }
     }
 
@@ -325,7 +324,7 @@ public abstract class AbstractTrinoCatalog
 
         TableMetadata metadata = newTableMetadata(schema, partitionSpec, sortOrder, tableLocation, properties);
 
-        String fileName = format("%05d-%s%s", 0, randomUUID(), getFileExtension(METADATA_COMPRESSION_DEFAULT));
+        String fileName = "%05d-%s%s".formatted(0, randomUUID(), getFileExtension(METADATA_COMPRESSION_DEFAULT));
         Location metadataFileLocation = Location.of(tableLocation).appendPath(METADATA_FOLDER_NAME).appendPath(fileName);
 
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
@@ -533,7 +532,7 @@ public abstract class AbstractTrinoCatalog
 
         Optional<String> providedTableLocation = getTableLocation(materializedViewProperties);
         if (providedTableLocation.isPresent() && !stripTrailingSlash(providedTableLocation.get()).equals(icebergTable.location())) {
-            throw new TrinoException(INVALID_TABLE_PROPERTY, format("The provided location '%s' does not match the existing storage table location '%s'", providedTableLocation.get(), icebergTable.location()));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "The provided location '%s' does not match the existing storage table location '%s'".formatted(providedTableLocation.get(), icebergTable.location()));
         }
 
         List<ColumnMetadata> columns = columnsForMaterializedView(definition, materializedViewProperties);

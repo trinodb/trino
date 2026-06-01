@@ -103,7 +103,6 @@ import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.Strea
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.SkipToPosition.PAST_LAST;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class StreamPropertyDerivations
@@ -630,7 +629,7 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitTableFunction(TableFunctionNode node, List<StreamProperties> inputProperties)
         {
-            throw new IllegalStateException(format("Unexpected node: TableFunctionNode (%s)", node.getName()));
+            throw new IllegalStateException("Unexpected node: TableFunctionNode (%s)".formatted(node.getName()));
         }
 
         @Override

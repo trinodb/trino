@@ -43,7 +43,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static java.lang.Boolean.FALSE;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.pinot.common.config.GrpcConfig.CONFIG_MAX_INBOUND_MESSAGE_BYTES_SIZE;
 import static org.apache.pinot.common.config.GrpcConfig.CONFIG_USE_PLAIN_TEXT;
@@ -293,10 +292,10 @@ public class PinotGrpcDataFetcher
                 }
                 if (!dataTable.getExceptions().isEmpty()) {
                     List<String> exceptions = dataTable.getExceptions().entrySet().stream()
-                            .map(entry -> format("Error code: %d Error message: %s", entry.getKey(), entry.getValue()))
+                            .map(entry -> "Error code: %d Error message: %s".formatted(entry.getKey(), entry.getValue()))
                             .collect(toImmutableList());
 
-                    throw new PinotException(PINOT_EXCEPTION, Optional.of(query), format("Encountered %d exceptions: %s", exceptions.size(), exceptions));
+                    throw new PinotException(PINOT_EXCEPTION, Optional.of(query), "Encountered %d exceptions: %s".formatted(exceptions.size(), exceptions));
                 }
 
                 return new PinotDataTableWithSize(dataTable, buffer.remaining());

@@ -16,7 +16,7 @@ package io.trino.plugin.ranger;
 import io.trino.spi.Plugin;
 import io.trino.spi.security.SystemAccessControlFactory;
 
-import static java.util.Collections.singletonList;
+import java.util.List;
 
 public class ApacheRangerPlugin
         implements Plugin
@@ -24,6 +24,6 @@ public class ApacheRangerPlugin
     @Override
     public Iterable<SystemAccessControlFactory> getSystemAccessControlFactories()
     {
-        return singletonList(new RangerSystemAccessControlFactory());
+        return List.of(new RangerSystemAccessControlFactory());
     }
 }

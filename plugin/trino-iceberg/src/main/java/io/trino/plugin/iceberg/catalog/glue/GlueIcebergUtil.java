@@ -42,7 +42,6 @@ import static io.trino.plugin.iceberg.IcebergUtil.COLUMN_TRINO_NOT_NULL_PROPERTY
 import static io.trino.plugin.iceberg.IcebergUtil.COLUMN_TRINO_TYPE_ID_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.TRINO_TABLE_COMMENT_CACHE_PREVENTED;
 import static io.trino.plugin.iceberg.IcebergUtil.TRINO_TABLE_METADATA_INFO_VALID_FOR;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNullElse;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
@@ -173,24 +172,23 @@ public final class GlueIcebergUtil
             case FIXED, BINARY -> "binary";
             case DECIMAL -> {
                 final Types.DecimalType decimalType = (Types.DecimalType) type;
-                yield format("decimal(%s,%s)", decimalType.precision(), decimalType.scale());
+                yield "decimal(%s,%s)".formatted(decimalType.precision(), decimalType.scale());
             }
             case STRUCT -> {
                 final Types.StructType structType = type.asStructType();
                 final String nameToType =
                         structType.fields().stream()
-                                .map(f -> format("%s:%s", f.name(), toGlueTypeStringLossy(f.type())))
+                                .map(f -> "%s:%s".formatted(f.name(), toGlueTypeStringLossy(f.type())))
                                 .collect(Collectors.joining(","));
-                yield format("struct<%s>", nameToType);
+                yield "struct<%s>".formatted(nameToType);
             }
             case LIST -> {
                 final Types.ListType listType = type.asListType();
-                yield format("array<%s>", toGlueTypeStringLossy(listType.elementType()));
+                yield "array<%s>".formatted(toGlueTypeStringLossy(listType.elementType()));
             }
             case MAP -> {
                 final Types.MapType mapType = type.asMapType();
-                yield format(
-                        "map<%s,%s>", toGlueTypeStringLossy(mapType.keyType()), toGlueTypeStringLossy(mapType.valueType()));
+                yield "map<%s,%s>".formatted(toGlueTypeStringLossy(mapType.keyType()), toGlueTypeStringLossy(mapType.valueType()));
             }
             default -> type.typeId().name().toLowerCase(Locale.ENGLISH);
         };

@@ -23,7 +23,6 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public interface PinotDataFetcher
@@ -32,7 +31,7 @@ public interface PinotDataFetcher
     {
         List<String> exceptions = ImmutableList.copyOf(dataTable.getExceptions().values());
         if (!exceptions.isEmpty()) {
-            throw new PinotException(PINOT_EXCEPTION, Optional.of(query), format("Encountered %d pinot exceptions for split %s: %s", exceptions.size(), split, exceptions));
+            throw new PinotException(PINOT_EXCEPTION, Optional.of(query), "Encountered %d pinot exceptions for split %s: %s".formatted(exceptions.size(), split, exceptions));
         }
     }
 
@@ -63,7 +62,7 @@ public interface PinotDataFetcher
         public void checkTooManyRows(DataTable dataTable)
         {
             if (currentRowCount.addAndGet(dataTable.getNumberOfRows()) > limit) {
-                throw new PinotException(PINOT_EXCEPTION, Optional.of(query), format("Segment query returned '%s' rows per split, maximum allowed is '%s' rows.", currentRowCount.get(), limit));
+                throw new PinotException(PINOT_EXCEPTION, Optional.of(query), "Segment query returned '%s' rows per split, maximum allowed is '%s' rows.".formatted(currentRowCount.get(), limit));
             }
         }
     }

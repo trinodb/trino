@@ -13,7 +13,6 @@
  */
 package io.trino.spi.connector;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ViewNotFoundException
@@ -23,7 +22,7 @@ public class ViewNotFoundException
 
     public ViewNotFoundException(SchemaTableName viewName)
     {
-        this(viewName, format("View '%s' not found", viewName));
+        this(viewName, "View '%s' not found".formatted(viewName));
     }
 
     public ViewNotFoundException(SchemaTableName viewName, String message)
@@ -34,7 +33,7 @@ public class ViewNotFoundException
 
     public ViewNotFoundException(SchemaTableName viewName, Throwable cause)
     {
-        this(viewName, format("View '%s' not found", viewName), cause);
+        this(viewName, "View '%s' not found".formatted(viewName), cause);
     }
 
     public ViewNotFoundException(SchemaTableName viewName, String message, Throwable cause)

@@ -29,7 +29,6 @@ import java.sql.Statement;
 import java.util.Properties;
 
 import static io.trino.testing.containers.TestContainers.startOrReuse;
-import static java.lang.String.format;
 
 public class TestingExasolServer
         implements Closeable
@@ -52,7 +51,7 @@ public class TestingExasolServer
                 .withRequiredServices(ExasolService.JDBC)
                 .withEnv("COSLWD_ENABLED", "1"); // Disables rsyslogd, cleans up log clutter and speeds up database startup
         cleanup = startOrReuse(container);
-        executeAsSys(format("CREATE USER %s IDENTIFIED BY \"%s\"", TEST_USER, TEST_PASSWORD));
+        executeAsSys("CREATE USER %s IDENTIFIED BY \"%s\"".formatted(TEST_USER, TEST_PASSWORD));
         executeAsSys("GRANT CREATE SESSION TO " + TEST_USER);
         executeAsSys("GRANT CREATE SCHEMA TO " + TEST_USER);
         executeAsSys("GRANT CREATE TABLE TO " + TEST_USER);

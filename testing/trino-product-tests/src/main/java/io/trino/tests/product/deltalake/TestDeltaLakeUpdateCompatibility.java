@@ -30,7 +30,6 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICK
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeUpdateCompatibility
@@ -51,23 +50,23 @@ public class TestDeltaLakeUpdateCompatibility
                 .containsOnly(row(3));
 
         try {
-            QueryResult databricksResult = onDelta().executeQuery(format("SELECT * FROM default.%s ORDER BY id", tableName));
-            QueryResult trinoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\" ORDER BY id", tableName));
+            QueryResult databricksResult = onDelta().executeQuery("SELECT * FROM default.%s ORDER BY id".formatted(tableName));
+            QueryResult trinoResult = onTrino().executeQuery("SELECT * FROM delta.default.\"%s\" ORDER BY id".formatted(tableName));
             assertThat(databricksResult).containsExactlyInOrder(toRows(trinoResult));
 
-            onDelta().executeQuery(format("UPDATE default.%s SET value = 'France' WHERE id = 2", tableName));
-            databricksResult = onDelta().executeQuery(format("SELECT * FROM default.%s ORDER BY id", tableName));
-            trinoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\" ORDER BY id", tableName));
+            onDelta().executeQuery("UPDATE default.%s SET value = 'France' WHERE id = 2".formatted(tableName));
+            databricksResult = onDelta().executeQuery("SELECT * FROM default.%s ORDER BY id".formatted(tableName));
+            trinoResult = onTrino().executeQuery("SELECT * FROM delta.default.\"%s\" ORDER BY id".formatted(tableName));
             assertThat(databricksResult).containsExactlyInOrder(toRows(trinoResult));
 
-            onDelta().executeQuery(format("UPDATE default.%s SET value = 'Spain' WHERE id = 2", tableName));
-            databricksResult = onDelta().executeQuery(format("SELECT * FROM default.%s ORDER BY id", tableName));
-            trinoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\" ORDER BY id", tableName));
+            onDelta().executeQuery("UPDATE default.%s SET value = 'Spain' WHERE id = 2".formatted(tableName));
+            databricksResult = onDelta().executeQuery("SELECT * FROM default.%s ORDER BY id".formatted(tableName));
+            trinoResult = onTrino().executeQuery("SELECT * FROM delta.default.\"%s\" ORDER BY id".formatted(tableName));
             assertThat(databricksResult).containsExactlyInOrder(toRows(trinoResult));
 
-            onDelta().executeQuery(format("UPDATE default.%s SET value = 'Portugal' WHERE id = 2", tableName));
-            databricksResult = onDelta().executeQuery(format("SELECT * FROM default.%s ORDER BY id", tableName));
-            trinoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\" ORDER BY id", tableName));
+            onDelta().executeQuery("UPDATE default.%s SET value = 'Portugal' WHERE id = 2".formatted(tableName));
+            databricksResult = onDelta().executeQuery("SELECT * FROM default.%s ORDER BY id".formatted(tableName));
+            trinoResult = onTrino().executeQuery("SELECT * FROM delta.default.\"%s\" ORDER BY id".formatted(tableName));
             assertThat(databricksResult).containsExactlyInOrder(toRows(trinoResult));
         }
         finally {

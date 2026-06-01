@@ -38,7 +38,6 @@ import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.type;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
 import static io.trino.spi.expression.StandardFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static java.lang.String.format;
 
 public class RewriteLikeEscapeWithCaseSensitivity
         implements ConnectorExpressionRule<Call, ParameterizedExpression>
@@ -89,6 +88,6 @@ public class RewriteLikeEscapeWithCaseSensitivity
             return Optional.empty();
         }
         parameters.addAll(escape.get().parameters());
-        return Optional.of(new ParameterizedExpression(format("%s LIKE %s ESCAPE %s", value.get().expression(), pattern.get().expression(), escape.get().expression()), parameters.build()));
+        return Optional.of(new ParameterizedExpression("%s LIKE %s ESCAPE %s".formatted(value.get().expression(), pattern.get().expression(), escape.get().expression()), parameters.build()));
     }
 }

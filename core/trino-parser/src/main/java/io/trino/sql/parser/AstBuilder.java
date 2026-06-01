@@ -539,7 +539,7 @@ class AstBuilder
         OwnedEntityKindContext ownedEntityKindContext = context.ownedEntityKind();
         String ownedEntityKind = IntStream.range(0, ownedEntityKindContext.getChildCount())
                 .mapToObj(i -> ownedEntityKindContext.getChild(i).getText())
-                .reduce("", (a, b) -> String.format("%s %s", a, b).trim());
+                .reduce("", (a, b) -> "%s %s".formatted(a, b).trim());
         return new SetAuthorizationStatement(
                 getLocation(context),
                 ownedEntityKind.toUpperCase(ENGLISH),

@@ -20,7 +20,6 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.operator.scalar.ColorFunctions.rgb;
 import static io.trino.type.ColorType.COLOR;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -48,7 +47,7 @@ public class TestColorType
         Block block = builder.build();
         for (int position = 0; position < block.getPositionCount(); position++) {
             int value = COLOR.getInt(block, position);
-            assertThat(COLOR.getObjectValue(block, position)).isEqualTo(format("#%02x%02x%02x", (value >> 16) & 0xFF, (value >> 8) & 0xFF, value & 0xFF));
+            assertThat(COLOR.getObjectValue(block, position)).isEqualTo("#%02x%02x%02x".formatted((value >> 16) & 0xFF, (value >> 8) & 0xFF, value & 0xFF));
         }
     }
 

@@ -51,7 +51,6 @@ import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
@@ -114,7 +113,7 @@ public class CreateEmptyPartitionProcedure
         try (UncheckedCloseable ignore = () -> hiveMetadata.cleanupQuery(session)) {
             ConnectorTableHandle tableHandle = hiveMetadata.getTableHandle(session, new SchemaTableName(schemaName, tableName), Optional.empty(), Optional.empty());
             if (tableHandle == null) {
-                throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", new SchemaTableName(schemaName, tableName)));
+                throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Table '%s' does not exist".formatted(new SchemaTableName(schemaName, tableName)));
             }
 
             accessControl.checkCanInsertIntoTable(null, new SchemaTableName(schemaName, tableName), Optional.empty());

@@ -40,7 +40,6 @@ import static io.trino.metastore.Partitions.escapePathName;
 import static io.trino.metastore.Partitions.toPartitionValues;
 import static io.trino.plugin.hive.projection.InvalidProjectionException.invalidProjectionMessage;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class PartitionProjection
@@ -177,9 +176,9 @@ public final class PartitionProjection
     private static String getPartitionLocation(String tableLocation, List<String> partitionColumns)
     {
         if (tableLocation.endsWith("/")) {
-            return format("%s%s/", tableLocation, toPartitionLocationTemplate(partitionColumns));
+            return "%s%s/".formatted(tableLocation, toPartitionLocationTemplate(partitionColumns));
         }
-        return format("%s/%s/", tableLocation, toPartitionLocationTemplate(partitionColumns));
+        return "%s/%s/".formatted(tableLocation, toPartitionLocationTemplate(partitionColumns));
     }
 
     private static String expandStorageLocationTemplate(String template, List<String> partitionColumns, List<String> partitionValues)

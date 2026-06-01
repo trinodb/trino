@@ -58,7 +58,6 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.decimalType;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
@@ -271,7 +270,7 @@ public final class DeltaLakeParquetSchemas
                 typeBuilder = Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, repetition).as(LogicalTypeAnnotation.timestampType(false, LogicalTypeAnnotation.TimeUnit.MICROS));
                 trinoType = TIMESTAMP_MICROS;
             }
-            default -> throw new TrinoException(NOT_SUPPORTED, format("Unsupported primitive type: %s", primitiveType));
+            default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported primitive type: %s".formatted(primitiveType));
         }
 
         return buildType(name, id, parent, typeBuilder, trinoType, primitiveTypesBuilder);

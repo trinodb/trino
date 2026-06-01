@@ -59,7 +59,6 @@ import static io.trino.util.JsonUtil.currentTokenAsSmallint;
 import static io.trino.util.JsonUtil.currentTokenAsTinyint;
 import static io.trino.util.JsonUtil.currentTokenAsVarchar;
 import static java.lang.Float.intBitsToFloat;
-import static java.lang.String.format;
 
 public final class JsonOperators
 {
@@ -82,9 +81,9 @@ public final class JsonOperators
             }
         }
         catch (IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", json.toStringUtf8(), x), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to varchar(%s)".formatted(json.toStringUtf8(), x), e);
         }
-        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", json.toStringUtf8(), x));
+        throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to varchar(%s)".formatted(json.toStringUtf8(), x));
     }
 
     @ScalarOperator(CAST)
@@ -99,7 +98,7 @@ public final class JsonOperators
             return result;
         }
         catch (IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), BIGINT), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to %s".formatted(json.toStringUtf8(), BIGINT), e);
         }
     }
 
@@ -115,7 +114,7 @@ public final class JsonOperators
             return result;
         }
         catch (ArithmeticException | IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), INTEGER), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to %s".formatted(json.toStringUtf8(), INTEGER), e);
         }
     }
 
@@ -131,7 +130,7 @@ public final class JsonOperators
             return result;
         }
         catch (IllegalArgumentException | IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), SMALLINT), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to %s".formatted(json.toStringUtf8(), SMALLINT), e);
         }
     }
 
@@ -147,7 +146,7 @@ public final class JsonOperators
             return result;
         }
         catch (IllegalArgumentException | IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), TINYINT), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to %s".formatted(json.toStringUtf8(), TINYINT), e);
         }
     }
 
@@ -163,7 +162,7 @@ public final class JsonOperators
             return result;
         }
         catch (IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), DOUBLE), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to %s".formatted(json.toStringUtf8(), DOUBLE), e);
         }
     }
 
@@ -179,7 +178,7 @@ public final class JsonOperators
             return result;
         }
         catch (IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), REAL), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to %s".formatted(json.toStringUtf8(), REAL), e);
         }
     }
 
@@ -195,7 +194,7 @@ public final class JsonOperators
             return result;
         }
         catch (IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), NUMBER), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to %s".formatted(json.toStringUtf8(), NUMBER), e);
         }
     }
 
@@ -211,7 +210,7 @@ public final class JsonOperators
             return result;
         }
         catch (IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), BOOLEAN), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to %s".formatted(json.toStringUtf8(), BOOLEAN), e);
         }
     }
 
@@ -228,7 +227,7 @@ public final class JsonOperators
             return output.slice();
         }
         catch (IOException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value.toStringUtf8(), JSON));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to %s".formatted(value.toStringUtf8(), JSON));
         }
     }
 
@@ -270,7 +269,7 @@ public final class JsonOperators
             return output.slice();
         }
         catch (IOException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to %s".formatted(value, JSON));
         }
     }
 
@@ -286,7 +285,7 @@ public final class JsonOperators
             return output.slice();
         }
         catch (IOException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to %s".formatted(value, JSON));
         }
     }
 
@@ -302,7 +301,7 @@ public final class JsonOperators
             return output.slice();
         }
         catch (IOException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to %s".formatted(value, JSON));
         }
     }
 
@@ -322,7 +321,7 @@ public final class JsonOperators
             return output.slice();
         }
         catch (IOException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast NUMBER '%s' to %s", value.toBigDecimal(), JSON), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast NUMBER '%s' to %s".formatted(value.toBigDecimal(), JSON), e);
         }
     }
 
@@ -338,7 +337,7 @@ public final class JsonOperators
             return output.slice();
         }
         catch (IOException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to %s".formatted(value, JSON));
         }
     }
 
@@ -354,7 +353,7 @@ public final class JsonOperators
             return output.slice();
         }
         catch (IOException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to %s".formatted(value, JSON));
         }
     }
 }

@@ -20,7 +20,6 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.math.BigInteger;
 
-import static java.lang.String.format;
 import static java.math.BigInteger.ONE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -77,23 +76,20 @@ public class TestWindowFrameRows
                 "ARRAY[2, 2]";
 
         // short decimal: no integer overflow exception when frame offset exceeds integer
-        assertThat(assertions.query(format(
-                "SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST ROWS BETWEEN 1 PRECEDING AND DECIMAL '%d' FOLLOWING) " +
-                        "FROM (VALUES 2, 2, 1, null, null) t(a)",
+        assertThat(assertions.query(("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST ROWS BETWEEN 1 PRECEDING AND DECIMAL '%d' FOLLOWING) " +
+        "FROM (VALUES 2, 2, 1, null, null) t(a)").formatted(
                 1L + Integer.MAX_VALUE)))
                 .matches(expected);
 
         // long decimal: value does not overflow long
-        assertThat(assertions.query(format(
-                "SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST ROWS BETWEEN 1 PRECEDING AND DECIMAL '%d' FOLLOWING) " +
-                        "FROM (VALUES 2, 2, 1, null, null) t(a)",
+        assertThat(assertions.query(("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST ROWS BETWEEN 1 PRECEDING AND DECIMAL '%d' FOLLOWING) " +
+        "FROM (VALUES 2, 2, 1, null, null) t(a)").formatted(
                 Long.MAX_VALUE)))
                 .matches(expected);
 
         // long decimal: value overflows long so it is truncated to max long
-        assertThat(assertions.query(format(
-                "SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST ROWS BETWEEN 1 PRECEDING AND DECIMAL '%s' FOLLOWING) " +
-                        "FROM (VALUES 2, 2, 1, null, null) t(a)",
+        assertThat(assertions.query(("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST ROWS BETWEEN 1 PRECEDING AND DECIMAL '%s' FOLLOWING) " +
+        "FROM (VALUES 2, 2, 1, null, null) t(a)").formatted(
                 BigInteger.valueOf(Long.MAX_VALUE).add(ONE))))
                 .matches(expected);
 

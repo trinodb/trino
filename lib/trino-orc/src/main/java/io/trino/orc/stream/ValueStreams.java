@@ -29,7 +29,6 @@ import static io.trino.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static io.trino.orc.metadata.Stream.StreamKind.LENGTH;
 import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.trino.orc.metadata.Stream.StreamKind.SECONDARY;
-import static java.lang.String.format;
 
 public final class ValueStreams
 {
@@ -117,7 +116,7 @@ public final class ValueStreams
             }
         }
 
-        throw new IllegalArgumentException(format("Unsupported column type %s for stream %s with encoding %s", type, streamId, encoding));
+        throw new IllegalArgumentException("Unsupported column type %s for stream %s with encoding %s".formatted(type, streamId, encoding));
     }
 
     private static ValueInputStream<?> createLongStream(

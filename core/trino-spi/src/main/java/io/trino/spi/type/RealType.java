@@ -42,7 +42,6 @@ import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.runtime.ExactConversionsSupport.isLongToIntExact;
 
@@ -90,7 +89,7 @@ public final class RealType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         if (!isLongToIntExact(value)) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value (%sb) is not a valid single-precision float", Long.toBinaryString(value)));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Value (%sb) is not a valid single-precision float".formatted(Long.toBinaryString(value)));
         }
         writeInt(blockBuilder, (int) value);
     }

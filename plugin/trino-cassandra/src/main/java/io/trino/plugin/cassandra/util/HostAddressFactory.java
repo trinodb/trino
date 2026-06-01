@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static java.lang.String.format;
 
 public class HostAddressFactory
 {
@@ -40,8 +39,7 @@ public class HostAddressFactory
         }
         throw new TrinoException(
                 GENERIC_INTERNAL_ERROR,
-                format(
-                        "Only endpoints which resolve to a InetSocketAddress are supported. Resolving to socket addresses of type %s is not supported",
+                "Only endpoints which resolve to a InetSocketAddress are supported. Resolving to socket addresses of type %s is not supported".formatted(
                         address.getClass().getName()));
     }
 

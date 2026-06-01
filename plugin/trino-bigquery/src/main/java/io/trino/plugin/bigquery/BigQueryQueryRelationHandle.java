@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class BigQueryQueryRelationHandle
@@ -58,7 +57,7 @@ public class BigQueryQueryRelationHandle
     @Override
     public String toString()
     {
-        return format("Query[%s], Destination table[%s], Api[%s]", query, destinationTableName, useStorageApi ? "Storage" : "Rest");
+        return "Query[%s], Destination table[%s], Api[%s]".formatted(query, destinationTableName, useStorageApi ? "Storage" : "Rest");
     }
 
     @Override

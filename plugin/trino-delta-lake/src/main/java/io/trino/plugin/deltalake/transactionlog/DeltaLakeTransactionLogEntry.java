@@ -20,7 +20,6 @@ import jakarta.annotation.Nullable;
 import java.util.Objects;
 
 import static io.airlift.slice.SizeOf.instanceSize;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeTransactionLogEntry
@@ -220,7 +219,7 @@ public class DeltaLakeTransactionLogEntry
     @Override
     public String toString()
     {
-        return format("DeltaLakeTransactionLogEntry{%s, %s, %s, %s, %s, %s, %s, %s, %s}", txn, add, remove, metaData, protocol, commitInfo, cdcEntry, sidecar, checkpointMetadata);
+        return "DeltaLakeTransactionLogEntry{%s, %s, %s, %s, %s, %s, %s, %s, %s}".formatted(txn, add, remove, metaData, protocol, commitInfo, cdcEntry, sidecar, checkpointMetadata);
     }
 
     public long getRetainedSizeInBytes()

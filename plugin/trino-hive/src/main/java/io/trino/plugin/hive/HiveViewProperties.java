@@ -26,7 +26,6 @@ import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW_PROPERTY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 
 public class HiveViewProperties
 {
@@ -48,10 +47,10 @@ public class HiveViewProperties
                         value -> {
                             Map<String, String> extraProperties = (Map<String, String>) value;
                             if (extraProperties.containsValue(null)) {
-                                throw new TrinoException(INVALID_VIEW_PROPERTY, format("Extra view property value cannot be null '%s'", extraProperties));
+                                throw new TrinoException(INVALID_VIEW_PROPERTY, "Extra view property value cannot be null '%s'".formatted(extraProperties));
                             }
                             if (extraProperties.containsKey(null)) {
-                                throw new TrinoException(INVALID_VIEW_PROPERTY, format("Extra view property key cannot be null '%s'", extraProperties));
+                                throw new TrinoException(INVALID_VIEW_PROPERTY, "Extra view property key cannot be null '%s'".formatted(extraProperties));
                             }
                             return extraProperties;
                         },

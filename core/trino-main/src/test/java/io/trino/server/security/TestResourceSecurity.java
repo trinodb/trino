@@ -113,7 +113,6 @@ import static jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 import static jakarta.ws.rs.core.HttpHeaders.LOCATION;
 import static jakarta.ws.rs.core.HttpHeaders.SET_COOKIE;
 import static jakarta.ws.rs.core.HttpHeaders.WWW_AUTHENTICATE;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Instant.now;
 import static java.util.Objects.requireNonNull;
@@ -756,7 +755,7 @@ public class TestResourceSecurity
             Pattern oauth2BearerPattern = Pattern.compile("Bearer x_redirect_server=\"(https://127.0.0.1:[0-9]+/oauth2/token/initiate/.+)\", x_token_server=\"(https://127.0.0.1:[0-9]+/oauth2/token/.+)\"");
             Matcher matcher = oauth2BearerPattern.matcher(authenticateHeader);
             assertThat(matcher.matches())
-                    .describedAs(format("Invalid authentication header.\nExpected: %s\nPattern: %s", authenticateHeader, oauth2BearerPattern))
+                    .describedAs("Invalid authentication header.\nExpected: %s\nPattern: %s".formatted(authenticateHeader, oauth2BearerPattern))
                     .isTrue();
             redirectTo = matcher.group(1);
             tokenServer = matcher.group(2);
@@ -769,10 +768,10 @@ public class TestResourceSecurity
             assertThat(response.code()).isEqualTo(SC_SEE_OTHER);
             String locationHeader = response.header(LOCATION);
             assertThat(locationHeader).isNotNull();
-            Pattern locationPattern = Pattern.compile(format("%s\\?(.+)", expectedRedirect));
+            Pattern locationPattern = Pattern.compile("%s\\?(.+)".formatted(expectedRedirect));
             Matcher matcher = locationPattern.matcher(locationHeader);
             assertThat(matcher.matches())
-                    .describedAs(format("Invalid location header.\nExpected: %s\nPattern: %s", expectedRedirect, locationPattern))
+                    .describedAs("Invalid location header.\nExpected: %s\nPattern: %s".formatted(expectedRedirect, locationPattern))
                     .isTrue();
 
             HttpCookie nonceCookie = HttpCookie.parse(requireNonNull(response.header(SET_COOKIE))).get(0);

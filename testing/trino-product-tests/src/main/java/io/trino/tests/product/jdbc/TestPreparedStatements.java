@@ -38,7 +38,6 @@ import static io.trino.tempto.query.QueryExecutor.param;
 import static io.trino.tests.product.TestGroups.JDBC;
 import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.BOOLEAN;
@@ -143,8 +142,8 @@ public class TestPreparedStatements
     public void preparedInsertVarbinaryApi()
     {
         String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
-        String insertSqlWithTable = format(INSERT_SQL, tableNameInDatabase);
-        String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
+        String insertSqlWithTable = INSERT_SQL.formatted(tableNameInDatabase);
+        String selectSqlWithTable = SELECT_STAR_SQL.formatted(tableNameInDatabase);
 
         onTrino().executeQuery(
                 insertSqlWithTable,
@@ -189,8 +188,8 @@ public class TestPreparedStatements
     public void preparedInsertApi()
     {
         String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
-        String insertSqlWithTable = format(INSERT_SQL, tableNameInDatabase);
-        String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
+        String insertSqlWithTable = INSERT_SQL.formatted(tableNameInDatabase);
+        String selectSqlWithTable = SELECT_STAR_SQL.formatted(tableNameInDatabase);
 
         onTrino().executeQuery(
                 insertSqlWithTable,
@@ -290,8 +289,8 @@ public class TestPreparedStatements
             throws SQLException
     {
         String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
-        String insertSqlWithTable = "PREPARE ps1 from " + format(INSERT_SQL, tableNameInDatabase);
-        String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
+        String insertSqlWithTable = "PREPARE ps1 from " + INSERT_SQL.formatted(tableNameInDatabase);
+        String selectSqlWithTable = SELECT_STAR_SQL.formatted(tableNameInDatabase);
         String executeSql = "EXECUTE ps1 using ";
 
         try (Connection conn = connection(); Statement statement = conn.createStatement()) {
@@ -306,8 +305,8 @@ public class TestPreparedStatements
             throws SQLException
     {
         String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
-        String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
-        String executeInsertSql = format("EXECUTE IMMEDIATE '%s' using ", format(INSERT_SQL, tableNameInDatabase));
+        String selectSqlWithTable = SELECT_STAR_SQL.formatted(tableNameInDatabase);
+        String executeInsertSql = "EXECUTE IMMEDIATE '%s' using ".formatted(INSERT_SQL.formatted(tableNameInDatabase));
 
         try (Connection conn = connection(); Statement statement = conn.createStatement()) {
             insertAndVerify(statement, executeInsertSql, selectSqlWithTable);
@@ -412,8 +411,8 @@ public class TestPreparedStatements
             throws SQLException
     {
         String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
-        String insertSqlWithTable = "PREPARE ps1 from " + format(INSERT_SQL, tableNameInDatabase);
-        String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
+        String insertSqlWithTable = "PREPARE ps1 from " + INSERT_SQL.formatted(tableNameInDatabase);
+        String selectSqlWithTable = SELECT_STAR_SQL.formatted(tableNameInDatabase);
         String executeSql = "EXECUTE ps1 using ";
 
         try (Statement statement = connection().createStatement()) {
@@ -428,9 +427,9 @@ public class TestPreparedStatements
             throws SQLException
     {
         String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
-        String insertSqlWithTable = "PREPARE ps1 from " + format(INSERT_SQL, tableNameInDatabase);
-        String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
-        String executeSql = format("EXECUTE IMMEDIATE '%s' using ", format(INSERT_SQL, tableNameInDatabase));
+        String insertSqlWithTable = "PREPARE ps1 from " + INSERT_SQL.formatted(tableNameInDatabase);
+        String selectSqlWithTable = SELECT_STAR_SQL.formatted(tableNameInDatabase);
+        String executeSql = "EXECUTE IMMEDIATE '%s' using ".formatted(INSERT_SQL.formatted(tableNameInDatabase));
 
         try (Connection conn = connection(); Statement statement = conn.createStatement()) {
             statement.execute(insertSqlWithTable);

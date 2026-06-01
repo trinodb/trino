@@ -24,7 +24,6 @@ import io.trino.spi.TrinoException;
 import java.util.List;
 
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HudiSplitFactory
@@ -48,7 +47,7 @@ public class HudiSplitFactory
     public List<HudiSplit> createSplits(List<HivePartitionKey> partitionKeys, HudiFileStatus fileStatus)
     {
         if (fileStatus.isDirectory()) {
-            throw new TrinoException(HUDI_FILESYSTEM_ERROR, format("Not a valid location: %s", fileStatus.location()));
+            throw new TrinoException(HUDI_FILESYSTEM_ERROR, "Not a valid location: %s".formatted(fileStatus.location()));
         }
 
         long fileSize = fileStatus.length();

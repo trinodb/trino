@@ -29,7 +29,6 @@ import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
-import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -109,10 +108,10 @@ public final class SqlDataTypeTest
             if (testCase.getExpectedType().isPresent()) {
                 Type expectedType = testCase.getExpectedType().get();
                 assertThat(actual.getTypes())
-                        .as(format("Output types for query [%s]", selectQuery))
+                        .as("Output types for query [%s]".formatted(selectQuery))
                         .element(column).isEqualTo(expectedType);
                 assertThat(expected.getTypes())
-                        .as(format("Expected literal type at column %d (check consistency of expected type and expected literal)", column + 1))
+                        .as("Expected literal type at column %d (check consistency of expected type and expected literal)".formatted(column + 1))
                         .element(column).isEqualTo(expectedType);
             }
         }
@@ -164,7 +163,7 @@ public final class SqlDataTypeTest
 
     private String getPredicate(int column)
     {
-        return format("%s IS NOT DISTINCT FROM %s", getColumnName(column), testCases.get(column).getExpectedLiteral());
+        return "%s IS NOT DISTINCT FROM %s".formatted(getColumnName(column), testCases.get(column).getExpectedLiteral());
     }
 
     private String getColumnName(int column)
@@ -220,8 +219,7 @@ public final class SqlDataTypeTest
         @Override
         public String toString()
         {
-            return format(
-                    "columnName=%s, declaredType=%s, inputLiteral=%s, expectedLiteral=%s",
+            return "columnName=%s, declaredType=%s, inputLiteral=%s, expectedLiteral=%s".formatted(
                     columnName.orElse("<default>"),
                     declaredType.orElse("<inferred>"),
                     inputLiteral,

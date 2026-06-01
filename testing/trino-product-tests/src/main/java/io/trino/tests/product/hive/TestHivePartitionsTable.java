@@ -44,7 +44,6 @@ import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_IS
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -112,13 +111,13 @@ public class TestHivePartitionsTable
         assertThat(partitionListResult).containsExactlyInOrder(row(1), row(2));
         assertColumnNames(partitionListResult, "part_col");
 
-        partitionListResult = onTrino().executeQuery(format("SELECT * FROM %s WHERE part_col = 1", partitionsTable));
+        partitionListResult = onTrino().executeQuery("SELECT * FROM %s WHERE part_col = 1".formatted(partitionsTable));
         assertThat(partitionListResult).containsExactlyInOrder(row(1));
         assertColumnNames(partitionListResult, "part_col");
 
-        assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM %s WHERE no_such_column = 1", partitionsTable)))
+        assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM %s WHERE no_such_column = 1".formatted(partitionsTable)))
                 .hasMessageContaining("Column 'no_such_column' cannot be resolved");
-        assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM %s WHERE col = 1", partitionsTable)))
+        assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM %s WHERE col = 1".formatted(partitionsTable)))
                 .hasMessageContaining("Column 'col' cannot be resolved");
     }
 
@@ -144,17 +143,17 @@ public class TestHivePartitionsTable
 
         QueryResult partitionListResult;
 
-        partitionListResult = onTrino().executeQuery(format("SELECT * FROM %s WHERE part_col < 7", partitionsTable));
+        partitionListResult = onTrino().executeQuery("SELECT * FROM %s WHERE part_col < 7".formatted(partitionsTable));
         assertThat(partitionListResult).containsExactlyInOrder(row(0), row(1), row(2), row(3), row(4), row(5), row(6));
         assertColumnNames(partitionListResult, "part_col");
 
-        partitionListResult = onTrino().executeQuery(format("SELECT a.part_col FROM (SELECT * FROM %s WHERE part_col = 1) a, (SELECT * FROM %s WHERE part_col = 1) b WHERE a.col = b.col", tableName, tableName));
+        partitionListResult = onTrino().executeQuery("SELECT a.part_col FROM (SELECT * FROM %s WHERE part_col = 1) a, (SELECT * FROM %s WHERE part_col = 1) b WHERE a.col = b.col".formatted(tableName, tableName));
         assertThat(partitionListResult).containsExactlyInOrder(row(1));
 
-        partitionListResult = onTrino().executeQuery(format("SELECT * FROM %s WHERE part_col < -10", partitionsTable));
+        partitionListResult = onTrino().executeQuery("SELECT * FROM %s WHERE part_col < -10".formatted(partitionsTable));
         assertThat(partitionListResult).hasNoRows();
 
-        partitionListResult = onTrino().executeQuery(format("SELECT * FROM %s ORDER BY part_col LIMIT 7", partitionsTable));
+        partitionListResult = onTrino().executeQuery("SELECT * FROM %s ORDER BY part_col LIMIT 7".formatted(partitionsTable));
         assertThat(partitionListResult).containsExactlyInOrder(row(0), row(1), row(2), row(3), row(4), row(5), row(6));
     }
 
@@ -172,9 +171,8 @@ public class TestHivePartitionsTable
                 .forEach(batch -> {
                     int rangeStart = batch * maxPartitionsAtOnce;
                     int rangeEndInclusive = min((batch + 1) * maxPartitionsAtOnce, partitionsToCreate) - 1;
-                    onTrino().executeQuery(format(
-                            "INSERT INTO %s (part_col, col) " +
-                                    "SELECT CAST(id AS integer), 42 FROM UNNEST (sequence(%s, %s)) AS u(id)",
+                    onTrino().executeQuery(("INSERT INTO %s (part_col, col) " +
+                    "SELECT CAST(id AS integer), 42 FROM UNNEST (sequence(%s, %s)) AS u(id)").formatted(
                             tableName,
                             rangeStart,
                             rangeEndInclusive));

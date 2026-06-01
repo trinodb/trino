@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.redis.util;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.trino.metadata.QualifiedObjectName;
@@ -29,7 +28,7 @@ import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.Map;
 
-import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 
 public final class RedisTestUtils
 {
@@ -42,7 +41,7 @@ public final class RedisTestUtils
         // note: additional copy via ImmutableList so that if fails on nulls
         connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
         connectorProperties.putIfAbsent("redis.nodes", redisServer.getHostAndPort().toString());
-        connectorProperties.putIfAbsent("redis.table-names", Joiner.on(",").join(tableDescriptions.keySet()));
+        connectorProperties.putIfAbsent("redis.table-names", tableDescriptions.keySet().stream().map(Object::toString).collect(joining(",")));
         connectorProperties.putIfAbsent("redis.default-schema", "default");
         connectorProperties.putIfAbsent("redis.hide-internal-columns", "true");
         connectorProperties.putIfAbsent("redis.key-prefix-schema-table", "true");
@@ -53,7 +52,7 @@ public final class RedisTestUtils
     public static void loadTpchTable(RedisServer redisServer, TestingTrinoClient trinoClient, String tableName, QualifiedObjectName tpchTableName, String dataFormat)
     {
         RedisLoader tpchLoader = new RedisLoader(trinoClient.getServer(), trinoClient.getDefaultSession(), redisServer.getClient(), tableName, dataFormat);
-        tpchLoader.execute(format("SELECT * from %s", tpchTableName));
+        tpchLoader.execute("SELECT * from %s".formatted(tpchTableName));
     }
 
     public static Map.Entry<SchemaTableName, RedisTableDescription> loadTpchTableDescription(
@@ -63,7 +62,7 @@ public final class RedisTestUtils
             throws IOException
     {
         RedisTableDescription tpchTemplate;
-        try (InputStream data = RedisTestUtils.class.getResourceAsStream(format("/tpch/%s/%s.json", dataFormat, schemaTableName.getTableName()))) {
+        try (InputStream data = RedisTestUtils.class.getResourceAsStream("/tpch/%s/%s.json".formatted(dataFormat, schemaTableName.getTableName()))) {
             tpchTemplate = tableDescriptionJsonCodec.fromJson(data);
         }
 
@@ -89,7 +88,7 @@ public final class RedisTestUtils
             throws Exception
     {
         JsonCodec<RedisTableDescription> tableDescriptionJsonCodec = new CodecSupplier<>(RedisTableDescription.class, queryRunner.getPlannerContext().getTypeManager()).get();
-        try (InputStream data = RedisTestUtils.class.getResourceAsStream(format("/simple/%s_value_table.json", valueDataFormat))) {
+        try (InputStream data = RedisTestUtils.class.getResourceAsStream("/simple/%s_value_table.json".formatted(valueDataFormat))) {
             return tableDescriptionJsonCodec.fromJson(data);
         }
     }

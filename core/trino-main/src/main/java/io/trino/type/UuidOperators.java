@@ -31,7 +31,6 @@ import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
-import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 
 public final class UuidOperators
@@ -74,7 +73,7 @@ public final class UuidOperators
         if (varchar.length() <= x) {
             return varchar;
         }
-        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", varchar.toStringUtf8(), x));
+        throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to varchar(%s)".formatted(varchar.toStringUtf8(), x));
     }
 
     @ScalarOperator(CAST)

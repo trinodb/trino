@@ -40,6 +40,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.URI;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -53,7 +54,6 @@ import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createP
 import static io.trino.sql.tree.IntervalLiteral.Sign.NEGATIVE;
 import static io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE;
 import static io.trino.testing.TestingSession.testSession;
-import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -278,6 +278,6 @@ public class TestSetTimeZoneTask
     private void executeSetTimeZone(SetTimeZone setTimeZone, QueryStateMachine stateMachine)
     {
         SetTimeZoneTask task = new SetTimeZoneTask(queryRunner.getPlannerContext(), queryRunner.getAccessControl());
-        getFutureValue(task.execute(setTimeZone, stateMachine, emptyList(), WarningCollector.NOOP));
+        getFutureValue(task.execute(setTimeZone, stateMachine, List.of(), WarningCollector.NOOP));
     }
 }

@@ -27,7 +27,6 @@ import java.util.List;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionUpdate
@@ -183,7 +182,7 @@ public class PartitionUpdate
                 if (partition.getUpdateMode() != firstPartition.getUpdateMode() ||
                         !partition.getWritePath().equals(firstPartition.getWritePath()) ||
                         !partition.getTargetPath().equals(firstPartition.getTargetPath())) {
-                    throw new TrinoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, format("Partition %s was added or modified during INSERT", firstPartition.getName()));
+                    throw new TrinoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition %s was added or modified during INSERT".formatted(firstPartition.getName()));
                 }
                 allFileNames.addAll(partition.getFileNames());
                 totalRowCount += partition.getRowCount();

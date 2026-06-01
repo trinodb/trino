@@ -44,7 +44,6 @@ import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
 public class TestComparisonStatsCalculator
@@ -897,16 +896,14 @@ public class TestComparisonStatsCalculator
         List<String> problems = new ArrayList<>();
 
         if (Double.compare(stats.getOutputRowCount(), normalized.getOutputRowCount()) != 0) {
-            problems.add(format(
-                    "Output row count is %s, should be normalized to %s",
+            problems.add("Output row count is %s, should be normalized to %s".formatted(
                     stats.getOutputRowCount(),
                     normalized.getOutputRowCount()));
         }
 
         for (Symbol symbol : stats.getSymbolsWithKnownStatistics()) {
             if (!Objects.equals(stats.getSymbolStatistics(symbol), normalized.getSymbolStatistics(symbol))) {
-                problems.add(format(
-                        "Symbol stats for '%s' are \n\t\t\t\t\t%s, should be normalized to \n\t\t\t\t\t%s",
+                problems.add("Symbol stats for '%s' are \n\t\t\t\t\t%s, should be normalized to \n\t\t\t\t\t%s".formatted(
                         symbol,
                         stats.getSymbolStatistics(symbol),
                         normalized.getSymbolStatistics(symbol)));
@@ -916,8 +913,7 @@ public class TestComparisonStatsCalculator
         if (problems.isEmpty()) {
             problems.add(stats.toString());
         }
-        throw new IllegalStateException(format(
-                "Rule %s returned inconsistent stats: %s",
+        throw new IllegalStateException("Rule %s returned inconsistent stats: %s".formatted(
                 source,
                 problems.stream().collect(joining("\n\t\t\t", "\n\t\t\t", ""))));
     }

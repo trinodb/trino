@@ -67,7 +67,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergProjectionPushdownPlans
@@ -130,12 +129,11 @@ public class TestIcebergProjectionPushdownPlans
                 .setCatalogSessionProperty(CATALOG, "projection_pushdown_enabled", "false")
                 .build();
 
-        getPlanTester().executeStatement(format(
-                "CREATE TABLE %s (col0) AS SELECT CAST(row(5, 6) AS row(a bigint, b bigint)) AS col0 WHERE false",
+        getPlanTester().executeStatement("CREATE TABLE %s (col0) AS SELECT CAST(row(5, 6) AS row(a bigint, b bigint)) AS col0 WHERE false".formatted(
                 testTable));
 
         assertPlan(
-                format("SELECT col0.a expr_a, col0.b expr_b FROM %s", testTable),
+                "SELECT col0.a expr_a, col0.b expr_b FROM %s".formatted(testTable),
                 session,
                 any(
                         project(
@@ -149,9 +147,8 @@ public class TestIcebergProjectionPushdownPlans
         String testTable = "test_simple_projection_pushdown" + randomNameSuffix();
         QualifiedObjectName completeTableName = new QualifiedObjectName(CATALOG, SCHEMA, testTable);
 
-        getPlanTester().executeStatement(format(
-                "CREATE TABLE %s (col0, col1) WITH (partitioning = ARRAY['col1']) AS" +
-                        " SELECT CAST(row(5, 6) AS row(x bigint, y bigint)) AS col0, 5 AS col1",
+        getPlanTester().executeStatement(("CREATE TABLE %s (col0, col1) WITH (partitioning = ARRAY['col1']) AS" +
+        " SELECT CAST(row(5, 6) AS row(x bigint, y bigint)) AS col0, 5 AS col1").formatted(
                 testTable));
 
         Session session = getPlanTester().getDefaultSession();
@@ -183,7 +180,7 @@ public class TestIcebergProjectionPushdownPlans
 
         // Projection and predicate pushdown
         assertPlan(
-                format("SELECT col0.x FROM %s WHERE col0.x = col1 + 3 and col0.y = 2", testTable),
+                "SELECT col0.x FROM %s WHERE col0.x = col1 + 3 and col0.y = 2".formatted(testTable),
                 anyTree(
                         filter(
                                 new Logical(AND, ImmutableList.of(new Comparison(EQUAL, new Reference(BIGINT, "y"), new Constant(BIGINT, 2L)), new Comparison(EQUAL, new Reference(BIGINT, "x"), new Cast(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "col1"), new Constant(INTEGER, 3L))), BIGINT)))),
@@ -199,7 +196,7 @@ public class TestIcebergProjectionPushdownPlans
 
         // Projection and predicate pushdown with overlapping columns
         assertPlan(
-                format("SELECT col0, col0.y expr_y FROM %s WHERE col0.x = 5", testTable),
+                "SELECT col0, col0.y expr_y FROM %s WHERE col0.x = 5".formatted(testTable),
                 anyTree(
                         filter(
                                 new Comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 5L)),
@@ -215,7 +212,7 @@ public class TestIcebergProjectionPushdownPlans
 
         // Projection and predicate pushdown with joins
         assertPlan(
-                format("SELECT T.col0.x, T.col0, T.col0.y FROM %s T join %s S on T.col1 = S.col1 WHERE (T.col0.x = 2)", testTable, testTable),
+                "SELECT T.col0.x, T.col0, T.col0.y FROM %s T join %s S on T.col1 = S.col1 WHERE (T.col0.x = 2)".formatted(testTable, testTable),
                 anyTree(
                         project(
                                 ImmutableMap.of(
@@ -254,11 +251,10 @@ public class TestIcebergProjectionPushdownPlans
         String testTable = "test_lambda_projection_pushdown" + randomNameSuffix();
         QualifiedObjectName completeTableName = new QualifiedObjectName(CATALOG, SCHEMA, testTable);
 
-        getPlanTester().executeStatement(format(
-                "CREATE TABLE %s AS " +
-                        "SELECT ARRAY[1, 2, 3] items, " +
-                        "CAST(row(10, 20) AS row(captured bigint, skipped bigint)) payload " +
-                        "WHERE false",
+        getPlanTester().executeStatement(("CREATE TABLE %s AS " +
+        "SELECT ARRAY[1, 2, 3] items, " +
+        "CAST(row(10, 20) AS row(captured bigint, skipped bigint)) payload " +
+        "WHERE false").formatted(
                 testTable));
 
         Session session = getPlanTester().getDefaultSession();

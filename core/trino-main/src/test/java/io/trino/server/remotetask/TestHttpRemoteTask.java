@@ -147,7 +147,6 @@ import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Integer.MAX_VALUE;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -586,14 +585,14 @@ public class TestHttpRemoteTask
 
         httpRemoteTaskFactory.stop();
         assertThat(remoteTask.getTaskStatus().state().isDone())
-                .describedAs(format("TaskStatus is not in a done state: %s", remoteTask.getTaskStatus()))
+                .describedAs("TaskStatus is not in a done state: %s".formatted(remoteTask.getTaskStatus()))
                 .isTrue();
 
         ErrorCode actualErrorCode = getOnlyElement(remoteTask.getTaskStatus().failures()).errorCode();
         switch (failureScenario) {
             case TASK_MISMATCH, TASK_MISMATCH_WHEN_VERSION_IS_HIGH -> {
                 assertThat(remoteTask.getTaskInfo().taskStatus().state().isDone())
-                        .describedAs(format("TaskInfo is not in a done state: %s", remoteTask.getTaskInfo()))
+                        .describedAs("TaskInfo is not in a done state: %s".formatted(remoteTask.getTaskInfo()))
                         .isTrue();
                 assertThat(actualErrorCode).isEqualTo(REMOTE_TASK_MISMATCH.toErrorCode());
             }
@@ -727,7 +726,7 @@ public class TestHttpRemoteTask
         while (!success.getAsBoolean()) {
             long millisUntilFail = (failAt - System.nanoTime()) / 1_000_000;
             if (millisUntilFail <= 0) {
-                throw new AssertionError(format("Timeout of %s reached", FAIL_TIMEOUT));
+                throw new AssertionError("Timeout of %s reached".formatted(FAIL_TIMEOUT));
             }
             Thread.sleep(min(POLL_TIMEOUT.toMillis(), millisUntilFail));
         }
@@ -744,7 +743,7 @@ public class TestHttpRemoteTask
             long millisToIdleTarget = IDLE_TIMEOUT.toMillis() - millisSinceLastActivity;
             long millisToFailTarget = FAIL_TIMEOUT.toMillis() - millisSinceStart;
             if (millisToFailTarget < millisToIdleTarget) {
-                throw new AssertionError(format("Activity doesn't stop after %s", FAIL_TIMEOUT));
+                throw new AssertionError("Activity doesn't stop after %s".formatted(FAIL_TIMEOUT));
             }
             if (millisToIdleTarget < 0) {
                 return;

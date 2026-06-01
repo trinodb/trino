@@ -44,7 +44,6 @@ import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.UuidType.UUID;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class UuidColumnReader
@@ -133,7 +132,7 @@ public class UuidColumnReader
         if (totalByteLength > ONE_GIGABYTE) {
             throw new TrinoException(
                     GENERIC_INTERNAL_ERROR,
-                    format("Values in column \"%s\" are too large to process for Trino. %s column values are larger than 1GB [%s]", column.getPath(), nextBatchSize, column.getOrcDataSourceId()));
+                    "Values in column \"%s\" are too large to process for Trino. %s column values are larger than 1GB [%s]".formatted(column.getPath(), nextBatchSize, column.getOrcDataSourceId()));
         }
         if (dataStream == null) {
             throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is not null but data stream is missing");

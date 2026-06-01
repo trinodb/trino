@@ -27,7 +27,6 @@ import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsVectorized;
 import static io.trino.spi.block.MapBlock.createMapBlockInternal;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static io.trino.spi.block.MapHashTables.HashBuildMode.DUPLICATE_NOT_CHECKED;
-import static java.lang.String.format;
 
 public class MapBlockEncoding
         implements BlockEncoding
@@ -111,15 +110,13 @@ public class MapBlockEncoding
         }
 
         if (keyBlock.getPositionCount() != valueBlock.getPositionCount()) {
-            throw new IllegalArgumentException(format(
-                    "Deserialized MapBlock violates invariants: key %s, value %s",
+            throw new IllegalArgumentException("Deserialized MapBlock violates invariants: key %s, value %s".formatted(
                     keyBlock.getPositionCount(),
                     valueBlock.getPositionCount()));
         }
 
         if (hashTable != null && keyBlock.getPositionCount() * HASH_MULTIPLIER != hashTable.length) {
-            throw new IllegalArgumentException(format(
-                    "Deserialized MapBlock violates invariants: expected hashtable size %s, actual hashtable size %s",
+            throw new IllegalArgumentException("Deserialized MapBlock violates invariants: expected hashtable size %s, actual hashtable size %s".formatted(
                     keyBlock.getPositionCount() * HASH_MULTIPLIER,
                     hashTable.length));
         }

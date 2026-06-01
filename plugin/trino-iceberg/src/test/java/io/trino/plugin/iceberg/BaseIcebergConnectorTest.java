@@ -169,7 +169,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.math.RoundingMode.HALF_UP;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -495,14 +494,14 @@ public abstract class BaseIcebergConnectorTest
         checkArgument(precision >= 1 && precision <= 38, "Decimal precision (%s) must be between 1 and 38 inclusive", precision);
         checkArgument(scale < precision && scale >= 0, "Decimal scale (%s) must be less than the precision (%s) and non-negative", scale, precision);
 
-        String decimalType = format("DECIMAL(%d,%d)", precision, scale);
+        String decimalType = "DECIMAL(%d,%d)".formatted(precision, scale);
         String beforeTheDecimalPoint = "12345678901234567890123456789012345678".substring(0, precision - scale);
         String afterTheDecimalPoint = "09876543210987654321098765432109876543".substring(0, scale);
-        String decimalValue = format("%s.%s", beforeTheDecimalPoint, afterTheDecimalPoint);
+        String decimalValue = "%s.%s".formatted(beforeTheDecimalPoint, afterTheDecimalPoint);
 
-        assertUpdate(format("CREATE TABLE test_iceberg_decimal (x %s)", decimalType));
-        assertUpdate(format("INSERT INTO test_iceberg_decimal (x) VALUES (CAST('%s' AS %s))", decimalValue, decimalType), 1);
-        assertQuery("SELECT * FROM test_iceberg_decimal", format("SELECT CAST('%s' AS %s)", decimalValue, decimalType));
+        assertUpdate("CREATE TABLE test_iceberg_decimal (x %s)".formatted(decimalType));
+        assertUpdate("INSERT INTO test_iceberg_decimal (x) VALUES (CAST('%s' AS %s))".formatted(decimalValue, decimalType), 1);
+        assertQuery("SELECT * FROM test_iceberg_decimal", "SELECT CAST('%s' AS %s)".formatted(decimalValue, decimalType));
         assertUpdate("DROP TABLE test_iceberg_decimal");
     }
 
@@ -520,18 +519,18 @@ public abstract class BaseIcebergConnectorTest
 
     private void testSelectOrPartitionedByTime(boolean partitioned)
     {
-        String tableName = format("test_%s_by_time", partitioned ? "partitioned" : "selected");
+        String tableName = "test_%s_by_time".formatted(partitioned ? "partitioned" : "selected");
         String partitioning = partitioned ? "WITH(partitioning = ARRAY['x'])" : "";
-        assertUpdate(format("CREATE TABLE %s (x TIME(6), y BIGINT) %s", tableName, partitioning));
-        assertUpdate(format("INSERT INTO %s VALUES (TIME '10:12:34', 12345)", tableName), 1);
-        assertQuery(format("SELECT COUNT(*) FROM %s", tableName), "SELECT 1");
-        assertQuery(format("SELECT x FROM %s", tableName), "SELECT CAST('10:12:34' AS TIME)");
-        assertUpdate(format("INSERT INTO %s VALUES (TIME '9:00:00', 67890)", tableName), 1);
-        assertQuery(format("SELECT COUNT(*) FROM %s", tableName), "SELECT 2");
-        assertQuery(format("SELECT x FROM %s WHERE x = TIME '10:12:34'", tableName), "SELECT CAST('10:12:34' AS TIME)");
-        assertQuery(format("SELECT x FROM %s WHERE x = TIME '9:00:00'", tableName), "SELECT CAST('9:00:00' AS TIME)");
-        assertQuery(format("SELECT x FROM %s WHERE y = 12345", tableName), "SELECT CAST('10:12:34' AS TIME)");
-        assertQuery(format("SELECT x FROM %s WHERE y = 67890", tableName), "SELECT CAST('9:00:00' AS TIME)");
+        assertUpdate("CREATE TABLE %s (x TIME(6), y BIGINT) %s".formatted(tableName, partitioning));
+        assertUpdate("INSERT INTO %s VALUES (TIME '10:12:34', 12345)".formatted(tableName), 1);
+        assertQuery("SELECT COUNT(*) FROM %s".formatted(tableName), "SELECT 1");
+        assertQuery("SELECT x FROM %s".formatted(tableName), "SELECT CAST('10:12:34' AS TIME)");
+        assertUpdate("INSERT INTO %s VALUES (TIME '9:00:00', 67890)".formatted(tableName), 1);
+        assertQuery("SELECT COUNT(*) FROM %s".formatted(tableName), "SELECT 2");
+        assertQuery("SELECT x FROM %s WHERE x = TIME '10:12:34'".formatted(tableName), "SELECT CAST('10:12:34' AS TIME)");
+        assertQuery("SELECT x FROM %s WHERE x = TIME '9:00:00'".formatted(tableName), "SELECT CAST('9:00:00' AS TIME)");
+        assertQuery("SELECT x FROM %s WHERE y = 12345".formatted(tableName), "SELECT CAST('10:12:34' AS TIME)");
+        assertQuery("SELECT x FROM %s WHERE y = 67890".formatted(tableName), "SELECT CAST('9:00:00' AS TIME)");
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -549,25 +548,24 @@ public abstract class BaseIcebergConnectorTest
 
     private void testSelectOrPartitionedByTimestamp(boolean partitioned)
     {
-        String tableName = format("test_%s_by_timestamp", partitioned ? "partitioned" : "selected");
-        assertUpdate(format(
-                "CREATE TABLE %s (_timestamp timestamp(6)) %s",
+        String tableName = "test_%s_by_timestamp".formatted(partitioned ? "partitioned" : "selected");
+        assertUpdate("CREATE TABLE %s (_timestamp timestamp(6)) %s".formatted(
                 tableName,
                 partitioned ? "WITH (partitioning = ARRAY['_timestamp'])" : ""));
         @Language("SQL") String select1 = "SELECT TIMESTAMP '2017-05-01 10:12:34' _timestamp";
         @Language("SQL") String select2 = "SELECT TIMESTAMP '2017-10-01 10:12:34' _timestamp";
         @Language("SQL") String select3 = "SELECT TIMESTAMP '2018-05-01 10:12:34' _timestamp";
-        assertUpdate(format("INSERT INTO %s %s", tableName, select1), 1);
-        assertUpdate(format("INSERT INTO %s %s", tableName, select2), 1);
-        assertUpdate(format("INSERT INTO %s %s", tableName, select3), 1);
-        assertQuery(format("SELECT COUNT(*) from %s", tableName), "SELECT 3");
+        assertUpdate("INSERT INTO %s %s".formatted(tableName, select1), 1);
+        assertUpdate("INSERT INTO %s %s".formatted(tableName, select2), 1);
+        assertUpdate("INSERT INTO %s %s".formatted(tableName, select3), 1);
+        assertQuery("SELECT COUNT(*) from %s".formatted(tableName), "SELECT 3");
 
-        assertQuery(format("SELECT * from %s WHERE _timestamp = TIMESTAMP '2017-05-01 10:12:34'", tableName), select1);
-        assertQuery(format("SELECT * from %s WHERE _timestamp < TIMESTAMP '2017-06-01 10:12:34'", tableName), select1);
-        assertQuery(format("SELECT * from %s WHERE _timestamp = TIMESTAMP '2017-10-01 10:12:34'", tableName), select2);
-        assertQuery(format("SELECT * from %s WHERE _timestamp > TIMESTAMP '2017-06-01 10:12:34' AND _timestamp < TIMESTAMP '2018-05-01 10:12:34'", tableName), select2);
-        assertQuery(format("SELECT * from %s WHERE _timestamp = TIMESTAMP '2018-05-01 10:12:34'", tableName), select3);
-        assertQuery(format("SELECT * from %s WHERE _timestamp > TIMESTAMP '2018-01-01 10:12:34'", tableName), select3);
+        assertQuery("SELECT * from %s WHERE _timestamp = TIMESTAMP '2017-05-01 10:12:34'".formatted(tableName), select1);
+        assertQuery("SELECT * from %s WHERE _timestamp < TIMESTAMP '2017-06-01 10:12:34'".formatted(tableName), select1);
+        assertQuery("SELECT * from %s WHERE _timestamp = TIMESTAMP '2017-10-01 10:12:34'".formatted(tableName), select2);
+        assertQuery("SELECT * from %s WHERE _timestamp > TIMESTAMP '2017-06-01 10:12:34' AND _timestamp < TIMESTAMP '2018-05-01 10:12:34'".formatted(tableName), select2);
+        assertQuery("SELECT * from %s WHERE _timestamp = TIMESTAMP '2018-05-01 10:12:34'".formatted(tableName), select3);
+        assertQuery("SELECT * from %s WHERE _timestamp > TIMESTAMP '2018-01-01 10:12:34'".formatted(tableName), select3);
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -585,9 +583,8 @@ public abstract class BaseIcebergConnectorTest
 
     private void testSelectOrPartitionedByTimestampWithTimeZone(boolean partitioned)
     {
-        String tableName = format("test_%s_by_timestamptz", partitioned ? "partitioned" : "selected");
-        assertUpdate(format(
-                "CREATE TABLE %s (_timestamptz timestamp(6) with time zone) %s",
+        String tableName = "test_%s_by_timestamptz".formatted(partitioned ? "partitioned" : "selected");
+        assertUpdate("CREATE TABLE %s (_timestamptz timestamp(6) with time zone) %s".formatted(
                 tableName,
                 partitioned ? "WITH (partitioning = ARRAY['_timestamptz'])" : ""));
 
@@ -600,116 +597,115 @@ public abstract class BaseIcebergConnectorTest
         // regression test value for https://github.com/trinodb/trino/issues/12852
         String instant4Utc = "TIMESTAMP '1969-12-01 05:06:07.234567 UTC'";
 
-        assertUpdate(format("INSERT INTO %s VALUES %s", tableName, instant1Utc), 1);
-        assertUpdate(format("INSERT INTO %s VALUES %s", tableName, instant2La /* non-UTC for this one */), 1);
-        assertUpdate(format("INSERT INTO %s VALUES %s", tableName, instant3Utc), 1);
-        assertUpdate(format("INSERT INTO %s VALUES %s", tableName, instant4Utc), 1);
-        assertQuery(format("SELECT COUNT(*) from %s", tableName), "SELECT 4");
+        assertUpdate("INSERT INTO %s VALUES %s".formatted(tableName, instant1Utc), 1);
+        assertUpdate("INSERT INTO %s VALUES %s".formatted(tableName, instant2La /* non-UTC for this one */), 1);
+        assertUpdate("INSERT INTO %s VALUES %s".formatted(tableName, instant3Utc), 1);
+        assertUpdate("INSERT INTO %s VALUES %s".formatted(tableName, instant4Utc), 1);
+        assertQuery("SELECT COUNT(*) from %s".formatted(tableName), "SELECT 4");
 
         // =
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz = %s", tableName, instant1Utc)))
+        assertThat(query("SELECT * from %s WHERE _timestamptz = %s".formatted(tableName, instant1Utc)))
                 .matches("VALUES " + instant1Utc);
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz = %s", tableName, instant1La)))
+        assertThat(query("SELECT * from %s WHERE _timestamptz = %s".formatted(tableName, instant1La)))
                 .matches("VALUES " + instant1Utc);
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz = %s", tableName, instant2Utc)))
+        assertThat(query("SELECT * from %s WHERE _timestamptz = %s".formatted(tableName, instant2Utc)))
                 .matches("VALUES " + instant2Utc);
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz = %s", tableName, instant2La)))
+        assertThat(query("SELECT * from %s WHERE _timestamptz = %s".formatted(tableName, instant2La)))
                 .matches("VALUES " + instant2Utc);
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz = %s", tableName, instant3Utc)))
+        assertThat(query("SELECT * from %s WHERE _timestamptz = %s".formatted(tableName, instant3Utc)))
                 .matches("VALUES " + instant3Utc);
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz = %s", tableName, instant3La)))
+        assertThat(query("SELECT * from %s WHERE _timestamptz = %s".formatted(tableName, instant3La)))
                 .matches("VALUES " + instant3Utc);
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz = %s", tableName, instant4Utc)))
+        assertThat(query("SELECT * from %s WHERE _timestamptz = %s".formatted(tableName, instant4Utc)))
                 .matches("VALUES " + instant4Utc);
 
         // <
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz < %s", tableName, instant2Utc)))
-                .matches(format("VALUES %s, %s", instant1Utc, instant4Utc));
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz < %s", tableName, instant2La)))
-                .matches(format("VALUES %s, %s", instant1Utc, instant4Utc));
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz < %s", tableName, instant3Utc)))
-                .matches(format("VALUES %s, %s, %s", instant1Utc, instant2Utc, instant4Utc));
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz < %s", tableName, instant3La)))
-                .matches(format("VALUES %s, %s, %s", instant1Utc, instant2Utc, instant4Utc));
+        assertThat(query("SELECT * from %s WHERE _timestamptz < %s".formatted(tableName, instant2Utc)))
+                .matches("VALUES %s, %s".formatted(instant1Utc, instant4Utc));
+        assertThat(query("SELECT * from %s WHERE _timestamptz < %s".formatted(tableName, instant2La)))
+                .matches("VALUES %s, %s".formatted(instant1Utc, instant4Utc));
+        assertThat(query("SELECT * from %s WHERE _timestamptz < %s".formatted(tableName, instant3Utc)))
+                .matches("VALUES %s, %s, %s".formatted(instant1Utc, instant2Utc, instant4Utc));
+        assertThat(query("SELECT * from %s WHERE _timestamptz < %s".formatted(tableName, instant3La)))
+                .matches("VALUES %s, %s, %s".formatted(instant1Utc, instant2Utc, instant4Utc));
 
         // <=
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz <= %s", tableName, instant2Utc)))
-                .matches(format("VALUES %s, %s, %s", instant1Utc, instant2Utc, instant4Utc));
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz <= %s", tableName, instant2La)))
-                .matches(format("VALUES %s, %s, %s", instant1Utc, instant2Utc, instant4Utc));
+        assertThat(query("SELECT * from %s WHERE _timestamptz <= %s".formatted(tableName, instant2Utc)))
+                .matches("VALUES %s, %s, %s".formatted(instant1Utc, instant2Utc, instant4Utc));
+        assertThat(query("SELECT * from %s WHERE _timestamptz <= %s".formatted(tableName, instant2La)))
+                .matches("VALUES %s, %s, %s".formatted(instant1Utc, instant2Utc, instant4Utc));
 
         // >
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz > %s", tableName, instant2Utc)))
+        assertThat(query("SELECT * from %s WHERE _timestamptz > %s".formatted(tableName, instant2Utc)))
                 .matches("VALUES " + instant3Utc);
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz > %s", tableName, instant2La)))
+        assertThat(query("SELECT * from %s WHERE _timestamptz > %s".formatted(tableName, instant2La)))
                 .matches("VALUES " + instant3Utc);
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz > %s", tableName, instant1Utc)))
-                .matches(format("VALUES %s, %s", instant2Utc, instant3Utc));
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz > %s", tableName, instant1La)))
-                .matches(format("VALUES %s, %s", instant2Utc, instant3Utc));
+        assertThat(query("SELECT * from %s WHERE _timestamptz > %s".formatted(tableName, instant1Utc)))
+                .matches("VALUES %s, %s".formatted(instant2Utc, instant3Utc));
+        assertThat(query("SELECT * from %s WHERE _timestamptz > %s".formatted(tableName, instant1La)))
+                .matches("VALUES %s, %s".formatted(instant2Utc, instant3Utc));
 
         // >=
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz >= %s", tableName, instant2Utc)))
-                .matches(format("VALUES %s, %s", instant2Utc, instant3Utc));
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz >= %s", tableName, instant2La)))
-                .matches(format("VALUES %s, %s", instant2Utc, instant3Utc));
+        assertThat(query("SELECT * from %s WHERE _timestamptz >= %s".formatted(tableName, instant2Utc)))
+                .matches("VALUES %s, %s".formatted(instant2Utc, instant3Utc));
+        assertThat(query("SELECT * from %s WHERE _timestamptz >= %s".formatted(tableName, instant2La)))
+                .matches("VALUES %s, %s".formatted(instant2Utc, instant3Utc));
 
         // open range
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz > %s AND _timestamptz < %s", tableName, instant1Utc, instant3Utc)))
+        assertThat(query("SELECT * from %s WHERE _timestamptz > %s AND _timestamptz < %s".formatted(tableName, instant1Utc, instant3Utc)))
                 .matches("VALUES " + instant2Utc);
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz > %s AND _timestamptz < %s", tableName, instant1La, instant3La)))
+        assertThat(query("SELECT * from %s WHERE _timestamptz > %s AND _timestamptz < %s".formatted(tableName, instant1La, instant3La)))
                 .matches("VALUES " + instant2Utc);
 
         // closed range
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz BETWEEN %s AND %s", tableName, instant1Utc, instant2Utc)))
-                .matches(format("VALUES %s, %s", instant1Utc, instant2Utc));
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz BETWEEN %s AND %s", tableName, instant1La, instant2La)))
-                .matches(format("VALUES %s, %s", instant1Utc, instant2Utc));
+        assertThat(query("SELECT * from %s WHERE _timestamptz BETWEEN %s AND %s".formatted(tableName, instant1Utc, instant2Utc)))
+                .matches("VALUES %s, %s".formatted(instant1Utc, instant2Utc));
+        assertThat(query("SELECT * from %s WHERE _timestamptz BETWEEN %s AND %s".formatted(tableName, instant1La, instant2La)))
+                .matches("VALUES %s, %s".formatted(instant1Utc, instant2Utc));
 
         // !=
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz != %s", tableName, instant1Utc)))
-                .matches(format("VALUES %s, %s, %s", instant2Utc, instant3Utc, instant4Utc));
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz != %s", tableName, instant1La)))
-                .matches(format("VALUES %s, %s, %s", instant2Utc, instant3Utc, instant4Utc));
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz != %s", tableName, instant2Utc)))
-                .matches(format("VALUES %s, %s, %s", instant1Utc, instant3Utc, instant4Utc));
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz != %s", tableName, instant2La)))
-                .matches(format("VALUES %s, %s, %s", instant1Utc, instant3Utc, instant4Utc));
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz != %s", tableName, instant4Utc)))
-                .matches(format("VALUES %s, %s, %s", instant1Utc, instant2Utc, instant3Utc));
+        assertThat(query("SELECT * from %s WHERE _timestamptz != %s".formatted(tableName, instant1Utc)))
+                .matches("VALUES %s, %s, %s".formatted(instant2Utc, instant3Utc, instant4Utc));
+        assertThat(query("SELECT * from %s WHERE _timestamptz != %s".formatted(tableName, instant1La)))
+                .matches("VALUES %s, %s, %s".formatted(instant2Utc, instant3Utc, instant4Utc));
+        assertThat(query("SELECT * from %s WHERE _timestamptz != %s".formatted(tableName, instant2Utc)))
+                .matches("VALUES %s, %s, %s".formatted(instant1Utc, instant3Utc, instant4Utc));
+        assertThat(query("SELECT * from %s WHERE _timestamptz != %s".formatted(tableName, instant2La)))
+                .matches("VALUES %s, %s, %s".formatted(instant1Utc, instant3Utc, instant4Utc));
+        assertThat(query("SELECT * from %s WHERE _timestamptz != %s".formatted(tableName, instant4Utc)))
+                .matches("VALUES %s, %s, %s".formatted(instant1Utc, instant2Utc, instant3Utc));
 
         // IS DISTINCT FROM
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS DISTINCT FROM %s", tableName, instant1Utc)))
-                .matches(format("VALUES %s, %s, %s", instant2Utc, instant3Utc, instant4Utc));
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS DISTINCT FROM %s", tableName, instant1La)))
-                .matches(format("VALUES %s, %s, %s", instant2Utc, instant3Utc, instant4Utc));
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS DISTINCT FROM %s", tableName, instant2Utc)))
-                .matches(format("VALUES %s, %s, %s", instant1Utc, instant3Utc, instant4Utc));
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS DISTINCT FROM %s", tableName, instant2La)))
-                .matches(format("VALUES %s, %s, %s", instant1Utc, instant3Utc, instant4Utc));
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS DISTINCT FROM %s", tableName, instant4Utc)))
-                .matches(format("VALUES %s, %s, %s", instant1Utc, instant2Utc, instant3Utc));
+        assertThat(query("SELECT * from %s WHERE _timestamptz IS DISTINCT FROM %s".formatted(tableName, instant1Utc)))
+                .matches("VALUES %s, %s, %s".formatted(instant2Utc, instant3Utc, instant4Utc));
+        assertThat(query("SELECT * from %s WHERE _timestamptz IS DISTINCT FROM %s".formatted(tableName, instant1La)))
+                .matches("VALUES %s, %s, %s".formatted(instant2Utc, instant3Utc, instant4Utc));
+        assertThat(query("SELECT * from %s WHERE _timestamptz IS DISTINCT FROM %s".formatted(tableName, instant2Utc)))
+                .matches("VALUES %s, %s, %s".formatted(instant1Utc, instant3Utc, instant4Utc));
+        assertThat(query("SELECT * from %s WHERE _timestamptz IS DISTINCT FROM %s".formatted(tableName, instant2La)))
+                .matches("VALUES %s, %s, %s".formatted(instant1Utc, instant3Utc, instant4Utc));
+        assertThat(query("SELECT * from %s WHERE _timestamptz IS DISTINCT FROM %s".formatted(tableName, instant4Utc)))
+                .matches("VALUES %s, %s, %s".formatted(instant1Utc, instant2Utc, instant3Utc));
 
         // IS NOT DISTINCT FROM
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s", tableName, instant1Utc)))
+        assertThat(query("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s".formatted(tableName, instant1Utc)))
                 .matches("VALUES " + instant1Utc);
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s", tableName, instant1La)))
+        assertThat(query("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s".formatted(tableName, instant1La)))
                 .matches("VALUES " + instant1Utc);
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s", tableName, instant2Utc)))
+        assertThat(query("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s".formatted(tableName, instant2Utc)))
                 .matches("VALUES " + instant2Utc);
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s", tableName, instant2La)))
+        assertThat(query("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s".formatted(tableName, instant2La)))
                 .matches("VALUES " + instant2Utc);
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s", tableName, instant3Utc)))
+        assertThat(query("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s".formatted(tableName, instant3Utc)))
                 .matches("VALUES " + instant3Utc);
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s", tableName, instant3La)))
+        assertThat(query("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s".formatted(tableName, instant3La)))
                 .matches("VALUES " + instant3Utc);
-        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s", tableName, instant4Utc)))
+        assertThat(query("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s".formatted(tableName, instant4Utc)))
                 .matches("VALUES " + instant4Utc);
 
         if (partitioned) {
-            assertThat(query(format("SELECT record_count, file_count, partition._timestamptz FROM \"%s$partitions\"", tableName)))
-                    .matches(format(
-                            "VALUES (BIGINT '1', BIGINT '1', %s), (BIGINT '1', BIGINT '1', %s), (BIGINT '1', BIGINT '1', %s), (BIGINT '1', BIGINT '1', %s)",
+            assertThat(query("SELECT record_count, file_count, partition._timestamptz FROM \"%s$partitions\"".formatted(tableName)))
+                    .matches("VALUES (BIGINT '1', BIGINT '1', %s), (BIGINT '1', BIGINT '1', %s), (BIGINT '1', BIGINT '1', %s), (BIGINT '1', BIGINT '1', %s)".formatted(
                             instant1Utc,
                             instant2Utc,
                             instant3Utc,
@@ -717,14 +713,13 @@ public abstract class BaseIcebergConnectorTest
         }
         else {
             if (format != AVRO) {
-                assertThat(query(format("SELECT record_count, file_count, data._timestamptz FROM \"%s$partitions\"", tableName)))
-                        .matches(format(
-                                "VALUES (BIGINT '4', BIGINT '4', CAST(ROW(%s, %s, 0, NULL) AS row(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint, nan_count bigint)))",
+                assertThat(query("SELECT record_count, file_count, data._timestamptz FROM \"%s$partitions\"".formatted(tableName)))
+                        .matches("VALUES (BIGINT '4', BIGINT '4', CAST(ROW(%s, %s, 0, NULL) AS row(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint, nan_count bigint)))".formatted(
                                 format == ORC ? "TIMESTAMP '1969-12-01 05:06:07.234000 UTC'" : instant4Utc,
                                 format == ORC ? "TIMESTAMP '2021-10-31 00:30:00.007999 UTC'" : instant3Utc));
             }
             else {
-                assertThat(query(format("SELECT record_count, file_count, data._timestamptz FROM \"%s$partitions\"", tableName)))
+                assertThat(query("SELECT record_count, file_count, data._timestamptz FROM \"%s$partitions\"".formatted(tableName)))
                         .skippingTypesCheck()
                         .matches("VALUES (BIGINT '4', BIGINT '4', CAST(NULL AS row(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint, nan_count bigint)))");
             }
@@ -791,32 +786,32 @@ public abstract class BaseIcebergConnectorTest
 
     private void testSelectOrPartitionedByUuid(boolean partitioned)
     {
-        String tableName = format("test_%s_by_uuid", partitioned ? "partitioned" : "selected");
+        String tableName = "test_%s_by_uuid".formatted(partitioned ? "partitioned" : "selected");
         String partitioning = partitioned ? "WITH (partitioning = ARRAY['x'])" : "";
-        assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));
-        assertUpdate(format("CREATE TABLE %s (x uuid, y bigint) %s", tableName, partitioning));
+        assertUpdate("DROP TABLE IF EXISTS %s".formatted(tableName));
+        assertUpdate("CREATE TABLE %s (x uuid, y bigint) %s".formatted(tableName, partitioning));
 
-        assertUpdate(format("INSERT INTO %s VALUES (UUID '406caec7-68b9-4778-81b2-a12ece70c8b1', 12345)", tableName), 1);
-        assertQuery(format("SELECT count(*) FROM %s", tableName), "SELECT 1");
-        assertQuery(format("SELECT x FROM %s", tableName), "SELECT CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID)");
+        assertUpdate("INSERT INTO %s VALUES (UUID '406caec7-68b9-4778-81b2-a12ece70c8b1', 12345)".formatted(tableName), 1);
+        assertQuery("SELECT count(*) FROM %s".formatted(tableName), "SELECT 1");
+        assertQuery("SELECT x FROM %s".formatted(tableName), "SELECT CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID)");
 
-        assertUpdate(format("INSERT INTO %s VALUES (UUID 'f79c3e09-677c-4bbd-a479-3f349cb785e7', 67890)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES (NULL, 7531)", tableName), 1);
-        assertQuery(format("SELECT count(*) FROM %s", tableName), "SELECT 3");
-        assertQuery(format("SELECT * FROM %s WHERE x = UUID '406caec7-68b9-4778-81b2-a12ece70c8b1'", tableName), "SELECT CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID), 12345");
-        assertQuery(format("SELECT * FROM %s WHERE x = UUID 'f79c3e09-677c-4bbd-a479-3f349cb785e7'", tableName), "SELECT CAST('f79c3e09-677c-4bbd-a479-3f349cb785e7' AS UUID), 67890");
+        assertUpdate("INSERT INTO %s VALUES (UUID 'f79c3e09-677c-4bbd-a479-3f349cb785e7', 67890)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES (NULL, 7531)".formatted(tableName), 1);
+        assertQuery("SELECT count(*) FROM %s".formatted(tableName), "SELECT 3");
+        assertQuery("SELECT * FROM %s WHERE x = UUID '406caec7-68b9-4778-81b2-a12ece70c8b1'".formatted(tableName), "SELECT CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID), 12345");
+        assertQuery("SELECT * FROM %s WHERE x = UUID 'f79c3e09-677c-4bbd-a479-3f349cb785e7'".formatted(tableName), "SELECT CAST('f79c3e09-677c-4bbd-a479-3f349cb785e7' AS UUID), 67890");
         assertQuery(
-                format("SELECT * FROM %s WHERE x >= UUID '406caec7-68b9-4778-81b2-a12ece70c8b1'", tableName),
+                "SELECT * FROM %s WHERE x >= UUID '406caec7-68b9-4778-81b2-a12ece70c8b1'".formatted(tableName),
                 "VALUES (CAST('f79c3e09-677c-4bbd-a479-3f349cb785e7' AS UUID), 67890), (CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID), 12345)");
         assertQuery(
-                format("SELECT * FROM %s WHERE x >= UUID 'f79c3e09-677c-4bbd-a479-3f349cb785e7'", tableName),
+                "SELECT * FROM %s WHERE x >= UUID 'f79c3e09-677c-4bbd-a479-3f349cb785e7'".formatted(tableName),
                 "SELECT CAST('f79c3e09-677c-4bbd-a479-3f349cb785e7' AS UUID), 67890");
-        assertQuery(format("SELECT * FROM %s WHERE x IS NULL", tableName), "SELECT NULL, 7531");
-        assertQuery(format("SELECT x FROM %s WHERE y = 12345", tableName), "SELECT CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID)");
-        assertQuery(format("SELECT x FROM %s WHERE y = 67890", tableName), "SELECT CAST('f79c3e09-677c-4bbd-a479-3f349cb785e7' AS UUID)");
-        assertQuery(format("SELECT x FROM %s WHERE y = 7531", tableName), "SELECT NULL");
+        assertQuery("SELECT * FROM %s WHERE x IS NULL".formatted(tableName), "SELECT NULL, 7531");
+        assertQuery("SELECT x FROM %s WHERE y = 12345".formatted(tableName), "SELECT CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID)");
+        assertQuery("SELECT x FROM %s WHERE y = 67890".formatted(tableName), "SELECT CAST('f79c3e09-677c-4bbd-a479-3f349cb785e7' AS UUID)");
+        assertQuery("SELECT x FROM %s WHERE y = 7531".formatted(tableName), "SELECT NULL");
 
-        assertUpdate(format("INSERT INTO %s VALUES (UUID '206caec7-68b9-4778-81b2-a12ece70c8b1', 313), (UUID '906caec7-68b9-4778-81b2-a12ece70c8b1', 314)", tableName), 2);
+        assertUpdate("INSERT INTO %s VALUES (UUID '206caec7-68b9-4778-81b2-a12ece70c8b1', 313), (UUID '906caec7-68b9-4778-81b2-a12ece70c8b1', 314)".formatted(tableName), 2);
         assertThat(query("SELECT y FROM " + tableName + " WHERE x >= UUID '206caec7-68b9-4778-81b2-a12ece70c8b1'"))
                 .matches("VALUES BIGINT '12345', 67890, 313, 314");
 
@@ -829,7 +824,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE test_nested_uuid (int_t int, row_t row(uuid_t uuid, int_t int), map_t map(int, uuid), array_t array(uuid))");
 
         String uuid = "UUID '406caec7-68b9-4778-81b2-a12ece70c8b1'";
-        String value = format("VALUES (2, row(%1$s, 1), map(array[1], array[%1$s]), array[%1$s, %1$s])", uuid);
+        String value = "VALUES (2, row(%1$s, 1), map(array[1], array[%1$s]), array[%1$s, %1$s])".formatted(uuid);
         assertUpdate("INSERT INTO test_nested_uuid " + value, 1);
 
         assertThat(query("SELECT row_t.int_t, row_t.uuid_t FROM test_nested_uuid"))
@@ -1334,18 +1329,17 @@ public abstract class BaseIcebergConnectorTest
                         "FROM tpch.tiny.orders",
                 "SELECT count(*) from orders");
 
-        assertThat(computeScalar("SHOW CREATE TABLE test_create_partitioned_table_as")).isEqualTo(format(
-                "CREATE TABLE %s.%s.%s (\n" +
-                        "   \"order key\" bigint,\n" +
-                        "   ship_priority integer,\n" +
-                        "   order_status varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = '%s',\n" +
-                        "   format_version = 2,\n" +
-                        "   location = '%s',\n" +
-                        "   partitioning = ARRAY['order_status','ship_priority','bucket(\"order key\", 9)']\n" +
-                        ")",
+        assertThat(computeScalar("SHOW CREATE TABLE test_create_partitioned_table_as")).isEqualTo(("CREATE TABLE %s.%s.%s (\n" +
+        "   \"order key\" bigint,\n" +
+        "   ship_priority integer,\n" +
+        "   order_status varchar\n" +
+        ")\n" +
+        "WITH (\n" +
+        "   format = '%s',\n" +
+        "   format_version = 2,\n" +
+        "   location = '%s',\n" +
+        "   partitioning = ARRAY['order_status','ship_priority','bucket(\"order key\", 9)']\n" +
+        ")").formatted(
                 getSession().getCatalog().orElseThrow(),
                 getSession().getSchema().orElseThrow(),
                 "test_create_partitioned_table_as",
@@ -1381,7 +1375,7 @@ public abstract class BaseIcebergConnectorTest
     private void testCreatePartitionedTableWithQuotedIdentifierCasing(String columnName, String partitioningField, boolean success)
     {
         String tableName = "partitioning_" + randomNameSuffix();
-        @Language("SQL") String sql = format("CREATE TABLE %s (%s bigint) WITH (partitioning = ARRAY['%s'])", tableName, columnName, partitioningField);
+        @Language("SQL") String sql = "CREATE TABLE %s (%s bigint) WITH (partitioning = ARRAY['%s'])".formatted(tableName, columnName, partitioningField);
         if (success) {
             assertUpdate(sql);
             assertUpdate("DROP TABLE " + tableName);
@@ -1588,7 +1582,7 @@ public abstract class BaseIcebergConnectorTest
     private void testCreateSortedTableWithQuotedIdentifierCasing(String columnName, String sortField)
     {
         String tableName = "test_create_sorted_table_with_quotes_" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (%s bigint) WITH (sorted_by = ARRAY['%s'])", tableName, columnName, sortField));
+        assertUpdate("CREATE TABLE %s (%s bigint) WITH (sorted_by = ARRAY['%s'])".formatted(tableName, columnName, sortField));
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -1607,7 +1601,7 @@ public abstract class BaseIcebergConnectorTest
     private void testCreateSortedTableWithSortTransform(String columnName, String sortField)
     {
         String tableName = "test_sort_with_transform_" + randomNameSuffix();
-        assertThat(query(format("CREATE TABLE %s (%s TIMESTAMP(6)) WITH (sorted_by = ARRAY['%s'])", tableName, columnName, sortField)))
+        assertThat(query("CREATE TABLE %s (%s TIMESTAMP(6)) WITH (sorted_by = ARRAY['%s'])".formatted(tableName, columnName, sortField)))
                 .failure().hasMessageContaining("Unable to parse sort field");
     }
 
@@ -1765,9 +1759,9 @@ public abstract class BaseIcebergConnectorTest
                 ")\n" +
                 "COMMENT '%s'\n" +
                 "WITH (\n" +
-                format("   format = '%s',\n", format) +
+                "   format = '%s',\n".formatted(format) +
                 "   format_version = 2,\n" +
-                format("   location = '%s'\n", tempDirPath) +
+                "   location = '%s'\n".formatted(tempDirPath) +
                 ")";
         String createTableWithoutComment = "" +
                 "CREATE TABLE iceberg.tpch.test_table_comments (\n" +
@@ -1778,12 +1772,12 @@ public abstract class BaseIcebergConnectorTest
                 "   format_version = 2,\n" +
                 "   location = '" + tempDirPath + "'\n" +
                 ")";
-        String createTableSql = format(createTableTemplate, "test table comment", format);
+        String createTableSql = createTableTemplate.formatted("test table comment", format);
         assertUpdate(createTableSql);
         assertThat(computeScalar("SHOW CREATE TABLE test_table_comments")).isEqualTo(createTableSql);
 
         assertUpdate("COMMENT ON TABLE test_table_comments IS 'different test table comment'");
-        assertThat(computeScalar("SHOW CREATE TABLE test_table_comments")).isEqualTo(format(createTableTemplate, "different test table comment", format));
+        assertThat(computeScalar("SHOW CREATE TABLE test_table_comments")).isEqualTo(createTableTemplate.formatted("different test table comment", format));
 
         assertUpdate("COMMENT ON TABLE test_table_comments IS NULL");
         assertThat(computeScalar("SHOW CREATE TABLE test_table_comments")).isEqualTo(createTableWithoutComment);
@@ -1813,16 +1807,16 @@ public abstract class BaseIcebergConnectorTest
         assertQuery("SELECT * FROM test_rollback ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT))");
 
         // Check that rollback_to_snapshot can be executed also when it does not do any changes
-        assertUpdate(format(rollbackToSnapshotFormat, afterFirstInsertId));
+        assertUpdate(rollbackToSnapshotFormat.formatted(afterFirstInsertId));
         assertQuery("SELECT * FROM test_rollback ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT))");
 
         assertUpdate("INSERT INTO test_rollback (col0, col1) VALUES (456, CAST(654 AS BIGINT))", 1);
         assertQuery("SELECT * FROM test_rollback ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT)), (456, CAST(654 AS BIGINT))");
 
-        assertUpdate(format(rollbackToSnapshotFormat, afterFirstInsertId));
+        assertUpdate(rollbackToSnapshotFormat.formatted(afterFirstInsertId));
         assertQuery("SELECT * FROM test_rollback ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT))");
 
-        assertUpdate(format(rollbackToSnapshotFormat, afterCreateTableId));
+        assertUpdate(rollbackToSnapshotFormat.formatted(afterCreateTableId));
         assertThat((long) computeActual("SELECT COUNT(*) FROM test_rollback").getOnlyValue()).isEqualTo(0);
 
         assertUpdate("INSERT INTO test_rollback (col0, col1) VALUES (789, CAST(987 AS BIGINT))", 1);
@@ -1831,7 +1825,7 @@ public abstract class BaseIcebergConnectorTest
         // extra insert which should be dropped on rollback
         assertUpdate("INSERT INTO test_rollback (col0, col1) VALUES (999, CAST(999 AS BIGINT))", 1);
 
-        assertUpdate(format(rollbackToSnapshotFormat, afterSecondInsertId));
+        assertUpdate(rollbackToSnapshotFormat.formatted(afterSecondInsertId));
         assertQuery("SELECT * FROM test_rollback ORDER BY col0", "VALUES (789, CAST(987 AS BIGINT))");
 
         assertUpdate("DROP TABLE test_rollback");
@@ -2020,7 +2014,7 @@ public abstract class BaseIcebergConnectorTest
         List<String> predicates = range(0, 25_000).boxed()
                 .map(Object::toString)
                 .collect(toImmutableList());
-        String filter = format("col2 IN (%s)", join(",", predicates));
+        String filter = "col2 IN (%s)".formatted(join(",", predicates));
         assertThat(query("SELECT * FROM test_in_predicate_large_set WHERE " + filter))
                 .matches("TABLE test_in_predicate_large_set");
 
@@ -2076,53 +2070,53 @@ public abstract class BaseIcebergConnectorTest
         // LIKE source INCLUDING PROPERTIES copies all the properties of the source table, including the `location`.
         // For this reason the source and the copied table will share the same directory.
         // This test does not drop intentionally the created tables to avoid affecting the source table or the information_schema.
-        assertUpdate(format("CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = '%s', location = '%s', partitioning = ARRAY['aDate'])", format, tempDirPath));
-        assertThat(getTablePropertiesString("test_create_table_like_original")).isEqualTo(format(
+        assertUpdate("CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = '%s', location = '%s', partitioning = ARRAY['aDate'])".formatted(format, tempDirPath));
+        assertThat(getTablePropertiesString("test_create_table_like_original")).isEqualTo(
                 """
                 WITH (
                    format = '%s',
                    format_version = %s,
                    location = '%s',
                    partitioning = ARRAY['adate']
-                )""",
-                format,
-                formatVersion,
-                tempDirPath));
+                )""".formatted(
+                        format,
+                        formatVersion,
+                        tempDirPath));
 
         assertUpdate("CREATE TABLE test_create_table_like_copy0 (LIKE test_create_table_like_original, col2 INTEGER)");
         assertUpdate("INSERT INTO test_create_table_like_copy0 (col1, aDate, col2) VALUES (1, CAST('1950-06-28' AS DATE), 3)", 1);
         assertQuery("SELECT * from test_create_table_like_copy0", "VALUES(1, CAST('1950-06-28' AS DATE), 3)");
 
         assertUpdate("CREATE TABLE test_create_table_like_copy1 (LIKE test_create_table_like_original)");
-        assertThat(getTablePropertiesString("test_create_table_like_copy1")).isEqualTo(format(
+        assertThat(getTablePropertiesString("test_create_table_like_copy1")).isEqualTo(
                 """
                 WITH (
                    format = '%s',
                    format_version = %s,
                    location = '%s'
-                )""",
-                format,
-                formatVersion,
-                getTableLocation("test_create_table_like_copy1")));
+                )""".formatted(
+                        format,
+                        formatVersion,
+                        getTableLocation("test_create_table_like_copy1")));
 
         assertUpdate("CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
-        assertThat(getTablePropertiesString("test_create_table_like_copy2")).isEqualTo(format(
+        assertThat(getTablePropertiesString("test_create_table_like_copy2")).isEqualTo(
                 """
                 WITH (
                    format = '%s',
                    format_version = %s,
                    location = '%s'
-                )""",
-                format,
-                formatVersion,
-                getTableLocation("test_create_table_like_copy2")));
+                )""".formatted(
+                        format,
+                        formatVersion,
+                        getTableLocation("test_create_table_like_copy2")));
         assertUpdate("DROP TABLE test_create_table_like_copy2");
 
         assertQueryFails(
                 "CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)",
                 "Cannot create a table on a non-empty location.*");
 
-        assertQueryFails(format("CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = '%s')", otherFormat),
+        assertQueryFails("CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = '%s')".formatted(otherFormat),
                 "Cannot create a table on a non-empty location.*");
     }
 
@@ -3649,8 +3643,8 @@ public abstract class BaseIcebergConnectorTest
 
     public void testTruncateIntegerTransform(String dataType)
     {
-        String table = format("test_truncate_%s_transform", dataType);
-        assertUpdate(format("CREATE TABLE %s (d %s, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 10)'])", table, dataType));
+        String table = "test_truncate_%s_transform".formatted(dataType);
+        assertUpdate("CREATE TABLE %s (d %s, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 10)'])".formatted(table, dataType));
         String select = "SELECT partition.d_trunc, record_count, data.d.min AS d_min, data.d.max AS d_max, data.b.min AS b_min, data.b.max AS b_max FROM \"" + table + "$partitions\"";
 
         assertUpdate("INSERT INTO " + table + " VALUES" +
@@ -3836,25 +3830,25 @@ public abstract class BaseIcebergConnectorTest
             String greaterValueInSameBucket,
             String valueInOtherBucket)
     {
-        String tableName = format("test_bucket_transform%s", type.toLowerCase(ENGLISH));
+        String tableName = "test_bucket_transform%s".formatted(type.toLowerCase(ENGLISH));
 
-        assertUpdate(format("CREATE TABLE %s (d %s) WITH (partitioning = ARRAY['bucket(d, 2)'])", tableName, type));
-        assertUpdate(format("INSERT INTO %s VALUES (NULL), (%s), (%s), (%s)", tableName, value, greaterValueInSameBucket, valueInOtherBucket), 4);
-        assertThat(query(format("SELECT * FROM %s", tableName))).matches(format("VALUES (NULL), (%s), (%s), (%s)", value, greaterValueInSameBucket, valueInOtherBucket));
-        assertThat(query(format("SELECT * FROM %s WHERE d <= %s AND (rand() = 42 OR d != %s)", tableName, value, valueInOtherBucket)))
+        assertUpdate("CREATE TABLE %s (d %s) WITH (partitioning = ARRAY['bucket(d, 2)'])".formatted(tableName, type));
+        assertUpdate("INSERT INTO %s VALUES (NULL), (%s), (%s), (%s)".formatted(tableName, value, greaterValueInSameBucket, valueInOtherBucket), 4);
+        assertThat(query("SELECT * FROM %s".formatted(tableName))).matches("VALUES (NULL), (%s), (%s), (%s)".formatted(value, greaterValueInSameBucket, valueInOtherBucket));
+        assertThat(query("SELECT * FROM %s WHERE d <= %s AND (rand() = 42 OR d != %s)".formatted(tableName, value, valueInOtherBucket)))
                 .matches("VALUES " + value);
-        assertThat(query(format("SELECT * FROM %s WHERE d >= %s AND (rand() = 42 OR d != %s)", tableName, greaterValueInSameBucket, valueInOtherBucket)))
+        assertThat(query("SELECT * FROM %s WHERE d >= %s AND (rand() = 42 OR d != %s)".formatted(tableName, greaterValueInSameBucket, valueInOtherBucket)))
                 .matches("VALUES " + greaterValueInSameBucket);
 
-        String selectFromPartitions = format("SELECT partition.d_bucket, record_count, data.d.min AS d_min, data.d.max AS d_max FROM \"%s$partitions\"", tableName);
+        String selectFromPartitions = "SELECT partition.d_bucket, record_count, data.d.min AS d_min, data.d.max AS d_max FROM \"%s$partitions\"".formatted(tableName);
 
         if (supportsIcebergFileStatistics(type)) {
-            assertQuery(selectFromPartitions + " WHERE partition.d_bucket = 0", format("VALUES(0, %d, %s, %s)", 2, value, greaterValueInSameBucket));
-            assertQuery(selectFromPartitions + " WHERE partition.d_bucket = 1", format("VALUES(1, %d, %s, %s)", 1, valueInOtherBucket, valueInOtherBucket));
+            assertQuery(selectFromPartitions + " WHERE partition.d_bucket = 0", "VALUES(0, %d, %s, %s)".formatted(2, value, greaterValueInSameBucket));
+            assertQuery(selectFromPartitions + " WHERE partition.d_bucket = 1", "VALUES(1, %d, %s, %s)".formatted(1, valueInOtherBucket, valueInOtherBucket));
         }
         else {
-            assertQuery(selectFromPartitions + " WHERE partition.d_bucket = 0", format("VALUES(0, %d, null, null)", 2));
-            assertQuery(selectFromPartitions + " WHERE partition.d_bucket = 1", format("VALUES(1, %d, null, null)", 1));
+            assertQuery(selectFromPartitions + " WHERE partition.d_bucket = 0", "VALUES(0, %d, null, null)".formatted(2));
+            assertQuery(selectFromPartitions + " WHERE partition.d_bucket = 1", "VALUES(1, %d, null, null)".formatted(1));
         }
 
         assertThat(query("SHOW STATS FOR " + tableName))
@@ -4064,16 +4058,16 @@ public abstract class BaseIcebergConnectorTest
     private void testInSet(int inCount)
     {
         String values = range(1, inCount + 1)
-                .mapToObj(n -> format("(%s, %s)", n, n + 10))
+                .mapToObj(n -> "(%s, %s)".formatted(n, n + 10))
                 .collect(joining(", "));
         String inList = range(1, inCount + 1)
                 .mapToObj(Integer::toString)
                 .collect(joining(", "));
 
         assertUpdate("CREATE TABLE test_in_set (col1 INTEGER, col2 BIGINT)");
-        assertUpdate(format("INSERT INTO test_in_set VALUES %s", values), inCount);
+        assertUpdate("INSERT INTO test_in_set VALUES %s".formatted(values), inCount);
         // This proves that SELECTs with large IN phrases work correctly
-        computeActual(format("SELECT col1 FROM test_in_set WHERE col1 IN (%s)", inList));
+        computeActual("SELECT col1 FROM test_in_set WHERE col1 IN (%s)".formatted(inList));
         assertUpdate("DROP TABLE test_in_set");
     }
 
@@ -4081,7 +4075,7 @@ public abstract class BaseIcebergConnectorTest
     public void testBasicTableStatistics()
     {
         String tableName = "test_basic_table_statistics";
-        assertUpdate(format("CREATE TABLE %s (col REAL)", tableName));
+        assertUpdate("CREATE TABLE %s (col REAL)".formatted(tableName));
 
         assertThat(query("SHOW STATS FOR " + tableName))
                 .skippingTypesCheck()
@@ -4165,7 +4159,7 @@ public abstract class BaseIcebergConnectorTest
     public void testMultipleColumnTableStatistics()
     {
         String tableName = "test_multiple_table_statistics";
-        assertUpdate(format("CREATE TABLE %s (col1 REAL, col2 INTEGER, col3 DATE)", tableName));
+        assertUpdate("CREATE TABLE %s (col1 REAL, col2 INTEGER, col3 DATE)".formatted(tableName));
         assertUpdate("INSERT INTO " + tableName + " VALUES (-10, -1, DATE '2019-06-28')", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES (100, 10, DATE '2020-01-01')", 1);
 
@@ -4209,11 +4203,11 @@ public abstract class BaseIcebergConnectorTest
         assertThat(result).containsExactlyElementsOf(expectedStatistics);
 
         assertUpdate("INSERT INTO " + tableName + " VALUES " + IntStream.rangeClosed(21, 25)
-                .mapToObj(i -> format("(200, %d, DATE '2020-07-%d')", i, i))
+                .mapToObj(i -> "(200, %d, DATE '2020-07-%d')".formatted(i, i))
                 .collect(joining(", ")), 5);
 
         assertUpdate("INSERT INTO " + tableName + " VALUES " + IntStream.rangeClosed(26, 30)
-                .mapToObj(i -> format("(NULL, %d, DATE '2020-06-%d')", i, i))
+                .mapToObj(i -> "(NULL, %d, DATE '2020-06-%d')".formatted(i, i))
                 .collect(joining(", ")), 5);
 
         result = computeActual("SHOW STATS FOR " + tableName);
@@ -4278,7 +4272,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(row2.getField(4)).isEqualTo(2.0);
 
         assertUpdate("INSERT INTO test_partitioned_table_statistics VALUES " + IntStream.rangeClosed(1, 5)
-                .mapToObj(i -> format("(%d, 10)", i + 100))
+                .mapToObj(i -> "(%d, 10)".formatted(i + 100))
                 .collect(joining(", ")), 5);
 
         assertUpdate("INSERT INTO test_partitioned_table_statistics VALUES " + IntStream.rangeClosed(6, 10)
@@ -4357,25 +4351,25 @@ public abstract class BaseIcebergConnectorTest
     public void testPredicatePushdown()
     {
         QualifiedObjectName tableName = new QualifiedObjectName("iceberg", "tpch", "test_predicate");
-        assertUpdate(format("CREATE TABLE %s (col1 BIGINT, col2 BIGINT, col3 BIGINT) WITH (partitioning = ARRAY['col2', 'col3'])", tableName));
-        assertUpdate(format("INSERT INTO %s VALUES (1, 10, 100)", tableName), 1L);
-        assertUpdate(format("INSERT INTO %s VALUES (2, 20, 200)", tableName), 1L);
+        assertUpdate("CREATE TABLE %s (col1 BIGINT, col2 BIGINT, col3 BIGINT) WITH (partitioning = ARRAY['col2', 'col3'])".formatted(tableName));
+        assertUpdate("INSERT INTO %s VALUES (1, 10, 100)".formatted(tableName), 1L);
+        assertUpdate("INSERT INTO %s VALUES (2, 20, 200)".formatted(tableName), 1L);
 
-        assertQuery(format("SELECT * FROM %s WHERE col1 = 1", tableName), "VALUES (1, 10, 100)");
+        assertQuery("SELECT * FROM %s WHERE col1 = 1".formatted(tableName), "VALUES (1, 10, 100)");
         assertFilterPushdown(
                 tableName,
                 ImmutableMap.of("col1", singleValue(BIGINT, 1L)),
                 ImmutableMap.of(),
                 ImmutableMap.of("col1", singleValue(BIGINT, 1L)));
 
-        assertQuery(format("SELECT * FROM %s WHERE col2 = 10", tableName), "VALUES (1, 10, 100)");
+        assertQuery("SELECT * FROM %s WHERE col2 = 10".formatted(tableName), "VALUES (1, 10, 100)");
         assertFilterPushdown(
                 tableName,
                 ImmutableMap.of("col2", singleValue(BIGINT, 10L)),
                 ImmutableMap.of("col2", singleValue(BIGINT, 10L)),
                 ImmutableMap.of());
 
-        assertQuery(format("SELECT * FROM %s WHERE col1 = 1 AND col2 = 10", tableName), "VALUES (1, 10, 100)");
+        assertQuery("SELECT * FROM %s WHERE col1 = 1 AND col2 = 10".formatted(tableName), "VALUES (1, 10, 100)");
         assertFilterPushdown(
                 tableName,
                 ImmutableMap.of("col1", singleValue(BIGINT, 1L), "col2", singleValue(BIGINT, 10L)),
@@ -4390,7 +4384,7 @@ public abstract class BaseIcebergConnectorTest
         String valuesString = join(",", values.stream().map(Object::toString).collect(toImmutableList()));
         String inPredicate = "%s IN (" + valuesString + ")";
         assertQuery(
-                format("SELECT * FROM %s WHERE %s AND %s", tableName, format(inPredicate, "col1"), format(inPredicate, "col2")),
+                "SELECT * FROM %s WHERE %s AND %s".formatted(tableName, inPredicate.formatted("col1"), inPredicate.formatted("col2")),
                 "VALUES (1, 10, 100)");
 
         assertFilterPushdown(
@@ -4579,7 +4573,7 @@ public abstract class BaseIcebergConnectorTest
         String tableName = "test_create_external" + randomNameSuffix();
         String tableLocation = "/tmp/" + tableName;
 
-        String schemaAndTableName = format("%s.%s", schemaName, tableName);
+        String schemaAndTableName = "%s.%s".formatted(schemaName, tableName);
         assertUpdate("CREATE TABLE " + schemaAndTableName + " (a bigint, b varchar) WITH (location = '" + tableLocation + "')");
 
         assertUpdate(
@@ -5836,7 +5830,7 @@ public abstract class BaseIcebergConnectorTest
     {
         String tableName = "test_optimize_time_partitioned_" +
                 (dataType + "_" + partitioningFormat).toLowerCase(ENGLISH).replaceAll("[^a-z0-9_]", "");
-        assertUpdate(format("CREATE TABLE %s(p %s, val varchar) WITH (partitioning = ARRAY['%s'])", tableName, dataType, format(partitioningFormat, "p")));
+        assertUpdate("CREATE TABLE %s(p %s, val varchar) WITH (partitioning = ARRAY['%s'])".formatted(tableName, dataType, partitioningFormat.formatted("p")));
 
         // Do several inserts so ensure more than one input file
         for (int hour = 0; hour < 5; hour++) {
@@ -6052,7 +6046,7 @@ public abstract class BaseIcebergConnectorTest
         long snapshotId = getCurrentSnapshotId(tableName);
         assertUpdate("INSERT INTO " + tableName + " VALUES 22", 1);
         assertThat(query("ALTER TABLE \"%s@%d\" EXECUTE OPTIMIZE".formatted(tableName, snapshotId)))
-                .failure().hasMessage(format("line 1:7: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, snapshotId));
+                .failure().hasMessage("line 1:7: Table 'iceberg.tpch.\"%s@%s\"' does not exist".formatted(tableName, snapshotId));
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES 11, 22");
 
@@ -6132,14 +6126,14 @@ public abstract class BaseIcebergConnectorTest
 
     private List<String> getActiveFiles(String tableName)
     {
-        return computeActual(format("SELECT file_path FROM \"%s$files\"", tableName)).getOnlyColumn()
+        return computeActual("SELECT file_path FROM \"%s$files\"".formatted(tableName)).getOnlyColumn()
                 .map(String.class::cast)
                 .collect(toImmutableList());
     }
 
     private List<IcebergEntry> getIcebergEntries(String tableName)
     {
-        return computeActual(format("SELECT status, data_file.file_path, sequence_number, file_sequence_number FROM \"%s$entries\"", tableName))
+        return computeActual("SELECT status, data_file.file_path, sequence_number, file_sequence_number FROM \"%s$entries\"".formatted(tableName))
                 .getMaterializedRows()
                 .stream()
                 .map(row -> new IcebergEntry((int) row.getField(0), (String) row.getField(1), (Long) row.getField(2), (Long) row.getField(3)))
@@ -6184,7 +6178,7 @@ public abstract class BaseIcebergConnectorTest
     public void testTargetMaxFileSize()
     {
         String tableName = "test_default_max_file_size" + randomNameSuffix();
-        @Language("SQL") String createTableSql = format("CREATE TABLE %s AS SELECT * FROM tpch.sf1.lineitem LIMIT 200000", tableName);
+        @Language("SQL") String createTableSql = "CREATE TABLE %s AS SELECT * FROM tpch.sf1.lineitem LIMIT 200000".formatted(tableName);
 
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_min_writer_count", "1")
@@ -6194,7 +6188,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(session, createTableSql, 200000);
         List<String> initialFiles = getActiveFiles(tableName);
         assertThat(initialFiles.size()).isLessThanOrEqualTo(3);
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE %s".formatted(tableName));
 
         DataSize maxSize = DataSize.of(80, DataSize.Unit.KILOBYTE);
         session = Session.builder(getSession())
@@ -6205,11 +6199,11 @@ public abstract class BaseIcebergConnectorTest
                 .build();
 
         assertUpdate(session, createTableSql, 200000);
-        assertThat(query(format("SELECT count(*) FROM %s", tableName))).matches("VALUES BIGINT '200000'");
+        assertThat(query("SELECT count(*) FROM %s".formatted(tableName))).matches("VALUES BIGINT '200000'");
         List<String> updatedFiles = getActiveFiles(tableName);
         assertThat(updatedFiles.size()).isGreaterThan(10);
 
-        computeActual(format("SELECT file_size_in_bytes FROM \"%s$files\"", tableName))
+        computeActual("SELECT file_size_in_bytes FROM \"%s$files\"".formatted(tableName))
                 .getMaterializedRows()
                 // as target_max_file_size is set to quite low value it can happen that created files are bigger,
                 // so just to be safe we check if it is not much bigger
@@ -6220,7 +6214,7 @@ public abstract class BaseIcebergConnectorTest
     public void testTargetMaxFileSizeOnSortedTable()
     {
         String tableName = "test_default_max_file_size_sorted_" + randomNameSuffix();
-        @Language("SQL") String createTableSql = format("CREATE TABLE %s WITH (sorted_by = ARRAY['shipdate']) AS SELECT * FROM tpch.sf1.lineitem LIMIT 200000", tableName);
+        @Language("SQL") String createTableSql = "CREATE TABLE %s WITH (sorted_by = ARRAY['shipdate']) AS SELECT * FROM tpch.sf1.lineitem LIMIT 200000".formatted(tableName);
 
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_min_writer_count", "1")
@@ -6230,7 +6224,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(session, createTableSql, 200000);
         List<String> initialFiles = getActiveFiles(tableName);
         assertThat(initialFiles.size()).isLessThanOrEqualTo(3);
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE %s".formatted(tableName));
 
         DataSize maxSize = DataSize.of(50, DataSize.Unit.KILOBYTE);
         session = Session.builder(getSession())
@@ -6241,11 +6235,11 @@ public abstract class BaseIcebergConnectorTest
                 .build();
 
         assertUpdate(session, createTableSql, 200000);
-        assertThat(query(format("SELECT count(*) FROM %s", tableName))).matches("VALUES BIGINT '200000'");
+        assertThat(query("SELECT count(*) FROM %s".formatted(tableName))).matches("VALUES BIGINT '200000'");
         List<String> updatedFiles = getActiveFiles(tableName);
         assertThat(updatedFiles.size()).isGreaterThan(5);
 
-        computeActual(format("SELECT file_size_in_bytes FROM \"%s$files\"", tableName))
+        computeActual("SELECT file_size_in_bytes FROM \"%s$files\"".formatted(tableName))
                 .getMaterializedRows()
                 // as target_max_file_size is set to quite low value it can happen that created files are bigger,
                 // so just to be safe we check if it is not much bigger
@@ -6956,7 +6950,7 @@ public abstract class BaseIcebergConnectorTest
         long snapshotId = getCurrentSnapshotId(tableName);
         assertUpdate("INSERT INTO " + tableName + " VALUES 22", 1);
         assertThat(query("ALTER TABLE \"%s@%d\" EXECUTE EXPIRE_SNAPSHOTS".formatted(tableName, snapshotId)))
-                .failure().hasMessage(format("line 1:7: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, snapshotId));
+                .failure().hasMessage("line 1:7: Table 'iceberg.tpch.\"%s@%s\"' does not exist".formatted(tableName, snapshotId));
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES 11, 22");
 
@@ -7149,7 +7143,7 @@ public abstract class BaseIcebergConnectorTest
         String tableLocation = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toUri().toASCIIString() + randomNameSuffix() + suffix;
         String tableDirectory = new File(URI.create(tableLocation)).getPath(); // validates this is file:// URI and normalizes
 
-        assertUpdate(format("CREATE TABLE %s (key varchar, value integer) WITH(location = '%s')", tableName, tableLocation));
+        assertUpdate("CREATE TABLE %s (key varchar, value integer) WITH(location = '%s')".formatted(tableName, tableLocation));
         assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
 
@@ -7211,7 +7205,7 @@ public abstract class BaseIcebergConnectorTest
         long snapshotId = getCurrentSnapshotId(tableName);
         assertUpdate("INSERT INTO " + tableName + " VALUES 22", 1);
         assertThat(query("ALTER TABLE \"%s@%d\" EXECUTE REMOVE_ORPHAN_FILES".formatted(tableName, snapshotId)))
-                .failure().hasMessage(format("line 1:7: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, snapshotId));
+                .failure().hasMessage("line 1:7: Table 'iceberg.tpch.\"%s@%s\"' does not exist".formatted(tableName, snapshotId));
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES 11, 22");
 
@@ -7268,10 +7262,10 @@ public abstract class BaseIcebergConnectorTest
         String compressionProperty = getCompressionPropertyName(format);
 
         for (HiveCompressionCodec compressionCodec : getCompressionCodecs(Optional.empty())) {
-            String tableName = format("test_ctas_%s_codec_%s_%s", compressionCodec.name(), format, randomNameSuffix());
+            String tableName = "test_ctas_%s_codec_%s_%s".formatted(compressionCodec.name(), format, randomNameSuffix());
             if (isCompressionCodecSupportedForFormat(format, compressionCodec)) {
                 assertUpdate(
-                        format("CREATE TABLE %s WITH (format = '%s', compression_codec = '%s') AS SELECT * FROM nation", tableName, format, compressionCodec.name()),
+                        "CREATE TABLE %s WITH (format = '%s', compression_codec = '%s') AS SELECT * FROM nation".formatted(tableName, format, compressionCodec.name()),
                         "SELECT count(*) FROM nation");
 
                 assertThat(getTableProperties(tableName))
@@ -7279,7 +7273,7 @@ public abstract class BaseIcebergConnectorTest
                         .containsEntry(compressionProperty, toCompressionCodecTableProperty(format, compressionCodec));
 
                 assertThat(query("SELECT * FROM " + tableName)).matches("SELECT * FROM nation");
-                assertThat(query(format("SELECT count(*) FROM \"%s$files\" WHERE file_path LIKE '%%.%s'", tableName, format.name().toLowerCase(ENGLISH))))
+                assertThat(query("SELECT count(*) FROM \"%s$files\" WHERE file_path LIKE '%%.%s'".formatted(tableName, format.name().toLowerCase(ENGLISH))))
                         .matches("SELECT BIGINT '1'");
 
                 assertUpdate(
@@ -7290,7 +7284,7 @@ public abstract class BaseIcebergConnectorTest
             }
             else {
                 assertQueryFails(
-                        format("CREATE TABLE %s WITH (format = '%s', compression_codec = '%s') AS SELECT * FROM nation", tableName, format, compressionCodec.name()),
+                        "CREATE TABLE %s WITH (format = '%s', compression_codec = '%s') AS SELECT * FROM nation".formatted(tableName, format, compressionCodec.name()),
                         "Compression codec LZ4 not supported for .*");
             }
         }
@@ -7299,7 +7293,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testCreateTableAsWithCompressionCodecUnsupported()
     {
-        String tableName = format("test_ctas_unsupported_%s_%s", format, randomNameSuffix());
+        String tableName = "test_ctas_unsupported_%s_%s".formatted(format, randomNameSuffix());
 
         assertQueryFails("CREATE TABLE " + tableName + " WITH (format = '" + format + "', compression_codec = 'unsupported') AS SELECT * FROM nation",
                 ".* \\QUnable to set catalog 'iceberg' table property 'compression_codec' to ['unsupported']: Invalid value [unsupported]. Valid values: [NONE, SNAPPY, LZ4, ZSTD, GZIP]");
@@ -7317,14 +7311,14 @@ public abstract class BaseIcebergConnectorTest
             String compressionProperty = getCompressionPropertyName(format);
             String newCompressionCodec = compressionCodec.name();
 
-            assertThat(query(format("CREATE TABLE %s WITH (format = '%s', compression_codec = '%s') AS SELECT * FROM nation WHERE nationkey < 10", tableName, format, initialCompressionCodec)))
+            assertThat(query("CREATE TABLE %s WITH (format = '%s', compression_codec = '%s') AS SELECT * FROM nation WHERE nationkey < 10".formatted(tableName, format, initialCompressionCodec)))
                     .matches("SELECT count(*) FROM nation WHERE nationkey < 10");
             assertThat(getTableProperties(tableName))
                     .containsEntry(DEFAULT_FILE_FORMAT, format.toString())
                     .containsEntry(compressionProperty, toCompressionCodecTableProperty(format, initialCompressionCodec));
 
             if (isCompressionCodecSupportedForFormat(format, compressionCodec)) {
-                assertUpdate(format("ALTER TABLE %s SET PROPERTIES compression_codec = '%s'", tableName, newCompressionCodec));
+                assertUpdate("ALTER TABLE %s SET PROPERTIES compression_codec = '%s'".formatted(tableName, newCompressionCodec));
                 assertThat(getTableProperties(tableName))
                         .containsEntry(DEFAULT_FILE_FORMAT, format.toString())
                         .containsEntry(compressionProperty, toCompressionCodecTableProperty(format, compressionCodec));
@@ -7333,12 +7327,12 @@ public abstract class BaseIcebergConnectorTest
                         "SELECT count(*) FROM nation WHERE nationkey >= 10");
 
                 assertThat(query("SELECT * FROM " + tableName)).matches("SELECT * FROM nation");
-                assertThat(query(format("SELECT count(*) FROM \"%s$files\" WHERE file_path LIKE '%%.%s'", tableName, format.name().toLowerCase(ENGLISH))))
+                assertThat(query("SELECT count(*) FROM \"%s$files\" WHERE file_path LIKE '%%.%s'".formatted(tableName, format.name().toLowerCase(ENGLISH))))
                         .matches("SELECT BIGINT '2'");
             }
             else {
                 assertQueryFails(
-                        format("ALTER TABLE %s SET PROPERTIES compression_codec = '%s'", tableName, newCompressionCodec),
+                        "ALTER TABLE %s SET PROPERTIES compression_codec = '%s'".formatted(tableName, newCompressionCodec),
                         "Compression codec %s not supported for .*".formatted(newCompressionCodec));
             }
             assertUpdate("DROP TABLE " + tableName);
@@ -7360,7 +7354,7 @@ public abstract class BaseIcebergConnectorTest
 
                 if (isCompressionCodecSupportedForFormat(format, compressionCodec)) {
                     assertUpdate(
-                            format("CREATE TABLE %s WITH (format = '%s', compression_codec = '%s') AS SELECT * FROM nation WHERE nationkey < 10", tableName, format, compressionCodec),
+                            "CREATE TABLE %s WITH (format = '%s', compression_codec = '%s') AS SELECT * FROM nation WHERE nationkey < 10".formatted(tableName, format, compressionCodec),
                             "SELECT count(*) FROM nation WHERE nationkey < 10");
 
                     assertThat(getTableProperties(tableName))
@@ -7385,7 +7379,7 @@ public abstract class BaseIcebergConnectorTest
 
                         // Verify number of files per suffix
                         for (Entry<IcebergFileFormat, Integer> entry : fileCounter.buildOrThrow().entrySet()) {
-                            assertThat(query(format("SELECT count(*) FROM \"%s$files\" WHERE file_path LIKE '%%.%s'", tableName, entry.getKey().name().toLowerCase(ENGLISH))))
+                            assertThat(query("SELECT count(*) FROM \"%s$files\" WHERE file_path LIKE '%%.%s'".formatted(tableName, entry.getKey().name().toLowerCase(ENGLISH))))
                                     .matches("SELECT BIGINT '1'");
                         }
                     }
@@ -7397,7 +7391,7 @@ public abstract class BaseIcebergConnectorTest
                     assertUpdate("DROP TABLE " + tableName);
                 }
                 else {
-                    assertQueryFails(format("CREATE TABLE %s WITH (format = '%s', compression_codec = '%s') AS SELECT * FROM nation", tableName, format, compressionCodec.name()),
+                    assertQueryFails("CREATE TABLE %s WITH (format = '%s', compression_codec = '%s') AS SELECT * FROM nation".formatted(tableName, format, compressionCodec.name()),
                             "Compression codec %s not supported for .*".formatted(compressionCodec.name()));
                 }
             }
@@ -7422,7 +7416,7 @@ public abstract class BaseIcebergConnectorTest
 
                 // Create initial table
                 assertUpdate(
-                        format("CREATE TABLE %s WITH (format = '%s', compression_codec = '%s') AS SELECT * FROM nation WHERE nationkey < 10", tableName, format, initialCompressionCodec),
+                        "CREATE TABLE %s WITH (format = '%s', compression_codec = '%s') AS SELECT * FROM nation WHERE nationkey < 10".formatted(tableName, format, initialCompressionCodec),
                         "SELECT count(*) FROM nation WHERE nationkey < 10");
                 assertThat(getTableProperties(tableName))
                         .containsEntry(DEFAULT_FILE_FORMAT, format.toString())
@@ -7434,7 +7428,7 @@ public abstract class BaseIcebergConnectorTest
 
                 // Modify both storage and compression properties
                 if (isCompressionCodecSupportedForFormat(fileFormat, compressionCodec)) {
-                    assertUpdate(format("ALTER TABLE %s SET PROPERTIES format = '%s', compression_codec = '%s'", tableName, fileFormat, newCompressionCodec));
+                    assertUpdate("ALTER TABLE %s SET PROPERTIES format = '%s', compression_codec = '%s'".formatted(tableName, fileFormat, newCompressionCodec));
                     assertThat(getTableProperties(tableName))
                             .containsEntry(DEFAULT_FILE_FORMAT, fileFormat.toString())
                             .containsEntry(compressionProperty, toCompressionCodecTableProperty(fileFormat, compressionCodec));
@@ -7447,12 +7441,12 @@ public abstract class BaseIcebergConnectorTest
 
                     // Verify number of files per suffix
                     for (Entry<IcebergFileFormat, Integer> entry : fileCounter.buildOrThrow().entrySet()) {
-                        assertThat(query(format("SELECT count(*) FROM \"%s$files\" WHERE file_path LIKE '%%.%s'", tableName, entry.getKey().name().toLowerCase(ENGLISH))))
+                        assertThat(query("SELECT count(*) FROM \"%s$files\" WHERE file_path LIKE '%%.%s'".formatted(tableName, entry.getKey().name().toLowerCase(ENGLISH))))
                                 .matches("SELECT BIGINT '1'");
                     }
                 }
                 else {
-                    assertQueryFails(format("ALTER TABLE %s SET PROPERTIES format = '%s', compression_codec = '%s'", tableName, fileFormat, newCompressionCodec),
+                    assertQueryFails("ALTER TABLE %s SET PROPERTIES format = '%s', compression_codec = '%s'".formatted(tableName, fileFormat, newCompressionCodec),
                             "Compression codec LZ4 not supported for .*");
                 }
 
@@ -7633,26 +7627,26 @@ public abstract class BaseIcebergConnectorTest
     public void testModifyingOldSnapshotIsNotPossible()
     {
         String tableName = "test_modifying_old_snapshot_" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (col int)", tableName));
-        assertUpdate(format("INSERT INTO %s VALUES 1,2,3", tableName), 3);
+        assertUpdate("CREATE TABLE %s (col int)".formatted(tableName));
+        assertUpdate("INSERT INTO %s VALUES 1,2,3".formatted(tableName), 3);
         long oldSnapshotId = getCurrentSnapshotId(tableName);
-        assertUpdate(format("INSERT INTO %s VALUES 4,5,6", tableName), 3);
-        assertQuery(format("SELECT * FROM %s FOR VERSION AS OF %d", tableName, oldSnapshotId), "VALUES 1,2,3");
-        assertThat(query(format("INSERT INTO \"%s@%d\" VALUES 7,8,9", tableName, oldSnapshotId)))
-                .failure().hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, oldSnapshotId));
-        assertThat(query(format("DELETE FROM \"%s@%d\" WHERE col = 5", tableName, oldSnapshotId)))
-                .failure().hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, oldSnapshotId));
-        assertThat(query(format("UPDATE \"%s@%d\" SET col = 50 WHERE col = 5", tableName, oldSnapshotId)))
-                .failure().hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, oldSnapshotId));
-        assertThat(query(format("INSERT INTO \"%s@%d\" VALUES 7,8,9", tableName, getCurrentSnapshotId(tableName))))
-                .failure().hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, getCurrentSnapshotId(tableName)));
-        assertThat(query(format("DELETE FROM \"%s@%d\" WHERE col = 9", tableName, getCurrentSnapshotId(tableName))))
-                .failure().hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, getCurrentSnapshotId(tableName)));
-        assertThatThrownBy(() -> assertUpdate(format("UPDATE \"%s@%d\" set col = 50 WHERE col = 5", tableName, getCurrentSnapshotId(tableName))))
-                .hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, getCurrentSnapshotId(tableName)));
-        assertThat(query(format("ALTER TABLE \"%s@%d\" EXECUTE OPTIMIZE", tableName, oldSnapshotId)))
-                .failure().hasMessage(format("line 1:7: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, oldSnapshotId));
-        assertQuery(format("SELECT * FROM %s", tableName), "VALUES 1,2,3,4,5,6");
+        assertUpdate("INSERT INTO %s VALUES 4,5,6".formatted(tableName), 3);
+        assertQuery("SELECT * FROM %s FOR VERSION AS OF %d".formatted(tableName, oldSnapshotId), "VALUES 1,2,3");
+        assertThat(query("INSERT INTO \"%s@%d\" VALUES 7,8,9".formatted(tableName, oldSnapshotId)))
+                .failure().hasMessage("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist".formatted(tableName, oldSnapshotId));
+        assertThat(query("DELETE FROM \"%s@%d\" WHERE col = 5".formatted(tableName, oldSnapshotId)))
+                .failure().hasMessage("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist".formatted(tableName, oldSnapshotId));
+        assertThat(query("UPDATE \"%s@%d\" SET col = 50 WHERE col = 5".formatted(tableName, oldSnapshotId)))
+                .failure().hasMessage("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist".formatted(tableName, oldSnapshotId));
+        assertThat(query("INSERT INTO \"%s@%d\" VALUES 7,8,9".formatted(tableName, getCurrentSnapshotId(tableName))))
+                .failure().hasMessage("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist".formatted(tableName, getCurrentSnapshotId(tableName)));
+        assertThat(query("DELETE FROM \"%s@%d\" WHERE col = 9".formatted(tableName, getCurrentSnapshotId(tableName))))
+                .failure().hasMessage("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist".formatted(tableName, getCurrentSnapshotId(tableName)));
+        assertThatThrownBy(() -> assertUpdate("UPDATE \"%s@%d\" set col = 50 WHERE col = 5".formatted(tableName, getCurrentSnapshotId(tableName))))
+                .hasMessage("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist".formatted(tableName, getCurrentSnapshotId(tableName)));
+        assertThat(query("ALTER TABLE \"%s@%d\" EXECUTE OPTIMIZE".formatted(tableName, oldSnapshotId)))
+                .failure().hasMessage("line 1:7: Table 'iceberg.tpch.\"%s@%s\"' does not exist".formatted(tableName, oldSnapshotId));
+        assertQuery("SELECT * FROM %s".formatted(tableName), "VALUES 1,2,3,4,5,6");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -7708,39 +7702,39 @@ public abstract class BaseIcebergConnectorTest
     public void testReadingFromSpecificSnapshot()
     {
         String tableName = "test_reading_snapshot" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", tableName));
-        assertUpdate(format("INSERT INTO %s VALUES(1, 1)", tableName), 1);
+        assertUpdate("CREATE TABLE %s (a bigint, b bigint)".formatted(tableName));
+        assertUpdate("INSERT INTO %s VALUES(1, 1)".formatted(tableName), 1);
         List<Long> ids = getSnapshotsIdsByCreationOrder(tableName);
 
-        assertQuery(format("SELECT count(*) FROM %s FOR VERSION AS OF %d", tableName, ids.get(0)), "VALUES(0)");
-        assertQuery(format("SELECT * FROM %s FOR VERSION AS OF %d", tableName, ids.get(1)), "VALUES(1,1)");
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertQuery("SELECT count(*) FROM %s FOR VERSION AS OF %d".formatted(tableName, ids.get(0)), "VALUES(0)");
+        assertQuery("SELECT * FROM %s FOR VERSION AS OF %d".formatted(tableName, ids.get(1)), "VALUES(1,1)");
+        assertUpdate("DROP TABLE %s".formatted(tableName));
     }
 
     @Test
     public void testSelectWithMoreThanOneSnapshotOfTheSameTable()
     {
         String tableName = "test_reading_snapshot" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", tableName));
-        assertUpdate(format("INSERT INTO %s VALUES(1, 1)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES(2, 2)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES(3, 3)", tableName), 1);
+        assertUpdate("CREATE TABLE %s (a bigint, b bigint)".formatted(tableName));
+        assertUpdate("INSERT INTO %s VALUES(1, 1)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES(2, 2)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s VALUES(3, 3)".formatted(tableName), 1);
         List<Long> ids = getSnapshotsIdsByCreationOrder(tableName);
 
-        assertQuery(format("SELECT * FROM %s", tableName), "SELECT * FROM (VALUES(1,1), (2,2), (3,3))");
+        assertQuery("SELECT * FROM %s".formatted(tableName), "SELECT * FROM (VALUES(1,1), (2,2), (3,3))");
         assertQuery(
-                format("SELECT * FROM %1$s EXCEPT (SELECT * FROM %1$s FOR VERSION AS OF %2$d EXCEPT SELECT * FROM %1$s FOR VERSION AS OF %3$d)", tableName, ids.get(2), ids.get(1)),
+                "SELECT * FROM %1$s EXCEPT (SELECT * FROM %1$s FOR VERSION AS OF %2$d EXCEPT SELECT * FROM %1$s FOR VERSION AS OF %3$d)".formatted(tableName, ids.get(2), ids.get(1)),
                 "SELECT * FROM (VALUES(1,1), (3,3))");
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE %s".formatted(tableName));
     }
 
     @Test
     public void testInsertingIntoTablesWithColumnsWithQuotesInName()
     {
         String tableName = "test_inserting_into_tables_with_quotes_" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (\"an identifier with \"\"quotes\"\" \" INTEGER, x row (\"another identifier\" INTEGER))", tableName));
-        assertUpdate(format("INSERT INTO %s VALUES (1, row(11))", tableName), 1);
-        assertThat(query(format("SELECT * FROM %s", tableName)))
+        assertUpdate("CREATE TABLE %s (\"an identifier with \"\"quotes\"\" \" INTEGER, x row (\"another identifier\" INTEGER))".formatted(tableName));
+        assertUpdate("INSERT INTO %s VALUES (1, row(11))".formatted(tableName), 1);
+        assertThat(query("SELECT * FROM %s".formatted(tableName)))
                 .matches("VALUES (INTEGER '1', CAST(ROW(11) AS ROW(\"another identifier\"INTEGER)))");
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -8282,15 +8276,15 @@ public abstract class BaseIcebergConnectorTest
     {
         String targetTable = "merge_simple_target_" + randomNameSuffix();
         String sourceTable = "merge_simple_source_" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (partitioning = ARRAY['address'])", targetTable));
+        assertUpdate("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (partitioning = ARRAY['address'])".formatted(targetTable));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
+        assertUpdate("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')".formatted(targetTable), 4);
 
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", sourceTable));
+        assertUpdate("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)".formatted(sourceTable));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire')", sourceTable), 4);
+        assertUpdate("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire')".formatted(sourceTable), 4);
 
-        String sql = format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+        String sql = "MERGE INTO %s t USING %s s ON (t.customer = s.customer)".formatted(targetTable, sourceTable) +
                 "    WHEN MATCHED AND s.address = 'Centreville' THEN DELETE" +
                 "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases, address = s.address" +
                 "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)";
@@ -8326,16 +8320,16 @@ public abstract class BaseIcebergConnectorTest
 
         String targetTable = "merge_formats_target_" + randomNameSuffix();
         String sourceTable = "merge_formats_source_" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) %s", targetTable, partitioning));
+        assertUpdate("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) %s".formatted(targetTable, partitioning));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchase) VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')", targetTable), 3);
+        assertUpdate("INSERT INTO %s (customer, purchase) VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')".formatted(targetTable), 3);
         assertQuery("SELECT * FROM " + targetTable, "VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')");
 
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR)", sourceTable));
+        assertUpdate("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR)".formatted(sourceTable));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchase) VALUES ('Craig', 'candles'), ('Len', 'limes'), ('Joe', 'jellybeans')", sourceTable), 3);
+        assertUpdate("INSERT INTO %s (customer, purchase) VALUES ('Craig', 'candles'), ('Len', 'limes'), ('Joe', 'jellybeans')".formatted(sourceTable), 3);
 
-        String sql = format("MERGE INTO %s t USING %s s ON (t.purchase = s.purchase)", targetTable, sourceTable) +
+        String sql = "MERGE INTO %s t USING %s s ON (t.purchase = s.purchase)".formatted(targetTable, sourceTable) +
                 "    WHEN MATCHED AND s.purchase = 'limes' THEN DELETE" +
                 "    WHEN MATCHED THEN UPDATE SET customer = CONCAT(t.customer, '_', s.customer)" +
                 "    WHEN NOT MATCHED THEN INSERT (customer, purchase) VALUES(s.customer, s.purchase)";
@@ -8377,44 +8371,44 @@ public abstract class BaseIcebergConnectorTest
 
         int targetCustomerCount = 32;
         String targetTable = "merge_multiple_" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (purchase INT, zipcode INT, spouse VARCHAR, address VARCHAR, customer VARCHAR) %s", targetTable, partitioning));
+        assertUpdate("CREATE TABLE %s (purchase INT, zipcode INT, spouse VARCHAR, address VARCHAR, customer VARCHAR) %s".formatted(targetTable, partitioning));
         String originalInsertFirstHalf = range(1, targetCustomerCount / 2)
-                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 1000, 91000, intValue, intValue))
+                .mapToObj(intValue -> "('joe_%s', %s, %s, 'jan_%s', '%s Poe Ct')".formatted(intValue, 1000, 91000, intValue, intValue))
                 .collect(joining(", "));
         String originalInsertSecondHalf = range(targetCustomerCount / 2, targetCustomerCount)
-                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 2000, 92000, intValue, intValue))
+                .mapToObj(intValue -> "('joe_%s', %s, %s, 'jan_%s', '%s Poe Ct')".formatted(intValue, 2000, 92000, intValue, intValue))
                 .collect(joining(", "));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchase, zipcode, spouse, address) VALUES %s, %s", targetTable, originalInsertFirstHalf, originalInsertSecondHalf), targetCustomerCount - 1);
+        assertUpdate("INSERT INTO %s (customer, purchase, zipcode, spouse, address) VALUES %s, %s".formatted(targetTable, originalInsertFirstHalf, originalInsertSecondHalf), targetCustomerCount - 1);
 
         String firstMergeSource = range(targetCustomerCount / 2, targetCustomerCount)
-                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jill_%s', '%s Eop Ct')", intValue, 3000, 83000, intValue, intValue))
+                .mapToObj(intValue -> "('joe_%s', %s, %s, 'jill_%s', '%s Eop Ct')".formatted(intValue, 3000, 83000, intValue, intValue))
                 .collect(joining(", "));
 
         assertUpdate(
                 session,
-                format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, firstMergeSource) +
+                "MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)".formatted(targetTable, firstMergeSource) +
                         "    ON t.customer = s.customer" +
                         "    WHEN MATCHED THEN UPDATE SET purchase = s.purchase, zipcode = s.zipcode, spouse = s.spouse, address = s.address",
                 targetCustomerCount / 2);
 
         assertQuery(
                 "SELECT customer, purchase, zipcode, spouse, address FROM " + targetTable,
-                format("VALUES %s, %s", originalInsertFirstHalf, firstMergeSource));
+                "VALUES %s, %s".formatted(originalInsertFirstHalf, firstMergeSource));
 
         String nextInsert = range(targetCustomerCount, targetCustomerCount * 3 / 2)
-                .mapToObj(intValue -> format("('jack_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 4000, 74000, intValue, intValue))
+                .mapToObj(intValue -> "('jack_%s', %s, %s, 'jan_%s', '%s Poe Ct')".formatted(intValue, 4000, 74000, intValue, intValue))
                 .collect(joining(", "));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchase, zipcode, spouse, address) VALUES %s", targetTable, nextInsert), targetCustomerCount / 2);
+        assertUpdate("INSERT INTO %s (customer, purchase, zipcode, spouse, address) VALUES %s".formatted(targetTable, nextInsert), targetCustomerCount / 2);
 
         String secondMergeSource = range(1, targetCustomerCount * 3 / 2)
-                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jen_%s', '%s Poe Ct')", intValue, 5000, 85000, intValue, intValue))
+                .mapToObj(intValue -> "('joe_%s', %s, %s, 'jen_%s', '%s Poe Ct')".formatted(intValue, 5000, 85000, intValue, intValue))
                 .collect(joining(", "));
 
         assertUpdate(
                 session,
-                format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, secondMergeSource) +
+                "MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)".formatted(targetTable, secondMergeSource) +
                         "    ON t.customer = s.customer" +
                         "    WHEN MATCHED AND t.zipcode = 91000 THEN DELETE" +
                         "    WHEN MATCHED AND s.zipcode = 85000 THEN UPDATE SET zipcode = 60000" +
@@ -8423,18 +8417,18 @@ public abstract class BaseIcebergConnectorTest
                 targetCustomerCount * 3 / 2 - 1);
 
         String updatedBeginning = range(targetCustomerCount / 2, targetCustomerCount)
-                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jill_%s', '%s Eop Ct')", intValue, 3000, 60000, intValue, intValue))
+                .mapToObj(intValue -> "('joe_%s', %s, %s, 'jill_%s', '%s Eop Ct')".formatted(intValue, 3000, 60000, intValue, intValue))
                 .collect(joining(", "));
         String updatedMiddle = range(targetCustomerCount, targetCustomerCount * 3 / 2)
-                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jen_%s', '%s Poe Ct')", intValue, 5000, 85000, intValue, intValue))
+                .mapToObj(intValue -> "('joe_%s', %s, %s, 'jen_%s', '%s Poe Ct')".formatted(intValue, 5000, 85000, intValue, intValue))
                 .collect(joining(", "));
         String updatedEnd = range(targetCustomerCount, targetCustomerCount * 3 / 2)
-                .mapToObj(intValue -> format("('jack_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 4000, 74000, intValue, intValue))
+                .mapToObj(intValue -> "('jack_%s', %s, %s, 'jan_%s', '%s Poe Ct')".formatted(intValue, 4000, 74000, intValue, intValue))
                 .collect(joining(", "));
 
         assertQuery(
                 "SELECT customer, purchase, zipcode, spouse, address FROM " + targetTable,
-                format("VALUES %s, %s, %s", updatedBeginning, updatedMiddle, updatedEnd));
+                "VALUES %s, %s, %s".formatted(updatedBeginning, updatedMiddle, updatedEnd));
 
         assertUpdate("DROP TABLE " + targetTable);
     }
@@ -8443,11 +8437,11 @@ public abstract class BaseIcebergConnectorTest
     public void testMergeSimpleQueryPartitioned()
     {
         String targetTable = "merge_simple_" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (partitioning = ARRAY['address'])", targetTable));
+        assertUpdate("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (partitioning = ARRAY['address'])".formatted(targetTable));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
+        assertUpdate("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')".formatted(targetTable), 4);
 
-        @Language("SQL") String query = format("MERGE INTO %s t USING ", targetTable) +
+        @Language("SQL") String query = "MERGE INTO %s t USING ".formatted(targetTable) +
                 "(SELECT * FROM (VALUES ('Aaron', 6, 'Arches'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire'), ('Ed', 7, 'Etherville'))) AS s(customer, purchases, address)" +
                 "    " +
                 "ON (t.customer = s.customer)" +
@@ -8476,20 +8470,20 @@ public abstract class BaseIcebergConnectorTest
     {
         String targetTable = "merge_multiple_target_" + randomNameSuffix();
         String sourceTable = "merge_multiple_source_" + randomNameSuffix();
-        assertUpdate(format(createTableSql, targetTable));
+        assertUpdate(createTableSql.formatted(targetTable));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Antioch')", targetTable), 2);
+        assertUpdate("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Antioch')".formatted(targetTable), 2);
 
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", sourceTable));
+        assertUpdate("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)".formatted(sourceTable));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Adelphi'), ('Aaron', 8, 'Ashland')", sourceTable), 2);
+        assertUpdate("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Adelphi'), ('Aaron', 8, 'Ashland')".formatted(sourceTable), 2);
 
-        assertThatThrownBy(() -> computeActual(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+        assertThatThrownBy(() -> computeActual("MERGE INTO %s t USING %s s ON (t.customer = s.customer)".formatted(targetTable, sourceTable) +
                 "    WHEN MATCHED THEN UPDATE SET address = s.address"))
                 .hasMessage("One MERGE target table row matched more than one source row");
 
         assertUpdate(
-                format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+                "MERGE INTO %s t USING %s s ON (t.customer = s.customer)".formatted(targetTable, sourceTable) +
                         "    WHEN MATCHED AND s.address = 'Adelphi' THEN UPDATE SET address = s.address",
                 1);
         assertQuery("SELECT customer, purchases, address FROM " + targetTable, "VALUES ('Aaron', 5, 'Adelphi'), ('Bill', 7, 'Antioch')");
@@ -8528,18 +8522,18 @@ public abstract class BaseIcebergConnectorTest
 
     private void testMergeWithDifferentPartitioning(String testDescription, String createTargetTableSql, String createSourceTableSql)
     {
-        String targetTable = format("%s_target_%s", testDescription, randomNameSuffix());
-        String sourceTable = format("%s_source_%s", testDescription, randomNameSuffix());
+        String targetTable = "%s_target_%s".formatted(testDescription, randomNameSuffix());
+        String sourceTable = "%s_source_%s".formatted(testDescription, randomNameSuffix());
 
-        assertUpdate(format(createTargetTableSql, targetTable));
+        assertUpdate(createTargetTableSql.formatted(targetTable));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
+        assertUpdate("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')".formatted(targetTable), 4);
 
-        assertUpdate(format(createSourceTableSql, sourceTable));
+        assertUpdate(createSourceTableSql.formatted(sourceTable));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire')", sourceTable), 4);
+        assertUpdate("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire')".formatted(sourceTable), 4);
 
-        @Language("SQL") String sql = format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+        @Language("SQL") String sql = "MERGE INTO %s t USING %s s ON (t.customer = s.customer)".formatted(targetTable, sourceTable) +
                 "    WHEN MATCHED AND s.address = 'Centreville' THEN DELETE" +
                 "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases, address = s.address" +
                 "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)";
@@ -8570,17 +8564,17 @@ public abstract class BaseIcebergConnectorTest
         String tableName = "test_snapshot_query_ids_v1" + randomNameSuffix();
 
         // Create empty table
-        assertQueryIdAndUserStored(tableName, executeWithQueryId(format("CREATE TABLE %s (a bigint, b bigint) WITH (format_version = 1, partitioning = ARRAY['a'])", tableName)));
+        assertQueryIdAndUserStored(tableName, executeWithQueryId("CREATE TABLE %s (a bigint, b bigint) WITH (format_version = 1, partitioning = ARRAY['a'])".formatted(tableName)));
 
         // Insert some records, creating 3 partitions
-        assertQueryIdAndUserStored(tableName, executeWithQueryId(format("INSERT INTO %s VALUES (1, 100), (2, 300), (2, 350), (3, 250)", tableName)));
+        assertQueryIdAndUserStored(tableName, executeWithQueryId("INSERT INTO %s VALUES (1, 100), (2, 300), (2, 350), (3, 250)".formatted(tableName)));
 
         // Delete whole partition
-        assertQueryIdAndUserStored(tableName, executeWithQueryId(format("DELETE FROM %s WHERE a = 2", tableName)));
+        assertQueryIdAndUserStored(tableName, executeWithQueryId("DELETE FROM %s WHERE a = 2".formatted(tableName)));
 
         // Insert some more and then optimize
-        assertQueryIdAndUserStored(tableName, executeWithQueryId(format("INSERT INTO %s VALUES (1, 400)", tableName)));
-        assertQueryIdAndUserStored(tableName, executeWithQueryId(format("ALTER TABLE %s EXECUTE OPTIMIZE", tableName)));
+        assertQueryIdAndUserStored(tableName, executeWithQueryId("INSERT INTO %s VALUES (1, 400)".formatted(tableName)));
+        assertQueryIdAndUserStored(tableName, executeWithQueryId("ALTER TABLE %s EXECUTE OPTIMIZE".formatted(tableName)));
     }
 
     @Test
@@ -8588,28 +8582,28 @@ public abstract class BaseIcebergConnectorTest
     {
         String tableName = "test_snapshot_query_ids_v2" + randomNameSuffix();
         String sourceTableName = "test_source_table_for_ctas" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", sourceTableName));
-        assertUpdate(format("INSERT INTO %s VALUES (1, 1), (1, 4), (1, 20), (2, 2)", sourceTableName), 4);
+        assertUpdate("CREATE TABLE %s (a bigint, b bigint)".formatted(sourceTableName));
+        assertUpdate("INSERT INTO %s VALUES (1, 1), (1, 4), (1, 20), (2, 2)".formatted(sourceTableName), 4);
 
         // Create table with CTAS
-        assertQueryIdAndUserStored(tableName, executeWithQueryId(format("CREATE TABLE %s WITH (format_version = 2, partitioning = ARRAY['a']) " +
-                "AS SELECT * FROM %s", tableName, sourceTableName)));
+        assertQueryIdAndUserStored(tableName, executeWithQueryId(("CREATE TABLE %s WITH (format_version = 2, partitioning = ARRAY['a']) " +
+                "AS SELECT * FROM %s").formatted(tableName, sourceTableName)));
 
         // Insert records
-        assertQueryIdAndUserStored(tableName, executeWithQueryId(format("INSERT INTO %s VALUES (1, 100), (2, 300), (3, 250)", tableName)));
+        assertQueryIdAndUserStored(tableName, executeWithQueryId("INSERT INTO %s VALUES (1, 100), (2, 300), (3, 250)".formatted(tableName)));
 
         // Delete a whole partition
-        assertQueryIdAndUserStored(tableName, executeWithQueryId(format("DELETE FROM %s WHERE a = 2", tableName)));
+        assertQueryIdAndUserStored(tableName, executeWithQueryId("DELETE FROM %s WHERE a = 2".formatted(tableName)));
 
         // Delete an individual row
-        assertQueryIdAndUserStored(tableName, executeWithQueryId(format("DELETE FROM %s WHERE a = 1 AND b = 4", tableName)));
+        assertQueryIdAndUserStored(tableName, executeWithQueryId("DELETE FROM %s WHERE a = 1 AND b = 4".formatted(tableName)));
 
         // Update an individual row
-        assertQueryIdAndUserStored(tableName, executeWithQueryId(format("UPDATE %s SET b = 900 WHERE a = 1 AND b = 1", tableName)));
+        assertQueryIdAndUserStored(tableName, executeWithQueryId("UPDATE %s SET b = 900 WHERE a = 1 AND b = 1".formatted(tableName)));
 
         // Merge
-        assertQueryIdAndUserStored(tableName, executeWithQueryId(format("MERGE INTO %s t USING %s s ON t.a = s.a AND t.b = s.b " +
-                "WHEN MATCHED THEN UPDATE SET b = t.b * 50", tableName, sourceTableName)));
+        assertQueryIdAndUserStored(tableName, executeWithQueryId(("MERGE INTO %s t USING %s s ON t.a = s.a AND t.b = s.b " +
+                "WHEN MATCHED THEN UPDATE SET b = t.b * 50").formatted(tableName, sourceTableName)));
     }
 
     @Override
@@ -9233,13 +9227,13 @@ public abstract class BaseIcebergConnectorTest
                 .build();
 
         assertUpdate(session, "CREATE SCHEMA " + schemaName);
-        assertUpdate(session, format("CREATE TABLE %s.%s (id, a, ds) WITH (partitioning = ARRAY['ds']) AS SELECT 1, '1', '1'", schemaName, tableName), 1);
+        assertUpdate(session, "CREATE TABLE %s.%s (id, a, ds) WITH (partitioning = ARRAY['ds']) AS SELECT 1, '1', '1'".formatted(schemaName, tableName), 1);
         assertUpdate(session, "CREATE TABLE " + tableName + " (id, a, ds) WITH (partitioning = ARRAY['ds']) AS SELECT 1, '1', '1'", 1);
 
         String enforcedQuery = "SELECT id FROM tpch." + tableName + " WHERE a = '1'";
         assertQueryFails(session, enforcedQuery, "Filter required for tpch\\." + tableName + " on at least one of the partition columns: ds");
 
-        String unenforcedQuery = format("SELECT id FROM %s.%s WHERE a = '1'", schemaName, tableName);
+        String unenforcedQuery = "SELECT id FROM %s.%s WHERE a = '1'".formatted(schemaName, tableName);
         assertQuerySucceeds(session, unenforcedQuery);
 
         assertUpdate(session, "DROP TABLE " + tableName);
@@ -9360,7 +9354,7 @@ public abstract class BaseIcebergConnectorTest
         for (TypeCoercionTestSetup setup : typeCoercionOnCreateTableAsSelectProvider()) {
             try (TestTable testTable = newTrinoTable(
                     "test_coercion_show_create_table",
-                    format("AS SELECT %s a", setup.sourceValueLiteral))) {
+                    "AS SELECT %s a".formatted(setup.sourceValueLiteral))) {
                 assertThat(getColumnType(testTable.getName(), "a")).isEqualTo(setup.newColumnType);
                 assertThat(query("SELECT * FROM " + testTable.getName()))
                         .as("source value: %s, new type: %s, new value: %s", setup.sourceValueLiteral, setup.newColumnType, setup.newValueLiteral)
@@ -9376,7 +9370,7 @@ public abstract class BaseIcebergConnectorTest
         for (TypeCoercionTestSetup setup : typeCoercionOnCreateTableAsSelectProvider()) {
             try (TestTable testTable = newTrinoTable(
                     "test_coercion_show_create_table",
-                    format("AS SELECT %s a WITH NO DATA", setup.sourceValueLiteral))) {
+                    "AS SELECT %s a WITH NO DATA".formatted(setup.sourceValueLiteral))) {
                 assertThat(getColumnType(testTable.getName(), "a")).isEqualTo(setup.newColumnType);
             }
         }
@@ -9943,7 +9937,7 @@ public abstract class BaseIcebergConnectorTest
                     .setSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, "100ms")
                     .build();
             MaterializedResultWithPlan result = getQueryRunner().executeWithPlan(smallOptimizerTimeout, query);
-            fail(format("Expected query to fail: %s [QueryId: %s]", query, result.queryId()));
+            fail("Expected query to fail: %s [QueryId: %s]".formatted(query, result.queryId()));
         }
         catch (QueryFailedException e) {
             assertThat(e.getMessage()).contains("The optimizer exhausted the time limit");
@@ -9984,22 +9978,23 @@ public abstract class BaseIcebergConnectorTest
             // - float to double
             // - decimal(P,S) to decimal(P2,S) when P2 > P (scale cannot change)
             // https://iceberg.apache.org/docs/latest/spark-ddl/#alter-table--alter-column
-            case "tinyint -> smallint":
-            case "bigint -> integer":
-            case "bigint -> smallint":
-            case "bigint -> tinyint":
-            case "decimal(5,3) -> decimal(5,2)":
-            case "char(25) -> char(20)":
-            case "varchar -> char(20)":
-            case "time(6) -> time(3)":
-            case "timestamp(6) -> timestamp(3)":
-                // Iceberg cannot update map keys
-            case "map(integer, varchar) -> map(bigint, varchar)":
+            case "tinyint -> smallint",
+                 "bigint -> integer",
+                 "bigint -> smallint",
+                 "bigint -> tinyint",
+                 "decimal(5,3) -> decimal(5,2)",
+                 "char(25) -> char(20)",
+                 "varchar -> char(20)",
+                 "time(6) -> time(3)",
+                 "timestamp(6) -> timestamp(3)",
+                 // Iceberg cannot update map keys
+                 "map(integer, varchar) -> map(bigint, varchar)" -> {
                 return Optional.of(setup.asUnsupported());
-
+            }
             // Iceberg connector ignores the varchar length
-            case "varchar(100) -> varchar(50)":
+            case "varchar(100) -> varchar(50)" -> {
                 return Optional.empty();
+            }
         }
         return Optional.of(setup);
     }
@@ -10027,22 +10022,23 @@ public abstract class BaseIcebergConnectorTest
             // - float to double
             // - decimal(P,S) to decimal(P2,S) when P2 > P (scale cannot change)
             // https://iceberg.apache.org/docs/latest/spark-ddl/#alter-table--alter-column
-            case "tinyint -> smallint":
-            case "bigint -> integer":
-            case "bigint -> smallint":
-            case "bigint -> tinyint":
-            case "decimal(5,3) -> decimal(5,2)":
-            case "char(25) -> char(20)":
-            case "varchar -> char(20)":
-            case "time(6) -> time(3)":
-            case "timestamp(6) -> timestamp(3)":
-                // Iceberg cannot update map keys
-            case "map(integer, varchar) -> map(bigint, varchar)":
+            case "tinyint -> smallint",
+                 "bigint -> integer",
+                 "bigint -> smallint",
+                 "bigint -> tinyint",
+                 "decimal(5,3) -> decimal(5,2)",
+                 "char(25) -> char(20)",
+                 "varchar -> char(20)",
+                 "time(6) -> time(3)",
+                 "timestamp(6) -> timestamp(3)",
+                 // Iceberg cannot update map keys
+                 "map(integer, varchar) -> map(bigint, varchar)" -> {
                 return Optional.of(setup.asUnsupported());
-
+            }
             // Iceberg connector ignores the varchar length
-            case "varchar(100) -> varchar(50)":
+            case "varchar(100) -> varchar(50)" -> {
                 return Optional.empty();
+            }
         }
         return Optional.of(setup);
     }
@@ -10129,7 +10125,7 @@ public abstract class BaseIcebergConnectorTest
 
     private List<Long> getSnapshotIds(String tableName)
     {
-        return getQueryRunner().execute(format("SELECT snapshot_id FROM \"%s$snapshots\"", tableName))
+        return getQueryRunner().execute("SELECT snapshot_id FROM \"%s$snapshots\"".formatted(tableName))
                 .getOnlyColumn()
                 .map(Long.class::cast)
                 .collect(toImmutableList());
@@ -10137,7 +10133,7 @@ public abstract class BaseIcebergConnectorTest
 
     private List<Long> getTableHistory(String tableName)
     {
-        return getQueryRunner().execute(format("SELECT snapshot_id FROM \"%s$history\"", tableName))
+        return getQueryRunner().execute("SELECT snapshot_id FROM \"%s$history\"".formatted(tableName))
                 .getOnlyColumn()
                 .map(Long.class::cast)
                 .collect(toImmutableList());
@@ -10145,7 +10141,7 @@ public abstract class BaseIcebergConnectorTest
 
     private List<Long> getLatestSequenceNumbersInMetadataLogEntries(String tableName)
     {
-        return getQueryRunner().execute(format("SELECT latest_sequence_number FROM \"%s$metadata_log_entries\"", tableName))
+        return getQueryRunner().execute("SELECT latest_sequence_number FROM \"%s$metadata_log_entries\"".formatted(tableName))
                 .getOnlyColumn()
                 .map(Long.class::cast)
                 .collect(toImmutableList());
@@ -10168,7 +10164,7 @@ public abstract class BaseIcebergConnectorTest
 
     private long getCommittedAtInEpochMilliseconds(String tableName, long snapshotId)
     {
-        return ((ZonedDateTime) computeActual(format("SELECT committed_at FROM \"%s$snapshots\" WHERE snapshot_id=%s LIMIT 1", tableName, snapshotId)).getOnlyValue())
+        return ((ZonedDateTime) computeActual("SELECT committed_at FROM \"%s$snapshots\" WHERE snapshot_id=%s LIMIT 1".formatted(tableName, snapshotId)).getOnlyValue())
                 .toInstant().toEpochMilli();
     }
 
@@ -10182,7 +10178,7 @@ public abstract class BaseIcebergConnectorTest
     {
         int idField = 0;
         return getQueryRunner().execute(
-                        format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at", tableName))
+                        "SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at".formatted(tableName))
                 .getMaterializedRows().stream()
                 .map(row -> (Long) row.getField(idField))
                 .collect(toList());
@@ -10190,11 +10186,11 @@ public abstract class BaseIcebergConnectorTest
 
     private String getFieldFromLatestSnapshotSummary(String tableName, String summaryFieldName)
     {
-        return getQueryRunner().execute(format("SELECT json_extract_scalar(CAST(SUMMARY AS JSON), '$.%s') FROM \"%s$snapshots\" ORDER BY committed_at DESC LIMIT 1", summaryFieldName, tableName))
+        return getQueryRunner().execute("SELECT json_extract_scalar(CAST(SUMMARY AS JSON), '$.%s') FROM \"%s$snapshots\" ORDER BY committed_at DESC LIMIT 1".formatted(summaryFieldName, tableName))
                 .getOnlyColumn()
                 .map(String.class::cast)
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException(format("Table '%s' has zero snapshots or does not have the '%s' field in its snapshot summary.", tableName, summaryFieldName)));
+                .orElseThrow(() -> new IllegalStateException("Table '%s' has zero snapshots or does not have the '%s' field in its snapshot summary.".formatted(tableName, summaryFieldName)));
     }
 
     private QueryId executeWithQueryId(String sql)

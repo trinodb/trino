@@ -38,7 +38,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static java.lang.String.format;
 
 public class CsvRowEncoder
         extends AbstractRowEncoder
@@ -125,7 +124,7 @@ public class CsvRowEncoder
     public byte[] toByteArray()
     {
         // make sure entire row has been updated with new values
-        checkArgument(currentColumnIndex == columnHandles.size(), format("Missing %d columns", columnHandles.size() - currentColumnIndex + 1));
+        checkArgument(currentColumnIndex == columnHandles.size(), "Missing %d columns".formatted(columnHandles.size() - currentColumnIndex + 1));
 
         try (ByteArrayOutputStream byteArrayOuts = new ByteArrayOutputStream();
                 OutputStreamWriter outsWriter = new OutputStreamWriter(byteArrayOuts, StandardCharsets.UTF_8);

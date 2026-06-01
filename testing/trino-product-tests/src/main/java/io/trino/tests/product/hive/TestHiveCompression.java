@@ -25,7 +25,6 @@ import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.O
 import static io.trino.tests.product.TestGroups.HIVE_COMPRESSION;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveCompression
@@ -62,14 +61,13 @@ public class TestHiveCompression
     {
         String tableName = "table_hive_parquet_snappy";
         onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
-        onHive().executeQuery(format(
-                "CREATE TABLE %s (" +
-                        "   c_bigint BIGINT," +
-                        "   c_varchar VARCHAR(255))" +
-                        "STORED AS PARQUET " +
-                        "TBLPROPERTIES(\"parquet.compression\"=\"SNAPPY\")",
+        onHive().executeQuery(("CREATE TABLE %s (" +
+        "   c_bigint BIGINT," +
+        "   c_varchar VARCHAR(255))" +
+        "STORED AS PARQUET " +
+        "TBLPROPERTIES(\"parquet.compression\"=\"SNAPPY\")").formatted(
                 tableName));
-        onHive().executeQuery(format("INSERT INTO %s VALUES(1, 'test data')", tableName));
+        onHive().executeQuery("INSERT INTO %s VALUES(1, 'test data')".formatted(tableName));
 
         assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).containsExactlyInOrder(row(1, "test data"));
 
@@ -81,16 +79,15 @@ public class TestHiveCompression
     {
         String tableName = "table_trino_parquet_snappy";
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s (" +
-                        "   c_bigint BIGINT," +
-                        "   c_varchar VARCHAR(255))" +
-                        "WITH (format='PARQUET')",
+        onTrino().executeQuery(("CREATE TABLE %s (" +
+        "   c_bigint BIGINT," +
+        "   c_varchar VARCHAR(255))" +
+        "WITH (format='PARQUET')").formatted(
                 tableName));
 
         String catalog = (String) onTrino().executeQuery("SELECT CURRENT_CATALOG").getOnlyValue();
         onTrino().executeQuery("SET SESSION " + catalog + ".compression_codec = 'SNAPPY'");
-        onTrino().executeQuery(format("INSERT INTO %s VALUES(1, 'test data')", tableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES(1, 'test data')".formatted(tableName));
 
         assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).containsExactlyInOrder(row(1, "test data"));
         assertThat(onHive().executeQuery("SELECT * FROM " + tableName)).containsExactlyInOrder(row(1, "test data"));

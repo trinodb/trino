@@ -29,7 +29,6 @@ import static io.trino.tests.product.utils.MinioNotificationsAssertions.createNo
 import static io.trino.tests.product.utils.MinioNotificationsAssertions.deleteNotificationsTable;
 import static io.trino.tests.product.utils.MinioNotificationsAssertions.recordNotification;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -73,14 +72,14 @@ public abstract class BaseTestDeltaLakeMinioReads
     @Test(groups = {DELTA_LAKE_MINIO, PROFILE_SPECIFIC_TESTS})
     public void testReadRegionTable()
     {
-        onTrino().executeQuery(format("CALL delta.system.register_table('default', '%1$s', 's3://%2$s/%1$s')", tableName, BUCKET_NAME));
+        onTrino().executeQuery("CALL delta.system.register_table('default', '%1$s', 's3://%2$s/%1$s')".formatted(tableName, BUCKET_NAME));
 
         assertThat(onTrino().executeQuery(
-                format("SELECT count(name) FROM delta.default.\"%s\"", tableName)))
+                "SELECT count(name) FROM delta.default.\"%s\"".formatted(tableName)))
                 .containsOnly(row(5L));
 
         assertNotificationsCount(NOTIFICATIONS_TABLE, OBJECT_ACCESSED_HEAD, tableName + "/_delta_log/00000000000000000000.json", 1);
         assertNotificationsCount(NOTIFICATIONS_TABLE, OBJECT_ACCESSED_GET, tableName + "/_delta_log/00000000000000000000.json", 1);
-        onTrino().executeQuery(format("DROP TABLE delta.default.\"%s\"", tableName));
+        onTrino().executeQuery("DROP TABLE delta.default.\"%s\"".formatted(tableName));
     }
 }

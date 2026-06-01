@@ -47,7 +47,6 @@ import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.VALU
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.Math.multiplyExact;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG;
@@ -93,8 +92,8 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         String topic = "topic-basic-MixedCase-" + randomNameSuffix();
         assertTopic(
                 topic,
-                format("SELECT col_1, col_2 FROM %s", toDoubleQuoted(topic)),
-                format("SELECT col_1, col_2, col_3 FROM %s", toDoubleQuoted(topic)),
+                "SELECT col_1, col_2 FROM %s".formatted(toDoubleQuoted(topic)),
+                "SELECT col_1, col_2, col_3 FROM %s".formatted(toDoubleQuoted(topic)),
                 false,
                 schemaRegistryAwareProducer(testingKafka)
                         .put(KEY_SERIALIZER_CLASS_CONFIG, LongSerializer.class.getName())
@@ -108,8 +107,8 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         String topic = "topic-Key-Subject-" + randomNameSuffix();
         assertTopic(
                 topic,
-                format("SELECT \"%s-key\", col_1, col_2 FROM %s", topic, toDoubleQuoted(topic)),
-                format("SELECT \"%s-key\", col_1, col_2, col_3 FROM %s", topic, toDoubleQuoted(topic)),
+                "SELECT \"%s-key\", col_1, col_2 FROM %s".formatted(topic, toDoubleQuoted(topic)),
+                "SELECT \"%s-key\", col_1, col_2, col_3 FROM %s".formatted(topic, toDoubleQuoted(topic)),
                 true,
                 schemaRegistryAwareProducer(testingKafka)
                         .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
@@ -140,7 +139,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
 
         // tombstone message should have message corrupt field - true
         QueryAssertions queryAssertions = new QueryAssertions(getQueryRunner());
-        queryAssertions.query(format("SELECT \"%s-key\", col_1, col_2, _message_corrupt FROM %s", topicName, toDoubleQuoted(topicName)))
+        queryAssertions.query("SELECT \"%s-key\", col_1, col_2, _message_corrupt FROM %s".formatted(topicName, toDoubleQuoted(topicName)))
                 .assertThat()
                 .containsAll("VALUES (CAST(0 as bigint), CAST(0 as bigint), VARCHAR 'string-0', false), (CAST(1 as bigint), CAST(100 as bigint), VARCHAR 'string-1', false), (CAST(1 as bigint), null, null, true)");
     }
@@ -171,7 +170,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
 
         // simple all null values message should have message corrupt field - false
         QueryAssertions queryAssertions = new QueryAssertions(getQueryRunner());
-        queryAssertions.query(format("SELECT \"%s-key\", col_1, col_2, _message_corrupt FROM %s", topicName, toDoubleQuoted(topicName)))
+        queryAssertions.query("SELECT \"%s-key\", col_1, col_2, _message_corrupt FROM %s".formatted(topicName, toDoubleQuoted(topicName)))
                 .assertThat()
                 .containsAll("VALUES (CAST(0 as bigint), CAST(0 as bigint), VARCHAR 'string-0', false), (CAST(1 as bigint), CAST(100 as bigint), VARCHAR 'string-1', false), (CAST(1 as bigint), null, null, false)");
     }
@@ -182,8 +181,8 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         String topic = "topic-Record-Name-Strategy-" + randomNameSuffix();
         assertTopic(
                 topic,
-                format("SELECT \"%1$s-key\", col_1, col_2 FROM \"%1$s&value-subject=%2$s\"", topic, RECORD_NAME),
-                format("SELECT \"%1$s-key\", col_1, col_2, col_3 FROM \"%1$s&value-subject=%2$s\"", topic, RECORD_NAME),
+                "SELECT \"%1$s-key\", col_1, col_2 FROM \"%1$s&value-subject=%2$s\"".formatted(topic, RECORD_NAME),
+                "SELECT \"%1$s-key\", col_1, col_2, col_3 FROM \"%1$s&value-subject=%2$s\"".formatted(topic, RECORD_NAME),
                 true,
                 schemaRegistryAwareProducer(testingKafka)
                         .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
@@ -198,8 +197,8 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         String topic = "topic-Topic-Record-Name-Strategy-" + randomNameSuffix();
         assertTopic(
                 topic,
-                format("SELECT \"%1$s-key\", col_1, col_2 FROM \"%1$s&value-subject=%1$s-%2$s\"", topic, RECORD_NAME),
-                format("SELECT \"%1$s-key\", col_1, col_2, col_3 FROM \"%1$s&value-subject=%1$s-%2$s\"", topic, RECORD_NAME),
+                "SELECT \"%1$s-key\", col_1, col_2 FROM \"%1$s&value-subject=%1$s-%2$s\"".formatted(topic, RECORD_NAME),
+                "SELECT \"%1$s-key\", col_1, col_2, col_3 FROM \"%1$s&value-subject=%1$s-%2$s\"".formatted(topic, RECORD_NAME),
                 true,
                 schemaRegistryAwareProducer(testingKafka)
                         .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
@@ -225,7 +224,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
 
         waitUntilTableExists(topicName);
 
-        assertThatThrownBy(() -> getQueryRunner().execute(format("INSERT INTO %s VALUES(0, 0, '')", toDoubleQuoted(topicName))))
+        assertThatThrownBy(() -> getQueryRunner().execute("INSERT INTO %s VALUES(0, 0, '')".formatted(toDoubleQuoted(topicName))))
                 .hasMessage("Insert not supported");
     }
 
@@ -251,7 +250,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 .hasMessage(errorMessage);
         assertThatThrownBy(() -> getQueryRunner().execute("SELECT * FROM " + toDoubleQuoted(topicName)))
                 .hasMessage(errorMessage);
-        assertThatThrownBy(() -> getQueryRunner().execute(format("INSERT INTO %s VALUES(0, 0, '')", toDoubleQuoted(topicName))))
+        assertThatThrownBy(() -> getQueryRunner().execute("INSERT INTO %s VALUES(0, 0, '')".formatted(toDoubleQuoted(topicName))))
                 .hasMessage(errorMessage);
     }
 
@@ -299,12 +298,12 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
             ImmutableList.Builder<String> columnsBuilder = ImmutableList.builder();
 
             if (isKeyIncluded) {
-                columnsBuilder.add(format("CAST(%s as bigint)", message.key()));
+                columnsBuilder.add("CAST(%s as bigint)".formatted(message.key()));
             }
 
             addExpectedColumns(schema, message.value(), columnsBuilder);
 
-            rowsBuilder.add(format("(%s)", String.join(", ", columnsBuilder.build())));
+            rowsBuilder.add("(%s)".formatted(String.join(", ", columnsBuilder.build())));
         }
         valuesBuilder.append(String.join(", ", rowsBuilder.build()));
         return valuesBuilder.toString();
@@ -324,11 +323,11 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
             }
             else if (field.schema().getType().equals(Schema.Type.STRING)
                     || (field.schema().getType().equals(Schema.Type.UNION) && field.schema().getTypes().contains(Schema.create(Schema.Type.STRING)))) {
-                columnsBuilder.add(format("VARCHAR '%s'", value));
+                columnsBuilder.add("VARCHAR '%s'".formatted(value));
             }
             else if (field.schema().getType().equals(Schema.Type.LONG)
                     || (field.schema().getType().equals(Schema.Type.UNION) && field.schema().getTypes().contains(Schema.create(Schema.Type.LONG)))) {
-                columnsBuilder.add(format("CAST(%s AS bigint)", value));
+                columnsBuilder.add("CAST(%s AS bigint)".formatted(value));
             }
             else {
                 throw new IllegalArgumentException("Unsupported field: " + field);
@@ -375,8 +374,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
 
     private boolean schemaExists()
     {
-        return getQueryRunner().execute(format(
-                        "SHOW SCHEMAS FROM %s LIKE '%s'",
+        return getQueryRunner().execute("SHOW SCHEMAS FROM %s LIKE '%s'".formatted(
                         getSession().getCatalog().orElseThrow(),
                         getSession().getSchema().orElseThrow()))
                 .getRowCount() == 1;
@@ -384,7 +382,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
 
     private boolean tableExists(String tableName)
     {
-        return getQueryRunner().execute(format("SHOW TABLES LIKE '%s'", tableName.toLowerCase(ENGLISH))).getRowCount() == 1;
+        return getQueryRunner().execute("SHOW TABLES LIKE '%s'".formatted(tableName.toLowerCase(ENGLISH))).getRowCount() == 1;
     }
 
     private void assertCount(String tableName, long count)
@@ -394,13 +392,13 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
 
     private static String toDoubleQuoted(String tableName)
     {
-        return format("\"%s\"", tableName);
+        return "\"%s\"".formatted(tableName);
     }
 
     private static String toSingleQuoted(Object value)
     {
         requireNonNull(value, "value is null");
-        return format("'%s'", value);
+        return "'%s'".formatted(value);
     }
 
     private static List<ProducerRecord<Long, GenericRecord>> createMessages(String topicName, int messageCount, boolean useInitialSchema)
@@ -423,7 +421,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     {
         return new GenericRecordBuilder(INITIAL_SCHEMA)
                 .set("col_1", multiplyExact(key, 100))
-                .set("col_2", format("string-%s", key))
+                .set("col_2", "string-%s".formatted(key))
                 .build();
     }
 
@@ -431,7 +429,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     {
         return new GenericRecordBuilder(EVOLVED_SCHEMA)
                 .set("col_1", multiplyExact(key, 100))
-                .set("col_2", format("string-%s", key))
+                .set("col_2", "string-%s".formatted(key))
                 .set("col_3", (key + 10.1d) / 10.0d)
                 .build();
     }

@@ -32,7 +32,6 @@ import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CR
 import static io.trino.tests.product.TestGroups.JDBC;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.DOUBLE;
 import static java.util.Locale.ENGLISH;
@@ -95,7 +94,7 @@ public class TestHiveCoercionOnPartitionedTable
 
     private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionBuilder(String fileFormat, Optional<String> recommendTableName, Optional<String> rowFormat)
     {
-        String tableName = format("%s_hive_coercion_partitioned", recommendTableName.orElse(fileFormat).toLowerCase(ENGLISH));
+        String tableName = "%s_hive_coercion_partitioned".formatted(recommendTableName.orElse(fileFormat).toLowerCase(ENGLISH));
         String varcharTypeForBooleanCoercion = fileFormat.toLowerCase(ENGLISH).contains("orc") ? "VARCHAR(5)" : "STRING";
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("" +
@@ -207,13 +206,13 @@ public class TestHiveCoercionOnPartitionedTable
                         "    binary_to_smaller_varchar          BINARY" +
                         ") " +
                         "PARTITIONED BY (id BIGINT) " +
-                        rowFormat.map(s -> format("ROW FORMAT %s ", s)).orElse("") +
+                        rowFormat.map(s -> "ROW FORMAT %s ".formatted(s)).orElse("") +
                         "STORED AS " + fileFormat);
     }
 
     private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionForTimestampCoercionBuilder(String fileFormat, Optional<String> tablePrefix, Optional<String> rowFormat)
     {
-        String tableName = format("%s_hive_timestamp_coercion_partitioned", tablePrefix.orElse(fileFormat).toLowerCase(ENGLISH));
+        String tableName = "%s_hive_timestamp_coercion_partitioned".formatted(tablePrefix.orElse(fileFormat).toLowerCase(ENGLISH));
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("" +
                         "CREATE TABLE %NAME%(" +
@@ -225,7 +224,7 @@ public class TestHiveCoercionOnPartitionedTable
                         "    timestamp_to_date                    TIMESTAMP" +
                         ") " +
                         "PARTITIONED BY (id BIGINT) " +
-                        rowFormat.map(s -> format("ROW FORMAT %s ", s)).orElse("") +
+                        rowFormat.map(s -> "ROW FORMAT %s ".formatted(s)).orElse("") +
                         "STORED AS " + fileFormat);
     }
 
@@ -413,16 +412,15 @@ public class TestHiveCoercionOnPartitionedTable
     {
         String tableName = mutableTableInstanceOf(HIVE_COERCION_AVRO).getNameInDatabase();
 
-        onHive().executeQuery(format(
-                "INSERT INTO TABLE %s " +
-                        "PARTITION (id=1) " +
-                        "VALUES" +
-                        "(2323, 0.5)," +
-                        "(-2323, -1.5)",
+        onHive().executeQuery(("INSERT INTO TABLE %s " +
+        "PARTITION (id=1) " +
+        "VALUES" +
+        "(2323, 0.5)," +
+        "(-2323, -1.5)").formatted(
                 tableName));
 
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN int_to_bigint int_to_bigint bigint", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_double float_to_double double", tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN int_to_bigint int_to_bigint bigint".formatted(tableName));
+        onHive().executeQuery("ALTER TABLE %s CHANGE COLUMN float_to_double float_to_double double".formatted(tableName));
 
         assertThat(onTrino().executeQuery("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
                 row("int_to_bigint", "bigint"),

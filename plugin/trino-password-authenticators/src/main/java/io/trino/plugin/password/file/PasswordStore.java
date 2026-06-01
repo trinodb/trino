@@ -35,7 +35,6 @@ import static io.trino.plugin.password.file.EncryptionUtil.doesPBKDF2PasswordMat
 import static io.trino.plugin.password.file.EncryptionUtil.getHashingAlgorithm;
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_UNAVAILABLE;
-import static java.lang.String.format;
 
 public class PasswordStore
 {
@@ -99,7 +98,7 @@ public class PasswordStore
 
     private static RuntimeException invalidFile(int lineNumber, String message, Throwable cause)
     {
-        return new TrinoException(CONFIGURATION_INVALID, format("Error in password file line %s: %s", lineNumber, message), cause);
+        return new TrinoException(CONFIGURATION_INVALID, "Error in password file line %s: %s".formatted(lineNumber, message), cause);
     }
 
     private static List<String> readPasswordFile(File file)

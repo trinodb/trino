@@ -16,7 +16,6 @@ package io.trino.spi.statistics;
 import java.util.Objects;
 import java.util.Optional;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class ColumnStatistics
@@ -42,16 +41,16 @@ public final class ColumnStatistics
         this.nullsFraction = requireNonNull(nullsFraction, "nullsFraction is null");
         if (!nullsFraction.isUnknown()) {
             if (nullsFraction.getValue() < 0 || nullsFraction.getValue() > 1) {
-                throw new IllegalArgumentException(format("nullsFraction must be between 0 and 1: %s", nullsFraction.getValue()));
+                throw new IllegalArgumentException("nullsFraction must be between 0 and 1: %s".formatted(nullsFraction.getValue()));
             }
         }
         this.distinctValuesCount = requireNonNull(distinctValuesCount, "distinctValuesCount is null");
         if (!distinctValuesCount.isUnknown() && distinctValuesCount.getValue() < 0) {
-            throw new IllegalArgumentException(format("distinctValuesCount must be greater than or equal to 0: %s", distinctValuesCount.getValue()));
+            throw new IllegalArgumentException("distinctValuesCount must be greater than or equal to 0: %s".formatted(distinctValuesCount.getValue()));
         }
         this.dataSize = requireNonNull(dataSize, "dataSize is null");
         if (!dataSize.isUnknown() && dataSize.getValue() < 0) {
-            throw new IllegalArgumentException(format("dataSize must be greater than or equal to 0: %s", dataSize.getValue()));
+            throw new IllegalArgumentException("dataSize must be greater than or equal to 0: %s".formatted(dataSize.getValue()));
         }
         this.range = requireNonNull(range, "range is null");
     }

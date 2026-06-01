@@ -24,7 +24,6 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -106,8 +105,7 @@ public class TestHiveS3MinioQueries
     {
         String tableName = "test_path_special_character" + randomNameSuffix();
         String location = "s3://%s/%s/".formatted(bucketName, tableName);
-        assertUpdate(format(
-                "CREATE TABLE %s (id bigint, part varchar) WITH (partitioned_by = ARRAY['part'], external_location='%s')",
+        assertUpdate("CREATE TABLE %s (id bigint, part varchar) WITH (partitioned_by = ARRAY['part'], external_location='%s')".formatted(
                 tableName,
                 location));
 

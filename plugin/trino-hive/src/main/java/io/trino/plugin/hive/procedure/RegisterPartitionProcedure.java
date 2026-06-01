@@ -52,7 +52,6 @@ import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
@@ -133,7 +132,7 @@ public class RegisterPartitionProcedure
             Optional<Partition> partition = metastore.unsafeGetRawHiveMetastore().getPartition(table, partitionValues);
             if (partition.isPresent()) {
                 String partitionName = makePartName(partitionColumns, partitionValues);
-                throw new TrinoException(ALREADY_EXISTS, format("Partition [%s] is already registered with location %s", partitionName, partition.get().getStorage().getLocation()));
+                throw new TrinoException(ALREADY_EXISTS, "Partition [%s] is already registered with location %s".formatted(partitionName, partition.get().getStorage().getLocation()));
             }
 
             Location partitionLocation = Optional.ofNullable(location)

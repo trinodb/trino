@@ -30,7 +30,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
 import static io.trino.spi.block.ColumnarMap.toColumnarMap;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class ColumnStatisticsValidation
@@ -99,7 +98,7 @@ class ColumnStatisticsValidation
             mergedColumnStatistics = columnStatistics.merge(addRowBlock(block));
         }
         else {
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported type: %s", type));
+            throw new TrinoException(NOT_SUPPORTED, "Unsupported type: %s".formatted(type));
         }
 
         for (int i = 0; i < fieldBuilders.size(); i++) {

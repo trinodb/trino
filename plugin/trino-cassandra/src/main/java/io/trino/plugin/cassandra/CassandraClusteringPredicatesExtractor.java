@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.cassandra.util.CassandraCqlUtils;
@@ -26,7 +25,6 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -88,8 +86,7 @@ public class CassandraClusteringPredicatesExtractor
                             }
                             if (discreteValues.getValuesCount() == 1) {
                                 fullyPushedColumnPredicates.add(columnHandle);
-                                return format(
-                                        "%s = %s",
+                                return "%s = %s".formatted(
                                         CassandraCqlUtils.validColumnName(columnHandle.name()),
                                         toCqlLiteral(columnHandle, getOnlyElement(discreteValues.getValues())));
                             }
@@ -115,7 +112,7 @@ public class CassandraClusteringPredicatesExtractor
         }
         List<String> clusteringColumnPredicates = clusteringColumnSql.build();
 
-        return new ClusteringPushDownResult(fullyPushedColumnPredicates.build(), Joiner.on(" AND ").join(clusteringColumnPredicates));
+        return new ClusteringPushDownResult(fullyPushedColumnPredicates.build(), String.join(" AND ", clusteringColumnPredicates));
     }
 
     private String toCqlLiteral(CassandraColumnHandle columnHandle, Object value)
@@ -134,8 +131,7 @@ public class CassandraClusteringPredicatesExtractor
             return null;
         }
         if (range.isSingleValue()) {
-            return format(
-                    "%s = %s",
+            return "%s = %s".formatted(
                     CassandraCqlUtils.validColumnName(columnHandle.name()),
                     toCqlLiteral(columnHandle, range.getSingleValue()));
         }
@@ -144,22 +140,20 @@ public class CassandraClusteringPredicatesExtractor
         String upperBoundPredicate = null;
         if (!range.isLowUnbounded()) {
             String lowBound = toCqlLiteral(columnHandle, range.getLowBoundedValue());
-            lowerBoundPredicate = format(
-                    "%s %s %s",
+            lowerBoundPredicate = "%s %s %s".formatted(
                     CassandraCqlUtils.validColumnName(columnHandle.name()),
                     range.isLowInclusive() ? ">=" : ">",
                     lowBound);
         }
         if (!range.isHighUnbounded()) {
             String highBound = toCqlLiteral(columnHandle, range.getHighBoundedValue());
-            upperBoundPredicate = format(
-                    "%s %s %s",
+            upperBoundPredicate = "%s %s %s".formatted(
                     CassandraCqlUtils.validColumnName(columnHandle.name()),
                     range.isHighInclusive() ? "<=" : "<",
                     highBound);
         }
         if (lowerBoundPredicate != null && upperBoundPredicate != null) {
-            return format("%s AND %s ", lowerBoundPredicate, upperBoundPredicate);
+            return "%s AND %s ".formatted(lowerBoundPredicate, upperBoundPredicate);
         }
         if (lowerBoundPredicate != null) {
             return lowerBoundPredicate;

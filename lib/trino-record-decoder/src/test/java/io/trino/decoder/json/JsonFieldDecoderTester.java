@@ -29,9 +29,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.decoder.util.DecoderTestUtil.TESTING_SESSION;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -69,7 +67,7 @@ public class JsonFieldDecoderTester
         checkArgument(type.getJavaType() == long.class, "Wrong (not long based) Trino type '%s'", type);
         FieldValueProvider decodedValue = decode(Optional.of(jsonValue), type);
         assertThat(decodedValue.isNull())
-                .describedAs(format("expected non null when decoding %s as %s", jsonValue, type))
+                .describedAs("expected non null when decoding %s as %s".formatted(jsonValue, type))
                 .isFalse();
         assertThat(decodedValue.getLong()).isEqualTo(expectedValue);
     }
@@ -79,7 +77,7 @@ public class JsonFieldDecoderTester
         checkArgument(type.getJavaType() == double.class, "Wrong (not double based) Trino type '%s'", type);
         FieldValueProvider decodedValue = decode(Optional.of(jsonValue), type);
         assertThat(decodedValue.isNull())
-                .describedAs(format("expected non null when decoding %s as %s", jsonValue, type))
+                .describedAs("expected non null when decoding %s as %s".formatted(jsonValue, type))
                 .isFalse();
         assertThat(decodedValue.getDouble()).isEqualTo(expectedValue);
     }
@@ -89,7 +87,7 @@ public class JsonFieldDecoderTester
         checkArgument(type.getJavaType() == Slice.class, "Wrong (not Slice based) Trino type '%s'", type);
         FieldValueProvider decodedValue = decode(Optional.of(jsonValue), type);
         assertThat(decodedValue.isNull())
-                .describedAs(format("expected non null when decoding %s as %s", jsonValue, type))
+                .describedAs("expected non null when decoding %s as %s".formatted(jsonValue, type))
                 .isFalse();
         assertThat(decodedValue.getSlice()).isEqualTo(expectedValue);
     }
@@ -99,7 +97,7 @@ public class JsonFieldDecoderTester
         checkArgument(type.getJavaType() == boolean.class, "Wrong (not boolean based) Trino type '%s'", type);
         FieldValueProvider decodedValue = decode(Optional.of(jsonValue), type);
         assertThat(decodedValue.isNull())
-                .describedAs(format("expected non null when decoding %s as %s", jsonValue, type))
+                .describedAs("expected non null when decoding %s as %s".formatted(jsonValue, type))
                 .isFalse();
         assertThat(decodedValue.getBoolean()).isEqualTo(expectedValue);
     }
@@ -108,7 +106,7 @@ public class JsonFieldDecoderTester
     {
         FieldValueProvider decodedValue = decode(Optional.of(jsonValue), type);
         assertThat(decodedValue.isNull())
-                .describedAs(format("expected null when decoding %s as %s", jsonValue, type))
+                .describedAs("expected null when decoding %s as %s".formatted(jsonValue, type))
                 .isTrue();
     }
 
@@ -116,7 +114,7 @@ public class JsonFieldDecoderTester
     {
         FieldValueProvider decodedValue = decode(Optional.empty(), type);
         assertThat(decodedValue.isNull())
-                .describedAs(format("expected null when decoding missing field as %s", type))
+                .describedAs("expected null when decoding missing field as %s".formatted(type))
                 .isTrue();
     }
 
@@ -130,7 +128,7 @@ public class JsonFieldDecoderTester
     private FieldValueProvider decode(Optional<String> jsonValue, Type type)
     {
         String jsonField = "value";
-        String json = jsonValue.map(value -> format("{\"%s\":%s}", jsonField, value)).orElse("{}");
+        String json = jsonValue.map(value -> "{\"%s\":%s}".formatted(jsonField, value)).orElse("{}");
         DecoderTestColumnHandle columnHandle = new DecoderTestColumnHandle(
                 0,
                 "some_column",
@@ -142,7 +140,7 @@ public class JsonFieldDecoderTester
                 false,
                 false);
 
-        RowDecoder rowDecoder = DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(JsonRowDecoder.NAME, emptyMap(), ImmutableSet.of(columnHandle)));
+        RowDecoder rowDecoder = DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(JsonRowDecoder.NAME, Map.of(), ImmutableSet.of(columnHandle)));
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json.getBytes(UTF_8))
                 .orElseThrow(AssertionError::new);
         assertThat(decodedRow).containsKey(columnHandle);

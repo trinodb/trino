@@ -97,7 +97,6 @@ import static io.trino.sql.planner.plan.Patterns.join;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.util.SpatialJoinUtils.extractSupportedSpatialComparisons;
 import static io.trino.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -447,7 +446,7 @@ public class ExtractSpatialJoins
     {
         QualifiedObjectName name = toQualifiedObjectName(tableName, session.getCatalog().get(), session.getSchema().get());
         TableHandle tableHandle = metadata.getTableHandle(session, name)
-                .orElseThrow(() -> new TrinoException(INVALID_SPATIAL_PARTITIONING, format("Table not found: %s", name)));
+                .orElseThrow(() -> new TrinoException(INVALID_SPATIAL_PARTITIONING, "Table not found: %s".formatted(name)));
         Optional<ConnectorTableCredentials> tableCredentials = metadata.getTableCredentials(session, tableHandle.catalogHandle(), tableHandle.connectorHandle());
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
         List<ColumnHandle> visibleColumnHandles = columnHandles.values().stream()
@@ -502,7 +501,7 @@ public class ExtractSpatialJoins
     private static void checkSpatialPartitioningTable(boolean condition, String message, Object... arguments)
     {
         if (!condition) {
-            throw new TrinoException(INVALID_SPATIAL_PARTITIONING, format(message, arguments));
+            throw new TrinoException(INVALID_SPATIAL_PARTITIONING, message.formatted(arguments));
         }
     }
 
@@ -521,7 +520,7 @@ public class ExtractSpatialJoins
             return new QualifiedObjectName(catalog, schema, ids.get(0));
         }
 
-        throw new TrinoException(INVALID_SPATIAL_PARTITIONING, format("Invalid name: %s", name));
+        throw new TrinoException(INVALID_SPATIAL_PARTITIONING, "Invalid name: %s".formatted(name));
     }
 
     private static int checkAlignment(JoinNode joinNode, Set<Symbol> maybeLeftSymbols, Set<Symbol> maybeRightSymbols)

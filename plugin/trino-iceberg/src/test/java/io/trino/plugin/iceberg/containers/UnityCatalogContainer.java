@@ -46,7 +46,6 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Objects.requireNonNull;
@@ -218,7 +217,7 @@ public class UnityCatalogContainer
 
         int status = response.getStatusCode();
         if (status != HttpStatus.OK.code()) {
-            throw new IllegalStateException(format("Request '%s' returned unexpected status code: '%d'", request, status));
+            throw new IllegalStateException("Request '%s' returned unexpected status code: '%d'".formatted(request, status));
         }
     }
 }

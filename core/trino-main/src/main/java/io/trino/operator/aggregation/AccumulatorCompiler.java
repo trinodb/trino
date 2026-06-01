@@ -82,7 +82,6 @@ import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class AccumulatorCompiler
@@ -344,7 +343,7 @@ public final class AccumulatorCompiler
         }
         catch (ReflectiveOperationException _) {
         }
-        throw new RuntimeException(format("Window accumulator class %s does not have a constructor with a single List argument or a no-argument constructor", windowAccumulator.getName()));
+        throw new RuntimeException("Window accumulator class %s does not have a constructor with a single List argument or a no-argument constructor".formatted(windowAccumulator.getName()));
     }
 
     private static void generateWindowAccumulatorConstructor(
@@ -726,7 +725,7 @@ public final class AccumulatorCompiler
         Variable position = scope.declareVariable(int.class, "position");
         for (int i = 0; i < stateCount; i++) {
             FieldDefinition stateFactoryField = stateFieldAndDescriptors.get(i).getStateFactoryField();
-            body.comment(format("scratchState_%s = stateFactory[%s].createSingleState();", i, i))
+            body.comment("scratchState_%s = stateFactory[%s].createSingleState();".formatted(i, i))
                     .append(thisVariable.getField(stateFactoryField))
                     .invokeInterface(AccumulatorStateFactory.class, "createSingleState", AccumulatorState.class)
                     .checkCast(scratchStates.get(i).getType())

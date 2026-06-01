@@ -34,7 +34,6 @@ import static io.trino.type.DateTimes.PICOSECONDS_PER_DAY;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_MINUTE;
 import static io.trino.type.DateTimes.getOffsetMinutes;
 import static java.lang.Math.floorMod;
-import static java.lang.String.format;
 
 @ScalarFunction(value = "$at_timezone", hidden = true)
 public final class AtTimeZone
@@ -53,7 +52,7 @@ public final class AtTimeZone
             zoneKey = getTimeZoneKey(zoneId.toStringUtf8());
         }
         catch (TimeZoneNotSupportedException e) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'%s' is not a valid time zone".formatted(zoneId));
         }
 
         int offsetMinutes = getOffsetMinutes(session.getStart(), zoneKey);
@@ -73,7 +72,7 @@ public final class AtTimeZone
             zoneKey = getTimeZoneKey(zoneId.toStringUtf8());
         }
         catch (TimeZoneNotSupportedException e) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'%s' is not a valid time zone".formatted(zoneId));
         }
 
         int offsetMinutes = getOffsetMinutes(session.getStart(), zoneKey);

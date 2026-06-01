@@ -72,7 +72,6 @@ import static java.lang.Character.MIN_RADIX;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.lang.runtime.ExactConversionsSupport.isLongToByteExact;
 import static java.lang.runtime.ExactConversionsSupport.isLongToIntExact;
 import static java.lang.runtime.ExactConversionsSupport.isLongToShortExact;
@@ -1497,7 +1496,7 @@ public final class MathFunctions
             return Long.parseLong(value.toStringUtf8(), (int) radix);
         }
         catch (NumberFormatException e) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Not a valid base-%d number: %s", radix, value.toStringUtf8()), e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Not a valid base-%d number: %s".formatted(radix, value.toStringUtf8()), e);
         }
     }
 
@@ -1534,7 +1533,7 @@ public final class MathFunctions
                 result = Math.addExact(bucketCount, 1);
             }
             catch (ArithmeticException e) {
-                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Bucket for value %s is out of range", operand));
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Bucket for value %s is out of range".formatted(operand));
             }
         }
         else {

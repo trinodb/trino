@@ -61,7 +61,6 @@ import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.airlift.concurrent.MoreFutures.getDone;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.memory.context.CoarseGrainLocalMemoryContext.DEFAULT_GRANULARITY;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -405,7 +404,7 @@ public class HashBuilderOperator
             return immediateVoidFuture();
         }
 
-        throw new IllegalStateException(format("State %s cannot have revocable memory, but has %s revocable bytes", state, operatorContext.getReservedRevocableBytes()));
+        throw new IllegalStateException("State %s cannot have revocable memory, but has %s revocable bytes".formatted(state, operatorContext.getReservedRevocableBytes()));
     }
 
     private ListenableFuture<Void> spillIndex()

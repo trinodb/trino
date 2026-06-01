@@ -23,7 +23,6 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseTestTableFormats
@@ -35,14 +34,13 @@ public abstract class BaseTestTableFormats
     {
         String tableName = "nation_" + randomNameSuffix();
         String tableLocation = schemaLocation + "/" + tableName;
-        onTrino().executeQuery(format(
-                "CREATE TABLE %1$s.default.%2$s WITH (location = '%3$s/%2$s') AS SELECT * FROM tpch.tiny.nation",
+        onTrino().executeQuery("CREATE TABLE %1$s.default.%2$s WITH (location = '%3$s/%2$s') AS SELECT * FROM tpch.tiny.nation".formatted(
                 getCatalogName(),
                 tableName,
                 tableLocation));
 
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %1$s.default.%2$s", getCatalogName(), tableName))).containsOnly(row(25));
-        onTrino().executeQuery(format("DROP TABLE %1$s.default.%2$s", getCatalogName(), tableName));
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %1$s.default.%2$s".formatted(getCatalogName(), tableName))).containsOnly(row(25));
+        onTrino().executeQuery("DROP TABLE %1$s.default.%2$s".formatted(getCatalogName(), tableName));
     }
 
     protected void testBasicWriteOperations(String schemaLocation)
@@ -50,31 +48,30 @@ public abstract class BaseTestTableFormats
         String tableName = "table_write_operations_" + randomNameSuffix();
         String tableLocation = schemaLocation + "/" + tableName;
 
-        onTrino().executeQuery(format(
-                "CREATE TABLE %1$s.default.%2$s (a_bigint bigint, a_varchar varchar) WITH (location = '%3$s/%2$s')",
+        onTrino().executeQuery("CREATE TABLE %1$s.default.%2$s (a_bigint bigint, a_varchar varchar) WITH (location = '%3$s/%2$s')".formatted(
                 getCatalogName(),
                 tableName,
                 tableLocation));
 
-        onTrino().executeQuery(format("INSERT INTO %1$s.default.%2$s VALUES (1, 'hello world')".formatted(getCatalogName(), tableName)));
-        assertThat(onTrino().executeQuery(format("SELECT * FROM %1$s.default.%2$s", getCatalogName(), tableName))).containsOnly(row(1L, "hello world"));
+        onTrino().executeQuery("INSERT INTO %1$s.default.%2$s VALUES (1, 'hello world')".formatted(getCatalogName(), tableName).formatted());
+        assertThat(onTrino().executeQuery("SELECT * FROM %1$s.default.%2$s".formatted(getCatalogName(), tableName))).containsOnly(row(1L, "hello world"));
 
-        onTrino().executeQuery(format("UPDATE %1$s.default.%2$s SET a_varchar = 'hallo Welt' WHERE a_bigint = 1".formatted(getCatalogName(), tableName)));
-        assertThat(onTrino().executeQuery(format("SELECT * FROM %1$s.default.%2$s", getCatalogName(), tableName))).containsOnly(row(1L, "hallo Welt"));
+        onTrino().executeQuery("UPDATE %1$s.default.%2$s SET a_varchar = 'hallo Welt' WHERE a_bigint = 1".formatted(getCatalogName(), tableName).formatted());
+        assertThat(onTrino().executeQuery("SELECT * FROM %1$s.default.%2$s".formatted(getCatalogName(), tableName))).containsOnly(row(1L, "hallo Welt"));
 
-        onTrino().executeQuery(format("DELETE FROM %1$s.default.%2$s WHERE a_bigint = 1".formatted(getCatalogName(), tableName)));
-        assertThat(onTrino().executeQuery(format("SELECT * FROM %1$s.default.%2$s", getCatalogName(), tableName))).hasNoRows();
-        onTrino().executeQuery(format("DROP TABLE %1$s.default.%2$s", getCatalogName(), tableName));
+        onTrino().executeQuery("DELETE FROM %1$s.default.%2$s WHERE a_bigint = 1".formatted(getCatalogName(), tableName).formatted());
+        assertThat(onTrino().executeQuery("SELECT * FROM %1$s.default.%2$s".formatted(getCatalogName(), tableName))).hasNoRows();
+        onTrino().executeQuery("DROP TABLE %1$s.default.%2$s".formatted(getCatalogName(), tableName));
     }
 
     protected void testCreateAndInsertTable(String schemaLocation)
     {
         String tableName = "table_write_operations_" + randomNameSuffix();
-        onTrino().executeQuery(format("CREATE SCHEMA %s.test WITH (location = '%s')", getCatalogName(), schemaLocation));
+        onTrino().executeQuery("CREATE SCHEMA %s.test WITH (location = '%s')".formatted(getCatalogName(), schemaLocation));
         try {
-            onTrino().executeQuery(format("CREATE TABLE %s.test.%s (a_bigint bigint, a_varchar varchar)", getCatalogName(), tableName));
+            onTrino().executeQuery("CREATE TABLE %s.test.%s (a_bigint bigint, a_varchar varchar)".formatted(getCatalogName(), tableName));
 
-            onTrino().executeQuery(format("INSERT INTO %s.test.%s VALUES (1, 'hello world')".formatted(getCatalogName(), tableName)));
+            onTrino().executeQuery("INSERT INTO %s.test.%s VALUES (1, 'hello world')".formatted(getCatalogName(), tableName).formatted());
             assertThat(onTrino().executeQuery("SELECT * FROM %s.test.%s".formatted(getCatalogName(), tableName))).containsOnly(row(1L, "hello world"));
         }
         finally {
@@ -86,9 +83,8 @@ public abstract class BaseTestTableFormats
     {
         String tableName = "test_path_special_character" + randomNameSuffix();
         try {
-            onTrino().executeQuery(format("CREATE SCHEMA %1$s.test WITH (location = '%2$s')", getCatalogName(), schemaLocation));
-            onTrino().executeQuery(format(
-                    "CREATE TABLE %1$s.test.%2$s (id bigint, part varchar) WITH (%3$s = ARRAY['part'])",
+            onTrino().executeQuery("CREATE SCHEMA %1$s.test WITH (location = '%2$s')".formatted(getCatalogName(), schemaLocation));
+            onTrino().executeQuery("CREATE TABLE %1$s.test.%2$s (id bigint, part varchar) WITH (%3$s = ARRAY['part'])".formatted(
                     getCatalogName(),
                     tableName,
                     partitioningPropertyName));
@@ -120,9 +116,9 @@ public abstract class BaseTestTableFormats
                     row(10, "with%percent"),
                     row(11, "with%%percents"),
                     row(12, "with space"));
-            assertThat(onTrino().executeQuery(format("SELECT * FROM %1$s.test.%2$s", getCatalogName(), tableName))).containsOnly(expectedRows);
+            assertThat(onTrino().executeQuery("SELECT * FROM %1$s.test.%2$s".formatted(getCatalogName(), tableName))).containsOnly(expectedRows);
             if (!getCatalogName().equalsIgnoreCase("delta")) { // must be skipped for delta since the env is not integrated with spark3-delta container
-                assertThat(onSpark().executeQuery(format("SELECT * FROM %1$s.test.%2$s", getSparkCatalog(), tableName))).containsOnly(expectedRows);
+                assertThat(onSpark().executeQuery("SELECT * FROM %1$s.test.%2$s".formatted(getSparkCatalog(), tableName))).containsOnly(expectedRows);
             }
         }
         finally {
@@ -158,10 +154,10 @@ public abstract class BaseTestTableFormats
     protected void testSparkCompatibilityOnTrinoCreatedTable(String schemaLocation)
     {
         String baseTableName = "trino_created_table_using_parquet_" + randomNameSuffix();
-        String sparkTableName = format("%s.test_compat.%s", getSparkCatalog(), baseTableName);
-        String trinoTableName = format("%s.test_compat.%s", getCatalogName(), baseTableName);
+        String sparkTableName = "%s.test_compat.%s".formatted(getSparkCatalog(), baseTableName);
+        String trinoTableName = "%s.test_compat.%s".formatted(getCatalogName(), baseTableName);
         try {
-            onTrino().executeQuery(format("CREATE SCHEMA %s.test_compat WITH (location = '%s')", getCatalogName(), schemaLocation));
+            onTrino().executeQuery("CREATE SCHEMA %s.test_compat WITH (location = '%s')".formatted(getCatalogName(), schemaLocation));
 
             onTrino().executeQuery("CREATE TABLE " + trinoTableName + "(a_boolean boolean, a_varchar varchar) WITH (format = 'PARQUET')");
             onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (true, 'test data')");

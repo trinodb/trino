@@ -38,7 +38,6 @@ import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.hasFilt
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleArgument;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.variable;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -86,7 +85,7 @@ public class ImplementCountDistinct
 
         ParameterizedExpression rewrittenArgument = context.rewriteExpression(argument).orElseThrow();
         return Optional.of(new JdbcExpression(
-                format("count(DISTINCT %s)", rewrittenArgument.expression()),
+                "count(DISTINCT %s)".formatted(rewrittenArgument.expression()),
                 rewrittenArgument.parameters(),
                 bigintTypeHandle));
     }

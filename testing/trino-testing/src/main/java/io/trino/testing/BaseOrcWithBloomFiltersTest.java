@@ -18,7 +18,6 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -32,14 +31,13 @@ public abstract class BaseOrcWithBloomFiltersTest
     {
         String tableName = "create_orc_with_bloom_filters_" + randomNameSuffix();
         assertUpdate(
-                format(
-                        "CREATE TABLE %s WITH (%s) AS SELECT orderstatus, totalprice FROM tpch.tiny.orders",
+                "CREATE TABLE %s WITH (%s) AS SELECT orderstatus, totalprice FROM tpch.tiny.orders".formatted(
                         tableName,
                         getTableProperties("totalprice", "orderstatus")),
                 15000);
 
         // `totalprice 51890 is chosen to lie between min/max values of row group
-        assertBloomFilterBasedRowGroupPruning(format("SELECT * FROM %s WHERE totalprice = 51890", tableName));
+        assertBloomFilterBasedRowGroupPruning("SELECT * FROM %s WHERE totalprice = 51890".formatted(tableName));
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -48,8 +46,7 @@ public abstract class BaseOrcWithBloomFiltersTest
     {
         String tableName = "create_orc_with_bloom_filters_" + randomNameSuffix();
         assertThatThrownBy(() -> computeActual(
-                format(
-                        "CREATE TABLE %s WITH (%s) AS SELECT orderstatus FROM tpch.tiny.orders",
+                "CREATE TABLE %s WITH (%s) AS SELECT orderstatus FROM tpch.tiny.orders".formatted(
                         tableName,
                         getTableProperties("totalprice", "orderstatus"))))
                 .hasMessage("Orc bloom filter columns [totalprice] not present in schema");
@@ -60,14 +57,13 @@ public abstract class BaseOrcWithBloomFiltersTest
     {
         String tableName = "insert_orc_with_bloom_filters_" + randomNameSuffix();
         assertUpdate(
-                format(
-                        "CREATE TABLE %s (totalprice DOUBLE, orderstatus VARCHAR) WITH (%s)",
+                "CREATE TABLE %s (totalprice DOUBLE, orderstatus VARCHAR) WITH (%s)".formatted(
                         tableName,
                         getTableProperties("totalprice", "orderstatus")));
-        assertUpdate(format("INSERT INTO %s SELECT totalprice, orderstatus FROM tpch.tiny.orders", tableName), 15000);
+        assertUpdate("INSERT INTO %s SELECT totalprice, orderstatus FROM tpch.tiny.orders".formatted(tableName), 15000);
 
         // `totalprice 51890 is chosen to lie between min/max values of row group
-        assertBloomFilterBasedRowGroupPruning(format("SELECT * FROM %s WHERE totalprice = 51890", tableName));
+        assertBloomFilterBasedRowGroupPruning("SELECT * FROM %s WHERE totalprice = 51890".formatted(tableName));
         assertUpdate("DROP TABLE " + tableName);
     }
 

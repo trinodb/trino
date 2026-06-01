@@ -37,7 +37,6 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.getCausalChain;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.containers.TestContainers.startOrReuse;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -48,8 +47,8 @@ public final class TestingSqlServer
 
     public static final BiConsumer<SqlExecutor, String> DEFAULT_DATABASE_SETUP = (executor, databaseName) -> {
         // Enable snapshot isolation by default to reduce flakiness on CI
-        executor.execute(format("ALTER DATABASE %s SET ALLOW_SNAPSHOT_ISOLATION ON", databaseName));
-        executor.execute(format("ALTER DATABASE %s SET READ_COMMITTED_SNAPSHOT ON", databaseName));
+        executor.execute("ALTER DATABASE %s SET ALLOW_SNAPSHOT_ISOLATION ON".formatted(databaseName));
+        executor.execute("ALTER DATABASE %s SET READ_COMMITTED_SNAPSHOT ON".formatted(databaseName));
     };
 
     private static final RetryPolicy<InitializedState> CONTAINER_RETRY_POLICY = RetryPolicy.<InitializedState>builder()

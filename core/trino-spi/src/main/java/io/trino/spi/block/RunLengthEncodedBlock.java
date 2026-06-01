@@ -23,7 +23,6 @@ import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class RunLengthEncodedBlock
@@ -44,7 +43,7 @@ public final class RunLengthEncodedBlock
     {
         requireNonNull(value, "value is null");
         if (value.getPositionCount() != 1) {
-            throw new IllegalArgumentException(format("Expected value to contain a single position but has %s positions", value.getPositionCount()));
+            throw new IllegalArgumentException("Expected value to contain a single position but has %s positions".formatted(value.getPositionCount()));
         }
 
         if (positionCount == 0) {

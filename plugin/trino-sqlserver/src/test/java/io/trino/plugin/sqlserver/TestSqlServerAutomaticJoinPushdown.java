@@ -20,7 +20,6 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
-import static java.lang.String.format;
 
 public class TestSqlServerAutomaticJoinPushdown
         extends BaseAutomaticJoinPushdownTest
@@ -45,7 +44,7 @@ public class TestSqlServerAutomaticJoinPushdown
                 .collect(toImmutableList());
 
         for (String columnName : columnNames) {
-            sqlServer.execute(format("CREATE STATISTICS %1$s ON %2$s (%1$s)", columnName, tableName));
+            sqlServer.execute("CREATE STATISTICS %1$s ON %2$s (%1$s)".formatted(columnName, tableName));
         }
 
         sqlServer.execute("UPDATE STATISTICS " + tableName);

@@ -43,7 +43,6 @@ import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static java.lang.Integer.MAX_VALUE;
-import static java.lang.String.format;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
@@ -101,6 +100,6 @@ public final class TestingValuesWriters
             }
             throw new IllegalArgumentException("Delta byte array encoding writer is not supported for type " + typeName);
         }
-        throw new UnsupportedOperationException(format("Encoding %s is not supported", encoding));
+        throw new UnsupportedOperationException("Encoding %s is not supported".formatted(encoding));
     }
 }

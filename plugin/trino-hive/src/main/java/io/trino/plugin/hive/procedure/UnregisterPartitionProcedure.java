@@ -41,7 +41,6 @@ import static io.trino.plugin.hive.procedure.Procedures.checkIsPartitionedTable;
 import static io.trino.plugin.hive.procedure.Procedures.checkPartitionColumns;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
@@ -113,7 +112,7 @@ public class UnregisterPartitionProcedure
             String partitionName = makePartName(partitionColumns, partitionValues);
 
             Partition partition = metastore.unsafeGetRawHiveMetastore().getPartition(table, partitionValues)
-                    .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Partition '%s' does not exist", partitionName)));
+                    .orElseThrow(() -> new TrinoException(NOT_FOUND, "Partition '%s' does not exist".formatted(partitionName)));
 
             metastore.dropPartition(
                     session,

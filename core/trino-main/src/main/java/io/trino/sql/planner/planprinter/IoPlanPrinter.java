@@ -55,7 +55,6 @@ import java.util.Set;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class IoPlanPrinter
@@ -716,10 +715,10 @@ public class IoPlanPrinter
                         target.getSchemaTableName().getTableName()));
             }
             else if (writerTarget instanceof CreateReference || writerTarget instanceof InsertReference) {
-                throw new IllegalStateException(format("%s should not appear in final plan", writerTarget.getClass().getSimpleName()));
+                throw new IllegalStateException("%s should not appear in final plan".formatted(writerTarget.getClass().getSimpleName()));
             }
             else {
-                throw new IllegalStateException(format("Unknown WriterTarget subclass %s", writerTarget.getClass().getSimpleName()));
+                throw new IllegalStateException("Unknown WriterTarget subclass %s".formatted(writerTarget.getClass().getSimpleName()));
             }
             return processChildren(node, context);
         }

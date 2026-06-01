@@ -53,7 +53,6 @@ import static io.trino.plugin.pinot.query.PinotExpressionRewriter.rewriteExpress
 import static io.trino.plugin.pinot.query.PinotPatterns.WILDCARD;
 import static io.trino.plugin.pinot.query.PinotSqlFormatter.formatExpression;
 import static io.trino.plugin.pinot.query.PinotSqlFormatter.formatFilter;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.pinot.segment.spi.AggregationFunctionType.COUNT;
@@ -159,7 +158,7 @@ public final class DynamicTableBuilder
         Type trinoType;
         boolean isAggregate = hasAggregate(rewritten);
         if (isAggregate) {
-            trinoType = requireNonNull(aggregateTypes.get(columnName).getTrinoType(), format("Unexpected aggregate expression: '%s'", rewritten));
+            trinoType = requireNonNull(aggregateTypes.get(columnName).getTrinoType(), "Unexpected aggregate expression: '%s'".formatted(rewritten));
             // For aggregation queries, the column name is set by the schema returned from PostAggregationHandler, see getAggregateTypes
             columnName = aggregateTypes.get(columnName).getPinotColumnName();
         }
@@ -239,7 +238,7 @@ public final class DynamicTableBuilder
                 }
                 yield false;
             }
-            default -> throw new PinotException(PINOT_EXCEPTION, Optional.empty(), format("Unsupported expression type '%s'", expressionContext.getType()));
+            default -> throw new PinotException(PINOT_EXCEPTION, Optional.empty(), "Unsupported expression type '%s'".formatted(expressionContext.getType()));
         };
     }
 

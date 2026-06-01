@@ -34,7 +34,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class PinotBrokerPageSource
@@ -116,7 +115,7 @@ public class PinotBrokerPageSource
             // The reason for the limit is that Pinot brokers allocate memory based on the limit size.
             // This is a temporary workaround to address https://github.com/apache/pinot/issues/7110
             if (currentRowCount.incrementAndGet() > limitForBrokerQueries) {
-                throw new PinotException(PINOT_EXCEPTION, Optional.of(query.query()), format("Broker query returned '%s' rows, maximum allowed is '%s' rows.", currentRowCount.get(), limitForBrokerQueries));
+                throw new PinotException(PINOT_EXCEPTION, Optional.of(query.query()), "Broker query returned '%s' rows, maximum allowed is '%s' rows.".formatted(currentRowCount.get(), limitForBrokerQueries));
             }
             BrokerResultRow row = resultIterator.next();
             for (int i = 0; i < decoders.size(); i++) {

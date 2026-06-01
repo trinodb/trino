@@ -17,7 +17,6 @@ import io.trino.spi.TrinoException;
 import io.trino.transaction.TransactionId;
 
 import static io.trino.spi.StandardErrorCode.UNKNOWN_TRANSACTION;
-import static java.lang.String.format;
 
 public class NotInTransactionException
         extends TrinoException
@@ -29,6 +28,6 @@ public class NotInTransactionException
 
     public NotInTransactionException(TransactionId transactionId)
     {
-        super(UNKNOWN_TRANSACTION, format("Unknown transaction ID: %s. Possibly expired? Commands ignored until end of transaction block", transactionId));
+        super(UNKNOWN_TRANSACTION, "Unknown transaction ID: %s. Possibly expired? Commands ignored until end of transaction block".formatted(transactionId));
     }
 }

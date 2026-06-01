@@ -44,7 +44,6 @@ import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.ExitCode.OK;
 import static picocli.CommandLine.Option;
@@ -137,13 +136,13 @@ public class SuiteDescribe
         @Override
         public void addSuite(String suiteName)
         {
-            sb.append(String.format("Suite '%s' with configuration '%s' consists of following test runs: %n", suiteName, config));
+            sb.append("Suite '%s' with configuration '%s' consists of following test runs: %n".formatted(suiteName, config));
         }
 
         @Override
         public void addTestRun(EnvironmentOptions environmentOptions, TestRun.TestRunOptions runOptions, Environment environment)
         {
-            sb.append(String.format("%n%s test run %s%n%n", environmentOptions.launcherBin, OptionsPrinter.format(environmentOptions, runOptions)));
+            sb.append("%n%s test run %s%n%n".formatted(environmentOptions.launcherBin, OptionsPrinter.format(environmentOptions, runOptions)));
         }
 
         @Override
@@ -250,7 +249,7 @@ public class SuiteDescribe
             testRunOptions.extraOptions = suiteTestRun.getExtraOptions();
             testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments();
             testRunOptions.testJar = describeOptions.testJar;
-            testRunOptions.reportsDir = Path.of(format("testing/trino-product-tests/target/%s/%s/%s", suiteName, environmentConfig.getConfigName(), suiteTestRun.getEnvironmentName()));
+            testRunOptions.reportsDir = Path.of("testing/trino-product-tests/target/%s/%s/%s".formatted(suiteName, environmentConfig.getConfigName(), suiteTestRun.getEnvironmentName()));
             testRunOptions.startupRetries = null;
             testRunOptions.logsDirBase = Optional.empty();
             return testRunOptions;

@@ -28,7 +28,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -78,10 +77,9 @@ public class TestIcebergReadVersionedTableByTemporal
         String tableName = "test_iceberg_read_versioned_table_" + randomNameSuffix();
 
         minio.copyResources("iceberg/timetravel", BUCKET_NAME, "timetravel");
-        assertUpdate(format(
-                "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')",
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(
                 tableName,
-                format("s3://%s/timetravel", BUCKET_NAME)));
+                "s3://%s/timetravel".formatted(BUCKET_NAME)));
 
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES 1, 2, 3");

@@ -26,7 +26,6 @@ import static io.trino.spi.type.Int128Math.rescale;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
-import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 
 public final class DecimalConversions
@@ -109,10 +108,10 @@ public final class DecimalConversions
     private static Int128 internalDoubleToLongDecimal(double value, long precision, long scale)
     {
         if (Double.isNaN(value)) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)".formatted(value, precision, scale));
         }
         if (Double.isInfinite(value)) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)".formatted(value, precision, scale));
         }
 
         try {
@@ -120,12 +119,12 @@ public final class DecimalConversions
             BigDecimal bigDecimal = BigDecimal.valueOf(value).setScale(intScale(scale), HALF_UP);
             Int128 decimal = Decimals.valueOf(bigDecimal);
             if (Decimals.overflows(decimal, intScale(precision))) {
-                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)".formatted(value, precision, scale));
             }
             return decimal;
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)".formatted(value, precision, scale));
         }
     }
 
@@ -145,10 +144,10 @@ public final class DecimalConversions
     public static Int128 realToLongDecimal(float floatValue, long precision, long scale)
     {
         if (Float.isNaN(floatValue)) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast REAL '%s' to DECIMAL(%s, %s)".formatted(floatValue, precision, scale));
         }
         if (Float.isInfinite(floatValue)) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Cannot cast REAL '%s' to DECIMAL(%s, %s)".formatted(floatValue, precision, scale));
         }
 
         try {
@@ -156,12 +155,12 @@ public final class DecimalConversions
             BigDecimal bigDecimal = new BigDecimal(String.valueOf(floatValue)).setScale(intScale(scale), HALF_UP);
             Int128 decimal = Decimals.valueOf(bigDecimal);
             if (Decimals.overflows(decimal, intScale(precision))) {
-                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Cannot cast REAL '%s' to DECIMAL(%s, %s)".formatted(floatValue, precision, scale));
             }
             return decimal;
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Cannot cast REAL '%s' to DECIMAL(%s, %s)".formatted(floatValue, precision, scale));
         }
     }
 
@@ -243,7 +242,7 @@ public final class DecimalConversions
     private static TrinoException throwCastException(long value, long sourcePrecision, long sourceScale, long resultPrecision, long resultScale)
     {
         return new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE,
-                format("Cannot cast DECIMAL(%d, %d) '%s' to DECIMAL(%d, %d)",
+                "Cannot cast DECIMAL(%d, %d) '%s' to DECIMAL(%d, %d)".formatted(
                         sourcePrecision,
                         sourceScale,
                         Decimals.toString(value, (int) sourceScale),
@@ -254,7 +253,7 @@ public final class DecimalConversions
     private static TrinoException throwCastException(BigInteger value, long sourcePrecision, long sourceScale, long resultPrecision, long resultScale)
     {
         return new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE,
-                format("Cannot cast DECIMAL(%d, %d) '%s' to DECIMAL(%d, %d)",
+                "Cannot cast DECIMAL(%d, %d) '%s' to DECIMAL(%d, %d)".formatted(
                         sourcePrecision,
                         sourceScale,
                         Decimals.toString(value, (int) sourceScale),

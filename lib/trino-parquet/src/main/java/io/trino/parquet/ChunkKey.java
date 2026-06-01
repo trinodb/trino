@@ -15,8 +15,6 @@ package io.trino.parquet;
 
 import java.util.Objects;
 
-import static java.lang.String.format;
-
 public class ChunkKey
 {
     private final int column;
@@ -51,6 +49,6 @@ public class ChunkKey
     @Override
     public String toString()
     {
-        return format("[rowGroup=%s, column=%s]", rowGroup, column);
+        return "[rowGroup=%s, column=%s]".formatted(rowGroup, column);
     }
 }

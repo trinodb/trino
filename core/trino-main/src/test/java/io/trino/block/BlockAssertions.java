@@ -75,7 +75,6 @@ import static io.trino.type.ColorType.COLOR;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.multiplyExact;
-import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -247,7 +246,7 @@ public final class BlockAssertions
             return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, Optional.ofNullable(isNull), fieldBlocks);
         }
 
-        throw new IllegalArgumentException(format("type %s is not supported.", type));
+        throw new IllegalArgumentException("type %s is not supported.".formatted(type));
     }
 
     public static ValueBlock createRandomBooleansBlock(int positionCount, float nullRate)

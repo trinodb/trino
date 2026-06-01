@@ -41,7 +41,6 @@ import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.variab
 import static io.trino.plugin.clickhouse.ClickHouseClient.supportsPushdown;
 import static io.trino.spi.expression.StandardFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static java.lang.String.format;
 
 public class RewriteLike
         implements ConnectorExpressionRule<Call, ParameterizedExpression>
@@ -90,7 +89,7 @@ public class RewriteLike
         return context.defaultRewrite(likeValue).flatMap(value ->
                 context.defaultRewrite(likePattern).map(pattern ->
                         new ParameterizedExpression(
-                                format("%s LIKE %s", value.expression(), pattern.expression()),
+                                "%s LIKE %s".formatted(value.expression(), pattern.expression()),
                                 ImmutableList.<QueryParameter>builder()
                                         .addAll(value.parameters())
                                         .addAll(pattern.parameters())

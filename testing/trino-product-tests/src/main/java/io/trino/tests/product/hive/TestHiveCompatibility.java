@@ -45,7 +45,6 @@ import static io.trino.tests.product.TestGroups.STORAGE_FORMATS_DETAILED;
 import static io.trino.tests.product.utils.JdbcDriverUtils.setSessionProperty;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -70,7 +69,7 @@ public class TestHiveCompatibility
 
         String tableName = "storage_formats_compatibility_data_types_" + storageFormat.getName().toLowerCase(ENGLISH);
 
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+        onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
 
         boolean isAvroStorageFormat = "AVRO".equals(storageFormat.getName());
         List<HiveCompatibilityColumnData> columnDataList = new ArrayList<>();
@@ -115,19 +114,17 @@ public class TestHiveCompatibility
         columnDataList.add(new HiveCompatibilityColumnData("c_map", "map(varchar, varchar)", "MAP(ARRAY['foo'], ARRAY['bar'])", "{\"foo\":\"bar\"}"));
         columnDataList.add(new HiveCompatibilityColumnData("c_row", "row(f1 integer, f2 varchar)", "ROW(42, 'Trino')", "{\"f1\":42,\"f2\":\"Trino\"}"));
 
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s (" +
-                        "%s" +
-                        ") " +
-                        "WITH (%s)",
+        onTrino().executeQuery(("CREATE TABLE %s (" +
+        "%s" +
+        ") " +
+        "WITH (%s)").formatted(
                 tableName,
                 columnDataList.stream()
-                        .map(data -> format("%s %s", data.columnName, data.trinoColumnType))
+                        .map(data -> "%s %s".formatted(data.columnName, data.trinoColumnType))
                         .collect(joining(", ")),
                 storageFormat.getStoragePropertiesAsSql()));
 
-        onTrino().executeQuery(format(
-                "INSERT INTO %s VALUES (%s)",
+        onTrino().executeQuery("INSERT INTO %s VALUES (%s)".formatted(
                 tableName,
                 columnDataList.stream()
                         .map(data -> data.trinoInsertValue)
@@ -136,8 +133,7 @@ public class TestHiveCompatibility
         // array, map and struct fields are interpreted as strings in the hive jdbc driver and need therefore special handling
         Function<HiveCompatibilityColumnData, Boolean> columnsInterpretedCorrectlyByHiveJdbcDriverPredicate = data ->
                 !ImmutableList.of("c_array", "c_map", "c_row").contains(data.columnName);
-        QueryResult queryResult = onHive().executeQuery(format(
-                "SELECT %s FROM %s",
+        QueryResult queryResult = onHive().executeQuery("SELECT %s FROM %s".formatted(
                 columnDataList.stream()
                         .filter(columnsInterpretedCorrectlyByHiveJdbcDriverPredicate::apply)
                         .map(data -> data.columnName)
@@ -149,16 +145,16 @@ public class TestHiveCompatibility
                         .map(data -> data.hiveJdbcExpectedValue)
                         .collect(toImmutableList())));
 
-        queryResult = onHive().executeQuery(format("SELECT c_array_value FROM %s LATERAL VIEW EXPLODE(c_array) t AS c_array_value", tableName));
+        queryResult = onHive().executeQuery("SELECT c_array_value FROM %s LATERAL VIEW EXPLODE(c_array) t AS c_array_value".formatted(tableName));
         assertThat(queryResult).containsOnly(row(1), row(2), row(3));
 
-        queryResult = onHive().executeQuery(format("SELECT key, c_map[\"foo\"] AS value FROM %s t LATERAL VIEW EXPLODE(map_keys(t.c_map)) keys AS key", tableName));
+        queryResult = onHive().executeQuery("SELECT key, c_map[\"foo\"] AS value FROM %s t LATERAL VIEW EXPLODE(map_keys(t.c_map)) keys AS key".formatted(tableName));
         assertThat(queryResult).containsOnly(row("foo", "bar"));
 
-        queryResult = onHive().executeQuery(format("SELECT c_row.f1, c_row.f2 FROM %s", tableName));
+        queryResult = onHive().executeQuery("SELECT c_row.f1, c_row.f2 FROM %s".formatted(tableName));
         assertThat(queryResult).containsOnly(row(42, "Trino"));
 
-        onTrino().executeQuery(format("DROP TABLE %s", tableName));
+        onTrino().executeQuery("DROP TABLE %s".formatted(tableName));
     }
 
     @Test(groups = STORAGE_FORMATS_DETAILED)
@@ -188,7 +184,7 @@ public class TestHiveCompatibility
                 onHive().executeQuery("RESET");
             }
         }
-        onTrino().executeQuery(format("DROP TABLE %s", tableName));
+        onTrino().executeQuery("DROP TABLE %s".formatted(tableName));
     }
 
     @Test(groups = STORAGE_FORMATS_DETAILED)
@@ -204,7 +200,7 @@ public class TestHiveCompatibility
         assertThat(onHive().executeQuery("SELECT a_decimal FROM " + tableName))
                 .containsOnly(row(new BigDecimal("123")));
 
-        onTrino().executeQuery(format("DROP TABLE %s", tableName));
+        onTrino().executeQuery("DROP TABLE %s".formatted(tableName));
     }
 
     @Test(groups = STORAGE_FORMATS_DETAILED)
@@ -214,24 +210,23 @@ public class TestHiveCompatibility
         String trioTableNameNoBloomFilter = "test_trino_hive_parquet_bloom_filter_compatibility_disabled_" + randomNameSuffix();
 
         onTrino().executeQuery(
-                String.format("CREATE TABLE %s (testInteger INTEGER, testLong BIGINT, testString VARCHAR, testDouble DOUBLE, testFloat REAL) ", trinoTableNameWithBloomFilter) +
+                "CREATE TABLE %s (testInteger INTEGER, testLong BIGINT, testString VARCHAR, testDouble DOUBLE, testFloat REAL) ".formatted(trinoTableNameWithBloomFilter) +
                         "WITH (" +
                         "format = 'PARQUET'," +
                         "parquet_bloom_filter_columns = ARRAY['testInteger', 'testLong', 'testString', 'testDouble', 'testFloat']" +
                         ")");
         onTrino().executeQuery(
-                String.format("CREATE TABLE %s (testInteger INTEGER, testLong BIGINT, testString VARCHAR, testDouble DOUBLE, testFloat REAL) WITH (FORMAT = 'PARQUET')", trioTableNameNoBloomFilter));
+                "CREATE TABLE %s (testInteger INTEGER, testLong BIGINT, testString VARCHAR, testDouble DOUBLE, testFloat REAL) WITH (FORMAT = 'PARQUET')".formatted(trioTableNameNoBloomFilter));
         String[] tables = {trinoTableNameWithBloomFilter, trioTableNameNoBloomFilter};
 
         for (String trinoTable : tables) {
-            onTrino().executeQuery(format(
-                    "INSERT INTO %s " +
-                            "SELECT testInteger, testLong, testString, testDouble, testFloat FROM (VALUES " +
-                            "  (-999999, -999999, 'aaaaaaaaaaa', DOUBLE '-9999999999.99', REAL '-9999999.9999')" +
-                            ", (3, 30, 'fdsvxxbv33cb', DOUBLE '97662.2', REAL '98862.2')" +
-                            ", (5324, 2466, 'refgfdfrexx', DOUBLE '8796.1', REAL '-65496.1')" +
-                            ", (999999, 9999999999999, 'zzzzzzzzzzz', DOUBLE '9999999999.99', REAL '-9999999.9999')" +
-                            ", (9444, 4132455, 'ff34322vxff', DOUBLE '32137758.7892', REAL '9978.129887')) AS DATA(testInteger, testLong, testString, testDouble, testFloat)",
+            onTrino().executeQuery(("INSERT INTO %s " +
+            "SELECT testInteger, testLong, testString, testDouble, testFloat FROM (VALUES " +
+            "  (-999999, -999999, 'aaaaaaaaaaa', DOUBLE '-9999999999.99', REAL '-9999999.9999')" +
+            ", (3, 30, 'fdsvxxbv33cb', DOUBLE '97662.2', REAL '98862.2')" +
+            ", (5324, 2466, 'refgfdfrexx', DOUBLE '8796.1', REAL '-65496.1')" +
+            ", (999999, 9999999999999, 'zzzzzzzzzzz', DOUBLE '9999999999.99', REAL '-9999999.9999')" +
+            ", (9444, 4132455, 'ff34322vxff', DOUBLE '32137758.7892', REAL '9978.129887')) AS DATA(testInteger, testLong, testString, testDouble, testFloat)").formatted(
                     trinoTable));
         }
 

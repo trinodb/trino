@@ -33,7 +33,6 @@ import java.util.concurrent.ExecutorService;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeErrorCode.MAX_OUTPUT_PARTITION_COUNT_EXCEEDED;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -95,7 +94,7 @@ public class FileSystemExchangeManager
         if (outputPartitionCount > maxOutputPartitionCount) {
             throw new TrinoException(
                     MAX_OUTPUT_PARTITION_COUNT_EXCEEDED,
-                    format("Max number of output partitions exceeded for exchange '%s'. Allowed: %s. Requested: %s.", context.getExchangeId(), maxOutputPartitionCount, outputPartitionCount));
+                    "Max number of output partitions exceeded for exchange '%s'. Allowed: %s. Requested: %s.".formatted(context.getExchangeId(), maxOutputPartitionCount, outputPartitionCount));
         }
 
         return new FileSystemExchange(

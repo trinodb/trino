@@ -48,7 +48,6 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTra
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static java.lang.String.format;
 
 public class TableChangesSplitSource
         implements ConnectorSplitSource
@@ -107,7 +106,7 @@ public class TableChangesSplitSource
                             }
                         }
                         if (containsRemoveEntry && !containsCdcEntry) {
-                            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Change Data Feed is not enabled at version %d. Version contains 'remove' entries without 'cdc' entries", version));
+                            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Change Data Feed is not enabled at version %d. Version contains 'remove' entries without 'cdc' entries".formatted(version));
                         }
                         if (!containsRemoveEntry) {
                             for (DeltaLakeTransactionLogEntry entry : entries) {

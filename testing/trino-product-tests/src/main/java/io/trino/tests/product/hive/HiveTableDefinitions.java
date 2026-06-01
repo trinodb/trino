@@ -16,7 +16,6 @@ package io.trino.tests.product.hive;
 import io.trino.tempto.fulfillment.table.hive.HiveTableDefinition;
 
 import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
-import static java.lang.String.format;
 
 public final class HiveTableDefinitions
 {
@@ -78,7 +77,7 @@ public final class HiveTableDefinitions
 
     private static String partitionDataFileResource(String key, String partition)
     {
-        return format("io/trino/tests/product/hive/data/partitioned_nation_%s/nation_region_%s.textfile", key, partition);
+        return "io/trino/tests/product/hive/data/partitioned_nation_%s/nation_region_%s.textfile".formatted(key, partition);
     }
 
     private HiveTableDefinitions() {}

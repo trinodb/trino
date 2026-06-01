@@ -29,7 +29,6 @@ import java.util.OptionalLong;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class LinePageSource
@@ -75,7 +74,7 @@ public class LinePageSource
         }
         catch (IOException | RuntimeException e) {
             closeAllSuppress(e, this);
-            throw new TrinoException(HIVE_CURSOR_ERROR, format("Failed to read file at %s", filePath), e);
+            throw new TrinoException(HIVE_CURSOR_ERROR, "Failed to read file at %s".formatted(filePath), e);
         }
     }
 

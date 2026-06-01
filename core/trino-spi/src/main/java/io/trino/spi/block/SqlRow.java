@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SqlRow
@@ -95,6 +94,6 @@ public class SqlRow
     @Override
     public String toString()
     {
-        return format("SqlRow{numFields=%d}", fieldBlocks.length);
+        return "SqlRow{numFields=%d}".formatted(fieldBlocks.length);
     }
 }

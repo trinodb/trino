@@ -27,8 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static java.lang.String.format;
-
 public final class TestUtils
 {
     private TestUtils() {}
@@ -36,7 +34,7 @@ public final class TestUtils
     public static Map.Entry<SchemaTableName, KafkaTopicDescription> loadTpchTopicDescription(JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec, String topicName, SchemaTableName schemaTableName)
             throws IOException
     {
-        KafkaTopicDescription tpchTemplate = topicDescriptionJsonCodec.fromJson(TestUtils.class.getResourceAsStream(format("/tpch/%s.json", schemaTableName.getTableName())));
+        KafkaTopicDescription tpchTemplate = topicDescriptionJsonCodec.fromJson(TestUtils.class.getResourceAsStream("/tpch/%s.json".formatted(schemaTableName.getTableName())));
 
         return new AbstractMap.SimpleImmutableEntry<>(
                 schemaTableName,

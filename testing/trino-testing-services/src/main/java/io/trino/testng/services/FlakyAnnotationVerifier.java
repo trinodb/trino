@@ -29,7 +29,6 @@ import java.util.regex.PatternSyntaxException;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.testng.services.Listeners.reportListenerFailure;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
 /**
@@ -97,13 +96,13 @@ public class FlakyAnnotationVerifier
                 continue;
             }
             if (flaky.get().issue().isBlank()) {
-                return Optional.of(format("Test method %s has empty @Flaky.issue", method));
+                return Optional.of("Test method %s has empty @Flaky.issue".formatted(method));
             }
             try {
                 Pattern.compile(flaky.get().match());
             }
             catch (PatternSyntaxException e) {
-                return Optional.of(format("Test method %s has invalid @Flaky.match: %s", method, getStackTraceAsString(e)));
+                return Optional.of("Test method %s has invalid @Flaky.match: %s".formatted(method, getStackTraceAsString(e)));
             }
         }
         return Optional.empty();

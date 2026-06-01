@@ -32,7 +32,6 @@ import static io.trino.spi.block.ColumnarTestUtils.createTestDictionaryExpectedV
 import static io.trino.spi.block.ColumnarTestUtils.createTestRleBlock;
 import static io.trino.spi.block.ColumnarTestUtils.createTestRleExpectedValues;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestRowBlockFieldExtraction
@@ -47,7 +46,7 @@ final class TestRowBlockFieldExtraction
             expectedValues[rowIndex] = new Slice[fieldCount];
             for (int fieldIndex = 0; fieldIndex < fieldCount; fieldIndex++) {
                 if (fieldIndex % 3 != 1) {
-                    expectedValues[rowIndex][fieldIndex] = Slices.utf8Slice(format("%d.%d", rowIndex, fieldIndex));
+                    expectedValues[rowIndex][fieldIndex] = Slices.utf8Slice("%d.%d".formatted(rowIndex, fieldIndex));
                 }
             }
         }

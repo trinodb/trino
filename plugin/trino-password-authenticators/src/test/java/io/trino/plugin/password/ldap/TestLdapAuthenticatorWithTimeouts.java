@@ -31,7 +31,6 @@ import java.io.IOException;
 
 import static eu.rekawek.toxiproxy.model.ToxicDirection.DOWNSTREAM;
 import static io.trino.testing.containers.TestingOpenLdapServer.LDAP_PORT;
-import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -63,7 +62,7 @@ public class TestLdapAuthenticatorWithTimeouts
         ContainerProxy proxy = proxyServer.getProxy(openLdapServer.getNetworkAlias(), LDAP_PORT);
         proxy.toxics()
                 .latency("latency", DOWNSTREAM, 5_000);
-        proxyLdapUrl = format("ldap://%s:%s", proxy.getContainerIpAddress(), proxy.getProxyPort());
+        proxyLdapUrl = "ldap://%s:%s".formatted(proxy.getContainerIpAddress(), proxy.getProxyPort());
     }
 
     @AfterAll
@@ -115,7 +114,7 @@ public class TestLdapAuthenticatorWithTimeouts
             LdapAuthenticatorConfig ldapAuthenticatorConfig = new LdapAuthenticatorConfig()
                     .setUserBindSearchPatterns("uid=${USER}," + organization.getDistinguishedName())
                     .setUserBaseDistinguishedName(organization.getDistinguishedName())
-                    .setGroupAuthorizationSearchPattern(format("(&(objectClass=groupOfNames)(cn=group_*)(member=uid=${USER},%s))", organization.getDistinguishedName()));
+                    .setGroupAuthorizationSearchPattern("(&(objectClass=groupOfNames)(cn=group_*)(member=uid=${USER},%s))".formatted(organization.getDistinguishedName()));
 
             LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
                     new LdapAuthenticatorClient(

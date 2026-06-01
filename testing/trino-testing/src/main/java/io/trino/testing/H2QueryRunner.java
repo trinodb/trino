@@ -13,7 +13,6 @@
  */
 package io.trino.testing;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchMetadata;
@@ -52,6 +51,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
@@ -60,7 +60,6 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.scalar.JsonFunctions.jsonParse;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -86,7 +85,6 @@ import static io.trino.tpch.TpchTable.REGION;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.util.Collections.nCopies;
 
@@ -383,7 +381,7 @@ public class H2QueryRunner
                         row.add(null);
                     }
                     else {
-                        row.add(newArrayList((Object[]) array.getArray()));
+                        row.add(new ArrayList<>(Arrays.asList((Object[]) array.getArray())));
                     }
                 }
                 else {
@@ -400,8 +398,8 @@ public class H2QueryRunner
                 .filter(columnMetadata -> !columnMetadata.isHidden())
                 .collect(toImmutableList());
 
-        String vars = Joiner.on(',').join(nCopies(columns.size(), "?"));
-        String sql = format("INSERT INTO %s VALUES (%s)", tableMetadata.getTable().getTableName(), vars);
+        String vars = String.join(",", nCopies(columns.size(), "?"));
+        String sql = "INSERT INTO %s VALUES (%s)".formatted(tableMetadata.getTable().getTableName(), vars);
 
         RecordCursor cursor = data.cursor();
         while (true) {

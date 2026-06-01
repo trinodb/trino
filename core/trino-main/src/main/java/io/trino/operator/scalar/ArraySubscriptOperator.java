@@ -38,7 +38,6 @@ import static io.trino.spi.function.OperatorType.SUBSCRIPT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodHandles.empty;
 import static java.lang.invoke.MethodHandles.explicitCastArguments;
@@ -115,7 +114,7 @@ public class ArraySubscriptOperator
     {
         checkArrayIndex(index);
         if (index > array.getPositionCount()) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Array subscript must be less than or equal to array length: %s > %s", index, array.getPositionCount()));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Array subscript must be less than or equal to array length: %s > %s".formatted(index, array.getPositionCount()));
         }
         int position = toIntExact(index - 1);
         return position;

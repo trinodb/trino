@@ -25,10 +25,11 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.AggregationNode;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
-import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCardinalityExtractorPlanVisitor
@@ -38,9 +39,9 @@ public class TestCardinalityExtractorPlanVisitor
     {
         PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), PLANNER_CONTEXT, TEST_SESSION);
 
-        assertThat(extractCardinality(planBuilder.limit(3, planBuilder.values(emptyList(), ImmutableList.of(emptyList()))))).isEqualTo(new Cardinality(Range.singleton(1L)));
+        assertThat(extractCardinality(planBuilder.limit(3, planBuilder.values(List.of(), ImmutableList.of(List.of()))))).isEqualTo(new Cardinality(Range.singleton(1L)));
 
-        assertThat(extractCardinality(planBuilder.limit(3, planBuilder.values(emptyList(), ImmutableList.of(emptyList(), emptyList(), emptyList(), emptyList()))))).isEqualTo(new Cardinality(Range.singleton(3L)));
+        assertThat(extractCardinality(planBuilder.limit(3, planBuilder.values(List.of(), ImmutableList.of(List.of(), List.of(), List.of(), List.of()))))).isEqualTo(new Cardinality(Range.singleton(3L)));
     }
 
     @Test

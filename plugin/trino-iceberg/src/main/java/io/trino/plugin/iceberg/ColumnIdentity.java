@@ -35,7 +35,6 @@ import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.ARRAY;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.MAP;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.STRUCT;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnIdentity
@@ -193,6 +192,6 @@ public class ColumnIdentity
             return new ColumnIdentity(id, name, MAP, keyValueColumns);
         }
 
-        throw new UnsupportedOperationException(format("Iceberg column type %s is not supported", fieldType.typeId()));
+        throw new UnsupportedOperationException("Iceberg column type %s is not supported".formatted(fieldType.typeId()));
     }
 }

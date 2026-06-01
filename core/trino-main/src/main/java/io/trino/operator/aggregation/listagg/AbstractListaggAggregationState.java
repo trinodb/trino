@@ -42,7 +42,6 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractListaggAggregationState
@@ -137,7 +136,7 @@ public abstract class AbstractListaggAggregationState
         requireNonNull(separator, "separator is null");
         requireNonNull(overflowFiller, "overflowFiller is null");
         if (overflowFiller.length() > MAX_OVERFLOW_FILLER_LENGTH) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Overflow filler length %d exceeds maximum length %d", overflowFiller.length(), MAX_OVERFLOW_FILLER_LENGTH));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Overflow filler length %d exceeds maximum length %d".formatted(overflowFiller.length(), MAX_OVERFLOW_FILLER_LENGTH));
         }
 
         this.separator = separator;
@@ -263,7 +262,7 @@ public abstract class AbstractListaggAggregationState
     private void writeOverflow(SliceOutput out, int entryCount, int emittedCount)
     {
         if (overflowError) {
-            throw new TrinoException(EXCEEDED_FUNCTION_MEMORY_LIMIT, format("Concatenated string has the length in bytes larger than the maximum output length %d", maxOutputLength));
+            throw new TrinoException(EXCEEDED_FUNCTION_MEMORY_LIMIT, "Concatenated string has the length in bytes larger than the maximum output length %d".formatted(maxOutputLength));
         }
 
         if (emittedCount > 0) {

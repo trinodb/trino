@@ -34,7 +34,6 @@ import static io.trino.plugin.exasol.TestingExasolServer.TEST_SCHEMA;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -184,7 +183,7 @@ final class TestExasolConnectorTest
         String schema = getSession().getSchema().orElseThrow();
         assertThat(computeScalar("SHOW CREATE TABLE orders"))
                 // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
-                .isEqualTo(format(
+                .isEqualTo(
                         """
                         CREATE TABLE %s.%s.orders (
                            orderkey decimal(19, 0),
@@ -197,9 +196,9 @@ final class TestExasolConnectorTest
                            shippriority decimal(10, 0),
                            comment varchar(79)
                         )\
-                        """,
-                        catalog,
-                        schema));
+                        """.formatted(
+                                catalog,
+                                schema));
     }
 
     @Test
@@ -250,10 +249,10 @@ final class TestExasolConnectorTest
     private void predicatePushdownTest(String exasolType, String exasolLiteral, String operator, String filterLiteral)
     {
         String tableName = "test_pdown_" + exasolType.replaceAll("[^a-zA-Z0-9]", "");
-        try (TestTable table = new TestTable(onRemoteDatabase(), TEST_SCHEMA + "." + tableName, format("(c %s)", exasolType))) {
-            onRemoteDatabase().execute(format("INSERT INTO %s VALUES (%s)", table.getName(), exasolLiteral));
+        try (TestTable table = new TestTable(onRemoteDatabase(), TEST_SCHEMA + "." + tableName, "(c %s)".formatted(exasolType))) {
+            onRemoteDatabase().execute("INSERT INTO %s VALUES (%s)".formatted(table.getName(), exasolLiteral));
 
-            assertThat(query(format("SELECT * FROM %s WHERE c %s %s", table.getName(), operator, filterLiteral)))
+            assertThat(query("SELECT * FROM %s WHERE c %s %s".formatted(table.getName(), operator, filterLiteral)))
                     .isFullyPushedDown();
         }
     }
@@ -329,7 +328,7 @@ final class TestExasolConnectorTest
         String longInClauses = range(0, 10)
                 .mapToObj(value -> getLongInClause(value * 1_000, 1_000))
                 .collect(joining(" OR "));
-        onRemoteDatabase().execute(format("SELECT count(*) FROM %s.orders WHERE %s", TEST_SCHEMA, longInClauses));
+        onRemoteDatabase().execute("SELECT count(*) FROM %s.orders WHERE %s".formatted(TEST_SCHEMA, longInClauses));
     }
 
     private static String getLongInClause(int start, int length)

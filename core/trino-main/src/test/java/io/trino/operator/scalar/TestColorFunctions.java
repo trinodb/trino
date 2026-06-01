@@ -26,7 +26,6 @@ import static io.trino.operator.scalar.ColorFunctions.parseRgb;
 import static io.trino.operator.scalar.ColorFunctions.render;
 import static io.trino.operator.scalar.ColorFunctions.rgb;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestColorFunctions
@@ -120,7 +119,7 @@ public class TestColorFunctions
     public void testRenderDouble()
     {
         assertThat(render(1234.5678, color(utf8Slice("red")))).isEqualTo(utf8Slice("\u001b[38;5;1m1234.5678\u001b[0m"));
-        assertThat(render(1234.5678f, color(utf8Slice("red")))).isEqualTo(utf8Slice(format("\u001b[38;5;1m%s\u001b[0m", (double) 1234.5678f)));
+        assertThat(render(1234.5678f, color(utf8Slice("red")))).isEqualTo(utf8Slice("\u001b[38;5;1m%s\u001b[0m".formatted((double) 1234.5678f)));
 
         assertThat(render(1234.5678, color(utf8Slice("#f00")))).isEqualTo(utf8Slice("\u001b[38;5;196m1234.5678\u001b[0m"));
         assertThat(render(1234.5678, color(utf8Slice("#0f0")))).isEqualTo(utf8Slice("\u001b[38;5;46m1234.5678\u001b[0m"));

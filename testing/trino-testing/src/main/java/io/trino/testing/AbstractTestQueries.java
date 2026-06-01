@@ -31,7 +31,6 @@ import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.REGION;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -256,14 +255,14 @@ public abstract class AbstractTestQueries
     @Test
     public void testShowSchemasFrom()
     {
-        MaterializedResult result = computeActual(format("SHOW SCHEMAS FROM %s", getSession().getCatalog().get()));
+        MaterializedResult result = computeActual("SHOW SCHEMAS FROM %s".formatted(getSession().getCatalog().get()));
         assertThat(result.getOnlyColumnAsSet()).contains(getSession().getSchema().get(), INFORMATION_SCHEMA);
     }
 
     @Test
     public void testShowSchemasLike()
     {
-        MaterializedResult result = computeActual(format("SHOW SCHEMAS LIKE '%s'", getSession().getSchema().get()));
+        MaterializedResult result = computeActual("SHOW SCHEMAS LIKE '%s'".formatted(getSession().getSchema().get()));
         assertThat(result.getOnlyColumnAsSet()).isEqualTo(ImmutableSet.of(getSession().getSchema().get()));
     }
 
@@ -317,7 +316,7 @@ public abstract class AbstractTestQueries
 
         // Until we migrate all connectors to parametrized varchar we check two options
         assertThat(actual.equals(expectedParametrizedVarchar) || actual.equals(expectedUnparametrizedVarchar))
-                .describedAs(format("%s does not match neither of %s and %s", actual, expectedParametrizedVarchar, expectedUnparametrizedVarchar))
+                .describedAs("%s does not match neither of %s and %s".formatted(actual, expectedParametrizedVarchar, expectedUnparametrizedVarchar))
                 .isTrue();
     }
 
@@ -450,7 +449,7 @@ public abstract class AbstractTestQueries
 
         double mean = stats.getGeometricMean();
         assertThat(mean > 0.45 && mean < 0.55)
-                .describedAs(format("Expected mean sampling rate to be ~0.5, but was %s", mean))
+                .describedAs("Expected mean sampling rate to be ~0.5, but was %s".formatted(mean))
                 .isTrue();
     }
 

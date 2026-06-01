@@ -25,7 +25,6 @@ import static io.trino.tests.product.TestGroups.AUTHORIZATION;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.connectToTrino;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSqlStandardAccessControlChecks
@@ -48,11 +47,11 @@ public class TestSqlStandardAccessControlChecks
         caseSensitiveUserNameExecutor = connectToTrino("CaseSensitiveUserName@trino");
         hdfsExecutor = connectToTrino("hdfs@trino");
 
-        aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-        aliceExecutor.executeQuery(format("CREATE TABLE %s(month bigint, day bigint) WITH (partitioned_by = ARRAY['day'])", tableName));
+        aliceExecutor.executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
+        aliceExecutor.executeQuery("CREATE TABLE %s(month bigint, day bigint) WITH (partitioned_by = ARRAY['day'])".formatted(tableName));
 
-        aliceExecutor.executeQuery(format("DROP VIEW IF EXISTS %s", viewName));
-        aliceExecutor.executeQuery(format("CREATE VIEW %s AS SELECT month, day FROM %s", viewName, tableName));
+        aliceExecutor.executeQuery("DROP VIEW IF EXISTS %s".formatted(viewName));
+        aliceExecutor.executeQuery("CREATE VIEW %s AS SELECT month, day FROM %s".formatted(viewName, tableName));
     }
 
     @AfterMethodWithContext
@@ -69,65 +68,65 @@ public class TestSqlStandardAccessControlChecks
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlSelect()
     {
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+        assertQueryFailure(() -> bobExecutor.executeQuery("SELECT * FROM %s".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot select from table default.%s", tableName);
 
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
-        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+        aliceExecutor.executeQuery("GRANT SELECT ON %s TO bob".formatted(tableName));
+        assertThat(bobExecutor.executeQuery("SELECT * FROM %s".formatted(tableName))).hasNoRows();
 
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", viewName)))
+        assertQueryFailure(() -> bobExecutor.executeQuery("SELECT * FROM %s".formatted(viewName)))
                 .hasMessageContaining("Access Denied: Cannot select from table default.%s", viewName);
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", viewName));
-        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", viewName))).hasNoRows();
+        aliceExecutor.executeQuery("GRANT SELECT ON %s TO bob".formatted(viewName));
+        assertThat(bobExecutor.executeQuery("SELECT * FROM %s".formatted(viewName))).hasNoRows();
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlSelectFromPartitions()
     {
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("SELECT * FROM \"%s$partitions\"", tableName)))
+        assertQueryFailure(() -> bobExecutor.executeQuery("SELECT * FROM \"%s$partitions\"".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot select from table default.%s$partitions", tableName);
 
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
-        assertThat(bobExecutor.executeQuery(format("SELECT * FROM \"%s$partitions\"", tableName))).hasNoRows();
+        aliceExecutor.executeQuery("GRANT SELECT ON %s TO bob".formatted(tableName));
+        assertThat(bobExecutor.executeQuery("SELECT * FROM \"%s$partitions\"".formatted(tableName))).hasNoRows();
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlInsert()
     {
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("INSERT INTO %s VALUES (3, 22)", tableName)))
+        assertQueryFailure(() -> bobExecutor.executeQuery("INSERT INTO %s VALUES (3, 22)".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot insert into table default.%s", tableName);
 
-        aliceExecutor.executeQuery(format("GRANT INSERT ON %s TO bob", tableName));
-        assertThat(bobExecutor.executeQuery(format("INSERT INTO %s VALUES (3, 22)", tableName))).hasRowsCount(1);
-        assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasRowsCount(1);
+        aliceExecutor.executeQuery("GRANT INSERT ON %s TO bob".formatted(tableName));
+        assertThat(bobExecutor.executeQuery("INSERT INTO %s VALUES (3, 22)".formatted(tableName))).hasRowsCount(1);
+        assertThat(aliceExecutor.executeQuery("SELECT * FROM %s".formatted(tableName))).hasRowsCount(1);
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlUpdate()
     {
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("UPDATE %s SET month=3, day=22", tableName)))
+        assertQueryFailure(() -> bobExecutor.executeQuery("UPDATE %s SET month=3, day=22".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot update columns [month, day] in table default.%s", tableName);
 
-        aliceExecutor.executeQuery(format("GRANT INSERT ON %s TO bob", tableName));
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("UPDATE %s SET month=3, day=22", tableName)))
+        aliceExecutor.executeQuery("GRANT INSERT ON %s TO bob".formatted(tableName));
+        assertQueryFailure(() -> bobExecutor.executeQuery("UPDATE %s SET month=3, day=22".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot update columns [month, day] in table default.%s", tableName);
 
-        aliceExecutor.executeQuery(format("GRANT UPDATE ON %s TO bob", tableName));
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("UPDATE %s SET month=3, day=22", tableName)))
+        aliceExecutor.executeQuery("GRANT UPDATE ON %s TO bob".formatted(tableName));
+        assertQueryFailure(() -> bobExecutor.executeQuery("UPDATE %s SET month=3, day=22".formatted(tableName)))
                 .hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlDelete()
     {
-        aliceExecutor.executeQuery(format("INSERT INTO %s VALUES (4, 13)", tableName));
-        assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasRowsCount(1);
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("DELETE FROM %s WHERE day=4", tableName)))
+        aliceExecutor.executeQuery("INSERT INTO %s VALUES (4, 13)".formatted(tableName));
+        assertThat(aliceExecutor.executeQuery("SELECT * FROM %s".formatted(tableName))).hasRowsCount(1);
+        assertQueryFailure(() -> bobExecutor.executeQuery("DELETE FROM %s WHERE day=4".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot delete from table default.%s", tableName);
 
-        aliceExecutor.executeQuery(format("GRANT DELETE ON %s TO bob", tableName));
-        bobExecutor.executeQuery(format("DELETE FROM %s", tableName));
-        assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+        aliceExecutor.executeQuery("GRANT DELETE ON %s TO bob".formatted(tableName));
+        bobExecutor.executeQuery("DELETE FROM %s".formatted(tableName));
+        assertThat(aliceExecutor.executeQuery("SELECT * FROM %s".formatted(tableName))).hasNoRows();
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -136,45 +135,45 @@ public class TestSqlStandardAccessControlChecks
         String createTableAsSelect = "bob_create_table_as_select";
 
         bobExecutor.executeQuery("DROP TABLE IF EXISTS " + createTableAsSelect);
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("CREATE TABLE %s AS SELECT * FROM %s", createTableAsSelect, tableName)))
+        assertQueryFailure(() -> bobExecutor.executeQuery("CREATE TABLE %s AS SELECT * FROM %s".formatted(createTableAsSelect, tableName)))
                 .hasMessageContaining("Access Denied: Cannot select from table default.%s", tableName);
 
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
-        bobExecutor.executeQuery(format("CREATE TABLE %s AS SELECT * FROM %s", createTableAsSelect, tableName));
-        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", createTableAsSelect))).hasNoRows();
+        aliceExecutor.executeQuery("GRANT SELECT ON %s TO bob".formatted(tableName));
+        bobExecutor.executeQuery("CREATE TABLE %s AS SELECT * FROM %s".formatted(createTableAsSelect, tableName));
+        assertThat(bobExecutor.executeQuery("SELECT * FROM %s".formatted(createTableAsSelect))).hasNoRows();
         bobExecutor.executeQuery("DROP TABLE " + createTableAsSelect);
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlDropTable()
     {
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("DROP TABLE %s", tableName)))
+        assertQueryFailure(() -> bobExecutor.executeQuery("DROP TABLE %s".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot drop table default.%s", tableName);
 
-        aliceExecutor.executeQuery(format("DROP TABLE %s", tableName));
-        assertQueryFailure(() -> aliceExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+        aliceExecutor.executeQuery("DROP TABLE %s".formatted(tableName));
+        assertQueryFailure(() -> aliceExecutor.executeQuery("SELECT * FROM %s".formatted(tableName)))
                 .hasMessageContaining("does not exist");
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlAlterTable()
     {
-        assertThat(aliceExecutor.executeQuery(format("SHOW COLUMNS FROM %s", tableName))).hasRowsCount(2);
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("ALTER TABLE %s ADD COLUMN year bigint", tableName)))
+        assertThat(aliceExecutor.executeQuery("SHOW COLUMNS FROM %s".formatted(tableName))).hasRowsCount(2);
+        assertQueryFailure(() -> bobExecutor.executeQuery("ALTER TABLE %s ADD COLUMN year bigint".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot add a column to table default.%s", tableName);
 
-        aliceExecutor.executeQuery(format("ALTER TABLE %s ADD COLUMN year bigint", tableName));
-        assertThat(aliceExecutor.executeQuery(format("SHOW COLUMNS FROM %s", tableName))).hasRowsCount(3);
+        aliceExecutor.executeQuery("ALTER TABLE %s ADD COLUMN year bigint".formatted(tableName));
+        assertThat(aliceExecutor.executeQuery("SHOW COLUMNS FROM %s".formatted(tableName))).hasRowsCount(3);
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlCreateView()
     {
         String viewName = "bob_view";
-        String selectTableSql = format("SELECT * FROM %s", tableName);
-        String createViewSql = format("CREATE VIEW %s AS %s", viewName, selectTableSql);
+        String selectTableSql = "SELECT * FROM %s".formatted(tableName);
+        String createViewSql = "CREATE VIEW %s AS %s".formatted(viewName, selectTableSql);
 
-        bobExecutor.executeQuery(format("DROP VIEW IF EXISTS %s", viewName));
+        bobExecutor.executeQuery("DROP VIEW IF EXISTS %s".formatted(viewName));
 
         // Bob needs SELECT on the table to create the view
         bobExecutor.executeQuery("DROP VIEW IF EXISTS " + viewName);
@@ -182,26 +181,26 @@ public class TestSqlStandardAccessControlChecks
                 .hasMessageContaining("Access Denied: Cannot select from table default.%s", tableName);
 
         // Give Bob access to table, then create and execute view
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
+        aliceExecutor.executeQuery("GRANT SELECT ON %s TO bob".formatted(tableName));
         bobExecutor.executeQuery(createViewSql);
-        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", viewName))).hasNoRows();
+        assertThat(bobExecutor.executeQuery("SELECT * FROM %s".formatted(viewName))).hasNoRows();
 
         // Verify that Charlie does not have SELECT on the view, then grant access
-        assertQueryFailure(() -> charlieExecutor.executeQuery(format("SELECT * FROM %s", viewName)))
+        assertQueryFailure(() -> charlieExecutor.executeQuery("SELECT * FROM %s".formatted(viewName)))
                 .hasMessageContaining("Access Denied: Cannot select from table default.%s", viewName);
-        bobExecutor.executeQuery(format("GRANT SELECT ON %s TO charlie", viewName));
+        bobExecutor.executeQuery("GRANT SELECT ON %s TO charlie".formatted(viewName));
 
         // Charlie still cannot access view because Bob does not have SELECT WITH GRANT OPTION
-        assertQueryFailure(() -> charlieExecutor.executeQuery(format("SELECT * FROM %s", viewName)))
+        assertQueryFailure(() -> charlieExecutor.executeQuery("SELECT * FROM %s".formatted(viewName)))
                 .hasMessageContaining("Access Denied: View owner does not have sufficient privileges: View owner 'bob' cannot create view that selects from default.%s", tableName);
 
         // Give Bob SELECT WITH GRANT OPTION on the underlying table
-        aliceExecutor.executeQuery(format("REVOKE SELECT ON %s FROM bob", tableName));
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob WITH GRANT OPTION", tableName));
+        aliceExecutor.executeQuery("REVOKE SELECT ON %s FROM bob".formatted(tableName));
+        aliceExecutor.executeQuery("GRANT SELECT ON %s TO bob WITH GRANT OPTION".formatted(tableName));
 
         // Bob has GRANT OPTION, so both Bob and Charlie can access the view
-        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", viewName))).hasNoRows();
-        assertThat(charlieExecutor.executeQuery(format("SELECT * FROM %s", viewName))).hasNoRows();
+        assertThat(bobExecutor.executeQuery("SELECT * FROM %s".formatted(viewName))).hasNoRows();
+        assertThat(charlieExecutor.executeQuery("SELECT * FROM %s".formatted(viewName))).hasNoRows();
 
         bobExecutor.executeQuery("DROP VIEW " + viewName);
     }
@@ -212,35 +211,35 @@ public class TestSqlStandardAccessControlChecks
         String viewName = "alice_view_for_drop";
 
         aliceExecutor.executeQuery("DROP VIEW IF EXISTS " + viewName);
-        aliceExecutor.executeQuery(format("CREATE VIEW %s AS SELECT * FROM %s", viewName, tableName));
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("DROP VIEW %s", viewName)))
+        aliceExecutor.executeQuery("CREATE VIEW %s AS SELECT * FROM %s".formatted(viewName, tableName));
+        assertQueryFailure(() -> bobExecutor.executeQuery("DROP VIEW %s".formatted(viewName)))
                 .hasMessageContaining("Access Denied: Cannot drop view default.%s", viewName);
 
-        aliceExecutor.executeQuery(format("DROP VIEW %s", viewName));
-        assertQueryFailure(() -> aliceExecutor.executeQuery(format("SELECT * FROM %s", viewName)))
+        aliceExecutor.executeQuery("DROP VIEW %s".formatted(viewName));
+        assertQueryFailure(() -> aliceExecutor.executeQuery("SELECT * FROM %s".formatted(viewName)))
                 .hasMessageContaining("does not exist");
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlSelectWithCaseSensitiveUserName()
     {
-        assertQueryFailure(() -> caseSensitiveUserNameExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+        assertQueryFailure(() -> caseSensitiveUserNameExecutor.executeQuery("SELECT * FROM %s".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot select from table default.%s", tableName);
 
         onHive().executeQuery("SET ROLE admin");
 
         // make sure that case matters
-        onHive().executeQuery(format("GRANT SELECT ON TABLE %s TO USER casesensitiveusername", tableName));
-        assertQueryFailure(() -> caseSensitiveUserNameExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+        onHive().executeQuery("GRANT SELECT ON TABLE %s TO USER casesensitiveusername".formatted(tableName));
+        assertQueryFailure(() -> caseSensitiveUserNameExecutor.executeQuery("SELECT * FROM %s".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot select from table default.%s", tableName);
 
-        onHive().executeQuery(format("GRANT SELECT ON TABLE %s TO USER CaseSensitiveUserName", tableName));
-        assertThat(caseSensitiveUserNameExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+        onHive().executeQuery("GRANT SELECT ON TABLE %s TO USER CaseSensitiveUserName".formatted(tableName));
+        assertThat(caseSensitiveUserNameExecutor.executeQuery("SELECT * FROM %s".formatted(tableName))).hasNoRows();
 
-        assertQueryFailure(() -> caseSensitiveUserNameExecutor.executeQuery(format("SELECT * FROM %s", viewName)))
+        assertQueryFailure(() -> caseSensitiveUserNameExecutor.executeQuery("SELECT * FROM %s".formatted(viewName)))
                 .hasMessageContaining("Access Denied: Cannot select from table default.%s", viewName);
-        onHive().executeQuery(format("GRANT SELECT ON TABLE %s TO USER CaseSensitiveUserName", viewName));
-        assertThat(caseSensitiveUserNameExecutor.executeQuery(format("SELECT * FROM %s", viewName))).hasNoRows();
+        onHive().executeQuery("GRANT SELECT ON TABLE %s TO USER CaseSensitiveUserName".formatted(viewName));
+        assertThat(caseSensitiveUserNameExecutor.executeQuery("SELECT * FROM %s".formatted(viewName))).hasNoRows();
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -248,27 +247,27 @@ public class TestSqlStandardAccessControlChecks
     {
         // Using custom table name as drop table as different user may leave some data in HDFS
         String tableName = "set_table_authorization_test";
-        aliceExecutor.executeQuery(format("CREATE TABLE %s(col1 bigint, col2 bigint)", tableName));
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("ALTER TABLE %s SET AUTHORIZATION bob", tableName)))
+        aliceExecutor.executeQuery("CREATE TABLE %s(col1 bigint, col2 bigint)".formatted(tableName));
+        assertQueryFailure(() -> bobExecutor.executeQuery("ALTER TABLE %s SET AUTHORIZATION bob".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot set authorization for table default.%s to USER bob", tableName);
         hdfsExecutor.executeQuery("SET SESSION legacy_catalog_roles=true");
         hdfsExecutor.executeQuery("SET ROLE ADMIN");
-        hdfsExecutor.executeQuery(format("ALTER TABLE %s SET AUTHORIZATION bob", tableName));
+        hdfsExecutor.executeQuery("ALTER TABLE %s SET AUTHORIZATION bob".formatted(tableName));
         bobExecutor.executeQuery("DROP TABLE " + tableName);
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlSetViewAuthorization()
     {
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("ALTER VIEW %s SET AUTHORIZATION bob", viewName)))
+        assertQueryFailure(() -> bobExecutor.executeQuery("ALTER VIEW %s SET AUTHORIZATION bob".formatted(viewName)))
                 .hasMessageContaining("Access Denied: Cannot set authorization for view default.%s to USER bob", viewName);
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("DROP VIEW %s", viewName)))
+        assertQueryFailure(() -> bobExecutor.executeQuery("DROP VIEW %s".formatted(viewName)))
                 .hasMessageContaining("Access Denied: Cannot drop view default.%s", viewName);
 
         hdfsExecutor.executeQuery("SET SESSION legacy_catalog_roles=true");
         hdfsExecutor.executeQuery("SET ROLE ADMIN");
-        hdfsExecutor.executeQuery(format("ALTER VIEW %s SET AUTHORIZATION bob", viewName));
-        bobExecutor.executeQuery(format("DROP VIEW %s", viewName));
+        hdfsExecutor.executeQuery("ALTER VIEW %s SET AUTHORIZATION bob".formatted(viewName));
+        bobExecutor.executeQuery("DROP VIEW %s".formatted(viewName));
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -293,29 +292,29 @@ public class TestSqlStandardAccessControlChecks
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlShowColumns()
     {
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("SHOW COLUMNS FROM %s", tableName)))
+        assertQueryFailure(() -> bobExecutor.executeQuery("SHOW COLUMNS FROM %s".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot show columns of table default.%s", tableName);
 
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
-        assertThat(bobExecutor.executeQuery(format("SHOW COLUMNS FROM %s", tableName))).hasRowsCount(2);
+        aliceExecutor.executeQuery("GRANT SELECT ON %s TO bob".formatted(tableName));
+        assertThat(bobExecutor.executeQuery("SHOW COLUMNS FROM %s".formatted(tableName))).hasRowsCount(2);
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlShowStatsFor()
     {
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("SHOW STATS FOR %s", tableName)))
+        assertQueryFailure(() -> bobExecutor.executeQuery("SHOW STATS FOR %s".formatted(tableName)))
                 .hasMessageContaining("Access Denied: Cannot select from table default.%s", tableName);
 
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
-        assertThat(bobExecutor.executeQuery(format("SHOW STATS FOR %s", tableName))).hasRowsCount(3);
+        aliceExecutor.executeQuery("GRANT SELECT ON %s TO bob".formatted(tableName));
+        assertThat(bobExecutor.executeQuery("SHOW STATS FOR %s".formatted(tableName))).hasRowsCount(3);
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlFilterColumns()
     {
-        assertThat(bobExecutor.executeQuery(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", tableName))).hasNoRows();
+        assertThat(bobExecutor.executeQuery("SELECT * FROM information_schema.columns WHERE table_name = '%s'".formatted(tableName))).hasNoRows();
 
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
-        assertThat(bobExecutor.executeQuery(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", tableName))).hasRowsCount(2);
+        aliceExecutor.executeQuery("GRANT SELECT ON %s TO bob".formatted(tableName));
+        assertThat(bobExecutor.executeQuery("SELECT * FROM information_schema.columns WHERE table_name = '%s'".formatted(tableName))).hasRowsCount(2);
     }
 }

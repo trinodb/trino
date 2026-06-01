@@ -24,7 +24,6 @@ import static io.trino.spi.connector.ConnectorMergeSink.INSERT_OPERATION_NUMBER;
 import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_DELETE_OPERATION_NUMBER;
 import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_INSERT_OPERATION_NUMBER;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -63,7 +62,7 @@ public final class MergePage
         // see page description in ConnectorMergeSink
         int inputChannelCount = inputPage.getChannelCount();
         if (inputChannelCount != dataColumnCount + 3) {
-            throw new IllegalArgumentException(format("inputPage channelCount (%s) == dataColumns size (%s) + 3", inputChannelCount, dataColumnCount));
+            throw new IllegalArgumentException("inputPage channelCount (%s) == dataColumns size (%s) + 3".formatted(inputChannelCount, dataColumnCount));
         }
 
         int positionCount = inputPage.getPositionCount();

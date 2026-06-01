@@ -94,7 +94,6 @@ import static io.trino.plugin.pinot.PinotErrorCode.PINOT_AMBIGUOUS_TABLE_NAME;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_BROKER;
 import static io.trino.plugin.pinot.PinotMetadata.SCHEMA_NAME;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
@@ -207,8 +206,7 @@ public class PinotClient
             throw new PinotException(
                     PinotErrorCode.PINOT_HTTP_ERROR,
                     Optional.empty(),
-                    format(
-                            "Unexpected response status: %d for request %s to url %s, with headers %s, full response %s",
+                    "Unexpected response status: %d for request %s to url %s, with headers %s, full response %s".formatted(
                             e.getStatusCode(),
                             requestBody.orElse(""),
                             request.getUri(),
@@ -284,7 +282,7 @@ public class PinotClient
     public Schema getTableSchema(String table)
             throws Exception
     {
-        return sendHttpGetToControllerJson(format(TABLE_SCHEMA_API_TEMPLATE, table), schemaJsonCodec);
+        return sendHttpGetToControllerJson(TABLE_SCHEMA_API_TEMPLATE.formatted(table), schemaJsonCodec);
     }
 
     public List<String> getPinotTableNames()
@@ -315,7 +313,7 @@ public class PinotClient
         if (candidates.size() == 1) {
             return getOnlyElement(candidates);
         }
-        throw new PinotException(PINOT_AMBIGUOUS_TABLE_NAME, Optional.empty(), format("Ambiguous table names: %s", candidates.stream().collect(joining(", "))));
+        throw new PinotException(PINOT_AMBIGUOUS_TABLE_NAME, Optional.empty(), "Ambiguous table names: %s".formatted(candidates.stream().collect(joining(", "))));
     }
 
     public String getPinotTableNameFromTrinoTableName(String trinoTableName)
@@ -364,7 +362,7 @@ public class PinotClient
     @VisibleForTesting
     public List<String> getAllBrokersForTable(String table)
     {
-        ArrayList<String> brokers = sendHttpGetToControllerJson(format(TABLE_INSTANCES_API_TEMPLATE, table), brokersForTableJsonCodec)
+        ArrayList<String> brokers = sendHttpGetToControllerJson(TABLE_INSTANCES_API_TEMPLATE.formatted(table), brokersForTableJsonCodec)
                 .getBrokers().stream()
                 .flatMap(broker -> broker.getInstances().stream())
                 .distinct()
@@ -376,7 +374,7 @@ public class PinotClient
                     throw new PinotException(
                             PINOT_UNABLE_TO_FIND_BROKER,
                             Optional.empty(),
-                            format("Cannot parse %s in the broker instance", brokerToParse));
+                            "Cannot parse %s in the broker instance".formatted(brokerToParse));
                 })
                 .collect(Collectors.toCollection(ArrayList::new));
         Collections.shuffle(brokers);
@@ -408,7 +406,7 @@ public class PinotClient
 
     public Map<String, Map<String, List<String>>> getRoutingTableForTable(String tableName)
     {
-        Map<String, Map<String, List<String>>> routingTable = sendHttpGetToBrokerJson(tableName, format(ROUTING_TABLE_API_TEMPLATE, tableName), ROUTING_TABLE_CODEC);
+        Map<String, Map<String, List<String>>> routingTable = sendHttpGetToBrokerJson(tableName, ROUTING_TABLE_API_TEMPLATE.formatted(tableName), ROUTING_TABLE_CODEC);
         ImmutableMap.Builder<String, Map<String, List<String>>> routingTableMap = ImmutableMap.builder();
         for (Entry<String, Map<String, List<String>>> entry : routingTable.entrySet()) {
             String tableNameWithType = entry.getKey();
@@ -445,8 +443,8 @@ public class PinotClient
         {
             if (timeColumn != null && timeValue != null) {
                 // See org.apache.pinot.broker.requesthandler.BaseBrokerRequestHandler::attachTimeBoundary
-                offlineTimePredicate = Optional.of(format("%s <= '%s'", timeColumn, timeValue));
-                onlineTimePredicate = Optional.of(format("%s > '%s'", timeColumn, timeValue));
+                offlineTimePredicate = Optional.of("%s <= '%s'".formatted(timeColumn, timeValue));
+                onlineTimePredicate = Optional.of("%s > '%s'".formatted(timeColumn, timeValue));
             }
             else {
                 onlineTimePredicate = Optional.empty();
@@ -468,7 +466,7 @@ public class PinotClient
     public TimeBoundary getTimeBoundaryForTable(String table)
     {
         try {
-            return sendHttpGetToBrokerJson(table, format(TIME_BOUNDARY_API_TEMPLATE, table), timeBoundaryJsonCodec);
+            return sendHttpGetToBrokerJson(table, TIME_BOUNDARY_API_TEMPLATE.formatted(table), timeBoundaryJsonCodec);
         }
         catch (Exception e) {
             String[] errorMessageSplits = e.getMessage().split(" ");
@@ -572,7 +570,7 @@ public class PinotClient
                 throw new PinotException(
                         PINOT_EXCEPTION,
                         Optional.of(query.query()),
-                        format("Query %s encountered exception %s", query.query(), processingExceptionMessage));
+                        "Query %s encountered exception %s".formatted(query.query(), processingExceptionMessage));
             }
             if (response.getNumServersQueried() == 0 || response.getNumServersResponded() == 0 || response.getNumServersQueried() > response.getNumServersResponded()) {
                 throw new PinotInsufficientServerResponseException(query, response.getNumServersResponded(), response.getNumServersQueried());
@@ -616,7 +614,7 @@ public class PinotClient
         int[] inverseIndices = new int[columnNames.length];
         for (int i = 0; i < columnHandles.size(); i++) {
             String columnName = columnHandles.get(i).getColumnName().toLowerCase(ENGLISH);
-            indices[i] = requireNonNull(columnIndices.get(columnName), format("column index for '%s' was not found", columnName));
+            indices[i] = requireNonNull(columnIndices.get(columnName), "column index for '%s' was not found".formatted(columnName));
             inverseIndices[indices[i]] = i;
         }
         List<Object[]> rows = resultTable.getRows();

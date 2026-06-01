@@ -92,7 +92,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Boolean.parseBoolean;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -390,7 +389,7 @@ public final class DeltaLakeSchemaSupport
             return Optional.of("string");
         }
         if (type instanceof DecimalType decimalType) {
-            return Optional.of(format("decimal(%s,%s)", decimalType.getPrecision(), decimalType.getScale()));
+            return Optional.of("decimal(%s,%s)".formatted(decimalType.getPrecision(), decimalType.getScale()));
         }
         return Optional.ofNullable(PRIMITIVE_TYPE_MAPPING.get(type));
     }
@@ -460,7 +459,7 @@ public final class DeltaLakeSchemaSupport
     public static void verifySupportedColumnMapping(ColumnMappingMode mappingMode)
     {
         if (mappingMode != ColumnMappingMode.ID && mappingMode != ColumnMappingMode.NAME && mappingMode != ColumnMappingMode.NONE) {
-            throw new TrinoException(NOT_SUPPORTED, format("Only 'id', 'name' or 'none' is supported for the '%s' table property", COLUMN_MAPPING_MODE_CONFIGURATION_KEY));
+            throw new TrinoException(NOT_SUPPORTED, "Only 'id', 'name' or 'none' is supported for the '%s' table property".formatted(COLUMN_MAPPING_MODE_CONFIGURATION_KEY));
         }
     }
 

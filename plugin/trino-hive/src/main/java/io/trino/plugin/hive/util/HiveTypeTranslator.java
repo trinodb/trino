@@ -85,7 +85,6 @@ import static io.trino.spi.type.TypeSignature.rowType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveTypeTranslator
@@ -128,14 +127,14 @@ public final class HiveTypeTranslator
             if (varcharType.getBoundedLength() <= MAX_VARCHAR_LENGTH) {
                 return getVarcharTypeInfo(varcharType.getBoundedLength());
             }
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported VARCHAR types: VARCHAR(<=%d), VARCHAR.", type, MAX_VARCHAR_LENGTH));
+            throw new TrinoException(NOT_SUPPORTED, "Unsupported Hive type: %s. Supported VARCHAR types: VARCHAR(<=%d), VARCHAR.".formatted(type, MAX_VARCHAR_LENGTH));
         }
         if (type instanceof CharType charType) {
             int charLength = charType.getLength();
             if (charLength <= MAX_CHAR_LENGTH) {
                 return getCharTypeInfo(charLength);
             }
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported CHAR types: CHAR(<=%d).", type, MAX_CHAR_LENGTH));
+            throw new TrinoException(NOT_SUPPORTED, "Unsupported Hive type: %s. Supported CHAR types: CHAR(<=%d).".formatted(type, MAX_CHAR_LENGTH));
         }
         if (VARBINARY.equals(type)) {
             return HIVE_BINARY.getTypeInfo();
@@ -162,7 +161,7 @@ public final class HiveTypeTranslator
             ImmutableList.Builder<String> fieldNames = ImmutableList.builder();
             for (RowType.Field field : rowType.getFields()) {
                 fieldNames.add(field.getName()
-                        .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, format("Anonymous row type is not supported in Hive. Please give each field a name: %s", type))));
+                        .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Anonymous row type is not supported in Hive. Please give each field a name: %s".formatted(type))));
             }
             return getStructTypeInfo(
                     fieldNames.build(),
@@ -170,7 +169,7 @@ public final class HiveTypeTranslator
                             .map(HiveTypeTranslator::toTypeInfo)
                             .collect(toImmutableList()));
         }
-        throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported Hive type: %s".formatted(type));
     }
 
     public static TypeSignature toTypeSignature(TypeInfo typeInfo, HiveTimestampPrecision timestampPrecision)
@@ -179,7 +178,7 @@ public final class HiveTypeTranslator
             case PRIMITIVE -> {
                 Type primitiveType = fromPrimitiveType((PrimitiveTypeInfo) typeInfo, timestampPrecision);
                 if (primitiveType == null) {
-                    throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", typeInfo));
+                    throw new TrinoException(NOT_SUPPORTED, "Unsupported Hive type: %s".formatted(typeInfo));
                 }
                 yield primitiveType.getTypeSignature();
             }
@@ -199,7 +198,7 @@ public final class HiveTypeTranslator
                 List<TypeInfo> fieldTypes = structTypeInfo.getAllStructFieldTypeInfos();
                 List<String> fieldNames = structTypeInfo.getAllStructFieldNames();
                 if (fieldTypes.size() != fieldNames.size()) {
-                    throw new TrinoException(HiveErrorCode.HIVE_INVALID_METADATA, format("Invalid Hive struct type: %s", typeInfo));
+                    throw new TrinoException(HiveErrorCode.HIVE_INVALID_METADATA, "Invalid Hive struct type: %s".formatted(typeInfo));
                 }
                 yield rowType(Streams.zip(
                                 // We lower case the struct field names.

@@ -20,7 +20,6 @@ import java.io.InputStream;
 import java.util.Random;
 
 import static io.trino.orc.stream.TestingBitPackingUtils.unpackGeneric;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLongBitPacker
@@ -52,11 +51,11 @@ public class TestLongBitPacker
                 packer.unpack(actual, offset, length, width, actualInput);
                 for (int i = offset; i < length + offset; i++) {
                     assertThat(actual[i])
-                            .describedAs(format("index = %s, length = %s, width = %s, offset = %s", i, length, width, offset))
+                            .describedAs("index = %s, length = %s, width = %s, offset = %s".formatted(i, length, width, offset))
                             .isEqualTo(expected[i]);
                 }
                 assertThat(actualInput.getReadBytes())
-                        .describedAs(format("Wrong number of bytes read for length = %s, width = %s, offset = %s", length, width, offset))
+                        .describedAs("Wrong number of bytes read for length = %s, width = %s, offset = %s".formatted(length, width, offset))
                         .isEqualTo(expectedInput.getReadBytes());
             }
         }

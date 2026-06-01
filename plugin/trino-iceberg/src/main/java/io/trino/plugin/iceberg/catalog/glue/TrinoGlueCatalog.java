@@ -152,7 +152,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.lang.Boolean.parseBoolean;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
@@ -706,7 +705,7 @@ public class TrinoGlueCatalog
         Table table = dropTableFromMetastore(session, schemaTableName);
         String metadataLocation = table.parameters().get(METADATA_LOCATION_PROP);
         if (metadataLocation == null) {
-            throw new TrinoException(ICEBERG_INVALID_METADATA, format("Table %s is missing [%s] property", schemaTableName, METADATA_LOCATION_PROP));
+            throw new TrinoException(ICEBERG_INVALID_METADATA, "Table %s is missing [%s] property".formatted(schemaTableName, METADATA_LOCATION_PROP));
         }
         String tableLocation = METADATA_PATTERN.matcher(metadataLocation).replaceFirst("");
         deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, tableLocation);
@@ -806,7 +805,7 @@ public class TrinoGlueCatalog
             FileIO io = loadTable(session, from).io();
             String metadataLocation = tableParameters.remove(METADATA_LOCATION_PROP);
             if (metadataLocation == null) {
-                throw new TrinoException(ICEBERG_INVALID_METADATA, format("Table %s is missing [%s] property", from, METADATA_LOCATION_PROP));
+                throw new TrinoException(ICEBERG_INVALID_METADATA, "Table %s is missing [%s] property".formatted(from, METADATA_LOCATION_PROP));
             }
             TableMetadata metadata = TableMetadataParser.read(io.newInputFile(metadataLocation));
             TableInput tableInput = getTableInput(
@@ -919,9 +918,9 @@ public class TrinoGlueCatalog
             if (defaultSchemaLocation.isEmpty()) {
                 throw new TrinoException(
                         HIVE_DATABASE_LOCATION_ERROR,
-                        format("Schema '%s' location cannot be determined. " +
-                                        "Either set the 'location' property when creating the schema, or set the 'hive.metastore.glue.default-warehouse-dir' " +
-                                        "catalog property.",
+                        ("Schema '%s' location cannot be determined. " +
+                        "Either set the 'location' property when creating the schema, or set the 'hive.metastore.glue.default-warehouse-dir' " +
+                        "catalog property.").formatted(
                                 schemaTableName.getSchemaName()));
             }
             String schemaDirectoryName = schemaTableName.getSchemaName() + ".db";

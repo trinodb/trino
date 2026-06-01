@@ -59,8 +59,8 @@ public class LdapFilteringGroupProvider
 
         String groupsSearchMemberAttribute = filteringConfig.getLdapGroupsSearchMemberAttribute();
         combinedGroupSearchFilter = filteringConfig.getLdapGroupsSearchFilter()
-                .map(filter -> String.format("(&(%s)(%s={0}))", filter, groupsSearchMemberAttribute))
-                .orElse(String.format("(%s={0})", groupsSearchMemberAttribute));
+                .map(filter -> "(&(%s)(%s={0}))".formatted(filter, groupsSearchMemberAttribute))
+                .orElse("(%s={0})".formatted(groupsSearchMemberAttribute));
     }
 
     /**

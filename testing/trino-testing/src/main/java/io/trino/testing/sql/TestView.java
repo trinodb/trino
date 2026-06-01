@@ -16,7 +16,6 @@ package io.trino.testing.sql;
 import org.intellij.lang.annotations.Language;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 
 public class TestView
         implements TemporaryRelation
@@ -28,7 +27,7 @@ public class TestView
     {
         this.sqlExecutor = sqlExecutor;
         this.name = namePrefix + "_" + randomNameSuffix();
-        sqlExecutor.execute(format("CREATE VIEW %s AS %s", name, viewBody));
+        sqlExecutor.execute("CREATE VIEW %s AS %s".formatted(name, viewBody));
     }
 
     @Override

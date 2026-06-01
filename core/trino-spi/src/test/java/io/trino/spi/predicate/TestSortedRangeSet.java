@@ -48,7 +48,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToRawIntBits;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -980,7 +979,7 @@ class TestSortedRangeSet
         public SortedRangeSetAssert containsValue(Object value)
         {
             if (!sortedRangeSet.containsValue(value)) {
-                throw new AssertionError(format("Expected %s to contain %s", sortedRangeSet, value));
+                throw new AssertionError("Expected %s to contain %s".formatted(sortedRangeSet, value));
             }
             return this;
         }
@@ -988,7 +987,7 @@ class TestSortedRangeSet
         public SortedRangeSetAssert doesNotContainValue(Object value)
         {
             if (sortedRangeSet.containsValue(value)) {
-                throw new AssertionError(format("Expected %s not to contain %s", sortedRangeSet, value));
+                throw new AssertionError("Expected %s not to contain %s".formatted(sortedRangeSet, value));
             }
             return this;
         }

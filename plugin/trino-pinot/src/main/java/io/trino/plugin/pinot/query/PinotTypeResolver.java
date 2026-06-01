@@ -34,7 +34,6 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_INVALID_PQL_GENERATED;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -77,7 +76,7 @@ public class PinotTypeResolver
                 FieldSpec.DataType literalDataType = new LiteralTransformFunction(expression.getLiteral()).getResultMetadata().getDataType();
                 yield typeConverter.toTrinoType(new TransformResultMetadata(literalDataType, true, false));
             }
-            default -> throw new PinotException(PINOT_INVALID_PQL_GENERATED, Optional.empty(), format("Unsupported expression: '%s'", expression));
+            default -> throw new PinotException(PINOT_INVALID_PQL_GENERATED, Optional.empty(), "Unsupported expression: '%s'".formatted(expression));
         };
     }
 }

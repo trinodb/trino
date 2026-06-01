@@ -20,7 +20,6 @@ import io.trino.spi.TrinoException;
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.Character.isLetterOrDigit;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class JsonPathTokenizer
@@ -185,7 +184,7 @@ public class JsonPathTokenizer
 
     private TrinoException invalidJsonPath()
     {
-        return new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid JSON path: '%s'", path));
+        return new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid JSON path: '%s'".formatted(path));
     }
 
     @Override

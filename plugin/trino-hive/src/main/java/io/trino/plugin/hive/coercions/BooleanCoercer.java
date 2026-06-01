@@ -27,7 +27,6 @@ import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static java.lang.String.format;
 
 public final class BooleanCoercer
 {
@@ -50,7 +49,7 @@ public final class BooleanCoercer
             boolean value = BOOLEAN.getBoolean(block, position);
             Slice converted = value ? TRUE : FALSE;
             if (!toType.isUnbounded() && countCodePoints(converted) > toType.getBoundedLength()) {
-                throw new TrinoException(INVALID_ARGUMENTS, format("Varchar representation of %s exceeds %s bounds", value, toType));
+                throw new TrinoException(INVALID_ARGUMENTS, "Varchar representation of %s exceeds %s bounds".formatted(value, toType));
             }
             toType.writeSlice(blockBuilder, converted);
         }

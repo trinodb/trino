@@ -27,7 +27,6 @@ import java.util.List;
 
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.String.format;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class HdfsExchangeModule
@@ -57,7 +56,7 @@ public class HdfsExchangeModule
         else {
             binder.addError(new TrinoException(
                     NOT_SUPPORTED,
-                    format("Scheme %s is not supported as exchange spooling storage in exchange manager type %s", scheme, HdfsExchangeManagerFactory.NAME)));
+                    "Scheme %s is not supported as exchange spooling storage in exchange manager type %s".formatted(scheme, HdfsExchangeManagerFactory.NAME)));
         }
     }
 }

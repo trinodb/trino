@@ -33,7 +33,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Double.parseDouble;
 import static java.lang.Long.parseLong;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -129,7 +128,7 @@ public class DefaultJsonFieldDecoder
             }
             throw new TrinoException(
                     DECODER_CONVERSION_NOT_SUPPORTED,
-                    format("could not parse non-value node as '%s' for column '%s'", columnHandle.getType(), columnHandle.getName()));
+                    "could not parse non-value node as '%s' for column '%s'".formatted(columnHandle.getType(), columnHandle.getName()));
         }
 
         @Override
@@ -155,7 +154,7 @@ public class DefaultJsonFieldDecoder
             }
             throw new TrinoException(
                     DECODER_CONVERSION_NOT_SUPPORTED,
-                    format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
+                    "could not parse value '%s' as '%s' for column '%s'".formatted(value.asText(), columnHandle.getType(), columnHandle.getName()));
         }
 
         @Override
@@ -174,7 +173,7 @@ public class DefaultJsonFieldDecoder
             }
             throw new TrinoException(
                     DECODER_CONVERSION_NOT_SUPPORTED,
-                    format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
+                    "could not parse value '%s' as '%s' for column '%s'".formatted(value.asText(), columnHandle.getType(), columnHandle.getName()));
         }
 
         @Override

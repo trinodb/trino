@@ -49,7 +49,6 @@ import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -91,7 +90,7 @@ public final class MetadataUtil
     public static String checkLowerCase(String value, String name)
     {
         if (value == null) {
-            throw new NullPointerException(format("%s is null", name));
+            throw new NullPointerException("%s is null".formatted(name));
         }
         checkArgument(value.equals(value.toLowerCase(ENGLISH)), "%s is not lowercase: %s", name, value);
         return value;
@@ -191,7 +190,7 @@ public final class MetadataUtil
         requireNonNull(session, "session is null");
         requireNonNull(name, "name is null");
         if (name.getParts().size() > 3) {
-            throw new TrinoException(SYNTAX_ERROR, format("Too many dots in table name: %s", name));
+            throw new TrinoException(SYNTAX_ERROR, "Too many dots in table name: %s".formatted(name));
         }
 
         List<String> parts = name.getParts().reversed();
@@ -257,7 +256,7 @@ public final class MetadataUtil
     public static void checkRoleExists(Session session, Node node, Metadata metadata, String role, Optional<String> catalog)
     {
         if (!metadata.roleExists(session, role, catalog)) {
-            throw semanticException(ROLE_NOT_FOUND, node, "Role '%s' does not exist%s", role, catalog.map(c -> format(" in catalog '%s'", c)).orElse(""));
+            throw semanticException(ROLE_NOT_FOUND, node, "Role '%s' does not exist%s", role, catalog.map(c -> " in catalog '%s'".formatted(c)).orElse(""));
         }
     }
 

@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -34,7 +34,7 @@ class Histogram<K extends Comparable<K>>
     {
         this.buckets = new ArrayList<>(buckets);
         this.discrete = discrete;
-        Collections.sort(this.buckets);
+        this.buckets.sort(Comparator.naturalOrder());
     }
 
     public static <K extends Comparable<K>> Histogram<K> fromDiscrete(Collection<K> buckets)

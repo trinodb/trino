@@ -23,7 +23,6 @@ import jakarta.validation.constraints.NotNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
 @DefunctConfig({
@@ -212,7 +211,7 @@ public class MemoryManagerConfig
                 case "none" -> NONE;
                 case "total-reservation" -> TOTAL_RESERVATION;
                 case "total-reservation-on-blocked-nodes" -> TOTAL_RESERVATION_ON_BLOCKED_NODES;
-                default -> throw new IllegalArgumentException(format("Unrecognized value: '%s'", value));
+                default -> throw new IllegalArgumentException("Unrecognized value: '%s'".formatted(value));
             };
         }
     }
@@ -230,7 +229,7 @@ public class MemoryManagerConfig
                 case "none" -> NONE;
                 case "total-reservation-on-blocked-nodes" -> TOTAL_RESERVATION_ON_BLOCKED_NODES;
                 case "least-waste" -> LEAST_WASTE;
-                default -> throw new IllegalArgumentException(format("Unrecognized value: '%s'", value));
+                default -> throw new IllegalArgumentException("Unrecognized value: '%s'".formatted(value));
             };
         }
     }

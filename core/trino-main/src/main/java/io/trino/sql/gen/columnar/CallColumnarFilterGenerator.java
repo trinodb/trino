@@ -75,7 +75,6 @@ import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.generateBlockPosi
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.generateGetInputChannels;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.updateOutputPositions;
 import static io.trino.util.CompilerUtils.makeClassName;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class CallColumnarFilterGenerator
@@ -338,7 +337,7 @@ public class CallColumnarFilterGenerator
                 block.append(generateConstant(binder, constant));
             }
             else {
-                throw new UnsupportedOperationException(format("Unsupported argument expression: %s", argumentExpression));
+                throw new UnsupportedOperationException("Unsupported argument expression: %s".formatted(argumentExpression));
             }
         }
         block.append(invoke(binding, functionName));
@@ -356,7 +355,7 @@ public class CallColumnarFilterGenerator
                 builder.add(NEVER_NULL);
             }
             else {
-                throw new UnsupportedOperationException(format("Unsupported argument expression: %s", argumentExpression));
+                throw new UnsupportedOperationException("Unsupported argument expression: %s".formatted(argumentExpression));
             }
         }
 

@@ -100,7 +100,6 @@ import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.decodeFu
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreNullsCount;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
@@ -301,7 +300,7 @@ public final class GlueConverter
         catch (RuntimeException e) {
             throw new TrinoException(
                     HIVE_INVALID_METADATA,
-                    format("Column %s has invalid type: %s", glueColumn.name(), glueColumn.type()),
+                    "Column %s has invalid type: %s".formatted(glueColumn.name(), glueColumn.type()),
                     e);
         }
         return new Column(glueColumn.name(), hiveType, Optional.ofNullable(glueColumn.comment()), glueColumn.parameters());

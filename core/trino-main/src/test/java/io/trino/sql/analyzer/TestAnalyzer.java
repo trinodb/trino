@@ -13,7 +13,6 @@
  */
 package io.trino.sql.analyzer;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -114,6 +113,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -217,9 +217,6 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static java.lang.String.format;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -260,7 +257,7 @@ public class TestAnalyzer
     @Test
     public void testTooManyArguments()
     {
-        assertFails("SELECT greatest(" + Joiner.on(", ").join(nCopies(128, "rand()")) + ")")
+        assertFails("SELECT greatest(" + String.join(", ", nCopies(128, "rand()")) + ")")
                 .hasErrorCode(TOO_MANY_ARGUMENTS)
                 .hasMessage("line 1:8: Too many arguments for function call greatest()");
     }
@@ -964,16 +961,16 @@ public class TestAnalyzer
                 "a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a," +
                 "a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a," +
                 "a, a)";
-        assertFails(format("SELECT a, b, %s + 1 FROM t1 GROUP BY GROUPING SETS ((a), (a, b))", grouping))
+        assertFails("SELECT a, b, %s + 1 FROM t1 GROUP BY GROUPING SETS ((a), (a, b))".formatted(grouping))
                 .hasErrorCode(TOO_MANY_ARGUMENTS)
                 .hasMessage("line 1:14: GROUPING supports up to 63 column arguments");
-        assertFails(format("SELECT a, b, %s as g FROM t1 GROUP BY a, b HAVING g > 0", grouping))
+        assertFails("SELECT a, b, %s as g FROM t1 GROUP BY a, b HAVING g > 0".formatted(grouping))
                 .hasErrorCode(TOO_MANY_ARGUMENTS)
                 .hasMessage("line 1:14: GROUPING supports up to 63 column arguments");
-        assertFails(format("SELECT a, b, rank() OVER (PARTITION BY %s) FROM t1 GROUP BY GROUPING SETS ((a), (a, b))", grouping))
+        assertFails("SELECT a, b, rank() OVER (PARTITION BY %s) FROM t1 GROUP BY GROUPING SETS ((a), (a, b))".formatted(grouping))
                 .hasErrorCode(TOO_MANY_ARGUMENTS)
                 .hasMessage("line 1:40: GROUPING supports up to 63 column arguments");
-        assertFails(format("SELECT a, b, rank() OVER (PARTITION BY a ORDER BY %s) FROM t1 GROUP BY GROUPING SETS ((a), (a, b))", grouping))
+        assertFails("SELECT a, b, rank() OVER (PARTITION BY a ORDER BY %s) FROM t1 GROUP BY GROUPING SETS ((a), (a, b))".formatted(grouping))
                 .hasErrorCode(TOO_MANY_ARGUMENTS)
                 .hasMessage("line 1:51: GROUPING supports up to 63 column arguments");
     }
@@ -1205,7 +1202,7 @@ public class TestAnalyzer
                 "GROUP BY CUBE (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
                 "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae)")
                 .hasErrorCode(TOO_MANY_GROUPING_SETS)
-                .hasMessageMatching(format("line 3:10: GROUP BY has more than %s grouping sets but can contain at most 2048", Integer.MAX_VALUE));
+                .hasMessageMatching("line 3:10: GROUP BY has more than %s grouping sets but can contain at most 2048".formatted(Integer.MAX_VALUE));
     }
 
     @Test
@@ -4746,17 +4743,17 @@ public class TestAnalyzer
                 "                   PATTERN (A B+) " +
                 "                   DEFINE B AS true " +
                 "                 ) AS M";
-        assertFails(format(query, "x, X, y"))
+        assertFails(query.formatted("x, X, y"))
                 .hasErrorCode(AMBIGUOUS_NAME)
                 .hasMessage("line 1:25: ambiguous column: X in row pattern input relation");
 
         // TODO This should not fail according to SQL identifier semantics.
         //  Fix column name resolution so that fields contain canonical name.
-        assertFails(format(query, "\"x\", \"X\", y"))
+        assertFails(query.formatted("\"x\", \"X\", y"))
                 .hasErrorCode(AMBIGUOUS_NAME)
                 .hasMessage("line 1:25: ambiguous column: X in row pattern input relation");
 
-        assertFails(format(query, "x, \"X\", y"))
+        assertFails(query.formatted("x, \"X\", y"))
                 .hasErrorCode(AMBIGUOUS_NAME)
                 .hasMessage("line 1:25: ambiguous column: X in row pattern input relation");
 
@@ -4830,17 +4827,17 @@ public class TestAnalyzer
                 "                 ) %s";
 
         // input table name is not visible in SELECT clause when output name is not specified
-        assertFails(format(query, "Ticker.Measure", ""))
+        assertFails(query.formatted("Ticker.Measure", ""))
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessage("line 1:8: Column 'ticker.measure' cannot be resolved");
-        assertFails(format(query, "Ticker.*", ""))
+        assertFails(query.formatted("Ticker.*", ""))
                 .hasErrorCode(TABLE_NOT_FOUND)
                 .hasMessage("line 1:8: Unable to resolve reference ticker");
-        assertFails(format(query, "Ticker.y", ""))
+        assertFails(query.formatted("Ticker.y", ""))
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessage("line 1:8: Column 'ticker.y' cannot be resolved");
         // input table name is not visible in SELECT clause when output name is specified
-        assertFails(format(query, "Ticker.Measure", "AS M"))
+        assertFails(query.formatted("Ticker.Measure", "AS M"))
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessage("line 1:8: Column 'ticker.measure' cannot be resolved");
 
@@ -4865,13 +4862,13 @@ public class TestAnalyzer
                 "                   DEFINE %s " +
                 "                 ) ";
 
-        assertFails(format(query, "A.Ticker.x AS Measure", "B AS true"))
+        assertFails(query.formatted("A.Ticker.x AS Measure", "B AS true"))
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessage("line 1:164: Column ticker.x prefixed with label A cannot be resolved");
-        assertFails(format(query, "Ticker.A.x AS Measure", "B AS true"))
+        assertFails(query.formatted("Ticker.A.x AS Measure", "B AS true"))
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessage("line 1:164: Column 'ticker.a.x' cannot be resolved");
-        assertFails(format(query, "1 AS Measure", "B AS Ticker.x > 0"))
+        assertFails(query.formatted("1 AS Measure", "B AS Ticker.x > 0"))
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessage("line 1:242: Column 'ticker.x' cannot be resolved");
 
@@ -4885,13 +4882,13 @@ public class TestAnalyzer
                 "                   DEFINE B AS true " +
                 "                  ) ");
 
-        assertFails(format(query, "A.t1.x AS Measure", "B AS true"))
+        assertFails(query.formatted("A.t1.x AS Measure", "B AS true"))
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessage("line 1:164: Column t1.x prefixed with label A cannot be resolved");
-        assertFails(format(query, "t1.A.x AS Measure", "B AS true"))
+        assertFails(query.formatted("t1.A.x AS Measure", "B AS true"))
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessage("line 1:164: Column 't1.a.x' cannot be resolved");
-        assertFails(format(query, "1 AS Measure", "B AS t1.x > 0"))
+        assertFails(query.formatted("1 AS Measure", "B AS t1.x > 0"))
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessage("line 1:242: Column 't1.x' cannot be resolved");
     }
@@ -4908,17 +4905,17 @@ public class TestAnalyzer
                 "                   DEFINE B AS true " +
                 "                 ) %s";
 
-        analyze(format(query, "M.Measure", "AS M"));
+        analyze(query.formatted("M.Measure", "AS M"));
 
-        assertFails(format(query, "M.renamed", "AS M (renamed)"))
+        assertFails(query.formatted("M.renamed", "AS M (renamed)"))
                 .hasErrorCode(MISMATCHED_COLUMN_ALIASES)
                 .hasMessage("line 1:33: Column alias list has 1 entries but 'M' has 2 columns available");
 
-        assertFails(format(query, "M.Measure", "AS M (partition, renamed)"))
+        assertFails(query.formatted("M.Measure", "AS M (partition, renamed)"))
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessage("line 1:8: Column 'm.measure' cannot be resolved");
 
-        analyze(format(query, "M.renamed", "AS M (partition, renamed)"));
+        analyze(query.formatted("M.renamed", "AS M (partition, renamed)"));
     }
 
     @Test
@@ -4983,26 +4980,26 @@ public class TestAnalyzer
                 "                   %s " + // DEFINE
                 "                 ) ";
 
-        analyze(format(query, "PATTERN(A)", "DEFINE a AS true"));
-        analyze(format(query, "PATTERN(a)", "DEFINE A AS true"));
-        analyze(format(query, "PATTERN(\"A\")", "DEFINE a AS true"));
+        analyze(query.formatted("PATTERN(A)", "DEFINE a AS true"));
+        analyze(query.formatted("PATTERN(a)", "DEFINE A AS true"));
+        analyze(query.formatted("PATTERN(\"A\")", "DEFINE a AS true"));
 
-        assertFails(format(query, "PATTERN(a)", "DEFINE \"a\" AS true"))
+        assertFails(query.formatted("PATTERN(a)", "DEFINE \"a\" AS true"))
                 .hasErrorCode(INVALID_LABEL)
                 .hasMessage("line 1:171: defined variable: \"a\" is not a primary pattern variable");
 
-        assertFails(format(query, "PATTERN(A)", "DEFINE \"a\" AS true"))
+        assertFails(query.formatted("PATTERN(A)", "DEFINE \"a\" AS true"))
                 .hasErrorCode(INVALID_LABEL)
                 .hasMessage("line 1:171: defined variable: \"a\" is not a primary pattern variable");
 
-        analyze(format(query, "PATTERN(A \"a\")", "DEFINE A AS true, \"a\" as false"));
-        analyze(format(query, "PATTERN(A \"a\")", "DEFINE a AS true, \"a\" as false"));
+        analyze(query.formatted("PATTERN(A \"a\")", "DEFINE A AS true, \"a\" as false"));
+        analyze(query.formatted("PATTERN(A \"a\")", "DEFINE a AS true, \"a\" as false"));
 
-        assertFails(format(query, "PATTERN(A \"a\")", "DEFINE A AS true, a as false"))
+        assertFails(query.formatted("PATTERN(A \"a\")", "DEFINE A AS true, a as false"))
                 .hasErrorCode(INVALID_LABEL)
                 .hasMessage("line 1:186: pattern variable with name: a is defined twice");
 
-        assertFails(format(query, "PATTERN(A \"a\")", "DEFINE \"a\" AS true, \"a\" as false"))
+        assertFails(query.formatted("PATTERN(A \"a\")", "DEFINE \"a\" AS true, \"a\" as false"))
                 .hasErrorCode(INVALID_LABEL)
                 .hasMessage("line 1:188: pattern variable with name: \"a\" is defined twice");
 
@@ -5197,13 +5194,13 @@ public class TestAnalyzer
                 "                   DEFINE B AS true " +
                 "                 ) ";
 
-        analyze(format(query, ""));
-        analyze(format(query, "ONE ROW PER MATCH"));
-        analyze(format(query, "ALL ROWS PER MATCH"));
-        analyze(format(query, "ALL ROWS PER MATCH SHOW EMPTY MATCHES"));
-        analyze(format(query, "ALL ROWS PER MATCH OMIT EMPTY MATCHES"));
+        analyze(query.formatted(""));
+        analyze(query.formatted("ONE ROW PER MATCH"));
+        analyze(query.formatted("ALL ROWS PER MATCH"));
+        analyze(query.formatted("ALL ROWS PER MATCH SHOW EMPTY MATCHES"));
+        analyze(query.formatted("ALL ROWS PER MATCH OMIT EMPTY MATCHES"));
 
-        assertFails(format(query, "ALL ROWS PER MATCH WITH UNMATCHED ROWS"))
+        assertFails(query.formatted("ALL ROWS PER MATCH WITH UNMATCHED ROWS"))
                 .hasErrorCode(INVALID_ROW_PATTERN)
                 .hasMessage("line 1:201: Pattern exclusion syntax is not allowed when ALL ROWS PER MATCH WITH UNMATCHED ROWS is specified");
     }
@@ -5219,40 +5216,40 @@ public class TestAnalyzer
                 "                   DEFINE A AS true " +
                 "                 ) ";
 
-        analyze(format(query, "*"));
-        analyze(format(query, "*?"));
-        analyze(format(query, "+"));
-        analyze(format(query, "+?"));
-        analyze(format(query, "?"));
-        analyze(format(query, "??"));
-        analyze(format(query, "{,}"));
-        analyze(format(query, "{5}"));
-        assertFails(format(query, "{0}"))
+        analyze(query.formatted("*"));
+        analyze(query.formatted("*?"));
+        analyze(query.formatted("+"));
+        analyze(query.formatted("+?"));
+        analyze(query.formatted("?"));
+        analyze(query.formatted("??"));
+        analyze(query.formatted("{,}"));
+        analyze(query.formatted("{5}"));
+        assertFails(query.formatted("{0}"))
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("line 1:145: Pattern quantifier upper bound must be greater than or equal to 1");
-        assertFails(format(query, "{3000000000}"))
+        assertFails(query.formatted("{3000000000}"))
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("line 1:145: Pattern quantifier lower bound must not exceed 2147483647");
-        analyze(format(query, "{5,}"));
-        analyze(format(query, "{0,}"));
-        assertFails(format(query, "{3000000000,}"))
+        analyze(query.formatted("{5,}"));
+        analyze(query.formatted("{0,}"));
+        assertFails(query.formatted("{3000000000,}"))
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("line 1:145: Pattern quantifier lower bound must not exceed 2147483647");
-        analyze(format(query, "{0,5}"));
-        assertFails(format(query, "{0,0}"))
+        analyze(query.formatted("{0,5}"));
+        assertFails(query.formatted("{0,0}"))
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("line 1:145: Pattern quantifier upper bound must be greater than or equal to 1");
-        assertFails(format(query, "{5, 3000000000}"))
+        assertFails(query.formatted("{5, 3000000000}"))
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("line 1:145: Pattern quantifier upper bound must not exceed 2147483647");
-        assertFails(format(query, "{5,1}"))
+        assertFails(query.formatted("{5,1}"))
                 .hasErrorCode(INVALID_RANGE)
                 .hasMessage("line 1:145: Pattern quantifier lower bound must not exceed upper bound");
-        analyze(format(query, "{,5}"));
-        assertFails(format(query, "{,0}"))
+        analyze(query.formatted("{,5}"));
+        assertFails(query.formatted("{,0}"))
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("line 1:145: Pattern quantifier upper bound must be greater than or equal to 1");
-        assertFails(format(query, "{,3000000000}"))
+        assertFails(query.formatted("{,3000000000}"))
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("line 1:145: Pattern quantifier upper bound must not exceed 2147483647");
     }
@@ -5269,18 +5266,18 @@ public class TestAnalyzer
                 "                   DEFINE B AS true " +
                 "                 ) ";
 
-        analyze(format(query, ""));
-        analyze(format(query, "AFTER MATCH SKIP PAST LAST ROW"));
-        analyze(format(query, "AFTER MATCH SKIP TO NEXT ROW"));
-        analyze(format(query, "AFTER MATCH SKIP TO FIRST B"));
-        analyze(format(query, "AFTER MATCH SKIP TO LAST B"));
-        analyze(format(query, "AFTER MATCH SKIP TO B"));
+        analyze(query.formatted(""));
+        analyze(query.formatted("AFTER MATCH SKIP PAST LAST ROW"));
+        analyze(query.formatted("AFTER MATCH SKIP TO NEXT ROW"));
+        analyze(query.formatted("AFTER MATCH SKIP TO FIRST B"));
+        analyze(query.formatted("AFTER MATCH SKIP TO LAST B"));
+        analyze(query.formatted("AFTER MATCH SKIP TO B"));
 
-        assertFails(format(query, "AFTER MATCH SKIP TO LAST \"^\""))
+        assertFails(query.formatted("AFTER MATCH SKIP TO LAST \"^\""))
                 .hasErrorCode(INVALID_LABEL)
                 .hasMessage("line 1:159: \"^\" is not a primary or union pattern variable");
 
-        assertFails(format(query, "AFTER MATCH SKIP TO LAST X"))
+        assertFails(query.formatted("AFTER MATCH SKIP TO LAST X"))
                 .hasErrorCode(INVALID_LABEL)
                 .hasMessage("line 1:159: X is not a primary or union pattern variable");
     }
@@ -5688,10 +5685,10 @@ public class TestAnalyzer
                 "                   DEFINE B AS %s " +
                 "                ) AS M";
 
-        assertFails(format(query, "transform(A.Value, x -> x + 100)", "true"))
+        assertFails(query.formatted("transform(A.Value, x -> x + 100)", "true"))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:161: Lambda expression in pattern recognition context is not yet supported");
-        assertFails(format(query, "true", "transform(A.Value, x -> x + 100) = ARRAY[50]"))
+        assertFails(query.formatted("true", "transform(A.Value, x -> x + 100) = ARRAY[50]"))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:242: Lambda expression in pattern recognition context is not yet supported");
     }
@@ -5707,16 +5704,16 @@ public class TestAnalyzer
                 "                   DEFINE B AS %s " +
                 "                ) AS M";
 
-        assertFails(format(query, "TRY(1)", "true"))
+        assertFails(query.formatted("TRY(1)", "true"))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:142: TRY expression in pattern recognition context is not yet supported");
-        assertFails(format(query, "sum(TRY(1))", "true"))
+        assertFails(query.formatted("sum(TRY(1))", "true"))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:146: TRY expression in pattern recognition context is not yet supported");
-        assertFails(format(query, "true", "TRY(1) = 1"))
+        assertFails(query.formatted("true", "TRY(1) = 1"))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:223: TRY expression in pattern recognition context is not yet supported");
-        assertFails(format(query, "true", "sum(TRY(1)) = 2"))
+        assertFails(query.formatted("true", "sum(TRY(1)) = 2"))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:227: TRY expression in pattern recognition context is not yet supported");
     }
@@ -5736,62 +5733,62 @@ public class TestAnalyzer
 
         // test illegal clauses in MEASURES
         String define = "true";
-        assertFails(format(query, "LAST(Tradeday) OVER ()", define))
+        assertFails(query.formatted("LAST(Tradeday) OVER ()", define))
                 .hasErrorCode(NESTED_WINDOW)
                 .hasMessage("line 1:195: Cannot nest window functions or row pattern measures inside pattern recognition expressions");
 
-        assertFails(format(query, "LAST(Tradeday) FILTER (WHERE true)", define))
+        assertFails(query.formatted("LAST(Tradeday) FILTER (WHERE true)", define))
                 .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
                 .hasMessage("line 1:195: Cannot use FILTER with last pattern recognition function");
 
-        assertFails(format(query, "LAST(Tradeday ORDER BY Tradeday)", define))
+        assertFails(query.formatted("LAST(Tradeday ORDER BY Tradeday)", define))
                 .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
                 .hasMessage("line 1:195: Cannot use ORDER BY with last pattern recognition function");
 
-        assertFails(format(query, "LAST(DISTINCT Tradeday)", define))
+        assertFails(query.formatted("LAST(DISTINCT Tradeday)", define))
                 .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
                 .hasMessage("line 1:195: Cannot use DISTINCT with last pattern recognition function");
 
         // test illegal clauses in DEFINE
         String measure = "true";
-        assertFails(format(query, measure, "CLASSIFIER(Tradeday) OVER () > 0"))
+        assertFails(query.formatted(measure, "CLASSIFIER(Tradeday) OVER () > 0"))
                 .hasErrorCode(NESTED_WINDOW)
                 .hasMessage("line 1:313: Cannot nest window functions or row pattern measures inside pattern recognition expressions");
 
-        assertFails(format(query, measure, "CLASSIFIER(Tradeday) FILTER (WHERE true) > 0"))
+        assertFails(query.formatted(measure, "CLASSIFIER(Tradeday) FILTER (WHERE true) > 0"))
                 .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
                 .hasMessage("line 1:313: Cannot use FILTER with classifier pattern recognition function");
 
-        assertFails(format(query, measure, "CLASSIFIER(Tradeday ORDER BY Tradeday) > 0"))
+        assertFails(query.formatted(measure, "CLASSIFIER(Tradeday ORDER BY Tradeday) > 0"))
                 .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
                 .hasMessage("line 1:313: Cannot use ORDER BY with classifier pattern recognition function");
 
-        assertFails(format(query, measure, "CLASSIFIER(DISTINCT Tradeday) > 0"))
+        assertFails(query.formatted(measure, "CLASSIFIER(DISTINCT Tradeday) > 0"))
                 .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
                 .hasMessage("line 1:313: Cannot use DISTINCT with classifier pattern recognition function");
 
         // test quoted pattern recognition function name
-        assertFails(format(query, "true", "\"PREV\"(Price)"))
+        assertFails(query.formatted("true", "\"PREV\"(Price)"))
                 .hasErrorCode(FUNCTION_NOT_FOUND)
                 .hasMessage("line 1:313: Function 'prev' not registered");
 
-        assertFails(format(query, "\"NEXT\"(Price) > 0", "true"))
+        assertFails(query.formatted("\"NEXT\"(Price) > 0", "true"))
                 .hasErrorCode(FUNCTION_NOT_FOUND)
                 .hasMessage("line 1:195: Function 'next' not registered");
 
-        assertFails(format(query, "true", "\"FIRST\"(Price)"))
+        assertFails(query.formatted("true", "\"FIRST\"(Price)"))
                 .hasErrorCode(FUNCTION_NOT_FOUND)
                 .hasMessage("line 1:313: Function 'first' not registered");
 
-        assertFails(format(query, "\"LAST\"(Price) > 0", "true"))
+        assertFails(query.formatted("\"LAST\"(Price) > 0", "true"))
                 .hasErrorCode(FUNCTION_NOT_FOUND)
                 .hasMessage("line 1:195: Function 'last' not registered");
 
-        assertFails(format(query, "true", "\"CLASSIFIER\"()"))
+        assertFails(query.formatted("true", "\"CLASSIFIER\"()"))
                 .hasErrorCode(FUNCTION_NOT_FOUND)
                 .hasMessage("line 1:313: Function 'classifier' not registered");
 
-        assertFails(format(query, "\"MATCH_NUMBER\"() > 0", "true"))
+        assertFails(query.formatted("\"MATCH_NUMBER\"() > 0", "true"))
                 .hasErrorCode(FUNCTION_NOT_FOUND)
                 .hasMessage("line 1:195: Function 'match_number' not registered");
     }
@@ -5811,27 +5808,27 @@ public class TestAnalyzer
 
         // pattern recognition functions in MEASURES
         String define = "true";
-        analyze(format(query, "FINAL FIRST(Tradeday)", define));
-        analyze(format(query, "FINAL LAST(Tradeday)", define));
+        analyze(query.formatted("FINAL FIRST(Tradeday)", define));
+        analyze(query.formatted("FINAL LAST(Tradeday)", define));
 
-        assertFails(format(query, "FINAL PREV(Tradeday)", define))
+        assertFails(query.formatted("FINAL PREV(Tradeday)", define))
                 .hasErrorCode(INVALID_PROCESSING_MODE)
                 .hasMessage("line 1:195: FINAL semantics is not supported with prev pattern recognition function");
 
-        assertFails(format(query, "FINAL NEXT(Tradeday)", define))
+        assertFails(query.formatted("FINAL NEXT(Tradeday)", define))
                 .hasErrorCode(INVALID_PROCESSING_MODE)
                 .hasMessage("line 1:195: FINAL semantics is not supported with next pattern recognition function");
 
-        assertFails(format(query, "FINAL CLASSIFIER(Tradeday)", define))
+        assertFails(query.formatted("FINAL CLASSIFIER(Tradeday)", define))
                 .hasErrorCode(INVALID_PROCESSING_MODE)
                 .hasMessage("line 1:195: FINAL semantics is not supported with classifier pattern recognition function");
 
-        assertFails(format(query, "FINAL MATCH_NUMBER(Tradeday)", define))
+        assertFails(query.formatted("FINAL MATCH_NUMBER(Tradeday)", define))
                 .hasErrorCode(INVALID_PROCESSING_MODE)
                 .hasMessage("line 1:195: FINAL semantics is not supported with match_number pattern recognition function");
 
         // scalar function in pattern recognition context
-        assertFails(format(query, "FINAL lower(Tradeday)", define))
+        assertFails(query.formatted("FINAL lower(Tradeday)", define))
                 .hasErrorCode(INVALID_PROCESSING_MODE)
                 .hasMessage("line 1:195: FINAL semantics is supported only for FIRST(), LAST() and aggregation functions. Actual: lower");
 
@@ -5854,88 +5851,88 @@ public class TestAnalyzer
                 "                   DEFINE B AS true " +
                 "                ) AS M";
 
-        assertFails(format(query, "PREV()"))
+        assertFails(query.formatted("PREV()"))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("line 1:195: prev pattern recognition function requires 1 or 2 arguments");
 
-        assertFails(format(query, "PREV(Tradeday, 1, 'another')"))
+        assertFails(query.formatted("PREV(Tradeday, 1, 'another')"))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("line 1:195: prev pattern recognition function requires 1 or 2 arguments");
 
-        assertFails(format(query, "PREV(Tradeday, 'text')"))
+        assertFails(query.formatted("PREV(Tradeday, 'text')"))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("line 1:195: prev pattern recognition navigation function requires a number as the second argument");
 
-        assertFails(format(query, "PREV(Tradeday, -5)"))
+        assertFails(query.formatted("PREV(Tradeday, -5)"))
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("line 1:195: prev pattern recognition navigation function requires a non-negative number as the second argument (actual: -5)");
 
-        assertFails(format(query, "PREV(Tradeday, 3000000000)"))
+        assertFails(query.formatted("PREV(Tradeday, 3000000000)"))
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("line 1:195: The second argument of prev pattern recognition navigation function must not exceed 2147483647 (actual: 3000000000)");
 
         // nested navigations
-        assertFails(format(query, "LAST(NEXT(Tradeday, 2))"))
+        assertFails(query.formatted("LAST(NEXT(Tradeday, 2))"))
                 .hasErrorCode(INVALID_NAVIGATION_NESTING)
                 .hasMessage("line 1:200: Cannot nest next pattern navigation function inside last pattern navigation function");
 
-        assertFails(format(query, "PREV(NEXT(Tradeday, 2))"))
+        assertFails(query.formatted("PREV(NEXT(Tradeday, 2))"))
                 .hasErrorCode(INVALID_NAVIGATION_NESTING)
                 .hasMessage("line 1:200: Cannot nest next pattern navigation function inside prev pattern navigation function");
 
-        analyze(format(query, "PREV(LAST(Tradeday, 2), 3)"));
+        analyze(query.formatted("PREV(LAST(Tradeday, 2), 3)"));
 
-        assertFails(format(query, "PREV(LAST(Tradeday, 2) + LAST(Tradeday, 3))"))
+        assertFails(query.formatted("PREV(LAST(Tradeday, 2) + LAST(Tradeday, 3))"))
                 .hasErrorCode(INVALID_NAVIGATION_NESTING)
                 .hasMessage("line 1:220: Cannot nest multiple pattern navigation functions inside prev pattern navigation function");
 
-        assertFails(format(query, "PREV(LAST(Tradeday, 2) + 5)"))
+        assertFails(query.formatted("PREV(LAST(Tradeday, 2) + 5)"))
                 .hasErrorCode(INVALID_NAVIGATION_NESTING)
                 .hasMessage("line 1:200: Immediate nesting is required for pattern navigation functions");
 
-        assertFails(format(query, "PREV(avg(Price) + 5)"))
+        assertFails(query.formatted("PREV(avg(Price) + 5)"))
                 .hasErrorCode(NESTED_AGGREGATION)
                 .hasMessage("line 1:200: Cannot nest avg aggregate function inside prev function");
 
         // navigation function must column reference or CLASSIFIER()
-        assertFails(format(query, "PREV(LAST('no_column'))"))
+        assertFails(query.formatted("PREV(LAST('no_column'))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
                 .hasMessage("line 1:200: Pattern navigation function 'LAST' must contain at least one column reference or CLASSIFIER()");
 
-        analyze(format(query, "PREV(LAST(Tradeday + 1))"));
-        analyze(format(query, "PREV(LAST(lower(CLASSIFIER())))"));
+        analyze(query.formatted("PREV(LAST(Tradeday + 1))"));
+        analyze(query.formatted("PREV(LAST(lower(CLASSIFIER())))"));
 
         // labels inside pattern navigation function (as column prefixes and CLASSIFIER arguments) must be consistent
-        analyze(format(query, "PREV(LAST(length(CLASSIFIER(A)) + A.Tradeday + 1))"));
-        analyze(format(query, "PREV(LAST(length(CLASSIFIER()) + Tradeday + 1))"));
+        analyze(query.formatted("PREV(LAST(length(CLASSIFIER(A)) + A.Tradeday + 1))"));
+        analyze(query.formatted("PREV(LAST(length(CLASSIFIER()) + Tradeday + 1))"));
         // mixed labels are allowed when not nested in navigation or aggregation
-        analyze(format(query, "PREV(LAST(A.Tradeday)) + length(CLASSIFIER(B)) + Price + U.Price"));
+        analyze(query.formatted("PREV(LAST(A.Tradeday)) + length(CLASSIFIER(B)) + Price + U.Price"));
 
-        assertFails(format(query, "PREV(LAST(A.Tradeday + Price))"))
+        assertFails(query.formatted("PREV(LAST(A.Tradeday + Price))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
                 .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
 
-        assertFails(format(query, "PREV(LAST(A.Tradeday + B.Price))"))
+        assertFails(query.formatted("PREV(LAST(A.Tradeday + B.Price))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
                 .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
 
-        assertFails(format(query, "PREV(LAST(concat(CLASSIFIER(A), CLASSIFIER())))"))
+        assertFails(query.formatted("PREV(LAST(concat(CLASSIFIER(A), CLASSIFIER())))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
                 .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
 
-        assertFails(format(query, "PREV(LAST(concat(CLASSIFIER(A), CLASSIFIER(B))))"))
+        assertFails(query.formatted("PREV(LAST(concat(CLASSIFIER(A), CLASSIFIER(B))))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
                 .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
 
-        assertFails(format(query, "PREV(LAST(Tradeday + length(CLASSIFIER(B))))"))
+        assertFails(query.formatted("PREV(LAST(Tradeday + length(CLASSIFIER(B))))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
                 .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
 
-        assertFails(format(query, "PREV(LAST(A.Tradeday + length(CLASSIFIER(B))))"))
+        assertFails(query.formatted("PREV(LAST(A.Tradeday + length(CLASSIFIER(B))))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
                 .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
 
-        assertFails(format(query, "PREV(LAST(A.Tradeday + length(CLASSIFIER())))"))
+        assertFails(query.formatted("PREV(LAST(A.Tradeday + length(CLASSIFIER())))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
                 .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
     }
@@ -5953,23 +5950,23 @@ public class TestAnalyzer
                 "                   DEFINE B AS true " +
                 "                ) AS M";
 
-        analyze(format(query, "CLASSIFIER(A)"));
-        analyze(format(query, "CLASSIFIER(U)"));
-        analyze(format(query, "CLASSIFIER()"));
+        analyze(query.formatted("CLASSIFIER(A)"));
+        analyze(query.formatted("CLASSIFIER(U)"));
+        analyze(query.formatted("CLASSIFIER()"));
 
-        assertFails(format(query, "CLASSIFIER(A, B)"))
+        assertFails(query.formatted("CLASSIFIER(A, B)"))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("line 1:195: CLASSIFIER pattern recognition function takes no arguments or 1 argument");
 
-        assertFails(format(query, "CLASSIFIER(A.x)"))
+        assertFails(query.formatted("CLASSIFIER(A.x)"))
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:206: CLASSIFIER function argument should be primary pattern variable or subset name. Actual: DereferenceExpression");
 
-        assertFails(format(query, "CLASSIFIER(\"$\")"))
+        assertFails(query.formatted("CLASSIFIER(\"$\")"))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("line 1:206: $ is not a primary pattern variable or subset name");
 
-        assertFails(format(query, "CLASSIFIER(C)"))
+        assertFails(query.formatted("CLASSIFIER(C)"))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("line 1:206: C is not a primary pattern variable or subset name");
     }
@@ -5987,9 +5984,9 @@ public class TestAnalyzer
                 "                   DEFINE B AS true " +
                 "                ) AS M";
 
-        analyze(format(query, "MATCH_NUMBER()"));
+        analyze(query.formatted("MATCH_NUMBER()"));
 
-        assertFails(format(query, "MATCH_NUMBER(A)"))
+        assertFails(query.formatted("MATCH_NUMBER(A)"))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("line 1:195: MATCH_NUMBER pattern recognition function takes no arguments");
     }
@@ -6008,45 +6005,45 @@ public class TestAnalyzer
 
         // test illegal clauses in MEASURES
         String define = "true";
-        assertFails(format(query, "max(Price) OVER ()", define))
+        assertFails(query.formatted("max(Price) OVER ()", define))
                 .hasErrorCode(NESTED_WINDOW)
                 .hasMessage("line 1:158: Cannot nest window functions or row pattern measures inside pattern recognition expressions");
 
-        assertFails(format(query, "max(Price) FILTER (WHERE true)", define))
+        assertFails(query.formatted("max(Price) FILTER (WHERE true)", define))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:158: Cannot use FILTER with max aggregate function in pattern recognition context");
 
-        assertFails(format(query, "max(Price ORDER BY Tradeday)", define))
+        assertFails(query.formatted("max(Price ORDER BY Tradeday)", define))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:158: Cannot use ORDER BY with max aggregate function in pattern recognition context");
 
-        assertFails(format(query, "LISTAGG(Price) WITHIN GROUP (ORDER BY Tradeday)", define))
+        assertFails(query.formatted("LISTAGG(Price) WITHIN GROUP (ORDER BY Tradeday)", define))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:158: Cannot use ORDER BY with listagg aggregate function in pattern recognition context");
 
-        assertFails(format(query, "max(DISTINCT Price)", define))
+        assertFails(query.formatted("max(DISTINCT Price)", define))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:158: Cannot use DISTINCT with max aggregate function in pattern recognition context");
 
         // test illegal clauses in DEFINE
         String measure = "true";
-        assertFails(format(query, measure, "max(Price) OVER () > 0"))
+        assertFails(query.formatted(measure, "max(Price) OVER () > 0"))
                 .hasErrorCode(NESTED_WINDOW)
                 .hasMessage("line 1:276: Cannot nest window functions or row pattern measures inside pattern recognition expressions");
 
-        assertFails(format(query, measure, "max(Price) FILTER (WHERE true) > 0"))
+        assertFails(query.formatted(measure, "max(Price) FILTER (WHERE true) > 0"))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:276: Cannot use FILTER with max aggregate function in pattern recognition context");
 
-        assertFails(format(query, measure, "max(Price ORDER BY Tradeday) > 0"))
+        assertFails(query.formatted(measure, "max(Price ORDER BY Tradeday) > 0"))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:276: Cannot use ORDER BY with max aggregate function in pattern recognition context");
 
-        assertFails(format(query, measure, "LISTAGG(Price) WITHIN GROUP (ORDER BY Tradeday) IS NOT NULL"))
+        assertFails(query.formatted(measure, "LISTAGG(Price) WITHIN GROUP (ORDER BY Tradeday) IS NOT NULL"))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:276: Cannot use ORDER BY with listagg aggregate function in pattern recognition context");
 
-        assertFails(format(query, measure, "max(DISTINCT Price) > 0"))
+        assertFails(query.formatted(measure, "max(DISTINCT Price) > 0"))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:276: Cannot use DISTINCT with max aggregate function in pattern recognition context");
     }
@@ -6063,10 +6060,10 @@ public class TestAnalyzer
                 "                   DEFINE B AS true " +
                 "                 ) AS M";
 
-        assertFails(format(query, "max(1 + min(Price))"))
+        assertFails(query.formatted("max(1 + min(Price))"))
                 .hasErrorCode(NESTED_AGGREGATION)
                 .hasMessage("line 1:166: Cannot nest min aggregate function inside max function");
-        assertFails(format(query, "max(1 + LAST(Price))"))
+        assertFails(query.formatted("max(1 + LAST(Price))"))
                 .hasErrorCode(INVALID_NAVIGATION_NESTING)
                 .hasMessage("line 1:166: Cannot nest last pattern navigation function inside max function");
     }
@@ -6084,55 +6081,55 @@ public class TestAnalyzer
                 "                ) AS M";
 
         // at most one label inside argument
-        analyze(format(query, "count()"));
-        analyze(format(query, "count(Symbol)"));
-        analyze(format(query, "count(A.Symbol)"));
-        analyze(format(query, "count(U.Symbol)"));
-        analyze(format(query, "count(CLASSIFIER())"));
-        analyze(format(query, "count(CLASSIFIER(A))"));
-        analyze(format(query, "count(CLASSIFIER(U))"));
+        analyze(query.formatted("count()"));
+        analyze(query.formatted("count(Symbol)"));
+        analyze(query.formatted("count(A.Symbol)"));
+        analyze(query.formatted("count(U.Symbol)"));
+        analyze(query.formatted("count(CLASSIFIER())"));
+        analyze(query.formatted("count(CLASSIFIER(A))"));
+        analyze(query.formatted("count(CLASSIFIER(U))"));
 
         // consistent labels inside argument
-        analyze(format(query, "count(Price < 5 OR CLASSIFIER() > 'X')"));
-        analyze(format(query, "count(B.Price < 5 OR CLASSIFIER(B) > 'X')"));
-        analyze(format(query, "count(U.Price < 5 OR CLASSIFIER(U) > 'X')"));
+        analyze(query.formatted("count(Price < 5 OR CLASSIFIER() > 'X')"));
+        analyze(query.formatted("count(B.Price < 5 OR CLASSIFIER(B) > 'X')"));
+        analyze(query.formatted("count(U.Price < 5 OR CLASSIFIER(U) > 'X')"));
 
         // inconsistent labels inside argument
-        assertFails(format(query, "count(B.Price < 5 OR Price > 5)"))
+        assertFails(query.formatted("count(B.Price < 5 OR Price > 5)"))
                 .hasErrorCode(INVALID_ARGUMENTS)
                 .hasMessage("line 1:158: All labels and classifiers inside the call to 'count' must match");
-        assertFails(format(query, "count(B.Price < 5 OR A.Price > 5)"))
+        assertFails(query.formatted("count(B.Price < 5 OR A.Price > 5)"))
                 .hasErrorCode(INVALID_ARGUMENTS)
                 .hasMessage("line 1:158: All labels and classifiers inside the call to 'count' must match");
-        assertFails(format(query, "count(CLASSIFIER(A) < 'X' OR CLASSIFIER(B) > 'Y')"))
+        assertFails(query.formatted("count(CLASSIFIER(A) < 'X' OR CLASSIFIER(B) > 'Y')"))
                 .hasErrorCode(INVALID_ARGUMENTS)
                 .hasMessage("line 1:158: All labels and classifiers inside the call to 'count' must match");
-        assertFails(format(query, "count(Price < 5 OR CLASSIFIER(B) > 'Y')"))
+        assertFails(query.formatted("count(Price < 5 OR CLASSIFIER(B) > 'Y')"))
                 .hasErrorCode(INVALID_ARGUMENTS)
                 .hasMessage("line 1:158: All labels and classifiers inside the call to 'count' must match");
-        assertFails(format(query, "count(A.Price < 5 OR CLASSIFIER(B) > 'Y')"))
+        assertFails(query.formatted("count(A.Price < 5 OR CLASSIFIER(B) > 'Y')"))
                 .hasErrorCode(INVALID_ARGUMENTS)
                 .hasMessage("line 1:158: All labels and classifiers inside the call to 'count' must match");
 
         // multiple aggregation arguments
-        analyze(format(query, "max_by(Price, Symbol)"));
-        analyze(format(query, "max_by(A.Price, A.Symbol)"));
-        analyze(format(query, "max_by(U.Price, U.Symbol)"));
+        analyze(query.formatted("max_by(Price, Symbol)"));
+        analyze(query.formatted("max_by(A.Price, A.Symbol)"));
+        analyze(query.formatted("max_by(U.Price, U.Symbol)"));
 
-        analyze(format(query, "max_by(Price, 1)"));
-        analyze(format(query, "max_by(A.Price, 1)"));
-        analyze(format(query, "max_by(U.Price, 1)"));
-        analyze(format(query, "max_by(1, 1)"));
-        analyze(format(query, "max_by(1, Price)"));
-        analyze(format(query, "max_by(1, A.Price)"));
-        analyze(format(query, "max_by(1, U.Price)"));
+        analyze(query.formatted("max_by(Price, 1)"));
+        analyze(query.formatted("max_by(A.Price, 1)"));
+        analyze(query.formatted("max_by(U.Price, 1)"));
+        analyze(query.formatted("max_by(1, 1)"));
+        analyze(query.formatted("max_by(1, Price)"));
+        analyze(query.formatted("max_by(1, A.Price)"));
+        analyze(query.formatted("max_by(1, U.Price)"));
 
-        assertFails(format(query, "max_by(U.Price, A.Price)"))
+        assertFails(query.formatted("max_by(U.Price, A.Price)"))
                 .hasErrorCode(INVALID_ARGUMENTS)
                 .hasMessage("line 1:158: All labels and classifiers inside the call to 'max_by' must match");
 
         // inconsistent labels in second argument
-        assertFails(format(query, "max_by(A.Symbol, A.Price + B.price)"))
+        assertFails(query.formatted("max_by(A.Symbol, A.Price + B.price)"))
                 .hasErrorCode(INVALID_ARGUMENTS)
                 .hasMessage("line 1:158: All labels and classifiers inside the call to 'max_by' must match");
     }
@@ -6150,22 +6147,22 @@ public class TestAnalyzer
                 "                ) AS M";
 
         // in MEASURES clause
-        analyze(format(query, "RUNNING avg(A.Price)", "true"));
-        analyze(format(query, "FINAL avg(A.Price)", "true"));
+        analyze(query.formatted("RUNNING avg(A.Price)", "true"));
+        analyze(query.formatted("FINAL avg(A.Price)", "true"));
 
         // in DEFINE clause
-        analyze(format(query, "true", "RUNNING avg(A.Price) > 5"));
-        assertFails(format(query, "true", "FINAL avg(A.Price) > 5"))
+        analyze(query.formatted("true", "RUNNING avg(A.Price) > 5"));
+        assertFails(query.formatted("true", "FINAL avg(A.Price) > 5"))
                 .hasErrorCode(INVALID_PROCESSING_MODE)
                 .hasMessage("line 1:276: FINAL semantics is not supported in DEFINE clause");
 
         // count star aggregation
-        analyze(format(query, "RUNNING count(*)", "count(*) >= 0"));
-        analyze(format(query, "FINAL count(*)", "count(*) >= 0"));
-        analyze(format(query, "RUNNING count()", "count() >= 0"));
-        analyze(format(query, "FINAL count()", "count() >= 0"));
-        analyze(format(query, "RUNNING count(A.*)", "count(B.*) >= 0"));
-        analyze(format(query, "FINAL count(U.*)", "count(U.*) >= 0"));
+        analyze(query.formatted("RUNNING count(*)", "count(*) >= 0"));
+        analyze(query.formatted("FINAL count(*)", "count(*) >= 0"));
+        analyze(query.formatted("RUNNING count()", "count() >= 0"));
+        analyze(query.formatted("FINAL count()", "count() >= 0"));
+        analyze(query.formatted("RUNNING count(A.*)", "count(B.*) >= 0"));
+        analyze(query.formatted("FINAL count(U.*)", "count(U.*) >= 0"));
     }
 
     @Test
@@ -6180,24 +6177,24 @@ public class TestAnalyzer
                 "                   DEFINE A AS true " +
                 "                ) AS M";
 
-        analyze(format(query, "count(*)"));
-        analyze(format(query, "count()"));
-        analyze(format(query, "count(B.*)"));
-        analyze(format(query, "count(U.*)"));
+        analyze(query.formatted("count(*)"));
+        analyze(query.formatted("count()"));
+        analyze(query.formatted("count(B.*)"));
+        analyze(query.formatted("count(U.*)"));
 
         assertFails("SELECT count(A.*) FROM (VALUES 1) t(a)")
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("line 1:14: label.* syntax is only supported as the only argument of row pattern count function");
 
-        assertFails(format(query, "lower(A.*)"))
+        assertFails(query.formatted("lower(A.*)"))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("line 1:164: label.* syntax is only supported as the only argument of row pattern count function");
 
-        assertFails(format(query, "min(A.*)"))
+        assertFails(query.formatted("min(A.*)"))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("line 1:162: label.* syntax is only supported as the only argument of row pattern count function");
 
-        assertFails(format(query, "count(X.*)"))
+        assertFails(query.formatted("count(X.*)"))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("line 1:164: X is not a primary pattern variable or subset name");
     }
@@ -8842,8 +8839,8 @@ public class TestAnalyzer
         AnalyzerFactory analyzerFactory = new AnalyzerFactory(statementAnalyzerFactory, statementRewrite, plannerContext.getTracer());
         return analyzerFactory.createAnalyzer(
                 session,
-                emptyList(),
-                emptyMap(),
+                List.of(),
+                Map.of(),
                 WarningCollector.NOOP,
                 createPlanOptimizersStatsCollector());
     }

@@ -39,7 +39,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Set;
 
-import static java.util.Collections.emptySet;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHdfsFileSystemHdfs
@@ -63,7 +62,7 @@ public class TestHdfsFileSystemHdfs
         HdfsConfig hdfsConfig = new HdfsConfig();
         hdfsConfiguration = new DynamicHdfsConfiguration(
                 new HdfsConfigurationInitializer(hdfsConfig, Set.of(Hadoop.SINGLE_DATANODE_CONFIGURATION_INITIALIZER)),
-                emptySet());
+                Set.of());
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         hdfsContext = new HdfsContext(ConnectorIdentity.ofUser("test"));
 

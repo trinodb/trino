@@ -64,7 +64,6 @@ import static io.trino.spi.resourcegroups.SchedulingPolicy.QUERY_PRIORITY;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED_FAIR;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -673,7 +672,7 @@ public class InternalResourceGroup
     {
         synchronized (root) {
             if (!isLeafGroup()) {
-                throw new TrinoException(INVALID_RESOURCE_GROUP, format("Cannot add queries to '%s'. It is not a leaf group.", id));
+                throw new TrinoException(INVALID_RESOURCE_GROUP, "Cannot add queries to '%s'. It is not a leaf group.".formatted(id));
             }
             // Check all ancestors for capacity
             InternalResourceGroup group = this;

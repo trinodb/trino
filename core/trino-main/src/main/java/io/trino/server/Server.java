@@ -67,7 +67,6 @@ import java.util.Locale;
 import java.util.Optional;
 
 import static io.trino.server.TrinoSystemRequirements.verifySystemRequirements;
-import static java.lang.String.format;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 
 public class Server
@@ -185,7 +184,7 @@ public class Server
         }
         output.append("\n").append(type).append(":\n\n");
         for (int index = 0; index < messages.size(); index++) {
-            output.append(format("%s) %s\n", index + 1, messages.get(index)));
+            output.append("%s) %s\n".formatted(index + 1, messages.get(index)));
         }
     }
 

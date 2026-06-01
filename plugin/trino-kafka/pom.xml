@@ -394,6 +394,16 @@
                 </configuration>
             </plugin>
             <plugin>
+                <groupId>org.gaul</groupId>
+                <artifactId>modernizer-maven-plugin</artifactId>
+                <configuration>
+                    <ignoreClassNamePatterns>
+                        <!-- protoc-generated test sources are regenerated on every build and cannot be modernized -->
+                        <ignoreClassNamePattern>io/trino/plugin/kafka/protobuf/UnsupportedRecursiveTypes.*</ignoreClassNamePattern>
+                    </ignoreClassNamePatterns>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.basepom.maven</groupId>
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
                 <configuration>

@@ -20,7 +20,6 @@ import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -41,12 +40,10 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
-import static java.lang.String.format;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
-import static java.util.stream.Collectors.toUnmodifiableList;
 
 /**
  * A set containing values that are uniquely identifiable.
@@ -84,12 +81,12 @@ public class EquatableValueSet
 
     static EquatableValueSet none(Type type)
     {
-        return new EquatableValueSet(type, true, Collections.emptySet());
+        return new EquatableValueSet(type, true, Set.of());
     }
 
     static EquatableValueSet all(Type type)
     {
-        return new EquatableValueSet(type, false, Collections.emptySet());
+        return new EquatableValueSet(type, false, Set.of());
     }
 
     static EquatableValueSet of(Type type, Object first, Object... rest)
@@ -132,7 +129,7 @@ public class EquatableValueSet
     {
         return entries.stream()
                 .map(ValueEntry::getValue)
-                .collect(toUnmodifiableList());
+                .toList();
     }
 
     public int getValuesCount()
@@ -181,7 +178,7 @@ public class EquatableValueSet
         }
         return entries.stream()
                 .map(ValueEntry::getValue)
-                .collect(toUnmodifiableList());
+                .toList();
     }
 
     @Override
@@ -395,10 +392,10 @@ public class EquatableValueSet
     private EquatableValueSet checkCompatibility(ValueSet other)
     {
         if (!getType().equals(other.getType())) {
-            throw new IllegalStateException(format("Mismatched types: %s vs %s", getType(), other.getType()));
+            throw new IllegalStateException("Mismatched types: %s vs %s".formatted(getType(), other.getType()));
         }
         if (!(other instanceof EquatableValueSet equatableValueSet)) {
-            throw new IllegalStateException(format("ValueSet is not a EquatableValueSet: %s", other.getClass()));
+            throw new IllegalStateException("ValueSet is not a EquatableValueSet: %s".formatted(other.getClass()));
         }
         return equatableValueSet;
     }

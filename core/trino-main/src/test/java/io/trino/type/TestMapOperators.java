@@ -15,7 +15,6 @@ package io.trino.type;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.function.LiteralParameters;
@@ -32,6 +31,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,10 +64,7 @@ import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.MoreMaps.asMap;
 import static io.trino.util.StructuralTestUtil.mapType;
-import static java.lang.String.format;
 import static java.util.Arrays.asList;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -351,7 +349,7 @@ public class TestMapOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1, 2], ARRAY[TIMESTAMP '1970-01-01 00:00:01', null])"))
                 .hasType(JSON)
-                .isEqualTo(format("{\"1\":\"%s\",\"2\":null}", sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0)));
+                .isEqualTo("{\"1\":\"%s\",\"2\":null}".formatted(sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0)));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[2, 5, 3], ARRAY[DATE '2001-08-22', DATE '2001-08-23', null])"))
@@ -595,7 +593,7 @@ public class TestMapOperators
                 .hasType(mapType(BIGINT, new ArrayType(BIGINT)))
                 .isEqualTo(asMap(
                         ImmutableList.of(1L, 2L, 3L, 5L, 8L),
-                        asList(asList(1L, 2L), asList(3L, null), emptyList(), asList(null, null), null)));
+                        asList(asList(1L, 2L), asList(3L, null), List.of(), asList(null, null), null)));
 
         assertThat(assertions.expression("CAST(JSON '{" +
                 "\"1\": {\"a\": 1, \"b\": 2}, " +
@@ -976,7 +974,7 @@ public class TestMapOperators
     {
         assertThat(assertions.function("map_values", "map(ARRAY['1'], ARRAY[ARRAY[TRUE, FALSE, NULL]])"))
                 .hasType(new ArrayType(new ArrayType(BOOLEAN)))
-                .isEqualTo(ImmutableList.of(Lists.newArrayList(true, false, null)));
+                .isEqualTo(ImmutableList.of(new ArrayList<>(Arrays.asList(true, false, null))));
 
         assertThat(assertions.function("map_values", "map(ARRAY['1'], ARRAY[ARRAY[ARRAY[1, 2]]])"))
                 .hasType(new ArrayType(new ArrayType(new ArrayType(INTEGER))))
@@ -1000,7 +998,7 @@ public class TestMapOperators
 
         assertThat(assertions.function("map_values", "map(ARRAY['1'], ARRAY[NULL])"))
                 .hasType(new ArrayType(UNKNOWN))
-                .isEqualTo(Lists.newArrayList((Object) null));
+                .isEqualTo(new ArrayList<>(Arrays.asList((Object) null)));
 
         assertThat(assertions.function("map_values", "map(ARRAY['1'], ARRAY[TRUE])"))
                 .hasType(new ArrayType(BOOLEAN))
@@ -1703,7 +1701,7 @@ public class TestMapOperators
                 .isEqualTo(ImmutableMap.of(
                         "x", ImmutableList.of(1.0, 1.5),
                         "y", ImmutableList.of(2.0, 2.5),
-                        "z", singletonList(null)));
+                        "z", List.of(null)));
 
         assertThat(assertions.function("multimap_from_entries", "ARRAY[(NaN(), 1), (NaN(), 2)]"))
                 .hasType(mapType(DOUBLE, new ArrayType(INTEGER)))

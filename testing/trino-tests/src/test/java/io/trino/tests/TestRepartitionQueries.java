@@ -18,8 +18,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.tests.tpch.TpchQueryRunner;
 import org.junit.jupiter.api.Test;
 
-import static java.lang.String.format;
-
 public class TestRepartitionQueries
         extends AbstractTestQueryFramework
 {
@@ -140,21 +138,20 @@ public class TestRepartitionQueries
         // the join does not filter out any rows so the query just returns columnExpression,
         // formatted using columnProjection (used in case columnExpression is not supported by h2).
         // expected query uses actualColumnExpression to format the value in h2 in the same way as columnExpression
-        assertQuery(format(
-                        "WITH custkey_ex AS (" +
-                                "  SELECT" +
-                                "    custkey," +
-                                "    nationkey," +
-                                "    %s AS column_under_test" +
-                                "  FROM customer" +
-                                ")" +
-                                "SELECT %s FROM (" +
-                                "  SELECT c.column_under_test " +
-                                "  FROM custkey_ex c, nation n " +
-                                "  WHERE c.nationkey = n.nationkey" +
-                                ")",
+        assertQuery(("WITH custkey_ex AS (" +
+                "  SELECT" +
+                "    custkey," +
+                "    nationkey," +
+                "    %s AS column_under_test" +
+                "  FROM customer" +
+                ")" +
+                "SELECT %s FROM (" +
+                "  SELECT c.column_under_test " +
+                "  FROM custkey_ex c, nation n " +
+                "  WHERE c.nationkey = n.nationkey" +
+                ")").formatted(
                         columnExpression,
                         columnProjection),
-                format("SELECT %s AS column_under_test FROM customer", actualColumnExpression));
+                "SELECT %s AS column_under_test FROM customer".formatted(actualColumnExpression));
     }
 }

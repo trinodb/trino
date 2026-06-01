@@ -43,7 +43,6 @@ import static com.google.common.io.Resources.getResource;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.plugin.base.ssl.SslUtils.createSSLContext;
 import static io.trino.plugin.opensearch.OpenSearchServer.OPENSEARCH_IMAGE;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -126,7 +125,7 @@ public class TestPasswordAuthentication
         Request request = new Request("POST", "/test/_doc?refresh");
         request.setJsonEntity(json);
         request.setOptions(RequestOptions.DEFAULT.toBuilder()
-                .addHeader("Authorization", format("Basic %s", Base64.getEncoder().encodeToString(format("%s:%s", USER, PASSWORD).getBytes(StandardCharsets.UTF_8)))));
+                .addHeader("Authorization", "Basic %s".formatted(Base64.getEncoder().encodeToString("%s:%s".formatted(USER, PASSWORD).getBytes(StandardCharsets.UTF_8)))));
         client.getLowLevelClient().performRequest(request);
 
         assertThat(assertions.query("SELECT * FROM test"))

@@ -29,8 +29,6 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static java.lang.String.format;
-
 public class OpenLineageHttpTransportConfig
 {
     public enum Compression
@@ -119,8 +117,8 @@ public class OpenLineageHttpTransportConfig
                     .collect(Collectors.toMap(keyValue -> keyValue.split(":", 2)[0], keyValue -> keyValue.split(":", 2)[1]));
         }
         catch (IndexOutOfBoundsException e) {
-            throw new IllegalArgumentException(format("Cannot parse http headers from property openlineage-event-listener.transport.headers; value provided was %s, " +
-                    "expected format is \"Header-Name-1: header value 1, Header-Value-2: header value 2, ...\"", String.join(", ", headers)), e);
+            throw new IllegalArgumentException(("Cannot parse http headers from property openlineage-event-listener.transport.headers; value provided was %s, " +
+                    "expected format is \"Header-Name-1: header value 1, Header-Value-2: header value 2, ...\"").formatted(String.join(", ", headers)), e);
         }
         return this;
     }
@@ -140,8 +138,8 @@ public class OpenLineageHttpTransportConfig
                     .collect(Collectors.toMap(kvs -> kvs.split(":", 2)[0], kvs -> kvs.split(":", 2)[1]));
         }
         catch (IndexOutOfBoundsException e) {
-            throw new IllegalArgumentException(format("Cannot parse url params from property openlineage-event-listener.transport.url-params; value provided was %s, " +
-                    "expected format is \"url-param-1: url param value 1, ...\"", String.join(", ", urlParas)), e);
+            throw new IllegalArgumentException(("Cannot parse url params from property openlineage-event-listener.transport.url-params; value provided was %s, " +
+                    "expected format is \"url-param-1: url param value 1, ...\"").formatted(String.join(", ", urlParas)), e);
         }
         return this;
     }

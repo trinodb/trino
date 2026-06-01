@@ -23,7 +23,6 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.util.List;
 
-import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static org.junit.jupiter.api.Assumptions.abort;
 
@@ -52,8 +51,7 @@ public class TestDeltaLakeDynamicPartitionPruningTest
     @Override
     protected void createLineitemTable(String tableName, List<String> columns, List<String> partitionColumns)
     {
-        String sql = format(
-                "CREATE TABLE %s WITH (partitioned_by=ARRAY[%s]) AS SELECT %s FROM tpch.tiny.lineitem",
+        String sql = "CREATE TABLE %s WITH (partitioned_by=ARRAY[%s]) AS SELECT %s FROM tpch.tiny.lineitem".formatted(
                 tableName,
                 partitionColumns.stream().map(column -> "'" + column + "'").collect(joining(",")),
                 String.join(",", columns));
@@ -63,8 +61,7 @@ public class TestDeltaLakeDynamicPartitionPruningTest
     @Override
     protected void createPartitionedTable(String tableName, List<String> columns, List<String> partitionColumns)
     {
-        String sql = format(
-                "CREATE TABLE %s (%s) WITH (location='%s', partitioned_by=ARRAY[%s])",
+        String sql = "CREATE TABLE %s (%s) WITH (location='%s', partitioned_by=ARRAY[%s])".formatted(
                 tableName,
                 String.join(",", columns),
                 createTableLocation(tableName),

@@ -39,7 +39,6 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.rescale;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
 /**
@@ -80,7 +79,7 @@ public final class TimeType
     public static TimeType createTimeType(int precision)
     {
         if (precision < 0 || precision > MAX_PRECISION) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIME precision must be in range [0, %s]: %s", MAX_PRECISION, precision));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "TIME precision must be in range [0, %s]: %s".formatted(MAX_PRECISION, precision));
         }
         return TYPES[precision];
     }

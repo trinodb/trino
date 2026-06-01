@@ -23,7 +23,6 @@ import java.util.List;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.RowBlock.createRowBlockInternal;
-import static java.lang.String.format;
 import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
 
@@ -406,7 +405,7 @@ public class RowBlockBuilder
 
         for (int i = 0; i < fieldBlockBuilders.length; i++) {
             if (fieldBlockBuilders[i].getPositionCount() != positionCount) {
-                throw new IllegalStateException(format("field %s has unexpected position count. Expected: %s, actual: %s", i, positionCount, fieldBlockBuilders[i].getPositionCount()));
+                throw new IllegalStateException("field %s has unexpected position count. Expected: %s, actual: %s".formatted(i, positionCount, fieldBlockBuilders[i].getPositionCount()));
             }
         }
 
@@ -454,7 +453,7 @@ public class RowBlockBuilder
     @Override
     public String toString()
     {
-        return format("RowBlockBuilder{numFields=%d, positionCount=%d", fieldBlockBuilders.length, getPositionCount());
+        return "RowBlockBuilder{numFields=%d, positionCount=%d".formatted(fieldBlockBuilders.length, getPositionCount());
     }
 
     @Override

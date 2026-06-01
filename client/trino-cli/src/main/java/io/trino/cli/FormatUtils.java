@@ -43,7 +43,6 @@ public final class FormatUtils
     private static final DecimalFormatSymbols DECIMAL_FORMAT_SYMBOLS = DecimalFormatSymbols.getInstance(ENGLISH);
     private static final Splitter HEX_SPLITTER = Splitter.fixedLength(2);
     private static final Joiner HEX_BYTE_JOINER = Joiner.on(' ');
-    private static final Joiner HEX_LINE_JOINER = Joiner.on('\n');
 
     private FormatUtils() {}
 
@@ -313,12 +312,12 @@ public final class FormatUtils
         Iterable<String> lines = transform(hexLines, HEX_BYTE_JOINER::join);
 
         // joined: "61 62 63\n..."
-        return HEX_LINE_JOINER.join(lines);
+        return String.join("\n", lines);
     }
 
     static String formatHexDump(byte[] bytes)
     {
-        return HEX_BYTE_JOINER.join(createHexPairs(bytes));
+        return String.join(" ", createHexPairs(bytes));
     }
 
     private static Iterable<String> createHexPairs(byte[] bytes)

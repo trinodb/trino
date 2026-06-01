@@ -60,7 +60,6 @@ import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Float.floatToIntBits;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class AvroColumnDecoder
@@ -185,7 +184,7 @@ public class AvroColumnDecoder
             if (value instanceof Double doubleValue) {
                 return doubleValue;
             }
-            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), columnType, columnName));
+            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, "cannot decode object of '%s' as '%s' for column '%s'".formatted(value.getClass(), columnType, columnName));
         }
 
         @Override
@@ -194,7 +193,7 @@ public class AvroColumnDecoder
             if (value instanceof Boolean booleanValue) {
                 return booleanValue;
             }
-            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), columnType, columnName));
+            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, "cannot decode object of '%s' as '%s' for column '%s'".formatted(value.getClass(), columnType, columnName));
         }
 
         @Override
@@ -209,7 +208,7 @@ public class AvroColumnDecoder
             if (value instanceof Float && columnType == RealType.REAL) {
                 return floatToIntBits((float) value);
             }
-            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), columnType, columnName));
+            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, "cannot decode object of '%s' as '%s' for column '%s'".formatted(value.getClass(), columnType, columnName));
         }
 
         @Override
@@ -240,7 +239,7 @@ public class AvroColumnDecoder
             }
         }
 
-        throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), type, columnName));
+        throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, "cannot decode object of '%s' as '%s' for column '%s'".formatted(value.getClass(), type, columnName));
     }
 
     private static Object serializeObject(BlockBuilder builder, Object value, Type type, String columnName)
@@ -313,7 +312,7 @@ public class AvroColumnDecoder
             return;
         }
 
-        throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), type, columnName));
+        throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, "cannot decode object of '%s' as '%s' for column '%s'".formatted(value.getClass(), type, columnName));
     }
 
     private static SqlMap serializeMap(BlockBuilder parentBlockBuilder, Object value, MapType type, String columnName)

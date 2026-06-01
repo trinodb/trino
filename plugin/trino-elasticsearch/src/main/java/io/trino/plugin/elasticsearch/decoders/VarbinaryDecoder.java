@@ -27,7 +27,6 @@ import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class VarbinaryDecoder
@@ -51,7 +50,7 @@ public class VarbinaryDecoder
             VARBINARY.writeSlice(output, Slices.wrappedBuffer(Base64.getDecoder().decode(value.toString())));
         }
         else {
-            throw new TrinoException(TYPE_MISMATCH, format("Expected a string value for field '%s' of type VARBINARY: %s [%s]", path, value, value.getClass().getSimpleName()));
+            throw new TrinoException(TYPE_MISMATCH, "Expected a string value for field '%s' of type VARBINARY: %s [%s]".formatted(path, value, value.getClass().getSimpleName()));
         }
     }
 

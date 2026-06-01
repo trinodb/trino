@@ -14,7 +14,6 @@
 package io.trino.operator.output;
 
 import static java.lang.Math.ceil;
-import static java.lang.String.format;
 
 // Copied from io.trino.spi.block.BlockUtil
 final class PositionsAppenderUtil
@@ -39,7 +38,7 @@ final class PositionsAppenderUtil
         else if (newSize > MAX_ARRAY_SIZE) {
             newSize = MAX_ARRAY_SIZE;
             if (newSize == currentSize) {
-                throw new IllegalArgumentException(format("Cannot grow array beyond '%s'", MAX_ARRAY_SIZE));
+                throw new IllegalArgumentException("Cannot grow array beyond '%s'".formatted(MAX_ARRAY_SIZE));
             }
         }
         return (int) newSize;

@@ -48,7 +48,6 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDelta
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -82,8 +81,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     {
         String tableName = "test_update_compatibility_" + randomNameSuffix();
 
-        onDelta().executeQuery(format(
-                "CREATE TABLE default.%1$s (a int, b int, c int) USING DELTA LOCATION '%2$s%1$s'",
+        onDelta().executeQuery("CREATE TABLE default.%1$s (a int, b int, c int) USING DELTA LOCATION '%2$s%1$s'".formatted(
                 tableName,
                 getBaseLocation()));
 
@@ -114,8 +112,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     {
         String tableName = "test_delete_compatibility_" + randomNameSuffix();
 
-        onDelta().executeQuery(format(
-                "CREATE TABLE default.%1$s (a int, b int) USING DELTA LOCATION '%2$s%1$s'",
+        onDelta().executeQuery("CREATE TABLE default.%1$s (a int, b int) USING DELTA LOCATION '%2$s%1$s'".formatted(
                 tableName,
                 getBaseLocation()));
 
@@ -144,8 +141,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     {
         String tableName = "test_delete_on_partitioned_table_compatibility_" + randomNameSuffix();
 
-        onDelta().executeQuery(format(
-                "CREATE TABLE default.%1$s (a int, b int) USING DELTA LOCATION '%2$s%1$s' PARTITIONED BY (b)",
+        onDelta().executeQuery("CREATE TABLE default.%1$s (a int, b int) USING DELTA LOCATION '%2$s%1$s' PARTITIONED BY (b)".formatted(
                 tableName,
                 getBaseLocation()));
 
@@ -174,8 +170,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     {
         String tableName = "test_delete_on_partitioned_table_compatibility_" + randomNameSuffix();
 
-        onDelta().executeQuery(format(
-                "CREATE TABLE default.%1$s (a int, b int) USING DELTA LOCATION '%2$s%1$s' PARTITIONED BY (b)",
+        onDelta().executeQuery("CREATE TABLE default.%1$s (a int, b int) USING DELTA LOCATION '%2$s%1$s' PARTITIONED BY (b)".formatted(
                 tableName,
                 getBaseLocation()));
 
@@ -204,7 +199,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
                 row(1, 1, 0),
                 row(2, 2, 0),
                 row(3, 3, 1)))) {
-            onTrino().executeQuery(format("UPDATE delta.default.%s SET upper = 0 WHERE lower = 1", table.name()));
+            onTrino().executeQuery("UPDATE delta.default.%s SET upper = 0 WHERE lower = 1".formatted(table.name()));
 
             assertTable(table, table.rows().map(row -> row.lower() == 1 ? row.withUpper(0) : row));
         }
@@ -216,7 +211,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     public void testCaseUpdatePartitionColumnFails(String partitionColumn)
     {
         try (CaseTestTable table = new CaseTestTable("update_case_compat", partitionColumn, List.of(row(1, 1, 1)))) {
-            onTrino().executeQuery(format("UPDATE delta.default.%s SET %s = 0 WHERE lower = 1", table.name(), partitionColumn));
+            onTrino().executeQuery("UPDATE delta.default.%s SET %s = 0 WHERE lower = 1".formatted(table.name(), partitionColumn));
             assertTable(table, table.rows().map(row -> row.withPartition(0)));
         }
     }
@@ -230,7 +225,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
                 row(1, 1, 0),
                 row(2, 2, 0),
                 row(3, 3, 1)))) {
-            onTrino().executeQuery(format("DELETE FROM delta.default.%s WHERE lower = 1", table.name()));
+            onTrino().executeQuery("DELETE FROM delta.default.%s WHERE lower = 1".formatted(table.name()));
             assertTable(table, table.rows().filter(not(row -> row.lower() == 1)));
         }
     }
@@ -244,7 +239,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
                 row(1, 1, 0),
                 row(2, 2, 0),
                 row(3, 3, 1)))) {
-            onTrino().executeQuery(format("DELETE FROM delta.default.%s WHERE %s = 0", table.name(), partitionColumn));
+            onTrino().executeQuery("DELETE FROM delta.default.%s WHERE %s = 0".formatted(table.name(), partitionColumn));
             assertTable(table, table.rows().filter(not(row -> row.partition() == 0)));
         }
     }
@@ -255,8 +250,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     {
         String tableName = "test_databricks_table_with_nonnullable_columns_" + randomNameSuffix();
 
-        onDelta().executeQuery(format(
-                "CREATE TABLE default.%1$s (non_nullable_col INT NOT NULL, nullable_col INT) USING DELTA LOCATION '%2$s%1$s'",
+        onDelta().executeQuery("CREATE TABLE default.%1$s (non_nullable_col INT NOT NULL, nullable_col INT) USING DELTA LOCATION '%2$s%1$s'".formatted(
                 tableName,
                 getBaseLocation()));
 
@@ -310,8 +304,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     {
         String tableName = "test_databricks_table_altered_after_initial_write_" + randomNameSuffix();
 
-        onDelta().executeQuery(format(
-                "CREATE TABLE default.%1$s (non_nullable_col INT, nullable_col INT) USING DELTA LOCATION '%2$s%1$s'",
+        onDelta().executeQuery("CREATE TABLE default.%1$s (non_nullable_col INT, nullable_col INT) USING DELTA LOCATION '%2$s%1$s'".formatted(
                 tableName,
                 getBaseLocation()));
 
@@ -504,17 +497,15 @@ public class TestDeltaLakeWriteDatabricksCompatibility
             this.columns = List.of("lower", "UPPER", partitionColumnName);
             this.rows = List.copyOf(rows);
 
-            onDelta().executeQuery(format(
-                    "CREATE TABLE default.%1$s (lower int, UPPER int, %3$s int)\n"
-                            + "USING DELTA\n"
-                            + "PARTITIONED BY (%3$s)\n"
-                            + "LOCATION '%2$s%1$s'\n",
+            onDelta().executeQuery(("CREATE TABLE default.%1$s (lower int, UPPER int, %3$s int)\n"
+            + "USING DELTA\n"
+            + "PARTITIONED BY (%3$s)\n"
+            + "LOCATION '%2$s%1$s'\n").formatted(
                     name,
                     getBaseLocation(),
                     partitionColumnName));
 
-            onDelta().executeQuery(format(
-                    "INSERT INTO default.%s VALUES %s",
+            onDelta().executeQuery("INSERT INTO default.%s VALUES %s".formatted(
                     name,
                     rows.stream().map(TestRow::asValues).collect(joining(", "))));
         }
@@ -588,7 +579,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
 
         public String asValues()
         {
-            return format("(%s, %s, %s)", lower(), upper(), partition());
+            return "(%s, %s, %s)".formatted(lower(), upper(), partition());
         }
     }
 }

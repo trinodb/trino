@@ -57,7 +57,6 @@ import static io.trino.spi.type.StandardTypes.JSON_2016;
 import static io.trino.spi.type.StandardTypes.TINYINT;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.methodHandle;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class JsonQueryFunction
@@ -166,8 +165,7 @@ public class JsonQueryFunction
             if (item instanceof TypedValue typedValue) {
                 Optional<JsonNode> jsonNode = getJsonNode(typedValue);
                 if (jsonNode.isEmpty()) {
-                    return handleSpecialCase(errorBehavior, () -> new JsonOutputConversionException(format(
-                            "JSON path returned a scalar SQL value of type %s that cannot be represented as JSON",
+                    return handleSpecialCase(errorBehavior, () -> new JsonOutputConversionException("JSON path returned a scalar SQL value of type %s that cannot be represented as JSON".formatted(
                             typedValue.getType())));
                 }
                 builder.add(jsonNode.get());

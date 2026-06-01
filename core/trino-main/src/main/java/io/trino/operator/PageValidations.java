@@ -13,7 +13,6 @@
  */
 package io.trino.operator;
 
-import com.google.common.base.Joiner;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -85,7 +84,7 @@ public final class PageValidations
         for (int i = 0; i < page.getChannelCount(); i++) {
             debugInfos.add(blockDebugInfo(page.getBlock(i)));
         }
-        return Joiner.on(",").join(debugInfos);
+        return String.join(",", debugInfos);
     }
 
     private static String blockDebugInfo(Block block)

@@ -34,7 +34,6 @@ import static io.trino.tests.product.iceberg.util.IcebergTestUtils.getTableLocat
 import static io.trino.tests.product.iceberg.util.IcebergTestUtils.stripNamenodeURI;
 import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -79,8 +78,8 @@ public class TestIcebergSparkDropTableCompatibility
 
         tableDropperEngine.queryExecutor().executeQuery("DROP TABLE " + tableName); // PURGE option is required to remove data since Iceberg 0.14.0, but the statement hangs in Spark
         boolean expectExists = tableDropperEngine == SPARK; // Note: Spark's behavior is Catalog dependent
-        assertFileExistence(tableDirectory, expectExists, format("The table directory %s should be removed after dropping the table", tableDirectory));
-        dataFilePaths.forEach(dataFilePath -> assertFileExistence(dataFilePath, expectExists, format("The data file %s removed after dropping the table", dataFilePath)));
+        assertFileExistence(tableDirectory, expectExists, "The table directory %s should be removed after dropping the table".formatted(tableDirectory));
+        dataFilePaths.forEach(dataFilePath -> assertFileExistence(dataFilePath, expectExists, "The data file %s removed after dropping the table".formatted(dataFilePath)));
     }
 
     private void assertFileExistence(String path, boolean exists, String description)
@@ -90,7 +89,7 @@ public class TestIcebergSparkDropTableCompatibility
 
     private static List<String> getDataFilePaths(String icebergTableName)
     {
-        List<String> filePaths = onTrino().executeQuery(format("SELECT file_path FROM \"%s$files\"", icebergTableName)).column(1);
+        List<String> filePaths = onTrino().executeQuery("SELECT file_path FROM \"%s$files\"".formatted(icebergTableName)).column(1);
         return filePaths.stream().map(TestIcebergSparkDropTableCompatibility::getPath).collect(Collectors.toList());
     }
 

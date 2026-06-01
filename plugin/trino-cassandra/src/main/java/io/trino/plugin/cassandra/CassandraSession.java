@@ -85,7 +85,6 @@ import static io.trino.plugin.cassandra.util.CassandraCqlUtils.selectDistinctFro
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.validTableName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.String.format;
 import static java.util.Comparator.comparing;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -301,7 +300,7 @@ public class CassandraSession
                 if (result != null) {
                     throw new TrinoException(
                             NOT_SUPPORTED,
-                            format("More than one keyspace has been found for the case insensitive schema name: %s -> (%s, %s)",
+                            "More than one keyspace has been found for the case insensitive schema name: %s -> (%s, %s)".formatted(
                                     caseInsensitiveSchemaName,
                                     result.getName(),
                                     keyspace.getName()));
@@ -334,7 +333,7 @@ public class CassandraSession
                 .collect(joining(", "));
         throw new TrinoException(
                 NOT_SUPPORTED,
-                format("More than one table has been found for the case insensitive table name: %s -> (%s)",
+                "More than one table has been found for the case insensitive table name: %s -> (%s)".formatted(
                         caseInsensitiveTableName,
                         tableNames));
     }
@@ -353,7 +352,7 @@ public class CassandraSession
             if (lowercaseNameToColumnMap.containsKey(lowercaseName)) {
                 throw new TrinoException(
                         NOT_SUPPORTED,
-                        format("More than one column has been found for the case insensitive column name: %s -> (%s, %s)",
+                        "More than one column has been found for the case insensitive column name: %s -> (%s, %s)".formatted(
                                 lowercaseName,
                                 lowercaseNameToColumnMap.get(lowercaseName).getName(),
                                 column.getName()));

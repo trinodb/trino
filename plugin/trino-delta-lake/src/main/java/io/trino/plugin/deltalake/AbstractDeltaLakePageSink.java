@@ -65,7 +65,6 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWri
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterRowGroupSize;
 import static io.trino.plugin.deltalake.DeltaLakeTypes.toParquetType;
 import static io.trino.plugin.hive.HiveCompressionCodecs.toCompressionCodec;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
@@ -391,7 +390,7 @@ public abstract class AbstractDeltaLakePageSink
         verify(writers.size() == pageIndexer.getMaxIndex() + 1);
 
         if (currentOpenWriters > maxOpenWriters) {
-            throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Exceeded limit of %s open writers for partitions", maxOpenWriters));
+            throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Exceeded limit of %s open writers for partitions".formatted(maxOpenWriters));
         }
 
         return writerIndexes;

@@ -45,7 +45,6 @@ import static io.trino.common.Randoms.randomUsername;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.security.Privilege.CREATE_BRANCH;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.Locale.ROOT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -137,58 +136,58 @@ public class TestDenyOnTable
         }
         expectedGrantee = new TrinoPrincipal(USER, username);
 
-        queryRunner.execute(admin, format("DENY %s ON TABLE table_one TO %s", privilege, username));
+        queryRunner.execute(admin, "DENY %s ON TABLE table_one TO %s".formatted(privilege, username));
         assertThat(denyCalled).isTrue();
     }
 
     @Test
     public void testDenyOnNonExistingCatalog()
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY CREATE ON TABLE missing_catalog.missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY CREATE ON TABLE missing_catalog.missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'missing_catalog.missing_schema.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY SELECT ON TABLE missing_catalog.missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY SELECT ON TABLE missing_catalog.missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'missing_catalog.missing_schema.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY INSERT ON TABLE missing_catalog.missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY INSERT ON TABLE missing_catalog.missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'missing_catalog.missing_schema.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY UPDATE ON TABLE missing_catalog.missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY UPDATE ON TABLE missing_catalog.missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'missing_catalog.missing_schema.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY DELETE ON TABLE missing_catalog.missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY DELETE ON TABLE missing_catalog.missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'missing_catalog.missing_schema.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY ALL PRIVILEGES ON TABLE missing_catalog.missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY ALL PRIVILEGES ON TABLE missing_catalog.missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'missing_catalog.missing_schema.missing_table' does not exist");
     }
 
     @Test
     public void testDenyOnNonExistingSchema()
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY CREATE ON TABLE missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY CREATE ON TABLE missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.missing_schema.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY SELECT ON TABLE missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY SELECT ON TABLE missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.missing_schema.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY INSERT ON TABLE missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY INSERT ON TABLE missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.missing_schema.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY UPDATE ON TABLE missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY UPDATE ON TABLE missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.missing_schema.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY DELETE ON TABLE missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY DELETE ON TABLE missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.missing_schema.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY ALL PRIVILEGES ON TABLE missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY ALL PRIVILEGES ON TABLE missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.missing_schema.missing_table' does not exist");
     }
 
     @Test
     public void testDenyOnNonExistingTable()
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY CREATE ON TABLE default.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY CREATE ON TABLE default.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.default.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY SELECT ON TABLE default.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY SELECT ON TABLE default.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.default.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY INSERT ON TABLE default.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY INSERT ON TABLE default.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.default.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY UPDATE ON TABLE default.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY UPDATE ON TABLE default.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.default.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY DELETE ON TABLE default.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY DELETE ON TABLE default.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.default.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY ALL PRIVILEGES ON TABLE default.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY ALL PRIVILEGES ON TABLE default.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.default.missing_table' does not exist");
     }
 

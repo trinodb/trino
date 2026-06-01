@@ -37,7 +37,6 @@ import java.util.stream.Stream;
 
 import static io.trino.plugin.kafka.util.TestUtils.createEmptyTopicDescription;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -88,7 +87,7 @@ public class TestKafkaIntegrationPushDown
     public void testPartitionPushDown()
     {
         createMessages(topicNamePartition);
-        String sql = format("SELECT count(*) FROM default.%s WHERE _partition_id=1", topicNamePartition);
+        String sql = "SELECT count(*) FROM default.%s WHERE _partition_id=1".formatted(topicNamePartition);
 
         assertEventually(() -> {
             MaterializedResultWithPlan queryResult = getDistributedQueryRunner().executeWithPlan(getSession(), sql);
@@ -100,9 +99,9 @@ public class TestKafkaIntegrationPushDown
     public void testOffsetPushDown()
     {
         createMessages(topicNameOffset);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _partition_offset between 2 and 10", topicNameOffset), 18);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _partition_offset > 2 and _partition_offset < 10", topicNameOffset), 14);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _partition_offset = 3", topicNameOffset), 2);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _partition_offset between 2 and 10".formatted(topicNameOffset), 18);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _partition_offset > 2 and _partition_offset < 10".formatted(topicNameOffset), 14);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _partition_offset = 3".formatted(topicNameOffset), 2);
     }
 
     @Test
@@ -110,25 +109,25 @@ public class TestKafkaIntegrationPushDown
             throws Exception
     {
         RecordMessage recordMessage = createTimestampTestMessages(topicNameCreateTime);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp < timestamp '%s'", topicNameCreateTime, recordMessage.getEndTime()), 1000);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp <= timestamp '%s'", topicNameCreateTime, recordMessage.getEndTime()), 1000);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp > timestamp '%s'", topicNameCreateTime, recordMessage.getStartTime()), 997);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s'", topicNameCreateTime, recordMessage.getStartTime()), 998);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp between timestamp '%s' and timestamp '%s'", topicNameCreateTime, recordMessage.getStartTime(), recordMessage.getEndTime()), 998);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s' and _timestamp < timestamp '%s'", topicNameCreateTime, recordMessage.getStartTime(), recordMessage.getEndTime()), 998);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp = timestamp '%s'", topicNameCreateTime, recordMessage.getStartTime()), 998);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _timestamp < timestamp '%s'".formatted(topicNameCreateTime, recordMessage.getEndTime()), 1000);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _timestamp <= timestamp '%s'".formatted(topicNameCreateTime, recordMessage.getEndTime()), 1000);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _timestamp > timestamp '%s'".formatted(topicNameCreateTime, recordMessage.getStartTime()), 997);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s'".formatted(topicNameCreateTime, recordMessage.getStartTime()), 998);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _timestamp between timestamp '%s' and timestamp '%s'".formatted(topicNameCreateTime, recordMessage.getStartTime(), recordMessage.getEndTime()), 998);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s' and _timestamp < timestamp '%s'".formatted(topicNameCreateTime, recordMessage.getStartTime(), recordMessage.getEndTime()), 998);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _timestamp = timestamp '%s'".formatted(topicNameCreateTime, recordMessage.getStartTime()), 998);
 
         // timestamp_upper_bound_force_push_down_enabled set as true.
         Session sessionWithUpperBoundPushDownEnabled = Session.builder(getSession())
                 .setSystemProperty("kafka.timestamp_upper_bound_force_push_down_enabled", "true")
                 .build();
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp < timestamp '%s'", topicNameCreateTime, recordMessage.getEndTime()), 4, sessionWithUpperBoundPushDownEnabled);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp <= timestamp '%s'", topicNameCreateTime, recordMessage.getEndTime()), 4, sessionWithUpperBoundPushDownEnabled);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp > timestamp '%s'", topicNameCreateTime, recordMessage.getStartTime()), 997, sessionWithUpperBoundPushDownEnabled);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s'", topicNameCreateTime, recordMessage.getStartTime()), 998, sessionWithUpperBoundPushDownEnabled);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp between timestamp '%s' and timestamp '%s'", topicNameCreateTime, recordMessage.getStartTime(), recordMessage.getEndTime()), 2, sessionWithUpperBoundPushDownEnabled);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s' and _timestamp < timestamp '%s'", topicNameCreateTime, recordMessage.getStartTime(), recordMessage.getEndTime()), 2, sessionWithUpperBoundPushDownEnabled);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp = timestamp '%s'", topicNameCreateTime, recordMessage.getStartTime()), 0, sessionWithUpperBoundPushDownEnabled);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _timestamp < timestamp '%s'".formatted(topicNameCreateTime, recordMessage.getEndTime()), 4, sessionWithUpperBoundPushDownEnabled);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _timestamp <= timestamp '%s'".formatted(topicNameCreateTime, recordMessage.getEndTime()), 4, sessionWithUpperBoundPushDownEnabled);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _timestamp > timestamp '%s'".formatted(topicNameCreateTime, recordMessage.getStartTime()), 997, sessionWithUpperBoundPushDownEnabled);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s'".formatted(topicNameCreateTime, recordMessage.getStartTime()), 998, sessionWithUpperBoundPushDownEnabled);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _timestamp between timestamp '%s' and timestamp '%s'".formatted(topicNameCreateTime, recordMessage.getStartTime(), recordMessage.getEndTime()), 2, sessionWithUpperBoundPushDownEnabled);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s' and _timestamp < timestamp '%s'".formatted(topicNameCreateTime, recordMessage.getStartTime(), recordMessage.getEndTime()), 2, sessionWithUpperBoundPushDownEnabled);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _timestamp = timestamp '%s'".formatted(topicNameCreateTime, recordMessage.getStartTime()), 0, sessionWithUpperBoundPushDownEnabled);
     }
 
     @Test
@@ -136,13 +135,13 @@ public class TestKafkaIntegrationPushDown
             throws Exception
     {
         RecordMessage recordMessage = createTimestampTestMessages(topicNameLogAppend);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp < timestamp '%s'", topicNameLogAppend, recordMessage.getEndTime()), 4);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp <= timestamp '%s'", topicNameLogAppend, recordMessage.getEndTime()), 4);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp > timestamp '%s'", topicNameLogAppend, recordMessage.getStartTime()), 997);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s'", topicNameLogAppend, recordMessage.getStartTime()), 998);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp between timestamp '%s' and timestamp '%s'", topicNameLogAppend, recordMessage.getStartTime(), recordMessage.getEndTime()), 2);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s' and _timestamp < timestamp '%s'", topicNameLogAppend, recordMessage.getStartTime(), recordMessage.getEndTime()), 2);
-        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp = timestamp '%s'", topicNameLogAppend, recordMessage.getStartTime()), 0);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _timestamp < timestamp '%s'".formatted(topicNameLogAppend, recordMessage.getEndTime()), 4);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _timestamp <= timestamp '%s'".formatted(topicNameLogAppend, recordMessage.getEndTime()), 4);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _timestamp > timestamp '%s'".formatted(topicNameLogAppend, recordMessage.getStartTime()), 997);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s'".formatted(topicNameLogAppend, recordMessage.getStartTime()), 998);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _timestamp between timestamp '%s' and timestamp '%s'".formatted(topicNameLogAppend, recordMessage.getStartTime(), recordMessage.getEndTime()), 2);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s' and _timestamp < timestamp '%s'".formatted(topicNameLogAppend, recordMessage.getStartTime(), recordMessage.getEndTime()), 2);
+        assertProcessedInputPositions("SELECT count(*) FROM default.%s WHERE _timestamp = timestamp '%s'".formatted(topicNameLogAppend, recordMessage.getStartTime()), 0);
     }
 
     private void assertProcessedInputPositions(String sql, long expectedProcessedInputPositions)

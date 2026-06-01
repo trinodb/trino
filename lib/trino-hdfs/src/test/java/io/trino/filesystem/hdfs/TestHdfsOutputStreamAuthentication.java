@@ -26,9 +26,9 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static java.util.Collections.emptySet;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHdfsOutputStreamAuthentication
@@ -39,7 +39,7 @@ public class TestHdfsOutputStreamAuthentication
     {
         CountingHdfsAuthentication authentication = new CountingHdfsAuthentication();
         HdfsEnvironment environment = new HdfsEnvironment(
-                new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig()), emptySet()),
+                new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig()), Set.of()),
                 new HdfsConfig(),
                 authentication);
 

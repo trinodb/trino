@@ -27,7 +27,6 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -58,7 +57,7 @@ public class TestTextfileSymlinkInputFormat
         String dataDir = warehouseDirectory + "/data_test_textfile_symlink";
 
         saveResourceOnHdfs("data.textfile", dataDir + "/data.textfile");
-        hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs:%s/data.textfile", dataDir));
+        hdfsClient.saveFile(tableRoot + "/symlink.txt", "hdfs:%s/data.textfile".formatted(dataDir));
         assertThat(onTrino().executeQuery("SELECT * FROM " + table)).containsExactlyInOrder(row(42));
 
         onHive().executeQuery("DROP TABLE " + table);
@@ -83,7 +82,7 @@ public class TestTextfileSymlinkInputFormat
         String dataDir = warehouseDirectory + "/data_test_textfile_invalid_symlink";
 
         saveResourceOnHdfs("data.textfile", dataDir + "/data.textfile");
-        hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs:%s/data.textfile\nhdfs:%s/missingfile.textfile", dataDir, dataDir));
+        hdfsClient.saveFile(tableRoot + "/symlink.txt", "hdfs:%s/data.textfile\nhdfs:%s/missingfile.textfile".formatted(dataDir, dataDir));
         assertThatThrownBy(() -> onTrino().executeQuery("SELECT * FROM " + table))
                 .hasMessageMatching(".*Manifest file from the location \\[.*data_test_textfile_invalid_symlink\\] contains non-existent path:.*missingfile.textfile");
 
@@ -114,7 +113,7 @@ public class TestTextfileSymlinkInputFormat
         saveResourceOnHdfs("data.textfile", anotherDataDir + "/data.textfile");
         // This file will cause an error if read as textfile
         saveResourceOnHdfs("data.avro", dataDir + "/dontread.avro");
-        hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs:%s/data.textfile\nhdfs:%s/data.textfile", dataDir, anotherDataDir));
+        hdfsClient.saveFile(tableRoot + "/symlink.txt", "hdfs:%s/data.textfile\nhdfs:%s/data.textfile".formatted(dataDir, anotherDataDir));
         assertThat(onTrino().executeQuery("SELECT COUNT(*) as cnt FROM " + table)).containsExactlyInOrder(row(2));
 
         onHive().executeQuery("DROP TABLE " + table);

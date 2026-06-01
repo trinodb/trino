@@ -15,14 +15,12 @@ package io.trino.orc.checkpoint;
 
 import com.google.errorprone.annotations.FormatMethod;
 
-import static java.lang.String.format;
-
 public class InvalidCheckpointException
         extends RuntimeException
 {
     @FormatMethod
     public InvalidCheckpointException(String message, Object... arguments)
     {
-        super(format(message, arguments));
+        super(message.formatted(arguments));
     }
 }

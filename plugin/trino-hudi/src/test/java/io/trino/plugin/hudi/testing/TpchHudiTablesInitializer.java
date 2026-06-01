@@ -92,7 +92,6 @@ import static io.trino.metastore.HiveType.HIVE_LONG;
 import static io.trino.metastore.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -182,7 +181,7 @@ public class TpchHudiTablesInitializer
                 .map(c -> quote(c.getSimplifiedColumnName()))
                 .collect(Collectors.joining(", "));
         builder.append(columnList);
-        String tableName = format("%s.%s", catalogSchemaName.toString(), table.getTableName());
+        String tableName = "%s.%s".formatted(catalogSchemaName.toString(), table.getTableName());
         builder.append(" FROM ").append(tableName);
         return builder.toString();
     }

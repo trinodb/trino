@@ -195,7 +195,7 @@ public class AzureMultipartOutputStream
 
     private synchronized String nextBlockId()
     {
-        String blockId = Base64.getEncoder().encodeToString(String.format("%06d", blockNum).getBytes(UTF_8));
+        String blockId = Base64.getEncoder().encodeToString("%06d".formatted(blockNum).getBytes(UTF_8));
         blockNum++;
         stagedBlocks.add(blockId);
         return blockId;

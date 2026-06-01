@@ -24,7 +24,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionPatternBuilder
@@ -88,7 +87,7 @@ public class ExpressionPatternBuilder
                             if (result instanceof Long longValue) {
                                 return new LongTypeParameter(longValue);
                             }
-                            throw new UnsupportedOperationException(format("Unsupported parameter %s (%s) from %s", result, result.getClass(), parameter));
+                            throw new UnsupportedOperationException("Unsupported parameter %s (%s) from %s".formatted(result, result.getClass(), parameter));
                         })
                         .collect(toImmutableList()));
     }
@@ -135,6 +134,6 @@ public class ExpressionPatternBuilder
         if (aggregate == null) {
             return nextResult;
         }
-        throw new UnsupportedOperationException(format("Cannot combine %s and %s", aggregate, nextResult));
+        throw new UnsupportedOperationException("Cannot combine %s and %s".formatted(aggregate, nextResult));
     }
 }

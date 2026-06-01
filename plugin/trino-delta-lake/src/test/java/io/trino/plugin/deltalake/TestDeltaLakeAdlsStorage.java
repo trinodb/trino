@@ -38,7 +38,6 @@ import static io.trino.testing.containers.TestContainers.getPathFromClassPathRes
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.REGION;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.UUID.randomUUID;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -63,8 +62,8 @@ public class TestDeltaLakeAdlsStorage
         this.account = requiredNonEmptySystemProperty("testing.azure-abfs-account");
         this.accessKey = requiredNonEmptySystemProperty("testing.azure-abfs-access-key");
 
-        String directoryBase = format("abfs://%s@%s.dfs.core.windows.net", container, account);
-        adlsDirectory = format("%s/tpch-tiny-%s/", directoryBase, randomUUID());
+        String directoryBase = "abfs://%s@%s.dfs.core.windows.net".formatted(container, account);
+        adlsDirectory = "%s/tpch-tiny-%s/".formatted(directoryBase, randomUUID());
     }
 
     @Override
@@ -113,7 +112,7 @@ public class TestDeltaLakeAdlsStorage
         hiveHadoop.executeInContainerFailOnError("hadoop", "fs", "-mkdir", "-p", adlsDirectory);
         TABLES.forEach(table -> {
             hiveHadoop.executeInContainerFailOnError("hadoop", "fs", "-copyFromLocal", "-f", "/tmp/tpch-tiny/" + table, adlsDirectory);
-            getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s/%s')", table, adlsDirectory, table));
+            getQueryRunner().execute("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s/%s')".formatted(table, adlsDirectory, table));
         });
     }
 

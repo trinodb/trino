@@ -44,7 +44,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metastore.Partitions.makePartName;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -59,11 +58,10 @@ public class FlushMetadataCacheProcedure
     private static final String PARAM_PARTITION_COLUMNS = "PARTITION_COLUMNS";
     private static final String PARAM_PARTITION_VALUES = "PARTITION_VALUES";
 
-    private static final String PROCEDURE_USAGE_EXAMPLES = format(
-            "Valid usages:%n" +
-                    " - '%1$s()'%n" +
-                    " - %1$s(%2$s => ..., %3$s => ...)" +
-                    " - %1$s(%2$s => ..., %3$s => ..., %4$s => ARRAY['...'], %5$s => ARRAY['...'])",
+    private static final String PROCEDURE_USAGE_EXAMPLES = ("Valid usages:%n" +
+    " - '%1$s()'%n" +
+    " - %1$s(%2$s => ..., %3$s => ...)" +
+    " - %1$s(%2$s => ..., %3$s => ..., %4$s => ARRAY['...'], %5$s => ARRAY['...'])").formatted(
             PROCEDURE_NAME,
             // Use lowercase parameter names per convention. In the usage example the names are not delimited.
             PARAM_SCHEMA_NAME.toLowerCase(ENGLISH),

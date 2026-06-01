@@ -34,7 +34,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static io.trino.operator.Operator.NOT_BLOCKED;
 import static io.trino.tracing.ScopedSpan.scopedSpan;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -274,8 +273,7 @@ public final class PrioritizedSplitRunner
 
     public String getInfo()
     {
-        return format(
-                "Split %-15s-%d %s (start = %s, wall = %s ms, cpu = %s ms, wait = %s ms, calls = %s)",
+        return "Split %-15s-%d %s (start = %s, wall = %s ms, cpu = %s ms, wait = %s ms, calls = %s)".formatted(
                 taskHandle.getTaskId(),
                 splitId,
                 split.getInfo(),
@@ -289,6 +287,6 @@ public final class PrioritizedSplitRunner
     @Override
     public String toString()
     {
-        return format("Split %-15s-%d", taskHandle.getTaskId(), splitId);
+        return "Split %-15s-%d".formatted(taskHandle.getTaskId(), splitId);
     }
 }

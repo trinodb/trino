@@ -25,7 +25,6 @@ import static io.trino.spi.type.Timestamps.POWERS_OF_TEN;
 import static io.trino.spi.type.Timestamps.SECONDS_PER_MINUTE;
 import static io.trino.spi.type.Timestamps.rescale;
 import static io.trino.spi.type.Timestamps.round;
-import static java.lang.String.format;
 
 public final class SqlTime
 {
@@ -38,7 +37,7 @@ public final class SqlTime
             throw new IllegalArgumentException("Invalid precision: " + precision);
         }
         if (rescale(rescale(picos, 12, precision), precision, 12) != picos) {
-            throw new IllegalArgumentException(format("picos contains data beyond specified precision (%s): %s", precision, picos));
+            throw new IllegalArgumentException("picos contains data beyond specified precision (%s): %s".formatted(precision, picos));
         }
         if (picos < 0 || picos >= PICOSECONDS_PER_DAY) {
             throw new IllegalArgumentException("picos is out of range: " + picos);

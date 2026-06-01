@@ -85,7 +85,6 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static jakarta.ws.rs.core.Response.Status.OK;
 import static jakarta.ws.rs.core.Response.Status.SEE_OTHER;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -365,7 +364,7 @@ public class TestServer
                 .filter(line -> line.contains("at io.trino.$gen.Trino_testversion____"))
                 .count();
         if (versionLines != 1) {
-            fail(format("Expected version embedded in the stacktrace exactly once, but was %s: %s", versionLines, stackTrace));
+            fail("Expected version embedded in the stacktrace exactly once, but was %s: %s".formatted(versionLines, stackTrace));
         }
     }
 

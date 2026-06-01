@@ -63,7 +63,6 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.apache.iceberg.Files.localInput;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -119,9 +118,9 @@ public class TestIcebergRegisterTableProcedure
     {
         String tableName = "test_register_table_with_table_location_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
 
-        assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')", tableName, icebergFileFormat));
-        assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s values(2, 'USA', false)", tableName), 1);
+        assertUpdate("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')".formatted(tableName, icebergFileFormat));
+        assertUpdate("INSERT INTO %s values(1, 'INDIA', true)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s values(2, 'USA', false)".formatted(tableName), 1);
 
         String tableLocation = getTableLocation(tableName);
         // Drop table from hive metastore and use the same table name to register again with the metadata
@@ -129,11 +128,11 @@ public class TestIcebergRegisterTableProcedure
 
         assertUpdate("CALL iceberg.system.register_table (CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "')");
 
-        assertThat(query(format("SELECT * FROM %s", tableName)))
+        assertThat(query("SELECT * FROM %s".formatted(tableName)))
                 .matches("VALUES " +
                         "ROW(INT '1', VARCHAR 'INDIA', BOOLEAN 'true'), " +
                         "ROW(INT '2', VARCHAR 'USA', BOOLEAN 'false')");
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE %s".formatted(tableName));
     }
 
     @Test
@@ -149,16 +148,16 @@ public class TestIcebergRegisterTableProcedure
     {
         String tableName = "test_register_table_trailing_slash_" + randomNameSuffix();
 
-        String tableLocation = format("%s/%s/%s", dataDir, tableName, tableDir);
-        String registeredTableLocation = format("%s/%s/%s", dataDir, tableName, registeredTableDir);
+        String tableLocation = "%s/%s/%s".formatted(dataDir, tableName, tableDir);
+        String registeredTableLocation = "%s/%s/%s".formatted(dataDir, tableName, registeredTableDir);
 
-        assertUpdate(format("CREATE TABLE %s (a int) WITH (location = '%s')", tableName, tableLocation));
-        assertUpdate(format("INSERT INTO %s VALUES 1", tableName), 1);
+        assertUpdate("CREATE TABLE %s (a int) WITH (location = '%s')".formatted(tableName, tableLocation));
+        assertUpdate("INSERT INTO %s VALUES 1".formatted(tableName), 1);
 
         // Drop table from metastore and use the same table name to register again with the metadata
         dropTableFromMetastore(tableName);
 
-        assertUpdate(format("CALL iceberg.system.register_table (CURRENT_SCHEMA, '%s', '%s')", tableName, registeredTableLocation));
+        assertUpdate("CALL iceberg.system.register_table (CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, registeredTableLocation));
 
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES 1");
@@ -174,7 +173,7 @@ public class TestIcebergRegisterTableProcedure
         assertUpdate("CREATE TABLE " + tableName + " (data int, part varchar) WITH (partitioning = ARRAY['part'], format = '" + icebergFileFormat + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
 
-        MaterializedResult partitions = computeActual(format("SELECT * FROM \"%s$partitions\"", tableName));
+        MaterializedResult partitions = computeActual("SELECT * FROM \"%s$partitions\"".formatted(tableName));
         assertThat(partitions.getMaterializedRows()).hasSize(1);
 
         String tableLocation = getTableLocation(tableName);
@@ -182,7 +181,7 @@ public class TestIcebergRegisterTableProcedure
 
         assertUpdate("CALL iceberg.system.register_table (CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "')");
 
-        MaterializedResult partitionsAfterRegister = computeActual(format("SELECT * FROM \"%s$partitions\"", tableName));
+        MaterializedResult partitionsAfterRegister = computeActual("SELECT * FROM \"%s$partitions\"".formatted(tableName));
         assertThat(partitions).isEqualTo(partitionsAfterRegister);
 
         assertUpdate("DROP TABLE " + tableName);
@@ -194,13 +193,13 @@ public class TestIcebergRegisterTableProcedure
     {
         String tableName = "test_register_table_with_comments_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
 
-        assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')", tableName, icebergFileFormat));
-        assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s values(2, 'USA', false)", tableName), 1);
-        assertUpdate(format("COMMENT ON TABLE %s is 'my-table-comment'", tableName));
-        assertUpdate(format("COMMENT ON COLUMN %s.a is 'a-comment'", tableName));
-        assertUpdate(format("COMMENT ON COLUMN %s.b is 'b-comment'", tableName));
-        assertUpdate(format("COMMENT ON COLUMN %s.c is 'c-comment'", tableName));
+        assertUpdate("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')".formatted(tableName, icebergFileFormat));
+        assertUpdate("INSERT INTO %s values(1, 'INDIA', true)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s values(2, 'USA', false)".formatted(tableName), 1);
+        assertUpdate("COMMENT ON TABLE %s is 'my-table-comment'".formatted(tableName));
+        assertUpdate("COMMENT ON COLUMN %s.a is 'a-comment'".formatted(tableName));
+        assertUpdate("COMMENT ON COLUMN %s.b is 'b-comment'".formatted(tableName));
+        assertUpdate("COMMENT ON COLUMN %s.c is 'c-comment'".formatted(tableName));
 
         String tableLocation = getTableLocation(tableName);
         // Drop table from hive metastore and use the same table name to register again with the metadata
@@ -212,7 +211,7 @@ public class TestIcebergRegisterTableProcedure
         assertThat(getColumnComment(tableName, "a")).isEqualTo("a-comment");
         assertThat(getColumnComment(tableName, "b")).isEqualTo("b-comment");
         assertThat(getColumnComment(tableName, "c")).isEqualTo("c-comment");
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE %s".formatted(tableName));
     }
 
     @ParameterizedTest
@@ -221,8 +220,8 @@ public class TestIcebergRegisterTableProcedure
     {
         String tableName = "test_register_table_with_show_create_table_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
 
-        assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')", tableName, icebergFileFormat));
-        assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
+        assertUpdate("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')".formatted(tableName, icebergFileFormat));
+        assertUpdate("INSERT INTO %s values(1, 'INDIA', true)".formatted(tableName), 1);
 
         String tableLocation = getTableLocation(tableName);
         String showCreateTableOld = (String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue();
@@ -233,7 +232,7 @@ public class TestIcebergRegisterTableProcedure
         String showCreateTableNew = (String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue();
 
         assertThat(showCreateTableOld).isEqualTo(showCreateTableNew);
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE %s".formatted(tableName));
     }
 
     @ParameterizedTest
@@ -242,23 +241,23 @@ public class TestIcebergRegisterTableProcedure
     {
         String tableName = "test_register_table_with_re_insert_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
 
-        assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')", tableName, icebergFileFormat));
-        assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s values(2, 'USA', false)", tableName), 1);
+        assertUpdate("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')".formatted(tableName, icebergFileFormat));
+        assertUpdate("INSERT INTO %s values(1, 'INDIA', true)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s values(2, 'USA', false)".formatted(tableName), 1);
 
         String tableLocation = getTableLocation(tableName);
         // Drop table from hive metastore and use the same table name to register again with the metadata
         dropTableFromMetastore(tableName);
 
         assertUpdate("CALL system.register_table (CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "')");
-        assertUpdate(format("INSERT INTO %s values(3, 'POLAND', true)", tableName), 1);
+        assertUpdate("INSERT INTO %s values(3, 'POLAND', true)".formatted(tableName), 1);
 
-        assertThat(query(format("SELECT * FROM %s", tableName)))
+        assertThat(query("SELECT * FROM %s".formatted(tableName)))
                 .matches("VALUES " +
                         "ROW(INT '1', VARCHAR 'INDIA', BOOLEAN 'true'), " +
                         "ROW(INT '2', VARCHAR 'USA', BOOLEAN 'false'), " +
                         "ROW(INT '3', VARCHAR 'POLAND', BOOLEAN 'true')");
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE %s".formatted(tableName));
     }
 
     @ParameterizedTest
@@ -267,14 +266,14 @@ public class TestIcebergRegisterTableProcedure
     {
         String tableName = "test_register_table_with_dropped_table_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
 
-        assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')", tableName, icebergFileFormat));
-        assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s values(2, 'USA', false)", tableName), 1);
+        assertUpdate("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')".formatted(tableName, icebergFileFormat));
+        assertUpdate("INSERT INTO %s values(1, 'INDIA', true)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s values(2, 'USA', false)".formatted(tableName), 1);
 
         String tableLocation = getTableLocation(tableName);
         String tableNameNew = tableName + "_new";
         // Drop table to verify register_table call fails when no metadata can be found (table doesn't exist)
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE %s".formatted(tableName));
 
         assertQueryFails("CALL iceberg.system.register_table (CURRENT_SCHEMA, '" + tableNameNew + "', '" + tableLocation + "')",
                 ".*No versioned metadata file exists at location.*");
@@ -286,9 +285,9 @@ public class TestIcebergRegisterTableProcedure
     {
         String tableName = "test_register_table_with_different_table_name_old_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
 
-        assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')", tableName, icebergFileFormat));
-        assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s values(2, 'USA', false)", tableName), 1);
+        assertUpdate("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')".formatted(tableName, icebergFileFormat));
+        assertUpdate("INSERT INTO %s values(1, 'INDIA', true)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s values(2, 'USA', false)".formatted(tableName), 1);
 
         String tableLocation = getTableLocation(tableName);
         String tableNameNew = tableName + "_new";
@@ -296,14 +295,14 @@ public class TestIcebergRegisterTableProcedure
         dropTableFromMetastore(tableName);
 
         assertUpdate("CALL iceberg.system.register_table (CURRENT_SCHEMA, '" + tableNameNew + "', '" + tableLocation + "')");
-        assertUpdate(format("INSERT INTO %s values(3, 'POLAND', true)", tableNameNew), 1);
+        assertUpdate("INSERT INTO %s values(3, 'POLAND', true)".formatted(tableNameNew), 1);
 
-        assertThat(query(format("SELECT * FROM %s", tableNameNew)))
+        assertThat(query("SELECT * FROM %s".formatted(tableNameNew)))
                 .matches("VALUES " +
                         "ROW(INT '1', VARCHAR 'INDIA', BOOLEAN 'true'), " +
                         "ROW(INT '2', VARCHAR 'USA', BOOLEAN 'false'), " +
                         "ROW(INT '3', VARCHAR 'POLAND', BOOLEAN 'true')");
-        assertUpdate(format("DROP TABLE %s", tableNameNew));
+        assertUpdate("DROP TABLE %s".formatted(tableNameNew));
     }
 
     @ParameterizedTest
@@ -312,9 +311,9 @@ public class TestIcebergRegisterTableProcedure
     {
         String tableName = "test_register_table_with_metadata_file_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
 
-        assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')", tableName, icebergFileFormat));
-        assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s values(2, 'USA', false)", tableName), 1);
+        assertUpdate("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')".formatted(tableName, icebergFileFormat));
+        assertUpdate("INSERT INTO %s values(1, 'INDIA', true)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s values(2, 'USA', false)".formatted(tableName), 1);
 
         String tableLocation = getTableLocation(tableName);
         String metadataLocation = getLatestMetadataLocation(fileSystem, tableLocation);
@@ -323,14 +322,14 @@ public class TestIcebergRegisterTableProcedure
         dropTableFromMetastore(tableName);
 
         assertUpdate("CALL iceberg.system.register_table (CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "', '" + metadataFileName + "')");
-        assertUpdate(format("INSERT INTO %s values(3, 'POLAND', true)", tableName), 1);
+        assertUpdate("INSERT INTO %s values(3, 'POLAND', true)".formatted(tableName), 1);
 
-        assertThat(query(format("SELECT * FROM %s", tableName)))
+        assertThat(query("SELECT * FROM %s".formatted(tableName)))
                 .matches("VALUES " +
                         "ROW(INT '1', VARCHAR 'INDIA', BOOLEAN 'true'), " +
                         "ROW(INT '2', VARCHAR 'USA', BOOLEAN 'false'), " +
                         "ROW(INT '3', VARCHAR 'POLAND', BOOLEAN 'true')");
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE %s".formatted(tableName));
     }
 
     @Test
@@ -340,9 +339,9 @@ public class TestIcebergRegisterTableProcedure
         IcebergFileFormat icebergFileFormat = IcebergFileFormat.ORC;
         String tableName = "test_register_table_with_no_metadata_file_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
 
-        assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')", tableName, icebergFileFormat));
-        assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s values(2, 'USA', false)", tableName), 1);
+        assertUpdate("CREATE TABLE %s (a int, b varchar, c boolean) with (format = '%s')".formatted(tableName, icebergFileFormat));
+        assertUpdate("INSERT INTO %s values(1, 'INDIA', true)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s values(2, 'USA', false)".formatted(tableName), 1);
 
         String tableLocation = getTableLocation(tableName);
         String tableNameNew = tableName + "_new";
@@ -361,9 +360,9 @@ public class TestIcebergRegisterTableProcedure
     {
         String tableName = "test_register_table_with_invalid_metadata_file_" + randomNameSuffix();
 
-        assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean)", tableName));
-        assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
-        assertUpdate(format("INSERT INTO %s values(2, 'USA', false)", tableName), 1);
+        assertUpdate("CREATE TABLE %s (a int, b varchar, c boolean)".formatted(tableName));
+        assertUpdate("INSERT INTO %s values(1, 'INDIA', true)".formatted(tableName), 1);
+        assertUpdate("INSERT INTO %s values(2, 'USA', false)".formatted(tableName), 1);
 
         Location tableLocation = Location.of(getTableLocation(tableName));
         String tableNameNew = tableName + "_new";
@@ -381,7 +380,7 @@ public class TestIcebergRegisterTableProcedure
 
         assertQueryFails("CALL iceberg.system.register_table (CURRENT_SCHEMA, '" + tableNameNew + "', '" + tableLocation + "', '" + invalidMetadataFileName + "')",
                 "Invalid metadata file: .*");
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE %s".formatted(tableName));
     }
 
     @Test
@@ -422,7 +421,7 @@ public class TestIcebergRegisterTableProcedure
 
         assertQueryFails("CALL iceberg.system.register_table (CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "')",
                 ".*Table already exists.*");
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE %s".formatted(tableName));
     }
 
     @Test
@@ -443,7 +442,7 @@ public class TestIcebergRegisterTableProcedure
         String tableName = "test_register_table_with_invalid_parameter_" + randomNameSuffix();
         String tableLocation = "/test/iceberg/hive/table1/";
 
-        assertQueryFails(format("CALL iceberg.system.register_table (CURRENT_SCHEMA, '%s')", tableName),
+        assertQueryFails("CALL iceberg.system.register_table (CURRENT_SCHEMA, '%s')".formatted(tableName),
                 ".*'TABLE_LOCATION' is missing.*");
         assertQueryFails(
                 "CALL iceberg.system.register_table (CURRENT_SCHEMA)",

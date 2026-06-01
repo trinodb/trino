@@ -39,7 +39,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class OrcPageSource
@@ -164,7 +163,7 @@ public class OrcPageSource
         if (exception instanceof OrcCorruptionException) {
             return new TrinoException(HIVE_BAD_DATA, exception);
         }
-        return new TrinoException(HIVE_CURSOR_ERROR, format("Failed to read ORC file: %s", dataSourceId), exception);
+        return new TrinoException(HIVE_CURSOR_ERROR, "Failed to read ORC file: %s".formatted(dataSourceId), exception);
     }
 
     @Override

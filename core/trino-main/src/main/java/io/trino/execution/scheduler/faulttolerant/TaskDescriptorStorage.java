@@ -58,7 +58,6 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.lang.System.arraycopy;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -310,14 +309,14 @@ public class TaskDescriptorStorage
             QueryId killCandidate = storages.entrySet().stream()
                     .max(Comparator.comparingLong(entry -> entry.getValue().getReservedBytes()))
                     .map(Entry::getKey)
-                    .orElseThrow(() -> new VerifyException(format("storage is empty but reservedBytes (%s + %s) is still greater than maxMemoryInBytes (%s)", reservedUncompressedDelta, reservedCompressedDelta, maxMemoryInBytes)));
+                    .orElseThrow(() -> new VerifyException("storage is empty but reservedBytes (%s + %s) is still greater than maxMemoryInBytes (%s)".formatted(reservedUncompressedDelta, reservedCompressedDelta, maxMemoryInBytes)));
             TaskDescriptors storage = storages.get(killCandidate);
 
             runAndUpdateMemory(
                     storage,
                     () -> storage.fail(new TrinoException(
                             EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY,
-                            format("Task descriptor storage capacity has been exceeded: %s > %s", succinctBytes(reservedUncompressedBytes + reservedCompressedBytes), succinctBytes(maxMemoryInBytes)))),
+                            "Task descriptor storage capacity has been exceeded: %s > %s".formatted(succinctBytes(reservedUncompressedBytes + reservedCompressedBytes), succinctBytes(maxMemoryInBytes)))),
                     false);
         }
     }
@@ -499,7 +498,7 @@ public class TaskDescriptorStorage
             throwIfFailed();
             TaskDescriptorHolder descriptor = descriptors.get(stageId, partitionId);
             if (descriptor == null) {
-                throw new NoSuchElementException(format("descriptor not found for key %s/%s", stageId, partitionId));
+                throw new NoSuchElementException("descriptor not found for key %s/%s".formatted(stageId, partitionId));
             }
             return descriptor.getTaskDescriptor();
         }
@@ -509,7 +508,7 @@ public class TaskDescriptorStorage
             throwIfFailed();
             TaskDescriptorHolder descriptorHolder = descriptors.remove(stageId, partitionId);
             if (descriptorHolder == null) {
-                throw new NoSuchElementException(format("descriptor not found for key %s/%s", stageId, partitionId));
+                throw new NoSuchElementException("descriptor not found for key %s/%s".formatted(stageId, partitionId));
             }
 
             if (descriptorHolder.isCompressed()) {

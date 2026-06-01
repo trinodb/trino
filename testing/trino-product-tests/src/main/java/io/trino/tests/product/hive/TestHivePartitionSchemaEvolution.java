@@ -31,7 +31,6 @@ import static io.trino.tests.product.hive.util.TemporaryHiveTable.temporaryHiveT
 import static io.trino.tests.product.utils.JdbcDriverUtils.setSessionProperty;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHivePartitionSchemaEvolution
@@ -106,7 +105,7 @@ public class TestHivePartitionSchemaEvolution
 
     private void testEvolution(TemporaryHiveTable table, String sql, QueryAssert.Row row)
     {
-        if (tryExecuteOnHive(format(sql, table.getName()))) {
+        if (tryExecuteOnHive(sql.formatted(table.getName()))) {
             assertThat(onTrino().executeQuery("SELECT * FROM " + table.getName()))
                     .contains(row);
         }
@@ -133,20 +132,19 @@ public class TestHivePartitionSchemaEvolution
     private TemporaryHiveTable createTable(String format)
     {
         String tableName = "schema_evolution_" + randomNameSuffix();
-        tryExecuteOnHive(format(
-                "CREATE TABLE %s (" +
-                        "  int_column int," +
-                        "  float_column float," +
-                        "  varchar_column varchar(20)" +
-                        ") " +
-                        "PARTITIONED BY (partition_column bigint) " +
-                        "STORED AS %s " +
-                        (createTablesAsAcid ? "TBLPROPERTIES ('transactional_properties' = 'none', 'transactional' = 'false')" : ""),
+        tryExecuteOnHive(("CREATE TABLE %s (" +
+        "  int_column int," +
+        "  float_column float," +
+        "  varchar_column varchar(20)" +
+        ") " +
+        "PARTITIONED BY (partition_column bigint) " +
+        "STORED AS %s " +
+        (createTablesAsAcid ? "TBLPROPERTIES ('transactional_properties' = 'none', 'transactional' = 'false')" : "")).formatted(
                 tableName,
                 format));
         TemporaryHiveTable temporaryHiveTable = temporaryHiveTable(tableName);
         try {
-            onTrino().executeQuery(format("INSERT INTO %s VALUES (1, 1.1, 'jeden', 1)", tableName));
+            onTrino().executeQuery("INSERT INTO %s VALUES (1, 1.1, 'jeden', 1)".formatted(tableName));
         }
         catch (Exception e) {
             temporaryHiveTable.closeQuietly(e);

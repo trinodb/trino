@@ -24,7 +24,6 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.TestGroups.TWO_HIVES;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.Math.pow;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -35,17 +34,17 @@ public class TestTwoHives
     @Test(groups = {TWO_HIVES, PROFILE_SPECIFIC_TESTS}, dataProvider = "catalogs")
     public void testCreateTableAsSelectAndAnalyze(String catalog)
     {
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s.default.nation", catalog));
+        onTrino().executeQuery("DROP TABLE IF EXISTS %s.default.nation".formatted(catalog));
 
-        assertThat(onTrino().executeQuery(format("CREATE TABLE %s.default.nation AS SELECT * FROM tpch.tiny.nation", catalog)))
+        assertThat(onTrino().executeQuery("CREATE TABLE %s.default.nation AS SELECT * FROM tpch.tiny.nation".formatted(catalog)))
                 .containsOnly(row(25));
 
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s.default.nation", catalog)))
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s.default.nation".formatted(catalog)))
                 .containsOnly(row(25));
 
-        onTrino().executeQuery(format("ANALYZE %s.default.nation", catalog));
+        onTrino().executeQuery("ANALYZE %s.default.nation".formatted(catalog));
 
-        assertThat(onTrino().executeQuery(format("SHOW STATS FOR %s.default.nation", catalog)))
+        assertThat(onTrino().executeQuery("SHOW STATS FOR %s.default.nation".formatted(catalog)))
                 .containsOnly(
                         row("nationkey", null, 25.0, 0.0, null, "0", "24"),
                         row("name", 177.0, 25.0, 0.0, null, null, null),
@@ -53,26 +52,25 @@ public class TestTwoHives
                         row("comment", 1857.0, 25.0, 0.0, null, null, null),
                         row(null, null, null, null, 25.0, null, null));
 
-        onTrino().executeQuery(format("DROP TABLE %s.default.nation", catalog));
+        onTrino().executeQuery("DROP TABLE %s.default.nation".formatted(catalog));
     }
 
     @Test(groups = {TWO_HIVES, PROFILE_SPECIFIC_TESTS})
     public void testJoinFromTwoHives()
     {
         CATALOGS.forEach(catalog -> {
-            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s.default.nation", catalog));
-            assertThat(onTrino().executeQuery(format("CREATE TABLE %s.default.nation AS SELECT * FROM tpch.tiny.nation", catalog)))
+            onTrino().executeQuery("DROP TABLE IF EXISTS %s.default.nation".formatted(catalog));
+            assertThat(onTrino().executeQuery("CREATE TABLE %s.default.nation AS SELECT * FROM tpch.tiny.nation".formatted(catalog)))
                     .containsOnly(row(25));
         });
 
-        assertThat(onTrino().executeQuery(format(
-                "SELECT count(*) FROM %s",
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s".formatted(
                 CATALOGS.stream()
-                        .map(catalog -> format("%s.default.nation", catalog))
+                        .map(catalog -> "%s.default.nation".formatted(catalog))
                         .collect(joining(",")))))
                 .containsOnly(row((int) pow(25, CATALOGS.size())));
 
-        CATALOGS.forEach(catalog -> onTrino().executeQuery(format("DROP TABLE %s.default.nation", catalog)));
+        CATALOGS.forEach(catalog -> onTrino().executeQuery("DROP TABLE %s.default.nation".formatted(catalog)));
     }
 
     @DataProvider(name = "catalogs")

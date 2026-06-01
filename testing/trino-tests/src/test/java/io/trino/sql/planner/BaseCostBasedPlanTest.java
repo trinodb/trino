@@ -51,7 +51,6 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.io.Files.createParentDirs;
 import static com.google.common.io.Files.write;
 import static com.google.common.io.Resources.getResource;
 import static io.trino.Session.SessionBuilder;
@@ -65,8 +64,8 @@ import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.isDirectory;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -80,13 +79,13 @@ public abstract class BaseCostBasedPlanTest
     private static final String CATALOG_NAME = "local";
 
     protected static final List<String> TPCH_SQL_FILES = IntStream.rangeClosed(1, 22)
-            .mapToObj(i -> format("q%02d", i))
-            .map(queryId -> format("/sql/trino/tpch/%s.sql", queryId))
+            .mapToObj(i -> "q%02d".formatted(i))
+            .map(queryId -> "/sql/trino/tpch/%s.sql".formatted(queryId))
             .collect(toImmutableList());
 
     protected static final List<String> TPCDS_SQL_FILES = IntStream.range(1, 100)
-            .mapToObj(i -> format("q%02d", i))
-            .map(queryId -> format("/sql/trino/tpcds/%s.sql", queryId))
+            .mapToObj(i -> "q%02d".formatted(i))
+            .map(queryId -> "/sql/trino/tpcds/%s.sql".formatted(queryId))
             .collect(toImmutableList());
 
     private final String schemaName;
@@ -197,7 +196,7 @@ public abstract class BaseCostBasedPlanTest
                                     getSourcePath().toString(),
                                     "src/test/resources",
                                     getQueryPlanResourcePath(queryResourcePath));
-                            createParentDirs(queryPlanWritePath.toFile());
+                            createDirectories(queryPlanWritePath.getParent());
                             write(generateQueryPlan(readQuery(queryResourcePath)).getBytes(UTF_8), queryPlanWritePath.toFile());
                             log.info("Generated expected plan for query: %s", queryResourcePath);
                         }
@@ -379,8 +378,8 @@ public abstract class BaseCostBasedPlanTest
         @FormatMethod
         private void output(int indent, String message, Object... args)
         {
-            String formattedMessage = format(message, args);
-            result.append(format("%s%s\n", "    ".repeat(indent), formattedMessage));
+            String formattedMessage = message.formatted(args);
+            result.append("%s%s\n".formatted("    ".repeat(indent), formattedMessage));
         }
     }
 

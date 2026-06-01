@@ -60,7 +60,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
@@ -157,14 +156,14 @@ public class TestRedshiftTypeMapping
 
         // Test with types larger than Redshift's char(max)
         SqlDataTypeTest.create()
-                .addRoundTrip("char(65535)", "'varchar max'", createVarcharType(65535), format("CAST('varchar max%s' AS varchar(65535))", " ".repeat(65535 - "varchar max".length())))
-                .addRoundTrip("char(4136)", "'攻殻機動隊'", createVarcharType(4136), format("CAST('%s' AS varchar(4136))", padVarchar(4136).apply("攻殻機動隊")))
-                .addRoundTrip("char(4104)", "'隊'", createVarcharType(4104), format("CAST('%s' AS varchar(4104))", padVarchar(4104).apply("隊")))
-                .addRoundTrip("char(4112)", "'😂'", createVarcharType(4112), format("CAST('%s' AS varchar(4112))", padVarchar(4112).apply("😂")))
+                .addRoundTrip("char(65535)", "'varchar max'", createVarcharType(65535), "CAST('varchar max%s' AS varchar(65535))".formatted(" ".repeat(65535 - "varchar max".length())))
+                .addRoundTrip("char(4136)", "'攻殻機動隊'", createVarcharType(4136), "CAST('%s' AS varchar(4136))".formatted(padVarchar(4136).apply("攻殻機動隊")))
+                .addRoundTrip("char(4104)", "'隊'", createVarcharType(4104), "CAST('%s' AS varchar(4104))".formatted(padVarchar(4104).apply("隊")))
+                .addRoundTrip("char(4112)", "'😂'", createVarcharType(4112), "CAST('%s' AS varchar(4112))".formatted(padVarchar(4112).apply("😂")))
                 .addRoundTrip("varchar(88)", "'Ну, погоди!'", createVarcharType(88), "CAST('Ну, погоди!' AS varchar(88))")
-                .addRoundTrip("char(4106)", "'text_a'", createVarcharType(4106), format("CAST('%s' AS varchar(4106))", padVarchar(4106).apply("text_a")))
-                .addRoundTrip("char(4351)", "'text_b'", createVarcharType(4351), format("CAST('%s' AS varchar(4351))", padVarchar(4351).apply("text_b")))
-                .addRoundTrip("char(8192)", "'char max'", createVarcharType(8192), format("CAST('%s' AS varchar(8192))", padVarchar(8192).apply("char max")))
+                .addRoundTrip("char(4106)", "'text_a'", createVarcharType(4106), "CAST('%s' AS varchar(4106))".formatted(padVarchar(4106).apply("text_a")))
+                .addRoundTrip("char(4351)", "'text_b'", createVarcharType(4351), "CAST('%s' AS varchar(4351))".formatted(padVarchar(4351).apply("text_b")))
+                .addRoundTrip("char(8192)", "'char max'", createVarcharType(8192), "CAST('%s' AS varchar(8192))".formatted(padVarchar(8192).apply("char max")))
                 .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_large_char"));
     }
 
@@ -180,11 +179,11 @@ public class TestRedshiftTypeMapping
         try (TestView view1 = new TestView("postgres_text_view", "SELECT lpad('x', 1)");
                 TestView view2 = new TestView("pg_catalog_view", "SELECT relname FROM pg_class")) {
             // Test data and type from a function
-            assertThat(query(format("SELECT * FROM %s", view1.name)))
+            assertThat(query("SELECT * FROM %s".formatted(view1.name)))
                     .matches("VALUES CAST('x' AS varchar)");
 
             // Test the type of an internal table
-            assertThat(query(format("SELECT * FROM %s LIMIT 1", view2.name)))
+            assertThat(query("SELECT * FROM %s LIMIT 1".formatted(view2.name)))
                     .result().hasTypes(List.of(createUnboundedVarcharType()));
         }
     }
@@ -216,7 +215,7 @@ public class TestRedshiftTypeMapping
     {
         try (TestTable table = testTable("test_multibyte_char", "(c char(32))")) {
             assertQueryFails(
-                    format("INSERT INTO %s VALUES ('\u968A')", table.getName()),
+                    "INSERT INTO %s VALUES ('\u968A')".formatted(table.getName()),
                     "^Value for Redshift CHAR must be ASCII, but found '\u968A'$");
         }
 
@@ -232,7 +231,7 @@ public class TestRedshiftTypeMapping
     {
         try (TestTable table = testTable("check_multibyte_char", "(c char(32))")) {
             assertThatThrownBy(() -> getRedshiftExecutor()
-                    .execute(format("INSERT INTO %s VALUES ('\u968a')", table.getName())))
+                    .execute("INSERT INTO %s VALUES ('\u968a')".formatted(table.getName())))
                     .cause()
                     .isInstanceOf(SQLException.class)
                     .hasMessageContaining("CHAR string contains invalid ASCII character");
@@ -245,8 +244,8 @@ public class TestRedshiftTypeMapping
         // Test that character types too large for Redshift map to the maximum size
         SqlDataTypeTest.create()
                 .addRoundTrip("varchar", "'unbounded'", createVarcharType(65535), "CAST('unbounded' AS varchar(65535))")
-                .addRoundTrip(format("varchar(%s)", REDSHIFT_MAX_VARCHAR + 1), "'oversized varchar'", createVarcharType(65535), "CAST('oversized varchar' AS varchar(65535))")
-                .addRoundTrip(format("char(%s)", REDSHIFT_MAX_VARCHAR + 1), "'oversized char'", createVarcharType(65535), format("CAST('%s' AS varchar(65535))", padVarchar(65535).apply("oversized char")))
+                .addRoundTrip("varchar(%s)".formatted(REDSHIFT_MAX_VARCHAR + 1), "'oversized varchar'", createVarcharType(65535), "CAST('oversized varchar' AS varchar(65535))")
+                .addRoundTrip("char(%s)".formatted(REDSHIFT_MAX_VARCHAR + 1), "'oversized char'", createVarcharType(65535), "CAST('%s' AS varchar(65535))".formatted(padVarchar(65535).apply("oversized char")))
                 .execute(getQueryRunner(), trinoCreateAsSelect("oversized_character_types"));
     }
 
@@ -292,7 +291,7 @@ public class TestRedshiftTypeMapping
 
     private static String utf8VarbyteLiteral(String string)
     {
-        return format("to_varbyte('%s', 'hex')", base16().encode(string.getBytes(UTF_8)));
+        return "to_varbyte('%s', 'hex')".formatted(base16().encode(string.getBytes(UTF_8)));
     }
 
     @Test
@@ -327,13 +326,13 @@ public class TestRedshiftTypeMapping
         String columns = "(d19 decimal(19, 0), d18 decimal(19, 18), d0 decimal(19, 19))";
         try (TestTable table = testTable("test_decimal_range", columns)) {
             assertQueryFails(
-                    format("INSERT INTO %s (d19) VALUES (DECIMAL'9991999999999999999')", table.getName()),
+                    "INSERT INTO %s (d19) VALUES (DECIMAL'9991999999999999999')".formatted(table.getName()),
                     "^Value out of range for Redshift DECIMAL\\(19, 0\\)$");
             assertQueryFails(
-                    format("INSERT INTO %s (d18) VALUES (DECIMAL'9.991999999999999999')", table.getName()),
+                    "INSERT INTO %s (d18) VALUES (DECIMAL'9.991999999999999999')".formatted(table.getName()),
                     "^Value out of range for Redshift DECIMAL\\(19, 18\\)$");
             assertQueryFails(
-                    format("INSERT INTO %s (d0) VALUES (DECIMAL'.9991999999999999999')", table.getName()),
+                    "INSERT INTO %s (d0) VALUES (DECIMAL'.9991999999999999999')".formatted(table.getName()),
                     "^Value out of range for Redshift DECIMAL\\(19, 19\\)$");
         }
     }
@@ -633,12 +632,12 @@ public class TestRedshiftTypeMapping
         // The min timestamp with time zone value in Trino is smaller than Redshift
         try (TestTable table = new TestTable(getTrinoExecutor(), "timestamp_tz_min", "(ts timestamp(3) with time zone)")) {
             assertQueryFails(
-                    format("INSERT INTO %s VALUES (TIMESTAMP '-69387-04-22 03:45:14.752 UTC')", table.getName()),
+                    "INSERT INTO %s VALUES (TIMESTAMP '-69387-04-22 03:45:14.752 UTC')".formatted(table.getName()),
                     "\\QMinimum timestamp with time zone in Redshift is -4712-01-01 00:00:00.000000: -69387-04-22 03:45:14.752000");
         }
         try (TestTable table = new TestTable(getTrinoExecutor(), "timestamp_tz_min", "(ts timestamp(6) with time zone)")) {
             assertQueryFails(
-                    format("INSERT INTO %s VALUES (TIMESTAMP '-69387-04-22 03:45:14.752000 UTC')", table.getName()),
+                    "INSERT INTO %s VALUES (TIMESTAMP '-69387-04-22 03:45:14.752000 UTC')".formatted(table.getName()),
                     "\\QMinimum timestamp with time zone in Redshift is -4712-01-01 00:00:00.000000: -69387-04-22 03:45:14.752000");
         }
 
@@ -665,15 +664,15 @@ public class TestRedshiftTypeMapping
         // what they are, so we test one date on either side.
         try (TestTable table = testTable("test_date_limits", "(d date)")) {
             // First day of smallest year that Redshift supports (based on its documentation)
-            assertUpdate(format("INSERT INTO %s VALUES (DATE '-4712-01-01')", table.getName()), 1);
+            assertUpdate("INSERT INTO %s VALUES (DATE '-4712-01-01')".formatted(table.getName()), 1);
             // Small date observed to not work
-            assertThatThrownBy(() -> computeActual(format("INSERT INTO %s VALUES (DATE '-4713-06-01')", table.getName())))
+            assertThatThrownBy(() -> computeActual("INSERT INTO %s VALUES (DATE '-4713-06-01')".formatted(table.getName())))
                     .hasStackTraceContaining("ERROR: date out of range: \"4714-06-01 BC\"");
 
             // Last day of the largest year that Redshift supports (based on in its documentation)
-            assertUpdate(format("INSERT INTO %s VALUES (DATE '294275-12-31')", table.getName()), 1);
+            assertUpdate("INSERT INTO %s VALUES (DATE '294275-12-31')".formatted(table.getName()), 1);
             // Large date observed to not work
-            assertThatThrownBy(() -> computeActual(format("INSERT INTO %s VALUES (DATE '5875000-01-01')", table.getName())))
+            assertThatThrownBy(() -> computeActual("INSERT INTO %s VALUES (DATE '5875000-01-01')".formatted(table.getName())))
                     .hasStackTraceContaining("ERROR: date out of range: \"5875000-01-01 AD\"");
         }
     }
@@ -725,7 +724,7 @@ public class TestRedshiftTypeMapping
                         new TestCase("TIME '23:59:59.999999499999'", "TIME '23:59:59.999999'")));
 
         for (Entry<Integer, List<TestCase>> entry : testCasesByPrecision.entrySet()) {
-            String tableName = format("test_time_precision_%d_%s", entry.getKey(), randomNameSuffix());
+            String tableName = "test_time_precision_%d_%s".formatted(entry.getKey(), randomNameSuffix());
             runTestCases(tableName, entry.getValue());
         }
     }
@@ -778,7 +777,7 @@ public class TestRedshiftTypeMapping
                 new TestCase("TIMESTAMP '2020-12-31 23:59:59.999999499999'", "TIMESTAMP '2020-12-31 23:59:59.999999'"));
 
         for (Entry<Integer, List<TestCase>> entry : testCasesByPrecision.entrySet()) {
-            String tableName = format("test_timestamp_precision_%d_%s", entry.getKey(), randomNameSuffix());
+            String tableName = "test_timestamp_precision_%d_%s".formatted(entry.getKey(), randomNameSuffix());
             runTestCases(tableName, entry.getValue());
         }
     }
@@ -804,12 +803,12 @@ public class TestRedshiftTypeMapping
         try (TestTable table = new TestTable(
                 getTrinoExecutor(),
                 tableName,
-                format("AS SELECT * FROM (VALUES %s) AS t (id, value)",
+                "AS SELECT * FROM (VALUES %s) AS t (id, value)".formatted(
                         testCases.stream()
-                                .map(testCase -> format("(%d, %s)", testCase.id(), testCase.input()))
+                                .map(testCase -> "(%d, %s)".formatted(testCase.id(), testCase.input()))
                                 .collect(joining("), (", "(", ")"))))) {
             assertQuery(
-                    format("SELECT value FROM %s ORDER BY id", table.getName()),
+                    "SELECT value FROM %s ORDER BY id".formatted(table.getName()),
                     testCases.stream()
                             .map(TestCase::expected)
                             .collect(joining("), (", "VALUES (", ")")));
@@ -843,7 +842,7 @@ public class TestRedshiftTypeMapping
         String tableName = tableNamePrefix + "_" + randomNameSuffix();
         try {
             assertThatThrownBy(() -> getRedshiftExecutor()
-                    .execute(format("CREATE TABLE %s %s", tableName, tableBody)))
+                    .execute("CREATE TABLE %s %s".formatted(tableName, tableBody)))
                     .cause()
                     .as("Redshift create fails for %s %s", tableName, tableBody)
                     .isInstanceOf(SQLException.class)
@@ -869,7 +868,7 @@ public class TestRedshiftTypeMapping
     {
         String tableName = tableNamePrefix + "_" + randomNameSuffix();
         try {
-            assertQueryFails(format("CREATE TABLE %s %s", tableName, tableBody), expectedMessageRegExp);
+            assertQueryFails("CREATE TABLE %s %s".formatted(tableName, tableBody), expectedMessageRegExp);
         }
         catch (AssertionError failure) {
             // If the table was created, clean it up because the tests run on a shared Redshift instance
@@ -983,13 +982,13 @@ public class TestRedshiftTypeMapping
         TestView(String namePrefix, String definition)
         {
             name = requireNonNull(namePrefix) + "_" + randomNameSuffix();
-            executeInRedshiftWithRetry(format("CREATE OR REPLACE VIEW %s.%s AS %s", TEST_SCHEMA, name, definition));
+            executeInRedshiftWithRetry("CREATE OR REPLACE VIEW %s.%s AS %s".formatted(TEST_SCHEMA, name, definition));
         }
 
         @Override
         public void close()
         {
-            executeInRedshiftWithRetry(format("DROP VIEW IF EXISTS %s.%s", TEST_SCHEMA, name));
+            executeInRedshiftWithRetry("DROP VIEW IF EXISTS %s.%s".formatted(TEST_SCHEMA, name));
         }
     }
 }

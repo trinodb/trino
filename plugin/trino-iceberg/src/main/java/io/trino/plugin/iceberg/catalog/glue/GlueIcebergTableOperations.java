@@ -52,7 +52,6 @@ import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameFrom;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getMaterializedViewTableInput;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getTableInput;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_LOCATION_PROP;
@@ -114,7 +113,7 @@ public class GlueIcebergTableOperations
 
         String metadataLocation = parameters.get(METADATA_LOCATION_PROP);
         if (metadataLocation == null) {
-            throw new TrinoException(ICEBERG_INVALID_METADATA, format("Table is missing [%s] property: %s", METADATA_LOCATION_PROP, getSchemaTableName()));
+            throw new TrinoException(ICEBERG_INVALID_METADATA, "Table is missing [%s] property: %s".formatted(METADATA_LOCATION_PROP, getSchemaTableName()));
         }
         return metadataLocation;
     }

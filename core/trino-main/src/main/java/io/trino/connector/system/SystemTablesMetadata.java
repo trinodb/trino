@@ -48,7 +48,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.metadata.MetadataUtil.findColumnMetadata;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SystemTablesMetadata
@@ -127,7 +126,7 @@ public class SystemTablesMetadata
         SystemTableHandle systemTableHandle = (SystemTableHandle) tableHandle;
         return tables.getSystemTable(session, systemTableHandle.schemaTableName())
                 // table might disappear in the meantime
-                .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Table '%s' not found", systemTableHandle.schemaTableName())));
+                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Table '%s' not found".formatted(systemTableHandle.schemaTableName())));
     }
 
     @Override

@@ -51,7 +51,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.floatToIntBits;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class PinotSegmentPageSource
@@ -218,8 +217,7 @@ public class PinotSegmentPageSource
         else {
             throw new TrinoException(
                     PINOT_UNSUPPORTED_COLUMN_TYPE,
-                    format(
-                            "Failed to write column %s. pinotColumnType %s, javaType %s",
+                    "Failed to write column %s. pinotColumnType %s, javaType %s".formatted(
                             columnHandles.get(columnIdx).getColumnName(),
                             pinotColumnType,
                             javaType));
@@ -287,7 +285,7 @@ public class PinotSegmentPageSource
             case INT -> currentDataTable.dataTable().getInt(rowIndex, columnIndex);
             case FLOAT -> floatToIntBits(currentDataTable.dataTable().getFloat(rowIndex, columnIndex));
             case LONG, TIMESTAMP -> currentDataTable.dataTable().getLong(rowIndex, columnIndex);
-            default -> throw new PinotException(PINOT_DECODE_ERROR, Optional.empty(), format("Unexpected pinot type: '%s'", dataType));
+            default -> throw new PinotException(PINOT_DECODE_ERROR, Optional.empty(), "Unexpected pinot type: '%s'".formatted(dataType));
         };
     }
 
@@ -346,7 +344,7 @@ public class PinotSegmentPageSource
                 }
                 yield stringBlockBuilder;
             }
-            default -> throw new UnsupportedOperationException(format("Unexpected pinot type '%s'", columnType));
+            default -> throw new UnsupportedOperationException("Unexpected pinot type '%s'".formatted(columnType));
         };
         return blockBuilder.build();
     }

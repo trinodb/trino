@@ -102,7 +102,6 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.planprinter.JsonRenderer.JsonRenderedNode;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NaN;
-import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -396,7 +395,7 @@ public class TestEventListenerBasic
                     .setSystemProperty("required_workers_count", "17")
                     .setSystemProperty("required_workers_max_wait_time", "5m")
                     .build();
-            String sql = format("SELECT nationkey AS %s  FROM tpch.sf1.nation", testQueryMarker);
+            String sql = "SELECT nationkey AS %s  FROM tpch.sf1.nation".formatted(testQueryMarker);
 
             executorService.submit(
                     // asynchronous call to cancel query which will be stared via `assertFailedQuery` below
@@ -404,7 +403,7 @@ public class TestEventListenerBasic
                         Optional<String> queryIdValue = findQueryId(testQueryMarker);
                         assertThat(queryIdValue).as("query id").isPresent();
 
-                        getQueryRunner().execute(format("CALL system.runtime.kill_query('%s', 'because') %s", queryIdValue.get(), IGNORE_EVENT_MARKER));
+                        getQueryRunner().execute("CALL system.runtime.kill_query('%s', 'because') %s".formatted(queryIdValue.get(), IGNORE_EVENT_MARKER));
                         return null;
                     });
 
@@ -1453,7 +1452,7 @@ public class TestEventListenerBasic
             throws Exception
     {
         assertLineage(
-                format("SELECT orderpriority AS test_varchar, orderkey AS test_bigint FROM orders %s SELECT clerk, custkey FROM sf1.orders", setOperator),
+                "SELECT orderpriority AS test_varchar, orderkey AS test_bigint FROM orders %s SELECT clerk, custkey FROM sf1.orders".formatted(setOperator),
                 ImmutableSet.of("tpch.tiny.orders", "tpch.sf1.orders"),
                 new OutputColumnMetadata(
                         "test_varchar",
@@ -1633,7 +1632,7 @@ public class TestEventListenerBasic
         assertLineageInternal("CREATE VIEW mock.default.create_new_view AS " + baseQuery, inputTables, outputColumnMetadata);
         assertLineageInternal("CREATE VIEW mock.default.create_new_materialized_view AS " + baseQuery, inputTables, outputColumnMetadata);
         assertLineageInternal("INSERT INTO mock.default.table_for_output(test_varchar, test_bigint) " + baseQuery, inputTables, outputColumnMetadata);
-        assertLineageInternal(format("DELETE FROM mock.default.table_for_output WHERE EXISTS (%s) ", baseQuery), inputTables);
+        assertLineageInternal("DELETE FROM mock.default.table_for_output WHERE EXISTS (%s) ".formatted(baseQuery), inputTables);
     }
 
     private void assertLineageInternal(String sql, Set<String> inputTables, OutputColumnMetadata... outputColumnMetadata)

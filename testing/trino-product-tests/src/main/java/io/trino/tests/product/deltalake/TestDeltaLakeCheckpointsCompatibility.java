@@ -49,7 +49,6 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICK
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeCheckpointsCompatibility
@@ -81,12 +80,11 @@ public class TestDeltaLakeCheckpointsCompatibility
         String tableDirectory = "delta-compatibility-test-" + tableName;
         // using mixed case column names for extend test coverage
 
-        onDelta().executeQuery(format(
-                "CREATE TABLE default.%s" +
-                        "      (a_NuMbEr INT, a_StRiNg STRING)" +
-                        "      USING delta" +
-                        "      PARTITIONED BY (a_NuMbEr)" +
-                        "      LOCATION 's3://%s/%s'",
+        onDelta().executeQuery(("CREATE TABLE default.%s" +
+        "      (a_NuMbEr INT, a_StRiNg STRING)" +
+        "      USING delta" +
+        "      PARTITIONED BY (a_NuMbEr)" +
+        "      LOCATION 's3://%s/%s'").formatted(
                 tableName,
                 bucketName,
                 tableDirectory));
@@ -141,27 +139,26 @@ public class TestDeltaLakeCheckpointsCompatibility
     {
         String tableName = "test_dl_checkpoints_multi_part_compat_" + randomNameSuffix();
         try {
-            onTrino().executeQuery(format(
-                    "CREATE TABLE delta.default.%1$s (" +
-                            "    data INT," +
-                            "    part_boolean BOOLEAN," +
-                            "    part_tinyint TINYINT," +
-                            "    part_smallint SMALLINT," +
-                            "    part_int INT," +
-                            "    part_bigint BIGINT," +
-                            "    part_decimal_5_2 DECIMAL(5,2)," +
-                            "    part_decimal_21_3 DECIMAL(21,3)," +
-                            "    part_double DOUBLE," +
-                            "    part_float REAL," +
-                            "    part_varchar VARCHAR," +
-                            "    part_date DATE," +
-                            "    part_timestamp TIMESTAMP(3) WITH TIME ZONE" +
-                            ") " +
-                            "WITH (" +
-                            "    location = 's3://%2$s/databricks-compatibility-test-%1$s'," +
-                            "    partitioned_by = ARRAY['part_boolean', 'part_tinyint', 'part_smallint', 'part_int', 'part_bigint', 'part_decimal_5_2', 'part_decimal_21_3', 'part_double', 'part_float', 'part_varchar', 'part_date', 'part_timestamp']," +
-                            "    checkpoint_interval = 2" +
-                            ")",
+            onTrino().executeQuery(("CREATE TABLE delta.default.%1$s (" +
+            "    data INT," +
+            "    part_boolean BOOLEAN," +
+            "    part_tinyint TINYINT," +
+            "    part_smallint SMALLINT," +
+            "    part_int INT," +
+            "    part_bigint BIGINT," +
+            "    part_decimal_5_2 DECIMAL(5,2)," +
+            "    part_decimal_21_3 DECIMAL(21,3)," +
+            "    part_double DOUBLE," +
+            "    part_float REAL," +
+            "    part_varchar VARCHAR," +
+            "    part_date DATE," +
+            "    part_timestamp TIMESTAMP(3) WITH TIME ZONE" +
+            ") " +
+            "WITH (" +
+            "    location = 's3://%2$s/databricks-compatibility-test-%1$s'," +
+            "    partitioned_by = ARRAY['part_boolean', 'part_tinyint', 'part_smallint', 'part_int', 'part_bigint', 'part_decimal_5_2', 'part_decimal_21_3', 'part_double', 'part_float', 'part_varchar', 'part_date', 'part_timestamp']," +
+            "    checkpoint_interval = 2" +
+            ")").formatted(
                     tableName,
                     bucketName));
 
@@ -240,13 +237,12 @@ public class TestDeltaLakeCheckpointsCompatibility
         String tableName = "test_dl_checkpoints_compat_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onDelta().executeQuery(format(
-                "CREATE TABLE default.%s" +
-                        "      (a_NuMbEr INT, a_StRiNg STRING)" +
-                        "      USING delta" +
-                        "      PARTITIONED BY (a_NuMbEr)" +
-                        "      LOCATION 's3://%s/%s'" +
-                        "      TBLPROPERTIES (%s)",
+        onDelta().executeQuery(("CREATE TABLE default.%s" +
+        "      (a_NuMbEr INT, a_StRiNg STRING)" +
+        "      USING delta" +
+        "      PARTITIONED BY (a_NuMbEr)" +
+        "      LOCATION 's3://%s/%s'" +
+        "      TBLPROPERTIES (%s)").formatted(
                 tableName,
                 bucketName,
                 tableDirectory,
@@ -291,12 +287,12 @@ public class TestDeltaLakeCheckpointsCompatibility
         String tableName = "test_dl_checkpoints_compat_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onTrino().executeQuery(format("CREATE TABLE delta.default.%s (a_number bigint, a_string varchar) " +
+        onTrino().executeQuery(("CREATE TABLE delta.default.%s (a_number bigint, a_string varchar) " +
                 "WITH (" +
                 "      location = 's3://%s/%s'," +
                 "      partitioned_by = ARRAY['a_number']," +
                 "      checkpoint_interval = 3" +
-                ")", tableName, bucketName, tableDirectory));
+                ")").formatted(tableName, bucketName, tableDirectory));
 
         try {
             // validate that Databricks can see the checkpoint interval
@@ -349,12 +345,11 @@ public class TestDeltaLakeCheckpointsCompatibility
                 row(3, "osla"),
                 row(4, "zulu"));
 
-        onDelta().executeQuery(format(
-                "CREATE TABLE default.%s" +
-                        "      (id INT, root STRUCT<entry_one : INT, entry_two : STRING>)" +
-                        "      USING DELTA " +
-                        "      LOCATION 's3://%s/databricks-compatibility-test-%1$s' " +
-                        "      TBLPROPERTIES (delta.checkpointInterval = 1)",
+        onDelta().executeQuery(("CREATE TABLE default.%s" +
+        "      (id INT, root STRUCT<entry_one : INT, entry_two : STRING>)" +
+        "      USING DELTA " +
+        "      LOCATION 's3://%s/databricks-compatibility-test-%1$s' " +
+        "      TBLPROPERTIES (delta.checkpointInterval = 1)").formatted(
                 tableName,
                 bucketName));
 
@@ -417,12 +412,11 @@ public class TestDeltaLakeCheckpointsCompatibility
                 row(null, null),
                 row(4, "zulu"));
 
-        onDelta().executeQuery(format(
-                "CREATE TABLE default.%s" +
-                        "      (id INT, root STRUCT<entry_one : INT, entry_two : STRING>)" +
-                        "      USING DELTA " +
-                        "      LOCATION 's3://%s/databricks-compatibility-test-%1$s' " +
-                        "      TBLPROPERTIES (delta.checkpointInterval = 1)",
+        onDelta().executeQuery(("CREATE TABLE default.%s" +
+        "      (id INT, root STRUCT<entry_one : INT, entry_two : STRING>)" +
+        "      USING DELTA " +
+        "      LOCATION 's3://%s/databricks-compatibility-test-%1$s' " +
+        "      TBLPROPERTIES (delta.checkpointInterval = 1)").formatted(
                 tableName,
                 bucketName));
         try {
@@ -475,15 +469,14 @@ public class TestDeltaLakeCheckpointsCompatibility
 
     private void testWriteStatsAsJsonDisabled(Consumer<String> sqlExecutor, String tableName, String qualifiedTableName, Double dataSize, Double distinctValues)
     {
-        onDelta().executeQuery(format(
-                "CREATE TABLE default.%s" +
-                        "(a_number INT, a_string STRING) " +
-                        "USING DELTA " +
-                        "PARTITIONED BY (a_number) " +
-                        "LOCATION 's3://%s/databricks-compatibility-test-%1$s' " +
-                        "TBLPROPERTIES (" +
-                        " delta.checkpointInterval = 5, " +
-                        " delta.checkpoint.writeStatsAsJson = false)",
+        onDelta().executeQuery(("CREATE TABLE default.%s" +
+        "(a_number INT, a_string STRING) " +
+        "USING DELTA " +
+        "PARTITIONED BY (a_number) " +
+        "LOCATION 's3://%s/databricks-compatibility-test-%1$s' " +
+        "TBLPROPERTIES (" +
+        " delta.checkpointInterval = 5, " +
+        " delta.checkpoint.writeStatsAsJson = false)").formatted(
                 tableName,
                 bucketName));
 
@@ -517,16 +510,15 @@ public class TestDeltaLakeCheckpointsCompatibility
 
     private void testWriteStatsAsStructDisabled(Consumer<String> sqlExecutor, String tableName, String qualifiedTableName)
     {
-        onDelta().executeQuery(format(
-                "CREATE TABLE default.%s" +
-                        "(a_number INT, a_string STRING) " +
-                        "USING DELTA " +
-                        "PARTITIONED BY (a_number) " +
-                        "LOCATION 's3://%s/databricks-compatibility-test-%1$s' " +
-                        "TBLPROPERTIES (" +
-                        " delta.checkpointInterval = 1, " +
-                        " delta.checkpoint.writeStatsAsJson = false, " + // Disable json stats to avoid merging statistics with 'stats' field
-                        " delta.checkpoint.writeStatsAsStruct = false)",
+        onDelta().executeQuery(("CREATE TABLE default.%s" +
+        "(a_number INT, a_string STRING) " +
+        "USING DELTA " +
+        "PARTITIONED BY (a_number) " +
+        "LOCATION 's3://%s/databricks-compatibility-test-%1$s' " +
+        "TBLPROPERTIES (" +
+        " delta.checkpointInterval = 1, " +
+        " delta.checkpoint.writeStatsAsJson = false, " + // Disable json stats to avoid merging statistics with 'stats' field
+        " delta.checkpoint.writeStatsAsStruct = false)").formatted(
                 tableName,
                 bucketName));
 
@@ -561,15 +553,14 @@ public class TestDeltaLakeCheckpointsCompatibility
 
     private void testWriteStatsAsJsonEnabled(Consumer<String> sqlExecutor, String tableName, String qualifiedTableName, String type, String inputValue, Double dataSize, Double distinctValues, Double nullsFraction, Object statsValue)
     {
-        String createTableSql = format(
-                "CREATE TABLE default.%s" +
-                        "(col %s) " +
-                        "USING DELTA " +
-                        "LOCATION 's3://%s/databricks-compatibility-test-%1$s' " +
-                        "TBLPROPERTIES (" +
-                        " delta.checkpointInterval = 2, " +
-                        " delta.checkpoint.writeStatsAsJson = false, " +
-                        " delta.checkpoint.writeStatsAsStruct = true)",
+        String createTableSql = ("CREATE TABLE default.%s" +
+        "(col %s) " +
+        "USING DELTA " +
+        "LOCATION 's3://%s/databricks-compatibility-test-%1$s' " +
+        "TBLPROPERTIES (" +
+        " delta.checkpointInterval = 2, " +
+        " delta.checkpoint.writeStatsAsJson = false, " +
+        " delta.checkpoint.writeStatsAsStruct = true)").formatted(
                 tableName,
                 type,
                 bucketName);
@@ -661,16 +652,15 @@ public class TestDeltaLakeCheckpointsCompatibility
 
     private void testWriteStatsAsStructEnabled(Consumer<String> sqlExecutor, String tableName, String qualifiedTableName, Double dataSize, Double distinctValues)
     {
-        onDelta().executeQuery(format(
-                "CREATE TABLE default.%s" +
-                        "(a_number INT, a_string STRING) " +
-                        "USING DELTA " +
-                        "PARTITIONED BY (a_number) " +
-                        "LOCATION 's3://%s/databricks-compatibility-test-%1$s' " +
-                        "TBLPROPERTIES (" +
-                        " delta.checkpointInterval = 1, " +
-                        " delta.checkpoint.writeStatsAsJson = false, " +
-                        " delta.checkpoint.writeStatsAsStruct = true)",
+        onDelta().executeQuery(("CREATE TABLE default.%s" +
+        "(a_number INT, a_string STRING) " +
+        "USING DELTA " +
+        "PARTITIONED BY (a_number) " +
+        "LOCATION 's3://%s/databricks-compatibility-test-%1$s' " +
+        "TBLPROPERTIES (" +
+        " delta.checkpointInterval = 1, " +
+        " delta.checkpoint.writeStatsAsJson = false, " +
+        " delta.checkpoint.writeStatsAsStruct = true)").formatted(
                 tableName,
                 bucketName));
 
@@ -728,7 +718,7 @@ public class TestDeltaLakeCheckpointsCompatibility
     private void fillWithInserts(String tableName, String values, int toCreate)
     {
         for (int i = 0; i < toCreate; i++) {
-            assertThat(onTrino().executeQuery(format("INSERT INTO %s VALUES %s", tableName, values))).updatedRowsCountIsEqualTo(1);
+            assertThat(onTrino().executeQuery("INSERT INTO %s VALUES %s".formatted(tableName, values))).updatedRowsCountIsEqualTo(1);
         }
     }
 

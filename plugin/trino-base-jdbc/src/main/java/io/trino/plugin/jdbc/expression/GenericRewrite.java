@@ -27,7 +27,6 @@ import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.regex.Matcher.quoteReplacement;
 
@@ -87,11 +86,11 @@ public class GenericRewrite
                     if (rewritten.isEmpty()) {
                         return Optional.empty();
                     }
-                    replacement = format("(%s)", rewritten.get().expression());
+                    replacement = "(%s)".formatted(rewritten.get().expression());
                     parameters.addAll(rewritten.get().parameters());
                 }
                 else {
-                    throw new UnsupportedOperationException(format("Unsupported value: %s (%s)", value, value.getClass()));
+                    throw new UnsupportedOperationException("Unsupported value: %s (%s)".formatted(value, value.getClass()));
                 }
             }
             else {
@@ -107,6 +106,6 @@ public class GenericRewrite
     @Override
     public String toString()
     {
-        return format("%s(%s -> %s)", GenericRewrite.class.getSimpleName(), expressionPattern, rewritePattern);
+        return "%s(%s -> %s)".formatted(GenericRewrite.class.getSimpleName(), expressionPattern, rewritePattern);
     }
 }

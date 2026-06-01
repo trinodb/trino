@@ -25,10 +25,9 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
-import static java.util.Collections.singletonList;
 
 /**
  * Evaluates a constant Cast expression
@@ -55,7 +54,7 @@ public class EvaluateCast
                         functionInvoker.invoke(
                                 metadata.getCoercion(constant.type(), type),
                                 session.toConnectorSession(),
-                                singletonList(constant.value()))));
+                                List.of(constant.value()))));
             }
             catch (TrinoException _) {
             }

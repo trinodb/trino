@@ -35,7 +35,6 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseTestAvroSchemaEvolution
@@ -68,29 +67,27 @@ public abstract class BaseTestAvroSchemaEvolution
     public void createAndLoadTable()
             throws IOException
     {
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s (" +
-                        "  dummy_col VARCHAR" +
-                        (varcharPartitionColumns.isEmpty() ? "" : ", " + getPartitionsAsListString(partitionColumns -> partitionColumns + " varchar")) +
-                        ")" +
-                        "WITH (" +
-                        "  format='AVRO', " +
-                        "  avro_schema_url='%s'" +
-                        (varcharPartitionColumns.isEmpty() ? "" : ", partitioned_by=ARRAY[" + getPartitionsAsListString(partitionColumns -> "'" + partitionColumns + "'") + "]") +
-                        ")",
+        onTrino().executeQuery(("CREATE TABLE %s (" +
+        "  dummy_col VARCHAR" +
+        (varcharPartitionColumns.isEmpty() ? "" : ", " + getPartitionsAsListString(partitionColumns -> partitionColumns + " varchar")) +
+        ")" +
+        "WITH (" +
+        "  format='AVRO', " +
+        "  avro_schema_url='%s'" +
+        (varcharPartitionColumns.isEmpty() ? "" : ", partitioned_by=ARRAY[" + getPartitionsAsListString(partitionColumns -> "'" + partitionColumns + "'") + "]") +
+        ")").formatted(
                 tableWithSchemaUrl,
                 ORIGINAL_SCHEMA));
         insertData(tableWithSchemaUrl, 0, "'stringA0'", "0");
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s (" +
-                        "  dummy_col VARCHAR" +
-                        (varcharPartitionColumns.isEmpty() ? "" : ", " + getPartitionsAsListString(partitionColumns -> partitionColumns + " varchar")) +
-                        ")" +
-                        "WITH (" +
-                        "  format='AVRO', " +
-                        "  avro_schema_literal='%s'" +
-                        (varcharPartitionColumns.isEmpty() ? "" : ", partitioned_by=ARRAY[" + getPartitionsAsListString(partitionColumns -> "'" + partitionColumns + "'") + "]") +
-                        ")",
+        onTrino().executeQuery(("CREATE TABLE %s (" +
+        "  dummy_col VARCHAR" +
+        (varcharPartitionColumns.isEmpty() ? "" : ", " + getPartitionsAsListString(partitionColumns -> partitionColumns + " varchar")) +
+        ")" +
+        "WITH (" +
+        "  format='AVRO', " +
+        "  avro_schema_literal='%s'" +
+        (varcharPartitionColumns.isEmpty() ? "" : ", partitioned_by=ARRAY[" + getPartitionsAsListString(partitionColumns -> "'" + partitionColumns + "'") + "]") +
+        ")").formatted(
                 tableWithSchemaLiteral,
                 readSchemaLiteralFromUrl(ORIGINAL_SCHEMA)));
         insertData(tableWithSchemaLiteral, 0, "'stringA0'", "0");
@@ -99,16 +96,16 @@ public abstract class BaseTestAvroSchemaEvolution
     @AfterMethodWithContext
     public void dropTestTable()
     {
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableWithSchemaUrl));
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableWithSchemaLiteral));
+        onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableWithSchemaUrl));
+        onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableWithSchemaLiteral));
     }
 
     @Test
     public void testSelectTable()
     {
-        assertThat(onTrino().executeQuery(format("SELECT string_col FROM %s", tableWithSchemaUrl)))
+        assertThat(onTrino().executeQuery("SELECT string_col FROM %s".formatted(tableWithSchemaUrl)))
                 .containsExactlyInOrder(row("stringA0"));
-        assertThat(onTrino().executeQuery(format("SELECT string_col FROM %s", tableWithSchemaLiteral)))
+        assertThat(onTrino().executeQuery("SELECT string_col FROM %s".formatted(tableWithSchemaLiteral)))
                 .containsExactlyInOrder(row("stringA0"));
     }
 
@@ -124,11 +121,11 @@ public abstract class BaseTestAvroSchemaEvolution
         insertData(tableWithSchemaUrl, 1, "'stringA1'", "1", "101");
         insertData(tableWithSchemaLiteral, 1, "'stringA1'", "1", "101");
 
-        assertThat(onTrino().executeQuery(format(selectStarStatement, tableWithSchemaUrl)))
+        assertThat(onTrino().executeQuery(selectStarStatement.formatted(tableWithSchemaUrl)))
                 .containsOnly(
                         createRow(0, "stringA0", 0, 100),
                         createRow(1, "stringA1", 1, 101));
-        assertThat(onTrino().executeQuery(format(selectStarStatement, tableWithSchemaLiteral)))
+        assertThat(onTrino().executeQuery(selectStarStatement.formatted(tableWithSchemaLiteral)))
                 .containsOnly(
                         createRow(0, "stringA0", 0, 100),
                         createRow(1, "stringA1", 1, 101));
@@ -138,12 +135,12 @@ public abstract class BaseTestAvroSchemaEvolution
     public void testSchemaEvolutionWithIncompatibleType()
             throws IOException
     {
-        assertThat(onTrino().executeQuery(format(columnsInTableStatement, tableWithSchemaUrl)))
+        assertThat(onTrino().executeQuery(columnsInTableStatement.formatted(tableWithSchemaUrl)))
                 .containsExactlyInOrder(
                         prepareShowColumnsResultRows(
                                 row("string_col", "varchar", "", ""),
                                 row("int_col", "integer", "", "")));
-        assertThat(onTrino().executeQuery(format(columnsInTableStatement, tableWithSchemaLiteral)))
+        assertThat(onTrino().executeQuery(columnsInTableStatement.formatted(tableWithSchemaLiteral)))
                 .containsExactlyInOrder(
                         prepareShowColumnsResultRows(
                                 row("string_col", "varchar", "", ""),
@@ -153,63 +150,63 @@ public abstract class BaseTestAvroSchemaEvolution
         alterTableSchemaUrl(INCOMPATIBLE_TYPE_SCHEMA);
         alterTableSchemaLiteral(readSchemaLiteralFromUrl(INCOMPATIBLE_TYPE_SCHEMA));
 
-        assertQueryFailure(() -> onTrino().executeQuery(format(selectStarStatement, tableWithSchemaUrl)))
+        assertQueryFailure(() -> onTrino().executeQuery(selectStarStatement.formatted(tableWithSchemaUrl)))
                 .hasStackTraceContaining("Found int, expecting string");
-        assertQueryFailure(() -> onTrino().executeQuery(format(selectStarStatement, tableWithSchemaLiteral)))
+        assertQueryFailure(() -> onTrino().executeQuery(selectStarStatement.formatted(tableWithSchemaLiteral)))
                 .hasStackTraceContaining("Found int, expecting string");
     }
 
     @Test
     public void testSchemaEvolutionWithUrl()
     {
-        assertThat(onTrino().executeQuery(format(columnsInTableStatement, tableWithSchemaUrl)))
+        assertThat(onTrino().executeQuery(columnsInTableStatement.formatted(tableWithSchemaUrl)))
                 .containsExactlyInOrder(
                         prepareShowColumnsResultRows(
                                 row("string_col", "varchar", "", ""),
                                 row("int_col", "integer", "", "")));
 
-        assertThat(onTrino().executeQuery(format(selectStarStatement, tableWithSchemaUrl)))
+        assertThat(onTrino().executeQuery(selectStarStatement.formatted(tableWithSchemaUrl)))
                 .containsExactlyInOrder(
                         createRow(0, "stringA0", 0));
 
         alterTableSchemaUrl(CHANGE_COLUMN_TYPE_SCHEMA);
-        assertThat(onTrino().executeQuery(format(columnsInTableStatement, tableWithSchemaUrl)))
+        assertThat(onTrino().executeQuery(columnsInTableStatement.formatted(tableWithSchemaUrl)))
                 .containsExactlyInOrder(
                         prepareShowColumnsResultRows(
                                 row("string_col", "varchar", "", ""),
                                 row("int_col", "bigint", "", "")));
-        assertThat(onTrino().executeQuery(format(selectStarStatement, tableWithSchemaUrl)))
+        assertThat(onTrino().executeQuery(selectStarStatement.formatted(tableWithSchemaUrl)))
                 .containsExactlyInOrder(
                         createRow(0, "stringA0", 0));
 
         alterTableSchemaUrl(ADDED_COLUMN_SCHEMA);
-        assertThat(onTrino().executeQuery(format(columnsInTableStatement, tableWithSchemaUrl)))
+        assertThat(onTrino().executeQuery(columnsInTableStatement.formatted(tableWithSchemaUrl)))
                 .containsExactlyInOrder(
                         prepareShowColumnsResultRows(
                                 row("string_col", "varchar", "", ""),
                                 row("int_col", "integer", "", ""),
                                 row("int_col_added", "integer", "", "")));
-        assertThat(onTrino().executeQuery(format(selectStarStatement, tableWithSchemaUrl)))
+        assertThat(onTrino().executeQuery(selectStarStatement.formatted(tableWithSchemaUrl)))
                 .containsExactlyInOrder(
                         createRow(0, "stringA0", 0, 100));
 
         alterTableSchemaUrl(REMOVED_COLUMN_SCHEMA);
-        assertThat(onTrino().executeQuery(format(columnsInTableStatement, tableWithSchemaUrl)))
+        assertThat(onTrino().executeQuery(columnsInTableStatement.formatted(tableWithSchemaUrl)))
                 .containsExactlyInOrder(
                         prepareShowColumnsResultRows(
                                 row("int_col", "integer", "", "")));
-        assertThat(onTrino().executeQuery(format(selectStarStatement, tableWithSchemaUrl)))
+        assertThat(onTrino().executeQuery(selectStarStatement.formatted(tableWithSchemaUrl)))
                 .containsExactlyInOrder(
                         createRow(0, 0));
 
         alterTableSchemaUrl(RENAMED_COLUMN_SCHEMA);
-        assertThat(onTrino().executeQuery(format(columnsInTableStatement, tableWithSchemaUrl)))
+        assertThat(onTrino().executeQuery(columnsInTableStatement.formatted(tableWithSchemaUrl)))
                 .containsExactlyInOrder(
                         prepareShowColumnsResultRows(
                                 row("string_col", "varchar", "", ""),
                                 row("int_col_renamed", "integer", "", "")));
 
-        assertThat(onTrino().executeQuery(format(selectStarStatement, tableWithSchemaUrl)))
+        assertThat(onTrino().executeQuery(selectStarStatement.formatted(tableWithSchemaUrl)))
                 .containsExactlyInOrder(
                         createRow(0, "stringA0", null));
     }
@@ -218,54 +215,54 @@ public abstract class BaseTestAvroSchemaEvolution
     public void testSchemaEvolutionWithLiteral()
             throws IOException
     {
-        assertThat(onTrino().executeQuery(format(columnsInTableStatement, tableWithSchemaLiteral)))
+        assertThat(onTrino().executeQuery(columnsInTableStatement.formatted(tableWithSchemaLiteral)))
                 .containsExactlyInOrder(
                         prepareShowColumnsResultRows(
                                 row("string_col", "varchar", "", ""),
                                 row("int_col", "integer", "", "")));
 
-        assertThat(onTrino().executeQuery(format(selectStarStatement, tableWithSchemaLiteral)))
+        assertThat(onTrino().executeQuery(selectStarStatement.formatted(tableWithSchemaLiteral)))
                 .containsExactlyInOrder(
                         createRow(0, "stringA0", 0));
 
         alterTableSchemaLiteral(readSchemaLiteralFromUrl(CHANGE_COLUMN_TYPE_SCHEMA));
-        assertThat(onTrino().executeQuery(format(columnsInTableStatement, tableWithSchemaLiteral)))
+        assertThat(onTrino().executeQuery(columnsInTableStatement.formatted(tableWithSchemaLiteral)))
                 .containsExactlyInOrder(
                         prepareShowColumnsResultRows(
                                 row("string_col", "varchar", "", ""),
                                 row("int_col", "bigint", "", "")));
-        assertThat(onTrino().executeQuery(format(selectStarStatement, tableWithSchemaLiteral)))
+        assertThat(onTrino().executeQuery(selectStarStatement.formatted(tableWithSchemaLiteral)))
                 .containsExactlyInOrder(
                         createRow(0, "stringA0", 0));
 
         alterTableSchemaLiteral(readSchemaLiteralFromUrl(ADDED_COLUMN_SCHEMA));
-        assertThat(onTrino().executeQuery(format(columnsInTableStatement, tableWithSchemaLiteral)))
+        assertThat(onTrino().executeQuery(columnsInTableStatement.formatted(tableWithSchemaLiteral)))
                 .containsExactlyInOrder(
                         prepareShowColumnsResultRows(
                                 row("string_col", "varchar", "", ""),
                                 row("int_col", "integer", "", ""),
                                 row("int_col_added", "integer", "", "")));
-        assertThat(onTrino().executeQuery(format(selectStarStatement, tableWithSchemaLiteral)))
+        assertThat(onTrino().executeQuery(selectStarStatement.formatted(tableWithSchemaLiteral)))
                 .containsExactlyInOrder(
                         createRow(0, "stringA0", 0, 100));
 
         alterTableSchemaLiteral(readSchemaLiteralFromUrl(REMOVED_COLUMN_SCHEMA));
-        assertThat(onTrino().executeQuery(format(columnsInTableStatement, tableWithSchemaLiteral)))
+        assertThat(onTrino().executeQuery(columnsInTableStatement.formatted(tableWithSchemaLiteral)))
                 .containsExactlyInOrder(
                         prepareShowColumnsResultRows(
                                 row("int_col", "integer", "", "")));
-        assertThat(onTrino().executeQuery(format(selectStarStatement, tableWithSchemaLiteral)))
+        assertThat(onTrino().executeQuery(selectStarStatement.formatted(tableWithSchemaLiteral)))
                 .containsExactlyInOrder(
                         createRow(0, 0));
 
         alterTableSchemaLiteral(readSchemaLiteralFromUrl(RENAMED_COLUMN_SCHEMA));
-        assertThat(onTrino().executeQuery(format(columnsInTableStatement, tableWithSchemaLiteral)))
+        assertThat(onTrino().executeQuery(columnsInTableStatement.formatted(tableWithSchemaLiteral)))
                 .containsExactlyInOrder(
                         prepareShowColumnsResultRows(
                                 row("string_col", "varchar", "", ""),
                                 row("int_col_renamed", "integer", "", "")));
 
-        assertThat(onTrino().executeQuery(format(selectStarStatement, tableWithSchemaLiteral)))
+        assertThat(onTrino().executeQuery(selectStarStatement.formatted(tableWithSchemaLiteral)))
                 .containsExactlyInOrder(
                         createRow(0, "stringA0", null));
     }
@@ -273,17 +270,17 @@ public abstract class BaseTestAvroSchemaEvolution
     @Test
     public void testSchemaWhenUrlIsUnset()
     {
-        assertThat(onTrino().executeQuery(format(columnsInTableStatement, tableWithSchemaUrl)))
+        assertThat(onTrino().executeQuery(columnsInTableStatement.formatted(tableWithSchemaUrl)))
                 .containsExactlyInOrder(
                         prepareShowColumnsResultRows(
                                 row("string_col", "varchar", "", ""),
                                 row("int_col", "integer", "", "")));
-        assertThat(onTrino().executeQuery(format(selectStarStatement, tableWithSchemaUrl)))
+        assertThat(onTrino().executeQuery(selectStarStatement.formatted(tableWithSchemaUrl)))
                 .containsExactlyInOrder(
                         createRow(0, "stringA0", 0));
 
-        onHive().executeQuery(format("ALTER TABLE %s UNSET TBLPROPERTIES('avro.schema.url')", tableWithSchemaUrl));
-        assertThat(onTrino().executeQuery(format(columnsInTableStatement, tableWithSchemaUrl)))
+        onHive().executeQuery("ALTER TABLE %s UNSET TBLPROPERTIES('avro.schema.url')".formatted(tableWithSchemaUrl));
+        assertThat(onTrino().executeQuery(columnsInTableStatement.formatted(tableWithSchemaUrl)))
                 .containsExactlyInOrder(
                         prepareShowColumnsResultRows(
                                 row("dummy_col", "varchar", "", "")));
@@ -292,17 +289,17 @@ public abstract class BaseTestAvroSchemaEvolution
     @Test
     public void testSchemaWhenLiteralIsUnset()
     {
-        assertThat(onTrino().executeQuery(format(columnsInTableStatement, tableWithSchemaLiteral)))
+        assertThat(onTrino().executeQuery(columnsInTableStatement.formatted(tableWithSchemaLiteral)))
                 .containsExactlyInOrder(
                         prepareShowColumnsResultRows(
                                 row("string_col", "varchar", "", ""),
                                 row("int_col", "integer", "", "")));
-        assertThat(onTrino().executeQuery(format(selectStarStatement, tableWithSchemaLiteral)))
+        assertThat(onTrino().executeQuery(selectStarStatement.formatted(tableWithSchemaLiteral)))
                 .containsExactlyInOrder(
                         createRow(0, "stringA0", 0));
 
-        onHive().executeQuery(format("ALTER TABLE %s UNSET TBLPROPERTIES('avro.schema.literal')", tableWithSchemaLiteral));
-        assertThat(onTrino().executeQuery(format(columnsInTableStatement, tableWithSchemaLiteral)))
+        onHive().executeQuery("ALTER TABLE %s UNSET TBLPROPERTIES('avro.schema.literal')".formatted(tableWithSchemaLiteral));
+        assertThat(onTrino().executeQuery(columnsInTableStatement.formatted(tableWithSchemaLiteral)))
                 .containsExactlyInOrder(
                         prepareShowColumnsResultRows(
                                 row("dummy_col", "varchar", "", "")));
@@ -314,22 +311,20 @@ public abstract class BaseTestAvroSchemaEvolution
         String createTableLikeWithSchemaUrl = tableWithSchemaUrl + "_avro_like";
         String createTableLikeWithSchemaLiteral = tableWithSchemaLiteral + "_avro_like";
 
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s (LIKE %s INCLUDING PROPERTIES)",
+        onTrino().executeQuery("CREATE TABLE %s (LIKE %s INCLUDING PROPERTIES)".formatted(
                 createTableLikeWithSchemaUrl,
                 tableWithSchemaUrl));
 
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s (LIKE %s INCLUDING PROPERTIES)",
+        onTrino().executeQuery("CREATE TABLE %s (LIKE %s INCLUDING PROPERTIES)".formatted(
                 createTableLikeWithSchemaLiteral,
                 tableWithSchemaLiteral));
 
         insertData(createTableLikeWithSchemaUrl, 0, "'stringA0'", "0");
         insertData(createTableLikeWithSchemaLiteral, 0, "'stringA0'", "0");
 
-        assertThat(onTrino().executeQuery(format("SELECT string_col FROM %s", createTableLikeWithSchemaUrl)))
+        assertThat(onTrino().executeQuery("SELECT string_col FROM %s".formatted(createTableLikeWithSchemaUrl)))
                 .containsExactlyInOrder(row("stringA0"));
-        assertThat(onTrino().executeQuery(format("SELECT string_col FROM %s", createTableLikeWithSchemaLiteral)))
+        assertThat(onTrino().executeQuery("SELECT string_col FROM %s".formatted(createTableLikeWithSchemaLiteral)))
                 .containsExactlyInOrder(row("stringA0"));
 
         onTrino().executeQuery("DROP TABLE IF EXISTS " + createTableLikeWithSchemaUrl);
@@ -338,38 +333,38 @@ public abstract class BaseTestAvroSchemaEvolution
 
     private void assertUnmodified()
     {
-        assertThat(onTrino().executeQuery(format(columnsInTableStatement, tableWithSchemaUrl)))
+        assertThat(onTrino().executeQuery(columnsInTableStatement.formatted(tableWithSchemaUrl)))
                 .containsExactlyInOrder(
                         prepareShowColumnsResultRows(
                                 row("string_col", "varchar", "", ""),
                                 row("int_col", "integer", "", "")));
-        assertThat(onTrino().executeQuery(format(columnsInTableStatement, tableWithSchemaLiteral)))
+        assertThat(onTrino().executeQuery(columnsInTableStatement.formatted(tableWithSchemaLiteral)))
                 .containsExactlyInOrder(
                         prepareShowColumnsResultRows(
                                 row("string_col", "varchar", "", ""),
                                 row("int_col", "integer", "", "")));
 
-        assertThat(onTrino().executeQuery(format(selectStarStatement, tableWithSchemaUrl)))
+        assertThat(onTrino().executeQuery(selectStarStatement.formatted(tableWithSchemaUrl)))
                 .containsOnly(createRow(0, "stringA0", 0));
-        assertThat(onTrino().executeQuery(format(selectStarStatement, tableWithSchemaLiteral)))
+        assertThat(onTrino().executeQuery(selectStarStatement.formatted(tableWithSchemaLiteral)))
                 .containsOnly(createRow(0, "stringA0", 0));
     }
 
     private void alterTableSchemaUrl(String newUrl)
     {
-        onHive().executeQuery(format("ALTER TABLE %s SET TBLPROPERTIES('avro.schema.url'='%s')", tableWithSchemaUrl, newUrl));
+        onHive().executeQuery("ALTER TABLE %s SET TBLPROPERTIES('avro.schema.url'='%s')".formatted(tableWithSchemaUrl, newUrl));
     }
 
     private void alterTableSchemaLiteral(String newLiteral)
     {
-        onHive().executeQuery(format("ALTER TABLE %s SET TBLPROPERTIES('avro.schema.literal'='%s')", tableWithSchemaLiteral, newLiteral));
+        onHive().executeQuery("ALTER TABLE %s SET TBLPROPERTIES('avro.schema.literal'='%s')".formatted(tableWithSchemaLiteral, newLiteral));
     }
 
     private void insertData(String tableName, int rowNumber, String... sqlValues)
     {
         String columnValues = Joiner.on(", ").join(sqlValues) +
                 (varcharPartitionColumns.isEmpty() ? "" : ", " + getPartitionsAsListString(partitionColumn -> "'" + partitionColumn + "_" + rowNumber + "'"));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES (%s)", tableName, columnValues));
+        onTrino().executeQuery("INSERT INTO %s VALUES (%s)".formatted(tableName, columnValues));
     }
 
     private Row createRow(int rowNumber, Object... data)

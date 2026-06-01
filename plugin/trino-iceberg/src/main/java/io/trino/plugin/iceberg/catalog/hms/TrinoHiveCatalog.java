@@ -123,7 +123,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
@@ -520,7 +519,7 @@ public class TrinoHiveCatalog
                 .orElseThrow(() -> new SchemaNotFoundException(schemaTableName.getSchemaName()));
         String tableNameForLocation = createNewTableName(schemaTableName.getTableName());
         String location = database.getLocation().orElseThrow(() ->
-                new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaTableName.getSchemaName())));
+                new TrinoException(HIVE_DATABASE_LOCATION_ERROR, "Database '%s' location is not set".formatted(schemaTableName.getSchemaName())));
         return appendPath(location, tableNameForLocation);
     }
 

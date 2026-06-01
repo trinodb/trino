@@ -95,7 +95,6 @@ import static io.trino.sql.DynamicFilters.extractSourceSymbols;
 import static io.trino.sql.planner.DomainCoercer.applySaturatedCasts;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -425,7 +424,7 @@ public class DynamicFilterService
                 .collect(toImmutableMap(
                         descriptor -> {
                             Symbol probeSymbol = Symbol.from(descriptor.getInput());
-                            return requireNonNull(columnHandles.get(probeSymbol), () -> format("Missing probe column for %s", probeSymbol));
+                            return requireNonNull(columnHandles.get(probeSymbol), () -> "Missing probe column for %s".formatted(probeSymbol));
                         },
                         descriptor -> {
                             Symbol symbol = Symbol.from(descriptor.getInput());

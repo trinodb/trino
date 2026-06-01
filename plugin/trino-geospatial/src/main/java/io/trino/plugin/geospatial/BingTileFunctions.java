@@ -51,7 +51,6 @@ import static java.lang.Math.sqrt;
 import static java.lang.Math.toDegrees;
 import static java.lang.Math.toIntExact;
 import static java.lang.Math.toRadians;
-import static java.lang.String.format;
 
 /**
  * A set of functions to convert between geometries and Bing tiles.
@@ -72,9 +71,9 @@ public final class BingTileFunctions
     private static final Block EMPTY_TILE_ARRAY = BIGINT.createFixedSizeBlockBuilder(0).build();
 
     private static final String LATITUDE_OUT_OF_RANGE = "Latitude must be between " + MIN_LATITUDE + " and " + MAX_LATITUDE;
-    private static final String LATITUDE_SPAN_OUT_OF_RANGE = format("Latitude span for the geometry must be in [%.2f, %.2f] range", MIN_LATITUDE, MAX_LATITUDE);
+    private static final String LATITUDE_SPAN_OUT_OF_RANGE = "Latitude span for the geometry must be in [%.2f, %.2f] range".formatted(MIN_LATITUDE, MAX_LATITUDE);
     private static final String LONGITUDE_OUT_OF_RANGE = "Longitude must be between " + MIN_LONGITUDE + " and " + MAX_LONGITUDE;
-    private static final String LONGITUDE_SPAN_OUT_OF_RANGE = format("Longitude span for the geometry must be in [%.2f, %.2f] range", MIN_LONGITUDE, MAX_LONGITUDE);
+    private static final String LONGITUDE_SPAN_OUT_OF_RANGE = "Longitude span for the geometry must be in [%.2f, %.2f] range".formatted(MIN_LONGITUDE, MAX_LONGITUDE);
     private static final String QUAD_KEY_EMPTY = "QuadKey must not be empty string";
     private static final String QUAD_KEY_TOO_LONG = "QuadKey must be " + MAX_ZOOM_LEVEL + " characters or less";
     private static final String ZOOM_LEVEL_TOO_SMALL = "Zoom level must be > 0";
@@ -722,7 +721,7 @@ public final class BingTileFunctions
     private static void checkCondition(boolean condition, String formatString, Object... args)
     {
         if (!condition) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format(formatString, args));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, formatString.formatted(args));
         }
     }
 

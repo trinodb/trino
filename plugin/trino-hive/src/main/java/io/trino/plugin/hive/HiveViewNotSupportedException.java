@@ -16,13 +16,11 @@ package io.trino.plugin.hive;
 import io.trino.spi.connector.NotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 
-import static java.lang.String.format;
-
 public class HiveViewNotSupportedException
         extends NotFoundException
 {
     public HiveViewNotSupportedException(SchemaTableName tableName)
     {
-        super(format("Hive views are not supported: '%s'", tableName));
+        super("Hive views are not supported: '%s'".formatted(tableName));
     }
 }

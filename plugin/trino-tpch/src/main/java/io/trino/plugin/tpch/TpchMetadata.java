@@ -90,9 +90,6 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static java.lang.String.format;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -300,11 +297,11 @@ public class TpchMetadata
     private Map<TpchColumn<?>, List<Object>> getColumnValuesRestrictions(TpchTable<?> tpchTable, TupleDomain<ColumnHandle> constraintSummary)
     {
         if (constraintSummary.isAll()) {
-            return emptyMap();
+            return Map.of();
         }
         if (constraintSummary.isNone()) {
             Set<TpchColumn<?>> columns = ImmutableSet.copyOf(tpchTable.getColumns());
-            return asMap(columns, _ -> emptyList());
+            return asMap(columns, _ -> List.of());
         }
         Map<ColumnHandle, Domain> domains = constraintSummary.getDomains().orElseThrow();
         Optional<Domain> orderStatusDomain = Optional.ofNullable(domains.get(toColumnHandle(OrderColumn.ORDER_STATUS)));
@@ -314,13 +311,13 @@ public class TpchMetadata
                     .collect(toList());
             return avoidTrivialOrderStatusRestriction(allowedValues);
         });
-        return allowedColumnValues.orElse(emptyMap());
+        return allowedColumnValues.orElse(Map.of());
     }
 
     private static Map<TpchColumn<?>, List<Object>> avoidTrivialOrderStatusRestriction(List<Object> allowedValues)
     {
         if (allowedValues.containsAll(ORDER_STATUS_VALUES)) {
-            return emptyMap();
+            return Map.of();
         }
         return ImmutableMap.of(OrderColumn.ORDER_STATUS, allowedValues);
     }
@@ -415,7 +412,7 @@ public class TpchMetadata
                 return column;
             }
         }
-        throw new IllegalArgumentException(format("Table '%s' does not have column '%s'", tableMetadata.getTable(), columnName));
+        throw new IllegalArgumentException("Table '%s' does not have column '%s'".formatted(tableMetadata.getTable(), columnName));
     }
 
     @Override

@@ -33,7 +33,6 @@ import static io.trino.plugin.hive.projection.PartitionProjectionProperties.COLU
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getProjectionPropertyRequiredValue;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getProjectionPropertyValue;
 import static io.trino.spi.predicate.Domain.singleValue;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 final class IntegerProjection
@@ -61,7 +60,7 @@ final class IntegerProjection
                         .map(element -> Integer.valueOf((String) element))
                         .collect(toImmutableList()));
         if (range.size() != 2) {
-            throw new InvalidProjectionException(columnName, format("Property: '%s' needs to be list of 2 integers", COLUMN_PROJECTION_RANGE));
+            throw new InvalidProjectionException(columnName, "Property: '%s' needs to be list of 2 integers".formatted(COLUMN_PROJECTION_RANGE));
         }
         this.leftBound = range.get(0);
         this.rightBound = range.get(1);
@@ -78,7 +77,7 @@ final class IntegerProjection
         while (current <= rightBound) {
             int currentValue = current;
             String currentValueFormatted = digits
-                    .map(digits -> format("%0" + digits + "d", currentValue))
+                    .map(digits -> ("%0" + digits + "d").formatted(currentValue))
                     .orElseGet(() -> Integer.toString(currentValue));
             if (isValueInDomain(partitionValueFilter, current, currentValueFormatted)) {
                 builder.add(currentValueFormatted);

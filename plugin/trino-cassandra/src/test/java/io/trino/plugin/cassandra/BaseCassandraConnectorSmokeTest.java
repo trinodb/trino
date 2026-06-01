@@ -23,7 +23,6 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
 import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_DELETE_DATA;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -64,7 +63,7 @@ public abstract class BaseCassandraConnectorSmokeTest
     @Override
     public void testRowLevelDelete()
     {
-        String keyspaceAndTable = format("%s.%s", KEYSPACE, TABLE_DELETE_DATA);
+        String keyspaceAndTable = "%s.%s".formatted(KEYSPACE, TABLE_DELETE_DATA);
         assertQuery("SELECT COUNT(*) FROM " + keyspaceAndTable, "VALUES 15");
 
         String wherePrimaryKey = " WHERE partition_one=3 AND partition_two=3 AND clust_one='clust_one_3'";

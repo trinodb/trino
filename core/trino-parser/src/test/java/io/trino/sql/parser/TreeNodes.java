@@ -35,8 +35,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-import static java.util.Collections.emptyList;
-
 class TreeNodes
 {
     private TreeNodes() {}
@@ -119,27 +117,27 @@ class TreeNodes
 
     public static ColumnDefinition columnDefinition(NodeLocation location, String name, DataType type)
     {
-        return new ColumnDefinition(location, qualifiedName(location, name), type, true, emptyList(), Optional.empty());
+        return new ColumnDefinition(location, qualifiedName(location, name), type, true, List.of(), Optional.empty());
     }
 
     public static ColumnDefinition columnDefinitionWithDefault(NodeLocation location, String name, DataType type, Literal defaultValue)
     {
-        return new ColumnDefinition(location, qualifiedName(location, name), type, Optional.of(defaultValue), true, emptyList(), Optional.empty());
+        return new ColumnDefinition(location, qualifiedName(location, name), type, Optional.of(defaultValue), true, List.of(), Optional.empty());
     }
 
     public static ColumnDefinition columnDefinitionWithDefault(NodeLocation location, String name, DataType type, Literal defaultValue, String comment)
     {
-        return new ColumnDefinition(location, qualifiedName(location, name), type, Optional.of(defaultValue), true, emptyList(), Optional.of(comment));
+        return new ColumnDefinition(location, qualifiedName(location, name), type, Optional.of(defaultValue), true, List.of(), Optional.of(comment));
     }
 
     public static ColumnDefinition columnDefinition(NodeLocation location, String name, DataType type, boolean nullable)
     {
-        return new ColumnDefinition(location, qualifiedName(location, name), type, nullable, emptyList(), Optional.empty());
+        return new ColumnDefinition(location, qualifiedName(location, name), type, nullable, List.of(), Optional.empty());
     }
 
     public static ColumnDefinition columnDefinition(NodeLocation location, String name, DataType type, boolean nullable, String comment)
     {
-        return new ColumnDefinition(location, qualifiedName(location, name), type, nullable, emptyList(), Optional.of(comment));
+        return new ColumnDefinition(location, qualifiedName(location, name), type, nullable, List.of(), Optional.of(comment));
     }
 
     public static ColumnDefinition columnDefinition(NodeLocation location, String name, DataType type, boolean nullable, List<Property> properties)

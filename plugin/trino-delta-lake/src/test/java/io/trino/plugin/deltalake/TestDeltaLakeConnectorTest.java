@@ -100,7 +100,6 @@ import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 import static java.util.Map.entry;
@@ -371,7 +370,7 @@ public class TestDeltaLakeConnectorTest
         String tableName = "test_null_partitions_" + randomNameSuffix();
         assertUpdate(
                 "" +
-                        "CREATE TABLE " + tableName + " (a, b, c) WITH (location = '" + format("s3://%s/%s", bucketName, tableName) + "', partitioned_by = ARRAY['c']) " +
+                        "CREATE TABLE " + tableName + " (a, b, c) WITH (location = '" + "s3://%s/%s".formatted(bucketName, tableName) + "', partitioned_by = ARRAY['c']) " +
                         "AS VALUES (1, 1, 1), (2, 2, 2), (3, 3, 3), (null, null, null), (4, 4, 4)",
                 "VALUES 5");
         assertQuery("SELECT a FROM " + tableName + " WHERE c % 5 = 1", "VALUES (1)");
@@ -385,7 +384,7 @@ public class TestDeltaLakeConnectorTest
                 "CREATE TABLE " + tableName + "(data int, first varchar, second varchar) " +
                 "WITH (" +
                 "partitioned_by = ARRAY['second', 'first'], " +
-                "location = '" + format("s3://%s/%s", bucketName, tableName) + "')");
+                "location = '" + "s3://%s/%s".formatted(bucketName, tableName) + "')");
 
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'first#1', 'second#1')", 1);
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'first#1', 'second#1')");
@@ -490,10 +489,10 @@ public class TestDeltaLakeConnectorTest
     {
         String schemaName = getSession().getSchema().orElseThrow();
         assertThat((String) computeScalar("SHOW CREATE SCHEMA " + schemaName))
-                .isEqualTo(format("CREATE SCHEMA %s.%s\n" +
+                .isEqualTo(("CREATE SCHEMA %s.%s\n" +
                         "WITH (\n" +
                         "   location = 's3://%s/test_schema'\n" +
-                        ")", getSession().getCatalog().orElseThrow(), schemaName, bucketName));
+                        ")").formatted(getSession().getCatalog().orElseThrow(), schemaName, bucketName));
     }
 
     @Test
@@ -677,7 +676,7 @@ public class TestDeltaLakeConnectorTest
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "compression_codec", compressionCodec.name())
                 .build();
         String tableName = "test_table_with_compression_" + compressionCodec;
-        String createTableSql = format("CREATE TABLE %s AS TABLE tpch.tiny.nation", tableName);
+        String createTableSql = "CREATE TABLE %s AS TABLE tpch.tiny.nation".formatted(tableName);
         if (compressionCodec == HiveCompressionCodec.LZ4) {
             // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
             assertQueryFails(session, createTableSql, "Unsupported codec: " + compressionCodec);
@@ -1038,7 +1037,7 @@ public class TestDeltaLakeConnectorTest
     public void testTargetMaxFileSize()
     {
         String tableName = "test_default_max_file_size" + randomNameSuffix();
-        @Language("SQL") String createTableSql = format("CREATE TABLE %s AS SELECT * FROM tpch.sf1.lineitem LIMIT 200000", tableName);
+        @Language("SQL") String createTableSql = "CREATE TABLE %s AS SELECT * FROM tpch.sf1.lineitem LIMIT 200000".formatted(tableName);
 
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_min_writer_count", "1")
@@ -1048,7 +1047,7 @@ public class TestDeltaLakeConnectorTest
         assertUpdate(session, createTableSql, 200000);
         Set<String> initialFiles = getActiveFiles(tableName);
         assertThat(initialFiles.size()).isLessThanOrEqualTo(3);
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE %s".formatted(tableName));
 
         DataSize maxSize = DataSize.of(50, DataSize.Unit.KILOBYTE);
         session = Session.builder(getSession())
@@ -1059,7 +1058,7 @@ public class TestDeltaLakeConnectorTest
                 .build();
 
         assertUpdate(session, createTableSql, 200000);
-        assertThat(query(format("SELECT count(*) FROM %s", tableName))).matches("VALUES BIGINT '200000'");
+        assertThat(query("SELECT count(*) FROM %s".formatted(tableName))).matches("VALUES BIGINT '200000'");
         Set<String> updatedFiles = getActiveFiles(tableName);
         assertThat(updatedFiles.size()).isGreaterThan(10);
 
@@ -1347,7 +1346,7 @@ public class TestDeltaLakeConnectorTest
         String tableName = "table_with_space_" + randomNameSuffix();
         String tableLocationWithTrailingSpace = "s3://" + bucketName + "/" + tableName + " ";
 
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR) WITH (location = '%s')", tableName, tableLocationWithTrailingSpace));
+        assertUpdate("CREATE TABLE %s (customer VARCHAR) WITH (location = '%s')".formatted(tableName, tableLocationWithTrailingSpace));
         assertUpdate("INSERT INTO " + tableName + " (customer) VALUES ('Aaron'), ('Bill')", 2);
         assertQuery("SELECT * FROM " + tableName, "VALUES ('Aaron'), ('Bill')");
 
@@ -1360,12 +1359,12 @@ public class TestDeltaLakeConnectorTest
         String tableWithSlash = "table_with_slash";
         String tableWithoutSlash = "table_without_slash";
 
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR) WITH (location = 's3://%s/%s/')", tableWithSlash, bucketName, tableWithSlash));
-        assertUpdate(format("INSERT INTO %s (customer) VALUES ('Aaron'), ('Bill')", tableWithSlash), 2);
+        assertUpdate("CREATE TABLE %s (customer VARCHAR) WITH (location = 's3://%s/%s/')".formatted(tableWithSlash, bucketName, tableWithSlash));
+        assertUpdate("INSERT INTO %s (customer) VALUES ('Aaron'), ('Bill')".formatted(tableWithSlash), 2);
         assertQuery("SELECT * FROM " + tableWithSlash, "VALUES ('Aaron'), ('Bill')");
 
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR) WITH (location = 's3://%s/%s')", tableWithoutSlash, bucketName, tableWithoutSlash));
-        assertUpdate(format("INSERT INTO %s (customer) VALUES ('Carol'), ('Dave')", tableWithoutSlash), 2);
+        assertUpdate("CREATE TABLE %s (customer VARCHAR) WITH (location = 's3://%s/%s')".formatted(tableWithoutSlash, bucketName, tableWithoutSlash));
+        assertUpdate("INSERT INTO %s (customer) VALUES ('Carol'), ('Dave')".formatted(tableWithoutSlash), 2);
         assertQuery("SELECT * FROM " + tableWithoutSlash, "VALUES ('Carol'), ('Dave')");
 
         assertUpdate("DROP TABLE " + tableWithSlash);
@@ -1377,15 +1376,15 @@ public class TestDeltaLakeConnectorTest
     {
         String targetTable = "merge_simple_target_" + randomNameSuffix();
         String sourceTable = "merge_simple_source_" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])", targetTable, bucketName, targetTable));
+        assertUpdate("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])".formatted(targetTable, bucketName, targetTable));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
+        assertUpdate("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')".formatted(targetTable), 4);
 
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s')", sourceTable, bucketName, sourceTable));
+        assertUpdate("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s')".formatted(sourceTable, bucketName, sourceTable));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire')", sourceTable), 4);
+        assertUpdate("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire')".formatted(sourceTable), 4);
 
-        @Language("SQL") String sql = format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+        @Language("SQL") String sql = "MERGE INTO %s t USING %s s ON (t.customer = s.customer)".formatted(targetTable, sourceTable) +
                 "    WHEN MATCHED AND s.address = 'Centreville' THEN DELETE" +
                 "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases, address = s.address" +
                 "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)";
@@ -1410,16 +1409,16 @@ public class TestDeltaLakeConnectorTest
     {
         String targetTable = "merge_formats_target_" + randomNameSuffix();
         String sourceTable = "merge_formats_source_" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) WITH (location = 's3://%s/%s'%s)", targetTable, bucketName, targetTable, partitionPhase));
+        assertUpdate("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) WITH (location = 's3://%s/%s'%s)".formatted(targetTable, bucketName, targetTable, partitionPhase));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchase) VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')", targetTable), 3);
+        assertUpdate("INSERT INTO %s (customer, purchase) VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')".formatted(targetTable), 3);
         assertQuery("SELECT * FROM " + targetTable, "VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')");
 
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) WITH (location = 's3://%s/%s')", sourceTable, bucketName, sourceTable));
+        assertUpdate("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) WITH (location = 's3://%s/%s')".formatted(sourceTable, bucketName, sourceTable));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchase) VALUES ('Craig', 'candles'), ('Len', 'limes'), ('Joe', 'jellybeans')", sourceTable), 3);
+        assertUpdate("INSERT INTO %s (customer, purchase) VALUES ('Craig', 'candles'), ('Len', 'limes'), ('Joe', 'jellybeans')".formatted(sourceTable), 3);
 
-        @Language("SQL") String sql = format("MERGE INTO %s t USING %s s ON (t.purchase = s.purchase)", targetTable, sourceTable) +
+        @Language("SQL") String sql = "MERGE INTO %s t USING %s s ON (t.purchase = s.purchase)".formatted(targetTable, sourceTable) +
                 "    WHEN MATCHED AND s.purchase = 'limes' THEN DELETE" +
                 "    WHEN MATCHED THEN UPDATE SET customer = CONCAT(t.customer, '_', s.customer)" +
                 "    WHEN NOT MATCHED THEN INSERT (customer, purchase) VALUES(s.customer, s.purchase)";
@@ -1444,42 +1443,42 @@ public class TestDeltaLakeConnectorTest
     {
         int targetCustomerCount = 32;
         String targetTable = "merge_multiple_" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (purchase INT, zipcode INT, spouse VARCHAR, address VARCHAR, customer VARCHAR) WITH (location = 's3://%s/%s'%s)", targetTable, bucketName, targetTable, partitioning));
+        assertUpdate("CREATE TABLE %s (purchase INT, zipcode INT, spouse VARCHAR, address VARCHAR, customer VARCHAR) WITH (location = 's3://%s/%s'%s)".formatted(targetTable, bucketName, targetTable, partitioning));
         String originalInsertFirstHalf = IntStream.range(1, targetCustomerCount / 2)
-                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 1000, 91000, intValue, intValue))
+                .mapToObj(intValue -> "('joe_%s', %s, %s, 'jan_%s', '%s Poe Ct')".formatted(intValue, 1000, 91000, intValue, intValue))
                 .collect(Collectors.joining(", "));
         String originalInsertSecondHalf = IntStream.range(targetCustomerCount / 2, targetCustomerCount)
-                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 2000, 92000, intValue, intValue))
+                .mapToObj(intValue -> "('joe_%s', %s, %s, 'jan_%s', '%s Poe Ct')".formatted(intValue, 2000, 92000, intValue, intValue))
                 .collect(Collectors.joining(", "));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchase, zipcode, spouse, address) VALUES %s, %s", targetTable, originalInsertFirstHalf, originalInsertSecondHalf), targetCustomerCount - 1);
+        assertUpdate("INSERT INTO %s (customer, purchase, zipcode, spouse, address) VALUES %s, %s".formatted(targetTable, originalInsertFirstHalf, originalInsertSecondHalf), targetCustomerCount - 1);
 
         String firstMergeSource = IntStream.range(targetCustomerCount / 2, targetCustomerCount)
-                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jill_%s', '%s Eop Ct')", intValue, 3000, 83000, intValue, intValue))
+                .mapToObj(intValue -> "('joe_%s', %s, %s, 'jill_%s', '%s Eop Ct')".formatted(intValue, 3000, 83000, intValue, intValue))
                 .collect(Collectors.joining(", "));
 
         assertUpdate(
-                format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, firstMergeSource) +
+                "MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)".formatted(targetTable, firstMergeSource) +
                         "    ON t.customer = s.customer" +
                         "    WHEN MATCHED THEN UPDATE SET purchase = s.purchase, zipcode = s.zipcode, spouse = s.spouse, address = s.address",
                 targetCustomerCount / 2);
 
         assertQuery(
                 "SELECT customer, purchase, zipcode, spouse, address FROM " + targetTable,
-                format("VALUES %s, %s", originalInsertFirstHalf, firstMergeSource));
+                "VALUES %s, %s".formatted(originalInsertFirstHalf, firstMergeSource));
 
         String nextInsert = IntStream.range(targetCustomerCount, targetCustomerCount * 3 / 2)
-                .mapToObj(intValue -> format("('jack_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 4000, 74000, intValue, intValue))
+                .mapToObj(intValue -> "('jack_%s', %s, %s, 'jan_%s', '%s Poe Ct')".formatted(intValue, 4000, 74000, intValue, intValue))
                 .collect(Collectors.joining(", "));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchase, zipcode, spouse, address) VALUES %s", targetTable, nextInsert), targetCustomerCount / 2);
+        assertUpdate("INSERT INTO %s (customer, purchase, zipcode, spouse, address) VALUES %s".formatted(targetTable, nextInsert), targetCustomerCount / 2);
 
         String secondMergeSource = IntStream.range(1, targetCustomerCount * 3 / 2)
-                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jen_%s', '%s Poe Ct')", intValue, 5000, 85000, intValue, intValue))
+                .mapToObj(intValue -> "('joe_%s', %s, %s, 'jen_%s', '%s Poe Ct')".formatted(intValue, 5000, 85000, intValue, intValue))
                 .collect(Collectors.joining(", "));
 
         assertUpdate(
-                format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, secondMergeSource) +
+                "MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)".formatted(targetTable, secondMergeSource) +
                         "    ON t.customer = s.customer" +
                         "    WHEN MATCHED AND t.zipcode = 91000 THEN DELETE" +
                         "    WHEN MATCHED AND s.zipcode = 85000 THEN UPDATE SET zipcode = 60000" +
@@ -1488,18 +1487,18 @@ public class TestDeltaLakeConnectorTest
                 targetCustomerCount * 3 / 2 - 1);
 
         String updatedBeginning = IntStream.range(targetCustomerCount / 2, targetCustomerCount)
-                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jill_%s', '%s Eop Ct')", intValue, 3000, 60000, intValue, intValue))
+                .mapToObj(intValue -> "('joe_%s', %s, %s, 'jill_%s', '%s Eop Ct')".formatted(intValue, 3000, 60000, intValue, intValue))
                 .collect(Collectors.joining(", "));
         String updatedMiddle = IntStream.range(targetCustomerCount, targetCustomerCount * 3 / 2)
-                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jen_%s', '%s Poe Ct')", intValue, 5000, 85000, intValue, intValue))
+                .mapToObj(intValue -> "('joe_%s', %s, %s, 'jen_%s', '%s Poe Ct')".formatted(intValue, 5000, 85000, intValue, intValue))
                 .collect(Collectors.joining(", "));
         String updatedEnd = IntStream.range(targetCustomerCount, targetCustomerCount * 3 / 2)
-                .mapToObj(intValue -> format("('jack_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 4000, 74000, intValue, intValue))
+                .mapToObj(intValue -> "('jack_%s', %s, %s, 'jan_%s', '%s Poe Ct')".formatted(intValue, 4000, 74000, intValue, intValue))
                 .collect(Collectors.joining(", "));
 
         assertQuery(
                 "SELECT customer, purchase, zipcode, spouse, address FROM " + targetTable,
-                format("VALUES %s, %s, %s", updatedBeginning, updatedMiddle, updatedEnd));
+                "VALUES %s, %s, %s".formatted(updatedBeginning, updatedMiddle, updatedEnd));
 
         assertUpdate("DROP TABLE " + targetTable);
     }
@@ -1508,11 +1507,11 @@ public class TestDeltaLakeConnectorTest
     public void testMergeSimpleQueryPartitioned()
     {
         String targetTable = "merge_simple_" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])", targetTable, bucketName, targetTable));
+        assertUpdate("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])".formatted(targetTable, bucketName, targetTable));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
+        assertUpdate("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')".formatted(targetTable), 4);
 
-        @Language("SQL") String query = format("MERGE INTO %s t USING ", targetTable) +
+        @Language("SQL") String query = "MERGE INTO %s t USING ".formatted(targetTable) +
                 "(SELECT * FROM (VALUES ('Aaron', 6, 'Arches'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire'), ('Ed', 7, 'Etherville'))) AS s(customer, purchases, address)" +
                 "    " +
                 "ON (t.customer = s.customer)" +
@@ -1541,20 +1540,20 @@ public class TestDeltaLakeConnectorTest
     {
         String targetTable = "merge_multiple_target_" + randomNameSuffix();
         String sourceTable = "merge_multiple_source_" + randomNameSuffix();
-        assertUpdate(format(createTableSql, targetTable, bucketName, targetTable));
+        assertUpdate(createTableSql.formatted(targetTable, bucketName, targetTable));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Antioch')", targetTable), 2);
+        assertUpdate("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Antioch')".formatted(targetTable), 2);
 
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s')", sourceTable, bucketName, sourceTable));
+        assertUpdate("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s')".formatted(sourceTable, bucketName, sourceTable));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Adelphi'), ('Aaron', 8, 'Ashland')", sourceTable), 2);
+        assertUpdate("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Adelphi'), ('Aaron', 8, 'Ashland')".formatted(sourceTable), 2);
 
-        assertThatThrownBy(() -> computeActual(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+        assertThatThrownBy(() -> computeActual("MERGE INTO %s t USING %s s ON (t.customer = s.customer)".formatted(targetTable, sourceTable) +
                 "    WHEN MATCHED THEN UPDATE SET address = s.address"))
                 .hasMessage("One MERGE target table row matched more than one source row");
 
         assertUpdate(
-                format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+                "MERGE INTO %s t USING %s s ON (t.customer = s.customer)".formatted(targetTable, sourceTable) +
                         "    WHEN MATCHED AND s.address = 'Adelphi' THEN UPDATE SET address = s.address",
                 1);
         assertQuery("SELECT customer, purchases, address FROM " + targetTable, "VALUES ('Aaron', 5, 'Adelphi'), ('Bill', 7, 'Antioch')");
@@ -1597,18 +1596,18 @@ public class TestDeltaLakeConnectorTest
 
     private void testMergeWithDifferentPartitioning(String testDescription, String createTargetTableSql, String createSourceTableSql)
     {
-        String targetTable = format("%s_target_%s", testDescription, randomNameSuffix());
-        String sourceTable = format("%s_source_%s", testDescription, randomNameSuffix());
+        String targetTable = "%s_target_%s".formatted(testDescription, randomNameSuffix());
+        String sourceTable = "%s_source_%s".formatted(testDescription, randomNameSuffix());
 
-        assertUpdate(format(createTargetTableSql, targetTable, bucketName, targetTable));
+        assertUpdate(createTargetTableSql.formatted(targetTable, bucketName, targetTable));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
+        assertUpdate("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')".formatted(targetTable), 4);
 
-        assertUpdate(format(createSourceTableSql, sourceTable, bucketName, sourceTable));
+        assertUpdate(createSourceTableSql.formatted(sourceTable, bucketName, sourceTable));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire')", sourceTable), 4);
+        assertUpdate("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire')".formatted(sourceTable), 4);
 
-        @Language("SQL") String sql = format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+        @Language("SQL") String sql = "MERGE INTO %s t USING %s s ON (t.customer = s.customer)".formatted(targetTable, sourceTable) +
                 "    WHEN MATCHED AND s.address = 'Centreville' THEN DELETE" +
                 "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases, address = s.address" +
                 "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)";
@@ -3043,7 +3042,7 @@ public class TestDeltaLakeConnectorTest
         String tableLocation = (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName);
         assertUpdate("CALL system.unregister_table(CURRENT_SCHEMA, '" + tableName + "')");
 
-        assertQueryFails(format("CREATE TABLE %s (dummy int) with (location = '%s')", tableName, tableLocation),
+        assertQueryFails("CREATE TABLE %s (dummy int) with (location = '%s')".formatted(tableName, tableLocation),
                 ".*Using CREATE \\[OR REPLACE] TABLE with an existing table content is disallowed.*");
     }
 
@@ -3832,7 +3831,7 @@ public class TestDeltaLakeConnectorTest
     public void testTableWithTrailingSlashLocation(boolean partitioned)
     {
         String tableName = "test_table_with_trailing_slash_location_" + randomNameSuffix();
-        String location = format("s3://%s/%s/", bucketName, tableName);
+        String location = "s3://%s/%s/".formatted(bucketName, tableName);
 
         assertUpdate("CREATE TABLE " + tableName + "(col_str, col_int)" +
                 "WITH (location = '" + location + "'" +
@@ -3905,13 +3904,13 @@ public class TestDeltaLakeConnectorTest
     private void testDeleteWithFilter(String createTableSql, String deleteFilter, boolean pushDownDelete)
     {
         String table = "delete_with_filter_" + randomNameSuffix();
-        assertUpdate(format(createTableSql, table, bucketName, table));
+        assertUpdate(createTableSql.formatted(table, bucketName, table));
 
-        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Antioch'), ('Mary', 10, 'Adelphi'), ('Aaron', 3, 'Dallas')", table), 4);
+        assertUpdate("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Antioch'), ('Mary', 10, 'Adelphi'), ('Aaron', 3, 'Dallas')".formatted(table), 4);
 
         assertUpdate(
                 getSession(),
-                format("DELETE FROM %s WHERE %s", table, deleteFilter),
+                "DELETE FROM %s WHERE %s".formatted(table, deleteFilter),
                 2,
                 plan -> {
                     if (pushDownDelete) {
@@ -3990,8 +3989,8 @@ public class TestDeltaLakeConnectorTest
 
     private List<String> getTableFiles(String tableName)
     {
-        return minioClient.listObjects(bucketName, format("%s/%s", SCHEMA, tableName)).stream()
-                .map(path -> format("s3://%s/%s", bucketName, path))
+        return minioClient.listObjects(bucketName, "%s/%s".formatted(SCHEMA, tableName)).stream()
+                .map(path -> "s3://%s/%s".formatted(bucketName, path))
                 .collect(toImmutableList());
     }
 

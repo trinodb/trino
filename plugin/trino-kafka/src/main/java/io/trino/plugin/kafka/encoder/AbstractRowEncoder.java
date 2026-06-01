@@ -45,7 +45,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractRowEncoder
@@ -71,7 +70,7 @@ public abstract class AbstractRowEncoder
     @Override
     public void appendColumnValue(Block block, int position)
     {
-        checkArgument(currentColumnIndex < columnHandles.size(), format("currentColumnIndex '%d' is greater than number of columns '%d'", currentColumnIndex, columnHandles.size()));
+        checkArgument(currentColumnIndex < columnHandles.size(), "currentColumnIndex '%d' is greater than number of columns '%d'".formatted(currentColumnIndex, columnHandles.size()));
         Type type = columnHandles.get(currentColumnIndex).getType();
         if (block.isNull(position)) {
             appendNullValue();
@@ -128,7 +127,7 @@ public abstract class AbstractRowEncoder
             appendRow((List<Object>) type.getObjectValue(block, position));
         }
         else {
-            throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", type, columnHandles.get(currentColumnIndex).getName()));
+            throw new UnsupportedOperationException("Unsupported type '%s' for column '%s'".formatted(type, columnHandles.get(currentColumnIndex).getName()));
         }
         currentColumnIndex++;
     }
@@ -137,92 +136,92 @@ public abstract class AbstractRowEncoder
     // only the methods with types supported by the data format should be overridden
     protected void appendNullValue()
     {
-        throw new UnsupportedOperationException(format("Column '%s' does not support 'null' value", columnHandles.get(currentColumnIndex).getName()));
+        throw new UnsupportedOperationException("Column '%s' does not support 'null' value".formatted(columnHandles.get(currentColumnIndex).getName()));
     }
 
     protected void appendLong(long value)
     {
-        throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", long.class.getName(), columnHandles.get(currentColumnIndex).getName()));
+        throw new UnsupportedOperationException("Unsupported type '%s' for column '%s'".formatted(long.class.getName(), columnHandles.get(currentColumnIndex).getName()));
     }
 
     protected void appendInt(int value)
     {
-        throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", int.class.getName(), columnHandles.get(currentColumnIndex).getName()));
+        throw new UnsupportedOperationException("Unsupported type '%s' for column '%s'".formatted(int.class.getName(), columnHandles.get(currentColumnIndex).getName()));
     }
 
     protected void appendShort(short value)
     {
-        throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", short.class.getName(), columnHandles.get(currentColumnIndex).getName()));
+        throw new UnsupportedOperationException("Unsupported type '%s' for column '%s'".formatted(short.class.getName(), columnHandles.get(currentColumnIndex).getName()));
     }
 
     protected void appendByte(byte value)
     {
-        throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", byte.class.getName(), columnHandles.get(currentColumnIndex).getName()));
+        throw new UnsupportedOperationException("Unsupported type '%s' for column '%s'".formatted(byte.class.getName(), columnHandles.get(currentColumnIndex).getName()));
     }
 
     protected void appendDouble(double value)
     {
-        throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", double.class.getName(), columnHandles.get(currentColumnIndex).getName()));
+        throw new UnsupportedOperationException("Unsupported type '%s' for column '%s'".formatted(double.class.getName(), columnHandles.get(currentColumnIndex).getName()));
     }
 
     protected void appendFloat(float value)
     {
-        throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", float.class.getName(), columnHandles.get(currentColumnIndex).getName()));
+        throw new UnsupportedOperationException("Unsupported type '%s' for column '%s'".formatted(float.class.getName(), columnHandles.get(currentColumnIndex).getName()));
     }
 
     protected void appendBoolean(boolean value)
     {
-        throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", boolean.class.getName(), columnHandles.get(currentColumnIndex).getName()));
+        throw new UnsupportedOperationException("Unsupported type '%s' for column '%s'".formatted(boolean.class.getName(), columnHandles.get(currentColumnIndex).getName()));
     }
 
     protected void appendString(String value)
     {
-        throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
+        throw new UnsupportedOperationException("Unsupported type '%s' for column '%s'".formatted(value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
     }
 
     protected void appendByteBuffer(ByteBuffer value)
     {
-        throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
+        throw new UnsupportedOperationException("Unsupported type '%s' for column '%s'".formatted(value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
     }
 
     protected void appendSqlDate(SqlDate value)
     {
-        throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
+        throw new UnsupportedOperationException("Unsupported type '%s' for column '%s'".formatted(value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
     }
 
     protected void appendSqlTime(SqlTime value)
     {
-        throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
+        throw new UnsupportedOperationException("Unsupported type '%s' for column '%s'".formatted(value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
     }
 
     protected void appendSqlTimeWithTimeZone(SqlTimeWithTimeZone value)
     {
-        throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
+        throw new UnsupportedOperationException("Unsupported type '%s' for column '%s'".formatted(value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
     }
 
     protected void appendSqlTimestamp(SqlTimestamp value)
     {
-        throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
+        throw new UnsupportedOperationException("Unsupported type '%s' for column '%s'".formatted(value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
     }
 
     protected void appendSqlTimestampWithTimeZone(SqlTimestampWithTimeZone value)
     {
-        throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
+        throw new UnsupportedOperationException("Unsupported type '%s' for column '%s'".formatted(value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
     }
 
     protected void appendArray(List<Object> value)
     {
-        throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
+        throw new UnsupportedOperationException("Unsupported type '%s' for column '%s'".formatted(value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
     }
 
     protected void appendMap(Map<Object, Object> value)
     {
-        throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
+        throw new UnsupportedOperationException("Unsupported type '%s' for column '%s'".formatted(value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
     }
 
     protected void appendRow(List<Object> value)
     {
-        throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
+        throw new UnsupportedOperationException("Unsupported type '%s' for column '%s'".formatted(value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
     }
 
     protected void resetColumnIndex()

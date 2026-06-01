@@ -90,7 +90,6 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -384,7 +383,7 @@ public class IcebergPageSink
         verify(writers.size() == pagePartitioner.getMaxIndex() + 1);
 
         if (currentOpenWriters > maxOpenWriters) {
-            throw new TrinoException(ICEBERG_TOO_MANY_OPEN_PARTITIONS, format("Exceeded limit of %s open writers for partitions: %s", maxOpenWriters, currentOpenWriters));
+            throw new TrinoException(ICEBERG_TOO_MANY_OPEN_PARTITIONS, "Exceeded limit of %s open writers for partitions: %s".formatted(maxOpenWriters, currentOpenWriters));
         }
 
         return writerIndexes;

@@ -13,7 +13,6 @@
  */
 package io.trino.spi.connector;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class TableNotFoundException
@@ -23,7 +22,7 @@ public class TableNotFoundException
 
     public TableNotFoundException(SchemaTableName tableName)
     {
-        this(tableName, format("Table '%s' not found", tableName));
+        this(tableName, "Table '%s' not found".formatted(tableName));
     }
 
     public TableNotFoundException(SchemaTableName tableName, String message)
@@ -34,7 +33,7 @@ public class TableNotFoundException
 
     public TableNotFoundException(SchemaTableName tableName, Throwable cause)
     {
-        this(tableName, format("Table '%s' not found", tableName), cause);
+        this(tableName, "Table '%s' not found".formatted(tableName), cause);
     }
 
     public TableNotFoundException(SchemaTableName tableName, String message, Throwable cause)

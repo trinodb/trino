@@ -39,7 +39,6 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICK
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeCloneTableCompatibility
@@ -318,7 +317,7 @@ public class TestDeltaLakeCloneTableCompatibility
                     .containsOnly(expectedRowsAfterUpdate);
 
             // merge on cloned table
-            String mergeSql = format(
+            String mergeSql =
                     """
                     MERGE INTO %s t
                     USING (VALUES (3, 'yyy', TIMESTAMP '2025-01-01'), (4, 'zzz', TIMESTAMP '2025-02-02'), (5, 'kkk', TIMESTAMP '2025-03-03')) AS s(id, v, part)
@@ -326,8 +325,8 @@ public class TestDeltaLakeCloneTableCompatibility
                       WHEN MATCHED AND s.v = 'zzz' THEN DELETE
                       WHEN MATCHED THEN UPDATE SET v = s.v
                       WHEN NOT MATCHED THEN INSERT (id, v, part) VALUES(s.id, s.v, s.part)
-                    """,
-                    "delta.default." + clonedTable);
+                    """.formatted(
+                            "delta.default." + clonedTable);
             onTrino().executeQuery(mergeSql);
 
             List<Row> expectedRowsAfterMerge = ImmutableList.of(
@@ -562,7 +561,7 @@ public class TestDeltaLakeCloneTableCompatibility
                 .contents().stream()
                 .map(S3Object::key)
                 .filter(key -> !key.contains("/_delta_log"))
-                .map(key -> format("s3://%s/%s", bucketName, key))
+                .map(key -> "s3://%s/%s".formatted(bucketName, key))
                 .collect(toImmutableList());
     }
 

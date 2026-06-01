@@ -46,7 +46,6 @@ import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
-import static java.lang.String.format;
 
 public final class DeltaLakeSessionProperties
         implements SessionPropertiesProvider
@@ -119,7 +118,7 @@ public final class DeltaLakeSessionProperties
                             if (value < 128 || value > 65536) {
                                 throw new TrinoException(
                                         INVALID_SESSION_PROPERTY,
-                                        format("%s must be between 128 and 65536: %s", PARQUET_MAX_READ_BLOCK_ROW_COUNT, value));
+                                        "%s must be between 128 and 65536: %s".formatted(PARQUET_MAX_READ_BLOCK_ROW_COUNT, value));
                             }
                         },
                         false),
@@ -158,7 +157,7 @@ public final class DeltaLakeSessionProperties
                             if (value < PARQUET_WRITER_MIN_ROW_GROUP_ROW_COUNT) {
                                 throw new TrinoException(
                                         INVALID_SESSION_PROPERTY,
-                                        format("%s must be at least %s: %s", PARQUET_WRITER_ROW_GROUP_MAX_ROW_COUNT, PARQUET_WRITER_MIN_ROW_GROUP_ROW_COUNT, value));
+                                        "%s must be at least %s: %s".formatted(PARQUET_WRITER_ROW_GROUP_MAX_ROW_COUNT, PARQUET_WRITER_MIN_ROW_GROUP_ROW_COUNT, value));
                             }
                         },
                         false),
@@ -185,7 +184,7 @@ public final class DeltaLakeSessionProperties
                             if (value < PARQUET_WRITER_MIN_PAGE_VALUE_COUNT || value > PARQUET_WRITER_MAX_PAGE_VALUE_COUNT) {
                                 throw new TrinoException(
                                         INVALID_SESSION_PROPERTY,
-                                        format("%s must be between %s and %s: %s", PARQUET_WRITER_PAGE_VALUE_COUNT, PARQUET_WRITER_MIN_PAGE_VALUE_COUNT, PARQUET_WRITER_MAX_PAGE_VALUE_COUNT, value));
+                                        "%s must be between %s and %s: %s".formatted(PARQUET_WRITER_PAGE_VALUE_COUNT, PARQUET_WRITER_MIN_PAGE_VALUE_COUNT, PARQUET_WRITER_MAX_PAGE_VALUE_COUNT, value));
                             }
                         },
                         false),

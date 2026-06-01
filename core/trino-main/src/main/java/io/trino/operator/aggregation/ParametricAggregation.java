@@ -46,7 +46,6 @@ import static io.trino.operator.ParametricFunctionHelpers.bindDependencies;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ParametricAggregation
@@ -168,7 +167,7 @@ public class ParametricAggregation
 
         if (getAggregationMetadata().isDecomposable()) {
             MethodHandle combineHandle = concreteImplementation.getCombineFunction()
-                    .orElseThrow(() -> new IllegalArgumentException(format("Decomposable method %s does not have a combine method", boundSignature.getName())));
+                    .orElseThrow(() -> new IllegalArgumentException("Decomposable method %s does not have a combine method".formatted(boundSignature.getName())));
             builder.combineFunction(bindDependencies(combineHandle, concreteImplementation.getCombineDependencies(), functionBinding, functionDependencies));
         }
         else {
@@ -209,7 +208,7 @@ public class ParametricAggregation
             for (ParametricAggregationImplementation candidate : implementations.getGenericImplementations()) {
                 if (candidate.areTypesAssignable(boundSignature)) {
                     if (foundImplementation.isPresent()) {
-                        throw new TrinoException(AMBIGUOUS_FUNCTION_CALL, format("Ambiguous function call (%s) for %s", boundSignature, getFunctionMetadata().getSignature()));
+                        throw new TrinoException(AMBIGUOUS_FUNCTION_CALL, "Ambiguous function call (%s) for %s".formatted(boundSignature, getFunctionMetadata().getSignature()));
                     }
                     foundImplementation = Optional.of(candidate);
                 }
@@ -217,7 +216,7 @@ public class ParametricAggregation
         }
 
         if (foundImplementation.isEmpty()) {
-            throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", boundSignature, getFunctionMetadata().getSignature()));
+            throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, "Unsupported type parameters (%s) for %s".formatted(boundSignature, getFunctionMetadata().getSignature()));
         }
         return foundImplementation.get();
     }

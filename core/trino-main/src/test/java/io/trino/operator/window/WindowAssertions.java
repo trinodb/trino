@@ -17,7 +17,6 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public final class WindowAssertions
@@ -98,14 +97,14 @@ public final class WindowAssertions
 
     public static void assertWindowQuery(@Language("SQL") String sql, MaterializedResult expected, QueryRunner queryRunner)
     {
-        @Language("SQL") String query = format(
+        @Language("SQL") String query =
                 """
                 SELECT orderkey, orderstatus,
                 %s
                 FROM (%s) x
-                """,
-                sql,
-                VALUES);
+                """.formatted(
+                        sql,
+                        VALUES);
 
         MaterializedResult actual = queryRunner.execute(query);
         assertThat(actual.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
@@ -119,28 +118,28 @@ public final class WindowAssertions
 
     public static MaterializedResult executeWindowQueryWithNulls(@Language("SQL") String sql, QueryRunner queryRunner)
     {
-        @Language("SQL") String query = format(
+        @Language("SQL") String query =
                 """
                 SELECT orderkey, orderstatus,
                 %s
                 FROM (%s) x
-                """,
-                sql,
-                VALUES_WITH_NULLS);
+                """.formatted(
+                        sql,
+                        VALUES_WITH_NULLS);
 
         return queryRunner.execute(query);
     }
 
     public static void assertWindowQueryWithNan(@Language("SQL") String sql, MaterializedResult expected, QueryRunner queryRunner)
     {
-        @Language("SQL") String query = format(
+        @Language("SQL") String query =
                 """
                 SELECT orderkey, orderstatus,
                 %s
                 FROM (%s) x
-                """,
-                sql,
-                VALUES_WITH_NAN);
+                """.formatted(
+                        sql,
+                        VALUES_WITH_NAN);
 
         MaterializedResult actual = queryRunner.execute(query);
         assertThat(actual.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
@@ -148,14 +147,14 @@ public final class WindowAssertions
 
     public static void assertWindowQueryWithInfinity(@Language("SQL") String sql, MaterializedResult expected, QueryRunner queryRunner)
     {
-        @Language("SQL") String query = format(
+        @Language("SQL") String query =
                 """
                 SELECT orderkey, orderstatus,
                 %s
                 FROM (%s) x
-                """,
-                sql,
-                VALUES_WITH_INFINITY);
+                """.formatted(
+                        sql,
+                        VALUES_WITH_INFINITY);
 
         MaterializedResult actual = queryRunner.execute(query);
         assertThat(actual.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());

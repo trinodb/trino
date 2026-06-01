@@ -87,7 +87,6 @@ import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.toOrcType;
 import static io.trino.plugin.iceberg.util.PrimitiveTypeMapBuilder.makeTypeMap;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.io.DeleteSchemaUtil.pathPosSchema;
 import static org.apache.iceberg.parquet.ParquetSchemaUtil.convert;
@@ -291,7 +290,7 @@ public class IcebergFileWriterFactory
                         .build();
             }
             catch (NumberFormatException e) {
-                throw new TrinoException(ICEBERG_INVALID_METADATA, format("Invalid value for %s property: %s", ORC_BLOOM_FILTER_FPP_PROPERTY, orcBloomFilterFpp.get()));
+                throw new TrinoException(ICEBERG_INVALID_METADATA, "Invalid value for %s property: %s".formatted(ORC_BLOOM_FILTER_FPP_PROPERTY, orcBloomFilterFpp.get()));
             }
         }
         return orcWriterOptions;

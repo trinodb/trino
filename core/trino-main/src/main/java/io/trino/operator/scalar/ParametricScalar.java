@@ -37,7 +37,6 @@ import static io.trino.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_IMPLEMENTATION;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.trino.util.Failures.checkCondition;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -173,6 +172,6 @@ public class ParametricScalar
             return selectedImplementation;
         }
 
-        throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported binding %s for signature %s", boundSignature, getFunctionMetadata().getSignature()));
+        throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, "Unsupported binding %s for signature %s".formatted(boundSignature, getFunctionMetadata().getSignature()));
     }
 }

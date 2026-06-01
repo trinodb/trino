@@ -34,7 +34,6 @@ import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThri
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static org.apache.iceberg.FileFormat.ORC;
@@ -113,7 +112,7 @@ public class TestIcebergAbfsConnectorSmokeTest
     public void testRenameSchema()
     {
         assertQueryFails(
-                format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomNameSuffix()),
+                "ALTER SCHEMA %s RENAME TO %s".formatted(schemaName, schemaName + randomNameSuffix()),
                 "Hive metastore does not support renaming schemas");
     }
 
@@ -166,6 +165,6 @@ public class TestIcebergAbfsConnectorSmokeTest
 
     private static String formatAbfsUrl(String container, String account, String bucketName)
     {
-        return format("abfs://%s@%s.dfs.core.windows.net/%s/", container, account, bucketName);
+        return "abfs://%s@%s.dfs.core.windows.net/%s/".formatted(container, account, bucketName);
     }
 }

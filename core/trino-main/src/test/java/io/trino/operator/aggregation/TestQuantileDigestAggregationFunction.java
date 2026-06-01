@@ -13,7 +13,6 @@
  */
 package io.trino.operator.aggregation;
 
-import com.google.common.base.Joiner;
 import com.google.common.primitives.Floats;
 import io.airlift.stats.QuantileDigest;
 import io.trino.block.BlockAssertions;
@@ -57,7 +56,7 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.Double.NaN;
 import static java.lang.Integer.max;
 import static java.lang.Integer.min;
-import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -66,7 +65,6 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestQuantileDigestAggregationFunction
 {
-    private static final Joiner ARRAY_JOINER = Joiner.on(",");
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
     private static final String NAME = "qdigest_agg";
 
@@ -440,11 +438,11 @@ public class TestQuantileDigestAggregationFunction
 
         // Check that the chosen quantile is within the upper and lower bound of the error
         assertThat(assertions.expression(
-                        format("value_at_quantile(CAST(a AS qdigest(%s)), %s) >= %s", type, percentile, lowerBound))
+                        "value_at_quantile(CAST(a AS qdigest(%s)), %s) >= %s".formatted(type, percentile, lowerBound))
                 .binding("a", "X'%s'".formatted(binary.toHexString().replaceAll("\\s+", " "))))
                 .isEqualTo(true);
         assertThat(assertions.expression(
-                        format("value_at_quantile(CAST(a AS qdigest(%s)), %s) <= %s", type, percentile, upperBound))
+                        "value_at_quantile(CAST(a AS qdigest(%s)), %s) <= %s".formatted(type, percentile, upperBound))
                 .binding("a", "X'%s'".formatted(binary.toHexString().replaceAll("\\s+", " "))))
                 .isEqualTo(true);
     }
@@ -457,22 +455,20 @@ public class TestQuantileDigestAggregationFunction
 
         // Ensure that the lower bound of each item in the distribution is not greater than the chosen quantiles
         assertThat(assertions.expression(
-                        format(
-                                "zip_with(values_at_quantiles(CAST(a AS qdigest(%s)), ARRAY[%s]), ARRAY[%s], (value, lowerbound) -> value >= lowerbound)",
+                        "zip_with(values_at_quantiles(CAST(a AS qdigest(%s)), ARRAY[%s]), ARRAY[%s], (value, lowerbound) -> value >= lowerbound)".formatted(
                                 type,
-                                ARRAY_JOINER.join(boxedPercentiles),
-                                ARRAY_JOINER.join(lowerBounds)))
+                                boxedPercentiles.stream().map(Object::toString).collect(joining(",")),
+                                lowerBounds.stream().map(Object::toString).collect(joining(","))))
                 .binding("a", "X'%s'".formatted(binary.toHexString().replaceAll("\\s+", " "))))
                 .hasType(new ArrayType(BOOLEAN))
                 .isEqualTo(Collections.nCopies(percentiles.length, true));
 
         // Ensure that the upper bound of each item in the distribution is not less than the chosen quantiles
         assertThat(assertions.expression(
-                        format(
-                                "zip_with(values_at_quantiles(CAST(a AS qdigest(%s)), ARRAY[%s]), ARRAY[%s], (value, upperbound) -> value <= upperbound)",
+                        "zip_with(values_at_quantiles(CAST(a AS qdigest(%s)), ARRAY[%s]), ARRAY[%s], (value, upperbound) -> value <= upperbound)".formatted(
                                 type,
-                                ARRAY_JOINER.join(boxedPercentiles),
-                                ARRAY_JOINER.join(upperBounds)))
+                                boxedPercentiles.stream().map(Object::toString).collect(joining(",")),
+                                upperBounds.stream().map(Object::toString).collect(joining(","))))
                 .binding("a", "X'%s'".formatted(binary.toHexString().replaceAll("\\s+", " "))))
                 .hasType(new ArrayType(BOOLEAN))
                 .isEqualTo(Collections.nCopies(percentiles.length, true));

@@ -27,7 +27,6 @@ import java.net.URI;
 import java.util.Locale;
 
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -40,7 +39,7 @@ public abstract class BaseTestOpenLineageQueries
 {
     private static final Duration TIMEOUT = Duration.valueOf("10s");
     protected static final String TRINO_URI = "http://trino-integration-test:1337";
-    protected static final String OPEN_LINEAGE_NAMESPACE = format("trino://%s:%s", URI.create(TRINO_URI).getHost(), URI.create(TRINO_URI).getPort());
+    protected static final String OPEN_LINEAGE_NAMESPACE = "trino://%s:%s".formatted(URI.create(TRINO_URI).getHost(), URI.create(TRINO_URI).getPort());
 
     @Test
     void testCreateTableAsSelectFromTable()
@@ -48,12 +47,11 @@ public abstract class BaseTestOpenLineageQueries
     {
         for (LineageTestTableType tableType : LineageTestTableType.values()) {
             String outputTable = switch (tableType) {
-                case TABLE, VIEW -> format("marquez.default.test_create_%s_as_select_from_table", tableType.toNameSuffix());
-                case MATERIALIZED_VIEW -> format("mock.mock.test_create_%s_as_select_from_table", tableType.toNameSuffix());
+                case TABLE, VIEW -> "marquez.default.test_create_%s_as_select_from_table".formatted(tableType.toNameSuffix());
+                case MATERIALIZED_VIEW -> "mock.mock.test_create_%s_as_select_from_table".formatted(tableType.toNameSuffix());
             };
 
-            @Language("SQL") String createTableQuery = format(
-                    "CREATE %s %s AS SELECT * FROM tpch.tiny.nation",
+            @Language("SQL") String createTableQuery = "CREATE %s %s AS SELECT * FROM tpch.tiny.nation".formatted(
                     tableType.queryReplacement(),
                     outputTable);
 
@@ -84,14 +82,13 @@ public abstract class BaseTestOpenLineageQueries
             throws Exception
     {
         for (LineageTestTableType tableType : LineageTestTableType.values()) {
-            String viewName = format("test_view_%s", tableType.toNameSuffix());
+            String viewName = "test_view_%s".formatted(tableType.toNameSuffix());
             String outputTable = switch (tableType) {
-                case TABLE, VIEW -> format("marquez.default.test_create_%s_as_select_from_view", tableType.toNameSuffix());
-                case MATERIALIZED_VIEW -> format("mock.mock.test_create_%s_as_select_from_view", tableType.toNameSuffix());
+                case TABLE, VIEW -> "marquez.default.test_create_%s_as_select_from_view".formatted(tableType.toNameSuffix());
+                case MATERIALIZED_VIEW -> "mock.mock.test_create_%s_as_select_from_view".formatted(tableType.toNameSuffix());
             };
 
-            @Language("SQL") String createViewQuery = format(
-                    "CREATE VIEW %s AS SELECT * FROM tpch.tiny.nation",
+            @Language("SQL") String createViewQuery = "CREATE VIEW %s AS SELECT * FROM tpch.tiny.nation".formatted(
                     viewName);
 
             String createViewQueryId = this.getQueryRunner()
@@ -99,8 +96,7 @@ public abstract class BaseTestOpenLineageQueries
                     .queryId()
                     .toString();
 
-            @Language("SQL") String createTableQuery = format(
-                    "CREATE %s %s AS SELECT * FROM %s",
+            @Language("SQL") String createTableQuery = "CREATE %s %s AS SELECT * FROM %s".formatted(
                     tableType.queryReplacement(),
                     outputTable,
                     viewName);
@@ -139,7 +135,7 @@ public abstract class BaseTestOpenLineageQueries
     {
         String outputTable = "test_create_table_with_join";
 
-        @Language("SQL") String createTableWithJoinQuery = format(
+        @Language("SQL") String createTableWithJoinQuery =
                 """
                 CREATE TABLE %s AS
                 SELECT
@@ -152,8 +148,8 @@ public abstract class BaseTestOpenLineageQueries
                 JOIN tpch.tiny.orders o ON c.custkey = o.custkey
                 WHERE o.orderdate BETWEEN DATE '1995-01-01' AND DATE '1996-12-31'
                 GROUP BY n.name
-                ORDER BY total_revenue DESC""",
-                outputTable);
+                ORDER BY total_revenue DESC""".formatted(
+                        outputTable);
 
         String createTableQueryId = this.getQueryRunner()
                 .executeWithPlan(this.getSession(), createTableWithJoinQuery)
@@ -172,7 +168,7 @@ public abstract class BaseTestOpenLineageQueries
     {
         String outputTable = "monthly_store_rankings";
 
-        @Language("SQL") String createTableWithCTEQuery = format(
+        @Language("SQL") String createTableWithCTEQuery =
                 """
                 CREATE TABLE %s AS
                 WITH
@@ -226,8 +222,8 @@ public abstract class BaseTestOpenLineageQueries
                 ORDER BY
                   d_year,
                   d_moy,
-                  store_rank""",
-                outputTable);
+                  store_rank""".formatted(
+                        outputTable);
 
         String createTableQueryId = this.getQueryRunner()
                 .executeWithPlan(this.getSession(), createTableWithCTEQuery)
@@ -246,7 +242,7 @@ public abstract class BaseTestOpenLineageQueries
     {
         String outputTable = "active_suppliers";
 
-        @Language("SQL") String createTableWithSubqueryQuery = format(
+        @Language("SQL") String createTableWithSubqueryQuery =
                 """
                 CREATE TABLE %s AS
                 SELECT
@@ -269,8 +265,8 @@ public abstract class BaseTestOpenLineageQueries
                       l.suppkey = s.suppkey
                       AND o.orderdate >= DATE '1996-01-01'
                       AND l.quantity > 30
-                  )""",
-                outputTable);
+                  )""".formatted(
+                        outputTable);
 
         String createTableQueryId = this.getQueryRunner()
                 .executeWithPlan(this.getSession(), createTableWithSubqueryQuery)
@@ -288,9 +284,9 @@ public abstract class BaseTestOpenLineageQueries
             throws Exception
     {
         for (String setOperator : ImmutableList.of("UNION", "UNION ALL", "INTERSECT", "INTERSECT ALL", "EXCEPT", "EXCEPT ALL")) {
-            String outputTable = format("marquez.default.cross_dataset_analysis_%s", setOperator.toLowerCase(Locale.ENGLISH).replace(" ", "_"));
+            String outputTable = "marquez.default.cross_dataset_analysis_%s".formatted(setOperator.toLowerCase(Locale.ENGLISH).replace(" ", "_"));
 
-            @Language("SQL") String createTableWithUnionQuery = format(
+            @Language("SQL") String createTableWithUnionQuery =
                     """
                     CREATE TABLE %s AS
                     SELECT
@@ -314,9 +310,9 @@ public abstract class BaseTestOpenLineageQueries
                       tpcds.tiny.store_sales ss
                       JOIN tpcds.tiny.date_dim d ON ss.ss_sold_date_sk = d.d_date_sk
                     WHERE
-                      d.d_year >= 1998""",
-                    outputTable,
-                    setOperator);
+                      d.d_year >= 1998""".formatted(
+                            outputTable,
+                            setOperator);
 
             String createTableQueryId = this.getQueryRunner()
                     .executeWithPlan(this.getSession(), createTableWithUnionQuery)
@@ -336,8 +332,7 @@ public abstract class BaseTestOpenLineageQueries
     {
         String outputTable = "marquez.default.test_insert_into_create_as_select_from_table";
 
-        @Language("SQL") String createTableQuery = format(
-                "CREATE TABLE %s AS SELECT * FROM tpch.tiny.nation",
+        @Language("SQL") String createTableQuery = "CREATE TABLE %s AS SELECT * FROM tpch.tiny.nation".formatted(
                 outputTable);
 
         String createTableQueryId = this.getQueryRunner()
@@ -345,8 +340,7 @@ public abstract class BaseTestOpenLineageQueries
                 .queryId()
                 .toString();
 
-        @Language("SQL") String insertIntoTableQuery = format(
-                "INSERT INTO %s SELECT * FROM tpch.tiny.nation",
+        @Language("SQL") String insertIntoTableQuery = "INSERT INTO %s SELECT * FROM tpch.tiny.nation".formatted(
                 outputTable);
 
         String insertIntoTableQueryId = this.getQueryRunner()
@@ -386,7 +380,7 @@ public abstract class BaseTestOpenLineageQueries
                 .queryId()
                 .toString();
 
-        @Language("SQL") String createTableQuery = format(
+        @Language("SQL") String createTableQuery =
                 """
                 CREATE TABLE %s AS
                  SELECT
@@ -395,15 +389,15 @@ public abstract class BaseTestOpenLineageQueries
                      mktsegment,
                      nationkey
                  FROM tpch.tiny.customer
-                """,
-                outputTable);
+                """.formatted(
+                        outputTable);
 
         String createTableQueryId = this.getQueryRunner()
                 .executeWithPlan(this.getSession(), createTableQuery)
                 .queryId()
                 .toString();
 
-        @Language("SQL") String deleteQuery = format(
+        @Language("SQL") String deleteQuery =
                 """
                 DELETE FROM %s
                 WHERE custkey IN (
@@ -411,8 +405,8 @@ public abstract class BaseTestOpenLineageQueries
                     FROM tpch.tiny.customer c
                     WHERE c.acctbal < 5000.0
                 )
-                """,
-                outputTable);
+                """.formatted(
+                        outputTable);
 
         String deleteQueryId = this.getQueryRunner()
                 .executeWithPlan(this.getSession(), deleteQuery)
@@ -455,7 +449,7 @@ public abstract class BaseTestOpenLineageQueries
                 .queryId()
                 .toString();
 
-        @Language("SQL") String createTableQuery = format(
+        @Language("SQL") String createTableQuery =
                 """
                 CREATE TABLE %s AS
                  SELECT
@@ -464,15 +458,15 @@ public abstract class BaseTestOpenLineageQueries
                      mktsegment,
                      nationkey
                  FROM tpch.tiny.customer
-                """,
-                outputTable);
+                """.formatted(
+                        outputTable);
 
         String createTableQueryId = this.getQueryRunner()
                 .executeWithPlan(this.getSession(), createTableQuery)
                 .queryId()
                 .toString();
 
-        @Language("SQL") String mergeQuery = format(
+        @Language("SQL") String mergeQuery =
                 """
                 MERGE INTO %s cb
                  USING (
@@ -485,8 +479,8 @@ public abstract class BaseTestOpenLineageQueries
                  WHEN NOT MATCHED THEN
                      INSERT (custkey, name, mktsegment, nationkey)
                      VALUES (building_customers.custkey, building_customers.name, building_customers.mktsegment, building_customers.nationkey)
-                """,
-                outputTable);
+                """.formatted(
+                        outputTable);
 
         String mergeQueryId = this.getQueryRunner()
                 .executeWithPlan(this.getSession(), mergeQuery)

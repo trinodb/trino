@@ -20,7 +20,6 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.lang.Character.isValidCodePoint;
-import static java.lang.String.format;
 import static java.util.HexFormat.isHexDigit;
 
 public class SparkExpressionBuilder
@@ -217,7 +216,7 @@ public class SparkExpressionBuilder
         }
 
         if (state != UnicodeDecodeState.BASE) {
-            throw new ParsingException(format("Incomplete escape sequence '%s' at the end of %s literal", unicodeEscapeCharacters, context.getText()));
+            throw new ParsingException("Incomplete escape sequence '%s' at the end of %s literal".formatted(unicodeEscapeCharacters, context.getText()));
         }
         return value.toString();
     }
@@ -272,6 +271,6 @@ public class SparkExpressionBuilder
         if (aggregate == null) {
             return nextResult;
         }
-        throw new UnsupportedOperationException(format("Cannot combine %s and %s", aggregate, nextResult));
+        throw new UnsupportedOperationException("Cannot combine %s and %s".formatted(aggregate, nextResult));
     }
 }

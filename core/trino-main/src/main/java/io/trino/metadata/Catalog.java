@@ -33,7 +33,6 @@ import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement;
 import static io.trino.metadata.CatalogStatus.FAILING;
 import static io.trino.spi.StandardErrorCode.CATALOG_UNAVAILABLE;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class Catalog
@@ -120,7 +119,7 @@ public class Catalog
     public void verify()
     {
         if (catalogConnector == null) {
-            throw new TrinoException(CATALOG_UNAVAILABLE, format("Catalog '%s' failed to initialize and is disabled", catalogName));
+            throw new TrinoException(CATALOG_UNAVAILABLE, "Catalog '%s' failed to initialize and is disabled".formatted(catalogName));
         }
     }
 

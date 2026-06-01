@@ -13,7 +13,6 @@
  */
 package io.trino.sql.testing;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
@@ -25,6 +24,7 @@ import jakarta.annotation.Nullable;
 import java.util.List;
 
 import static io.trino.sql.SqlFormatter.formatSql;
+import static java.util.stream.Collectors.joining;
 
 public final class TreeAssertions
 {
@@ -86,12 +86,11 @@ public final class TreeAssertions
 
     private static <T> String formatLists(List<T> actual, List<T> expected)
     {
-        Joiner joiner = Joiner.on("\n    ");
         return "Actual [%s]:%n    %s%nExpected [%s]:%n    %s%n".formatted(
                 actual.size(),
-                joiner.join(actual),
+                actual.stream().map(Object::toString).collect(joining("\n    ")),
                 expected.size(),
-                joiner.join(expected));
+                expected.stream().map(Object::toString).collect(joining("\n    ")));
     }
 
     private static <T> int differingIndex(List<T> actual, List<T> expected)

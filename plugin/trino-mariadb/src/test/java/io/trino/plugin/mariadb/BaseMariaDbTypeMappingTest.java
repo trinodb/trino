@@ -59,7 +59,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
@@ -308,7 +307,7 @@ public abstract class BaseMariaDbTypeMappingTest
                 asList("1234567890123456789012345678901234567890.123456789", "-1234567890123456789012345678901234567890.123456789"))) {
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'decimal(38,0)')");
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
@@ -320,7 +319,7 @@ public abstract class BaseMariaDbTypeMappingTest
                     "Decimal overflow");
             assertQuery(
                     sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'varchar')");
             assertQuery(
                     sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
@@ -339,7 +338,7 @@ public abstract class BaseMariaDbTypeMappingTest
                 asList("123456789012345678901234567890.123456789012345", "-123456789012345678901234567890.123456789012345"))) {
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'decimal(38,0)')");
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
@@ -351,7 +350,7 @@ public abstract class BaseMariaDbTypeMappingTest
                     "VALUES (123456789012345678901234567890), (-123456789012345678901234567890)");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 8),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'decimal(38,8)')");
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 8),
@@ -363,7 +362,7 @@ public abstract class BaseMariaDbTypeMappingTest
                     "VALUES (123456789012345678901234567890.12345679), (-123456789012345678901234567890.12345679)");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 22),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'decimal(38,20)')");
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 20),
@@ -375,7 +374,7 @@ public abstract class BaseMariaDbTypeMappingTest
                     "Decimal overflow");
             assertQuery(
                     sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'varchar')");
             assertQuery(
                     sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
@@ -396,11 +395,11 @@ public abstract class BaseMariaDbTypeMappingTest
         try (TestTable testTable = new TestTable(
                 server::execute,
                 "tpch.test_exceeding_max_decimal",
-                format("(d_col decimal(%d,%d))", typePrecision, typeScale),
+                "(d_col decimal(%d,%d))".formatted(typePrecision, typeScale),
                 asList("12.01", "-12.01", "123", "-123", "1.12345678", "-1.12345678"))) {
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'decimal(38,0)')");
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
@@ -412,7 +411,7 @@ public abstract class BaseMariaDbTypeMappingTest
                     "VALUES (12), (-12), (123), (-123), (1), (-1)");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 3),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'decimal(38,3)')");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 3),
@@ -424,7 +423,7 @@ public abstract class BaseMariaDbTypeMappingTest
                     "Rounding necessary");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 8),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'decimal(38,8)')");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 8),
@@ -659,8 +658,8 @@ public abstract class BaseMariaDbTypeMappingTest
     public void testUnsupportedDate()
     {
         try (TestTable table = newTrinoTable("test_negative_date", "(dt DATE)")) {
-            assertQueryFails(format("INSERT INTO %s VALUES (DATE '-0001-01-01')", table.getName()), ".*Failed to insert data.*");
-            assertQueryFails(format("INSERT INTO %s VALUES (DATE '10000-01-01')", table.getName()), ".*Failed to insert data.*");
+            assertQueryFails("INSERT INTO %s VALUES (DATE '-0001-01-01')".formatted(table.getName()), ".*Failed to insert data.*");
+            assertQueryFails("INSERT INTO %s VALUES (DATE '10000-01-01')".formatted(table.getName()), ".*Failed to insert data.*");
         }
     }
 
@@ -762,7 +761,7 @@ public abstract class BaseMariaDbTypeMappingTest
     private void testUnsupportedDataType(String databaseDataType)
     {
         SqlExecutor jdbcSqlExecutor = server::execute;
-        jdbcSqlExecutor.execute(format("CREATE TABLE tpch.test_unsupported_data_type(supported_column varchar(5), unsupported_column %s)", databaseDataType));
+        jdbcSqlExecutor.execute("CREATE TABLE tpch.test_unsupported_data_type(supported_column varchar(5), unsupported_column %s)".formatted(databaseDataType));
         try {
             assertQuery(
                     "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'tpch' AND TABLE_NAME = 'test_unsupported_data_type'",
@@ -809,8 +808,8 @@ public abstract class BaseMariaDbTypeMappingTest
     public void testIncorrectTimestamp()
     {
         try (TestTable table = newTrinoTable("test_incorrect_timestamp", "(dt TIMESTAMP)")) {
-            assertQueryFails(format("INSERT INTO %s VALUES (TIMESTAMP '1970-01-01 00:00:00.000')", table.getName()), ".*Failed to insert data.*");
-            assertQueryFails(format("INSERT INTO %s VALUES (TIMESTAMP '2106-02-07 06:28:16.000')", table.getName()), ".*Failed to insert data.*");
+            assertQueryFails("INSERT INTO %s VALUES (TIMESTAMP '1970-01-01 00:00:00.000')".formatted(table.getName()), ".*Failed to insert data.*");
+            assertQueryFails("INSERT INTO %s VALUES (TIMESTAMP '2106-02-07 06:28:16.000')".formatted(table.getName()), ".*Failed to insert data.*");
         }
     }
 
@@ -909,8 +908,8 @@ public abstract class BaseMariaDbTypeMappingTest
     {
         // MariaDB supports any valid TIMESTAMP literal of type YYYY-MM-DD hh:mm:ss.S(up to 6 digits), fails otherwise
         try (TestTable table = new TestTable(server::execute, "test_incorrect_datetime", "(dt DATETIME)")) {
-            assertQueryFails(format("INSERT INTO %s VALUES (TIMESTAMP '999-01-01 00:00:00.000')", table.getName()), ".*not a valid TIMESTAMP literal.*");
-            assertQueryFails(format("INSERT INTO %s VALUES (TIMESTAMP '10000-01-19 03:14:08.000')", table.getName()), ".*Failed to insert data.*");
+            assertQueryFails("INSERT INTO %s VALUES (TIMESTAMP '999-01-01 00:00:00.000')".formatted(table.getName()), ".*not a valid TIMESTAMP literal.*");
+            assertQueryFails("INSERT INTO %s VALUES (TIMESTAMP '10000-01-19 03:14:08.000')".formatted(table.getName()), ".*Failed to insert data.*");
         }
     }
 

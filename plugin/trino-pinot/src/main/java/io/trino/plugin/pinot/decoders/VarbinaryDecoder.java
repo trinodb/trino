@@ -23,7 +23,6 @@ import java.util.HexFormat;
 import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
-import static java.lang.String.format;
 
 public class VarbinaryDecoder
         implements Decoder
@@ -40,7 +39,7 @@ public class VarbinaryDecoder
             ((VariableWidthBlockBuilder) output).writeEntry(slice);
         }
         else {
-            throw new TrinoException(TYPE_MISMATCH, format("Expected a string value of type VARBINARY: %s [%s]", value, value.getClass().getSimpleName()));
+            throw new TrinoException(TYPE_MISMATCH, "Expected a string value of type VARBINARY: %s [%s]".formatted(value, value.getClass().getSimpleName()));
         }
     }
 

@@ -51,7 +51,6 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLog
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -97,7 +96,7 @@ public class TestDeltaLakeAnalyze
     {
         String tableName = "test_analyze_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName
-                + (checkpointInterval.isPresent() ? format(" WITH (checkpoint_interval = %s)", checkpointInterval.get()) : "")
+                + (checkpointInterval.isPresent() ? " WITH (checkpoint_interval = %s)".formatted(checkpointInterval.get()) : "")
                 + " AS SELECT * FROM tpch.sf1.nation", 25);
 
         assertQuery(
@@ -322,7 +321,7 @@ public class TestDeltaLakeAnalyze
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss.SSS VV''").withZone(UTC);
         getDistributedQueryRunner().executeWithPlan(
                 getSession(),
-                format("ANALYZE %s WITH(files_modified_after = %s)", tableName, formatter.format(afterInitialDataIngestion)));
+                "ANALYZE %s WITH(files_modified_after = %s)".formatted(tableName, formatter.format(afterInitialDataIngestion)));
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -344,13 +343,13 @@ public class TestDeltaLakeAnalyze
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
 
         // analyze empty list of columns
-        assertQueryFails(format("ANALYZE %s WITH(columns = ARRAY[])", tableName), "Cannot specify empty list of columns for analysis");
+        assertQueryFails("ANALYZE %s WITH(columns = ARRAY[])".formatted(tableName), "Cannot specify empty list of columns for analysis");
 
         // specify inexistent column
-        assertQueryFails(format("ANALYZE %s WITH(columns = ARRAY['nationkey', 'blah'])", tableName), "\\QInvalid columns specified for analysis: [blah]\\E");
+        assertQueryFails("ANALYZE %s WITH(columns = ARRAY['nationkey', 'blah'])".formatted(tableName), "\\QInvalid columns specified for analysis: [blah]\\E");
 
         // analyze nationkey and regionkey
-        assertUpdate(format("ANALYZE %s WITH(columns = ARRAY['nationkey', 'regionkey'])", tableName));
+        assertUpdate("ANALYZE %s WITH(columns = ARRAY['nationkey', 'regionkey'])".formatted(tableName));
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
@@ -361,7 +360,7 @@ public class TestDeltaLakeAnalyze
                         "(null, null, null, null, 25.0, null, null)");
 
         // we should not be able to analyze for more columns
-        assertQueryFails(format("ANALYZE %s WITH(columns = ARRAY['nationkey', 'regionkey', 'name'])", tableName),
+        assertQueryFails("ANALYZE %s WITH(columns = ARRAY['nationkey', 'regionkey', 'name'])".formatted(tableName),
                 "List of columns to be analyzed must be a subset of previously used: \\[nationkey, regionkey\\]. To extend list of analyzed columns drop table statistics");
 
         // we should not be able to analyze for all columns
@@ -382,11 +381,11 @@ public class TestDeltaLakeAnalyze
 
         // insert should not extend list of analyzed columns
         assertQueryFails(
-                format("ANALYZE %s WITH(columns = ARRAY['nationkey', 'regionkey', 'name'])", tableName),
+                "ANALYZE %s WITH(columns = ARRAY['nationkey', 'regionkey', 'name'])".formatted(tableName),
                 "List of columns to be analyzed must be a subset of previously used: \\[nationkey, regionkey\\]. To extend list of analyzed columns drop table statistics");
 
         // perform one more analyze for nationkey and regionkey
-        assertUpdate(format("ANALYZE %s WITH(columns = ARRAY['nationkey', 'regionkey'])", tableName));
+        assertUpdate("ANALYZE %s WITH(columns = ARRAY['nationkey', 'regionkey'])".formatted(tableName));
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
@@ -397,7 +396,7 @@ public class TestDeltaLakeAnalyze
                         "(null, null, null, null, 50.0, null, null)");
 
         // show that using full_refresh allows us to analyze any subset of columns
-        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh', columns = ARRAY['nationkey', 'regionkey', 'name'])", tableName), 50);
+        assertUpdate("ANALYZE %s WITH(mode = 'full_refresh', columns = ARRAY['nationkey', 'regionkey', 'name'])".formatted(tableName), 50);
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
@@ -413,17 +412,17 @@ public class TestDeltaLakeAnalyze
                 "('comment', 3764.0, 50.0, 0.0, null, null, null)," +
                 "('name', 379.0, 50.0, 0.0, null, null, null)," +
                 "(null, null, null, null, 50.0, null, null)";
-        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh')", tableName), 50);
+        assertUpdate("ANALYZE %s WITH(mode = 'full_refresh')".formatted(tableName), 50);
         assertQuery("SHOW STATS FOR " + tableName, expectedFullStats);
 
         // drop stats
-        assertUpdate(format("CALL system.drop_extended_stats(CURRENT_SCHEMA, '%s')", tableName));
+        assertUpdate("CALL system.drop_extended_stats(CURRENT_SCHEMA, '%s')".formatted(tableName));
         // now we should be able to analyze all columns
-        assertUpdate(format("ANALYZE %s", tableName), 50);
+        assertUpdate("ANALYZE %s".formatted(tableName), 50);
         assertQuery("SHOW STATS FOR " + tableName, expectedFullStats);
 
         // we and we should be able to reanalyze with a subset of columns
-        assertUpdate(format("ANALYZE %s WITH(columns = ARRAY['nationkey', 'regionkey'])", tableName));
+        assertUpdate("ANALYZE %s WITH(columns = ARRAY['nationkey', 'regionkey'])".formatted(tableName));
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
@@ -434,7 +433,7 @@ public class TestDeltaLakeAnalyze
                         "(null, null, null, null, 50.0, null, null)");
 
         // and even smaller subset
-        assertUpdate(format("ANALYZE %s WITH(columns = ARRAY['nationkey'])", tableName));
+        assertUpdate("ANALYZE %s WITH(columns = ARRAY['nationkey'])".formatted(tableName));
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
@@ -471,7 +470,7 @@ public class TestDeltaLakeAnalyze
             assertQuery(query, extendedStats);
 
             // Dropping extended stats clears distinct count and leaves other stats alone
-            assertUpdate(format("CALL system.drop_extended_stats(CURRENT_SCHEMA, '%s')", table.getName()));
+            assertUpdate("CALL system.drop_extended_stats(CURRENT_SCHEMA, '%s')".formatted(table.getName()));
             assertQuery(query, baseStats);
 
             // Re-analyzing should work
@@ -487,7 +486,7 @@ public class TestDeltaLakeAnalyze
                 "test_drop_missing_stats",
                 "AS SELECT * FROM tpch.sf1.nation")) {
             // When there are no extended stats, the procedure should have no effect
-            assertUpdate(format("CALL system.drop_extended_stats(CURRENT_SCHEMA, '%s')", table.getName()));
+            assertUpdate("CALL system.drop_extended_stats(CURRENT_SCHEMA, '%s')".formatted(table.getName()));
             assertQuery(
                     "SHOW STATS FOR " + table.getName(),
                     "VALUES"
@@ -507,7 +506,7 @@ public class TestDeltaLakeAnalyze
                 "test_deny_drop_stats",
                 "AS SELECT * FROM tpch.sf1.nation")) {
             assertAccessDenied(
-                    format("CALL system.drop_extended_stats(CURRENT_SCHEMA, '%s')", table.getName()),
+                    "CALL system.drop_extended_stats(CURRENT_SCHEMA, '%s')".formatted(table.getName()),
                     "Cannot insert into table .*",
                     privilege(table.getName(), INSERT_TABLE));
         }
@@ -869,7 +868,7 @@ public class TestDeltaLakeAnalyze
                         "('name', 180.84782608695653, 23.5, 0.02083333333333337, null, null, null)," +
                         "(null, null, null, null, 24.0, null, null)");
 
-        assertUpdate(format("ANALYZE %s", tableName));
+        assertUpdate("ANALYZE %s".formatted(tableName));
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
@@ -879,7 +878,7 @@ public class TestDeltaLakeAnalyze
                         "('name', 346.3695652173913, 23.5, 0.02083333333333337, null, null, null)," +
                         "(null, null, null, null, 24.0, null, null)");
 
-        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh')", tableName), 24);
+        assertUpdate("ANALYZE %s WITH(mode = 'full_refresh')".formatted(tableName), 24);
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
@@ -925,7 +924,7 @@ public class TestDeltaLakeAnalyze
                         "('name', 5.0, 1.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 26.0, null, null)");
 
-        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh')", tableName), 26);
+        assertUpdate("ANALYZE %s WITH(mode = 'full_refresh')".formatted(tableName), 26);
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
@@ -1033,7 +1032,7 @@ public class TestDeltaLakeAnalyze
         assertQuery("SELECT * FROM " + tableName, " VALUES (42, 'foo'), (12, 'ab'), (null, null), (15, 'cd'), (15, 'bar'), (1, 'a'), (12, 'b')");
 
         // Simulate initial analysis
-        assertUpdate(format("CALL system.drop_extended_stats(CURRENT_SCHEMA, '%s')", tableName));
+        assertUpdate("CALL system.drop_extended_stats(CURRENT_SCHEMA, '%s')".formatted(tableName));
 
         assertUpdate("ANALYZE " + tableName, 7);
         assertQuery(
@@ -1144,7 +1143,7 @@ public class TestDeltaLakeAnalyze
         String tableName = resourceTable + randomNameSuffix();
         URI resourcesLocation = getClass().getClassLoader().getResource(resourcePath).toURI();
         copyDirectoryContents(Path.of(resourcesLocation), tableLocation);
-        assertUpdate(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, tableLocation.toUri()));
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
         return tableName;
     }
 

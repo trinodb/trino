@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.planprinter;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
@@ -96,7 +95,7 @@ public class TextRenderer
         }
 
         if (!node.getDetails().isEmpty()) {
-            String details = indentMultilineString(Joiner.on("\n").join(node.getDetails()), indent.detailIndent());
+            String details = indentMultilineString(String.join("\n", node.getDetails()), indent.detailIndent());
             output.append(details);
             if (!details.endsWith("\n")) {
                 output.append('\n');
@@ -142,8 +141,7 @@ public class TextRenderer
         double cpuTimeFraction = 100.0d * nodeStats.getPlanNodeCpuTime().toMillis() / plan.getTotalCpuTime().get().toMillis();
         double blockedTimeFraction = 100.0d * nodeStats.getPlanNodeBlockedTime().toMillis() / plan.getTotalBlockedTime().get().toMillis();
 
-        output.append(format(
-                "CPU: %s (%s%%), Scheduled: %s (%s%%), Blocked: %s (%s%%)",
+        output.append("CPU: %s (%s%%), Scheduled: %s (%s%%), Blocked: %s (%s%%)".formatted(
                 nodeStats.getPlanNodeCpuTime().convertToMostSuccinctTimeUnit(),
                 formatDouble(cpuTimeFraction),
                 nodeStats.getPlanNodeScheduledTime().convertToMostSuccinctTimeUnit(),
@@ -151,9 +149,9 @@ public class TextRenderer
                 nodeStats.getPlanNodeBlockedTime().convertToMostSuccinctTimeUnit(),
                 formatDouble(blockedTimeFraction)));
 
-        output.append(format(", Output: %s (%s)", formatPositions(nodeStats.getPlanNodeOutputPositions()), nodeStats.getPlanNodeOutputDataSize().toString()));
+        output.append(", Output: %s (%s)".formatted(formatPositions(nodeStats.getPlanNodeOutputPositions()), nodeStats.getPlanNodeOutputDataSize().toString()));
         if (nodeStats.getPlanNodeSpilledDataSize().toBytes() > 0) {
-            output.append(format(", Spilled: %s", nodeStats.getPlanNodeSpilledDataSize()));
+            output.append(", Spilled: %s".formatted(nodeStats.getPlanNodeSpilledDataSize()));
         }
         output.append("\n");
 
@@ -212,7 +210,7 @@ public class TextRenderer
 
         output.append(label).append("\n");
         Map<String, Metric<?>> sortedMap = new TreeMap<>(metrics);
-        sortedMap.forEach((name, metric) -> output.append(format("  '%s' = %s\n", name, metric)));
+        sortedMap.forEach((name, metric) -> output.append("  '%s' = %s\n".formatted(name, metric)));
     }
 
     private void printDistributions(StringBuilder output, PlanNodeStats stats)
@@ -241,11 +239,11 @@ public class TextRenderer
             return;
         }
 
-        output.append(format("Active Drivers: [ %d / %d ]\n", stats.getActiveDrivers(), stats.getTotalDrivers()));
-        output.append(format("Index size: std.dev.: %s bytes, %s rows\n", formatDouble(stats.getIndexSizeStdDev()), formatDouble(stats.getIndexPositionsStdDev())));
-        output.append(format("Index count per driver: std.dev.: %s\n", formatDouble(stats.getIndexCountPerDriverStdDev())));
-        output.append(format("Rows per driver: std.dev.: %s\n", formatDouble(stats.getRowsPerDriverStdDev())));
-        output.append(format("Size of partition: std.dev.: %s\n", formatDouble(stats.getPartitionRowsStdDev())));
+        output.append("Active Drivers: [ %d / %d ]\n".formatted(stats.getActiveDrivers(), stats.getTotalDrivers()));
+        output.append("Index size: std.dev.: %s bytes, %s rows\n".formatted(formatDouble(stats.getIndexSizeStdDev()), formatDouble(stats.getIndexPositionsStdDev())));
+        output.append("Index count per driver: std.dev.: %s\n".formatted(formatDouble(stats.getIndexCountPerDriverStdDev())));
+        output.append("Rows per driver: std.dev.: %s\n".formatted(formatDouble(stats.getRowsPerDriverStdDev())));
+        output.append("Size of partition: std.dev.: %s\n".formatted(formatDouble(stats.getPartitionRowsStdDev())));
     }
 
     private static Map<String, String> translateOperatorTypes(Set<String> operators)
@@ -268,7 +266,7 @@ public class TextRenderer
     private String printReorderJoinStatsAndCost(NodeRepresentation node)
     {
         if (verbose && node.getReorderJoinStatsAndCost().isPresent()) {
-            return format("Reorder joins cost : %s\n", formatPlanNodeStatsAndCostSummary(node.getReorderJoinStatsAndCost().get()));
+            return "Reorder joins cost : %s\n".formatted(formatPlanNodeStatsAndCostSummary(node.getReorderJoinStatsAndCost().get()));
         }
         return "";
     }
@@ -283,8 +281,7 @@ public class TextRenderer
     private String formatPlanNodeStatsAndCostSummary(PlanNodeStatsAndCostSummary stats)
     {
         requireNonNull(stats, "stats is null");
-        return format(
-                "{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
+        return "{rows: %s (%s), cpu: %s, memory: %s, network: %s}".formatted(
                 formatAsLong(stats.getOutputRowCount()),
                 formatAsDataSize(stats.getOutputSizeInBytes()),
                 formatAsCpuCost(stats.getCpuCost()),

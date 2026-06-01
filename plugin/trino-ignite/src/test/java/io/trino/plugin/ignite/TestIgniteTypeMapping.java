@@ -48,7 +48,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -346,11 +345,11 @@ public class TestIgniteTypeMapping
 
     private void doTestUnsupportedDateRange(Session session, String tableName, int id, String date)
     {
-        assertQueryFails(session, format("INSERT INTO %s VALUES(%d, DATE '%s')", tableName, id, date), ".*Date must be between 1970-01-01 and 9999-12-31 in Ignite.*");
+        assertQueryFails(session, "INSERT INTO %s VALUES(%d, DATE '%s')".formatted(tableName, id, date), ".*Date must be between 1970-01-01 and 9999-12-31 in Ignite.*");
 
         // test read unsupported date
-        igniteServer.execute(format("INSERT INTO %s VALUES (%d, DATE '%s')", tableName, id, date));
-        assertQueryFails(session, format("SELECT data FROM %s WHERE id = %d", tableName, id), "Date must be between 1970-01-01 and 9999-12-31 in Ignite.*");
+        igniteServer.execute("INSERT INTO %s VALUES (%d, DATE '%s')".formatted(tableName, id, date));
+        assertQueryFails(session, "SELECT data FROM %s WHERE id = %d".formatted(tableName, id), "Date must be between 1970-01-01 and 9999-12-31 in Ignite.*");
     }
 
     // Ignite char is mapped to varchar

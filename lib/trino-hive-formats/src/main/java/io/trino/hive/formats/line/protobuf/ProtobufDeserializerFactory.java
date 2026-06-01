@@ -85,7 +85,7 @@ public class ProtobufDeserializerFactory
             throw new TrinoException(HIVE_INVALID_METADATA, "Missing serdeproperties key \"serialization.class\"");
         }
         else if (!serializationClass.matches("^[^$]+\\$[^$]+$")) {
-            throw new TrinoException(HIVE_INVALID_METADATA, String.format("Expected serialization.class to contain {package}${protoname}, but was %s", serializationClass));
+            throw new TrinoException(HIVE_INVALID_METADATA, "Expected serialization.class to contain {package}${protoname}, but was %s".formatted(serializationClass));
         }
 
         return new ProtobufDeserializer(columns, cache.getUnchecked(serializationClass));
@@ -128,14 +128,14 @@ public class ProtobufDeserializerFactory
                                     }
                                 }
                                 catch (DescriptorValidationException e) {
-                                    throw new TrinoException(CONFIGURATION_INVALID, String.format("Failed to load protobuf fileDescriptor %s from %s", proto.getName(), path), e);
+                                    throw new TrinoException(CONFIGURATION_INVALID, "Failed to load protobuf fileDescriptor %s from %s".formatted(proto.getName(), path), e);
                                 }
                             }
                         }
                     }
                 }
             }
-            throw new TrinoException(HIVE_INVALID_METADATA, String.format("No file descriptor found for serialization class %s", serializationClass));
+            throw new TrinoException(HIVE_INVALID_METADATA, "No file descriptor found for serialization class %s".formatted(serializationClass));
         }
 
         @Override

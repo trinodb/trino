@@ -44,7 +44,6 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.rescale;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
 /**
@@ -65,7 +64,7 @@ final class LongTimestampType
         super(precision, LongTimestamp.class, Fixed12Block.class);
 
         if (precision < MAX_SHORT_PRECISION + 1 || precision > MAX_PRECISION) {
-            throw new IllegalArgumentException(format("Precision must be in the range [%s, %s]", MAX_SHORT_PRECISION + 1, MAX_PRECISION));
+            throw new IllegalArgumentException("Precision must be in the range [%s, %s]".formatted(MAX_SHORT_PRECISION + 1, MAX_PRECISION));
         }
 
         // ShortTimestampType instances are created eagerly and shared, so it's OK to precompute some things.

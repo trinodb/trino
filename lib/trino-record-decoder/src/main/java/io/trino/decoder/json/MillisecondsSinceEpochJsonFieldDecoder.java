@@ -30,7 +30,6 @@ import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.lang.Long.parseLong;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -80,12 +79,12 @@ public class MillisecondsSinceEpochJsonFieldDecoder
                 catch (NumberFormatException e) {
                     throw new TrinoException(
                             DECODER_CONVERSION_NOT_SUPPORTED,
-                            format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
+                            "could not parse value '%s' as '%s' for column '%s'".formatted(value.asText(), columnHandle.getType(), columnHandle.getName()));
                 }
             }
             throw new TrinoException(
                     DECODER_CONVERSION_NOT_SUPPORTED,
-                    format("could not parse non-value node as '%s' for column '%s'", columnHandle.getType(), columnHandle.getName()));
+                    "could not parse non-value node as '%s' for column '%s'".formatted(columnHandle.getType(), columnHandle.getName()));
         }
 
         @Override

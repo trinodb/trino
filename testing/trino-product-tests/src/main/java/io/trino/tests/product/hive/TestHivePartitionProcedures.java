@@ -33,7 +33,6 @@ import static io.trino.tests.product.hive.util.TableLocationUtils.getTablePath;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHivePartitionProcedures
@@ -205,7 +204,7 @@ public class TestHivePartitionProcedures
 
         assertThat(getPartitionValues(FIRST_TABLE)).containsOnly("a", "b", "c");
 
-        onTrino().executeQuery(format("INSERT INTO %s (val, col) VALUES (10, 'f')", SECOND_TABLE));
+        onTrino().executeQuery("INSERT INTO %s (val, col) VALUES (10, 'f')".formatted(SECOND_TABLE));
         assertThat(getPartitionValues(SECOND_TABLE)).containsOnly("a", "b", "c", "f");
 
         // Move partition f from SECOND_TABLE to FIRST_TABLE
@@ -237,12 +236,11 @@ public class TestHivePartitionProcedures
 
     private QueryResult dropPartition(String tableName, String partitionCol, String partition)
     {
-        return onTrino().executeQuery(format(
-                "CALL system.unregister_partition(\n" +
-                        "    schema_name => '%s',\n" +
-                        "    table_name => '%s',\n" +
-                        "    partition_columns => ARRAY['%s'],\n" +
-                        "    partition_values => ARRAY['%s'])",
+        return onTrino().executeQuery(("CALL system.unregister_partition(\n" +
+        "    schema_name => '%s',\n" +
+        "    table_name => '%s',\n" +
+        "    partition_columns => ARRAY['%s'],\n" +
+        "    partition_values => ARRAY['%s'])").formatted(
                 "default",
                 tableName,
                 partitionCol,
@@ -251,13 +249,12 @@ public class TestHivePartitionProcedures
 
     private QueryResult addPartition(String tableName, String partitionCol, String partition, String location)
     {
-        return onTrino().executeQuery(format(
-                "CALL system.register_partition(\n" +
-                        "    schema_name => '%s',\n" +
-                        "    table_name => '%s',\n" +
-                        "    partition_columns => ARRAY['%s'],\n" +
-                        "    partition_values => ARRAY['%s'],\n" +
-                        "    location => '%s')",
+        return onTrino().executeQuery(("CALL system.register_partition(\n" +
+        "    schema_name => '%s',\n" +
+        "    table_name => '%s',\n" +
+        "    partition_columns => ARRAY['%s'],\n" +
+        "    partition_values => ARRAY['%s'],\n" +
+        "    location => '%s')").formatted(
                 "default",
                 tableName,
                 partitionCol,
@@ -267,12 +264,11 @@ public class TestHivePartitionProcedures
 
     private QueryResult addPartition(String tableName, String partitionCol, String partition)
     {
-        return onTrino().executeQuery(format(
-                "CALL system.register_partition(\n" +
-                        "    schema_name => '%s',\n" +
-                        "    table_name => '%s',\n" +
-                        "    partition_columns => ARRAY['%s'],\n" +
-                        "    partition_values => ARRAY['%s'])",
+        return onTrino().executeQuery(("CALL system.register_partition(\n" +
+        "    schema_name => '%s',\n" +
+        "    table_name => '%s',\n" +
+        "    partition_columns => ARRAY['%s'],\n" +
+        "    partition_values => ARRAY['%s'])").formatted(
                 "default",
                 tableName,
                 partitionCol,
@@ -297,7 +293,7 @@ public class TestHivePartitionProcedures
     private static void createView(String viewName, String tableName)
     {
         onTrino().executeQuery("DROP VIEW IF EXISTS " + viewName);
-        onTrino().executeQuery(format("CREATE VIEW %s AS SELECT val, col FROM %s", viewName, tableName));
+        onTrino().executeQuery("CREATE VIEW %s AS SELECT val, col FROM %s".formatted(viewName, tableName));
     }
 
     private static void createUnpartitionedTable(String tableName)

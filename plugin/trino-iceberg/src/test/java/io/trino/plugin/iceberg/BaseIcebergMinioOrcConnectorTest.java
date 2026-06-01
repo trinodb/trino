@@ -35,7 +35,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -134,7 +133,7 @@ public abstract class BaseIcebergMinioOrcConnectorTest
     {
         checkArgument(expectedValue != 0);
         try (TestTable table = newTrinoTable("test_read_as_integer", "(\"_col0\") AS VALUES 0, NULL")) {
-            String orcFilePath = (String) computeScalar(format("SELECT DISTINCT file_path FROM \"%s$files\"", table.getName()));
+            String orcFilePath = (String) computeScalar("SELECT DISTINCT file_path FROM \"%s$files\"".formatted(table.getName()));
             byte[] orcFileData = Resources.toByteArray(getResource(orcFileResourceName));
             fileSystem.newOutputFile(Location.of(orcFilePath)).createOrOverwrite(orcFileData);
             fileSystem.deleteFiles(List.of(Location.of(orcFilePath.replaceAll("/([^/]*)$", ".$1.crc"))));

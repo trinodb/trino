@@ -50,7 +50,6 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveMetadataListing
@@ -165,24 +164,21 @@ public class TestHiveMetadataListing
         String withNoFilter = "SELECT table_name FROM information_schema.views";
         assertThat(computeScalar(withNoFilter)).isEqualTo(CORRECT_VIEW.getSchemaTableName().getTableName());
 
-        String withSchemaFilter = format("SELECT table_name FROM information_schema.views WHERE table_schema = '%s'", DATABASE_NAME);
+        String withSchemaFilter = "SELECT table_name FROM information_schema.views WHERE table_schema = '%s'".formatted(DATABASE_NAME);
         assertThat(computeScalar(withSchemaFilter)).isEqualTo(CORRECT_VIEW.getSchemaTableName().getTableName());
 
-        String withSchemaAndCorrectViewFilter = format(
-                "SELECT table_name FROM information_schema.views WHERE table_schema = '%s' AND table_name = '%s'",
+        String withSchemaAndCorrectViewFilter = "SELECT table_name FROM information_schema.views WHERE table_schema = '%s' AND table_name = '%s'".formatted(
                 DATABASE_NAME,
                 CORRECT_VIEW.getSchemaTableName().getTableName());
         assertThat(computeScalar(withSchemaAndCorrectViewFilter)).isEqualTo(CORRECT_VIEW.getSchemaTableName().getTableName());
 
-        String withSchemaAndFailingSDViewFilter = format(
-                "SELECT table_name FROM information_schema.views WHERE table_schema = '%s' AND table_name = '%s'",
+        String withSchemaAndFailingSDViewFilter = "SELECT table_name FROM information_schema.views WHERE table_schema = '%s' AND table_name = '%s'".formatted(
                 DATABASE_NAME,
                 FAILING_STORAGE_DESCRIPTOR_VIEW.getSchemaTableName().getTableName());
         assertQueryReturnsEmptyResult(withSchemaAndFailingSDViewFilter);
 
         // TODO This could be potentially improved to not return empty results https://github.com/trinodb/trino/issues/6551
-        String withSchemaAndFailingGeneralViewFilter = format(
-                "SELECT table_name FROM information_schema.views WHERE table_schema = '%s' AND table_name = '%s'",
+        String withSchemaAndFailingGeneralViewFilter = "SELECT table_name FROM information_schema.views WHERE table_schema = '%s' AND table_name = '%s'".formatted(
                 DATABASE_NAME,
                 FAILING_GENERAL_VIEW.getSchemaTableName().getTableName());
         assertQueryReturnsEmptyResult(withSchemaAndFailingGeneralViewFilter);
@@ -191,7 +187,7 @@ public class TestHiveMetadataListing
     @Test
     public void testTableListing()
     {
-        String withSchemaFilter = format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", DATABASE_NAME);
+        String withSchemaFilter = "SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'".formatted(DATABASE_NAME);
         assertQuery(withSchemaFilter,
                 """
                 VALUES ('correct_view'),
@@ -202,21 +198,18 @@ public class TestHiveMetadataListing
                 ('failing_general_table')\
                 """);
 
-        String withSchemaAndCorrectTableFilter = format(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'",
+        String withSchemaAndCorrectTableFilter = "SELECT table_name FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'".formatted(
                 DATABASE_NAME,
                 CORRECT_TABLE.getSchemaTableName().getTableName());
         assertThat(computeScalar(withSchemaAndCorrectTableFilter)).isEqualTo(CORRECT_TABLE.getSchemaTableName().getTableName());
 
-        String withSchemaAndFailingSDTableFilter = format(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'",
+        String withSchemaAndFailingSDTableFilter = "SELECT table_name FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'".formatted(
                 DATABASE_NAME,
                 FAILING_SERDE_INFO_TABLE.getSchemaTableName().getTableName());
         assertQueryReturnsEmptyResult(withSchemaAndFailingSDTableFilter);
 
         // TODO This could be potentially improved to not return empty results https://github.com/trinodb/trino/issues/6551
-        String withSchemaAndFailingGeneralTableFilter = format(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'",
+        String withSchemaAndFailingGeneralTableFilter = "SELECT table_name FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'".formatted(
                 DATABASE_NAME,
                 FAILING_GENERAL_TABLE.getSchemaTableName().getTableName());
         assertQueryReturnsEmptyResult(withSchemaAndFailingGeneralTableFilter);

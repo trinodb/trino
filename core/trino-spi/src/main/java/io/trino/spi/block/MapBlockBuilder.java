@@ -26,7 +26,6 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static io.trino.spi.block.MapBlock.createMapBlockInternal;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
-import static java.lang.String.format;
 import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
 
@@ -214,7 +213,7 @@ public class MapBlockBuilder
     private void entryAdded(boolean isNull)
     {
         if (keyBlockBuilder.getPositionCount() != valueBlockBuilder.getPositionCount()) {
-            throw new IllegalStateException(format("keyBlock and valueBlock has different size: %s %s", keyBlockBuilder.getPositionCount(), valueBlockBuilder.getPositionCount()));
+            throw new IllegalStateException("keyBlock and valueBlock has different size: %s %s".formatted(keyBlockBuilder.getPositionCount(), valueBlockBuilder.getPositionCount()));
         }
         if (mapIsNull.length <= positionCount) {
             int newSize = calculateNewArraySize(mapIsNull.length);

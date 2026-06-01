@@ -22,7 +22,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -106,8 +105,7 @@ public class TestDeltaLakeMinioAndHmsConnectorSmokeTest
     {
         String tableName = "test_schema_evolution_on_table_with_column_invariant_" + randomNameSuffix();
         hiveMinioDataLake.copyResources("deltalake/invariants", tableName);
-        getQueryRunner().execute(format(
-                "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')",
+        getQueryRunner().execute("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(
                 tableName,
                 getLocationForTable(bucketName, tableName)));
 

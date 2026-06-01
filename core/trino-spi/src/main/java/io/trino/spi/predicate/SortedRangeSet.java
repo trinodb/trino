@@ -56,7 +56,6 @@ import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -113,7 +112,7 @@ public final class SortedRangeSet
             throw new IllegalArgumentException("Malformed inclusive markers");
         }
         if (inclusive.length != sortedRanges.getPositionCount()) {
-            throw new IllegalArgumentException(format("Size mismatch between inclusive markers and sortedRanges block: %s, %s", inclusive.length, sortedRanges.getPositionCount()));
+            throw new IllegalArgumentException("Size mismatch between inclusive markers and sortedRanges block: %s, %s".formatted(inclusive.length, sortedRanges.getPositionCount()));
         }
         for (int position = 0; position < sortedRanges.getPositionCount(); position++) {
             if (sortedRanges.isNull(position)) {
@@ -121,7 +120,7 @@ public final class SortedRangeSet
                     throw new IllegalArgumentException("Invalid inclusive marker for null value at position " + position);
                 }
                 if (position != 0 && position != sortedRanges.getPositionCount() - 1) {
-                    throw new IllegalArgumentException(format("Invalid null value at position %s of %s", position, sortedRanges.getPositionCount()));
+                    throw new IllegalArgumentException("Invalid null value at position %s of %s".formatted(position, sortedRanges.getPositionCount()));
                 }
             }
         }
@@ -1246,10 +1245,10 @@ public final class SortedRangeSet
     private SortedRangeSet checkCompatibility(ValueSet other)
     {
         if (!getType().equals(other.getType())) {
-            throw new IllegalStateException(format("Mismatched types: %s vs %s", getType(), other.getType()));
+            throw new IllegalStateException("Mismatched types: %s vs %s".formatted(getType(), other.getType()));
         }
         if (!(other instanceof SortedRangeSet sortedRangeSet)) {
-            throw new IllegalStateException(format("ValueSet is not a SortedRangeSet: %s", other.getClass()));
+            throw new IllegalStateException("ValueSet is not a SortedRangeSet: %s".formatted(other.getClass()));
         }
         return sortedRangeSet;
     }
@@ -1415,7 +1414,7 @@ public final class SortedRangeSet
             return "{" + getRangeView(0).formatRange() + "}";
         }
         if (limit < 2) {
-            return format("{%s, ...}", getRangeView(0).formatRange());
+            return "{%s, ...}".formatted(getRangeView(0).formatRange());
         }
         // Print first (limit - 1) elements, followed by last element
         // to provide a readable summary of the contents
@@ -1482,7 +1481,7 @@ public final class SortedRangeSet
         List<Range> ranges = new ArrayList<>(unsortedRanges);
         for (Range range : ranges) {
             if (!type.equals(range.getType())) {
-                throw new IllegalArgumentException(format("Range type %s does not match builder type %s", range.getType(), type));
+                throw new IllegalArgumentException("Range type %s does not match builder type %s".formatted(range.getType(), type));
             }
         }
 
@@ -1756,7 +1755,7 @@ public final class SortedRangeSet
         public String formatRange()
         {
             if (isSingleValue()) {
-                return format("[%s]", type.getObjectValue(lowValueBlock, lowValuePosition));
+                return "[%s]".formatted(type.getObjectValue(lowValueBlock, lowValuePosition));
             }
 
             Object lowValue = isLowUnbounded()
@@ -1766,8 +1765,7 @@ public final class SortedRangeSet
                     ? "<max>"
                     : type.getObjectValue(highValueBlock, highValuePosition);
 
-            return format(
-                    "%s%s,%s%s",
+            return "%s%s,%s%s".formatted(
                     lowInclusive ? "[" : "(",
                     lowValue,
                     highValue,

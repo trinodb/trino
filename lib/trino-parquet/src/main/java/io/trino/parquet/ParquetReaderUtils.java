@@ -25,7 +25,6 @@ import org.apache.parquet.column.EncodingStats;
 import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
-import static java.lang.String.format;
 import static org.apache.parquet.column.Encoding.BIT_PACKED;
 import static org.apache.parquet.column.Encoding.PLAIN_DICTIONARY;
 import static org.apache.parquet.column.Encoding.RLE;
@@ -159,7 +158,7 @@ public final class ParquetReaderUtils
                 yield ((input.readByte() & 0xFF) << 16) | value;
             }
             case 4 -> input.readInt();
-            default -> throw new IllegalArgumentException(format("Encountered bytesWidth (%d) that requires more than 4 bytes", bytesWidth));
+            default -> throw new IllegalArgumentException("Encountered bytesWidth (%d) that requires more than 4 bytes".formatted(bytesWidth));
         };
     }
 
@@ -249,7 +248,7 @@ public final class ParquetReaderUtils
     public static short toShortExact(int value)
     {
         if ((short) value != value) {
-            throw new ArithmeticException(format("Value %d exceeds short range", value));
+            throw new ArithmeticException("Value %d exceeds short range".formatted(value));
         }
         return (short) value;
     }
@@ -265,7 +264,7 @@ public final class ParquetReaderUtils
     public static byte toByteExact(int value)
     {
         if ((byte) value != value) {
-            throw new ArithmeticException(format("Value %d exceeds byte range", value));
+            throw new ArithmeticException("Value %d exceeds byte range".formatted(value));
         }
         return (byte) value;
     }

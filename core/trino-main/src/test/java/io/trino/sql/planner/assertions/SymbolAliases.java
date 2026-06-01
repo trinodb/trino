@@ -28,7 +28,6 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class SymbolAliases
@@ -91,7 +90,7 @@ public final class SymbolAliases
          * correctly written test. Having this throw makes it a lot easier to track down
          * missing aliases in incorrect plans.
          */
-        return getOptional(alias).orElseThrow(() -> new IllegalStateException(format("missing expression for alias %s", alias)));
+        return getOptional(alias).orElseThrow(() -> new IllegalStateException("missing expression for alias %s".formatted(alias)));
     }
 
     public Optional<Reference> getOptional(String alias)

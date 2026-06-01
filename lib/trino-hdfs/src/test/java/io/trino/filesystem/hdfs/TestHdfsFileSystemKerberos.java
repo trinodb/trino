@@ -51,6 +51,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -60,7 +61,6 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.base.authentication.KerberosTicketUtils.getRefreshTime;
 import static io.trino.plugin.base.authentication.KerberosTicketUtils.getTicketGrantingTicket;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Collections.emptySet;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Isolated
@@ -137,7 +137,7 @@ public class TestHdfsFileSystemKerberos
                 .setResourceConfigFiles(List.of(hdfsSite.toString()))
                 .setDfsReplication(1);
         HdfsConfigurationInitializer initializer = new HdfsConfigurationInitializer(hdfsConfig);
-        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(initializer, emptySet());
+        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(initializer, Set.of());
 
         KerberosConfiguration kerberosConfiguration = new KerberosConfiguration.Builder()
                 .withKerberosPrincipal(PRINCIPAL)

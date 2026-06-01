@@ -19,7 +19,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import java.util.Optional;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcProcedureHandle
@@ -51,7 +50,7 @@ public class JdbcProcedureHandle
     @Override
     public String toString()
     {
-        return format("Procedure[%s], Columns=%s", procedure, columns);
+        return "Procedure[%s], Columns=%s".formatted(procedure, columns);
     }
 
     public record ProcedureQuery(@JsonProperty String query)

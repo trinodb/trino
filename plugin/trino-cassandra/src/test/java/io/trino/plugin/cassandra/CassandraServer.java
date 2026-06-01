@@ -41,7 +41,6 @@ import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.REQUES
 import static com.google.common.io.Resources.getResource;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.CASSANDRA_TYPE_MANAGER;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createDirectory;
 import static java.nio.file.Files.createTempDirectory;
@@ -153,7 +152,7 @@ public class CassandraServer
             log.debug("Size estimates haven't been refreshed as expected. Retrying ...");
             SECONDS.sleep(1);
         }
-        throw new TimeoutException(format("Attempting to refresh size estimates for table %s.%s has timed out after %s", keyspace, table, REFRESH_SIZE_ESTIMATES_TIMEOUT));
+        throw new TimeoutException("Attempting to refresh size estimates for table %s.%s has timed out after %s".formatted(keyspace, table, REFRESH_SIZE_ESTIMATES_TIMEOUT));
     }
 
     private void flushTable(String keyspace, String table)

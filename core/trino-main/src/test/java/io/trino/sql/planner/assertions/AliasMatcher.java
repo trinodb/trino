@@ -19,7 +19,6 @@ import io.trino.sql.planner.plan.PlanNode;
 import java.util.Optional;
 
 import static io.trino.sql.planner.assertions.MatchResult.match;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class AliasMatcher
@@ -62,8 +61,8 @@ public class AliasMatcher
     public String toString()
     {
         if (alias.isPresent()) {
-            return format("bind %s -> %s", alias.get(), matcher);
+            return "bind %s -> %s".formatted(alias.get(), matcher);
         }
-        return format("bind %s", matcher);
+        return "bind %s".formatted(matcher);
     }
 }

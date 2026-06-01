@@ -56,7 +56,6 @@ import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_AVAILABLE;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.util.Executors.executeUntilFailure;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -265,7 +264,7 @@ public class CoordinatorDynamicCatalogManager
 
             if (activeCatalogs.containsKey(catalogName)) {
                 if (!notExists) {
-                    throw new TrinoException(ALREADY_EXISTS, format("Catalog '%s' already exists", catalogName));
+                    throw new TrinoException(ALREADY_EXISTS, "Catalog '%s' already exists".formatted(catalogName));
                 }
                 return;
             }
@@ -315,7 +314,7 @@ public class CoordinatorDynamicCatalogManager
         }
 
         if (!removed && !exists) {
-            throw new TrinoException(CATALOG_NOT_FOUND, format("Catalog '%s' not found", catalogName));
+            throw new TrinoException(CATALOG_NOT_FOUND, "Catalog '%s' not found".formatted(catalogName));
         }
         // Do not shut down the catalog, because there may still be running queries using this catalog.
         // Catalog shutdown logic will be added later.

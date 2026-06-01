@@ -84,7 +84,6 @@ import static io.trino.node.NodeState.DRAINING;
 import static io.trino.node.NodeState.SHUTTING_DOWN;
 import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.function.Function.identity;
@@ -203,7 +202,7 @@ public class ClusterMemoryManager
                 DataSize memory = succinctBytes(getQueryMemoryReservation(query));
                 query.fail(new TrinoException(
                         CLUSTER_OUT_OF_MEMORY,
-                        format("The cluster is out of memory and %s=true, so this query was killed. It was using %s of memory", RESOURCE_OVERCOMMIT, memory)));
+                        "The cluster is out of memory and %s=true, so this query was killed. It was using %s of memory".formatted(RESOURCE_OVERCOMMIT, memory)));
                 queryKilled = true;
             }
 

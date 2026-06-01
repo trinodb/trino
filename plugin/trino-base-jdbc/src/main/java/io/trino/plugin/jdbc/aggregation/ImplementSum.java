@@ -34,7 +34,6 @@ import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.hasFilt
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.hasSortOrder;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleArgument;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.variable;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -86,7 +85,7 @@ public class ImplementSum
         ParameterizedExpression rewrittenArgument = context.rewriteExpression(argument).orElseThrow();
         String function = aggregateFunction.isDistinct() ? "sum(DISTINCT %s)" : "sum(%s)";
         return Optional.of(new JdbcExpression(
-                format(function, rewrittenArgument.expression()),
+                function.formatted(rewrittenArgument.expression()),
                 rewrittenArgument.parameters(),
                 resultTypeHandle));
     }

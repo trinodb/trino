@@ -44,7 +44,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -256,7 +255,7 @@ public abstract class BaseMySqlConnectorTest
     {
         try (TestTable table = newTrinoTable("test_create_with_primary_key_", tableDefinition)) {
             assertThat(computeScalar("SHOW CREATE TABLE " + table.getName()))
-                    .isEqualTo(format(showCreateTableFormat, getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName()));
+                    .isEqualTo(showCreateTableFormat.formatted(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName()));
         }
     }
 
@@ -341,7 +340,7 @@ public abstract class BaseMySqlConnectorTest
     {
         try (TestTable table = new TestTable(onRemoteDatabase(), "test_create_with_unsupported_key_", tableDefinition)) {
             assertThat(computeScalar("SHOW CREATE TABLE " + table.getName()))
-                    .isEqualTo(format(showCreateTableFormat, getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName()));
+                    .isEqualTo(showCreateTableFormat.formatted(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName()));
         }
     }
 
@@ -390,19 +389,19 @@ public abstract class BaseMySqlConnectorTest
     @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
-        return format("Failed to insert data: Data truncation: Incorrect datetime value: '%s'", date);
+        return "Failed to insert data: Data truncation: Incorrect datetime value: '%s'".formatted(date);
     }
 
     @Override
     protected String errorMessageForInsertNegativeDate(String date)
     {
-        return format("Failed to insert data: Data truncation: Incorrect datetime value: '%s'", date);
+        return "Failed to insert data: Data truncation: Incorrect datetime value: '%s'".formatted(date);
     }
 
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        return format("Failed to insert data: Field '%s' doesn't have a default value", columnName);
+        return "Failed to insert data: Field '%s' doesn't have a default value".formatted(columnName);
     }
 
     @Test
@@ -546,7 +545,7 @@ public abstract class BaseMySqlConnectorTest
 
     private void testPredicatePushdownWithCollationView(String charset, String collation)
     {
-        onRemoteDatabase().execute(format("CREATE OR REPLACE VIEW tpch.test_view_pushdown AS SELECT regionkey, nationkey, CONVERT(name USING %s) COLLATE %s AS name FROM tpch.nation;", charset, collation));
+        onRemoteDatabase().execute("CREATE OR REPLACE VIEW tpch.test_view_pushdown AS SELECT regionkey, nationkey, CONVERT(name USING %s) COLLATE %s AS name FROM tpch.nation;".formatted(charset, collation));
         testNationCollationQueries("test_view_pushdown");
         onRemoteDatabase().execute("DROP VIEW tpch.test_view_pushdown");
     }
@@ -563,7 +562,7 @@ public abstract class BaseMySqlConnectorTest
         try (TestTable testTable = new TestTable(
                 onRemoteDatabase(),
                 "tpch.nation_collate",
-                format("AS SELECT regionkey, nationkey, CONVERT(name USING %s) COLLATE %s AS name FROM tpch.nation", charset, collation))) {
+                "AS SELECT regionkey, nationkey, CONVERT(name USING %s) COLLATE %s AS name FROM tpch.nation".formatted(charset, collation))) {
             testNationCollationQueries(testTable.getName());
         }
     }
@@ -571,25 +570,25 @@ public abstract class BaseMySqlConnectorTest
     private void testNationCollationQueries(String objectName)
     {
         // varchar like
-        assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name LIKE '%%ROM%%'", objectName)))
+        assertThat(query("SELECT regionkey, nationkey, name FROM %s WHERE name LIKE '%%ROM%%'".formatted(objectName)))
                 .isFullyPushedDown();
 
         // varchar inequality
-        assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name != 'ROMANIA' AND name != 'ALGERIA'", objectName)))
+        assertThat(query("SELECT regionkey, nationkey, name FROM %s WHERE name != 'ROMANIA' AND name != 'ALGERIA'".formatted(objectName)))
                 .isFullyPushedDown();
 
         // varchar equality
-        assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name = 'ROMANIA'", objectName)))
+        assertThat(query("SELECT regionkey, nationkey, name FROM %s WHERE name = 'ROMANIA'".formatted(objectName)))
                 .isFullyPushedDown();
 
         // varchar range
-        assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name BETWEEN 'POLAND' AND 'RPA'", objectName)))
+        assertThat(query("SELECT regionkey, nationkey, name FROM %s WHERE name BETWEEN 'POLAND' AND 'RPA'".formatted(objectName)))
                 .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
                 // We are not supporting range predicate pushdown for varchars
                 .isNotFullyPushedDown(FilterNode.class);
 
         // varchar NOT IN
-        assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name NOT IN ('POLAND', 'ROMANIA', 'VIETNAM')", objectName)))
+        assertThat(query("SELECT regionkey, nationkey, name FROM %s WHERE name NOT IN ('POLAND', 'ROMANIA', 'VIETNAM')".formatted(objectName)))
                 .isFullyPushedDown();
 
         // varchar NOT IN with small compaction threshold
@@ -597,7 +596,7 @@ public abstract class BaseMySqlConnectorTest
                 Session.builder(getSession())
                         .setCatalogSessionProperty("mysql", "domain_compaction_threshold", "1")
                         .build(),
-                format("SELECT regionkey, nationkey, name FROM %s WHERE name NOT IN ('POLAND', 'ROMANIA', 'VIETNAM')", objectName)))
+                "SELECT regionkey, nationkey, name FROM %s WHERE name NOT IN ('POLAND', 'ROMANIA', 'VIETNAM')".formatted(objectName)))
                 // no pushdown because it was converted to range predicate
                 .isNotFullyPushedDown(
                         node(
@@ -609,7 +608,7 @@ public abstract class BaseMySqlConnectorTest
                                         ImmutableMap.of())));
 
         // varchar IN without domain compaction
-        assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name IN ('POLAND', 'ROMANIA', 'VIETNAM')", objectName)))
+        assertThat(query("SELECT regionkey, nationkey, name FROM %s WHERE name IN ('POLAND', 'ROMANIA', 'VIETNAM')".formatted(objectName)))
                 .matches("VALUES " +
                         "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255))), " +
                         "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(255)))")
@@ -620,7 +619,7 @@ public abstract class BaseMySqlConnectorTest
                 Session.builder(getSession())
                         .setCatalogSessionProperty("mysql", "domain_compaction_threshold", "1")
                         .build(),
-                format("SELECT regionkey, nationkey, name FROM %s WHERE name IN ('POLAND', 'ROMANIA', 'VIETNAM')", objectName)))
+                "SELECT regionkey, nationkey, name FROM %s WHERE name IN ('POLAND', 'ROMANIA', 'VIETNAM')".formatted(objectName)))
                 .matches("VALUES " +
                         "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255))), " +
                         "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(255)))")
@@ -634,13 +633,13 @@ public abstract class BaseMySqlConnectorTest
                                         TupleDomain.all(),
                                         ImmutableMap.of())));
         // varchar different case
-        assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name = 'romania'", objectName)))
+        assertThat(query("SELECT regionkey, nationkey, name FROM %s WHERE name = 'romania'".formatted(objectName)))
                 .returnsEmptyResult()
                 .isFullyPushedDown();
 
         Session joinPushdownEnabled = joinPushdownEnabled(getSession());
         // join on varchar columns
-        assertThat(query(joinPushdownEnabled, format("SELECT n.name, n2.regionkey FROM %1$s n JOIN %1$s n2 ON n.name = n2.name", objectName)))
+        assertThat(query(joinPushdownEnabled, "SELECT n.name, n2.regionkey FROM %1$s n JOIN %1$s n2 ON n.name = n2.name".formatted(objectName)))
                 .joinIsNotFullyPushedDown();
     }
 
@@ -793,20 +792,20 @@ public abstract class BaseMySqlConnectorTest
             String type = matcher.group(1).toLowerCase(Locale.ENGLISH);
             if (type.contains("varchar") || type.contains("char")) {
                 // Mysql requires the primary keys must hava a fixed length, here use the 255 length that is just long enough for the test
-                onRemoteDatabase().execute(format("ALTER TABLE %s ADD PRIMARY KEY (%s(255))", tableName, primaryKey));
+                onRemoteDatabase().execute("ALTER TABLE %s ADD PRIMARY KEY (%s(255))".formatted(tableName, primaryKey));
                 return;
             }
         }
 
         // ctas or the type is not varchar/char
-        onRemoteDatabase().execute(format("ALTER TABLE %s ADD PRIMARY KEY (%s)", tableName, primaryKey));
+        onRemoteDatabase().execute("ALTER TABLE %s ADD PRIMARY KEY (%s)".formatted(tableName, primaryKey));
     }
 
     @Override
     protected TestTable createTestTableForWrites(String namePrefix, String tableDefinition, String primaryKey)
     {
         TestTable testTable = super.createTestTableForWrites(namePrefix, tableDefinition, primaryKey);
-        onRemoteDatabase().execute(format("ALTER TABLE %s ADD PRIMARY KEY (%s)", testTable.getName(), primaryKey));
+        onRemoteDatabase().execute("ALTER TABLE %s ADD PRIMARY KEY (%s)".formatted(testTable.getName(), primaryKey));
         return testTable;
     }
 
@@ -814,7 +813,7 @@ public abstract class BaseMySqlConnectorTest
     protected TestTable createTestTableForWrites(String namePrefix, String tableDefinition, List<String> rowsToInsert, String primaryKey)
     {
         TestTable testTable = super.createTestTableForWrites(namePrefix, tableDefinition, rowsToInsert, primaryKey);
-        onRemoteDatabase().execute(format("ALTER TABLE %s ADD PRIMARY KEY (%s)", testTable.getName(), primaryKey));
+        onRemoteDatabase().execute("ALTER TABLE %s ADD PRIMARY KEY (%s)".formatted(testTable.getName(), primaryKey));
         return testTable;
     }
 }

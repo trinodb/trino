@@ -25,7 +25,6 @@ import io.trino.spi.block.VariantBlock;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class DefLevelWriterProviders
@@ -412,7 +411,7 @@ public final class DefLevelWriterProviders
     private static void checkValidPosition(int offset, int positionsCount, int totalPositionsCount)
     {
         if (offset < 0 || positionsCount < 0 || offset + positionsCount > totalPositionsCount) {
-            throw new IndexOutOfBoundsException(format("Invalid offset %s and positionsCount %s in block with %s positions", offset, positionsCount, totalPositionsCount));
+            throw new IndexOutOfBoundsException("Invalid offset %s and positionsCount %s in block with %s positions".formatted(offset, positionsCount, totalPositionsCount));
         }
     }
 }

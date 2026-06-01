@@ -25,7 +25,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionDependencyDeclaration
@@ -401,7 +400,7 @@ public class FunctionDependencyDeclaration
         @Override
         public String toString()
         {
-            return format("cast(%s, %s)", fromType, toType);
+            return "cast(%s, %s)".formatted(fromType, toType);
         }
     }
 }

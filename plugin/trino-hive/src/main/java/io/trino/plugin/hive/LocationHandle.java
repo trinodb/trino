@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.filesystem.Location;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class LocationHandle
@@ -29,7 +28,7 @@ public class LocationHandle
     public LocationHandle(Location targetPath, Location writePath, WriteMode writeMode)
     {
         if (writeMode.isWritePathSameAsTargetPath() && !targetPath.equals(writePath)) {
-            throw new IllegalArgumentException(format("targetPath is expected to be same as writePath for writeMode %s", writeMode));
+            throw new IllegalArgumentException("targetPath is expected to be same as writePath for writeMode %s".formatted(writeMode));
         }
         this.targetPath = requireNonNull(targetPath, "targetPath is null");
         this.writePath = requireNonNull(writePath, "writePath is null");

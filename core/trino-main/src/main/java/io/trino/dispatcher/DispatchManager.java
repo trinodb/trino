@@ -66,7 +66,6 @@ import static io.trino.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static io.trino.tracing.ScopedSpan.scopedSpan;
 import static io.trino.util.Failures.toFailure;
 import static io.trino.util.StatementUtils.getQueryType;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -212,7 +211,7 @@ public class DispatchManager
             if (query.length() > maxQueryLength) {
                 int queryLength = query.length();
                 query = query.substring(0, maxQueryLength);
-                throw new TrinoException(QUERY_TEXT_TOO_LARGE, format("Query text length (%s) exceeds the maximum length (%s)", queryLength, maxQueryLength));
+                throw new TrinoException(QUERY_TEXT_TOO_LARGE, "Query text length (%s) exceeds the maximum length (%s)".formatted(queryLength, maxQueryLength));
             }
 
             // decode session

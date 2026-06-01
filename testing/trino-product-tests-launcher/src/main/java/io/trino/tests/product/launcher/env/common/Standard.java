@@ -54,7 +54,6 @@ import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER_NTH;
 import static io.trino.tests.product.launcher.testcontainers.PortBinder.unsafelyExposePort;
 import static java.lang.Integer.parseInt;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
@@ -258,9 +257,8 @@ public final class Standard
             script.toFile().deleteOnExit();
             Files.writeString(
                     script,
-                    format(
-                            "#!/bin/bash\n" +
-                                    "printf '%%s\\n' '%s' >> '%s'\n",
+                    ("#!/bin/bash\n" +
+                    "printf '%%s\\n' '%s' >> '%s'\n").formatted(
                             "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=0.0.0.0:" + debugPort,
                             CONTAINER_TRINO_JVM_CONFIG),
                     UTF_8);
@@ -308,12 +306,11 @@ public final class Standard
             script.toFile().deleteOnExit();
             Files.writeString(
                     script,
-                    format(
-                            "#!/bin/bash\n" +
-                                    "ipv6=$(hostname -I | awk '{print $2}')\n" +
-                                    "IPv6 address of the node: ${ipv6}\n" +
-                                    "echo '-Djava.net.preferIPv6Addresses=true' >> '%s'\n" +
-                                    "echo \"node.internal-address=${ipv6}\" >> '%s'\n",
+                    ("#!/bin/bash\n" +
+                    "ipv6=$(hostname -I | awk '{print $2}')\n" +
+                    "IPv6 address of the node: ${ipv6}\n" +
+                    "echo '-Djava.net.preferIPv6Addresses=true' >> '%s'\n" +
+                    "echo \"node.internal-address=${ipv6}\" >> '%s'\n").formatted(
                             CONTAINER_TRINO_JVM_CONFIG,
                             CONTAINER_TRINO_CONFIG_PROPERTIES),
                     UTF_8);

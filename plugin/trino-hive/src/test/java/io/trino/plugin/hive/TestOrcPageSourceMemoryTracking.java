@@ -115,7 +115,6 @@ import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -472,7 +471,7 @@ public class TestOrcPageSourceMemoryTracking
                 // memory usage varies depending on stripe alignment
                 long memoryUsage = driverContext.getMemoryUsage();
                 assertThat(memoryUsage < 1000 || (memoryUsage > 150_000 && memoryUsage < 630_000))
-                        .describedAs(format("Memory usage (%s) outside of bounds", memoryUsage))
+                        .describedAs("Memory usage (%s) outside of bounds".formatted(memoryUsage))
                         .isTrue();
 
                 totalRows += page.getPositionCount();
@@ -520,7 +519,7 @@ public class TestOrcPageSourceMemoryTracking
                     .collect(toList());
 
             partitionName = String.join("/", partitionKeys.stream()
-                    .map(partitionKey -> format("%s=%s", partitionKey.name(), partitionKey.value()))
+                    .map(partitionKey -> "%s=%s".formatted(partitionKey.name(), partitionKey.value()))
                     .collect(toImmutableList()));
 
             ImmutableList.Builder<HiveColumnHandle> columnsBuilder = ImmutableList.builder();

@@ -40,7 +40,6 @@ import java.util.Map;
 
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class JweTokenSerializer
@@ -114,7 +113,7 @@ public class JweTokenSerializer
 
         Map<String, Object> claims = client.getAccessTokenClaims(tokenPair.accessToken()).orElseThrow(() -> new IllegalArgumentException("Access Token claims are missing"));
         if (!claims.containsKey(principalField)) {
-            throw new IllegalArgumentException(format("%s field is missing", principalField));
+            throw new IllegalArgumentException("%s field is missing".formatted(principalField));
         }
         JwtBuilder jwt = newJwtBuilder()
                 .expiration(Date.from(clock.instant().plusMillis(tokenExpiration.toMillis())))

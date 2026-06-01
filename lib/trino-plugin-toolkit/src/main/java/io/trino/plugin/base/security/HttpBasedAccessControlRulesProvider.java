@@ -24,7 +24,6 @@ import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.StringResponseHandler.StringResponse;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static io.trino.plugin.base.util.JsonUtils.parseJson;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HttpBasedAccessControlRulesProvider
@@ -52,7 +51,7 @@ public class HttpBasedAccessControlRulesProvider
         StringResponse response = httpClient.execute(request, createStringResponseHandler());
         int status = response.getStatusCode();
         if (status != HttpStatus.OK.code()) {
-            throw new IllegalStateException(format("Request to '%s' returned unexpected status code: '%d'", configUri, status));
+            throw new IllegalStateException("Request to '%s' returned unexpected status code: '%d'".formatted(configUri, status));
         }
         return response.getBody();
     }

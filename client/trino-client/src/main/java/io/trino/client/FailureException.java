@@ -25,7 +25,7 @@ public final class FailureException
 
     FailureException(FailureInfo failureInfo)
     {
-        super(failureInfo.getMessage(), failureInfo.getCause() == null ? null : new FailureException(failureInfo.getCause()));
+        super(failureInfo.getMessage(), null);
         this.failureInfo = failureInfo;
 
         for (FailureInfo suppressed : failureInfo.getSuppressed()) {

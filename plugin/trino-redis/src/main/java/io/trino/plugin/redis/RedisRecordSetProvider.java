@@ -26,10 +26,10 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.RecordSet;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -61,7 +61,7 @@ public class RedisRecordSetProvider
                 session,
                 new RowDecoderSpec(
                         redisSplit.getKeyDataFormat(),
-                        emptyMap(),
+                        Map.of(),
                         redisColumns.stream()
                                 .filter(col -> !col.isInternal())
                                 .filter(RedisColumnHandle::isKeyDecoder)
@@ -71,7 +71,7 @@ public class RedisRecordSetProvider
                 session,
                 new RowDecoderSpec(
                         redisSplit.getValueDataFormat(),
-                        emptyMap(),
+                        Map.of(),
                         redisColumns.stream()
                                 .filter(col -> !col.isInternal())
                                 .filter(col -> !col.isKeyDecoder())

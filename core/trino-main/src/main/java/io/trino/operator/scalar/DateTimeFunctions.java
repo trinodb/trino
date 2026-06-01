@@ -64,7 +64,6 @@ import static io.trino.util.DateTimeZoneIndex.getChronology;
 import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -699,7 +698,7 @@ public final class DateTimeFunctions
                         // %V Week (01..53), where Sunday is the first day of the week; used with %X
                         // %X Year for the week where Sunday is the first day of the week, numeric, four digits; used with %V
                         // %D Day of the month with English suffix (0th, 1st, 2nd, 3rd, ...)
-                        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("%%%s not supported in date format string", character));
+                        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "%%%s not supported in date format string".formatted(character));
                     }
                     case '%' -> {
                         // %% A literal "%" character

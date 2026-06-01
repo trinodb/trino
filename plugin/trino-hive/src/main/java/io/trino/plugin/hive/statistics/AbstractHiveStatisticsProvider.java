@@ -88,7 +88,6 @@ import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 
 public abstract class AbstractHiveStatisticsProvider
@@ -322,7 +321,7 @@ public abstract class AbstractHiveStatisticsProvider
         if (!expression) {
             throw new TrinoException(
                     HIVE_CORRUPTED_COLUMN_STATISTICS,
-                    format("Corrupted partition statistics (Table: %s Partition: [%s] Column: %s): %s", table, partition, column, format(message, args)));
+                    "Corrupted partition statistics (Table: %s Partition: [%s] Column: %s): %s".formatted(table, partition, column, message.formatted(args)));
         }
     }
 
@@ -332,7 +331,7 @@ public abstract class AbstractHiveStatisticsProvider
         if (!expression) {
             throw new TrinoException(
                     HIVE_CORRUPTED_COLUMN_STATISTICS,
-                    format("Corrupted partition statistics (Table: %s Partition: [%s]): %s", table, partition, format(message, args)));
+                    "Corrupted partition statistics (Table: %s Partition: [%s]): %s".formatted(table, partition, message.formatted(args)));
         }
     }
 

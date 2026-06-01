@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.QueryRunner;
@@ -57,8 +56,8 @@ public class TestLocalExecutionPlanner
     @Test
     public void testProjectionCompilerFailure()
     {
-        String inner = "(" + Joiner.on(" + ").join(nCopies(100, "rand()")) + ")";
-        String outer = "x + x + " + Joiner.on(" + ").join(nCopies(100, inner));
+        String inner = "(" + String.join(" + ", nCopies(100, "rand()")) + ")";
+        String outer = "x + x + " + String.join(" + ", nCopies(100, inner));
 
         assertTrinoExceptionThrownBy(() -> runner.execute("SELECT " + outer + " FROM (VALUES rand()) t(x)"))
                 .hasErrorCode(QUERY_EXCEEDED_COMPILER_LIMIT)
@@ -70,9 +69,9 @@ public class TestLocalExecutionPlanner
     {
         // Filter Query
         String filterQueryInner = "FROM (SELECT rand() as c1, rand() as c2, rand() as c3)";
-        String filterQueryWhere = "WHERE c1 = rand() OR " + Joiner.on(" AND ").join(nCopies(1000, "c1 = rand()"))
-                + " OR " + Joiner.on(" AND ").join(nCopies(1000, " c2 = rand()"))
-                + " OR " + Joiner.on(" AND ").join(nCopies(1000, " c3 = rand()"));
+        String filterQueryWhere = "WHERE c1 = rand() OR " + String.join(" AND ", nCopies(1000, "c1 = rand()"))
+                + " OR " + String.join(" AND ", nCopies(1000, " c2 = rand()"))
+                + " OR " + String.join(" AND ", nCopies(1000, " c3 = rand()"));
 
         assertTrinoExceptionThrownBy(() -> runner.execute("SELECT * " + filterQueryInner + filterQueryWhere))
                 .hasErrorCode(QUERY_EXCEEDED_COMPILER_LIMIT)

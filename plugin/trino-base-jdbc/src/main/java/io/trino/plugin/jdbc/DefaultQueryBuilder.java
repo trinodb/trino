@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.jdbc;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
@@ -48,7 +47,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Math.max;
-import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -88,7 +86,7 @@ public class DefaultQueryBuilder
                     .filter(domains::containsKey)
                     .filter(column -> columnExpressions.containsKey(column.getColumnName()))
                     .findFirst()
-                    .ifPresent(column -> { throw new IllegalArgumentException(format("Column %s has an expression and a constraint attached at the same time", column)); });
+                    .ifPresent(column -> { throw new IllegalArgumentException("Column %s has an expression and a constraint attached at the same time".formatted(column)); });
         }
 
         ImmutableList.Builder<String> conjuncts = ImmutableList.builder();
@@ -104,7 +102,7 @@ public class DefaultQueryBuilder
         });
         List<String> clauses = conjuncts.build();
         if (!clauses.isEmpty()) {
-            sql += " WHERE " + Joiner.on(" AND ").join(clauses);
+            sql += " WHERE " + String.join(" AND ", clauses);
         }
 
         sql += getGroupBy(client, groupingSets);
@@ -127,24 +125,23 @@ public class DefaultQueryBuilder
         // Joins wih no conditions are not pushed down, so it is a same assumption and simplifies the code here
         verify(!joinConditions.isEmpty(), "joinConditions is empty");
 
-        String query = format(
-                // The subquery aliases (`l` and `r`) are needed by some databases, but are not needed for expressions
-                // The joinConditions and output columns are aliased to use unique names.
-                "SELECT %s FROM (SELECT %s FROM (%s) l) l %s (SELECT %s FROM (%s) r) r ON %s",
-                formatProjectionAliases(
-                        client,
-                        ImmutableList.<String>builder()
-                                .addAll(leftProjections.values())
-                                .addAll(rightProjections.values())
-                                .build()),
-                formatProjections(client, leftProjections),
-                leftSource.query(),
-                formatJoinType(joinType),
-                formatProjections(client, rightProjections),
-                rightSource.query(),
-                joinConditions.stream()
-                        .map(ParameterizedExpression::expression)
-                        .collect(joining(") AND (", "(", ")")));
+        String query = // The subquery aliases (`l` and `r`) are needed by some databases, but are not needed for expressions
+        // The joinConditions and output columns are aliased to use unique names.
+                "SELECT %s FROM (SELECT %s FROM (%s) l) l %s (SELECT %s FROM (%s) r) r ON %s".formatted(
+                        formatProjectionAliases(
+                                client,
+                                ImmutableList.<String>builder()
+                                        .addAll(leftProjections.values())
+                                        .addAll(rightProjections.values())
+                                        .build()),
+                        formatProjections(client, leftProjections),
+                        leftSource.query(),
+                        formatJoinType(joinType),
+                        formatProjections(client, rightProjections),
+                        rightSource.query(),
+                        joinConditions.stream()
+                                .map(ParameterizedExpression::expression)
+                                .collect(joining(") AND (", "(", ")")));
         List<QueryParameter> parameters = ImmutableList.<QueryParameter>builder()
                 .addAll(leftSource.parameters())
                 .addAll(rightSource.parameters())
@@ -176,8 +173,7 @@ public class DefaultQueryBuilder
         String leftRelationAlias = "l";
         String rightRelationAlias = "r";
 
-        String query = format(
-                "SELECT %s, %s FROM (%s) %s %s (%s) %s ON %s",
+        String query = "SELECT %s, %s FROM (%s) %s %s (%s) %s ON %s".formatted(
                 formatAssignments(client, leftRelationAlias, leftAssignments),
                 formatAssignments(client, rightRelationAlias, rightAssignments),
                 leftSource.query(),
@@ -216,7 +212,7 @@ public class DefaultQueryBuilder
         });
         List<String> clauses = conjuncts.build();
         if (!clauses.isEmpty()) {
-            sql += " WHERE " + Joiner.on(" AND ").join(clauses);
+            sql += " WHERE " + String.join(" AND ", clauses);
         }
         return new PreparedQuery(sql, accumulator.build());
     }
@@ -267,7 +263,7 @@ public class DefaultQueryBuilder
         });
         List<String> clauses = conjuncts.build();
         if (!clauses.isEmpty()) {
-            sql += " WHERE " + Joiner.on(" AND ").join(clauses);
+            sql += " WHERE " + String.join(" AND ", clauses);
         }
         return new PreparedQuery(sql, accumulator.build());
     }
@@ -333,8 +329,7 @@ public class DefaultQueryBuilder
 
     protected String formatJoinCondition(JdbcClient client, String leftRelationAlias, String rightRelationAlias, JdbcJoinCondition condition)
     {
-        return format(
-                "%s.%s %s %s.%s",
+        return "%s.%s %s %s.%s".formatted(
                 leftRelationAlias,
                 buildJoinColumn(client, condition.getLeftColumn()),
                 condition.getOperator().getValue(),
@@ -353,21 +348,21 @@ public class DefaultQueryBuilder
             return "1 x";
         }
         return projections.entrySet().stream()
-                .map(entry -> format("%s AS %s", client.quoted(entry.getKey().getColumnName()), client.quoted(entry.getValue())))
+                .map(entry -> "%s AS %s".formatted(client.quoted(entry.getKey().getColumnName()), client.quoted(entry.getValue())))
                 .collect(joining(", "));
     }
 
     protected String formatProjectionAliases(JdbcClient client, Collection<String> aliases)
     {
         return aliases.stream()
-                .map(s -> format("%s", client.quoted(s)))
+                .map(s -> "%s".formatted(client.quoted(s)))
                 .collect(joining(", "));
     }
 
     protected String formatAssignments(JdbcClient client, String relationAlias, Map<JdbcColumnHandle, String> assignments)
     {
         return assignments.entrySet().stream()
-                .map(entry -> format("%s.%s AS %s", relationAlias, client.quoted(entry.getKey().getColumnName()), client.quoted(entry.getValue())))
+                .map(entry -> "%s.%s AS %s".formatted(relationAlias, client.quoted(entry.getKey().getColumnName()), client.quoted(entry.getValue())))
                 .collect(joining(", "));
     }
 
@@ -399,7 +394,7 @@ public class DefaultQueryBuilder
                 projections.add(columnAlias);
             }
             else {
-                projections.add(format("%s AS %s", expression.expression(), columnAlias));
+                projections.add("%s AS %s".formatted(expression.expression(), columnAlias));
                 expression.parameters().forEach(accumulator);
             }
         }
@@ -422,7 +417,7 @@ public class DefaultQueryBuilder
     protected Domain pushDownDomain(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, Domain domain)
     {
         return client.toColumnMapping(session, connection, column.getJdbcTypeHandle())
-                .orElseThrow(() -> new IllegalStateException(format("Unsupported type %s with handle %s", column.getColumnType(), column.getJdbcTypeHandle())))
+                .orElseThrow(() -> new IllegalStateException("Unsupported type %s with handle %s".formatted(column.getColumnType(), column.getJdbcTypeHandle())))
                 .getPredicatePushdownController().apply(session, domain).getPushedDown();
     }
 
@@ -459,7 +454,7 @@ public class DefaultQueryBuilder
         if (!domain.isNullAllowed()) {
             return predicate;
         }
-        return format("(%s OR %s IS NULL)", predicate, client.quoted(column.getColumnName()));
+        return "(%s OR %s IS NULL)".formatted(predicate, client.quoted(column.getColumnName()));
     }
 
     protected String toPredicate(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, ValueSet valueSet, Consumer<QueryParameter> accumulator)
@@ -469,7 +464,7 @@ public class DefaultQueryBuilder
         if (!valueSet.isDiscreteSet()) {
             ValueSet complement = valueSet.complement();
             if (complement.isDiscreteSet()) {
-                return format("NOT (%s)", toPredicate(client, session, connection, column, complement, accumulator));
+                return "NOT (%s)".formatted(toPredicate(client, session, connection, column, complement, accumulator));
             }
         }
 
@@ -498,7 +493,7 @@ public class DefaultQueryBuilder
                     disjuncts.add(getOnlyElement(rangeConjuncts));
                 }
                 else {
-                    disjuncts.add("(" + Joiner.on(" AND ").join(rangeConjuncts) + ")");
+                    disjuncts.add("(" + String.join(" AND ", rangeConjuncts) + ")");
                 }
             }
         }
@@ -511,7 +506,7 @@ public class DefaultQueryBuilder
             for (Object value : singleValues) {
                 accumulator.accept(new QueryParameter(jdbcType, type, Optional.of(value)));
             }
-            String values = Joiner.on(",").join(nCopies(singleValues.size(), writeFunction.getBindExpression()));
+            String values = String.join(",", nCopies(singleValues.size(), writeFunction.getBindExpression()));
             disjuncts.add(client.quoted(column.getColumnName()) + " IN (" + values + ")");
         }
 
@@ -519,13 +514,13 @@ public class DefaultQueryBuilder
         if (disjuncts.size() == 1) {
             return getOnlyElement(disjuncts);
         }
-        return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
+        return "(" + String.join(" OR ", disjuncts) + ")";
     }
 
     protected String toPredicate(JdbcClient client, ConnectorSession session, JdbcColumnHandle column, JdbcTypeHandle jdbcType, Type type, WriteFunction writeFunction, String operator, Object value, Consumer<QueryParameter> accumulator)
     {
         accumulator.accept(new QueryParameter(jdbcType, type, Optional.of(value)));
-        return format("%s %s %s", client.quoted(column.getColumnName()), operator, writeFunction.getBindExpression());
+        return "%s %s %s".formatted(client.quoted(column.getColumnName()), operator, writeFunction.getBindExpression());
     }
 
     protected String getGroupBy(JdbcClient client, Optional<List<List<JdbcColumnHandle>>> groupingSets)
@@ -558,7 +553,7 @@ public class DefaultQueryBuilder
     private static WriteFunction getWriteFunction(JdbcClient client, ConnectorSession session, Connection connection, JdbcTypeHandle jdbcType, Type type)
     {
         WriteFunction writeFunction = client.toColumnMapping(session, connection, jdbcType)
-                .orElseThrow(() -> new VerifyException(format("Unsupported type %s with handle %s", type, jdbcType)))
+                .orElseThrow(() -> new VerifyException("Unsupported type %s with handle %s".formatted(type, jdbcType)))
                 .getWriteFunction();
         verify(writeFunction.getJavaType() == type.getJavaType(), "Java type mismatch: %s, %s", writeFunction, type);
         return writeFunction;

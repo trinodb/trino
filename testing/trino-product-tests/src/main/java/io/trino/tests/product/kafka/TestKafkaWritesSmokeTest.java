@@ -27,7 +27,6 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tests.product.TestGroups.KAFKA;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestKafkaWritesSmokeTest
@@ -41,17 +40,15 @@ public class TestKafkaWritesSmokeTest
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     public void testInsertSimpleKeyAndValue()
     {
-        assertThat(onTrino().executeQuery(format(
-                "INSERT INTO %s.%s.%s VALUES " +
-                        "('jasio', 1, 'ania', 2), " +
-                        "('piotr', 3, 'kasia', 4)",
+        assertThat(onTrino().executeQuery(("INSERT INTO %s.%s.%s VALUES " +
+        "('jasio', 1, 'ania', 2), " +
+        "('piotr', 3, 'kasia', 4)").formatted(
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
                 SIMPLE_KEY_AND_VALUE_TABLE_NAME)))
                 .updatedRowsCountIsEqualTo(2);
 
-        assertThat(onTrino().executeQuery(format(
-                "SELECT * FROM %s.%s.%s",
+        assertThat(onTrino().executeQuery("SELECT * FROM %s.%s.%s".formatted(
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
                 SIMPLE_KEY_AND_VALUE_TABLE_NAME)))
@@ -69,19 +66,17 @@ public class TestKafkaWritesSmokeTest
         //  BIGINT with dataFormat = BYTE takes up 8 bytes during write (as opposed to 1 byte
         //  during read) and hence a buffer overflow is possible before we are able to reach
         //  the end of row.
-        assertThat(onTrino().executeQuery(format(
-                "INSERT INTO %s.%s.%s VALUES " +
-                        "('jasio', 9223372036854775807, 2147483647, 32767, 127, 1234567890.123456789, true), " +
-                        "('piotr', -9223372036854775808, -2147483648, -32768, -128, -1234567890.123456789, false), " +
-                        "('hasan', 9223372036854775807, 2147483647, 32767, 127, 1234567890.123456789, true), " +
-                        "('kasia', -9223372036854775808, -2147483648, -32768, -128, -1234567890.123456789, false)",
+        assertThat(onTrino().executeQuery(("INSERT INTO %s.%s.%s VALUES " +
+        "('jasio', 9223372036854775807, 2147483647, 32767, 127, 1234567890.123456789, true), " +
+        "('piotr', -9223372036854775808, -2147483648, -32768, -128, -1234567890.123456789, false), " +
+        "('hasan', 9223372036854775807, 2147483647, 32767, 127, 1234567890.123456789, true), " +
+        "('kasia', -9223372036854775808, -2147483648, -32768, -128, -1234567890.123456789, false)").formatted(
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
                 ALL_DATATYPES_RAW_TABLE_NAME)))
                 .updatedRowsCountIsEqualTo(4);
 
-        assertThat(onTrino().executeQuery(format(
-                "SELECT * FROM %s.%s.%s",
+        assertThat(onTrino().executeQuery("SELECT * FROM %s.%s.%s".formatted(
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
                 ALL_DATATYPES_RAW_TABLE_NAME)))
@@ -97,20 +92,18 @@ public class TestKafkaWritesSmokeTest
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     public void testInsertCsvTable()
     {
-        assertThat(onTrino().executeQuery(format(
-                "INSERT INTO %s.%s.%s VALUES " +
-                        "('jasio', 9223372036854775807, 2147483647, 32767, 127, 1234567890.123456789, true), " +
-                        "('stasio', -9223372036854775808, -2147483648, -32768, -128, -1234567890.123456789, false), " +
-                        "(null, null, null, null, null, null, null), " +
-                        "('krzysio', 9223372036854775807, 2147483647, 32767, 127, 1234567890.123456789, false), " +
-                        "('kasia', 9223372036854775807, 2147483647, 32767, null, null, null)",
+        assertThat(onTrino().executeQuery(("INSERT INTO %s.%s.%s VALUES " +
+        "('jasio', 9223372036854775807, 2147483647, 32767, 127, 1234567890.123456789, true), " +
+        "('stasio', -9223372036854775808, -2147483648, -32768, -128, -1234567890.123456789, false), " +
+        "(null, null, null, null, null, null, null), " +
+        "('krzysio', 9223372036854775807, 2147483647, 32767, 127, 1234567890.123456789, false), " +
+        "('kasia', 9223372036854775807, 2147483647, 32767, null, null, null)").formatted(
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
                 ALL_DATATYPES_CSV_TABLE_NAME)))
                 .updatedRowsCountIsEqualTo(5);
 
-        assertThat(onTrino().executeQuery(format(
-                "SELECT * FROM %s.%s.%s",
+        assertThat(onTrino().executeQuery("SELECT * FROM %s.%s.%s".formatted(
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
                 ALL_DATATYPES_CSV_TABLE_NAME)))
@@ -127,65 +120,63 @@ public class TestKafkaWritesSmokeTest
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     public void testInsertJsonTable()
     {
-        assertThat(onTrino().executeQuery(format(
-                "INSERT INTO %s.%s.%s VALUES (" +
-                        "'ala ma kota'," +
-                        "9223372036854775807," +
-                        "2147483647," +
-                        "32767," +
-                        "127," +
-                        "1234567890.123456789," +
-                        "true," +
-                        "TIMESTAMP '2018-02-09 13:15:16'," +
-                        "TIMESTAMP '2018-02-09 13:15:17'," +
-                        "TIMESTAMP '2018-02-09 13:15:18'," +
-                        "TIMESTAMP '2018-02-09 13:15:19'," +
-                        "TIMESTAMP '2018-02-09 13:15:20'," +
-                        "DATE '2018-02-11'," +
-                        "DATE '2018-02-13'," +
-                        "TIME '13:15:16'," +
-                        "TIME '13:15:17'," +
-                        "TIME '13:15:18'," +
-                        "TIME '13:15:20'," +
-                        "TIMESTAMP '2018-02-09 13:15:18 Pacific/Apia'," +
-                        "TIMESTAMP '2018-02-09 13:15:19 Pacific/Apia'," +
-                        "TIMESTAMP '2018-02-09 13:15:20 Pacific/Apia'," +
-                        "TIMESTAMP '2018-02-09 13:15:21 Pacific/Apia'," +
-                        // Pacific/Apia was UTC-11:00 on epoch day 0
-                        "TIME '02:15:18 -11:00'," +
-                        "TIME '02:15:20 -11:00')",
+        assertThat(onTrino().executeQuery(("INSERT INTO %s.%s.%s VALUES (" +
+        "'ala ma kota'," +
+        "9223372036854775807," +
+        "2147483647," +
+        "32767," +
+        "127," +
+        "1234567890.123456789," +
+        "true," +
+        "TIMESTAMP '2018-02-09 13:15:16'," +
+        "TIMESTAMP '2018-02-09 13:15:17'," +
+        "TIMESTAMP '2018-02-09 13:15:18'," +
+        "TIMESTAMP '2018-02-09 13:15:19'," +
+        "TIMESTAMP '2018-02-09 13:15:20'," +
+        "DATE '2018-02-11'," +
+        "DATE '2018-02-13'," +
+        "TIME '13:15:16'," +
+        "TIME '13:15:17'," +
+        "TIME '13:15:18'," +
+        "TIME '13:15:20'," +
+        "TIMESTAMP '2018-02-09 13:15:18 Pacific/Apia'," +
+        "TIMESTAMP '2018-02-09 13:15:19 Pacific/Apia'," +
+        "TIMESTAMP '2018-02-09 13:15:20 Pacific/Apia'," +
+        "TIMESTAMP '2018-02-09 13:15:21 Pacific/Apia'," +
+        // Pacific/Apia was UTC-11:00 on epoch day 0
+        "TIME '02:15:18 -11:00'," +
+        "TIME '02:15:20 -11:00')").formatted(
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
                 ALL_DATATYPES_JSON_TABLE_NAME)))
                 .updatedRowsCountIsEqualTo(1);
 
-        assertThat(onTrino().executeQuery(format(
-                "SELECT c_varchar, " +
-                        "c_bigint, " +
-                        "c_integer, " +
-                        "c_smallint, " +
-                        "c_tinyint, " +
-                        "c_double, " +
-                        "c_boolean, " +
-                        "c_timestamp_milliseconds_since_epoch, " +
-                        "c_timestamp_seconds_since_epoch, " +
-                        "c_timestamp_iso8601, " +
-                        "c_timestamp_rfc2822, " +
-                        "c_timestamp_custom, " +
-                        "c_date_iso8601, " +
-                        "c_date_custom, " +
-                        "c_time_milliseconds_since_epoch, " +
-                        "c_time_seconds_since_epoch, " +
-                        "c_time_iso8601, " +
-                        "c_time_custom, " +
-                        // TODO Until https://github.com/trinodb/trino/pull/307 is done, comparing string representation is more resilient against JVM timezone differences
-                        "CAST(c_timestamptz_iso8601 AS VARCHAR), " +
-                        "CAST(c_timestamptz_rfc2822 AS VARCHAR), " +
-                        "CAST(c_timestamptz_custom AS VARCHAR), " +
-                        "CAST(c_timestamptz_custom_with_zone AS VARCHAR), " +
-                        "CAST(c_timetz_iso8601 AS VARCHAR), " +
-                        "CAST(c_timetz_custom AS VARCHAR) " +
-                        "FROM %s.%s.%s",
+        assertThat(onTrino().executeQuery(("SELECT c_varchar, " +
+        "c_bigint, " +
+        "c_integer, " +
+        "c_smallint, " +
+        "c_tinyint, " +
+        "c_double, " +
+        "c_boolean, " +
+        "c_timestamp_milliseconds_since_epoch, " +
+        "c_timestamp_seconds_since_epoch, " +
+        "c_timestamp_iso8601, " +
+        "c_timestamp_rfc2822, " +
+        "c_timestamp_custom, " +
+        "c_date_iso8601, " +
+        "c_date_custom, " +
+        "c_time_milliseconds_since_epoch, " +
+        "c_time_seconds_since_epoch, " +
+        "c_time_iso8601, " +
+        "c_time_custom, " +
+        // TODO Until https://github.com/trinodb/trino/pull/307 is done, comparing string representation is more resilient against JVM timezone differences
+        "CAST(c_timestamptz_iso8601 AS VARCHAR), " +
+        "CAST(c_timestamptz_rfc2822 AS VARCHAR), " +
+        "CAST(c_timestamptz_custom AS VARCHAR), " +
+        "CAST(c_timestamptz_custom_with_zone AS VARCHAR), " +
+        "CAST(c_timetz_iso8601 AS VARCHAR), " +
+        "CAST(c_timetz_custom AS VARCHAR) " +
+        "FROM %s.%s.%s").formatted(
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
                 ALL_DATATYPES_JSON_TABLE_NAME)))

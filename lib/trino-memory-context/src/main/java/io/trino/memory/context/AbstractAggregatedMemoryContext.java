@@ -19,7 +19,6 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static java.lang.String.format;
 
 @ThreadSafe
 abstract class AbstractAggregatedMemoryContext
@@ -97,7 +96,7 @@ abstract class AbstractAggregatedMemoryContext
             return Math.addExact(usedBytes, bytes);
         }
         catch (ArithmeticException e) {
-            throw new RuntimeException(format("Overflow detected. usedBytes: %d, bytes: %d", usedBytes, bytes), e);
+            throw new RuntimeException("Overflow detected. usedBytes: %d, bytes: %d".formatted(usedBytes, bytes), e);
         }
     }
 }

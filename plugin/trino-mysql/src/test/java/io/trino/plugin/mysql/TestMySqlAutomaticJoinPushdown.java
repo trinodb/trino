@@ -19,7 +19,6 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
-import static java.lang.String.format;
 import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestMySqlAutomaticJoinPushdown
@@ -58,7 +57,7 @@ public class TestMySqlAutomaticJoinPushdown
                 // varchar index require length
                 continue;
             }
-            onRemoteDatabase(format("CREATE INDEX \"%2$s\" ON %1$s (\"%2$s\")", tableName, columnName).replace("\"", "`"));
+            onRemoteDatabase("CREATE INDEX \"%2$s\" ON %1$s (\"%2$s\")".formatted(tableName, columnName).replace("\"", "`"));
         }
         onRemoteDatabase("ANALYZE TABLE " + tableName.replace("\"", "`"));
     }

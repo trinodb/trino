@@ -56,7 +56,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Objects.requireNonNull;
 
@@ -578,7 +577,7 @@ public final class TypeOperatorDeclaration
                 returnConvention = FLAT_RETURN;
             }
             else {
-                throw new IllegalArgumentException(format("Expected %s operator to return %s: %s", operatorType, expectedReturnType, method));
+                throw new IllegalArgumentException("Expected %s operator to return %s: %s".formatted(operatorType, expectedReturnType, method));
             }
             return returnConvention;
         }
@@ -630,14 +629,14 @@ public final class TypeOperatorDeclaration
                     return NEVER_NULL;
                 }
             }
-            throw new IllegalArgumentException(format("Unexpected parameters for %s operator: %s", operatorType, method));
+            throw new IllegalArgumentException("Unexpected parameters for %s operator: %s".formatted(operatorType, method));
         }
 
         @FormatMethod
         private static void checkArgument(boolean test, String message, Object... arguments)
         {
             if (!test) {
-                throw new IllegalArgumentException(format(message, arguments));
+                throw new IllegalArgumentException(message.formatted(arguments));
             }
         }
 

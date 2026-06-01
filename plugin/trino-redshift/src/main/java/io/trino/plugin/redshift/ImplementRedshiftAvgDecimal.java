@@ -34,7 +34,6 @@ import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleA
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.type;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.variable;
 import static io.trino.plugin.redshift.RedshiftClient.REDSHIFT_MAX_DECIMAL_PRECISION;
-import static java.lang.String.format;
 
 public class ImplementRedshiftAvgDecimal
         implements AggregateFunctionRule<JdbcExpression, ParameterizedExpression>
@@ -65,7 +64,7 @@ public class ImplementRedshiftAvgDecimal
         // When decimal type has maximum precision we can get result that is not matching Trino avg semantics.
         if (type.getPrecision() == REDSHIFT_MAX_DECIMAL_PRECISION) {
             return Optional.of(new JdbcExpression(
-                    format("avg(CAST(%s AS decimal(%s, %s)))", rewrittenArgument.expression(), type.getPrecision(), type.getScale()),
+                    "avg(CAST(%s AS decimal(%s, %s)))".formatted(rewrittenArgument.expression(), type.getPrecision(), type.getScale()),
                     rewrittenArgument.parameters(),
                     columnHandle.getJdbcTypeHandle()));
         }
@@ -73,7 +72,7 @@ public class ImplementRedshiftAvgDecimal
         // Redshift avg function rounds down resulting decimal.
         // To match Trino avg semantics, we extend scale by 1 and round result to target scale.
         return Optional.of(new JdbcExpression(
-                format("round(avg(CAST(%s AS decimal(%s, %s))), %s)", rewrittenArgument.expression(), type.getPrecision() + 1, type.getScale() + 1, type.getScale()),
+                "round(avg(CAST(%s AS decimal(%s, %s))), %s)".formatted(rewrittenArgument.expression(), type.getPrecision() + 1, type.getScale() + 1, type.getScale()),
                 rewrittenArgument.parameters(),
                 columnHandle.getJdbcTypeHandle()));
     }

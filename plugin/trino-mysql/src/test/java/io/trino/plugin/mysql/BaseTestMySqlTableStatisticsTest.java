@@ -36,7 +36,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.withinPercentage;
@@ -78,7 +77,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
     {
         String tableName = "test_not_analyzed_" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
+        computeActual("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders".formatted(tableName));
         try {
             MaterializedResult statsResult = computeActual("SHOW STATS FOR " + tableName);
             assertColumnStats(statsResult, new MapBuilder<String, Integer>()
@@ -110,7 +109,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
     {
         String tableName = "test_stats_orders_" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
+        computeActual("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders".formatted(tableName));
         try {
             gatherStats(tableName);
             MaterializedResult statsResult = computeActual("SHOW STATS FOR " + tableName);
@@ -138,9 +137,9 @@ public abstract class BaseTestMySqlTableStatisticsTest
     {
         String tableName = "test_stats_table_all_nulls_" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        computeActual(format("CREATE TABLE %s AS SELECT orderkey, custkey, orderpriority, comment FROM tpch.tiny.orders WHERE false", tableName));
+        computeActual("CREATE TABLE %s AS SELECT orderkey, custkey, orderpriority, comment FROM tpch.tiny.orders WHERE false".formatted(tableName));
         try {
-            computeActual(format("INSERT INTO %s (orderkey) VALUES NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL", tableName));
+            computeActual("INSERT INTO %s (orderkey) VALUES NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL".formatted(tableName));
             gatherStats(tableName);
             MaterializedResult statsResult = computeActual("SHOW STATS FOR " + tableName);
             for (MaterializedRow row : statsResult) {

@@ -23,7 +23,6 @@ import java.util.Optional;
 
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.type;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionCapture
@@ -95,6 +94,6 @@ public class ExpressionCapture
         if (type.isEmpty()) {
             return name;
         }
-        return format("%s: %s", name, type.get());
+        return "%s: %s".formatted(name, type.get());
     }
 }

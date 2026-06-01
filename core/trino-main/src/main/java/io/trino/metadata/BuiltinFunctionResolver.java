@@ -42,7 +42,6 @@ import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -160,7 +159,7 @@ class BuiltinFunctionResolver
                     if (!isBuiltinFunctionName(catalogSchemaFunctionName)) {
                         throw new TrinoException(
                                 FUNCTION_IMPLEMENTATION_ERROR,
-                                format("Builtin function %s cannot depend on a non-builtin function: %s", functionBinding.functionBinding().getBoundSignature().getName(), catalogSchemaFunctionName));
+                                "Builtin function %s cannot depend on a non-builtin function: %s".formatted(functionBinding.functionBinding().getBoundSignature().getName(), catalogSchemaFunctionName));
                     }
                     return getBuiltinFunctions(catalogSchemaFunctionName.functionName());
                 },

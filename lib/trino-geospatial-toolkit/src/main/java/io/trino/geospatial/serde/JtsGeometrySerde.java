@@ -26,7 +26,6 @@ import org.locationtech.jts.io.WKBWriter;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -172,7 +171,7 @@ public final class JtsGeometrySerde
         if (leftSrid != rightSrid) {
             throw new TrinoException(
                     INVALID_FUNCTION_ARGUMENT,
-                    format("SRID mismatch: %d vs %d", leftSrid, rightSrid));
+                    "SRID mismatch: %d vs %d".formatted(leftSrid, rightSrid));
         }
         return leftSrid;
     }

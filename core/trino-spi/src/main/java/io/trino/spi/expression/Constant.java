@@ -21,8 +21,6 @@ import jakarta.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 
-import static java.util.Collections.emptyList;
-
 public class Constant
         extends ConnectorExpression
 {
@@ -49,7 +47,7 @@ public class Constant
     @Override
     public List<? extends ConnectorExpression> getChildren()
     {
-        return emptyList();
+        return List.of();
     }
 
     @Override

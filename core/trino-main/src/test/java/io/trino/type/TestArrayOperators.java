@@ -15,7 +15,6 @@ package io.trino.type;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -36,7 +35,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 import static io.trino.block.BlockSerdeUtil.writeBlock;
 import static io.trino.operator.scalar.BlockSet.MAX_FUNCTION_MEMORY;
@@ -77,10 +79,7 @@ import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Arrays.asList;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -367,7 +366,7 @@ public class TestArrayOperators
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[TIMESTAMP '1970-01-01 00:00:01', null]"))
                 .hasType(JSON)
-                .isEqualTo(format("[\"%s\",null]", sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0)));
+                .isEqualTo("[\"%s\",null]".formatted(sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0)));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[DATE '2001-08-22', DATE '2001-08-23', null]"))
@@ -428,7 +427,7 @@ public class TestArrayOperators
         assertThat(assertions.expression("CAST(a AS array(BIGINT))")
                 .binding("a", "JSON '[null, null]'"))
                 .hasType(new ArrayType(BIGINT))
-                .isEqualTo(Lists.newArrayList(null, null));
+                .isEqualTo(new ArrayList<>(Arrays.asList(null, null)));
 
         // boolean
         assertThat(assertions.expression("CAST(a AS array(BOOLEAN))")
@@ -505,7 +504,7 @@ public class TestArrayOperators
         assertThat(assertions.expression("CAST(a AS array(ARRAY(BIGINT)))")
                 .binding("a", "JSON '[[1, 2], [3, null], [], [null, null], null]'"))
                 .hasType(new ArrayType(new ArrayType(BIGINT)))
-                .isEqualTo(asList(asList(1L, 2L), asList(3L, null), emptyList(), asList(null, null), null));
+                .isEqualTo(asList(asList(1L, 2L), asList(3L, null), List.of(), asList(null, null), null));
 
         assertThat(assertions.expression("CAST(a AS ARRAY(MAP(VARCHAR, BIGINT)))")
                 .binding(
@@ -1668,7 +1667,7 @@ public class TestArrayOperators
         assertThat(assertions.expression("ARRAY[a]")
                 .binding("a", "NULL"))
                 .hasType(new ArrayType(UNKNOWN))
-                .isEqualTo(Lists.newArrayList((Object) null));
+                .isEqualTo(new ArrayList<>(Arrays.asList((Object) null)));
 
         assertThat(assertions.expression("ARRAY[a, b, c]")
                 .binding("a", "1")
@@ -1682,14 +1681,14 @@ public class TestArrayOperators
                 .binding("b", "NULL")
                 .binding("c", "3"))
                 .hasType(new ArrayType(INTEGER))
-                .isEqualTo(Lists.newArrayList(1, null, 3));
+                .isEqualTo(new ArrayList<>(Arrays.asList(1, null, 3)));
 
         assertThat(assertions.expression("ARRAY[a, b, c]")
                 .binding("a", "NULL")
                 .binding("b", "2")
                 .binding("c", "3"))
                 .hasType(new ArrayType(INTEGER))
-                .isEqualTo(Lists.newArrayList(null, 2, 3));
+                .isEqualTo(new ArrayList<>(Arrays.asList(null, 2, 3)));
 
         assertThat(assertions.expression("ARRAY[a, b, c]")
                 .binding("a", "1")
@@ -1709,7 +1708,7 @@ public class TestArrayOperators
                 .binding("b", "NULL")
                 .binding("c", "ARRAY[3]"))
                 .hasType(new ArrayType(new ArrayType(INTEGER)))
-                .isEqualTo(Lists.newArrayList(ImmutableList.of(1, 2), null, ImmutableList.of(3)));
+                .isEqualTo(new ArrayList<>(Arrays.asList(ImmutableList.of(1, 2), null, ImmutableList.of(3))));
 
         assertThat(assertions.expression("ARRAY[a, b, c]")
                 .binding("a", "BIGINT '1'")
@@ -1723,14 +1722,14 @@ public class TestArrayOperators
                 .binding("b", "CAST(NULL AS BIGINT)")
                 .binding("c", "3"))
                 .hasType(new ArrayType(BIGINT))
-                .isEqualTo(Lists.newArrayList(1L, null, 3L));
+                .isEqualTo(new ArrayList<>(Arrays.asList(1L, null, 3L)));
 
         assertThat(assertions.expression("ARRAY[a, b, c]")
                 .binding("a", "NULL")
                 .binding("b", "20000000000")
                 .binding("c", "30000000000"))
                 .hasType(new ArrayType(BIGINT))
-                .isEqualTo(Lists.newArrayList(null, 20000000000L, 30000000000L));
+                .isEqualTo(new ArrayList<>(Arrays.asList(null, 20000000000L, 30000000000L)));
 
         assertThat(assertions.expression("ARRAY[a, b, c]")
                 .binding("a", "1")
@@ -1750,14 +1749,14 @@ public class TestArrayOperators
                 .binding("b", "NULL")
                 .binding("c", "ARRAY[3]"))
                 .hasType(new ArrayType(new ArrayType(INTEGER)))
-                .isEqualTo(Lists.newArrayList(ImmutableList.of(1, 2), null, ImmutableList.of(3)));
+                .isEqualTo(new ArrayList<>(Arrays.asList(ImmutableList.of(1, 2), null, ImmutableList.of(3))));
 
         assertThat(assertions.expression("ARRAY[a, b, c]")
                 .binding("a", "ARRAY[1, 2]")
                 .binding("b", "NULL")
                 .binding("c", "ARRAY[BIGINT '3']"))
                 .hasType(new ArrayType(new ArrayType(BIGINT)))
-                .isEqualTo(Lists.newArrayList(ImmutableList.of(1L, 2L), null, ImmutableList.of(3L)));
+                .isEqualTo(new ArrayList<>(Arrays.asList(ImmutableList.of(1L, 2L), null, ImmutableList.of(3L))));
 
         assertThat(assertions.expression("ARRAY[a, b, c]")
                 .binding("a", "1.0E0")
@@ -1862,7 +1861,7 @@ public class TestArrayOperators
                 .binding("a", "ARRAY[1, NULL]")
                 .binding("b", "ARRAY[3]"))
                 .hasType(new ArrayType(INTEGER))
-                .isEqualTo(Lists.newArrayList(1, null, 3));
+                .isEqualTo(new ArrayList<>(Arrays.asList(1, null, 3)));
 
         assertThat(assertions.expression("a || b")
                 .binding("a", "ARRAY[1, 2]")
@@ -1886,7 +1885,7 @@ public class TestArrayOperators
                 .binding("a", "ARRAY[NULL]")
                 .binding("b", "ARRAY[NULL]"))
                 .hasType(new ArrayType(UNKNOWN))
-                .isEqualTo(Lists.newArrayList(null, null));
+                .isEqualTo(new ArrayList<>(Arrays.asList(null, null)));
 
         assertThat(assertions.expression("a || b")
                 .binding("a", "ARRAY['puppies']")
@@ -1913,7 +1912,7 @@ public class TestArrayOperators
                 .binding("a", "ARRAY[ARRAY[ARRAY[1]]]")
                 .binding("b", "ARRAY[ARRAY[ARRAY[2]]]"))
                 .hasType(new ArrayType(new ArrayType(new ArrayType(INTEGER))))
-                .isEqualTo(asList(singletonList(Ints.asList(1)), singletonList(Ints.asList(2))));
+                .isEqualTo(asList(List.of(Ints.asList(1)), List.of(Ints.asList(2))));
 
         assertThat(assertions.expression("a || b")
                 .binding("a", "ARRAY[]")
@@ -2034,55 +2033,55 @@ public class TestArrayOperators
                 .binding("a", "1")
                 .binding("b", "ARRAY[2]"))
                 .hasType(new ArrayType(INTEGER))
-                .isEqualTo(Lists.newArrayList(1, 2));
+                .isEqualTo(new ArrayList<>(Arrays.asList(1, 2)));
 
         assertThat(assertions.expression("a || b")
                 .binding("a", "ARRAY[2]")
                 .binding("b", "1"))
                 .hasType(new ArrayType(INTEGER))
-                .isEqualTo(Lists.newArrayList(2, 1));
+                .isEqualTo(new ArrayList<>(Arrays.asList(2, 1)));
 
         assertThat(assertions.expression("a || b")
                 .binding("a", "ARRAY[2]")
                 .binding("b", "BIGINT '1'"))
                 .hasType(new ArrayType(BIGINT))
-                .isEqualTo(Lists.newArrayList(2L, 1L));
+                .isEqualTo(new ArrayList<>(Arrays.asList(2L, 1L)));
 
         assertThat(assertions.expression("a || b")
                 .binding("a", "TRUE")
                 .binding("b", "ARRAY[FALSE]"))
                 .hasType(new ArrayType(BOOLEAN))
-                .isEqualTo(Lists.newArrayList(true, false));
+                .isEqualTo(new ArrayList<>(Arrays.asList(true, false)));
 
         assertThat(assertions.expression("a || b")
                 .binding("a", "ARRAY[FALSE]")
                 .binding("b", "TRUE"))
                 .hasType(new ArrayType(BOOLEAN))
-                .isEqualTo(Lists.newArrayList(false, true));
+                .isEqualTo(new ArrayList<>(Arrays.asList(false, true)));
 
         assertThat(assertions.expression("a || b")
                 .binding("a", "1.0E0")
                 .binding("b", "ARRAY[2.0E0]"))
                 .hasType(new ArrayType(DOUBLE))
-                .isEqualTo(Lists.newArrayList(1.0, 2.0));
+                .isEqualTo(new ArrayList<>(Arrays.asList(1.0, 2.0)));
 
         assertThat(assertions.expression("a || b")
                 .binding("a", "ARRAY[2.0E0]")
                 .binding("b", "1.0E0"))
                 .hasType(new ArrayType(DOUBLE))
-                .isEqualTo(Lists.newArrayList(2.0, 1.0));
+                .isEqualTo(new ArrayList<>(Arrays.asList(2.0, 1.0)));
 
         assertThat(assertions.expression("a || b")
                 .binding("a", "'puppies'")
                 .binding("b", "ARRAY['kittens']"))
                 .hasType(new ArrayType(createVarcharType(7)))
-                .isEqualTo(Lists.newArrayList("puppies", "kittens"));
+                .isEqualTo(new ArrayList<>(Arrays.asList("puppies", "kittens")));
 
         assertThat(assertions.expression("a || b")
                 .binding("a", "ARRAY['kittens']")
                 .binding("b", "'puppies'"))
                 .hasType(new ArrayType(createVarcharType(7)))
-                .isEqualTo(Lists.newArrayList("kittens", "puppies"));
+                .isEqualTo(new ArrayList<>(Arrays.asList("kittens", "puppies")));
 
         assertThat(assertions.expression("a || b")
                 .binding("a", "ARRAY[TIMESTAMP '1970-01-01 00:00:01']")
@@ -2306,8 +2305,7 @@ public class TestArrayOperators
 
         assertThat(assertions.function("array_join", "ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01']", "'|'"))
                 .hasType(VARCHAR)
-                .isEqualTo(format(
-                        "%s|%s",
+                .isEqualTo("%s|%s".formatted(
                         sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0),
                         sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0)));
 
@@ -4108,7 +4106,7 @@ public class TestArrayOperators
 
         assertThat(assertions.function("array_intersect", "ARRAY[NULL]", "ARRAY['abc', NULL]"))
                 .hasType(new ArrayType(createVarcharType(3)))
-                .isEqualTo(singletonList(null));
+                .isEqualTo(List.of(null));
 
         assertThat(assertions.function("array_intersect", "ARRAY['abc', NULL, 'xyz', NULL]", "ARRAY[NULL, 'abc', NULL, NULL]"))
                 .hasType(new ArrayType(createVarcharType(3)))
@@ -4120,7 +4118,7 @@ public class TestArrayOperators
 
         assertThat(assertions.function("array_intersect", "ARRAY[NULL]", "ARRAY[NULL]"))
                 .hasType(new ArrayType(UNKNOWN))
-                .isEqualTo(singletonList(null));
+                .isEqualTo(List.of(null));
 
         // test composite types
         assertThat(assertions.function("array_intersect", "ARRAY[(123, 456), (123, 789)]", "ARRAY[(123, 456), (123, 456), (123, 789)]"))
@@ -5381,7 +5379,7 @@ public class TestArrayOperators
 
         assertThat(assertions.function("repeat", "array[NULL]", "BIGINT '4'"))
                 .hasType(new ArrayType(new ArrayType(UNKNOWN)))
-                .isEqualTo(ImmutableList.of(singletonList(null), singletonList(null), singletonList(null), singletonList(null)));
+                .isEqualTo(ImmutableList.of(List.of(null), List.of(null), List.of(null), List.of(null)));
 
         // null values
         assertThat(assertions.function("repeat", "null", "4"))

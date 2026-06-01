@@ -24,7 +24,6 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class NoDuplicatePlanNodeIdsChecker
@@ -49,8 +48,7 @@ public class NoDuplicatePlanNodeIdsChecker
         requireNonNull(second, "second is null");
         checkArgument(first.getId().equals(second.getId()));
 
-        throw new IllegalStateException(format(
-                "Generated plan contains nodes with duplicated id %s: %s and %s",
+        throw new IllegalStateException("Generated plan contains nodes with duplicated id %s: %s and %s".formatted(
                 first.getId(),
                 first,
                 second));

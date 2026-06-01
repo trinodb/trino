@@ -62,7 +62,6 @@ import static io.trino.testing.TestingSession.testSession;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
-import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -107,7 +106,7 @@ public class TestPrepareTask
     @Test
     public void testPrepareInvalidStatement()
     {
-        Statement statement = new Execute(new NodeLocation(1, 1), identifier("foo"), emptyList());
+        Statement statement = new Execute(new NodeLocation(1, 1), identifier("foo"), List.of());
         String sqlString = "PREPARE my_query FROM EXECUTE foo";
         assertTrinoExceptionThrownBy(() -> executePrepare("my_query", statement, sqlString, TEST_SESSION))
                 .hasErrorCode(NOT_SUPPORTED)
@@ -146,7 +145,7 @@ public class TestPrepareTask
                 Optional.empty(),
                 new NodeVersion("test"));
         Prepare prepare = new Prepare(new NodeLocation(1, 1), identifier(statementName), statement);
-        new PrepareTask(new SqlParser()).execute(prepare, stateMachine, emptyList(), WarningCollector.NOOP);
+        new PrepareTask(new SqlParser()).execute(prepare, stateMachine, List.of(), WarningCollector.NOOP);
         return stateMachine.getAddedPreparedStatements();
     }
 }

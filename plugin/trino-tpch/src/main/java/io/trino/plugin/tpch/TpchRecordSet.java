@@ -38,7 +38,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.tpch.TpchMetadata.getTrinoType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.tpch.TpchColumnTypes.IDENTIFIER;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class TpchRecordSet<E extends TpchEntity>
@@ -270,7 +269,7 @@ public class TpchRecordSet<E extends TpchEntity>
             if (type.getJavaType() == Slice.class) {
                 return Slices.utf8Slice(column.getString(row));
             }
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported column type %s", type.getDisplayName()));
+            throw new TrinoException(NOT_SUPPORTED, "Unsupported column type %s".formatted(type.getDisplayName()));
         }
 
         private TpchColumn<E> getTpchColumn(int field)

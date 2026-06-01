@@ -20,7 +20,6 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.operator.table.SequenceFunction.SequenceFunctionSplit.DEFAULT_SPLIT_SIZE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSequenceFunction
@@ -198,7 +197,7 @@ public class TestSequenceFunction
                                     stop => %s,
                                     step => %s)) t(x)
                 """.formatted(Long.MAX_VALUE, Long.MIN_VALUE, Long.MIN_VALUE / (DEFAULT_SPLIT_SIZE - 1) - 1)))
-                .matches(format("VALUES (null), (%s)", Long.MIN_VALUE / (DEFAULT_SPLIT_SIZE - 1) - 1));
+                .matches("VALUES (null), (%s)".formatted(Long.MIN_VALUE / (DEFAULT_SPLIT_SIZE - 1) - 1));
 
         assertThat(query(
                 """
@@ -238,7 +237,7 @@ public class TestSequenceFunction
                                     stop => %s,
                                     step => %s)) t(x)
                 """.formatted(Long.MIN_VALUE, Long.MAX_VALUE, Long.MAX_VALUE / (DEFAULT_SPLIT_SIZE - 1) + 1)))
-                .matches(format("VALUES (null), (%s)", Long.MAX_VALUE / (DEFAULT_SPLIT_SIZE - 1) + 1));
+                .matches("VALUES (null), (%s)".formatted(Long.MAX_VALUE / (DEFAULT_SPLIT_SIZE - 1) + 1));
 
         assertThat(query(
                 """
@@ -266,7 +265,7 @@ public class TestSequenceFunction
                                     stop => %s,
                                     step => %s)) t(x)
                 """.formatted(start, stop, step)))
-                .matches(format("SELECT BIGINT '%s', BIGINT '%s', BIGINT '%s', BIGINT '%s'", sequenceLength, sequenceLength, start, stop));
+                .matches("SELECT BIGINT '%s', BIGINT '%s', BIGINT '%s', BIGINT '%s'".formatted(sequenceLength, sequenceLength, start, stop));
 
         sequenceLength = DEFAULT_SPLIT_SIZE * 4 + DEFAULT_SPLIT_SIZE / 2;
         stop = start + (sequenceLength - 1) * step;
@@ -278,7 +277,7 @@ public class TestSequenceFunction
                                     stop => %s,
                                     step => %s)) t(x)
                 """.formatted(start, stop, step)))
-                .matches(format("SELECT BIGINT '%s', BIGINT '%s'", start, stop));
+                .matches("SELECT BIGINT '%s', BIGINT '%s'".formatted(start, stop));
 
         step = -5;
         stop = start + (sequenceLength - 1) * step;
@@ -290,7 +289,7 @@ public class TestSequenceFunction
                                     stop => %s,
                                     step => %s)) t(x)
                 """.formatted(start, stop, step)))
-                .matches(format("SELECT BIGINT '%s', BIGINT '%s'", start, stop));
+                .matches("SELECT BIGINT '%s', BIGINT '%s'".formatted(start, stop));
     }
 
     @Test
@@ -307,7 +306,7 @@ public class TestSequenceFunction
                                     stop => %s,
                                     step => %s))
                 """.formatted(start, stop, step)))
-                .matches(format("VALUES (%s), (%s)", start, start + step));
+                .matches("VALUES (%s), (%s)".formatted(start, start + step));
 
         start = Long.MIN_VALUE + 1 - (DEFAULT_SPLIT_SIZE - 1) * step;
         stop = Long.MIN_VALUE + 1;
@@ -319,7 +318,7 @@ public class TestSequenceFunction
                                     stop => %s,
                                     step => %s)) t(x)
                 """.formatted(start, stop, step)))
-                .matches(format("SELECT %s, %s", start, Long.MIN_VALUE + 1));
+                .matches("SELECT %s, %s".formatted(start, Long.MIN_VALUE + 1));
 
         start = Long.MAX_VALUE - 15;
         stop = Long.MAX_VALUE - 3;
@@ -332,7 +331,7 @@ public class TestSequenceFunction
                                     stop => %s,
                                     step => %s))
                 """.formatted(start, stop, step)))
-                .matches(format("VALUES (%s), (%s)", start, start + step));
+                .matches("VALUES (%s), (%s)".formatted(start, start + step));
 
         start = Long.MAX_VALUE - 1 - (DEFAULT_SPLIT_SIZE - 1) * step;
         stop = Long.MAX_VALUE - 1;
@@ -344,6 +343,6 @@ public class TestSequenceFunction
                                     stop => %s,
                                     step => %s)) t(x)
                 """.formatted(start, stop, step)))
-                .matches(format("SELECT %s, %s", start, Long.MAX_VALUE - 1));
+                .matches("SELECT %s, %s".formatted(start, Long.MAX_VALUE - 1));
     }
 }

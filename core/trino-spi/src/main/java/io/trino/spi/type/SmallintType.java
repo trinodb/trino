@@ -45,7 +45,6 @@ import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
 public final class SmallintType
@@ -184,10 +183,10 @@ public final class SmallintType
     private void checkValueValid(long value)
     {
         if (value > Short.MAX_VALUE) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_SHORT for type %s", value, getTypeSignature()));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Value %d exceeds MAX_SHORT for type %s".formatted(value, getTypeSignature()));
         }
         if (value < Short.MIN_VALUE) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_SHORT for type %s", value, getTypeSignature()));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Value %d is less than MIN_SHORT for type %s".formatted(value, getTypeSignature()));
         }
     }
 

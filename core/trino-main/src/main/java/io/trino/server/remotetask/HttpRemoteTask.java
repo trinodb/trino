@@ -129,7 +129,6 @@ import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static io.trino.util.Failures.toFailure;
 import static java.lang.Math.addExact;
 import static java.lang.Math.clamp;
-import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -935,7 +934,7 @@ public final class HttpRemoteTask
                 Duration terminatingTime = nanosSince(terminationStartedNanos);
                 if (terminatingTime.compareTo(taskTerminationTimeout) >= 0) {
                     // timeout and force cleanup locally
-                    fatalUnacknowledgedFailure(new TrinoException(REMOTE_TASK_ERROR, format("Task %s failed to terminate after %s, last known state: %s", taskId, taskTerminationTimeout, taskState)));
+                    fatalUnacknowledgedFailure(new TrinoException(REMOTE_TASK_ERROR, "Task %s failed to terminate after %s, last known state: %s".formatted(taskId, taskTerminationTimeout, taskState)));
                 }
             }
         }
@@ -1008,7 +1007,7 @@ public final class HttpRemoteTask
                     // if cleanup operation has not at least started task termination, mark the task failed
                     TaskState taskState = getTaskInfo().taskStatus().state();
                     if (!taskState.isTerminatingOrDone()) {
-                        fatalAsyncCleanupFailure(new TrinoTransportException(REMOTE_TASK_ERROR, fromUri(request.getUri()), format("Unable to %s task at %s, last known state was: %s", action, request.getUri(), taskState)));
+                        fatalAsyncCleanupFailure(new TrinoTransportException(REMOTE_TASK_ERROR, fromUri(request.getUri()), "Unable to %s task at %s, last known state was: %s".formatted(action, request.getUri(), taskState)));
                     }
                 }
             }
@@ -1032,7 +1031,7 @@ public final class HttpRemoteTask
                     }
 
                     if (failure instanceof RejectedExecutionException && httpClient.isClosed()) {
-                        String message = format("Unable to %s task at %s. HTTP client is closed.", action, request.getUri());
+                        String message = "Unable to %s task at %s. HTTP client is closed.".formatted(action, request.getUri());
                         logError(failure, message);
                         fatalAsyncCleanupFailure(new TrinoTransportException(REMOTE_TASK_ERROR, fromUri(request.getUri()), message));
                         return;
@@ -1040,7 +1039,7 @@ public final class HttpRemoteTask
 
                     // record failure
                     if (cleanupBackoff.failure()) {
-                        String message = format("Unable to %s task at %s. Back off depleted.", action, request.getUri());
+                        String message = "Unable to %s task at %s. Back off depleted.".formatted(action, request.getUri());
                         logError(failure, message);
                         fatalAsyncCleanupFailure(new TrinoTransportException(REMOTE_TASK_ERROR, fromUri(request.getUri()), message));
                         return;

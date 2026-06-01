@@ -29,7 +29,6 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static io.trino.testing.SystemEnvironmentUtils.isEnvSet;
-import static java.lang.String.format;
 
 public class FlakyTestRetryAnalyzer
         implements IRetryAnalyzer
@@ -109,12 +108,11 @@ public class FlakyTestRetryAnalyzer
     {
         String actualTestClass = method.getTestClass().getName();
         if (parameters.length != 0) {
-            return format(
-                    "%s::%s(%s)",
+            return "%s::%s(%s)".formatted(
                     actualTestClass,
                     method.getMethodName(),
                     Joiner.on(",").useForNull("null").join(parameters));
         }
-        return format("%s::%s", actualTestClass, method.getMethodName());
+        return "%s::%s".formatted(actualTestClass, method.getMethodName());
     }
 }

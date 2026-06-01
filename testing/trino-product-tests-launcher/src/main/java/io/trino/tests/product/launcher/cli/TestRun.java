@@ -61,7 +61,6 @@ import static io.trino.tests.product.launcher.env.EnvironmentListener.getStandar
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static io.trino.tests.product.launcher.testcontainers.PortBinder.unsafelyExposePort;
 import static java.lang.StrictMath.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
@@ -343,7 +342,7 @@ public final class TestRun
 
                 if (debug) {
                     temptoJavaOptions = new ArrayList<>(temptoJavaOptions);
-                    temptoJavaOptions.add(format("-agentlib:jdwp=transport=dt_socket,server=y,suspend=%s,address=0.0.0.0:5007", debugSuspend ? "y" : "n"));
+                    temptoJavaOptions.add("-agentlib:jdwp=transport=dt_socket,server=y,suspend=%s,address=0.0.0.0:5007".formatted(debugSuspend ? "y" : "n"));
                     unsafelyExposePort(container, 5007); // debug port
                 }
 

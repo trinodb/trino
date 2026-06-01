@@ -17,8 +17,6 @@ import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.BaseOrcWithBloomFiltersTest;
 import io.trino.testing.QueryRunner;
 
-import static java.lang.String.format;
-
 public class TestHiveOrcWithBloomFilters
         extends BaseOrcWithBloomFiltersTest
 {
@@ -35,8 +33,7 @@ public class TestHiveOrcWithBloomFilters
     @Override
     protected String getTableProperties(String bloomFilterColumnName, String bucketingColumnName)
     {
-        return format(
-                "orc_bloom_filter_columns = ARRAY['%s'], bucketed_by = array['%s'], bucket_count = 1",
+        return "orc_bloom_filter_columns = ARRAY['%s'], bucketed_by = array['%s'], bucket_count = 1".formatted(
                 bloomFilterColumnName,
                 bucketingColumnName);
     }

@@ -39,7 +39,6 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.net.HostAndPort.fromParts;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forClasspathResource;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -165,7 +164,7 @@ public abstract class BaseTestContainer
     {
         Container.ExecResult execResult = executeInContainer(commandAndArgs);
         if (execResult.getExitCode() != 0) {
-            String message = format("Command [%s] exited with %s", String.join(" ", commandAndArgs), execResult.getExitCode());
+            String message = "Command [%s] exited with %s".formatted(String.join(" ", commandAndArgs), execResult.getExitCode());
             log.error("%s", message);
             log.error("stderr: %s", execResult.getStderr());
             log.error("stdout: %s", execResult.getStdout());

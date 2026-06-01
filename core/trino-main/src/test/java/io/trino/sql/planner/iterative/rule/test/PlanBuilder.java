@@ -146,8 +146,6 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUT
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
-import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -1085,7 +1083,7 @@ public class PlanBuilder
 
     public PlanNode indexJoin(IndexJoinNode.Type type, PlanNode probe, PlanNode index)
     {
-        return indexJoin(type, probe, index, emptyList());
+        return indexJoin(type, probe, index, List.of());
     }
 
     public PlanNode indexJoin(
@@ -1302,7 +1300,7 @@ public class PlanBuilder
 
         Symbol old = symbolsByName.put(symbol.name(), symbol);
         if (old != null && !old.type().equals(type)) {
-            throw new IllegalArgumentException(format("Symbol '%s' already registered with type '%s'", name, old.type()));
+            throw new IllegalArgumentException("Symbol '%s' already registered with type '%s'".formatted(name, old.type()));
         }
 
         return symbol;

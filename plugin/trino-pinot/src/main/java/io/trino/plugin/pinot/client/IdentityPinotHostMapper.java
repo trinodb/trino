@@ -17,15 +17,13 @@ import com.google.common.net.HostAndPort;
 import org.apache.helix.model.InstanceConfig;
 import org.apache.pinot.core.transport.ServerInstance;
 
-import static java.lang.String.format;
-
 public class IdentityPinotHostMapper
         implements PinotHostMapper
 {
     @Override
     public String getBrokerHost(String host, String port)
     {
-        return format("%s:%s", host, port);
+        return "%s:%s".formatted(host, port);
     }
 
     @Override

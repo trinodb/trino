@@ -25,7 +25,6 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Verify.verify;
 import static java.lang.Math.clamp;
-import static java.lang.String.format;
 
 public final class LocalMemoryManager
 {
@@ -61,7 +60,7 @@ public final class LocalMemoryManager
         // headroom/untracked allocations, so the heapHeadroom cannot be larger than that space.
         if (heapHeadroom < 0 || heapHeadroom + maxQueryTotalMemoryPerNode > availableMemory) {
             throw new IllegalArgumentException(
-                    format("Invalid memory configuration. The sum of max query memory per node (%s) and heap headroom (%s) cannot be larger than the available heap memory (%s)",
+                    "Invalid memory configuration. The sum of max query memory per node (%s) and heap headroom (%s) cannot be larger than the available heap memory (%s)".formatted(
                             maxQueryTotalMemoryPerNode,
                             heapHeadroom,
                             availableMemory));

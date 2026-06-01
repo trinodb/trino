@@ -19,8 +19,6 @@ import io.trino.spi.type.Type;
 import java.util.List;
 import java.util.Objects;
 
-import static java.lang.String.format;
-import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 public class FieldDereference
@@ -37,7 +35,7 @@ public class FieldDereference
 
         int size = ((RowType) target.getType()).getFields().size();
         if (field < 0 || field >= size) {
-            throw new IllegalArgumentException(format("field out of range: [0, %s], was %s", size - 1, field));
+            throw new IllegalArgumentException("field out of range: [0, %s], was %s".formatted(size - 1, field));
         }
     }
 
@@ -54,7 +52,7 @@ public class FieldDereference
     @Override
     public List<? extends ConnectorExpression> getChildren()
     {
-        return singletonList(target);
+        return List.of(target);
     }
 
     @Override
@@ -82,6 +80,6 @@ public class FieldDereference
     @Override
     public String toString()
     {
-        return format("(%s).#%s", target, field);
+        return "(%s).#%s".formatted(target, field);
     }
 }

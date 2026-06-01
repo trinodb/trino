@@ -43,7 +43,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Integer.parseInt;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RawColumnDecoder
@@ -94,13 +93,13 @@ public class RawColumnDecoder
                         FieldType.valueOf(columnHandle.getDataFormat().toUpperCase(Locale.ENGLISH));
             }
             catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException(format("invalid dataFormat '%s' for column '%s'", columnHandle.getDataFormat(), columnName));
+                throw new IllegalArgumentException("invalid dataFormat '%s' for column '%s'".formatted(columnHandle.getDataFormat(), columnName));
             }
 
             String mapping = Optional.ofNullable(columnHandle.getMapping()).orElse("0");
             Matcher mappingMatcher = MAPPING_PATTERN.matcher(mapping);
             if (!mappingMatcher.matches()) {
-                throw new IllegalArgumentException(format("invalid mapping format '%s' for column '%s'", mapping, columnName));
+                throw new IllegalArgumentException("invalid mapping format '%s' for column '%s'".formatted(mapping, columnName));
             }
             start = parseInt(mappingMatcher.group(1));
             if (mappingMatcher.group(2) != null) {
@@ -173,8 +172,7 @@ public class RawColumnDecoder
     private void checkFieldTypeOneOf(FieldType declaredFieldType, String columnName, FieldType... allowedFieldTypes)
     {
         if (!Arrays.asList(allowedFieldTypes).contains(declaredFieldType)) {
-            throw new IllegalArgumentException(format(
-                    "Wrong dataFormat '%s' specified for column '%s'; %s type implies use of %s",
+            throw new IllegalArgumentException("Wrong dataFormat '%s' specified for column '%s'; %s type implies use of %s".formatted(
                     declaredFieldType.name(),
                     columnName,
                     columnType.getDisplayName(),
@@ -189,16 +187,14 @@ public class RawColumnDecoder
         int actualEnd = end.orElse(value.length);
 
         if (start > value.length) {
-            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format(
-                    "start offset %s for column '%s' must be less that or equal to value length %s",
+            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, "start offset %s for column '%s' must be less that or equal to value length %s".formatted(
                     start,
                     columnName,
                     value.length));
         }
 
         if (actualEnd > value.length) {
-            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format(
-                    "end offset %s for column '%s' must be less that or equal to value length %s",
+            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, "end offset %s for column '%s' must be less that or equal to value length %s".formatted(
                     actualEnd,
                     columnName,
                     value.length));
@@ -241,7 +237,7 @@ public class RawColumnDecoder
                 case SHORT -> value.getShort(start) != 0;
                 case INT -> value.getInt(start) != 0;
                 case LONG -> value.getLong(start) != 0;
-                default -> throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("conversion '%s' to boolean not supported", fieldType));
+                default -> throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, "conversion '%s' to boolean not supported".formatted(fieldType));
             };
         }
 
@@ -254,7 +250,7 @@ public class RawColumnDecoder
                 case SHORT -> value.getShort(start);
                 case INT -> value.getInt(start);
                 case LONG -> value.getLong(start);
-                default -> throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("conversion '%s' to long not supported", fieldType));
+                default -> throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, "conversion '%s' to long not supported".formatted(fieldType));
             };
         }
 
@@ -265,7 +261,7 @@ public class RawColumnDecoder
             return switch (fieldType) {
                 case FLOAT -> value.getFloat(start);
                 case DOUBLE -> value.getDouble(start);
-                default -> throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("conversion '%s' to double not supported", fieldType));
+                default -> throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, "conversion '%s' to double not supported".formatted(fieldType));
             };
         }
 

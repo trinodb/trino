@@ -19,7 +19,6 @@ import java.util.concurrent.CompletableFuture;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.stream.Collectors.toUnmodifiableList;
 import static java.util.stream.StreamSupport.stream;
 
 public class FixedSplitSource
@@ -52,7 +51,9 @@ public class FixedSplitSource
     private FixedSplitSource(Iterable<? extends ConnectorSplit> splits, Optional<List<Object>> tableExecuteSplitsInfo)
     {
         requireNonNull(splits, "splits is null");
-        this.splits = stream(splits.spliterator(), false).collect(toUnmodifiableList());
+        this.splits = stream(splits.spliterator(), false)
+                .map(ConnectorSplit.class::cast)
+                .toList();
         this.tableExecuteSplitsInfo = tableExecuteSplitsInfo.map(List::copyOf);
     }
 

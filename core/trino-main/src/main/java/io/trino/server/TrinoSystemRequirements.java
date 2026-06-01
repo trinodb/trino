@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Locale;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 
 final class TrinoSystemRequirements
 {
@@ -189,13 +188,13 @@ final class TrinoSystemRequirements
     @FormatMethod
     private static void failRequirement(String format, Object... args)
     {
-        System.err.println("ERROR: " + format(format, args));
+        System.err.println("ERROR: " + format.formatted(args));
         System.exit(100);
     }
 
     @FormatMethod
     private static void warnRequirement(String format, Object... args)
     {
-        System.err.println("WARNING: " + format(format, args));
+        System.err.println("WARNING: " + format.formatted(args));
     }
 }

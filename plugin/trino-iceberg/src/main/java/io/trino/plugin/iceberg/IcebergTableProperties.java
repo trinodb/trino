@@ -47,7 +47,6 @@ import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
@@ -215,10 +214,10 @@ public class IcebergTableProperties
                         value -> {
                             Map<String, String> extraProperties = (Map<String, String>) value;
                             if (extraProperties.containsValue(null)) {
-                                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Extra table property value cannot be null '%s'", extraProperties));
+                                throw new TrinoException(INVALID_TABLE_PROPERTY, "Extra table property value cannot be null '%s'".formatted(extraProperties));
                             }
                             if (extraProperties.containsKey(null)) {
-                                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Extra table property key cannot be null '%s'", extraProperties));
+                                throw new TrinoException(INVALID_TABLE_PROPERTY, "Extra table property key cannot be null '%s'".formatted(extraProperties));
                             }
 
                             return extraProperties.entrySet().stream()
@@ -289,7 +288,7 @@ public class IcebergTableProperties
         if (version < FORMAT_VERSION_SUPPORT_MIN || version > FORMAT_VERSION_SUPPORT_MAX) {
             throw new TrinoException(
                     INVALID_TABLE_PROPERTY,
-                    format("format_version must be between %d and %d", FORMAT_VERSION_SUPPORT_MIN, FORMAT_VERSION_SUPPORT_MAX));
+                    "format_version must be between %d and %d".formatted(FORMAT_VERSION_SUPPORT_MIN, FORMAT_VERSION_SUPPORT_MAX));
         }
     }
 
@@ -297,7 +296,7 @@ public class IcebergTableProperties
     {
         if (compressionCodec.isPresent()) {
             if (!isCompressionCodecSupportedForFormat(fileFormat, compressionCodec.get())) {
-                throw new TrinoException(NOT_SUPPORTED, format("Compression codec %s not supported for %s", compressionCodec.get(), fileFormat.humanName()));
+                throw new TrinoException(NOT_SUPPORTED, "Compression codec %s not supported for %s".formatted(compressionCodec.get(), fileFormat.humanName()));
             }
         }
     }

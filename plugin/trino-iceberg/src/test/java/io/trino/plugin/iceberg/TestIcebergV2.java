@@ -115,7 +115,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static java.lang.String.format;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
@@ -1925,7 +1924,7 @@ public class TestIcebergV2
 
     private List<String> getActiveFiles(String tableName)
     {
-        return computeActual(format("SELECT file_path FROM \"%s$files\" WHERE content = %d", tableName, FileContent.DATA.id())).getOnlyColumn()
+        return computeActual("SELECT file_path FROM \"%s$files\" WHERE content = %d".formatted(tableName, FileContent.DATA.id())).getOnlyColumn()
                 .map(String.class::cast)
                 .collect(toImmutableList());
     }

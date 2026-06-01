@@ -31,7 +31,6 @@ import static io.trino.tests.product.hive.util.TableLocationUtils.getTableLocati
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -353,23 +352,23 @@ public class TestIcebergProcedureCalls
         String tableName = "test_rollback_to_snapshot_" + randomNameSuffix();
 
         onTrino().executeQuery("USE iceberg.default");
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-        onTrino().executeQuery(format("CREATE TABLE %s (a INTEGER)", tableName));
+        onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
+        onTrino().executeQuery("CREATE TABLE %s (a INTEGER)".formatted(tableName));
         Thread.sleep(1);
-        onTrino().executeQuery(format("INSERT INTO %s VALUES 1", tableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES 1".formatted(tableName));
         Thread.sleep(1);
-        onTrino().executeQuery(format("INSERT INTO %s VALUES 2", tableName));
+        onTrino().executeQuery("INSERT INTO %s VALUES 2".formatted(tableName));
         long snapshotId = getSecondOldestTableSnapshot(tableName);
-        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE rollback_to_snapshot(%d)", tableName, snapshotId));
-        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName)))
+        onTrino().executeQuery("ALTER TABLE %s EXECUTE rollback_to_snapshot(%d)".formatted(tableName, snapshotId));
+        assertThat(onTrino().executeQuery("SELECT * FROM %s".formatted(tableName)))
                 .containsOnly(row(1));
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+        onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
     }
 
     private long getSecondOldestTableSnapshot(String tableName)
     {
         return (Long) onTrino().executeQuery(
-                        format("SELECT snapshot_id FROM iceberg.default.\"%s$snapshots\" WHERE parent_id IS NOT NULL ORDER BY committed_at FETCH FIRST 1 ROW WITH TIES", tableName))
+                        "SELECT snapshot_id FROM iceberg.default.\"%s$snapshots\" WHERE parent_id IS NOT NULL ORDER BY committed_at FETCH FIRST 1 ROW WITH TIES".formatted(tableName))
                 .getOnlyValue();
     }
 

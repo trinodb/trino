@@ -111,8 +111,8 @@ public class HttpEventListenerConfig
                     .collect(Collectors.toUnmodifiableMap(kvs -> kvs.split(":", 2)[0], kvs -> kvs.split(":", 2)[1]));
         }
         catch (IndexOutOfBoundsException e) {
-            throw new IllegalArgumentException(String.format("Cannot parse http headers from property http-event-listener.connect-http-headers; value provided was %s, " +
-                    "expected format is \"Header-Name-1: header value 1, Header-Value-2: header value 2, ...\"", String.join(", ", httpHeaders)), e);
+            throw new IllegalArgumentException(("Cannot parse http headers from property http-event-listener.connect-http-headers; value provided was %s, " +
+                    "expected format is \"Header-Name-1: header value 1, Header-Value-2: header value 2, ...\"").formatted(String.join(", ", httpHeaders)), e);
         }
         return this;
     }

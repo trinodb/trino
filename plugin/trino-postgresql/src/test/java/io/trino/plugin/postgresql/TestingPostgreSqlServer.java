@@ -45,7 +45,6 @@ import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.CANCELLED;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.RUNNING;
 import static io.trino.testing.containers.TestContainers.exposeFixedPorts;
 import static io.trino.testing.containers.TestContainers.startOrReuse;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static org.testcontainers.postgresql.PostgreSQLContainer.POSTGRESQL_PORT;
@@ -233,7 +232,7 @@ public class TestingPostgreSqlServer
 
     public String getJdbcUrl()
     {
-        return format("jdbc:postgresql://%s:%s/%s", dockerContainer.getHost(), dockerContainer.getMappedPort(POSTGRESQL_PORT), DATABASE);
+        return "jdbc:postgresql://%s:%s/%s".formatted(dockerContainer.getHost(), dockerContainer.getMappedPort(POSTGRESQL_PORT), DATABASE);
     }
 
     @Override

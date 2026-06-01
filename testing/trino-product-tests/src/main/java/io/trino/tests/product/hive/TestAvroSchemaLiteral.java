@@ -19,7 +19,6 @@ import org.testng.annotations.Test;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAvroSchemaLiteral
@@ -43,14 +42,13 @@ public class TestAvroSchemaLiteral
     public void testHiveCreatedTable()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_avro_schema_literal_hive");
-        onHive().executeQuery(format(
-                "" +
-                        "CREATE TABLE test_avro_schema_literal_hive " +
-                        "ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
-                        "STORED AS " +
-                        "INPUTFORMAT 'org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat' " +
-                        "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.avro.AvroContainerOutputFormat' " +
-                        "TBLPROPERTIES ('avro.schema.literal'='%s')",
+        onHive().executeQuery(("" +
+        "CREATE TABLE test_avro_schema_literal_hive " +
+        "ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
+        "STORED AS " +
+        "INPUTFORMAT 'org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat' " +
+        "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.avro.AvroContainerOutputFormat' " +
+        "TBLPROPERTIES ('avro.schema.literal'='%s')").formatted(
                 SCHEMA_LITERAL));
         onHive().executeQuery("INSERT INTO test_avro_schema_literal_hive VALUES ('some text', 123042)");
 
@@ -64,7 +62,7 @@ public class TestAvroSchemaLiteral
     public void testTrinoCreatedTable()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS test_avro_schema_literal_trino");
-        onTrino().executeQuery(format("CREATE TABLE test_avro_schema_literal_trino (dummy_col VARCHAR) WITH (format='AVRO', avro_schema_literal='%s')", SCHEMA_LITERAL));
+        onTrino().executeQuery("CREATE TABLE test_avro_schema_literal_trino (dummy_col VARCHAR) WITH (format='AVRO', avro_schema_literal='%s')".formatted(SCHEMA_LITERAL));
         onTrino().executeQuery("INSERT INTO test_avro_schema_literal_trino VALUES ('some text', 123042)");
 
         assertThat(onHive().executeQuery("SELECT * FROM test_avro_schema_literal_trino")).containsExactlyInOrder(row("some text", 123042));

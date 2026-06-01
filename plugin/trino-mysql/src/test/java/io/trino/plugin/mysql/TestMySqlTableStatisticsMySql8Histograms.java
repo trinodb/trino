@@ -24,7 +24,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.mysql.TestingMySqlServer.DEFAULT_IMAGE_8;
 import static io.trino.testing.sql.TestTable.fromColumns;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static org.junit.jupiter.api.Assumptions.abort;
 
@@ -96,8 +95,7 @@ public class TestMySqlTableStatisticsMySql8Histograms
         List<String> columnNames = stream(computeActual("SHOW COLUMNS FROM " + tableName))
                 .map(row -> (String) row.getField(0))
                 .collect(toImmutableList());
-        executeInMysql(format(
-                "ANALYZE TABLE %s UPDATE HISTOGRAM ON %s ",
+        executeInMysql("ANALYZE TABLE %s UPDATE HISTOGRAM ON %s ".formatted(
                 tableName,
                 join(", ", columnNames)).replace("\"", "`"));
     }

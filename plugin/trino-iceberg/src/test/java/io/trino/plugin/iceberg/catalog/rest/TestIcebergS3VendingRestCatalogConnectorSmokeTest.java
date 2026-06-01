@@ -57,7 +57,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
-import static java.lang.String.format;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -189,7 +188,7 @@ public class TestIcebergS3VendingRestCatalogConnectorSmokeTest
     @Override
     protected String schemaPath()
     {
-        return format("%s%s", warehouseLocation, getSession().getSchema().orElseThrow());
+        return "%s%s".formatted(warehouseLocation, getSession().getSchema().orElseThrow());
     }
 
     @Override

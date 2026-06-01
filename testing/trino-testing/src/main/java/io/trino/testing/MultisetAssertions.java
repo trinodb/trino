@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static org.assertj.core.api.Fail.fail;
 
@@ -40,10 +39,10 @@ public final class MultisetAssertions
                     int expectedCount = expected.count(key);
                     int actualCount = actual.count(key);
                     if (actualCount < expectedCount) {
-                        return Stream.of(format("%s more occurrences of %s", expectedCount - actualCount, key));
+                        return Stream.of("%s more occurrences of %s".formatted(expectedCount - actualCount, key));
                     }
                     if (actualCount > expectedCount) {
-                        return Stream.of(format("%s fewer occurrences of %s", actualCount - expectedCount, key));
+                        return Stream.of("%s fewer occurrences of %s".formatted(actualCount - expectedCount, key));
                     }
                     return Stream.of();
                 })

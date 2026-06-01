@@ -15,7 +15,6 @@ package io.trino.tests.product.launcher.env;
 
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.HealthCheck;
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
@@ -45,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -55,12 +55,12 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.ofBytes;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.size;
 import static java.time.Duration.ofSeconds;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.stream.Collectors.joining;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public class DockerContainer
@@ -263,15 +263,15 @@ public class DockerContainer
         if (result.getExitCode() == 0) {
             return result.getStdout();
         }
-        String fullCommand = Joiner.on(" ").join(command);
-        throw new RuntimeException(format("Could not execute command '%s' in container %s: %s", fullCommand, logicalName, result.getStderr()));
+        String fullCommand = String.join(" ", command);
+        throw new RuntimeException("Could not execute command '%s' in container %s: %s".formatted(fullCommand, logicalName, result.getStderr()));
     }
 
     public ExecResult execCommandForResult(String... command)
     {
-        String fullCommand = Joiner.on(" ").join(command);
+        String fullCommand = String.join(" ", command);
         if (!isRunning()) {
-            throw new RuntimeException(format("Could not execute command '%s' in stopped container %s", fullCommand, logicalName));
+            throw new RuntimeException("Could not execute command '%s' in stopped container %s".formatted(fullCommand, logicalName));
         }
 
         log.info("Executing command '%s' in container %s", fullCommand, logicalName);
@@ -322,18 +322,16 @@ public class DockerContainer
         }
 
         try {
-            String filesList = Joiner.on("\n")
-                    .skipNulls()
-                    .join(filesToCopy);
+            String filesList = filesToCopy.stream().filter(Objects::nonNull).collect(joining("\n"));
 
-            String containerLogsListingFile = format("/tmp/%s-logs-list.txt", UUID.randomUUID());
-            String containerLogsArchive = format("/tmp/logs-%s-%s.tar.gz", logicalName, UUID.randomUUID());
+            String containerLogsListingFile = "/tmp/%s-logs-list.txt".formatted(UUID.randomUUID());
+            String containerLogsArchive = "/tmp/logs-%s-%s.tar.gz".formatted(logicalName, UUID.randomUUID());
 
             log.info("Creating logs archive %s from file list %s (%d files)", containerLogsArchive, containerLogsListingFile, filesToCopy.size());
             executor.runAsync(() -> copyFileToContainer(Transferable.of(filesList.getBytes(UTF_8)), containerLogsListingFile)).get();
 
             execCommand("tar", "-cf", containerLogsArchive, "-T", containerLogsListingFile);
-            copyFileFromContainer(containerLogsArchive, hostPath.resolve(format("%s/logs.tar.gz", logicalName)));
+            copyFileFromContainer(containerLogsArchive, hostPath.resolve("%s/logs.tar.gz".formatted(logicalName)));
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();

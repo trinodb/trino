@@ -35,7 +35,6 @@ import io.trino.spi.session.ResourceEstimates;
 import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -60,7 +59,7 @@ public final class TestUtils
     private TestUtils() {}
 
     static {
-        queryIOMetadata = new QueryIOMetadata(Collections.emptyList(), Optional.empty());
+        queryIOMetadata = new QueryIOMetadata(List.of(), Optional.empty());
 
         queryContext = new QueryContext(
                 "user",
@@ -138,16 +137,16 @@ public final class TestUtils
                 0L,
                 0L,
                 0.0f,
-                Collections.emptyList(),
+                List.of(),
                 0,
                 true,
-                Collections.emptyList(),
+                List.of(),
                 List.of(new StageOutputBufferUtilization(0, 10, 0.1, 0.5, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99, 0.0, 1.0, Duration.ofSeconds(1234))),
-                Collections.emptyList(),
-                Collections.emptyList(),
-                Collections.emptyList(),
-                Collections.emptyList(),
-                Collections.emptyList(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 Optional.empty());

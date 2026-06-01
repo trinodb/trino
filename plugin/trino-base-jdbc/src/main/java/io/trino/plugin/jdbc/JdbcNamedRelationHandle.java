@@ -20,7 +20,6 @@ import io.trino.spi.connector.SchemaTableName;
 import java.util.Objects;
 import java.util.Optional;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcNamedRelationHandle
@@ -83,6 +82,6 @@ public class JdbcNamedRelationHandle
     @Override
     public String toString()
     {
-        return format("%s %s", schemaTableName, remoteTableName);
+        return "%s %s".formatted(schemaTableName, remoteTableName);
     }
 }

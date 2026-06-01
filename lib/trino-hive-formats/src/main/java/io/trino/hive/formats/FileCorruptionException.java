@@ -17,8 +17,6 @@ import com.google.errorprone.annotations.FormatMethod;
 
 import java.io.IOException;
 
-import static java.lang.String.format;
-
 public class FileCorruptionException
         extends IOException
 {
@@ -30,12 +28,12 @@ public class FileCorruptionException
     @FormatMethod
     public FileCorruptionException(String messageFormat, Object... args)
     {
-        super(format(messageFormat, args));
+        super(messageFormat.formatted(args));
     }
 
     @FormatMethod
     public FileCorruptionException(Throwable cause, String messageFormat, Object... args)
     {
-        super(format(messageFormat, args), cause);
+        super(messageFormat.formatted(args), cause);
     }
 }

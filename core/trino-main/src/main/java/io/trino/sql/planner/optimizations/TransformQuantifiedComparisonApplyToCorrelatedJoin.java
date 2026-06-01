@@ -60,7 +60,6 @@ import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.ApplyNode.Quantifier.ALL;
 import static io.trino.sql.planner.plan.SimplePlanRewriter.rewriteWith;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class TransformQuantifiedComparisonApplyToCorrelatedJoin
@@ -142,7 +141,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                                     Optional.empty(),
                                     Optional.empty()),
                             countAllValue, new Aggregation(
-                                    metadata.resolveBuiltinFunction("count", emptyList()),
+                                    metadata.resolveBuiltinFunction("count", List.of()),
                                     ImmutableList.of(),
                                     false,
                                     Optional.empty(),

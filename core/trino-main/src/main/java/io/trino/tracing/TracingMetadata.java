@@ -1900,8 +1900,7 @@ public class TracingMetadata
     {
         Span span = startSpan(methodName);
         if (span.isRecording()) {
-            String grant = String.format(
-                    "%s-%s-%s-%s-%s%s",
+            String grant = "%s-%s-%s-%s-%s%s".formatted(
                     entity.entityKind(),
                     entity.name(),
                     grantee.getType(),
@@ -1917,7 +1916,7 @@ public class TracingMetadata
     {
         Span span = startSpan(methodName);
         if (span.isRecording()) {
-            span.setAttribute(TrinoAttributes.ENTITY, String.format("%s-%s", entity.entityKind(), entity.name()));
+            span.setAttribute(TrinoAttributes.ENTITY, "%s-%s".formatted(entity.entityKind(), entity.name()));
         }
         return span;
     }

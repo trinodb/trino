@@ -69,7 +69,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.JsonType.JSON;
-import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
@@ -180,7 +179,7 @@ public abstract class BaseMySqlTypeMappingTest
                     "INSERT INTO " + table.getName() + " VALUES (-32769)", // min - 1
                     "Data truncation: Out of range value for column 'data' at row 1");
             assertMySqlQueryFails(
-                    format("INSERT INTO %s VALUES (32768)", table.getName()), // max + 1
+                    "INSERT INTO %s VALUES (32768)".formatted(table.getName()), // max + 1
                     "Data truncation: Out of range value for column 'data' at row 1");
         }
     }
@@ -293,7 +292,7 @@ public abstract class BaseMySqlTypeMappingTest
                 .addRoundTrip("char(1)", "'a'", createCharType(1), "CAST('a' AS char(1))")
                 .addRoundTrip("char(8)", "'abc'", createCharType(8), "CAST('abc' AS char(8))")
                 .addRoundTrip("char(8)", "'12345678'", createCharType(8), "CAST('12345678' AS char(8))")
-                .addRoundTrip("char(255)", format("'%s'", "a".repeat(255)), createCharType(255), format("CAST('%s' AS char(255))", "a".repeat(255)))
+                .addRoundTrip("char(255)", "'%s'".formatted("a".repeat(255)), createCharType(255), "CAST('%s' AS char(255))".formatted("a".repeat(255)))
                 .addRoundTrip("char", "NULL", createCharType(1), "CAST(NULL AS char(1))")
                 .addRoundTrip("char(255)", "NULL", createCharType(255), "CAST(NULL AS char(255))")
                 .execute(getQueryRunner(), trinoCreateAsSelect("mysql_test_parameterized_char"))
@@ -385,7 +384,7 @@ public abstract class BaseMySqlTypeMappingTest
                 asList("1234567890123456789012345678901234567890.123456789", "-1234567890123456789012345678901234567890.123456789"))) {
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'decimal(38,0)')");
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
@@ -397,7 +396,7 @@ public abstract class BaseMySqlTypeMappingTest
                     "Decimal overflow");
             assertQuery(
                     sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'varchar')");
             assertQuery(
                     sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
@@ -416,7 +415,7 @@ public abstract class BaseMySqlTypeMappingTest
                 asList("123456789012345678901234567890.123456789012345", "-123456789012345678901234567890.123456789012345"))) {
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'decimal(38,0)')");
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
@@ -428,7 +427,7 @@ public abstract class BaseMySqlTypeMappingTest
                     "VALUES (123456789012345678901234567890), (-123456789012345678901234567890)");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 8),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'decimal(38,8)')");
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 8),
@@ -440,7 +439,7 @@ public abstract class BaseMySqlTypeMappingTest
                     "VALUES (123456789012345678901234567890.12345679), (-123456789012345678901234567890.12345679)");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 22),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'decimal(38,20)')");
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 20),
@@ -452,7 +451,7 @@ public abstract class BaseMySqlTypeMappingTest
                     "Decimal overflow");
             assertQuery(
                     sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'varchar')");
             assertQuery(
                     sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
@@ -473,11 +472,11 @@ public abstract class BaseMySqlTypeMappingTest
         try (TestTable testTable = new TestTable(
                 mySqlServer::execute,
                 "tpch.test_exceeding_max_decimal",
-                format("(d_col decimal(%d,%d))", typePrecision, typeScale),
+                "(d_col decimal(%d,%d))".formatted(typePrecision, typeScale),
                 asList("12.01", "-12.01", "123", "-123", "1.12345678", "-1.12345678"))) {
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'decimal(38,0)')");
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
@@ -489,7 +488,7 @@ public abstract class BaseMySqlTypeMappingTest
                     "VALUES (12), (-12), (123), (-123), (1), (-1)");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 3),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'decimal(38,3)')");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 3),
@@ -501,7 +500,7 @@ public abstract class BaseMySqlTypeMappingTest
                     "Rounding necessary");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 8),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'decimal(38,8)')");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 8),
@@ -1331,7 +1330,7 @@ public abstract class BaseMySqlTypeMappingTest
     private void testUnsupportedDataType(String databaseDataType)
     {
         SqlExecutor jdbcSqlExecutor = mySqlServer::execute;
-        jdbcSqlExecutor.execute(format("CREATE TABLE tpch.test_unsupported_data_type(supported_column varchar(5), unsupported_column %s)", databaseDataType));
+        jdbcSqlExecutor.execute("CREATE TABLE tpch.test_unsupported_data_type(supported_column varchar(5), unsupported_column %s)".formatted(databaseDataType));
         try {
             assertQuery(
                     "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'tpch' AND TABLE_NAME = 'test_unsupported_data_type'",

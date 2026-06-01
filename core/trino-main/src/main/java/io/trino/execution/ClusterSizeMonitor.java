@@ -39,7 +39,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
-import static java.lang.String.format;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -113,7 +112,7 @@ public class ClusterSizeMonitor
                     synchronized (this) {
                         future.setException(new TrinoException(
                                 GENERIC_INSUFFICIENT_RESOURCES,
-                                format("Insufficient active worker nodes. Waited %s for at least %s workers, but only %s workers are active", executionMaxWait, executionMinCount, currentCount)));
+                                "Insufficient active worker nodes. Waited %s for at least %s workers, but only %s workers are active".formatted(executionMaxWait, executionMinCount, currentCount)));
                     }
                 },
                 executionMaxWait.toMillis(),

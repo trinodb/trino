@@ -18,7 +18,6 @@ import io.trino.plugin.pinot.client.PinotHostMapper;
 import org.apache.helix.model.InstanceConfig;
 import org.apache.pinot.core.transport.ServerInstance;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class TestingPinotHostMapper
@@ -38,7 +37,7 @@ public class TestingPinotHostMapper
     @Override
     public String getBrokerHost(String host, String port)
     {
-        return format("%s:%s", brokerHostAndPort.getHost(), brokerHostAndPort.getPort());
+        return "%s:%s".formatted(brokerHostAndPort.getHost(), brokerHostAndPort.getPort());
     }
 
     @Override

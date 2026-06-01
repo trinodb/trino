@@ -19,8 +19,6 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.time.Duration;
 
-import static java.lang.String.format;
-
 public class TestingIgniteContainer
         extends JdbcDatabaseContainer<TestingIgniteContainer>
 {
@@ -43,7 +41,7 @@ public class TestingIgniteContainer
     @Override
     public String getJdbcUrl()
     {
-        return format("jdbc:ignite:thin://%s:%s/public", getHost(), getMappedPort(10800));
+        return "jdbc:ignite:thin://%s:%s/public".formatted(getHost(), getMappedPort(10800));
     }
 
     @Override

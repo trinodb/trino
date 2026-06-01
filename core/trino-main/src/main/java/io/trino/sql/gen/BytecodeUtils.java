@@ -64,7 +64,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
-import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 
 public final class BytecodeUtils
 {
@@ -125,7 +125,7 @@ public final class BytecodeUtils
 
         String popComment = null;
         if (!stackArgsToPop.isEmpty()) {
-            popComment = format("pop(%s)", Joiner.on(", ").join(stackArgsToPop));
+            popComment = "pop(%s)".formatted(stackArgsToPop.stream().map(Object::toString).collect(joining(", ")));
         }
 
         return new IfStatement("if wasNull then %s", Joiner.on(", ").skipNulls().join(clearComment, popComment, loadDefaultComment, "goto " + label.getLabel()))
@@ -342,7 +342,7 @@ public final class BytecodeUtils
                         block.append(argumentCompilers.get(realParameterIndex).apply(Optional.of(lambdaInterface)));
                         lambdaArgumentIndex++;
                     }
-                    default -> throw new UnsupportedOperationException(format("Unsupported argument convention type: %s", invocationConvention.getArgumentConvention(realParameterIndex)));
+                    default -> throw new UnsupportedOperationException("Unsupported argument convention type: %s".formatted(invocationConvention.getArgumentConvention(realParameterIndex)));
                 }
                 realParameterIndex++;
             }

@@ -42,7 +42,6 @@ import static io.trino.plugin.hive.metastore.glue.GlueConverter.getTableTypeNull
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -106,18 +105,17 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     public void testShowCreateTable()
     {
         assertThat((String) computeScalar("SHOW CREATE TABLE region"))
-                .matches(format(
-                        "" +
-                                "\\QCREATE TABLE iceberg.%1$s.region (\n" +
-                                "   regionkey bigint,\n" +
-                                "   name varchar,\n" +
-                                "   comment varchar\n" +
-                                ")\n" +
-                                "WITH (\n" +
-                                "   format = 'PARQUET',\n" +
-                                "   format_version = 2,\n" +
-                                "   location = '%2$s/%1$s.db/region-\\E.*\\Q'\n" +
-                                ")\\E",
+                .matches(("" +
+                "\\QCREATE TABLE iceberg.%1$s.region (\n" +
+                "   regionkey bigint,\n" +
+                "   name varchar,\n" +
+                "   comment varchar\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   format = 'PARQUET',\n" +
+                "   format_version = 2,\n" +
+                "   location = '%2$s/%1$s.db/region-\\E.*\\Q'\n" +
+                ")\\E").formatted(
                         schemaName,
                         schemaPath()));
     }
@@ -222,7 +220,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     @Override
     protected String schemaPath()
     {
-        return format("s3://%s/%s", bucketName, schemaName);
+        return "s3://%s/%s".formatted(bucketName, schemaName);
     }
 
     @Override

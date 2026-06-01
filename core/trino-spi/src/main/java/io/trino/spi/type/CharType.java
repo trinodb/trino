@@ -23,6 +23,7 @@ import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.function.ScalarOperator;
 
+import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.slice.SliceUtf8.countCodePoints;
@@ -32,9 +33,7 @@ import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.Slices.sliceRepresentation;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.MIN_CODE_POINT;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
-import static java.util.Collections.singletonList;
 
 public final class CharType
         extends AbstractVariableWidthType
@@ -72,11 +71,11 @@ public final class CharType
         super(
                 new TypeSignature(
                         NAME,
-                        singletonList(TypeParameter.numericParameter(length))),
+                        List.of(TypeParameter.numericParameter(length))),
                 Slice.class);
 
         if (length < 0 || length > MAX_LENGTH) {
-            throw new IllegalArgumentException(format("CHAR length must be in range [0, %s], got %s", MAX_LENGTH, length));
+            throw new IllegalArgumentException("CHAR length must be in range [0, %s], got %s".formatted(MAX_LENGTH, length));
         }
         this.length = length;
     }
@@ -155,10 +154,10 @@ public final class CharType
         Slice slice = getSlice(block, position);
         if (slice.length() > 0) {
             if (countCodePoints(slice) > length) {
-                throw new IllegalArgumentException(format("Character count exceeds length limit %s: %s", length, sliceRepresentation(slice)));
+                throw new IllegalArgumentException("Character count exceeds length limit %s: %s".formatted(length, sliceRepresentation(slice)));
             }
             if (slice.getByte(slice.length() - 1) == ' ') {
-                throw new IllegalArgumentException(format("Value representation has a trailing space: %s", sliceRepresentation(slice)));
+                throw new IllegalArgumentException("Value representation has a trailing space: %s".formatted(sliceRepresentation(slice)));
             }
         }
 

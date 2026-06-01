@@ -13,7 +13,6 @@
  */
 package io.trino.metadata;
 
-import com.google.common.base.Joiner;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -104,7 +103,6 @@ import static io.trino.type.RowParametricType.ROW;
 import static io.trino.type.TDigestType.TDIGEST;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.type.setdigest.SetDigestType.SET_DIGEST;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -325,12 +323,12 @@ public final class TypeRegistry
         if (!missingOperators.isEmpty()) {
             List<String> messages = new ArrayList<>();
             for (Type type : missingOperatorDeclaration) {
-                messages.add(format("%s types operators is null", type));
+                messages.add("%s types operators is null".formatted(type));
             }
             for (Type type : missingOperators.keySet()) {
-                messages.add(format("%s missing for %s", missingOperators.get(type), type));
+                messages.add("%s missing for %s".formatted(missingOperators.get(type), type));
             }
-            throw new IllegalStateException(Joiner.on(", ").join(messages));
+            throw new IllegalStateException(String.join(", ", messages));
         }
     }
 

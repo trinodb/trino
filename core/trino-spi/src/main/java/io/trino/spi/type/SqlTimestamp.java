@@ -28,7 +28,6 @@ import static java.lang.Math.addExact;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.multiplyExact;
-import static java.lang.String.format;
 
 public final class SqlTimestamp
 {
@@ -56,15 +55,15 @@ public final class SqlTimestamp
         }
         if (precision <= 6) {
             if (picosOfMicro != 0) {
-                throw new IllegalArgumentException(format("Expected picosOfMicro to be 0 for precision %s: %s", precision, picosOfMicro));
+                throw new IllegalArgumentException("Expected picosOfMicro to be 0 for precision %s: %s".formatted(precision, picosOfMicro));
             }
             if (round(epochMicros, 6 - precision) != epochMicros) {
-                throw new IllegalArgumentException(format("Expected 0s for digits beyond precision %s: epochMicros = %s", precision, epochMicros));
+                throw new IllegalArgumentException("Expected 0s for digits beyond precision %s: epochMicros = %s".formatted(precision, epochMicros));
             }
         }
         else {
             if (round(picosOfMicro, 12 - precision) != picosOfMicro) {
-                throw new IllegalArgumentException(format("Expected 0s for digits beyond precision %s: picosOfMicro = %s", precision, picosOfMicro));
+                throw new IllegalArgumentException("Expected 0s for digits beyond precision %s: picosOfMicro = %s".formatted(precision, picosOfMicro));
             }
         }
 

@@ -127,8 +127,6 @@ import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.sql.analyzer.QueryType.DESCRIBE;
 import static io.trino.sql.analyzer.QueryType.EXPLAIN;
 import static java.lang.Boolean.FALSE;
-import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
@@ -632,7 +630,7 @@ public class Analysis
 
     public Scope getScope(Node node)
     {
-        return tryGetScope(node).orElseThrow(() -> new IllegalArgumentException(format("Analysis does not contain information for node: %s", node)));
+        return tryGetScope(node).orElseThrow(() -> new IllegalArgumentException("Analysis does not contain information for node: %s".formatted(node)));
     }
 
     public Optional<Scope> tryGetScope(Node node)
@@ -669,7 +667,7 @@ public class Analysis
     {
         return tables.get(NodeRef.of(table))
                 .getHandle()
-                .orElseThrow(() -> new IllegalArgumentException(format("%s is not a table reference", table)));
+                .orElseThrow(() -> new IllegalArgumentException("%s is not a table reference".formatted(table)));
     }
 
     public Collection<TableHandle> getTables()
@@ -1001,7 +999,7 @@ public class Analysis
     public List<GroupingOperation> getGroupingOperations(QuerySpecification querySpecification)
     {
         return Optional.ofNullable(groupingOperations.get(NodeRef.of(querySpecification)))
-                .orElse(emptyList());
+                .orElse(List.of());
     }
 
     public Map<NodeRef<Parameter>, Expression> getParameters()
@@ -2129,7 +2127,7 @@ public class Analysis
         @Override
         public String toString()
         {
-            return format("AccessControl: %s, Identity: %s", accessControl.getClass(), identity);
+            return "AccessControl: %s, Identity: %s".formatted(accessControl.getClass(), identity);
         }
     }
 

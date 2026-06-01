@@ -67,7 +67,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.type.IpAddressType.IPADDRESS;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -441,7 +440,7 @@ public class TestCassandraTypeMapping
     private SqlDataTypeTest trinoTemporalTypesTest()
     {
         SqlDataTypeTest tests = SqlDataTypeTest.create();
-        addDateRoundTrips(tests, inputLiteral -> format("DATE %s", inputLiteral));
+        addDateRoundTrips(tests, inputLiteral -> "DATE %s".formatted(inputLiteral));
         addTimeRoundTrips(tests, "time(9)", trinoTimeInputLiteralFactory());
         addTimestampRoundTrips(tests, "timestamp with time zone", trinoTimestampInputLiteralFactory(), timestampExpectedLiteralFactory());
         return tests;
@@ -592,12 +591,12 @@ public class TestCassandraTypeMapping
 
     private static BiFunction<LocalDateTime, ZoneId, String> timestampInputLiteralFactory(Optional<String> inputLiteralPrefix)
     {
-        return (inputLiteral, zone) -> format("%s'%s'", inputLiteralPrefix.orElse(""), DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSZ").format(inputLiteral.atZone(zone)));
+        return (inputLiteral, zone) -> "%s'%s'".formatted(inputLiteralPrefix.orElse(""), DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSZ").format(inputLiteral.atZone(zone)));
     }
 
     private static BiFunction<LocalDateTime, ZoneId, String> timestampExpectedLiteralFactory()
     {
-        return (expectedLiteral, zone) -> format("AT_TIMEZONE(TIMESTAMP '%s', 'UTC')", DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSS VV").format(expectedLiteral.atZone(zone)));
+        return (expectedLiteral, zone) -> "AT_TIMEZONE(TIMESTAMP '%s', 'UTC')".formatted(DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSS VV").format(expectedLiteral.atZone(zone)));
     }
 
     private static class CassandraCreateAsSelectDataSetup

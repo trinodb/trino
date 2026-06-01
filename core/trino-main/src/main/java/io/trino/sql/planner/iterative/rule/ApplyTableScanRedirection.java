@@ -51,7 +51,6 @@ import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ApplyTableScanRedirection
@@ -89,7 +88,7 @@ public class ApplyTableScanRedirection
         Optional<QualifiedObjectName> redirectedObjectName = plannerContext.getMetadata().getRedirectionAwareTableHandle(context.getSession(), destinationObjectName).redirectedTableName();
 
         redirectedObjectName.ifPresent(name -> {
-            throw new TrinoException(NOT_SUPPORTED, format("Further redirection of destination table '%s' to '%s' is not supported", destinationObjectName, name));
+            throw new TrinoException(NOT_SUPPORTED, "Further redirection of destination table '%s' to '%s' is not supported".formatted(destinationObjectName, name));
         });
 
         CatalogSchemaTableName sourceTable = plannerContext.getMetadata().getTableName(context.getSession(), scanNode.getTable());
@@ -100,7 +99,7 @@ public class ApplyTableScanRedirection
         TableHandle destinationTableHandle = plannerContext.getMetadata().getTableHandle(
                         context.getSession(),
                         convertFromSchemaTableName(destinationTable.getCatalogName()).apply(destinationTable.getSchemaTableName()))
-                .orElseThrow(() -> new TrinoException(TABLE_NOT_FOUND, format("Destination table %s from table scan redirection not found", destinationTable)));
+                .orElseThrow(() -> new TrinoException(TABLE_NOT_FOUND, "Destination table %s from table scan redirection not found".formatted(destinationTable)));
 
         Map<ColumnHandle, String> columnMapping = tableScanRedirectApplicationResult.get().getDestinationColumns();
         Map<String, ColumnHandle> destinationColumnHandles = plannerContext.getMetadata().getColumnHandles(context.getSession(), destinationTableHandle);
@@ -109,11 +108,11 @@ public class ApplyTableScanRedirection
         for (Entry<Symbol, ColumnHandle> assignment : scanNode.getAssignments().entrySet()) {
             String destinationColumn = columnMapping.get(assignment.getValue());
             if (destinationColumn == null) {
-                throw new TrinoException(COLUMN_NOT_FOUND, format("Did not find mapping for source column %s in table scan redirection", assignment.getValue()));
+                throw new TrinoException(COLUMN_NOT_FOUND, "Did not find mapping for source column %s in table scan redirection".formatted(assignment.getValue()));
             }
             ColumnHandle destinationColumnHandle = destinationColumnHandles.get(destinationColumn);
             if (destinationColumnHandle == null) {
-                throw new TrinoException(COLUMN_NOT_FOUND, format("Did not find handle for column %s in destination table %s", destinationColumn, destinationTable));
+                throw new TrinoException(COLUMN_NOT_FOUND, "Did not find handle for column %s in destination table %s".formatted(destinationColumn, destinationTable));
             }
 
             // insert ts if redirected types don't match source types
@@ -160,7 +159,7 @@ public class ApplyTableScanRedirection
         TupleDomain<Symbol> transformedConstraint = requiredFilter.transformKeys(destinationColumn -> {
             ColumnHandle sourceColumnHandle = inverseColumnsMapping.get(destinationColumn);
             if (sourceColumnHandle == null) {
-                throw new TrinoException(COLUMN_NOT_FOUND, format("Did not find mapping for destination column %s in table scan redirection", destinationColumn));
+                throw new TrinoException(COLUMN_NOT_FOUND, "Did not find mapping for destination column %s in table scan redirection".formatted(destinationColumn));
             }
             Symbol symbol = inverseAssignments.get(sourceColumnHandle);
             if (symbol != null) {
@@ -174,7 +173,7 @@ public class ApplyTableScanRedirection
 
             ColumnHandle destinationColumnHandle = destinationColumnHandles.get(destinationColumn);
             if (destinationColumnHandle == null) {
-                throw new TrinoException(COLUMN_NOT_FOUND, format("Did not find handle for column %s in destination table %s", destinationColumn, destinationTable));
+                throw new TrinoException(COLUMN_NOT_FOUND, "Did not find handle for column %s in destination table %s".formatted(destinationColumn, destinationTable));
             }
 
             // insert casts if redirected types don't match domain types
@@ -258,8 +257,7 @@ public class ApplyTableScanRedirection
             plannerContext.getMetadata().getCoercion(destinationType, sourceType);
         }
         catch (TrinoException e) {
-            throw new TrinoException(FUNCTION_NOT_FOUND, format(
-                    "Cast not possible from redirected column %s.%s with type %s to source column %s.%s with type: %s",
+            throw new TrinoException(FUNCTION_NOT_FOUND, "Cast not possible from redirected column %s.%s with type %s to source column %s.%s with type: %s".formatted(
                     destinationTable,
                     destinationColumn,
                     destinationType,

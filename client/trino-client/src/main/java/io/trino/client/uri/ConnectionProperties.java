@@ -50,7 +50,6 @@ import static io.trino.client.uri.AbstractConnectionProperty.Validator;
 import static io.trino.client.uri.AbstractConnectionProperty.validator;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.FULL;
 import static java.lang.String.format;
-import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -366,7 +365,7 @@ final class ConnectionProperties
 
         private static String toString(Set<String> clientTags)
         {
-            return Joiner.on(",").join(clientTags);
+            return String.join(",", clientTags);
         }
     }
 
@@ -723,7 +722,7 @@ final class ConnectionProperties
         public ExternalAuthenticationRedirectHandlers()
         {
             super(PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS,
-                    Optional.of(singletonList(ExternalRedirectStrategy.OPEN)),
+                    Optional.of(List.of(ExternalRedirectStrategy.OPEN)),
                     NOT_REQUIRED,
                     ALLOWED,
                     converter(ExternalAuthenticationRedirectHandlers::parse, ExternalAuthenticationRedirectHandlers::toString));

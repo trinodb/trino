@@ -22,7 +22,6 @@ import org.testng.annotations.Test;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.tests.product.TestGroups.AZURE;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static java.lang.String.format;
 
 public class TestHiveAzure
         extends BaseTestTableFormats
@@ -37,7 +36,7 @@ public class TestHiveAzure
     {
         String container = requireEnv("ABFS_CONTAINER");
         String account = requireEnv("ABFS_ACCOUNT");
-        schemaLocation = format("abfs://%s@%s.dfs.core.windows.net/%s", container, account, schema);
+        schemaLocation = "abfs://%s@%s.dfs.core.windows.net/%s".formatted(container, account, schema);
     }
 
     @Override

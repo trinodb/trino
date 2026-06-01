@@ -26,7 +26,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.primitives.Bytes.concat;
 import static io.trino.parquet.ParquetValidationUtils.validateParquetCrypto;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FileDecryptionContext
@@ -73,7 +72,7 @@ public class FileDecryptionContext
             aadFileUnique = algorithm.getAES_GCM_CTR_V1().getAad_file_unique();
         }
         else {
-            throw new UnsupportedOperationException(format("Unsupported algorithm: %s", algorithm));
+            throw new UnsupportedOperationException("Unsupported algorithm: %s".formatted(algorithm));
         }
 
         // Determine AAD prefix, in-file AAD prefix takes precedence
@@ -128,7 +127,7 @@ public class FileDecryptionContext
         }
         else {
             // Column is encrypted with column-specific key
-            Optional<byte[]> columnKeyBytes = requireNonNull(keyRetriever.getColumnKey(path, columnKeyMetadata), format("Column key for %s not found", path));
+            Optional<byte[]> columnKeyBytes = requireNonNull(keyRetriever.getColumnKey(path, columnKeyMetadata), "Column key for %s not found".formatted(path));
             if (columnKeyBytes.isEmpty()) {
                 // User does not have access to the column key. Column is considered hidden.
                 setColumnDecryptionContext(path, Optional.empty());

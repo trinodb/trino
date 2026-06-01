@@ -70,7 +70,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.Math.round;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -141,7 +140,7 @@ public class TestRedshiftConnectorTest
                 .build();
         try (TestTable table = new TestTable(
                 onRemoteDatabase(),
-                format("%s.test_table_with_super_columns", TEST_SCHEMA),
+                "%s.test_table_with_super_columns".formatted(TEST_SCHEMA),
                 "(c1 integer, c2 super)",
                 ImmutableList.of(
                         "1, null",
@@ -173,7 +172,7 @@ public class TestRedshiftConnectorTest
     {
         return new TestTable(
                 onRemoteDatabase(),
-                format("%s.test_table_with_default_columns", TEST_SCHEMA),
+                "%s.test_table_with_default_columns".formatted(TEST_SCHEMA),
                 "(col_required BIGINT NOT NULL," +
                         "col_nullable BIGINT," +
                         "col_default BIGINT DEFAULT 43," +
@@ -407,14 +406,13 @@ public class TestRedshiftConnectorTest
         int subqueries = 10;
         String subquery = "SELECT custkey, count(*) c FROM orders GROUP BY custkey";
         StringBuilder sql = new StringBuilder();
-        sql.append(format(
-                "SELECT t0.custkey, %s c_sum ",
+        sql.append("SELECT t0.custkey, %s c_sum ".formatted(
                 IntStream.range(0, subqueries)
-                        .mapToObj(i -> format("t%s.c", i))
+                        .mapToObj(i -> "t%s.c".formatted(i))
                         .collect(Collectors.joining("+"))));
-        sql.append(format("FROM (%s) t0 ", subquery));
+        sql.append("FROM (%s) t0 ".formatted(subquery));
         for (int i = 1; i < subqueries; i++) {
-            sql.append(format("JOIN (%s) t%s ON t0.custkey = t%s.custkey ", subquery, i, i));
+            sql.append("JOIN (%s) t%s ON t0.custkey = t%s.custkey ".formatted(subquery, i, i));
         }
         sql.append("WHERE t0.custkey = 1045 OR rand() = 42");
 
@@ -423,7 +421,7 @@ public class TestRedshiftConnectorTest
                 .build();
 
         assertThat(query(forceJoinPushdown, sql.toString()))
-                .matches(format("SELECT max(custkey), count(*) * %s FROM tpch.tiny.orders WHERE custkey = 1045", subqueries));
+                .matches("SELECT max(custkey), count(*) * %s FROM tpch.tiny.orders WHERE custkey = 1045".formatted(subqueries));
     }
 
     private static void gatherStats(String tableName)
@@ -461,7 +459,7 @@ public class TestRedshiftConnectorTest
         assertThatThrownBy(super::testCountDistinctWithStringTypes).hasMessageContaining("Value for Redshift CHAR must be ASCII, but found 'ą'");
 
         List<String> rows = Stream.of("a", "b", "A", "B", " a ", "a", "b", " b ")
-                .map(value -> format("'%1$s', '%1$s'", value))
+                .map(value -> "'%1$s', '%1$s'".formatted(value))
                 .collect(toImmutableList());
         String tableName = "distinct_strings" + randomNameSuffix();
 
@@ -514,8 +512,8 @@ public class TestRedshiftConnectorTest
 
     private void testAggregationPushdown(String distStyle)
     {
-        String nation = format("%s.nation_%s_%s", TEST_SCHEMA, distStyle, randomNameSuffix());
-        String customer = format("%s.customer_%s_%s", TEST_SCHEMA, distStyle, randomNameSuffix());
+        String nation = "%s.nation_%s_%s".formatted(TEST_SCHEMA, distStyle, randomNameSuffix());
+        String customer = "%s.customer_%s_%s".formatted(TEST_SCHEMA, distStyle, randomNameSuffix());
         try {
             copyWithDistStyle(TEST_SCHEMA + ".nation", nation, distStyle, Optional.of("regionkey"));
             copyWithDistStyle(TEST_SCHEMA + ".customer", customer, distStyle, Optional.of("nationkey"));
@@ -664,7 +662,7 @@ public class TestRedshiftConnectorTest
         else {
             String copyWithDistStyleSql = "CREATE TABLE " + destTableName + " DISTSTYLE " + distStyle;
             if (distStyle.equals("KEY")) {
-                copyWithDistStyleSql += format(" DISTKEY(%s)", distKey.orElseThrow());
+                copyWithDistStyleSql += " DISTKEY(%s)".formatted(distKey.orElseThrow());
             }
             copyWithDistStyleSql += " AS SELECT * FROM " + sourceTableName;
             executeInRedshift(copyWithDistStyleSql);
@@ -676,7 +674,7 @@ public class TestRedshiftConnectorTest
     {
         List<String> rows = ImmutableList.of(
                 "12345789.9876543210",
-                format("%s.%s", "1".repeat(28), "9".repeat(10)));
+                "%s.%s".formatted("1".repeat(28), "9".repeat(10)));
 
         try (TestTable testTable = newTrinoTable(
                 TEST_SCHEMA + ".test_agg_pushdown_avg_max_decimal",
@@ -700,7 +698,7 @@ public class TestRedshiftConnectorTest
     {
         List<String> rows = ImmutableList.of(
                 "0.987654321234567890",
-                format("0.%s", "1".repeat(18)));
+                "0.%s".formatted("1".repeat(18)));
 
         try (TestTable testTable = newTrinoTable(
                 TEST_SCHEMA + ".test_agg_pushdown_avg_max_decimal",
@@ -835,7 +833,7 @@ public class TestRedshiftConnectorTest
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        return format("(?s).*Cannot insert a NULL value into column %s.*", columnName);
+        return "(?s).*Cannot insert a NULL value into column %s.*".formatted(columnName);
     }
 
     @Override
@@ -913,7 +911,7 @@ public class TestRedshiftConnectorTest
         return new io.trino.testing.sql.TestView(
                 onRemoteDatabaseWithSchema(TEST_SCHEMA),
                 "test_sleeping_view",
-                format("SELECT 1 FROM janky_sleep(%d)", secondsToSleep));
+                "SELECT 1 FROM janky_sleep(%d)".formatted(secondsToSleep));
     }
 
     @Test

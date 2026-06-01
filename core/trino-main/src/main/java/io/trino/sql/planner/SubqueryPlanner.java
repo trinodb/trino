@@ -63,7 +63,6 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class SubqueryPlanner
@@ -363,7 +362,7 @@ class SubqueryPlanner
                         subPlan.getRoot());
             }
             case IS_DISTINCT_FROM -> // Cannot be used with quantified comparison
-                    throw new IllegalArgumentException(format("Unexpected quantified comparison: '%s %s'", operator.getValue(), quantifier));
+                    throw new IllegalArgumentException("Unexpected quantified comparison: '%s %s'".formatted(operator.getValue(), quantifier));
         };
     }
 

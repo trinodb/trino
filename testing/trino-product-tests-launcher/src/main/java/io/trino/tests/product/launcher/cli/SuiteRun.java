@@ -13,7 +13,6 @@
  */
 package io.trino.tests.product.launcher.cli;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
@@ -61,7 +60,6 @@ import static io.airlift.units.Duration.succinctNanos;
 import static io.trino.tests.product.launcher.cli.SuiteRun.TestRunResult.HEADER;
 import static io.trino.tests.product.launcher.cli.TestRun.Execution.ENVIRONMENT_SKIPPED_EXIT_CODE;
 import static java.lang.Math.max;
-import static java.lang.String.format;
 import static java.lang.management.ManagementFactory.getThreadMXBean;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -226,17 +224,15 @@ public class SuiteRun
 
         private String formatSuiteTestRuns(List<SuiteTestRun> suiteTestRuns)
         {
-            Joiner joiner = Joiner.on("\n");
-
             ConsoleTable table = new ConsoleTable();
             table.addHeader("environment", "options", "groups", "excluded groups", "tests", "excluded tests");
             suiteTestRuns.forEach(testRun -> table.addRow(
                     testRun.getEnvironmentName(),
                     testRun.getExtraOptions(),
-                    joiner.join(testRun.getGroups()),
-                    joiner.join(testRun.getExcludedGroups()),
-                    joiner.join(testRun.getTests()),
-                    joiner.join(testRun.getExcludedTests())).addSeparator());
+                    String.join("\n", testRun.getGroups()),
+                    String.join("\n", testRun.getExcludedGroups()),
+                    String.join("\n", testRun.getTests()),
+                    String.join("\n", testRun.getExcludedTests())).addSeparator());
             return table.render();
         }
 
@@ -280,7 +276,7 @@ public class SuiteRun
                 int exitCode = runTest(runId, environmentConfig, testRunOptions);
                 Optional<Throwable> exception = Optional.empty();
                 if (exitCode != 0 && exitCode != ENVIRONMENT_SKIPPED_EXIT_CODE) {
-                    exception = Optional.of(new RuntimeException(format("Tests exited with code %d", exitCode)));
+                    exception = Optional.of(new RuntimeException("Tests exited with code %d".formatted(exitCode)));
                 }
                 return new TestRunResult(suiteName, runId, suiteTestRun, environmentConfig, succinctNanos(stopwatch.stop().elapsed(NANOSECONDS)), OptionalInt.of(exitCode), exception);
             }
@@ -348,7 +344,7 @@ public class SuiteRun
 
         private static String suiteRunId(String runId, String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig)
         {
-            return format("%s-%s-%s-%s", suiteName, suiteTestRun.getEnvironmentName(), environmentConfig.getConfigName(), runId);
+            return "%s-%s-%s-%s".formatted(suiteName, suiteTestRun.getEnvironmentName(), environmentConfig.getConfigName(), runId);
         }
     }
 

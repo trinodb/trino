@@ -13,7 +13,6 @@
  */
 package io.trino.client;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -134,7 +133,7 @@ class StatementClientV1
         Set<String> effectiveClientCapabilities = clientCapabilities.orElseGet(() -> Stream.of(ClientCapabilities.values())
                 .map(Enum::name)
                 .collect(toImmutableSet()));
-        this.clientCapabilities = Joiner.on(",").join(effectiveClientCapabilities);
+        this.clientCapabilities = String.join(",", effectiveClientCapabilities);
         this.compressionDisabled = session.isCompressionDisabled();
         this.heartbeatInterval = session.getHeartbeatInterval().toMillis() * 1_000_000;
 
@@ -166,7 +165,7 @@ class StatementClientV1
         session.getTraceToken().ifPresent(token -> builder.addHeader(TRINO_HEADERS.requestTraceToken(), token));
 
         if (session.getClientTags() != null && !session.getClientTags().isEmpty()) {
-            builder.addHeader(TRINO_HEADERS.requestClientTags(), Joiner.on(",").join(session.getClientTags()));
+            builder.addHeader(TRINO_HEADERS.requestClientTags(), String.join(",", session.getClientTags()));
         }
         if (session.getClientInfo() != null) {
             builder.addHeader(TRINO_HEADERS.requestClientInfo(), session.getClientInfo());
@@ -174,7 +173,7 @@ class StatementClientV1
         session.getCatalog().ifPresent(value -> builder.addHeader(TRINO_HEADERS.requestCatalog(), value));
         session.getSchema().ifPresent(value -> builder.addHeader(TRINO_HEADERS.requestSchema(), value));
         if (session.getPath() != null && !session.getPath().isEmpty()) {
-            builder.addHeader(TRINO_HEADERS.requestPath(), Joiner.on(",").join(session.getPath()));
+            builder.addHeader(TRINO_HEADERS.requestPath(), String.join(",", session.getPath()));
         }
         builder.addHeader(TRINO_HEADERS.requestTimeZone(), session.getTimeZone().getId());
         if (session.getLocale() != null) {

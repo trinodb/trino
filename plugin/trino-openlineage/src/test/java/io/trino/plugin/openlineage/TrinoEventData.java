@@ -28,7 +28,6 @@ import io.trino.spi.session.ResourceEstimates;
 
 import java.net.URI;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -53,7 +52,7 @@ public class TrinoEventData
     }
 
     static {
-        queryIOMetadata = new QueryIOMetadata(Collections.emptyList(), Optional.empty());
+        queryIOMetadata = new QueryIOMetadata(List.of(), Optional.empty());
 
         queryContext = new QueryContext(
                 "user",
@@ -131,16 +130,16 @@ public class TrinoEventData
                 0L,
                 0L,
                 0.0f,
-                Collections.emptyList(),
+                List.of(),
                 0,
                 true,
-                Collections.emptyList(),
+                List.of(),
                 List.of(new StageOutputBufferUtilization(0, 10, 0.1, 0.5, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99, 0.0, 1.0, ofSeconds(1234))),
-                Collections.emptyList(),
-                Collections.emptyList(),
-                Collections.emptyList(),
-                Collections.emptyList(),
-                Collections.emptyList(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 Optional.empty());
@@ -152,7 +151,7 @@ public class TrinoEventData
                 queryIOMetadata,
                 Optional.empty(),
                 Optional.empty(),
-                Collections.emptyList(),
+                List.of(),
                 Instant.parse("2025-04-28T11:23:55.384424Z"),
                 Instant.parse("2025-04-28T11:24:16.256207Z"),
                 Instant.parse("2025-04-28T11:24:26.993340Z"));

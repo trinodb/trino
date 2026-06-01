@@ -20,7 +20,6 @@ import java.util.UUID;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBlackHoleConnector
@@ -31,16 +30,16 @@ public class TestBlackHoleConnector
         String nullTable = "\"blackhole\".default.nation_" + UUID.randomUUID().toString().replace("-", "");
         String table = "tpch.tiny.nation";
 
-        assertThat(onTrino().executeQuery(format("SELECT count(*) from %s", table))).containsExactlyInOrder(row(25));
-        QueryResult result = onTrino().executeQuery(format("CREATE TABLE %s AS SELECT * FROM %s", nullTable, table));
+        assertThat(onTrino().executeQuery("SELECT count(*) from %s".formatted(table))).containsExactlyInOrder(row(25));
+        QueryResult result = onTrino().executeQuery("CREATE TABLE %s AS SELECT * FROM %s".formatted(nullTable, table));
         try {
             assertThat(result).updatedRowsCountIsEqualTo(25);
-            assertThat(onTrino().executeQuery(format("INSERT INTO %s SELECT * FROM %s", nullTable, table)))
+            assertThat(onTrino().executeQuery("INSERT INTO %s SELECT * FROM %s".formatted(nullTable, table)))
                     .updatedRowsCountIsEqualTo(25);
-            assertThat(onTrino().executeQuery(format("SELECT * FROM %s", nullTable))).hasNoRows();
+            assertThat(onTrino().executeQuery("SELECT * FROM %s".formatted(nullTable))).hasNoRows();
         }
         finally {
-            onTrino().executeQuery(format("DROP TABLE %s", nullTable));
+            onTrino().executeQuery("DROP TABLE %s".formatted(nullTable));
         }
     }
 }

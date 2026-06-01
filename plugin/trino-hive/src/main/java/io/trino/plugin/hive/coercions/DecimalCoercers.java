@@ -52,7 +52,6 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 
 public final class DecimalCoercers
 {
@@ -276,7 +275,7 @@ public final class DecimalCoercers
             String stringValue = Decimals.toString(fromType.getLong(block, position), fromType.getScale());
             // Hive truncates digits (also before the decimal point), which can be perceived as a bug
             if (stringValue.length() > lengthLimit) {
-                throw new TrinoException(INVALID_ARGUMENTS, format("Decimal value %s representation exceeds varchar(%s) bounds", stringValue, lengthLimit));
+                throw new TrinoException(INVALID_ARGUMENTS, "Decimal value %s representation exceeds varchar(%s) bounds".formatted(stringValue, lengthLimit));
             }
             toType.writeString(blockBuilder, stringValue.substring(0, min(lengthLimit, stringValue.length())));
         }
@@ -299,7 +298,7 @@ public final class DecimalCoercers
             String stringValue = Decimals.toString((Int128) fromType.getObject(block, position), fromType.getScale());
             // Hive truncates digits (also before the decimal point), which can be perceived as a bug
             if (stringValue.length() > lengthLimit) {
-                throw new TrinoException(INVALID_ARGUMENTS, format("Decimal value %s representation exceeds varchar(%s) bounds", stringValue, lengthLimit));
+                throw new TrinoException(INVALID_ARGUMENTS, "Decimal value %s representation exceeds varchar(%s) bounds".formatted(stringValue, lengthLimit));
             }
             toType.writeString(blockBuilder, stringValue.substring(0, min(lengthLimit, stringValue.length())));
         }
@@ -340,7 +339,7 @@ public final class DecimalCoercers
                 maxValue = Long.MAX_VALUE;
             }
             else {
-                throw new TrinoException(NOT_SUPPORTED, format("Could not create Coercer from Decimal to %s", toType));
+                throw new TrinoException(NOT_SUPPORTED, "Could not create Coercer from Decimal to %s".formatted(toType));
             }
         }
 

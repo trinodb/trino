@@ -13,7 +13,6 @@
  */
 package io.trino.tests.product.launcher.suite;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -109,22 +108,21 @@ public class SuiteTestRun
     public List<String> getTemptoRunArguments()
     {
         ImmutableList.Builder<String> arguments = ImmutableList.builder();
-        Joiner joiner = Joiner.on(",");
 
         if (!groups.isEmpty()) {
-            arguments.add(TEMPTO_GROUP_ARG, joiner.join(groups));
+            arguments.add(TEMPTO_GROUP_ARG, String.join(",", groups));
         }
 
         if (!excludedGroups.isEmpty()) {
-            arguments.add(TEMPTO_EXCLUDE_GROUP_ARG, joiner.join(excludedGroups));
+            arguments.add(TEMPTO_EXCLUDE_GROUP_ARG, String.join(",", excludedGroups));
         }
 
         if (!tests.isEmpty()) {
-            arguments.add(TEMPTO_TEST_ARG, joiner.join(tests));
+            arguments.add(TEMPTO_TEST_ARG, String.join(",", tests));
         }
 
         if (!excludedTests.isEmpty()) {
-            arguments.add(TEMPTO_EXCLUDE_TEST_ARG, joiner.join(excludedTests));
+            arguments.add(TEMPTO_EXCLUDE_TEST_ARG, String.join(",", excludedTests));
         }
 
         return arguments.build();

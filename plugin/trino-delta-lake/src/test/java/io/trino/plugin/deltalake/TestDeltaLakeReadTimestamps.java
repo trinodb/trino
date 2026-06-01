@@ -41,7 +41,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.time.temporal.ChronoField.DAY_OF_MONTH;
 import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
@@ -102,7 +101,7 @@ public class TestDeltaLakeReadTimestamps
     public void registerTables()
     {
         String dataPath = getClass().getClassLoader().getResource("databricks73/read_timestamps").toExternalForm();
-        getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, 'read_timestamps', '%s')", dataPath));
+        getQueryRunner().execute("CALL system.register_table(CURRENT_SCHEMA, 'read_timestamps', '%s')".formatted(dataPath));
     }
 
     @Test
@@ -150,7 +149,7 @@ public class TestDeltaLakeReadTimestamps
             sessionBuilder.setTimeZoneKey(getTimeZoneKey(zone));
         }
         String projections = IntStream.range(1, 37)
-                .mapToObj(columnIndex -> format("to_iso8601(col_%s)", columnIndex))
+                .mapToObj(columnIndex -> "to_iso8601(col_%s)".formatted(columnIndex))
                 .collect(joining(", "));
         String expectedPartitionedTimestamps = testCases.stream()
                 .map(x -> EXPECTED_VALUES_FORMATTER.format(x.atZone(ZoneId.of(zone)).withZoneSameLocal(UTC)))
@@ -172,12 +171,12 @@ public class TestDeltaLakeReadTimestamps
         // partition values
         for (int i = 0; i < testCases.size(); i++) {
             Instant stored = testCases.get(i).atZone(ZoneId.of(zone)).withZoneSameLocal(UTC).toInstant();
-            predicates.add(format("col_%d = %s", i + 1, WHERE_VALUE_FORMATTER.format(stored)));
+            predicates.add("col_%d = %s".formatted(i + 1, WHERE_VALUE_FORMATTER.format(stored)));
         }
         // Parquet values
         for (int i = 0; i < testCases.size(); i++) {
             Instant stored = testCases.get(i);
-            predicates.add(format("col_%d = %s", testCases.size() + i + 1, WHERE_VALUE_FORMATTER.format(stored)));
+            predicates.add("col_%d = %s".formatted(testCases.size() + i + 1, WHERE_VALUE_FORMATTER.format(stored)));
         }
         return join(" AND ", predicates);
     }

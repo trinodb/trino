@@ -22,13 +22,12 @@ import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 
+import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.spi.type.Slices.sliceRepresentation;
 import static java.lang.Character.MAX_CODE_POINT;
-import static java.lang.String.format;
-import static java.util.Collections.singletonList;
 
 public final class VarcharType
         extends AbstractVariableWidthType
@@ -78,7 +77,7 @@ public final class VarcharType
         super(
                 new TypeSignature(
                         NAME,
-                        singletonList(TypeParameter.numericParameter(length))),
+                        List.of(TypeParameter.numericParameter(length))),
                 Slice.class);
 
         if (length < 0) {
@@ -141,7 +140,7 @@ public final class VarcharType
 
         Slice slice = getSlice(block, position);
         if (!isUnbounded() && countCodePoints(slice) > length) {
-            throw new IllegalArgumentException(format("Character count exceeds length limit %s: %s", length, sliceRepresentation(slice)));
+            throw new IllegalArgumentException("Character count exceeds length limit %s: %s".formatted(length, sliceRepresentation(slice)));
         }
         return slice.toStringUtf8();
     }

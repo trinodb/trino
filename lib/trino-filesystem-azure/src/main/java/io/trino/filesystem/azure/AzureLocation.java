@@ -46,7 +46,7 @@ class AzureLocation
     {
         this.location = requireNonNull(location, "location is null");
         // wasb and wasbs are also supported but not documented
-        scheme = location.scheme().orElseThrow(() -> new IllegalArgumentException(String.format(INVALID_ABFS_LOCATION_MESSAGE, location)));
+        scheme = location.scheme().orElseThrow(() -> new IllegalArgumentException(INVALID_ABFS_LOCATION_MESSAGE.formatted(location)));
         String invalidLocationMessage;
         if ("abfs".equals(scheme) || "abfss".equals(scheme)) {
             invalidLocationMessage = INVALID_ABFS_LOCATION_MESSAGE;
@@ -56,7 +56,7 @@ class AzureLocation
         }
         else {
             // only mention abfs in error message as the other forms are deprecated
-            throw new IllegalArgumentException(String.format(INVALID_ABFS_LOCATION_MESSAGE, location));
+            throw new IllegalArgumentException(INVALID_ABFS_LOCATION_MESSAGE.formatted(location));
         }
 
         // container is interpolated into the URL path, so perform extra checks

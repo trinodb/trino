@@ -32,7 +32,6 @@ import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_IS
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static java.nio.file.Files.newInputStream;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -88,14 +87,13 @@ public class TestAvroSchemaUrl
     public void testHiveCreatedTable(String schemaLocation)
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_hive");
-        onHive().executeQuery(format(
-                "" +
-                        "CREATE TABLE test_avro_schema_url_hive " +
-                        "ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
-                        "STORED AS " +
-                        "INPUTFORMAT 'org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat' " +
-                        "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.avro.AvroContainerOutputFormat' " +
-                        "TBLPROPERTIES ('avro.schema.url'='%s')",
+        onHive().executeQuery(("" +
+        "CREATE TABLE test_avro_schema_url_hive " +
+        "ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
+        "STORED AS " +
+        "INPUTFORMAT 'org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat' " +
+        "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.avro.AvroContainerOutputFormat' " +
+        "TBLPROPERTIES ('avro.schema.url'='%s')").formatted(
                 schemaLocation));
         onHive().executeQuery("INSERT INTO test_avro_schema_url_hive VALUES ('some text', 123042)");
 
@@ -114,14 +112,13 @@ public class TestAvroSchemaUrl
 
         String schemaLocationOnHdfs = "/user/hive/warehouse/TestAvroSchemaUrl/schemas/test_avro_schema_url_in_serde_properties.avsc";
         saveResourceOnHdfs("avro/original_schema.avsc", schemaLocationOnHdfs);
-        onHive().executeQuery(format(
-                "" +
-                        "CREATE TABLE test_avro_schema_url_in_serde_properties " +
-                        "ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
-                        "WITH SERDEPROPERTIES ('avro.schema.url'='%s')" +
-                        "STORED AS " +
-                        "INPUTFORMAT 'org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat' " +
-                        "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.avro.AvroContainerOutputFormat' ",
+        onHive().executeQuery(("" +
+        "CREATE TABLE test_avro_schema_url_in_serde_properties " +
+        "ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
+        "WITH SERDEPROPERTIES ('avro.schema.url'='%s')" +
+        "STORED AS " +
+        "INPUTFORMAT 'org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat' " +
+        "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.avro.AvroContainerOutputFormat' ").formatted(
                 schemaLocationOnHdfs));
 
         assertThat(onTrino().executeQuery("SHOW COLUMNS FROM test_avro_schema_url_in_serde_properties"))
@@ -154,7 +151,7 @@ public class TestAvroSchemaUrl
     public void testTrinoCreatedTable(String schemaLocation)
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_trino");
-        onTrino().executeQuery(format("CREATE TABLE test_avro_schema_url_trino (dummy_col VARCHAR) WITH (format='AVRO', avro_schema_url='%s')", schemaLocation));
+        onTrino().executeQuery("CREATE TABLE test_avro_schema_url_trino (dummy_col VARCHAR) WITH (format='AVRO', avro_schema_url='%s')".formatted(schemaLocation));
         onTrino().executeQuery("INSERT INTO test_avro_schema_url_trino VALUES ('some text', 123042)");
 
         assertThat(onHive().executeQuery("SELECT * FROM test_avro_schema_url_trino")).containsExactlyInOrder(row("some text", 123042));

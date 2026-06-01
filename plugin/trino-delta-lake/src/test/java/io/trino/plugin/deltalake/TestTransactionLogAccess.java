@@ -86,7 +86,6 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSA
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
@@ -421,7 +420,7 @@ public class TestTransactionLogAccess
         Path resourceDir = Path.of(getClass().getClassLoader().getResource("databricks73/person/_delta_log").toURI());
         for (int i = 0; i < 12; i++) {
             String extension = i == 10 ? ".checkpoint.parquet" : ".json";
-            String fileName = format("%020d%s", i, extension);
+            String fileName = "%020d%s".formatted(i, extension);
             Files.copy(resourceDir.resolve(fileName), new File(transactionLogDir, fileName).toPath());
         }
         Files.copy(resourceDir.resolve(LAST_CHECKPOINT_FILENAME), new File(transactionLogDir, LAST_CHECKPOINT_FILENAME).toPath());
@@ -429,7 +428,7 @@ public class TestTransactionLogAccess
         setupTransactionLogAccess(tableName, tableDir.toURI().toString());
         assertThat(tableSnapshot.getVersion()).isEqualTo(11L);
 
-        String lastTransactionName = format("%020d.json", 12);
+        String lastTransactionName = "%020d.json".formatted(12);
         Files.copy(resourceDir.resolve(lastTransactionName), new File(transactionLogDir, lastTransactionName).toPath());
         TableSnapshot updatedSnapshot = transactionLogAccess.loadSnapshot(SESSION, createTable(new SchemaTableName("schema", tableName), tableDir.toURI().toString()), Optional.empty());
         assertThat(updatedSnapshot.getVersion()).isEqualTo(12);
@@ -933,10 +932,10 @@ public class TestTransactionLogAccess
     {
         for (int i = startVersion; i < endVersion; i++) {
             if (i % 10 == 0 && i != 0) {
-                String checkpointFileName = format("%020d.checkpoint.parquet", i);
+                String checkpointFileName = "%020d.checkpoint.parquet".formatted(i);
                 Files.copy(new File(sourceDir, checkpointFileName).toPath(), new File(targetDir, checkpointFileName).toPath());
             }
-            String lastTransactionName = format("%020d.json", i);
+            String lastTransactionName = "%020d.json".formatted(i);
             Files.copy(new File(sourceDir, lastTransactionName).toPath(), new File(targetDir, lastTransactionName).toPath());
         }
     }

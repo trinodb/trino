@@ -76,7 +76,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.Arrays.asList;
 
 public class TestConnectorPushdownRulesWithHive
@@ -133,9 +132,8 @@ public class TestConnectorPushdownRulesWithHive
                 tester().getPlannerContext(),
                 new ScalarStatsCalculator(tester().getPlannerContext()));
 
-        tester().getPlanTester().executeStatement(format(
-                "CREATE TABLE  %s (struct_of_int) AS " +
-                        "SELECT cast(row(5, 6) as row(a bigint, b bigint)) as struct_of_int where false",
+        tester().getPlanTester().executeStatement(("CREATE TABLE  %s (struct_of_int) AS " +
+        "SELECT cast(row(5, 6) as row(a bigint, b bigint)) as struct_of_int where false").formatted(
                 tableName));
 
         Type baseType = ROW_TYPE;
@@ -213,7 +211,7 @@ public class TestConnectorPushdownRulesWithHive
     public void testPredicatePushdown()
     {
         String tableName = "predicate_test";
-        tester().getPlanTester().executeStatement(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
+        tester().getPlanTester().executeStatement("CREATE TABLE %s (a, b) AS SELECT 5, 6".formatted(tableName));
 
         PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), false);
 
@@ -245,7 +243,7 @@ public class TestConnectorPushdownRulesWithHive
     public void testColumnPruningProjectionPushdown()
     {
         String tableName = "column_pruning_projection_test";
-        tester().getPlanTester().executeStatement(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
+        tester().getPlanTester().executeStatement("CREATE TABLE %s (a, b) AS SELECT 5, 6".formatted(tableName));
 
         PruneTableScanColumns pruneTableScanColumns = new PruneTableScanColumns(tester().getMetadata());
 
@@ -283,8 +281,7 @@ public class TestConnectorPushdownRulesWithHive
     public void testPushdownWithDuplicateExpressions()
     {
         String tableName = "duplicate_expressions";
-        tester().getPlanTester().executeStatement(format(
-                "CREATE TABLE  %s (struct_of_bigint, just_bigint) AS SELECT cast(row(5, 6) AS row(a bigint, b bigint)) AS struct_of_int, 5 AS just_bigint WHERE false",
+        tester().getPlanTester().executeStatement("CREATE TABLE  %s (struct_of_bigint, just_bigint) AS SELECT cast(row(5, 6) AS row(a bigint, b bigint)) AS struct_of_int, 5 AS just_bigint WHERE false".formatted(
                 tableName));
 
         PushProjectionIntoTableScan pushProjectionIntoTableScan = new PushProjectionIntoTableScan(

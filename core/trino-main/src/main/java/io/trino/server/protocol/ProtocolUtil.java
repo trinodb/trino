@@ -68,7 +68,6 @@ import static io.trino.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.StandardTypes.VARCHAR;
 import static io.trino.spi.type.StandardTypes.VARIANT;
 import static io.trino.util.Failures.toFailure;
-import static java.lang.String.format;
 import static java.util.HashSet.newHashSet;
 import static java.util.Objects.requireNonNullElse;
 
@@ -297,7 +296,7 @@ public final class ProtocolUtil
         }
         else {
             log.warn("Query %s in state %s has no failure info", queryInfo.queryId(), state);
-            executionFailure = toFailure(new RuntimeException(format("Query is %s (reason unknown)", state)));
+            executionFailure = toFailure(new RuntimeException("Query is %s (reason unknown)".formatted(state)));
         }
         FailureInfo failure = executionFailure.toFailureInfo();
 

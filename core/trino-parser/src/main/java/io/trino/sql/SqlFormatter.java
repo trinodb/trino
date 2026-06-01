@@ -13,7 +13,6 @@
  */
 package io.trino.sql;
 
-import com.google.common.base.Joiner;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AliasedRelation;
@@ -843,7 +842,7 @@ public final class SqlFormatter
 
             if (!node.getAliases().isEmpty()) {
                 builder.append(" AS (")
-                        .append(Joiner.on(", ").join(node.getAliases().stream()
+                        .append(String.join(", ", node.getAliases().stream()
                                 .map(SqlFormatter::formatName)
                                 .collect(toImmutableList())))
                         .append(")");
@@ -895,7 +894,7 @@ public final class SqlFormatter
             if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT) {
                 if (criteria instanceof JoinUsing using) {
                     builder.append(" USING (")
-                            .append(Joiner.on(", ").join(using.getColumns()))
+                            .append(using.getColumns().stream().map(Object::toString).collect(joining(", ")))
                             .append(")");
                 }
                 else if (criteria instanceof JoinOn on) {
@@ -1980,7 +1979,7 @@ public final class SqlFormatter
 
             node.getColumns().ifPresent(columns -> builder
                     .append(" (")
-                    .append(Joiner.on(", ").join(columns))
+                    .append(columns.stream().map(Object::toString).collect(joining(", ")))
                     .append(")"));
 
             builder.append("\n");
@@ -2362,7 +2361,7 @@ public final class SqlFormatter
         public Void visitSetPath(SetPath node, Integer indent)
         {
             builder.append("SET PATH ");
-            builder.append(Joiner.on(", ").join(node.getPathSpecification().getPath()));
+            builder.append(node.getPathSpecification().getPath().stream().map(Object::toString).collect(joining(", ")));
             return null;
         }
 
@@ -2821,8 +2820,7 @@ public final class SqlFormatter
 
     private static String formatGrantScope(GrantObject grantObject)
     {
-        return String.format(
-                "%s%s%s",
+        return "%s%s%s".formatted(
                 grantObject.getBranch().isPresent() ? "BRANCH " + formatName(grantObject.getBranch().get()) + " IN " : "",
                 grantObject.getEntityKind().isPresent() ? grantObject.getEntityKind().get() + " " : "",
                 formatName(grantObject.getName()));

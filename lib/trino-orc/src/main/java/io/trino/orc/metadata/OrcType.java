@@ -48,7 +48,6 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class OrcType
@@ -247,7 +246,7 @@ public class OrcType
 
             return createOrcRowType(nextFieldTypeIndex, fieldNames, fieldTypes, additionalTypeMapping);
         }
-        throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported Hive type: %s".formatted(type));
     }
 
     private static List<OrcType> createOrcArrayType(int nextFieldTypeIndex, Type itemType, Optional<Function<Type, Optional<OrcType>>> additionalTypeMapping)

@@ -113,7 +113,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -571,7 +570,7 @@ public class TestBackgroundHiveSplitLoader
 
         // ValidWriteIdList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
         // This writeId list has high watermark transaction=3 and aborted transaction=2
-        String validWriteIdsList = format("4$%s.%s:3:9223372036854775807::2", table.getDatabaseName(), table.getTableName());
+        String validWriteIdsList = "4$%s.%s:3:9223372036854775807::2".formatted(table.getDatabaseName(), table.getTableName());
 
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 fileSystemFactory,
@@ -615,7 +614,7 @@ public class TestBackgroundHiveSplitLoader
 
         // ValidWriteIdsList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
         // This writeId list has high watermark transaction=3
-        ValidWriteIdList validWriteIdsList = new ValidWriteIdList(format("4$%s.%s:3:9223372036854775807::", table.getDatabaseName(), table.getTableName()));
+        ValidWriteIdList validWriteIdsList = new ValidWriteIdList("4$%s.%s:3:9223372036854775807::".formatted(table.getDatabaseName(), table.getTableName()));
 
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 fileSystemFactory,
@@ -652,7 +651,7 @@ public class TestBackgroundHiveSplitLoader
 
         // ValidWriteIdsList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
         // This writeId list has high watermark transaction=3
-        ValidWriteIdList validWriteIdsList = new ValidWriteIdList(format("4$%s.%s:3:9223372036854775807::", table.getDatabaseName(), table.getTableName()));
+        ValidWriteIdList validWriteIdsList = new ValidWriteIdList("4$%s.%s:3:9223372036854775807::".formatted(table.getDatabaseName(), table.getTableName()));
 
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 fileSystemFactory,
@@ -692,7 +691,7 @@ public class TestBackgroundHiveSplitLoader
 
         // ValidWriteIdsList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
         // This writeId list has high watermark transaction=3
-        ValidWriteIdList validWriteIdsList = new ValidWriteIdList(format("4$%s.%s:3:9223372036854775807::", table.getDatabaseName(), table.getTableName()));
+        ValidWriteIdList validWriteIdsList = new ValidWriteIdList("4$%s.%s:3:9223372036854775807::".formatted(table.getDatabaseName(), table.getTableName()));
 
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 fileSystemFactory,
@@ -737,7 +736,7 @@ public class TestBackgroundHiveSplitLoader
 
         // ValidWriteIdsList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
         // This writeId list has high watermark transaction=3
-        ValidWriteIdList validWriteIdsList = new ValidWriteIdList(format("4$%s.%s:3:9223372036854775807::", table.getDatabaseName(), table.getTableName()));
+        ValidWriteIdList validWriteIdsList = new ValidWriteIdList("4$%s.%s:3:9223372036854775807::".formatted(table.getDatabaseName(), table.getTableName()));
 
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 fileSystemFactory,
@@ -781,7 +780,7 @@ public class TestBackgroundHiveSplitLoader
 
         // ValidWriteIdsList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
         // This writeId list has high watermark transaction=3
-        ValidWriteIdList validWriteIdsList = new ValidWriteIdList(format("4$%s.%s:3:9223372036854775807::", table.getDatabaseName(), table.getTableName()));
+        ValidWriteIdList validWriteIdsList = new ValidWriteIdList("4$%s.%s:3:9223372036854775807::".formatted(table.getDatabaseName(), table.getTableName()));
 
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 fileSystemFactory,
@@ -1012,8 +1011,7 @@ public class TestBackgroundHiveSplitLoader
             backgroundHiveSplitLoader.start(hiveSplitSource);
             assertThatThrownBy(() -> drainSplits(hiveSplitSource))
                     .isInstanceOf(TrinoException.class)
-                    .hasMessage(format(
-                            "Query over table '%s' can potentially read more than %s partitions",
+                    .hasMessage("Query over table '%s' can potentially read more than %s partitions".formatted(
                             SIMPLE_TABLE.getSchemaTableName(),
                             partitionLimit));
         }
@@ -1044,8 +1042,7 @@ public class TestBackgroundHiveSplitLoader
             backgroundHiveSplitLoader.start(hiveSplitSource);
             assertThatThrownBy(() -> drainSplits(hiveSplitSource))
                     .isInstanceOf(TrinoException.class)
-                    .hasMessage(format(
-                            "Query over table '%s' can potentially read more than %s partitions",
+                    .hasMessage("Query over table '%s' can potentially read more than %s partitions".formatted(
                             SIMPLE_TABLE.getSchemaTableName(),
                             partitionLimit));
         }

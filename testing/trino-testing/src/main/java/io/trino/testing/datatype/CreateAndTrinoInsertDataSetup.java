@@ -20,7 +20,6 @@ import io.trino.testing.sql.TrinoSqlExecutor;
 
 import java.util.List;
 
-import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
@@ -58,7 +57,7 @@ public class CreateAndTrinoInsertDataSetup
         String valueLiterals = inputs.stream()
                 .map(ColumnSetup::getInputLiteral)
                 .collect(joining(", "));
-        trinoSqlExecutor.execute(format("INSERT INTO %s VALUES(%s)", testTable.getName(), valueLiterals));
+        trinoSqlExecutor.execute("INSERT INTO %s VALUES(%s)".formatted(testTable.getName(), valueLiterals));
     }
 
     private TestTable createTestTable(List<ColumnSetup> inputs)
@@ -72,7 +71,7 @@ public class CreateAndTrinoInsertDataSetup
                 .map(input -> input.getDeclaredType().orElseThrow(() -> new IllegalArgumentException("declared type not set")))
                 .collect(toList());
         return range(0, columnTypeDefinitions.size())
-                .mapToObj(i -> format("col_%d %s", i, columnTypeDefinitions.get(i)))
+                .mapToObj(i -> "col_%d %s".formatted(i, columnTypeDefinitions.get(i)))
                 .collect(joining(",\n"));
     }
 }

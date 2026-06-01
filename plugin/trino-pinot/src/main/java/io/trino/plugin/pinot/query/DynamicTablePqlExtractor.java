@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.plugin.pinot.query.PinotQueryBuilder.getFilterClause;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -38,7 +37,7 @@ public final class DynamicTablePqlExtractor
                         .append("SET ")
                         .append(key)
                         .append(" = ")
-                        .append(format("'%s'", queryOptions.get(key)))
+                        .append("'%s'".formatted(queryOptions.get(key)))
                         .append(";\n"));
         builder.append("SELECT ");
         if (!table.projections().isEmpty()) {
@@ -98,7 +97,7 @@ public final class DynamicTablePqlExtractor
         Optional<String> tupleFilter = getFilterClause(tupleDomain, Optional.empty(), forHavingClause);
 
         if (tupleFilter.isPresent() && filter.isPresent()) {
-            return Optional.of(format("%s AND %s", encloseInParentheses(tupleFilter.get()), encloseInParentheses(filter.get())));
+            return Optional.of("%s AND %s".formatted(encloseInParentheses(tupleFilter.get()), encloseInParentheses(filter.get())));
         }
         if (filter.isPresent()) {
             return filter;
@@ -122,7 +121,7 @@ public final class DynamicTablePqlExtractor
 
     public static String encloseInParentheses(String value)
     {
-        return format("(%s)", value);
+        return "(%s)".formatted(value);
     }
 
     private static String formatExpression(PinotColumnHandle pinotColumnHandle)
@@ -135,6 +134,6 @@ public final class DynamicTablePqlExtractor
 
     public static String quoteIdentifier(String identifier)
     {
-        return format("\"%s\"", identifier.replaceAll("\"", "\"\""));
+        return "\"%s\"".formatted(identifier.replaceAll("\"", "\"\""));
     }
 }

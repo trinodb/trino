@@ -60,7 +60,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.BenchmarkPlanner.Queries.TPCH;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -155,7 +154,7 @@ public class BenchmarkPlanner
         TPCH(() -> IntStream.rangeClosed(1, 22)
                 .boxed()
                 .filter(i -> i != 15) // q15 has two queries in it
-                .map(i -> readResource(format("/io/trino/tpch/queries/q%d.sql", i)))
+                .map(i -> readResource("/io/trino/tpch/queries/q%d.sql".formatted(i)))
                 .collect(toImmutableList())),
         LARGE_IN(() -> ImmutableList.of("SELECT * from orders where o_orderkey in " +
                 IntStream.range(0, 5000)

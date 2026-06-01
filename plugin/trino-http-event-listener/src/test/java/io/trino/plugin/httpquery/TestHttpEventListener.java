@@ -54,7 +54,6 @@ import java.security.KeyStore;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -67,7 +66,6 @@ import java.util.stream.Stream;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
-import static java.lang.String.format;
 import static java.time.Duration.ofSeconds;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
@@ -94,7 +92,7 @@ final class TestHttpEventListener
     private static final String queryCompleteEventJson;
 
     static {
-        queryIOMetadata = new QueryIOMetadata(Collections.emptyList(), Optional.empty());
+        queryIOMetadata = new QueryIOMetadata(List.of(), Optional.empty());
 
         queryContext = new QueryContext(
                 "user",
@@ -172,16 +170,16 @@ final class TestHttpEventListener
                 0L,
                 0L,
                 0.0f,
-                Collections.emptyList(),
+                List.of(),
                 0,
                 true,
-                Collections.emptyList(),
+                List.of(),
                 List.of(new StageOutputBufferUtilization(0, 10, 0.1, 0.5, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99, 0.0, 1.0, ofSeconds(1234))),
-                Collections.emptyList(),
-                Collections.emptyList(),
-                Collections.emptyList(),
-                Collections.emptyList(),
-                Collections.emptyList(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 Optional.empty());
@@ -198,7 +196,7 @@ final class TestHttpEventListener
                 queryIOMetadata,
                 Optional.empty(),
                 Optional.empty(),
-                Collections.emptyList(),
+                List.of(),
                 Instant.now(),
                 Instant.now(),
                 Instant.now());
@@ -432,10 +430,10 @@ final class TestHttpEventListener
                 .isNotNull();
         customHeaders.forEach((key, _) -> {
             assertThat(recordedRequest.getHeaders().get(key))
-                    .describedAs(format("Custom header %s not present in request", key))
+                    .describedAs("Custom header %s not present in request".formatted(key))
                     .isNotNull();
             assertThat(recordedRequest.getHeaders().get(key))
-                    .describedAs(format("Expected value %s for header %s but got %s", customHeaders.get(key), key, recordedRequest.getHeaders().get(key)))
+                    .describedAs("Expected value %s for header %s but got %s".formatted(customHeaders.get(key), key, recordedRequest.getHeaders().get(key)))
                     .isEqualTo(customHeaders.get(key));
         });
         String body = recordedRequest.getBody().utf8();

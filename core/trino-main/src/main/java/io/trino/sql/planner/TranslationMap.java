@@ -170,7 +170,6 @@ import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static io.trino.util.DateTimeUtils.parseDayTimeInterval;
 import static io.trino.util.DateTimeUtils.parseYearMonthInterval;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -658,7 +657,7 @@ public class TranslationMap
     {
         return getSymbolForColumn(expression)
                 .map(Symbol::toSymbolReference)
-                .orElseThrow(() -> new IllegalStateException(format("No symbol mapping for node '%s' (%s)", expression, expression.getFieldIndex())));
+                .orElseThrow(() -> new IllegalStateException("No symbol mapping for node '%s' (%s)".formatted(expression, expression.getFieldIndex())));
     }
 
     private io.trino.sql.ir.Expression translate(Identifier expression)
@@ -738,7 +737,7 @@ public class TranslationMap
         if (analysis.isColumnReference(expression)) {
             return getSymbolForColumn(expression)
                     .map(Symbol::toSymbolReference)
-                    .orElseThrow(() -> new IllegalStateException(format("No mapping for %s", expression)));
+                    .orElseThrow(() -> new IllegalStateException("No mapping for %s".formatted(expression)));
         }
 
         RowType rowType = (RowType) analysis.getType(expression.getBase());

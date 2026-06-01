@@ -32,7 +32,6 @@ import static io.trino.plugin.base.mapping.testing.RuleBasedIdentifierMappingUti
 import static io.trino.plugin.base.mapping.testing.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
 import static io.trino.plugin.base.mapping.testing.RuleBasedIdentifierMappingUtils.updateRuleBasedIdentifierMappingFile;
 import static io.trino.plugin.exasol.TestingExasolServer.TEST_SCHEMA;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -251,8 +250,8 @@ final class TestExasolCaseInsensitiveMapping
                             .hasSize(2);
                     assertQuery("SHOW TABLES FROM " + schema, "VALUES 'some_table_name'");
                     // Exasol does not support writing via Trino
-                    onRemoteDatabase().execute(format("INSERT INTO \"%s\".\"some_table_name\" VALUES 'a'", remoteSchema));
-                    assertQuery(format("SELECT * FROM %s.some_table_name", schema), "VALUES 'a'");
+                    onRemoteDatabase().execute("INSERT INTO \"%s\".\"some_table_name\" VALUES 'a'".formatted(remoteSchema));
+                    assertQuery("SELECT * FROM %s.some_table_name".formatted(schema), "VALUES 'a'");
                 }
             }
         }
@@ -267,7 +266,7 @@ final class TestExasolCaseInsensitiveMapping
             schemaName = remoteSchemaName;
         }
         String quotedName = schemaName + "." + quoted(remoteTableName);
-        onRemoteDatabase().execute(format("CREATE TABLE %s %s", quotedName, tableDefinition));
+        onRemoteDatabase().execute("CREATE TABLE %s %s".formatted(quotedName, tableDefinition));
         return () -> onRemoteDatabase().execute("DROP TABLE " + quotedName);
     }
 

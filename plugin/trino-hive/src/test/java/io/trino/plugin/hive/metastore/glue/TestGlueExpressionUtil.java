@@ -27,7 +27,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.metastore.glue.GlueExpressionUtil.buildGlueExpression;
 import static io.trino.plugin.hive.metastore.glue.GlueExpressionUtil.buildGlueExpressionForSingleDomain;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGlueExpressionUtil
@@ -125,7 +124,7 @@ public class TestGlueExpressionUtil
                 .addDomain("col1", Domain.onlyNull(VarcharType.VARCHAR))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertThat(expression).isEqualTo(format("(col1 = '%s')", GlueExpressionUtil.NULL_STRING));
+        assertThat(expression).isEqualTo("(col1 = '%s')".formatted(GlueExpressionUtil.NULL_STRING));
     }
 
     @Test
@@ -135,7 +134,7 @@ public class TestGlueExpressionUtil
                 .addDomain("col1", Domain.notNull(VarcharType.VARCHAR))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertThat(expression).isEqualTo(format("(col1 <> '%s')", GlueExpressionUtil.NULL_STRING));
+        assertThat(expression).isEqualTo("(col1 <> '%s')".formatted(GlueExpressionUtil.NULL_STRING));
     }
 
     @Test
@@ -146,7 +145,7 @@ public class TestGlueExpressionUtil
                 .addDomain("col1", Domain.onlyNull(VarcharType.VARCHAR))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertThat(expression).isEqualTo(format("((col1 = '2020-01-01') OR (col1 = '%s'))", GlueExpressionUtil.NULL_STRING));
+        assertThat(expression).isEqualTo("((col1 = '2020-01-01') OR (col1 = '%s'))".formatted(GlueExpressionUtil.NULL_STRING));
     }
 
     @Test
@@ -157,7 +156,7 @@ public class TestGlueExpressionUtil
                 .addDomain("col2", Domain.notNull(VarcharType.VARCHAR))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1", "col2"), filter, true);
-        assertThat(expression).isEqualTo(format("((col1 = '2020-01-01')) AND (col2 <> '%s')", GlueExpressionUtil.NULL_STRING));
+        assertThat(expression).isEqualTo("((col1 = '2020-01-01')) AND (col2 <> '%s')".formatted(GlueExpressionUtil.NULL_STRING));
     }
 
     @Test
@@ -205,7 +204,7 @@ public class TestGlueExpressionUtil
                 .addBigintValues("col1", Long.MAX_VALUE)
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertThat(expression).isEqualTo(format("((col1 = %d))", Long.MAX_VALUE));
+        assertThat(expression).isEqualTo("((col1 = %d))".formatted(Long.MAX_VALUE));
     }
 
     @Test
@@ -215,7 +214,7 @@ public class TestGlueExpressionUtil
                 .addIntegerValues("col1", Long.valueOf(Integer.MAX_VALUE))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertThat(expression).isEqualTo(format("((col1 = %d))", Integer.MAX_VALUE));
+        assertThat(expression).isEqualTo("((col1 = %d))".formatted(Integer.MAX_VALUE));
     }
 
     @Test
@@ -225,7 +224,7 @@ public class TestGlueExpressionUtil
                 .addIntegerValues("col1", Long.valueOf(Short.MAX_VALUE))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertThat(expression).isEqualTo(format("((col1 = %d))", Short.MAX_VALUE));
+        assertThat(expression).isEqualTo("((col1 = %d))".formatted(Short.MAX_VALUE));
     }
 
     @Test
@@ -235,7 +234,7 @@ public class TestGlueExpressionUtil
                 .addIntegerValues("col1", Long.valueOf(Byte.MAX_VALUE))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertThat(expression).isEqualTo(format("((col1 = %d))", Byte.MAX_VALUE));
+        assertThat(expression).isEqualTo("((col1 = %d))".formatted(Byte.MAX_VALUE));
     }
 
     @Test

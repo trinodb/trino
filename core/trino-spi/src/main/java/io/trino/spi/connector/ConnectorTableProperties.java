@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorTableProperties
@@ -31,7 +30,7 @@ public class ConnectorTableProperties
 
     public ConnectorTableProperties()
     {
-        this(TupleDomain.all(), Optional.empty(), Optional.empty(), emptyList());
+        this(TupleDomain.all(), Optional.empty(), Optional.empty(), List.of());
     }
 
     public ConnectorTableProperties(

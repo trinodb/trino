@@ -48,7 +48,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.cache.CacheStatsAssertions.assertCacheStats;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -522,7 +521,7 @@ public class TestEvictableCache
                             // read through cache
                             long current = cache.get(key, remoteState::get);
                             if (current % prime != 0) {
-                                throw new AssertionError(format("The value read through cache (%s) in thread (%s) is not divisible by (%s)", current, threadNumber, prime));
+                                throw new AssertionError("The value read through cache (%s) in thread (%s) is not divisible by (%s)".formatted(current, threadNumber, prime));
                             }
 
                             return (Void) null;

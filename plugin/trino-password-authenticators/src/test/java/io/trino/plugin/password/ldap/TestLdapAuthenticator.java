@@ -26,7 +26,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 import org.testcontainers.containers.Network;
 
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -95,7 +94,7 @@ public class TestLdapAuthenticator
             LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
                     client,
                     new LdapAuthenticatorConfig()
-                            .setUserBindSearchPatterns(format("uid=${USER},%s:uid=${USER},%s", organization.getDistinguishedName(), alternativeOrganization.getDistinguishedName())));
+                            .setUserBindSearchPatterns("uid=${USER},%s:uid=${USER},%s".formatted(organization.getDistinguishedName(), alternativeOrganization.getDistinguishedName())));
 
             assertThat(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass")).isEqualTo(new BasicPrincipal("alice"));
             ldapAuthenticator.invalidateCache();
@@ -123,7 +122,7 @@ public class TestLdapAuthenticator
                     new LdapAuthenticatorConfig()
                             .setUserBindSearchPatterns("uid=${USER}," + organization.getDistinguishedName())
                             .setUserBaseDistinguishedName(organization.getDistinguishedName())
-                            .setGroupAuthorizationSearchPattern(format("(&(objectClass=groupOfNames)(cn=group_*)(member=uid=${USER},%s))", organization.getDistinguishedName())));
+                            .setGroupAuthorizationSearchPattern("(&(objectClass=groupOfNames)(cn=group_*)(member=uid=${USER},%s))".formatted(organization.getDistinguishedName())));
 
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "invalid"))
                     .isInstanceOf(AccessDeniedException.class)
@@ -173,7 +172,7 @@ public class TestLdapAuthenticator
                     client,
                     new LdapAuthenticatorConfig()
                             .setUserBaseDistinguishedName(organization.getDistinguishedName())
-                            .setGroupAuthorizationSearchPattern(format("(&(objectClass=inetOrgPerson)(memberof=%s))", group.getDistinguishedName()))
+                            .setGroupAuthorizationSearchPattern("(&(objectClass=inetOrgPerson)(memberof=%s))".formatted(group.getDistinguishedName()))
                             .setBindDistinguishedName("cn=admin,dc=trino,dc=testldap,dc=com")
                             .setBindPassword("admin"));
 

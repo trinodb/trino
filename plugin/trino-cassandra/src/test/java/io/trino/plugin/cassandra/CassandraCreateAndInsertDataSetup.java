@@ -34,7 +34,6 @@ import static io.trino.plugin.cassandra.CassandraMetadata.PRESTO_COMMENT_METADAT
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.ID_COLUMN_NAME;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteral;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.joining;
@@ -90,12 +89,12 @@ public class CassandraCreateAndInsertDataSetup
     private void insertRows(String keyspaceName, String tableName, List<ColumnSetup> inputs)
     {
         String columnNames = IntStream.range(0, inputs.size())
-                .mapToObj(column -> format("col_%d", column))
+                .mapToObj(column -> "col_%d".formatted(column))
                 .collect(joining(", ", ID_COLUMN_NAME + ", ", ""));
         String valueLiterals = inputs.stream()
                 .map(ColumnSetup::getInputLiteral)
                 .collect(joining(", ", "00000000-0000-0000-0000-000000000000, ", ""));
-        sqlExecutor.execute(format("INSERT INTO %s.%s (%s) VALUES(%s)", keyspaceName, tableName, columnNames, valueLiterals));
+        sqlExecutor.execute("INSERT INTO %s.%s (%s) VALUES(%s)".formatted(keyspaceName, tableName, columnNames, valueLiterals));
     }
 
     private void refreshSizeEstimates(String keyspaceName, String tableName)
@@ -104,13 +103,13 @@ public class CassandraCreateAndInsertDataSetup
             cassandraServer.refreshSizeEstimates(keyspaceName, tableName);
         }
         catch (Exception e) {
-            throw new RuntimeException(format("Error refreshing size estimates for %s.%s", keyspaceName, tableName), e);
+            throw new RuntimeException("Error refreshing size estimates for %s.%s".formatted(keyspaceName, tableName), e);
         }
     }
 
     private void waitForTableVisibility(String keyspaceName, String tableName)
     {
-        assertEventually(new Duration(1, MINUTES), () -> assertThat(queryRunner.execute(format("SELECT * FROM %s.%s", keyspaceName, tableName)).getRowCount())
+        assertEventually(new Duration(1, MINUTES), () -> assertThat(queryRunner.execute("SELECT * FROM %s.%s".formatted(keyspaceName, tableName)).getRowCount())
                 .isEqualTo(1));
     }
 
@@ -126,11 +125,11 @@ public class CassandraCreateAndInsertDataSetup
         ImmutableList.Builder<ExtraColumnMetadata> columnExtra = ImmutableList.builder();
         columnExtra.add(new ExtraColumnMetadata(ID_COLUMN_NAME, true));
         IntStream.range(0, inputs.size())
-                .forEach(column -> columnExtra.add(new ExtraColumnMetadata(format("col_%d", column), false)));
+                .forEach(column -> columnExtra.add(new ExtraColumnMetadata("col_%d".formatted(column), false)));
         String columnMetadata = LIST_EXTRA_COLUMN_METADATA_CODEC.toJson(columnExtra.build());
 
         return IntStream.range(0, inputs.size())
-                .mapToObj(column -> format("col_%d %s", column, inputs.get(column).getDeclaredType().orElseThrow()))
+                .mapToObj(column -> "col_%d %s".formatted(column, inputs.get(column).getDeclaredType().orElseThrow()))
                 .collect(joining(",", "(" + ID_COLUMN_NAME + " uuid PRIMARY KEY,", ") WITH comment=" + quoteStringLiteral(PRESTO_COMMENT_METADATA + " " + columnMetadata)));
     }
 

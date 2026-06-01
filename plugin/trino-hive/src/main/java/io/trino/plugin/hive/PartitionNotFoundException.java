@@ -18,13 +18,11 @@ import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
 
-import static java.lang.String.format;
-
 public class PartitionNotFoundException
         extends NotFoundException
 {
     public PartitionNotFoundException(SchemaTableName tableName, List<String> partitionValue)
     {
-        super(format("Partition '%s' not found", tableName), null);
+        super("Partition '%s' not found".formatted(tableName), null);
     }
 }

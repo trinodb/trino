@@ -21,7 +21,6 @@ import io.trino.spi.type.Type;
 
 import java.util.function.BiConsumer;
 
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.offset;
 
@@ -42,7 +41,7 @@ public class AggregationTestOutput
     private static BiConsumer<Object, Object> createEqualAssertion(Object expectedValue, long groupId)
     {
         BiConsumer<Object, Object> equalAssertion = (actual, expected) -> assertThat(actual)
-                .describedAs(format("failure on group %s", groupId))
+                .describedAs("failure on group %s".formatted(groupId))
                 .isEqualTo(expected);
 
         if (expectedValue instanceof Double && !expectedValue.equals(Double.NaN)) {

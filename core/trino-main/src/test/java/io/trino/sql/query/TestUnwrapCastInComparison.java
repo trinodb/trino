@@ -28,7 +28,6 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.max;
-import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -264,8 +263,8 @@ public class TestUnwrapCastInComparison
                             operator,
                             "date",
                             "DATE '2017-09-24'",
-                            format("timestamp(%s) with time zone", timestampPrecision),
-                            format("TIMESTAMP '%s'", DATE_TIME_FORMAT.format(toLocalDateTime)));
+                            "timestamp(%s) with time zone".formatted(timestampPrecision),
+                            "TIMESTAMP '%s'".formatted(DATE_TIME_FORMAT.format(toLocalDateTime)));
                 }
             }
         }
@@ -301,8 +300,8 @@ public class TestUnwrapCastInComparison
                             operator,
                             "date",
                             "DATE '2017-09-24'",
-                            format("timestamp(%s) with time zone", timestampPrecision),
-                            format("TIMESTAMP '%s'", DATE_TIME_FORMAT.format(toLocalDateTime)));
+                            "timestamp(%s) with time zone".formatted(timestampPrecision),
+                            "TIMESTAMP '%s'".formatted(DATE_TIME_FORMAT.format(toLocalDateTime)));
                 }
             }
         }
@@ -358,10 +357,10 @@ public class TestUnwrapCastInComparison
                         validate(
                                 session,
                                 operator,
-                                format("timestamp(%s)", timestampPrecision),
-                                format("TIMESTAMP '2017-09-24 %s'", fromLocalTime),
-                                format("timestamp(%s) with time zone", max(9, timestampPrecision)),
-                                format("TIMESTAMP '2017-04-01 %s Z'", toLocalTime));
+                                "timestamp(%s)".formatted(timestampPrecision),
+                                "TIMESTAMP '2017-09-24 %s'".formatted(fromLocalTime),
+                                "timestamp(%s) with time zone".formatted(max(9, timestampPrecision)),
+                                "TIMESTAMP '2017-04-01 %s Z'".formatted(toLocalTime));
                     }
                 }
             }
@@ -403,10 +402,10 @@ public class TestUnwrapCastInComparison
                         validate(
                                 session,
                                 operator,
-                                format("timestamp(%s)", timestampPrecision),
-                                format("TIMESTAMP '2017-09-24 %s'", fromLocalTime),
-                                format("timestamp(%s) with time zone", max(9, timestampPrecision)),
-                                format("TIMESTAMP '2017-04-01 %s Z'", toLocalTime));
+                                "timestamp(%s)".formatted(timestampPrecision),
+                                "TIMESTAMP '2017-09-24 %s'".formatted(fromLocalTime),
+                                "timestamp(%s) with time zone".formatted(max(9, timestampPrecision)),
+                                "TIMESTAMP '2017-04-01 %s Z'".formatted(toLocalTime));
                     }
                 }
             }
@@ -440,11 +439,10 @@ public class TestUnwrapCastInComparison
 
     private void validate(Session session, String operator, String fromType, Object fromValue, String toType, Object toValue)
     {
-        String query = format(
-                "SELECT (CAST(v AS %s) %s CAST(%s AS %s)) " +
-                        "IS NOT DISTINCT FROM " +
-                        "(CAST(%s AS %s) %s CAST(%s AS %s)) " +
-                        "FROM (VALUES CAST(ROW(%s) AS ROW(%s))) t(v)",
+        String query = ("SELECT (CAST(v AS %s) %s CAST(%s AS %s)) " +
+        "IS NOT DISTINCT FROM " +
+        "(CAST(%s AS %s) %s CAST(%s AS %s)) " +
+        "FROM (VALUES CAST(ROW(%s) AS ROW(%s))) t(v)").formatted(
                 toType,
                 operator,
                 toValue,
@@ -484,8 +482,8 @@ public class TestUnwrapCastInComparison
                         "1981-06-21",
                         "1981-06-22",
                         "1981-06-23")) {
-                    String fromLiteral = from == null ? "NULL" : format("TIMESTAMP '%s'", from);
-                    String toLiteral = to == null ? "NULL" : format("DATE '%s'", to);
+                    String fromLiteral = from == null ? "NULL" : "TIMESTAMP '%s'".formatted(from);
+                    String toLiteral = to == null ? "NULL" : "DATE '%s'".formatted(to);
                     validate(operator, "timestamp(3)", fromLiteral, "date", toLiteral);
                     validateWithDateFunction(operator, "timestamp(3)", fromLiteral, toLiteral);
                 }
@@ -500,11 +498,10 @@ public class TestUnwrapCastInComparison
 
     private void validateWithDateFunction(Session session, String operator, String fromType, Object fromValue, Object toValue)
     {
-        String query = format(
-                "SELECT (date(v) %s CAST(%s AS date)) " +
-                        "IS NOT DISTINCT FROM " +
-                        "(CAST(%s AS date) %s CAST(%s AS date)) " +
-                        "FROM (VALUES CAST(%s AS %s)) t(v)",
+        String query = ("SELECT (date(v) %s CAST(%s AS date)) " +
+        "IS NOT DISTINCT FROM " +
+        "(CAST(%s AS date) %s CAST(%s AS date)) " +
+        "FROM (VALUES CAST(%s AS %s)) t(v)").formatted(
                 operator,
                 toValue,
                 fromValue,

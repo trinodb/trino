@@ -92,7 +92,6 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
@@ -232,7 +231,7 @@ public class HiveWriterFactory
         }
         else {
             this.table = pageSinkMetadataProvider.getTable()
-                    .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, format("Table '%s.%s' was dropped during insert", schemaName, tableName)));
+                    .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, "Table '%s.%s' was dropped during insert".formatted(schemaName, tableName)));
         }
 
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
@@ -304,8 +303,7 @@ public class HiveWriterFactory
                         Location writeInfoTargetPath = writeInfo.targetPath();
                         try {
                             if (fileSystem.directoryExists(writeInfoTargetPath).orElse(false)) {
-                                throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, format(
-                                        "Target directory for new partition '%s' of table '%s.%s' already exists: %s",
+                                throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, "Target directory for new partition '%s' of table '%s.%s' already exists: %s".formatted(
                                         partitionName,
                                         schemaName,
                                         tableName,
@@ -313,7 +311,7 @@ public class HiveWriterFactory
                             }
                         }
                         catch (IOException e) {
-                            throw new TrinoException(HIVE_FILESYSTEM_ERROR, format("Error while accessing: %s", writeInfoTargetPath), e);
+                            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Error while accessing: %s".formatted(writeInfoTargetPath), e);
                         }
                     }
                 }
@@ -368,13 +366,12 @@ public class HiveWriterFactory
                         HiveType tableType = tableColumns.get(i).getType();
                         HiveType partitionType = existingPartitionColumns.get(i).getType();
                         if (!tableType.equals(partitionType)) {
-                            throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
-                                    "" +
-                                            "You are trying to write into an existing partition in a table. " +
-                                            "The table schema has changed since the creation of the partition. " +
-                                            "Inserting rows into such partition is not supported. " +
-                                            "The column '%s' in table '%s' is declared as type '%s', " +
-                                            "but partition '%s' declared column '%s' as type '%s'.",
+                            throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, ("" +
+                            "You are trying to write into an existing partition in a table. " +
+                            "The table schema has changed since the creation of the partition. " +
+                            "Inserting rows into such partition is not supported. " +
+                            "The column '%s' in table '%s' is declared as type '%s', " +
+                            "but partition '%s' declared column '%s' as type '%s'.").formatted(
                                     tableColumns.get(i).getName(),
                                     tableName,
                                     tableType,
@@ -410,7 +407,7 @@ public class HiveWriterFactory
                     throw new TrinoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into an existing partition of Hive table: " + partitionName.get());
                 }
                 default -> {
-                    throw new IllegalArgumentException(format("Unsupported insert existing partitions behavior: %s", insertExistingPartitionsBehavior));
+                    throw new IllegalArgumentException("Unsupported insert existing partitions behavior: %s".formatted(insertExistingPartitionsBehavior));
                 }
             }
         }
@@ -505,7 +502,7 @@ public class HiveWriterFactory
             for (SortingColumn column : sortedBy) {
                 Integer index = columnIndexes.get(column.columnName());
                 if (index == null) {
-                    throw new TrinoException(HIVE_INVALID_METADATA, format("Sorting column '%s' does exist in table '%s.%s'", column.columnName(), schemaName, tableName));
+                    throw new TrinoException(HIVE_INVALID_METADATA, "Sorting column '%s' does exist in table '%s.%s'".formatted(column.columnName(), schemaName, tableName));
                 }
                 sortFields.add(index);
                 sortOrders.add(column.order().getSortOrder());
@@ -574,11 +571,10 @@ public class HiveWriterFactory
                 .collect(toMap(DataColumn::name, identity()));
         Set<String> missingColumns = Sets.difference(inputColumnMap.keySet(), new HashSet<>(fileColumnNames));
         if (!missingColumns.isEmpty()) {
-            throw new TrinoException(HIVE_INVALID_METADATA, format("Table '%s.%s' does not have columns %s", schemaName, tableName, missingColumns));
+            throw new TrinoException(HIVE_INVALID_METADATA, "Table '%s.%s' does not have columns %s".formatted(schemaName, tableName, missingColumns));
         }
         if (fileColumnNames.size() != fileColumnHiveTypes.size()) {
-            throw new TrinoException(HIVE_INVALID_METADATA, format(
-                    "Partition '%s' in table '%s.%s' has mismatched metadata for column names and types",
+            throw new TrinoException(HIVE_INVALID_METADATA, "Partition '%s' in table '%s.%s' has mismatched metadata for column names and types".formatted(
                     partitionName.orElse(""), // TODO: this should exist
                     schemaName,
                     tableName));
@@ -593,11 +589,10 @@ public class HiveWriterFactory
 
             if (!fileColumnHiveType.equals(inputHiveType)) {
                 // todo this should be moved to a helper
-                throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
-                        "" +
-                                "There is a mismatch between the table and partition schemas. " +
-                                "The column '%s' in table '%s.%s' is declared as type '%s', " +
-                                "but partition '%s' declared column '%s' as type '%s'.",
+                throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, ("" +
+                "There is a mismatch between the table and partition schemas. " +
+                "The column '%s' in table '%s.%s' is declared as type '%s', " +
+                "but partition '%s' declared column '%s' as type '%s'.").formatted(
                         columnName,
                         schemaName,
                         tableName,
@@ -636,8 +631,7 @@ public class HiveWriterFactory
         if (isCreateTransactionalTable) {
             String paddedBucket = Strings.padStart("0", BUCKET_NUMBER_PADDING, '0');
             UUID uuid = randomUUID();
-            return format(
-                    "0%s_%s%s",
+            return "0%s_%s%s".formatted(
                     paddedBucket,
                     Long.toUnsignedString(uuid.getLeastSignificantBits()),
                     Long.toUnsignedString(uuid.getMostSignificantBits()));
@@ -662,9 +656,9 @@ public class HiveWriterFactory
     {
         String paddedBucket = Strings.padStart(Integer.toString(bucket), BUCKET_NUMBER_PADDING, '0');
         if (suffix.isPresent()) {
-            return format("0%s_0_%s", paddedBucket, suffix.get());
+            return "0%s_0_%s".formatted(paddedBucket, suffix.get());
         }
-        return format("0%s_0", paddedBucket);
+        return "0%s_0".formatted(paddedBucket);
     }
 
     public static int getBucketFromFileName(String fileName)

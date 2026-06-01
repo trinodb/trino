@@ -94,7 +94,6 @@ import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.permuteArguments;
 import static java.lang.reflect.Modifier.isStatic;
 import static java.util.Objects.requireNonNull;
@@ -579,7 +578,7 @@ public class ParametricScalarImplementation
                             .filter(SqlType.class::isInstance)
                             .map(SqlType.class::cast)
                             .findFirst()
-                            .orElseThrow(() -> new IllegalArgumentException(format("Method [%s] is missing @SqlType annotation for parameter", method)));
+                            .orElseThrow(() -> new IllegalArgumentException("Method [%s] is missing @SqlType annotation for parameter".formatted(method)));
                     TypeSignature typeSignature = parseTypeSignature(type.value(), literalParameters);
                     // @Name is not @Repeatable, so the compiler guarantees at most one.
                     Optional<Name> nameAnnotation = Stream.of(annotations)

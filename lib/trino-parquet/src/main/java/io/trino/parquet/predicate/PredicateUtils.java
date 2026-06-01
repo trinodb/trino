@@ -72,7 +72,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.format.Util.readPageHeader;
 
@@ -115,12 +114,12 @@ public final class PredicateUtils
 
     private static BigDecimal minimalValue(DecimalType decimalType)
     {
-        return new BigDecimal(format("-%s.%s", "9".repeat(decimalType.getPrecision() - decimalType.getScale()), "9".repeat(decimalType.getScale())));
+        return new BigDecimal("-%s.%s".formatted("9".repeat(decimalType.getPrecision() - decimalType.getScale()), "9".repeat(decimalType.getScale())));
     }
 
     private static BigDecimal maximalValue(DecimalType decimalType)
     {
-        return new BigDecimal(format("+%s.%s", "9".repeat(decimalType.getPrecision() - decimalType.getScale()), "9".repeat(decimalType.getScale())));
+        return new BigDecimal("+%s.%s".formatted("9".repeat(decimalType.getPrecision() - decimalType.getScale()), "9".repeat(decimalType.getScale())));
     }
 
     public static TupleDomainParquetPredicate buildPredicate(

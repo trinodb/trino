@@ -46,7 +46,6 @@ import java.util.Set;
 
 import static io.trino.plugin.cassandra.CassandraSessionProperties.getSplitsPerNode;
 import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraSplitManager
@@ -167,7 +166,7 @@ public class CassandraSplitManager
             endTokenValue = ((RandomToken) randomTokenRange.getEnd()).getValue();
         }
         else {
-            throw new IllegalStateException(format("Unsupported token range class %s", tokenRange.getClass().getName()));
+            throw new IllegalStateException("Unsupported token range class %s".formatted(tokenRange.getClass().getName()));
         }
         return tokenExpression + " > " + startTokenValue + " AND " + tokenExpression + " <= " + endTokenValue;
     }
@@ -229,7 +228,7 @@ public class CassandraSplitManager
                     sb.append(value);
                     size++;
                     if (size >= partitionSizeForBatchSelect) {
-                        String partitionId = format("%s in (%s)", partitionKeyColumnName, sb);
+                        String partitionId = "%s in (%s)".formatted(partitionKeyColumnName, sb);
                         builder.add(createSplitForClusteringPredicates(partitionId, hostMap.get(entry.getKey()), clusteringPredicates));
                         size = 0;
                         sb.setLength(0);
@@ -237,7 +236,7 @@ public class CassandraSplitManager
                     }
                 }
                 if (size > 0) {
-                    String partitionId = format("%s in (%s)", partitionKeyColumnName, sb);
+                    String partitionId = "%s in (%s)".formatted(partitionKeyColumnName, sb);
                     builder.add(createSplitForClusteringPredicates(partitionId, hostMap.get(entry.getKey()), clusteringPredicates));
                 }
             }

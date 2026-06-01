@@ -61,7 +61,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.type.StandardTypes.JSON;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ProtobufColumnDecoder
@@ -197,7 +196,7 @@ public class ProtobufColumnDecoder
                 .collect(toImmutableList());
 
         if (oneofFields.size() > 1) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Expected to find at most one 'oneof' field in message, found fields: %s", oneofFields));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Expected to find at most one 'oneof' field in message, found fields: %s".formatted(oneofFields));
         }
 
         // If found, map the field to a JSON string containing a single field:value pair, else return an empty JSON string {}

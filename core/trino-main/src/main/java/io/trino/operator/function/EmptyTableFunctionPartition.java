@@ -29,7 +29,6 @@ import java.util.List;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -80,8 +79,7 @@ public class EmptyTableFunctionPartition
         if (page.getChannelCount() != properChannelsCount + passThroughSourcesCount) {
             throw new TrinoException(
                     FUNCTION_IMPLEMENTATION_ERROR,
-                    format(
-                            "Table function returned a page containing %s channels. Expected channel number: %s (%s proper columns, %s pass-through index columns)",
+                    "Table function returned a page containing %s channels. Expected channel number: %s (%s proper columns, %s pass-through index columns)".formatted(
                             page.getChannelCount(),
                             properChannelsCount + passThroughSourcesCount,
                             properChannelsCount,

@@ -30,7 +30,6 @@ import java.io.UncheckedIOException;
 import java.util.List;
 
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
-import static java.lang.String.format;
 
 public class FileSessionPropertyManager
         extends AbstractSessionPropertyManager
@@ -55,8 +54,7 @@ public class FileSessionPropertyManager
         catch (IllegalArgumentException e) {
             Throwable cause = e.getCause();
             if (cause instanceof UnrecognizedPropertyException ex) {
-                String message = format(
-                        "Unknown property at line %s:%s: %s",
+                String message = "Unknown property at line %s:%s: %s".formatted(
                         ex.getLocation().getLineNr(),
                         ex.getLocation().getColumnNr(),
                         ex.getPropertyName());

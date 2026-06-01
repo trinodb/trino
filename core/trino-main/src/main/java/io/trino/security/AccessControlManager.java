@@ -92,7 +92,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static io.trino.spi.security.AccessDeniedException.denyCatalogAccess;
 import static io.trino.spi.security.AccessDeniedException.denySetEntityAuthorization;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class AccessControlManager
@@ -146,7 +145,7 @@ public class AccessControlManager
         requireNonNull(accessControlFactory, "accessControlFactory is null");
 
         if (systemAccessControlFactories.putIfAbsent(accessControlFactory.getName(), accessControlFactory) != null) {
-            throw new IllegalArgumentException(format("Access control '%s' is already registered", accessControlFactory.getName()));
+            throw new IllegalArgumentException("Access control '%s' is already registered".formatted(accessControlFactory.getName()));
         }
     }
 
@@ -1649,7 +1648,7 @@ public class AccessControlManager
     {
         ConnectorAccessControl connectorAccessControl = getConnectorAccessControl(securityContext.getTransactionId(), catalogName);
         if (connectorAccessControl == null) {
-            throw new TrinoException(NOT_SUPPORTED, format("Catalog %s does not support catalog roles", catalogName));
+            throw new TrinoException(NOT_SUPPORTED, "Catalog %s does not support catalog roles".formatted(catalogName));
         }
     }
 
@@ -1689,8 +1688,7 @@ public class AccessControlManager
     {
         try {
             clazz.getMethod(name, parameterTypes);
-            throw new IllegalArgumentException(format(
-                    "Access control %s must not implement removed method %s(%s)",
+            throw new IllegalArgumentException("Access control %s must not implement removed method %s(%s)".formatted(
                     clazz.getName(),
                     name,
                     Arrays.stream(parameterTypes).map(Class::getName).collect(Collectors.joining(", "))));

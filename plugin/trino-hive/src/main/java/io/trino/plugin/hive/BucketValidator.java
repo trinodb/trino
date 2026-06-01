@@ -25,7 +25,6 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucket;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class BucketValidator
@@ -65,7 +64,7 @@ public class BucketValidator
             if (bucket != expectedBucket) {
                 throw new TrinoException(
                         HIVE_INVALID_BUCKET_FILES,
-                        format("Hive table is corrupt. File '%s' is for bucket %s, but contains a row for bucket %s.", path, expectedBucket, bucket));
+                        "Hive table is corrupt. File '%s' is for bucket %s, but contains a row for bucket %s.".formatted(path, expectedBucket, bucket));
             }
         }
     }

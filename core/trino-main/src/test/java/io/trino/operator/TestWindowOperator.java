@@ -67,7 +67,6 @@ import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
-import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -157,7 +156,7 @@ public class TestWindowOperator
         assertThat(actual.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
 
         assertThat(spillEnabled == (spillerFactory.getSpillsCount() > 0))
-                .describedAs(format("Spill state mismatch. Expected spill: %s, spill count: %s", spillEnabled, spillerFactory.getSpillsCount()))
+                .describedAs("Spill state mismatch. Expected spill: %s, spill count: %s".formatted(spillEnabled, spillerFactory.getSpillsCount()))
                 .isTrue();
     }
 

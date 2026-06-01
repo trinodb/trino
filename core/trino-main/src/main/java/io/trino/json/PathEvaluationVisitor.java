@@ -114,7 +114,6 @@ import static io.trino.type.DecimalCasts.longDecimalToDouble;
 import static io.trino.type.DecimalCasts.shortDecimalToDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class PathEvaluationVisitor
@@ -305,7 +304,7 @@ class PathEvaluationVisitor
 
         ResolvedOperatorAndCoercions operators = resolver.getOperators(node, OperatorType.valueOf(node.operator().name()), left.getType(), right.getType());
         if (operators == RESOLUTION_ERROR) {
-            throw new PathEvaluationException(format("invalid operand types to %s operator (%s, %s)", node.operator().name(), left.getType(), right.getType()));
+            throw new PathEvaluationException("invalid operand types to %s operator (%s, %s)".formatted(node.operator().name(), left.getType(), right.getType()));
         }
 
         Object leftInput = left.getValueAsObject();
@@ -525,7 +524,7 @@ class PathEvaluationVisitor
                 throw itemTypeError("NUMBER", jsonNode.getNodeType().name());
             }
             if (!jsonNode.canConvertToLong()) {
-                throw new PathEvaluationException(format("cannot convert value %s to long", jsonNode));
+                throw new PathEvaluationException("cannot convert value %s to long".formatted(jsonNode));
             }
             return jsonNode.longValue();
         }

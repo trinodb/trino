@@ -23,7 +23,6 @@ import org.junit.jupiter.api.Test;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -81,8 +80,7 @@ public class TestIcebergInvalidCompressionCodecs
     void testAvroNoneReadWrite()
     {
         try {
-            assertUpdate(format(
-                    "CALL system.register_table(CURRENT_SCHEMA, '%s', 's3://%s/%s')",
+            assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', 's3://%s/%s')".formatted(
                     AVRO_TABLE_NAME,
                     BUCKET_NAME,
                     AVRO_TABLE_NAME));
@@ -99,8 +97,7 @@ public class TestIcebergInvalidCompressionCodecs
     void testParquetNoneReadWrite()
     {
         try {
-            assertUpdate(format(
-                    "CALL system.register_table(CURRENT_SCHEMA, '%s', 's3://%s/%s')",
+            assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', 's3://%s/%s')".formatted(
                     PARQUET_TABLE_NAME,
                     BUCKET_NAME,
                     PARQUET_TABLE_NAME));
@@ -117,8 +114,7 @@ public class TestIcebergInvalidCompressionCodecs
     void testOrcGzipReadWrite()
     {
         try {
-            assertUpdate(format(
-                    "CALL system.register_table(CURRENT_SCHEMA, '%s', 's3://%s/%s')",
+            assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', 's3://%s/%s')".formatted(
                     ORC_TABLE_NAME,
                     BUCKET_NAME,
                     ORC_TABLE_NAME));

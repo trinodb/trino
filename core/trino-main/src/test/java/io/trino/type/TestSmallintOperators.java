@@ -40,7 +40,6 @@ import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -115,7 +114,7 @@ public class TestSmallintOperators
         assertThat(assertions.operator(ADD, "SMALLINT '17'", "SMALLINT '17'"))
                 .isEqualTo((short) (17 + 17));
 
-        assertTrinoExceptionThrownBy(assertions.expression(format("SMALLINT '%s' + SMALLINT '1'", Short.MAX_VALUE))::evaluate)
+        assertTrinoExceptionThrownBy(assertions.expression("SMALLINT '%s' + SMALLINT '1'".formatted(Short.MAX_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("smallint addition overflow: 32767 + 1");
     }
@@ -135,7 +134,7 @@ public class TestSmallintOperators
         assertThat(assertions.operator(SUBTRACT, "SMALLINT '17'", "SMALLINT '17'"))
                 .isEqualTo((short) 0);
 
-        assertTrinoExceptionThrownBy(assertions.expression(format("SMALLINT '%s' - SMALLINT '1'", Short.MIN_VALUE))::evaluate)
+        assertTrinoExceptionThrownBy(assertions.expression("SMALLINT '%s' - SMALLINT '1'".formatted(Short.MIN_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("smallint subtraction overflow: -32768 - 1");
     }
@@ -155,7 +154,7 @@ public class TestSmallintOperators
         assertThat(assertions.operator(MULTIPLY, "SMALLINT '17'", "SMALLINT '17'"))
                 .isEqualTo((short) (17 * 17));
 
-        assertTrinoExceptionThrownBy(assertions.expression(format("SMALLINT '%s' * SMALLINT '2'", Short.MAX_VALUE))::evaluate)
+        assertTrinoExceptionThrownBy(assertions.expression("SMALLINT '%s' * SMALLINT '2'".formatted(Short.MAX_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("smallint multiplication overflow: 32767 * 2");
     }
@@ -210,7 +209,7 @@ public class TestSmallintOperators
         assertThat(assertions.expression("-(SMALLINT '" + Short.MAX_VALUE + "')"))
                 .isEqualTo((short) (Short.MIN_VALUE + 1));
 
-        assertTrinoExceptionThrownBy(assertions.expression(format("-(SMALLINT '%s')", Short.MIN_VALUE))::evaluate)
+        assertTrinoExceptionThrownBy(assertions.expression("-(SMALLINT '%s')".formatted(Short.MIN_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("smallint negation overflow: -32768");
     }

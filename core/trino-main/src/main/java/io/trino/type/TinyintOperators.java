@@ -36,7 +36,6 @@ import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static java.lang.Float.floatToRawIntBits;
-import static java.lang.String.format;
 import static java.lang.runtime.ExactConversionsSupport.isLongToByteExact;
 
 public final class TinyintOperators
@@ -49,7 +48,7 @@ public final class TinyintOperators
     {
         long result = left + right;
         if (!isLongToByteExact(result)) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("tinyint addition overflow: %s + %s", left, right));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "tinyint addition overflow: %s + %s".formatted(left, right));
         }
         return (byte) result;
     }
@@ -60,7 +59,7 @@ public final class TinyintOperators
     {
         long result = left - right;
         if (!isLongToByteExact(result)) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("tinyint subtraction overflow: %s - %s", left, right));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "tinyint subtraction overflow: %s - %s".formatted(left, right));
         }
         return (byte) result;
     }
@@ -71,7 +70,7 @@ public final class TinyintOperators
     {
         long result = left * right;
         if (!isLongToByteExact(result)) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("tinyint multiplication overflow: %s * %s", left, right));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "tinyint multiplication overflow: %s * %s".formatted(left, right));
         }
         return (byte) result;
     }
@@ -83,7 +82,7 @@ public final class TinyintOperators
         try {
             long result = left / right;
             if (!isLongToByteExact(result)) {
-                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("tinyint division overflow: %s / %s", left, right));
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "tinyint division overflow: %s / %s".formatted(left, right));
             }
             return result;
         }
@@ -176,6 +175,6 @@ public final class TinyintOperators
             return utf8Slice(stringValue);
         }
 
-        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s cannot be represented as varchar(%s)", value, x));
+        throw new TrinoException(INVALID_CAST_ARGUMENT, "Value %s cannot be represented as varchar(%s)".formatted(value, x));
     }
 }

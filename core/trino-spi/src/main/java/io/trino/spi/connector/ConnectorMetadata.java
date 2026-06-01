@@ -59,8 +59,6 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.expression.Constant.FALSE;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.collectingAndThen;
@@ -92,7 +90,7 @@ public interface ConnectorMetadata
      */
     default List<String> listSchemaNames(ConnectorSession session)
     {
-        return emptyList();
+        return List.of();
     }
 
     /**
@@ -283,7 +281,7 @@ public interface ConnectorMetadata
      */
     default List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        return emptyList();
+        return List.of();
     }
 
     /**
@@ -336,7 +334,7 @@ public interface ConnectorMetadata
     @Deprecated
     default Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        return emptyMap();
+        return Map.of();
     }
 
     /**
@@ -990,7 +988,7 @@ public interface ConnectorMetadata
      */
     default List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
     {
-        return emptyList();
+        return List.of();
     }
 
     /**
@@ -1354,7 +1352,7 @@ public interface ConnectorMetadata
      */
     default List<GrantInfo> listTablePrivileges(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        return emptyList();
+        return List.of();
     }
 
     /**

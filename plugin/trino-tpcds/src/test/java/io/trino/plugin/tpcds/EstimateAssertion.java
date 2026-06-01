@@ -19,7 +19,6 @@ import io.trino.spi.statistics.Estimate;
 
 import java.util.Optional;
 
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.withinPercentage;
 
@@ -79,6 +78,6 @@ class EstimateAssertion
         if (object instanceof Number number) {
             return number.doubleValue();
         }
-        throw new UnsupportedOperationException(format("Can't compare with tolerance objects of class %s. Use assertEquals.", object.getClass()));
+        throw new UnsupportedOperationException("Can't compare with tolerance objects of class %s. Use assertEquals.".formatted(object.getClass()));
     }
 }

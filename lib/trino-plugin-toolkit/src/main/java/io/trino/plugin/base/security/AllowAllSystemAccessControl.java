@@ -42,7 +42,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Collections.emptyList;
 
 public class AllowAllSystemAccessControl
         implements SystemAccessControl
@@ -391,7 +390,7 @@ public class AllowAllSystemAccessControl
     @Override
     public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName)
     {
-        return emptyList();
+        return List.of();
     }
 
     @Override

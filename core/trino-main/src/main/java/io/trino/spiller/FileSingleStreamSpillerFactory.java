@@ -50,7 +50,6 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidate
 import static io.trino.execution.buffer.PagesSerdes.createSpillingPagesSerdeFactory;
 import static io.trino.spi.StandardErrorCode.OUT_OF_SPILL_SPACE;
 import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
-import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
 import static java.nio.file.Files.delete;
@@ -121,10 +120,10 @@ public class FileSingleStreamSpillerFactory
                 createDirectories(path);
             }
             catch (IOException e) {
-                throw new IllegalArgumentException(format("could not create spill path %s; adjust %s config property or filesystem permissions", path, SPILLER_SPILL_PATH), e);
+                throw new IllegalArgumentException("could not create spill path %s; adjust %s config property or filesystem permissions".formatted(path, SPILLER_SPILL_PATH), e);
             }
             if (!isAccessible(path)) {
-                throw new IllegalArgumentException(format("spill path %s is not accessible, it must be +rwx; adjust %s config property or filesystem permissions", path, SPILLER_SPILL_PATH));
+                throw new IllegalArgumentException("spill path %s is not accessible, it must be +rwx; adjust %s config property or filesystem permissions".formatted(path, SPILLER_SPILL_PATH));
             }
         });
         this.spillFileCount = spillFileCount;

@@ -13,7 +13,6 @@
  */
 package io.trino.cli;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
@@ -139,7 +138,7 @@ public final class Trino
         public TrinoResourceBundle()
         {
             this.variables = ImmutableMap.<String, String>builder()
-                    .put("ENCODINGS", Joiner.on(", ").join(getSupportedEncodings()))
+                    .put("ENCODINGS", String.join(", ", getSupportedEncodings()))
                     .put("PREFERRED_ENCODINGS", getPreferredEncodings())
                     .buildOrThrow();
         }

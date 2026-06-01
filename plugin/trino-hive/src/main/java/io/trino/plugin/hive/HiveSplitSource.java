@@ -58,7 +58,6 @@ import static io.trino.plugin.hive.HiveSplitSource.StateKind.CLOSED;
 import static io.trino.plugin.hive.HiveSplitSource.StateKind.FAILED;
 import static io.trino.plugin.hive.HiveSplitSource.StateKind.INITIAL;
 import static io.trino.plugin.hive.HiveSplitSource.StateKind.NO_MORE_SPLITS;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class HiveSplitSource
@@ -216,8 +215,7 @@ class HiveSplitSource
                         succinctBytes(maxOutstandingSplitsBytes),
                         getBufferedInternalSplitCount());
             }
-            throw new TrinoException(HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT, format(
-                    "Split buffering for %s.%s exceeded memory limit (%s). %s splits are buffered.",
+            throw new TrinoException(HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT, "Split buffering for %s.%s exceeded memory limit (%s). %s splits are buffered.".formatted(
                     databaseName,
                     tableName,
                     succinctBytes(maxOutstandingSplitsBytes),

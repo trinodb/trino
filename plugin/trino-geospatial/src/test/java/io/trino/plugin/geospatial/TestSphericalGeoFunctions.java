@@ -40,7 +40,6 @@ import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -247,7 +246,7 @@ public class TestSphericalGeoFunctions
                 .satisfies(approximatelyEqualTo(163290.93943446054, 0.00001));
 
         double angleOfOneKm = 0.008993201943349;
-        assertThat(assertions.function("ST_Area", toSphericalGeography(format("POLYGON((0 0, %.15f 0, %.15f %.15f, 0 %.15f, 0 0))", angleOfOneKm, angleOfOneKm, angleOfOneKm, angleOfOneKm))))
+        assertThat(assertions.function("ST_Area", toSphericalGeography("POLYGON((0 0, %.15f 0, %.15f %.15f, 0 %.15f, 0 0))".formatted(angleOfOneKm, angleOfOneKm, angleOfOneKm, angleOfOneKm))))
                 .satisfies(approximatelyEqualTo(1e6, 0.00001));
 
         // 1/4th of an hemisphere, ie 1/8th of the planet, should be close to 4PiR2/8 = 637.58E11

@@ -22,7 +22,6 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static java.lang.String.format;
 
 public final class IsolatedClass
 {
@@ -62,7 +61,7 @@ public final class IsolatedClass
             return stream.readAllBytes();
         }
         catch (IOException e) {
-            throw new RuntimeException(format("Could not obtain byte code for class %s", clazz.getName()), e);
+            throw new RuntimeException("Could not obtain byte code for class %s".formatted(clazz.getName()), e);
         }
     }
 }

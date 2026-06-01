@@ -20,7 +20,6 @@ import java.util.Optional;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_NOT_READABLE;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_READ_ONLY;
-import static java.lang.String.format;
 
 public class HiveNotReadableException
         extends TrinoException
@@ -33,7 +32,7 @@ public class HiveNotReadableException
     private static String composeMessage(SchemaTableName tableName, Optional<String> partition, String message)
     {
         return partition.isPresent()
-                ? format("Table '%s' partition '%s' is not readable: %s", tableName, partition.get(), message)
-                : format("Table '%s' is not readable: %s", tableName, message);
+                ? "Table '%s' partition '%s' is not readable: %s".formatted(tableName, partition.get(), message)
+                : "Table '%s' is not readable: %s".formatted(tableName, message);
     }
 }

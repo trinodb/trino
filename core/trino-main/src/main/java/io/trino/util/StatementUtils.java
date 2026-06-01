@@ -168,7 +168,6 @@ import static io.trino.spi.resourcegroups.QueryType.INSERT;
 import static io.trino.spi.resourcegroups.QueryType.MERGE;
 import static io.trino.spi.resourcegroups.QueryType.SELECT;
 import static io.trino.spi.resourcegroups.QueryType.UPDATE;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -317,7 +316,7 @@ public final class StatementUtils
                 }
             }
         }
-        throw new VerifyException(format("%s does not implement %s", taskType.getSimpleName(), DataDefinitionTask.class.getName()));
+        throw new VerifyException("%s does not implement %s".formatted(taskType.getSimpleName(), DataDefinitionTask.class.getName()));
     }
 
     private static class StatementTypeInfo<T extends Statement>

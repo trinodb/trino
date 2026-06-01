@@ -149,7 +149,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.SaveMode.IGNORE;
 import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -657,8 +656,7 @@ public class BigQueryMetadata
         BigQueryClient client = bigQueryClientFactory.createBigQueryClient(session);
 
         RemoteTableName remoteTableName = table.asPlainTable().getRemoteTableName();
-        String sql = format(
-                "TRUNCATE TABLE %s.%s.%s",
+        String sql = "TRUNCATE TABLE %s.%s.%s".formatted(
                 quote(remoteTableName.projectId()),
                 quote(remoteTableName.datasetName()),
                 quote(remoteTableName.tableName()));
@@ -732,9 +730,8 @@ public class BigQueryMetadata
 
             String columns = columnNames.stream().map(BigQueryUtil::quote).collect(Collectors.joining(", "));
 
-            String insertSql = format(
-                    "INSERT INTO %s (%s) SELECT %s FROM %s temp_table " +
-                            "WHERE EXISTS (SELECT 1 FROM %s page_sink_table WHERE page_sink_table.%s = temp_table.%s)",
+            String insertSql = ("INSERT INTO %s (%s) SELECT %s FROM %s temp_table " +
+            "WHERE EXISTS (SELECT 1 FROM %s page_sink_table WHERE page_sink_table.%s = temp_table.%s)").formatted(
                     quoted(targetTable),
                     columns,
                     columns,
@@ -771,7 +768,7 @@ public class BigQueryMetadata
                 ApiFuture<AppendRowsResponse> future = writer.append(batch);
                 AppendRowsResponse response = future.get();
                 if (response.hasError()) {
-                    throw new TrinoException(BIGQUERY_BAD_WRITE, format("Response has error: %s", response.getError().getMessage()));
+                    throw new TrinoException(BIGQUERY_BAD_WRITE, "Response has error: %s".formatted(response.getError().getMessage()));
                 }
             }
             catch (Exception e) {
@@ -813,8 +810,7 @@ public class BigQueryMetadata
         Optional<String> filter = BigQueryFilterQueryBuilder.buildFilter(tableConstraint);
 
         RemoteTableName remoteTableName = tableHandle.asPlainTable().getRemoteTableName();
-        String sql = format(
-                "DELETE FROM %s.%s.%s WHERE %s",
+        String sql = "DELETE FROM %s.%s.%s WHERE %s".formatted(
                 quote(remoteTableName.projectId()),
                 quote(remoteTableName.datasetName()),
                 quote(remoteTableName.tableName()),
@@ -867,8 +863,7 @@ public class BigQueryMetadata
         BigQueryClient client = bigQueryClientFactory.createBigQueryClient(session);
 
         RemoteTableName remoteTableName = table.asPlainTable().getRemoteTableName();
-        String sql = format(
-                "ALTER TABLE %s.%s.%s SET OPTIONS (description = ?)",
+        String sql = "ALTER TABLE %s.%s.%s SET OPTIONS (description = ?)".formatted(
                 quote(remoteTableName.projectId()),
                 quote(remoteTableName.datasetName()),
                 quote(remoteTableName.tableName()));
@@ -885,8 +880,7 @@ public class BigQueryMetadata
         BigQueryClient client = bigQueryClientFactory.createBigQueryClient(session);
 
         RemoteTableName remoteTableName = table.asPlainTable().getRemoteTableName();
-        String sql = format(
-                "ALTER TABLE %s.%s.%s ALTER COLUMN %s SET OPTIONS (description = ?)",
+        String sql = "ALTER TABLE %s.%s.%s ALTER COLUMN %s SET OPTIONS (description = ?)".formatted(
                 quote(remoteTableName.projectId()),
                 quote(remoteTableName.datasetName()),
                 quote(remoteTableName.tableName()),

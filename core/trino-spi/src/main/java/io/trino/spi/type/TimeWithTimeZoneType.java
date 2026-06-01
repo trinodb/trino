@@ -17,7 +17,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.ValueBlock;
 
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
-import static java.lang.String.format;
 
 @SuppressWarnings("ClassInitializationDeadlock") // ShortTimeWithTimeZoneType and LongTimeWithTimeZoneType classes only ever access from TimeWithTimeZoneType class
 public abstract sealed class TimeWithTimeZoneType
@@ -52,7 +51,7 @@ public abstract sealed class TimeWithTimeZoneType
     public static TimeWithTimeZoneType createTimeWithTimeZoneType(int precision)
     {
         if (precision < 0 || precision > MAX_PRECISION) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIME WITH TIME ZONE precision must be in range [0, %s]: %s", MAX_PRECISION, precision));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "TIME WITH TIME ZONE precision must be in range [0, %s]: %s".formatted(MAX_PRECISION, precision));
         }
         return TYPES[precision];
     }

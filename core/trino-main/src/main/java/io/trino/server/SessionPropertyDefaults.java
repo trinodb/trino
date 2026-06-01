@@ -38,7 +38,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SessionPropertyDefaults
@@ -66,7 +65,7 @@ public class SessionPropertyDefaults
     public void addConfigurationManagerFactory(SessionPropertyConfigurationManagerFactory sessionConfigFactory)
     {
         if (factories.putIfAbsent(sessionConfigFactory.getName(), sessionConfigFactory) != null) {
-            throw new IllegalArgumentException(format("Session property configuration manager '%s' is already registered", sessionConfigFactory.getName()));
+            throw new IllegalArgumentException("Session property configuration manager '%s' is already registered".formatted(sessionConfigFactory.getName()));
         }
     }
 

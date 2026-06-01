@@ -16,7 +16,7 @@ package io.trino.plugin.httpquery;
 import io.trino.spi.Plugin;
 import io.trino.spi.eventlistener.EventListenerFactory;
 
-import static java.util.Collections.singletonList;
+import java.util.List;
 
 public class HttpServerEventListenerPlugin
         implements Plugin
@@ -24,6 +24,6 @@ public class HttpServerEventListenerPlugin
     @Override
     public Iterable<EventListenerFactory> getEventListenerFactories()
     {
-        return singletonList(new HttpServerEventListenerFactory());
+        return List.of(new HttpServerEventListenerFactory());
     }
 }

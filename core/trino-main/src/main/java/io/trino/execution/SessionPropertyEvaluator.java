@@ -44,7 +44,6 @@ import static io.trino.metadata.SessionPropertyManager.evaluatePropertyValue;
 import static io.trino.metadata.SessionPropertyManager.serializeSessionProperty;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static java.lang.String.format;
 import static java.util.Comparator.comparingDouble;
 import static java.util.Objects.requireNonNull;
 
@@ -103,7 +102,7 @@ public class SessionPropertyEvaluator
         catch (TrinoException e) {
             throw new TrinoException(
                     INVALID_SESSION_PROPERTY,
-                    format("Unable to set session property '%s' to '%s': %s", name, expression, e.getRawMessage()));
+                    "Unable to set session property '%s' to '%s': %s".formatted(name, expression, e.getRawMessage()));
         }
 
         String value = serializeSessionProperty(type, objectValue);

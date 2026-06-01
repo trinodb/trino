@@ -48,7 +48,6 @@ import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Fail.fail;
 
@@ -82,7 +81,7 @@ public class RuleAssert
             RuleApplication ruleApplication = applyRule();
 
             if (ruleApplication.wasRuleApplied()) {
-                fail(format(
+                fail(
                         """
                         Expected %s to not fire for:
 
@@ -91,10 +90,10 @@ public class RuleAssert
                         ==>
 
                         %s
-                        """,
-                        rule,
-                        textLogicalPlan(plan, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), StatsAndCosts.empty(), session, 2, false),
-                        textLogicalPlan(ruleApplication.result.transformedPlan().get(), planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), StatsAndCosts.empty(), session, 2, false)));
+                        """.formatted(
+                                rule,
+                                textLogicalPlan(plan, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), StatsAndCosts.empty(), session, 2, false),
+                                textLogicalPlan(ruleApplication.result.transformedPlan().get(), planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), StatsAndCosts.empty(), session, 2, false)));
             }
         }
         finally {
@@ -109,8 +108,7 @@ public class RuleAssert
             RuleApplication ruleApplication = applyRule();
 
             if (!ruleApplication.wasRuleApplied()) {
-                fail(format(
-                        "%s did not fire for:\n%s",
+                fail("%s did not fire for:\n%s".formatted(
                         rule,
                         formatPlan(plan)));
             }
@@ -118,25 +116,25 @@ public class RuleAssert
             PlanNode actual = ruleApplication.getTransformedPlan();
 
             if (actual == plan) { // plans are not comparable, so we can only ensure they are not the same instance
-                fail(format(
+                fail(
                         """
                         %s: rule fired but return the original plan:
                         %s
-                        """,
-                        rule,
-                        formatPlan(plan)));
+                        """.formatted(
+                                rule,
+                                formatPlan(plan)));
             }
 
             if (!ImmutableSet.copyOf(plan.getOutputSymbols()).equals(ImmutableSet.copyOf(actual.getOutputSymbols()))) {
-                fail(format(
+                fail(
                         """
                         %s: output schema of transformed and original plans are not equivalent
                         \texpected: %s
                         \tactual:   %s
-                        """,
-                        rule,
-                        plan.getOutputSymbols(),
-                        actual.getOutputSymbols()));
+                        """.formatted(
+                                rule,
+                                plan.getOutputSymbols(),
+                                actual.getOutputSymbols()));
             }
 
             assertPlan(session, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), ruleApplication.statsProvider(), new Plan(actual, StatsAndCosts.empty()), ruleApplication.lookup(), pattern);

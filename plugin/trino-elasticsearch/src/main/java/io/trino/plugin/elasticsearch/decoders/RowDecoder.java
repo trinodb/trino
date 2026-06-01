@@ -29,7 +29,6 @@ import java.util.function.Supplier;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.elasticsearch.ScanQueryPageSource.getField;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RowDecoder
@@ -63,7 +62,7 @@ public class RowDecoder
             });
         }
         else {
-            throw new TrinoException(TYPE_MISMATCH, format("Expected object for field '%s' of type ROW: %s [%s]", path, data, data.getClass().getSimpleName()));
+            throw new TrinoException(TYPE_MISMATCH, "Expected object for field '%s' of type ROW: %s [%s]".formatted(path, data, data.getClass().getSimpleName()));
         }
     }
 

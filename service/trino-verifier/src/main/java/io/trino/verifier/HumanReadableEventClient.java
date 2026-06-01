@@ -22,7 +22,6 @@ import java.util.regex.Pattern;
 
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isNaN;
-import static java.lang.String.format;
 import static java.lang.System.out;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -109,17 +108,17 @@ public class HumanReadableEventClient
         builder.append("\n");
         builder.append("CPU Ratio Distribution\n");
         builder.append("-----------------------\n");
-        builder.append(format("count: %s\n", cpuRatioAll.getCount()));
-        builder.append(format("min: %3.1f\n", 100 * sortableLongToDouble(cpuRatioAll.getMin())));
-        builder.append(format("p01: %3.1f\n", 100 * sortableLongToDouble(cpuRatioAll.getQuantile(0.01))));
-        builder.append(format("p05: %3.1f\n", 100 * sortableLongToDouble(cpuRatioAll.getQuantile(0.05))));
-        builder.append(format("p10: %3.1f\n", 100 * sortableLongToDouble(cpuRatioAll.getQuantile(0.10))));
-        builder.append(format("p25: %3.1f\n", 100 * sortableLongToDouble(cpuRatioAll.getQuantile(0.25))));
-        builder.append(format("p50: %3.1f\n", 100 * sortableLongToDouble(cpuRatioAll.getQuantile(0.50))));
-        builder.append(format("p75: %3.1f\n", 100 * sortableLongToDouble(cpuRatioAll.getQuantile(0.75))));
-        builder.append(format("p90: %3.1f\n", 100 * sortableLongToDouble(cpuRatioAll.getQuantile(0.90))));
-        builder.append(format("p99: %3.1f\n", 100 * sortableLongToDouble(cpuRatioAll.getQuantile(0.99))));
-        builder.append(format("max: %3.1f\n", 100 * sortableLongToDouble(cpuRatioAll.getMax())));
+        builder.append("count: %s\n".formatted(cpuRatioAll.getCount()));
+        builder.append("min: %3.1f\n".formatted(100 * sortableLongToDouble(cpuRatioAll.getMin())));
+        builder.append("p01: %3.1f\n".formatted(100 * sortableLongToDouble(cpuRatioAll.getQuantile(0.01))));
+        builder.append("p05: %3.1f\n".formatted(100 * sortableLongToDouble(cpuRatioAll.getQuantile(0.05))));
+        builder.append("p10: %3.1f\n".formatted(100 * sortableLongToDouble(cpuRatioAll.getQuantile(0.10))));
+        builder.append("p25: %3.1f\n".formatted(100 * sortableLongToDouble(cpuRatioAll.getQuantile(0.25))));
+        builder.append("p50: %3.1f\n".formatted(100 * sortableLongToDouble(cpuRatioAll.getQuantile(0.50))));
+        builder.append("p75: %3.1f\n".formatted(100 * sortableLongToDouble(cpuRatioAll.getQuantile(0.75))));
+        builder.append("p90: %3.1f\n".formatted(100 * sortableLongToDouble(cpuRatioAll.getQuantile(0.90))));
+        builder.append("p99: %3.1f\n".formatted(100 * sortableLongToDouble(cpuRatioAll.getQuantile(0.99))));
+        builder.append("max: %3.1f\n".formatted(100 * sortableLongToDouble(cpuRatioAll.getMax())));
         out.println(builder);
     }
 
@@ -129,9 +128,9 @@ public class HumanReadableEventClient
         long count = (long) digest.getCount();
         double countRatio = 1.0 * count / totalCount;
 
-        String maxValue = max == POSITIVE_INFINITY ? "inf" : format("%3.1f", max);
+        String maxValue = max == POSITIVE_INFINITY ? "inf" : "%3.1f".formatted(max);
 
-        return format("%3.1f - %s  (%4.2f) %6d  (%4.1f%%)", min, maxValue, p50, count, countRatio * 100);
+        return "%3.1f - %s  (%4.2f) %6d  (%4.1f%%)".formatted(min, maxValue, p50, count, countRatio * 100);
     }
 
     private void printEvent(VerifierQueryEvent queryEvent)
@@ -142,11 +141,11 @@ public class HumanReadableEventClient
         out.println("Schema (test): " + queryEvent.getTestSchema());
         out.println("Valid: " + !queryEvent.isFailed());
         for (int i = 0; i < queryEvent.getTestSetupQueries().size(); i++) {
-            out.println(format("Setup query (test) #%s: %s", i, queryEvent.getTestSetupQueries().get(i)));
+            out.println("Setup query (test) #%s: %s".formatted(i, queryEvent.getTestSetupQueries().get(i)));
         }
         out.println("Query (test): " + queryEvent.getTestQuery());
         for (int i = 0; i < queryEvent.getTestTeardownQueries().size(); i++) {
-            out.println(format("Teardown query (test) #%s: %s", i, queryEvent.getTestTeardownQueries().get(i)));
+            out.println("Teardown query (test) #%s: %s".formatted(i, queryEvent.getTestTeardownQueries().get(i)));
         }
 
         if (queryEvent.isFailed()) {
@@ -160,7 +159,7 @@ public class HumanReadableEventClient
             if (cpuRatio.isPresent()) {
                 out.println("Control CPU (secs): " + queryEvent.getControlCpuTimeSecs());
                 out.println("   Test CPU (secs): " + queryEvent.getTestCpuTimeSecs());
-                out.println(format("         CPU Ratio: %.1f\n", (double) cpuRatio.get()));
+                out.println("         CPU Ratio: %.1f\n".formatted((double) cpuRatio.get()));
             }
         }
         out.println("----------");

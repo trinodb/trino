@@ -36,7 +36,6 @@ import java.util.Optional;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -146,7 +145,7 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
 
         assertThat(getKafkaTopicDescription(
                 tableDescriptionSupplier,
-                new SchemaTableName(DEFAULT_NAME, format("%s&value-subject=%s", topicName, overriddenSubject))))
+                new SchemaTableName(DEFAULT_NAME, "%s&value-subject=%s".formatted(topicName, overriddenSubject))))
                 .isEqualTo(
                         new KafkaTopicDescription(
                                 schemaTableName.getTableName(),
@@ -174,7 +173,7 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
                         TestingConnectorSession.builder()
                                 .setPropertyMetadata(new ConfluentSessionProperties(new ConfluentSchemaRegistryConfig()).getSessionProperties())
                                 .build(),
-                        new SchemaTableName(DEFAULT_NAME, format("%s&value-subject=%s", topicName, overriddenSubject))))
+                        new SchemaTableName(DEFAULT_NAME, "%s&value-subject=%s".formatted(topicName, overriddenSubject))))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Subject 'ambiguousoverriddensubject' is ambiguous, and may refer to one of the following: AMBIGUOUSOVERRIDDENSUBJECT, ambiguousOverriddenSubject");
     }

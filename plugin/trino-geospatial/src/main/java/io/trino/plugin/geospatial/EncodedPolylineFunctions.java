@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.geospatial;
 
-import com.google.common.base.Joiner;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.trino.geospatial.GeometryType;
@@ -36,7 +35,7 @@ import java.util.Set;
 import static io.trino.geospatial.GeometryType.LINE_STRING;
 import static io.trino.geospatial.GeometryType.MULTI_POINT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 
 /**
  * A set of functions to convert between geometries and encoded polylines.
@@ -151,7 +150,7 @@ public final class EncodedPolylineFunctions
     {
         GeometryType type = GeometryType.getForJtsGeometryType(geometry.getGeometryType());
         if (!validTypes.contains(type)) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("%s only applies to %s. Input type is: %s", function, Joiner.on(" or ").join(validTypes), type));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "%s only applies to %s. Input type is: %s".formatted(function, validTypes.stream().map(Object::toString).collect(joining(" or ")), type));
         }
     }
 }

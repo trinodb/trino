@@ -39,7 +39,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static java.lang.String.format;
 import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -178,6 +177,6 @@ public class TestJmxMetadata
 
     private static Node createTestingNode(String hostname)
     {
-        return new InternalNode(hostname, URI.create(format("http://%s:8080", hostname)), NodeVersion.UNKNOWN, false);
+        return new InternalNode(hostname, URI.create("http://%s:8080".formatted(hostname)), NodeVersion.UNKNOWN, false);
     }
 }

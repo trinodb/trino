@@ -54,7 +54,6 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Isolated
@@ -123,7 +122,7 @@ public class TestDeltaLakeCreateTableStatistics
         for (String type : Arrays.asList("DOUBLE", "REAL")) {
             String columnName = "t_double";
             DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR, Optional.empty());
-            try (TestTable table = new TestTable("test_nan_", ImmutableList.of(columnName), format("VALUES CAST(nan() AS %1$s), CAST(0.0 AS %1$s)", type))) {
+            try (TestTable table = new TestTable("test_nan_", ImmutableList.of(columnName), "VALUES CAST(nan() AS %1$s), CAST(0.0 AS %1$s)".formatted(type))) {
                 List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
                 AddFileEntry entry = getOnlyElement(addFileEntries);
                 assertThat(entry.getStats()).isPresent();
@@ -147,7 +146,7 @@ public class TestDeltaLakeCreateTableStatistics
             try (TestTable table = new TestTable(
                     "test_inf_",
                     ImmutableList.of(columnName),
-                    format("VALUES CAST(infinity() AS %1$s), CAST(0.0 AS %1$s), CAST((infinity() * -1) AS %1$s)", type))) {
+                    "VALUES CAST(infinity() AS %1$s), CAST(0.0 AS %1$s), CAST((infinity() * -1) AS %1$s)".formatted(type))) {
                 List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
                 AddFileEntry entry = getOnlyElement(addFileEntries);
                 assertThat(entry.getStats()).isPresent();
@@ -171,7 +170,7 @@ public class TestDeltaLakeCreateTableStatistics
             try (TestTable table = new TestTable(
                     "test_inf_nan_",
                     ImmutableList.of(columnName),
-                    format("VALUES CAST(nan() AS %1$s), CAST(0.0 AS %1$s), CAST(infinity() AS %1$s), CAST((infinity() * -1) AS %1$s)", type))) {
+                    "VALUES CAST(nan() AS %1$s), CAST(0.0 AS %1$s), CAST(infinity() AS %1$s), CAST((infinity() * -1) AS %1$s)".formatted(type))) {
                 List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
                 AddFileEntry entry = getOnlyElement(addFileEntries);
                 assertThat(entry.getStats()).isPresent();
@@ -195,7 +194,7 @@ public class TestDeltaLakeCreateTableStatistics
             try (TestTable table = new TestTable(
                     "test_nan_positive_",
                     ImmutableList.of(columnName),
-                    format("VALUES CAST(nan() AS %1$s), CAST(1.0 AS %1$s), CAST(100.0 AS %1$s), CAST(0.0001 AS %1$s)", type))) {
+                    "VALUES CAST(nan() AS %1$s), CAST(1.0 AS %1$s), CAST(100.0 AS %1$s), CAST(0.0001 AS %1$s)".formatted(type))) {
                 List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
                 AddFileEntry entry = getOnlyElement(addFileEntries);
                 assertThat(entry.getStats()).isPresent();
@@ -219,7 +218,7 @@ public class TestDeltaLakeCreateTableStatistics
             try (TestTable table = new TestTable(
                     "test_nan_positive_",
                     ImmutableList.of(columnName),
-                    format("VALUES CAST(nan() AS %1$s), CAST(-1.0 AS %1$s), CAST(-100.0 AS %1$s), CAST(-0.0001 AS %1$s)", type))) {
+                    "VALUES CAST(nan() AS %1$s), CAST(-1.0 AS %1$s), CAST(-100.0 AS %1$s), CAST(-0.0001 AS %1$s)".formatted(type))) {
                 List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
                 AddFileEntry entry = getOnlyElement(addFileEntries);
                 assertThat(entry.getStats()).isPresent();
@@ -266,7 +265,7 @@ public class TestDeltaLakeCreateTableStatistics
         try (TestTable table = new TestTable(
                 "test_decimal_records_",
                 ImmutableList.of(columnName),
-                format("VALUES DECIMAL '%s', DECIMAL '%s', DECIMAL '%s'", negative, high, low))) {
+                "VALUES DECIMAL '%s', DECIMAL '%s', DECIMAL '%s'".formatted(negative, high, low))) {
             List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
             AddFileEntry entry = getOnlyElement(addFileEntries);
             assertThat(entry.getStats()).isPresent();
@@ -466,9 +465,8 @@ public class TestDeltaLakeCreateTableStatistics
             String columns = columnNames.isEmpty() ? "" :
                     "(" + String.join(",", columnNames) + ")";
             String partitionedBy = partitionNames.isEmpty() ? "" :
-                    format(", partitioned_by = ARRAY[%s]", partitionNames.stream().map(partitionName -> "'" + partitionName + "'").collect(Collectors.joining(",")));
-            computeActual(session, format(
-                    "CREATE TABLE %s %s WITH (location = 's3://%s/%1$s' %s) AS %s",
+                    ", partitioned_by = ARRAY[%s]".formatted(partitionNames.stream().map(partitionName -> "'" + partitionName + "'").collect(Collectors.joining(",")));
+            computeActual(session, "CREATE TABLE %s %s WITH (location = 's3://%s/%1$s' %s) AS %s".formatted(
                     this.name,
                     columns,
                     bucketName,
@@ -496,6 +494,6 @@ public class TestDeltaLakeCreateTableStatistics
     protected List<AddFileEntry> getAddFileEntries(String tableName)
             throws IOException
     {
-        return getTableActiveFiles(transactionLogAccess, fileSystemFactory, format("s3://%s/%s", bucketName, tableName));
+        return getTableActiveFiles(transactionLogAccess, fileSystemFactory, "s3://%s/%s".formatted(bucketName, tableName));
     }
 }

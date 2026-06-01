@@ -37,7 +37,6 @@ import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPo
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_CONFIG_PROPERTIES;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -103,7 +102,7 @@ public class SpoolingMinio
                         .put("MINIO_ROOT_PASSWORD", MINIO_ROOT_PASSWORD)
                         .buildOrThrow())
                 .withCopyFileToContainer(forHostPath(minioBucketDirectory), "/data/" + MINIO_SPOOLING_BUCKET)
-                .withCommand("server", "--address", format("0.0.0.0:%d", MINIO_PORT), "--console-address", format("0.0.0.0:%d", MINIO_CONSOLE_PORT), "/data")
+                .withCommand("server", "--address", "0.0.0.0:%d".formatted(MINIO_PORT), "--console-address", "0.0.0.0:%d".formatted(MINIO_CONSOLE_PORT), "/data")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .withCreateContainerCmdModifier(cmd -> cmd.withUser("root")) // Required to create buckets externally
                 .waitingFor(forSelectedPorts(MINIO_PORT))

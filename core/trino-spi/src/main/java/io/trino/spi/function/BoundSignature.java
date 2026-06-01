@@ -22,7 +22,6 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toUnmodifiableList;
 
 public class BoundSignature
 {
@@ -78,7 +77,7 @@ public class BoundSignature
                 .returnType(returnType)
                 .argumentTypes(argumentTypes.stream()
                         .map(Type::getTypeSignature)
-                        .collect(toUnmodifiableList()))
+                        .toList())
                 .build();
     }
 

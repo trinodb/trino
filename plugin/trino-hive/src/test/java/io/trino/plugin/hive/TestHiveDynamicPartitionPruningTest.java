@@ -20,7 +20,6 @@ import org.intellij.lang.annotations.Language;
 
 import java.util.List;
 
-import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
 public class TestHiveDynamicPartitionPruningTest
@@ -40,8 +39,7 @@ public class TestHiveDynamicPartitionPruningTest
     @Override
     protected void createLineitemTable(String tableName, List<String> columns, List<String> partitionColumns)
     {
-        @Language("SQL") String sql = format(
-                "CREATE TABLE %s WITH (format = 'TEXTFILE', partitioned_by=array[%s]) AS SELECT %s FROM tpch.tiny.lineitem",
+        @Language("SQL") String sql = "CREATE TABLE %s WITH (format = 'TEXTFILE', partitioned_by=array[%s]) AS SELECT %s FROM tpch.tiny.lineitem".formatted(
                 tableName,
                 partitionColumns.stream().map(column -> "'" + column + "'").collect(joining(",")),
                 String.join(",", columns));
@@ -51,8 +49,7 @@ public class TestHiveDynamicPartitionPruningTest
     @Override
     protected void createPartitionedTable(String tableName, List<String> columns, List<String> partitionColumns)
     {
-        @Language("SQL") String sql = format(
-                "CREATE TABLE %s (%s) WITH (partitioned_by=array[%s])",
+        @Language("SQL") String sql = "CREATE TABLE %s (%s) WITH (partitioned_by=array[%s])".formatted(
                 tableName,
                 String.join(",", columns),
                 partitionColumns.stream().map(column -> "'" + column + "'").collect(joining(",")));
@@ -62,8 +59,7 @@ public class TestHiveDynamicPartitionPruningTest
     @Override
     protected void createPartitionedAndBucketedTable(String tableName, List<String> columns, List<String> partitionColumns, List<String> bucketColumns)
     {
-        @Language("SQL") String sql = format(
-                "CREATE TABLE %s (%s) WITH (partitioned_by=array[%s], bucketed_by=array[%s], bucket_count=10)",
+        @Language("SQL") String sql = "CREATE TABLE %s (%s) WITH (partitioned_by=array[%s], bucketed_by=array[%s], bucket_count=10)".formatted(
                 tableName,
                 String.join(",", columns),
                 partitionColumns.stream().map(column -> "'" + column + "'").collect(joining(",")),

@@ -22,7 +22,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_SCHEMA;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -64,7 +63,7 @@ public class TestOracleConnectorTest
         String longInClauses = range(0, 10)
                 .mapToObj(value -> getLongInClause(value * 1_000, 1_000))
                 .collect(joining(" OR "));
-        onRemoteDatabase().execute(format("SELECT count(*) FROM %s.orders WHERE %s", TEST_SCHEMA, longInClauses));
+        onRemoteDatabase().execute("SELECT count(*) FROM %s.orders WHERE %s".formatted(TEST_SCHEMA, longInClauses));
     }
 
     private String getLongInClause(int start, int length)

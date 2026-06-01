@@ -34,7 +34,6 @@ import java.util.UUID;
 import static io.trino.server.security.UserMapping.createUserMapping;
 import static io.trino.server.security.oauth2.OAuth2TokenExchangeResource.getInitiateUri;
 import static io.trino.server.security.oauth2.OAuth2TokenExchangeResource.getTokenUri;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class OAuth2Authenticator
@@ -101,7 +100,7 @@ public class OAuth2Authenticator
                 .flatMap(this::deserializeToken)
                 .flatMap(tokenRefresher::refreshToken)
                 .map(refreshId -> request.getUriInfo().getBaseUri().resolve(getTokenUri(refreshId)))
-                .map(tokenUri -> new AuthenticationException(message, format("Bearer x_token_server=\"%s\"", tokenUri)))
+                .map(tokenUri -> new AuthenticationException(message, "Bearer x_token_server=\"%s\"".formatted(tokenUri)))
                 .orElseGet(() -> needAuthentication(request, message));
     }
 
@@ -110,6 +109,6 @@ public class OAuth2Authenticator
         UUID authId = UUID.randomUUID();
         URI initiateUri = request.getUriInfo().getBaseUri().resolve(getInitiateUri(authId));
         URI tokenUri = request.getUriInfo().getBaseUri().resolve(getTokenUri(authId));
-        return new AuthenticationException(message, format("Bearer x_redirect_server=\"%s\", x_token_server=\"%s\"", initiateUri, tokenUri));
+        return new AuthenticationException(message, "Bearer x_redirect_server=\"%s\", x_token_server=\"%s\"".formatted(initiateUri, tokenUri));
     }
 }

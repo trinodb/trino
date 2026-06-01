@@ -53,7 +53,6 @@ import static io.trino.plugin.hive.orc.OrcPageSource.handleException;
 import static io.trino.plugin.hive.orc.OrcPageSourceFactory.verifyAcidSchema;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeZone.UTC;
@@ -214,6 +213,6 @@ public class OrcDeleteDeltaPageSource
 
     private static String openError(Throwable t, Location path)
     {
-        return format("Error opening Hive delete delta file %s: %s", path, t.getMessage());
+        return "Error opening Hive delete delta file %s: %s".formatted(path, t.getMessage());
     }
 }

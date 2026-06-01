@@ -24,10 +24,8 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toUnmodifiableList;
 
 public final class ResourceGroupId
 {
@@ -35,7 +33,7 @@ public final class ResourceGroupId
 
     public ResourceGroupId(String name)
     {
-        this(singletonList(requireNonNull(name, "name is null")));
+        this(List.of(requireNonNull(name, "name is null")));
     }
 
     public ResourceGroupId(ResourceGroupId parent, String name)
@@ -70,7 +68,7 @@ public final class ResourceGroupId
         return new ResourceGroupId(
                 Arrays.stream(value.split("/"))
                         .map(part -> URLDecoder.decode(part, UTF_8))
-                        .collect(toUnmodifiableList()));
+                        .toList());
     }
 
     public String getLastSegment()

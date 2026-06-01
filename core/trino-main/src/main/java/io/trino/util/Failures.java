@@ -39,7 +39,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.newIdentityHashSet;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
@@ -65,7 +64,7 @@ public final class Failures
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, Object argument)
     {
         if (!condition) {
-            throw new TrinoException(errorCode, format(formatString, argument));
+            throw new TrinoException(errorCode, formatString.formatted(argument));
         }
     }
 
@@ -73,7 +72,7 @@ public final class Failures
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, Object argumentOne, Object argumentTwo)
     {
         if (!condition) {
-            throw new TrinoException(errorCode, format(formatString, argumentOne, argumentTwo));
+            throw new TrinoException(errorCode, formatString.formatted(argumentOne, argumentTwo));
         }
     }
 
@@ -86,7 +85,7 @@ public final class Failures
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, Object... args)
     {
         if (!condition) {
-            throw new TrinoException(errorCode, format(formatString, args));
+            throw new TrinoException(errorCode, formatString.formatted(args));
         }
     }
 
@@ -94,7 +93,7 @@ public final class Failures
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, int argument)
     {
         if (!condition) {
-            throw new TrinoException(errorCode, format(formatString, argument));
+            throw new TrinoException(errorCode, formatString.formatted(argument));
         }
     }
 
@@ -102,7 +101,7 @@ public final class Failures
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, int argumentOne, int argumentTwo)
     {
         if (!condition) {
-            throw new TrinoException(errorCode, format(formatString, argumentOne, argumentTwo));
+            throw new TrinoException(errorCode, formatString.formatted(argumentOne, argumentTwo));
         }
     }
 
@@ -110,7 +109,7 @@ public final class Failures
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, long argument)
     {
         if (!condition) {
-            throw new TrinoException(errorCode, format(formatString, argument));
+            throw new TrinoException(errorCode, formatString.formatted(argument));
         }
     }
 
@@ -118,7 +117,7 @@ public final class Failures
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, long argumentOne, long argumentTwo)
     {
         if (!condition) {
-            throw new TrinoException(errorCode, format(formatString, argumentOne, argumentTwo));
+            throw new TrinoException(errorCode, formatString.formatted(argumentOne, argumentTwo));
         }
     }
 
@@ -126,7 +125,7 @@ public final class Failures
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, float argument)
     {
         if (!condition) {
-            throw new TrinoException(errorCode, format(formatString, argument));
+            throw new TrinoException(errorCode, formatString.formatted(argument));
         }
     }
 
@@ -134,7 +133,7 @@ public final class Failures
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, float argumentOne, float argumentTwo)
     {
         if (!condition) {
-            throw new TrinoException(errorCode, format(formatString, argumentOne, argumentTwo));
+            throw new TrinoException(errorCode, formatString.formatted(argumentOne, argumentTwo));
         }
     }
 
@@ -142,7 +141,7 @@ public final class Failures
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, double argument)
     {
         if (!condition) {
-            throw new TrinoException(errorCode, format(formatString, argument));
+            throw new TrinoException(errorCode, formatString.formatted(argument));
         }
     }
 
@@ -150,7 +149,7 @@ public final class Failures
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, double argumentOne, double argumentTwo)
     {
         if (!condition) {
-            throw new TrinoException(errorCode, format(formatString, argumentOne, argumentTwo));
+            throw new TrinoException(errorCode, formatString.formatted(argumentOne, argumentTwo));
         }
     }
 
@@ -158,7 +157,7 @@ public final class Failures
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, double argumentOne, double argumentTwo, double argumentThree)
     {
         if (!condition) {
-            throw new TrinoException(errorCode, format(formatString, argumentOne, argumentTwo, argumentThree));
+            throw new TrinoException(errorCode, formatString.formatted(argumentOne, argumentTwo, argumentThree));
         }
     }
 

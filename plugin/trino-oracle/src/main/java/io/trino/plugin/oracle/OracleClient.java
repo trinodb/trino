@@ -168,7 +168,6 @@ import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.sql.Types.FLOAT;
@@ -334,8 +333,7 @@ public class OracleClient
         }
 
         String newTableName = newRemoteTableName.toUpperCase(ENGLISH);
-        execute(session, connection, format(
-                "ALTER TABLE %s RENAME TO %s",
+        execute(session, connection, "ALTER TABLE %s RENAME TO %s".formatted(
                 quoted(catalogName, remoteSchemaName, remoteTableName),
                 quoted(newTableName)));
     }
@@ -414,7 +412,7 @@ public class OracleClient
             // Use getColumnLabel method because query pass-through table function may contain column aliases
             String name = metadata.getColumnLabel(column);
             Type type = toColumnMapping(session, connection, jdbcTypeHandle)
-                    .orElseThrow(() -> new UnsupportedOperationException(format("Unsupported type: %s of column: %s", jdbcTypeHandle, name)))
+                    .orElseThrow(() -> new UnsupportedOperationException("Unsupported type: %s of column: %s".formatted(jdbcTypeHandle, name)))
                     .getType();
             columns.add(new JdbcColumnHandle(name, jdbcTypeHandle, type));
         }
@@ -485,7 +483,7 @@ public class OracleClient
     {
         checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
         ImmutableList.Builder<String> createTableSqlsBuilder = ImmutableList.builder();
-        createTableSqlsBuilder.add(format("CREATE TABLE %s (%s)", quoted(remoteTableName), join(", ", columns)));
+        createTableSqlsBuilder.add("CREATE TABLE %s (%s)".formatted(quoted(remoteTableName), join(", ", columns)));
         Optional<String> tableComment = tableMetadata.getComment();
         if (tableComment.isPresent()) {
             createTableSqlsBuilder.add(buildTableCommentSql(remoteTableName, tableComment));
@@ -501,8 +499,7 @@ public class OracleClient
 
     private String buildTableCommentSql(RemoteTableName remoteTableName, Optional<String> comment)
     {
-        return format(
-                "COMMENT ON TABLE %s IS %s",
+        return "COMMENT ON TABLE %s IS %s".formatted(
                 quoted(remoteTableName),
                 varcharLiteral(comment.orElse("")));
     }
@@ -693,7 +690,7 @@ public class OracleClient
     @Override
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
-        return Optional.of((sql, limit) -> format("%s FETCH FIRST %s ROWS ONLY", sql, limit));
+        return Optional.of((sql, limit) -> "%s FETCH FIRST %s ROWS ONLY".formatted(sql, limit));
     }
 
     @Override
@@ -839,7 +836,7 @@ public class OracleClient
             return "TO_TIMESTAMP(?, 'SYYYY-MM-DD HH24:MI:SS.FF')";
         }
 
-        return format("TO_TIMESTAMP(?, 'SYYYY-MM-DD HH24:MI:SS.FF%d')", precision);
+        return "TO_TIMESTAMP(?, 'SYYYY-MM-DD HH24:MI:SS.FF%d')".formatted(precision);
     }
 
     private static LongReadFunction oracleTimestampReadFunction(TimestampType timestampType)
@@ -951,7 +948,7 @@ public class OracleClient
             return WriteMapping.sliceMapping(dataType, oracleCharWriteFunction());
         }
         if (type instanceof DecimalType decimalType) {
-            String dataType = format("number(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            String dataType = "number(%s, %s)".formatted(decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
@@ -967,7 +964,7 @@ public class OracleClient
                 return WriteMapping.longMapping("date", trinoTimestampToOracleDateWriteFunction());
             }
             int precision = min(timestampType.getPrecision(), MAX_ORACLE_TIMESTAMP_PRECISION);
-            String dataType = format("timestamp(%d)", precision);
+            String dataType = "timestamp(%d)".formatted(precision);
             if (timestampType.isShort()) {
                 return WriteMapping.longMapping(dataType, oracleTimestampWriteFunction(timestampType));
             }
@@ -984,8 +981,7 @@ public class OracleClient
     public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
         // Oracle doesn't support prepared statement for COMMENT statement
-        String sql = format(
-                "COMMENT ON COLUMN %s.%s IS %s",
+        String sql = "COMMENT ON COLUMN %s.%s IS %s".formatted(
                 quoted(handle.asPlainTable().getRemoteTableName()),
                 quoted(column.getColumnName()),
                 varcharLiteral(comment.orElse("")));

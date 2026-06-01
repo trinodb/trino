@@ -51,7 +51,6 @@ import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.ORDERS;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -79,8 +78,7 @@ public class TestDeltaLakeDynamicFiltering
         ImmutableList.of(LINE_ITEM, ORDERS).forEach(table -> {
             String tableName = table.getTableName();
             hiveMinioDataLake.copyResources("io/trino/plugin/deltalake/testing/resources/databricks73/" + tableName, tableName);
-            queryRunner.execute(format(
-                    "CALL system.register_table(CURRENT_SCHEMA, '%1$s', 's3://%2$s/%1$s')",
+            queryRunner.execute("CALL system.register_table(CURRENT_SCHEMA, '%1$s', 's3://%2$s/%1$s')".formatted(
                     tableName,
                     bucketName));
         });

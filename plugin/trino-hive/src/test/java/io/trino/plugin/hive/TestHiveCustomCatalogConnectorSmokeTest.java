@@ -35,7 +35,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -155,7 +154,7 @@ public class TestHiveCustomCatalogConnectorSmokeTest
     {
         String schemaName = getSession().getSchema().orElseThrow();
         assertQueryFails(
-                format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomNameSuffix()),
+                "ALTER SCHEMA %s RENAME TO %s".formatted(schemaName, schemaName + randomNameSuffix()),
                 "Hive metastore does not support renaming schemas");
     }
 

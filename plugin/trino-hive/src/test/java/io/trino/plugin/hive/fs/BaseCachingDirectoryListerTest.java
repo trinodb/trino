@@ -37,7 +37,6 @@ import java.util.concurrent.TimeUnit;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseCachingDirectoryListerTest
@@ -259,14 +258,14 @@ public abstract class BaseCachingDirectoryListerTest
         List<MaterializedRow> paths = getQueryRunner().execute(getSession(), "SELECT \"$path\" FROM register_unregister_partition_table WHERE col2 = 'group1' LIMIT 1").toTestTypes().getMaterializedRows();
         String group1PartitionPath = Location.of((String) paths.get(0).getField(0)).parentDirectory().toString();
 
-        assertUpdate(format("CALL system.unregister_partition('%s', '%s', ARRAY['col2'], ARRAY['group1'])", TPCH_SCHEMA, "register_unregister_partition_table"));
+        assertUpdate("CALL system.unregister_partition('%s', '%s', ARRAY['col2'], ARRAY['group1'])".formatted(TPCH_SCHEMA, "register_unregister_partition_table"));
         // Unregistering the partition in the table should invalidate the cached listing of all the partitions belonging to the table.
         assertThat(isCached(tableGroup1PartitionLocation, schemaTableName(TPCH_SCHEMA, "register_unregister_partition_table"))).isFalse();
         assertThat(isCached(tableGroup2PartitionLocation, schemaTableName(TPCH_SCHEMA, "register_unregister_partition_table"))).isTrue();
         assertQuery("SELECT col2, sum(col1) FROM register_unregister_partition_table GROUP BY col2", "VALUES ('group2', 7)");
         assertThat(isCached(tableGroup2PartitionLocation, schemaTableName(TPCH_SCHEMA, "register_unregister_partition_table"))).isTrue();
 
-        assertUpdate(format("CALL system.register_partition('%s', '%s', ARRAY['col2'], ARRAY['group1'], '%s')", TPCH_SCHEMA, "register_unregister_partition_table", group1PartitionPath));
+        assertUpdate("CALL system.register_partition('%s', '%s', ARRAY['col2'], ARRAY['group1'], '%s')".formatted(TPCH_SCHEMA, "register_unregister_partition_table", group1PartitionPath));
         // Registering the partition in the table should invalidate the cached listing of all the partitions belonging to the table.
         assertThat(isCached(tableGroup1PartitionLocation, schemaTableName(TPCH_SCHEMA, "register_unregister_partition_table"))).isFalse();
         assertThat(isCached(tableGroup2PartitionLocation, schemaTableName(TPCH_SCHEMA, "register_unregister_partition_table"))).isTrue();
@@ -424,17 +423,17 @@ public abstract class BaseCachingDirectoryListerTest
     {
         return getTable(schemaName, tableName)
                 .map(table -> table.getStorage().getLocation())
-                .orElseThrow(() -> new NoSuchElementException(format("The table %s.%s could not be found", schemaName, tableName)));
+                .orElseThrow(() -> new NoSuchElementException("The table %s.%s could not be found".formatted(schemaName, tableName)));
     }
 
     protected String getPartitionLocation(String schemaName, String tableName, List<String> partitionValues)
     {
         Table table = getTable(schemaName, tableName)
-                .orElseThrow(() -> new NoSuchElementException(format("The table %s.%s could not be found", schemaName, tableName)));
+                .orElseThrow(() -> new NoSuchElementException("The table %s.%s could not be found".formatted(schemaName, tableName)));
 
         return metastore.getPartition(table, partitionValues)
                 .map(partition -> partition.getStorage().getLocation())
-                .orElseThrow(() -> new NoSuchElementException(format("The partition %s from the table %s.%s could not be found", partitionValues, schemaName, tableName)));
+                .orElseThrow(() -> new NoSuchElementException("The partition %s from the table %s.%s could not be found".formatted(partitionValues, schemaName, tableName)));
     }
 
     protected boolean isCached(String path, SchemaTableName schemaTableName)

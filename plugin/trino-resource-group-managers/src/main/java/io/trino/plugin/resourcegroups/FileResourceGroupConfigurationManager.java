@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
-import static java.lang.String.format;
 import static java.nio.file.Files.newInputStream;
 import static java.util.Objects.requireNonNull;
 
@@ -99,8 +98,7 @@ public class FileResourceGroupConfigurationManager
         catch (IllegalArgumentException e) {
             Throwable cause = e.getCause();
             if (cause instanceof UnrecognizedPropertyException ex) {
-                String message = format(
-                        "Unknown property at line %s:%s: %s",
+                String message = "Unknown property at line %s:%s: %s".formatted(
                         ex.getLocation().getLineNr(),
                         ex.getLocation().getColumnNr(),
                         ex.getPropertyName());

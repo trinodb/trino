@@ -52,7 +52,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RegularTableFunctionPartition
@@ -288,8 +287,7 @@ public class RegularTableFunctionPartition
         if (page.getChannelCount() != properChannelsCount + passThroughSourcesCount) {
             throw new TrinoException(
                     FUNCTION_IMPLEMENTATION_ERROR,
-                    format(
-                            "Table function returned a page containing %s channels. Expected channel number: %s (%s proper columns, %s pass-through index columns)",
+                    "Table function returned a page containing %s channels. Expected channel number: %s (%s proper columns, %s pass-through index columns)".formatted(
                             page.getChannelCount(),
                             properChannelsCount + passThroughSourcesCount,
                             properChannelsCount,
@@ -444,7 +442,7 @@ public class RegularTableFunctionPartition
                     if (index < 0 || index >= endOfData[inputChannel] || index >= processedPositions) {
                         int end = min(endOfData[inputChannel], processedPositions) - 1;
                         if (end >= 0) {
-                            throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, format("Index of a pass-through row: %s out of processed portion of partition [0, %s]", index, end));
+                            throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Index of a pass-through row: %s out of processed portion of partition [0, %s]".formatted(index, end));
                         }
                         else {
                             throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Index of a pass-through row must be null when no input data from the partition was processed. Actual: " + index);

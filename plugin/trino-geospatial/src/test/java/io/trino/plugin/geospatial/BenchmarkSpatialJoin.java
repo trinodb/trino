@@ -44,7 +44,6 @@ import java.util.stream.Stream;
 import static com.google.common.io.Resources.getResource;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
@@ -89,10 +88,10 @@ public class BenchmarkSpatialJoin
             try (Stream<String> lines = Files.lines(path)) {
                 polygonValues = lines
                         .map(line -> line.split("\t"))
-                        .map(parts -> format("('%s', '%s')", parts[0], parts[1]))
+                        .map(parts -> "('%s', '%s')".formatted(parts[0], parts[1]))
                         .collect(Collectors.joining(","));
             }
-            queryRunner.execute(format("CREATE TABLE memory.default.polygons AS SELECT * FROM (VALUES %s) as t (name, wkt)", polygonValues));
+            queryRunner.execute("CREATE TABLE memory.default.polygons AS SELECT * FROM (VALUES %s) as t (name, wkt)".formatted(polygonValues));
         }
 
         @Setup(Level.Invocation)
@@ -100,10 +99,10 @@ public class BenchmarkSpatialJoin
         {
             // Generate random points within the approximate bounding box of the US polygon:
             //  POLYGON ((-124 27, -65 27, -65 49, -124 49, -124 27))
-            queryRunner.execute(format("CREATE TABLE memory.default.points AS " +
+            queryRunner.execute(("CREATE TABLE memory.default.points AS " +
                     "SELECT 'p' || cast(elem AS VARCHAR) as name, xMin + (xMax - xMin) * random() as longitude, yMin + (yMax - yMin) * random() as latitude " +
                     "FROM (SELECT -124 AS xMin, -65 AS xMax, 27 AS yMin, 49 AS yMax) " +
-                    "CROSS JOIN UNNEST(sequence(1, %s)) AS t(elem)", pointCount));
+                    "CROSS JOIN UNNEST(sequence(1, %s)) AS t(elem)").formatted(pointCount));
         }
 
         @TearDown(Level.Invocation)

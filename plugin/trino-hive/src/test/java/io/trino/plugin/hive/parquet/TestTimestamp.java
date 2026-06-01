@@ -50,7 +50,6 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.util.Arrays.asList;
-import static java.util.Collections.singletonList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
@@ -116,7 +115,7 @@ public class TestTimestamp
             };
         });
 
-        List<ObjectInspector> objectInspectors = singletonList(javaLongObjectInspector);
+        List<ObjectInspector> objectInspectors = List.of(javaLongObjectInspector);
         List<String> columnNames = ImmutableList.of("test");
 
         try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("test", "parquet")) {

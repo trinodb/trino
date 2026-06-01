@@ -33,7 +33,6 @@ import static io.trino.tests.product.TestGroups.LDAP_MULTIPLE_BINDS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.TestGroups.TRINO_JDBC;
 import static io.trino.tests.product.TpchTableResults.TRINO_NATION_RESULT;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -136,7 +135,7 @@ public class TestLdapTrinoJdbc
     @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailForIncorrectTrustStore()
     {
-        String url = format("jdbc:trino://%s?SSL=true&SSLTrustStorePath=%s&SSLTrustStorePassword=%s", trinoServer(), ldapTruststorePath, "wrong_password");
+        String url = "jdbc:trino://%s?SSL=true&SSLTrustStorePath=%s&SSLTrustStorePassword=%s".formatted(trinoServer(), ldapTruststorePath, "wrong_password");
         assertThatThrownBy(() -> DriverManager.getConnection(url, ldapUserName, ldapUserPassword))
                 .isInstanceOf(SQLException.class)
                 .hasMessageContaining("Error setting up SSL: keystore password was incorrect");
@@ -166,7 +165,7 @@ public class TestLdapTrinoJdbc
 
     private void expectQueryToFailForUserNotInGroup(String user)
     {
-        expectQueryToFail(user, ldapUserPassword, format("Authentication failed: Access Denied: User [%s] not a member of an authorized group", user));
+        expectQueryToFail(user, ldapUserPassword, "Authentication failed: Access Denied: User [%s] not a member of an authorized group".formatted(user));
     }
 
     @Override

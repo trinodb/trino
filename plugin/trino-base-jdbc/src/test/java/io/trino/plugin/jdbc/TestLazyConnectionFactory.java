@@ -21,7 +21,6 @@ import java.sql.Connection;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestLazyConnectionFactory
@@ -43,7 +42,7 @@ public class TestLazyConnectionFactory
     public void testConnectionCannotBeReusedAfterClose()
             throws Exception
     {
-        String url = format("jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1", System.nanoTime() + ThreadLocalRandom.current().nextLong());
+        String url = "jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1".formatted(System.nanoTime() + ThreadLocalRandom.current().nextLong());
         try (DriverConnectionFactory driverConnectionFactory = DriverConnectionFactory.builder(new Driver(), url, new EmptyCredentialProvider()).build();
                 LazyConnectionFactory lazyConnectionFactory = new LazyConnectionFactory(driverConnectionFactory)) {
             Connection connection = lazyConnectionFactory.openConnection(SESSION);

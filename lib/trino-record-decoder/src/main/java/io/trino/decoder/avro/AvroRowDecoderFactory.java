@@ -23,7 +23,6 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class AvroRowDecoderFactory
@@ -50,7 +49,7 @@ public class AvroRowDecoderFactory
             return DummyRowDecoderFactory.DECODER_INSTANCE;
         }
 
-        String dataSchema = requireNonNull(rowDecoderSpec.decoderParams().get(DATA_SCHEMA), format("%s cannot be null", DATA_SCHEMA));
+        String dataSchema = requireNonNull(rowDecoderSpec.decoderParams().get(DATA_SCHEMA), "%s cannot be null".formatted(DATA_SCHEMA));
         Schema parsedSchema = new Schema.Parser().parse(dataSchema);
         if (parsedSchema.getType().equals(Schema.Type.RECORD)) {
             AvroReaderSupplier<GenericRecord> avroReaderSupplier = avroReaderSupplierFactory.create(parsedSchema);

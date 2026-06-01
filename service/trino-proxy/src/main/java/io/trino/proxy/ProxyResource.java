@@ -82,7 +82,6 @@ import static jakarta.ws.rs.core.Response.Status.FORBIDDEN;
 import static jakarta.ws.rs.core.Response.Status.NO_CONTENT;
 import static jakarta.ws.rs.core.Response.Status.OK;
 import static jakarta.ws.rs.core.Response.noContent;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.readAllBytes;
 import static java.util.Collections.list;
@@ -273,7 +272,7 @@ public class ProxyResource
 
                 if (response.code() != OK.getStatusCode()) {
                     try (ResponseBody body = response.body()) {
-                        future.setException(new ProxyException(format("Bad status code from remote Trino server: %s: %s", response.code(), body.string())));
+                        future.setException(new ProxyException("Bad status code from remote Trino server: %s: %s".formatted(response.code(), body.string())));
                         return;
                     }
                     catch (IOException e) {
@@ -382,7 +381,7 @@ public class ProxyResource
 
                     token = parser.nextToken();
                     if (token != VALUE_STRING) {
-                        throw invalidJson(format("bad %s token: %s", name, token));
+                        throw invalidJson("bad %s token: %s".formatted(name, token));
                     }
                     String value = parser.getValueAsString();
 

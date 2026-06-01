@@ -31,7 +31,6 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -69,7 +68,7 @@ public class TestSplitPruning
         for (String table : TABLES) {
             String dataPath = Resources.getResource("databricks73/pruning/" + table).toExternalForm();
             getQueryRunner().execute(
-                    format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", table, dataPath));
+                    "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(table, dataPath));
         }
     }
 
@@ -92,19 +91,19 @@ public class TestSplitPruning
 
             // a1, b1, a3, b3, c3 and d3 were processed, across 2 splits
             assertResultAndSplitCount(
-                    format("SELECT name FROM %s WHERE val < 200", tableName),
+                    "SELECT name FROM %s WHERE val < 200".formatted(tableName),
                     Set.of("a1", "b1", "a3", "b3"),
                     2);
 
             // a1, b1, a3, b3, c3 and d3 were processed, across 2 splits
             assertResultAndSplitCount(
-                    format("SELECT name FROM %s WHERE val > 100", tableName),
+                    "SELECT name FROM %s WHERE val > 100".formatted(tableName),
                     Set.of("a2", "b2", "b3", "d3"),
                     2);
 
             // 2 out of 4 splits
             assertResultAndSplitCount(
-                    format("SELECT name FROM %s WHERE val IS NULL", tableName),
+                    "SELECT name FROM %s WHERE val IS NULL".formatted(tableName),
                     Set.of("c3", "a4"),
                     2);
         }
@@ -124,19 +123,19 @@ public class TestSplitPruning
 
             // no pruning, because the domain contains NaN
             assertResultAndSplitCount(
-                    format("SELECT name FROM %s WHERE val < 100", tableName),
+                    "SELECT name FROM %s WHERE val < 100".formatted(tableName),
                     Set.of(),
                     2);
 
             // pruning works with the IS NULL predicate
             assertResultAndSplitCount(
-                    format("SELECT name FROM %s WHERE val IS NULL", tableName),
+                    "SELECT name FROM %s WHERE val IS NULL".formatted(tableName),
                     Set.of(),
                     0);
 
             MaterializedResult result = getDistributedQueryRunner().execute(
                     getSession(),
-                    format("SELECT name FROM %s WHERE val IS NOT NULL", tableName));
+                    "SELECT name FROM %s WHERE val IS NOT NULL".formatted(tableName));
             assertThat(result.getOnlyColumnAsSet()).isEqualTo(Set.of("a5", "b5", "a6", "b6"));
         }
     }
@@ -148,17 +147,17 @@ public class TestSplitPruning
         // Same data and queries as for the inf test, but no stats (or invalid stats) in the metadata, so no pruning
 
         assertResultAndSplitCount(
-                format("SELECT name FROM %s WHERE val < 200", tableName),
+                "SELECT name FROM %s WHERE val < 200".formatted(tableName),
                 Set.of("a1", "b1", "a3", "b3"),
                 4);
 
         assertResultAndSplitCount(
-                format("SELECT name FROM %s WHERE val > 100", tableName),
+                "SELECT name FROM %s WHERE val > 100".formatted(tableName),
                 Set.of("a2", "b2", "b3", "d3"),
                 4);
 
         assertResultAndSplitCount(
-                format("SELECT name FROM %s WHERE val IS NULL", tableName),
+                "SELECT name FROM %s WHERE val IS NULL".formatted(tableName),
                 Set.of("c3", "a4"),
                 4);
     }
@@ -176,27 +175,27 @@ public class TestSplitPruning
         //   (CAST('NaN' as DOUBLE), 'NaN', 100.0)
 
         assertResultAndSplitCount(
-                format("SELECT name FROM %s WHERE part_key = 7", tableName),
+                "SELECT name FROM %s WHERE part_key = 7".formatted(tableName),
                 Set.of("a7"),
                 1);
 
         assertResultAndSplitCount(
-                format("SELECT name FROM %s WHERE part_key IS NOT NULL", tableName),
+                "SELECT name FROM %s WHERE part_key IS NOT NULL".formatted(tableName),
                 Set.of("a7", "-Infinity", "+Infinity", "NaN"),
                 4);
 
         assertResultAndSplitCount(
-                format("SELECT name FROM %s WHERE part_key IS NULL", tableName),
+                "SELECT name FROM %s WHERE part_key IS NULL".formatted(tableName),
                 Set.of("null"),
                 1);
 
         assertResultAndSplitCount(
-                format("SELECT name FROM %s WHERE part_key > 0", tableName),
+                "SELECT name FROM %s WHERE part_key > 0".formatted(tableName),
                 Set.of("a7", "+Infinity"),
                 2);
 
         assertResultAndSplitCount(
-                format("SELECT name FROM %s WHERE part_key < 10", tableName),
+                "SELECT name FROM %s WHERE part_key < 10".formatted(tableName),
                 Set.of("a7", "-Infinity"),
                 2);
     }
@@ -207,7 +206,7 @@ public class TestSplitPruning
         String tableName = "uppercase_columns_partitions";
 
         assertResultAndSplitCount(
-                format("SELECT ala FROM %s WHERE ala > 0", tableName),
+                "SELECT ala FROM %s WHERE ala > 0".formatted(tableName),
                 result -> {
                     assertThat(result.getOnlyColumnAsSet()).containsOnly(1L, 2L, 3L);
                     assertThat(result.getRowCount()).isEqualTo(5);
@@ -215,7 +214,7 @@ public class TestSplitPruning
                 3);
 
         assertResultAndSplitCount(
-                format("SELECT ala FROM %s WHERE ala = 1", tableName),
+                "SELECT ala FROM %s WHERE ala = 1".formatted(tableName),
                 result -> {
                     assertThat(result.getOnlyColumnAsSet()).containsOnly(1L);
                     assertThat(result.getRowCount()).isEqualTo(2);
@@ -223,7 +222,7 @@ public class TestSplitPruning
                 1);
 
         assertResultAndSplitCount(
-                format("SELECT ala FROM %s WHERE ala > 1", tableName),
+                "SELECT ala FROM %s WHERE ala > 1".formatted(tableName),
                 result -> {
                     assertThat(result.getOnlyColumnAsSet()).containsOnly(2L, 3L);
                     assertThat(result.getRowCount()).isEqualTo(3);
@@ -231,7 +230,7 @@ public class TestSplitPruning
                 2);
 
         assertResultAndSplitCount(
-                format("SELECT kota FROM %s WHERE ala = 1", tableName),
+                "SELECT kota FROM %s WHERE ala = 1".formatted(tableName),
                 result -> {
                     assertThat(result.getOnlyColumnAsSet()).containsOnly(1L, 2L);
                     assertThat(result.getRowCount()).isEqualTo(2);
@@ -275,7 +274,7 @@ public class TestSplitPruning
         // log entry with invalid stats (low > high)
         String dataPath = Resources.getResource("databricks73/pruning/invalid_log").toExternalForm();
         getQueryRunner().execute(
-                format("CALL system.register_table(CURRENT_SCHEMA, 'person', '%s')", dataPath));
+                "CALL system.register_table(CURRENT_SCHEMA, 'person', '%s')".formatted(dataPath));
         assertQueryFails("SELECT name FROM person WHERE income < 1000", "Failed to generate splits for tpch.person");
     }
 
@@ -304,34 +303,34 @@ public class TestSplitPruning
         //        ('UTC', CAST('2017-07-01T00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE), '2017-07-01 00:00:00.000', '2017-06-30T19:00:00.000-0500'),
         //        ('UTC', CAST('9999-12-31T23:59:59.999 UTC' AS TIMESTAMP WITH TIME ZONE), '9999-12-31 23:59:59.999999999', '9999-12-31T17:59:59.999-0600'),
         assertResultAndSplitCount(
-                format("SELECT col_2 FROM %s WHERE col_0 = 'UTC' AND col_1 = CAST('1952-04-03 01:02:03.456 UTC' AS TIMESTAMP WITH TIME ZONE)", tableName),
+                "SELECT col_2 FROM %s WHERE col_0 = 'UTC' AND col_1 = CAST('1952-04-03 01:02:03.456 UTC' AS TIMESTAMP WITH TIME ZONE)".formatted(tableName),
                 Set.of("1952-04-03 01:02:03.456789"),
                 1);
 
         assertResultAndSplitCount(
-                format("SELECT col_2 FROM %s WHERE col_0 = 'UTC' AND col_1 > CAST('1996-10-27 00:05:00.987 UTC' AS TIMESTAMP WITH TIME ZONE) AND col_1 < CAST('1996-10-27 02:05:00.987 UTC' AS TIMESTAMP WITH TIME ZONE)", tableName),
+                "SELECT col_2 FROM %s WHERE col_0 = 'UTC' AND col_1 > CAST('1996-10-27 00:05:00.987 UTC' AS TIMESTAMP WITH TIME ZONE) AND col_1 < CAST('1996-10-27 02:05:00.987 UTC' AS TIMESTAMP WITH TIME ZONE)".formatted(tableName),
                 Set.of("1996-10-27 01:05:00.987"),
                 1);
 
         assertResultAndSplitCount(
-                format("SELECT col_2 FROM %s WHERE col_0 = 'UTC' AND col_1 = ANY (VALUES CAST('1900-01-01 UTC' AS TIMESTAMP WITH TIME ZONE), CAST('1983-04-01 01:05:00.345 UTC' AS TIMESTAMP WITH TIME ZONE), CAST('1996-10-27 02:05:00.987 UTC' AS TIMESTAMP WITH TIME ZONE))", tableName),
+                "SELECT col_2 FROM %s WHERE col_0 = 'UTC' AND col_1 = ANY (VALUES CAST('1900-01-01 UTC' AS TIMESTAMP WITH TIME ZONE), CAST('1983-04-01 01:05:00.345 UTC' AS TIMESTAMP WITH TIME ZONE), CAST('1996-10-27 02:05:00.987 UTC' AS TIMESTAMP WITH TIME ZONE))".formatted(tableName),
                 Set.of("1900-01-01 00:00:00.000", "1983-04-01 01:05:00.3456789", "1996-10-27 02:05:00.987"),
                 3);
 
         assertResultAndSplitCount(
-                format("SELECT col_2 FROM %s WHERE col_0 = 'UTC' AND " +
+                ("SELECT col_2 FROM %s WHERE col_0 = 'UTC' AND " +
                         "col_1 BETWEEN CAST('1952-04-03 UTC' AS TIMESTAMP WITH TIME ZONE) AND CAST('1970-02-04 UTC' AS TIMESTAMP WITH TIME ZONE) AND " +
-                        "col_3 >= CAST('1970-01-01 UTC' AS TIMESTAMP WITH TIME ZONE)", tableName),
+                        "col_3 >= CAST('1970-01-01 UTC' AS TIMESTAMP WITH TIME ZONE)").formatted(tableName),
                 Set.of("1970-01-01 01:05:00.123456789", "1970-01-01 00:05:00.123456789", "1970-01-01 00:00:00.000", "1970-02-03 04:05:06.789"),
                 4);
 
         assertResultAndSplitCount(
-                format("SELECT col_2 FROM %s WHERE col_2 LIKE '2%%' AND col_3 > CAST('1999-12-31 UTC' AS TIMESTAMP WITH TIME ZONE)", tableName),
+                "SELECT col_2 FROM %s WHERE col_2 LIKE '2%%' AND col_3 > CAST('1999-12-31 UTC' AS TIMESTAMP WITH TIME ZONE)".formatted(tableName),
                 Set.of("2017-07-01 00:00:00.000"),
                 1);
 
         assertResultAndSplitCount(
-                format("SELECT col_2 FROM %s WHERE col_2 > '1999'", tableName),
+                "SELECT col_2 FROM %s WHERE col_2 > '1999'".formatted(tableName),
                 Set.of("2017-07-01 00:00:00.000", "9999-12-31 23:59:59.999999999"),
                 2);
     }

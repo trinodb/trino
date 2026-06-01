@@ -106,7 +106,7 @@ public class HttpEventListener
             ingestUri = new URI(config.getIngestUri());
         }
         catch (URISyntaxException e) {
-            throw new IllegalStateException(String.format("Ingest URI %s for HTTP event listener is not valid", config.getIngestUri()), e);
+            throw new IllegalStateException("Ingest URI %s for HTTP event listener is not valid".formatted(config.getIngestUri()), e);
         }
 
         this.executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("http-event-listener-%s"));

@@ -42,7 +42,6 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -161,7 +160,7 @@ public abstract class AbstractTestBlock
                     // array already accounted for in the instance
                 }
                 else {
-                    throw new IllegalArgumentException(format("Unknown type encountered: %s", type));
+                    throw new IllegalArgumentException("Unknown type encountered: %s".formatted(type));
                 }
             }
         }
@@ -358,7 +357,7 @@ public abstract class AbstractTestBlock
     {
         for (Method method : clazz.getMethods()) {
             if (method.getReturnType() == ValueBlock.class && !method.isBridge()) {
-                throw new AssertionError(format("ValueBlock method %s should override return type to be %s", method, clazz.getSimpleName()));
+                throw new AssertionError("ValueBlock method %s should override return type to be %s".formatted(method, clazz.getSimpleName()));
             }
         }
     }

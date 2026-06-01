@@ -25,7 +25,6 @@ import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -67,7 +66,7 @@ public class TestIcebergOptimize
         // Verify that delete files exists
         assertThat(
                 onTrino().executeQuery(
-                        format("SELECT summary['total-delete-files'] FROM %s.%s.\"%s$snapshots\" ", TRINO_CATALOG, TEST_SCHEMA_NAME, baseTableName) +
+                        "SELECT summary['total-delete-files'] FROM %s.%s.\"%s$snapshots\" ".formatted(TRINO_CATALOG, TEST_SCHEMA_NAME, baseTableName) +
                                 "WHERE snapshot_id = " + getCurrentSnapshotId(TRINO_CATALOG, TEST_SCHEMA_NAME, baseTableName)))
                 .containsOnly(row("2"));
 
@@ -95,7 +94,7 @@ public class TestIcebergOptimize
 
     private List<String> getActiveFiles(String catalog, String schema, String tableName)
     {
-        return onTrino().executeQuery(format("SELECT file_path FROM %s.%s.\"%s$files\"", catalog, schema, tableName))
+        return onTrino().executeQuery("SELECT file_path FROM %s.%s.\"%s$files\"".formatted(catalog, schema, tableName))
                 .rows().stream()
                 .map(row -> (String) row.get(0))
                 .collect(toImmutableList());
@@ -103,17 +102,17 @@ public class TestIcebergOptimize
 
     private long getCurrentSnapshotId(String catalog, String schema, String tableName)
     {
-        return (long) onTrino().executeQuery(format("SELECT snapshot_id FROM %s.%s.\"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", catalog, schema, tableName))
+        return (long) onTrino().executeQuery("SELECT snapshot_id FROM %s.%s.\"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES".formatted(catalog, schema, tableName))
                 .getOnlyValue();
     }
 
     private static String sparkTableName(String tableName)
     {
-        return format("%s.%s.%s", SPARK_CATALOG, TEST_SCHEMA_NAME, tableName);
+        return "%s.%s.%s".formatted(SPARK_CATALOG, TEST_SCHEMA_NAME, tableName);
     }
 
     private static String trinoTableName(String tableName)
     {
-        return format("%s.%s.%s", TRINO_CATALOG, TEST_SCHEMA_NAME, tableName);
+        return "%s.%s.%s".formatted(TRINO_CATALOG, TEST_SCHEMA_NAME, tableName);
     }
 }

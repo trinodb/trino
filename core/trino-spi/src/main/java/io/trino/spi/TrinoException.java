@@ -15,7 +15,6 @@ package io.trino.spi;
 
 import java.util.Optional;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class TrinoException
@@ -61,7 +60,7 @@ public class TrinoException
     {
         String message = getRawMessage();
         if (location.isPresent()) {
-            message = format("line %s:%s: %s", location.get().lineNumber(), location.get().columnNumber(), message);
+            message = "line %s:%s: %s".formatted(location.get().lineNumber(), location.get().columnNumber(), message);
         }
         return message;
     }

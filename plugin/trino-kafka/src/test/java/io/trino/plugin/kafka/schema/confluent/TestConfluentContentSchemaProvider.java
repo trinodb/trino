@@ -28,14 +28,13 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestConfluentContentSchemaProvider
 {
     private static final String TOPIC = "test";
-    private static final String SUBJECT_NAME = format("%s-value", TOPIC);
+    private static final String SUBJECT_NAME = "%s-value".formatted(TOPIC);
 
     @Test
     public void testAvroConfluentSchemaProvider()

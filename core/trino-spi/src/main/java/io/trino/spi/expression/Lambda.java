@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.StringJoiner;
 
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
@@ -107,7 +106,7 @@ public final class Lambda
     {
         // Lambda bodies introduce a local scope.
         // Code that traverses into the body must handle lambda arguments explicitly.
-        return emptyList();
+        return List.of();
     }
 
     @Override

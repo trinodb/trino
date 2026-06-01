@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseHiveFailureRecoveryTest
@@ -42,8 +41,7 @@ public abstract class BaseHiveFailureRecoveryTest
     @Override
     protected void createPartitionedLineitemTable(String tableName, List<String> columns, String partitionColumn)
     {
-        String sql = format(
-                "CREATE TABLE %s WITH (format = 'TEXTFILE', partitioned_by=array['%s']) AS SELECT %s FROM tpch.tiny.lineitem",
+        String sql = "CREATE TABLE %s WITH (format = 'TEXTFILE', partitioned_by=array['%s']) AS SELECT %s FROM tpch.tiny.lineitem".formatted(
                 tableName,
                 partitionColumn,
                 String.join(",", columns));

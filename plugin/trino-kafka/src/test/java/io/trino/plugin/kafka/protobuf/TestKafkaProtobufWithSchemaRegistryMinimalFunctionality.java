@@ -59,7 +59,6 @@ import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.multiplyExact;
 import static java.lang.StrictMath.floorMod;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -94,8 +93,8 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
         String topic = "topic-basic-MixedCase";
         assertTopic(
                 topic,
-                format("SELECT col_1, col_2 FROM %s", toDoubleQuoted(topic)),
-                format("SELECT col_1, col_2, col_3 FROM %s", toDoubleQuoted(topic)),
+                "SELECT col_1, col_2 FROM %s".formatted(toDoubleQuoted(topic)),
+                "SELECT col_1, col_2, col_3 FROM %s".formatted(toDoubleQuoted(topic)),
                 false,
                 producerProperties());
     }
@@ -107,8 +106,8 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
         String topic = "topic-Key-Subject";
         assertTopic(
                 topic,
-                format("SELECT key, col_1, col_2 FROM %s", toDoubleQuoted(topic)),
-                format("SELECT key, col_1, col_2, col_3 FROM %s", toDoubleQuoted(topic)),
+                "SELECT key, col_1, col_2 FROM %s".formatted(toDoubleQuoted(topic)),
+                "SELECT key, col_1, col_2, col_3 FROM %s".formatted(toDoubleQuoted(topic)),
                 true,
                 producerProperties());
     }
@@ -120,8 +119,8 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
         String topic = "topic-Record-Name-Strategy";
         assertTopic(
                 topic,
-                format("SELECT key, col_1, col_2 FROM \"%1$s&value-subject=%2$s\"", topic, RECORD_NAME),
-                format("SELECT key, col_1, col_2, col_3 FROM \"%1$s&value-subject=%2$s\"", topic, RECORD_NAME),
+                "SELECT key, col_1, col_2 FROM \"%1$s&value-subject=%2$s\"".formatted(topic, RECORD_NAME),
+                "SELECT key, col_1, col_2, col_3 FROM \"%1$s&value-subject=%2$s\"".formatted(topic, RECORD_NAME),
                 true,
                 ImmutableMap.<String, String>builder()
                         .putAll(producerProperties())
@@ -136,8 +135,8 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
         String topic = "topic-Topic-Record-Name-Strategy";
         assertTopic(
                 topic,
-                format("SELECT key, col_1, col_2 FROM \"%1$s&value-subject=%1$s-%2$s\"", topic, RECORD_NAME),
-                format("SELECT key, col_1, col_2, col_3 FROM \"%1$s&value-subject=%1$s-%2$s\"", topic, RECORD_NAME),
+                "SELECT key, col_1, col_2 FROM \"%1$s&value-subject=%1$s-%2$s\"".formatted(topic, RECORD_NAME),
+                "SELECT key, col_1, col_2, col_3 FROM \"%1$s&value-subject=%1$s-%2$s\"".formatted(topic, RECORD_NAME),
                 true,
                 ImmutableMap.<String, String>builder()
                         .putAll(producerProperties())
@@ -152,12 +151,12 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
         String topic = "topic-basic-inserts";
         assertTopic(
                 topic,
-                format("SELECT col_1, col_2 FROM %s", toDoubleQuoted(topic)),
-                format("SELECT col_1, col_2, col_3 FROM %s", toDoubleQuoted(topic)),
+                "SELECT col_1, col_2 FROM %s".formatted(toDoubleQuoted(topic)),
+                "SELECT col_1, col_2, col_3 FROM %s".formatted(toDoubleQuoted(topic)),
                 false,
                 producerProperties());
         assertQueryFails(
-                format("INSERT INTO %s (col_1, col_2, col_3) VALUES ('Trino', 14, 1.4)", toDoubleQuoted(topic)),
+                "INSERT INTO %s (col_1, col_2, col_3) VALUES ('Trino', 14, 1.4)".formatted(toDoubleQuoted(topic)),
                 "Insert is not supported for schema registry based tables");
     }
 
@@ -226,7 +225,7 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
                 producerProperties());
         waitUntilTableExists(topic);
 
-        assertThat(query(format("SELECT list, map, row FROM %s", toDoubleQuoted(topic))))
+        assertThat(query("SELECT list, map, row FROM %s".formatted(toDoubleQuoted(topic))))
                 .matches(
                         """
                         VALUES (
@@ -268,7 +267,7 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
         testingKafka.sendMessages(messages.stream(), producerProperties());
         waitUntilTableExists(topic);
 
-        assertThat(query(format("SELECT testOneOfColumn FROM %s", toDoubleQuoted(topic))))
+        assertThat(query("SELECT testOneOfColumn FROM %s".formatted(toDoubleQuoted(topic))))
                 .matches(
                         """
                         VALUES (JSON '{"stringColumn":"%s"}')
@@ -323,7 +322,7 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
         waitUntilTableExists(topic);
 
         URI anySchemaFile = new File(Resources.getResource("protobuf/any/structural_datatypes/schema").getFile()).toURI();
-        assertThat(query(format("SELECT id, anyMessage FROM %s", toDoubleQuoted(topic))))
+        assertThat(query("SELECT id, anyMessage FROM %s".formatted(toDoubleQuoted(topic))))
                 .matches(
                         """
                         VALUES (1, JSON '{"@type":"%s","list":["Search"],"map":{"Key1":"Value1"},"row":{"booleanColumn":true,"bytesColumn":"VHJpbm8=","doubleColumn":3.141592653589793,"floatColumn":3.14,"integerColumn":1,"longColumn":"493857959588286460","numberColumn":"ONE","stringColumn":"Trino","timestampColumn":"2020-12-12T15:35:45.923Z"}}')
@@ -402,7 +401,7 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
 
             addExpectedColumns(descriptor, message.value(), columnsBuilder);
 
-            rowsBuilder.add(format("(%s)", String.join(", ", columnsBuilder.build())));
+            rowsBuilder.add("(%s)".formatted(String.join(", ", columnsBuilder.build())));
         }
         valuesBuilder.append(String.join(", ", rowsBuilder.build()));
         return valuesBuilder.toString();
@@ -429,7 +428,7 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
     private void assertNotExists(String tableName)
     {
         if (schemaExists()) {
-            assertQueryReturnsEmptyResult(format("SHOW TABLES LIKE '%s'", tableName));
+            assertQueryReturnsEmptyResult("SHOW TABLES LIKE '%s'".formatted(tableName));
         }
     }
 
@@ -451,17 +450,17 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
 
     private boolean schemaExists()
     {
-        return computeActual(format("SHOW SCHEMAS FROM %s LIKE '%s'", getSession().getCatalog().get(), getSession().getSchema().get())).getRowCount() == 1;
+        return computeActual("SHOW SCHEMAS FROM %s LIKE '%s'".formatted(getSession().getCatalog().get(), getSession().getSchema().get())).getRowCount() == 1;
     }
 
     private boolean tableExists(String tableName)
     {
-        return computeActual(format("SHOW TABLES LIKE '%s'", tableName.toLowerCase(ENGLISH))).getRowCount() == 1;
+        return computeActual("SHOW TABLES LIKE '%s'".formatted(tableName.toLowerCase(ENGLISH))).getRowCount() == 1;
     }
 
     private void assertCount(String tableName, int count)
     {
-        assertQuery(format("SELECT count(*) FROM %s", toDoubleQuoted(tableName)), format("VALUES (%s)", count));
+        assertQuery("SELECT count(*) FROM %s".formatted(toDoubleQuoted(tableName)), "VALUES (%s)".formatted(count));
     }
 
     private static Descriptor getInitialSchema()
@@ -490,13 +489,13 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
 
     private static String toDoubleQuoted(String tableName)
     {
-        return format("\"%s\"", tableName);
+        return "\"%s\"".formatted(tableName);
     }
 
     private static String toSingleQuoted(Object value)
     {
         requireNonNull(value, "value is null");
-        return format("'%s'", value);
+        return "'%s'".formatted(value);
     }
 
     private static List<ProducerRecord<DynamicMessage, DynamicMessage>> createMessages(String topicName, int messageCount, boolean useInitialSchema, Descriptor descriptor, Descriptor keyDescriptor)
@@ -525,7 +524,7 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
     private static DynamicMessage createRecordWithInitialSchema(long key, Descriptor descriptor)
     {
         return DynamicMessage.newBuilder(descriptor)
-                .setField(descriptor.findFieldByName("col_1"), format("string-%s", key))
+                .setField(descriptor.findFieldByName("col_1"), "string-%s".formatted(key))
                 .setField(descriptor.findFieldByName("col_2"), multiplyExact(key, 100))
                 .build();
     }
@@ -533,7 +532,7 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
     private static DynamicMessage createRecordWithEvolvedSchema(long key, Descriptor descriptor)
     {
         return DynamicMessage.newBuilder(descriptor)
-                .setField(descriptor.findFieldByName("col_1"), format("string-%s", key))
+                .setField(descriptor.findFieldByName("col_1"), "string-%s".formatted(key))
                 .setField(descriptor.findFieldByName("col_2"), multiplyExact(key, 100))
                 .setField(descriptor.findFieldByName("col_3"), (key + 10.1d) / 10.0d)
                 .build();

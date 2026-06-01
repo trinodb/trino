@@ -42,7 +42,6 @@ import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.PART;
 import static io.trino.tpch.TpchTable.REGION;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestJoinQueries
@@ -345,29 +344,29 @@ public abstract class AbstractTestJoinQueries
 
         // short decimal, long decimal
         assertQuery(
-                format("SELECT * FROM " +
+                ("SELECT * FROM " +
                         "   (VALUES (CAST(1 AS DECIMAL(%1$d,0)), 2)) x (a, b) , " +
                         "   (VALUES (CAST(0 AS DECIMAL(%1$d,0)), SMALLINT '3')) y (a, b) " +
-                        " WHERE x.a = y.a + 1", Decimals.MAX_SHORT_PRECISION),
+                        " WHERE x.a = y.a + 1").formatted(Decimals.MAX_SHORT_PRECISION),
                 "VALUES (1, 2, 0, 3)");
         assertQuery(
-                format("SELECT * FROM " +
+                ("SELECT * FROM " +
                         "   (VALUES (CAST(1 AS DECIMAL(%1$d,0)), 2)) x (a, b) " +
                         "   INNER JOIN " +
                         "   (VALUES (CAST(0 AS DECIMAL(%1$d,0)), SMALLINT '3')) y (a, b) " +
-                        "   ON x.a = y.a + 1", Decimals.MAX_SHORT_PRECISION),
+                        "   ON x.a = y.a + 1").formatted(Decimals.MAX_SHORT_PRECISION),
                 "VALUES (1, 2, 0, 3)");
         assertQuery(
-                format("SELECT * FROM " +
+                ("SELECT * FROM " +
                         "   (VALUES (CAST(1 AS DECIMAL(%1$d,0)), 2)) x (a, b) " +
                         "   LEFT JOIN (VALUES (CAST(0 AS DECIMAL(%1$d,0)), SMALLINT '3')) y (a, b) " +
-                        "   ON x.a = y.a + 1", Decimals.MAX_SHORT_PRECISION),
+                        "   ON x.a = y.a + 1").formatted(Decimals.MAX_SHORT_PRECISION),
                 "VALUES (1, 2, 0, 3)");
         assertQuery(
-                format("SELECT * FROM " +
+                ("SELECT * FROM " +
                         "   (VALUES CAST(1 AS decimal(%d,0))) t1 (a), " +
                         "   (VALUES CAST(1 AS decimal(%d,0))) t2 (b) " +
-                        "   WHERE a = b", Decimals.MAX_SHORT_PRECISION, Decimals.MAX_SHORT_PRECISION + 1),
+                        "   WHERE a = b").formatted(Decimals.MAX_SHORT_PRECISION, Decimals.MAX_SHORT_PRECISION + 1),
                 "VALUES (1, 1)");
     }
 
@@ -1522,10 +1521,9 @@ public abstract class AbstractTestJoinQueries
         long joinOutputRowCount = 60175;
         assertQuery(
                 session,
-                format(
-                        "SELECT count(*) FROM lineitem l LEFT OUTER JOIN orders o ON l.orderkey = o.orderkey AND stateful_sleeping_sum(%s, 100, l.linenumber, o.shippriority) > 0",
+                "SELECT count(*) FROM lineitem l LEFT OUTER JOIN orders o ON l.orderkey = o.orderkey AND stateful_sleeping_sum(%s, 100, l.linenumber, o.shippriority) > 0".formatted(
                         10 * 1. / joinOutputRowCount),
-                format("VALUES %s", joinOutputRowCount));
+                "VALUES %s".formatted(joinOutputRowCount));
     }
 
     @Test

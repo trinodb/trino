@@ -44,7 +44,6 @@ import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.trino.sql.DynamicFilters.Descriptor;
 import static io.trino.sql.DynamicFilters.extractSourceSymbols;
 import static io.trino.sql.planner.DomainCoercer.applySaturatedCasts;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class LocalDynamicFiltersCollector
@@ -103,14 +102,14 @@ public class LocalDynamicFiltersCollector
                 .map(filterId -> {
                     // Probe-side columns that can be filtered with this dynamic filter resulting domain.
                     return Futures.transform(
-                            requireNonNull(futures.get(filterId), () -> format("Missing dynamic filter %s", filterId)),
+                            requireNonNull(futures.get(filterId), () -> "Missing dynamic filter %s".formatted(filterId)),
                             // Construct a probe-side predicate by duplicating the resulting domain over the corresponding columns.
                             domain -> TupleDomain.withColumnDomains(
                                     descriptorMap.get(filterId).stream()
                                             .collect(toImmutableMap(
                                                     descriptor -> {
                                                         Symbol probeSymbol = Symbol.from(descriptor.getInput());
-                                                        return requireNonNull(columnsMap.get(probeSymbol), () -> format("Missing probe column for %s", probeSymbol));
+                                                        return requireNonNull(columnsMap.get(probeSymbol), () -> "Missing probe column for %s".formatted(probeSymbol));
                                                     },
                                                     descriptor -> {
                                                         Symbol symbol = Symbol.from(descriptor.getInput());

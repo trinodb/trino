@@ -42,7 +42,6 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Integer.parseInt;
-import static java.lang.String.format;
 
 public class RawRowEncoder
         extends AbstractRowEncoder
@@ -92,8 +91,7 @@ public class RawRowEncoder
 
         for (ColumnMapping mapping : this.columnMappings) {
             if (mapping.getLength() != mapping.getFieldType().getSize() && !(mapping.getType() instanceof VarcharType)) {
-                throw new IndexOutOfBoundsException(format(
-                        "Mapping length '%s' is not equal to expected length '%s' for column '%s'",
+                throw new IndexOutOfBoundsException("Mapping length '%s' is not equal to expected length '%s' for column '%s'".formatted(
                         mapping.getLength(),
                         mapping.getFieldType().getSize(),
                         mapping.getName()));
@@ -141,7 +139,7 @@ public class RawRowEncoder
             if (mapping.isPresent()) {
                 Matcher mappingMatcher = MAPPING_PATTERN.matcher(mapping.get());
                 if (!mappingMatcher.matches()) {
-                    throw new IllegalArgumentException(format("Invalid mapping for column '%s'", this.name));
+                    throw new IllegalArgumentException("Invalid mapping for column '%s'".formatted(this.name));
                 }
 
                 if (mappingMatcher.group(2) != null) {
@@ -154,7 +152,7 @@ public class RawRowEncoder
                 }
             }
             else {
-                throw new IllegalArgumentException(format("No mapping defined for column '%s'", this.name));
+                throw new IllegalArgumentException("No mapping defined for column '%s'".formatted(this.name));
             }
         }
 
@@ -164,7 +162,7 @@ public class RawRowEncoder
                 return parseInt(group);
             }
             catch (NumberFormatException e) {
-                throw new IllegalArgumentException(format("Unable to parse '%s' offset for column '%s'", offsetName, columnName), e);
+                throw new IllegalArgumentException("Unable to parse '%s' offset for column '%s'".formatted(offsetName, columnName), e);
             }
         }
 
@@ -177,7 +175,7 @@ public class RawRowEncoder
                 return FieldType.BYTE;
             }
             catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException(format("Invalid dataFormat '%s' for column '%s'", dataFormat, columnName));
+                throw new IllegalArgumentException("Invalid dataFormat '%s' for column '%s'".formatted(dataFormat, columnName));
             }
         }
 
@@ -326,7 +324,7 @@ public class RawRowEncoder
     public byte[] toByteArray()
     {
         // make sure entire row has been updated with new values
-        checkArgument(currentColumnIndex == columnHandles.size(), format("Missing %d columns", columnHandles.size() - currentColumnIndex + 1));
+        checkArgument(currentColumnIndex == columnHandles.size(), "Missing %d columns".formatted(columnHandles.size() - currentColumnIndex + 1));
 
         resetColumnIndex(); // reset currentColumnIndex to prepare for next row
         buffer.clear(); // set buffer position back to 0 to prepare for next row, this method does not affect the backing byte array

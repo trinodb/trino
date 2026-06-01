@@ -60,7 +60,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -121,10 +120,10 @@ public class TestCreateCatalogTask
     public void testDuplicatedCreateCatalog()
     {
         CreateCatalog statement = new CreateCatalog(new NodeLocation(1, 1), new Identifier(TEST_CATALOG), false, new Identifier("tpch"), TPCH_PROPERTIES, Optional.empty(), Optional.empty());
-        getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
+        getFutureValue(task.execute(statement, queryStateMachine, List.of(), WarningCollector.NOOP));
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isTrue();
         assertThatExceptionOfType(TrinoException.class)
-                .isThrownBy(() -> getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP)))
+                .isThrownBy(() -> getFutureValue(task.execute(statement, queryStateMachine, List.of(), WarningCollector.NOOP)))
                 .withMessage("Catalog '%s' already exists", TEST_CATALOG);
     }
 
@@ -132,10 +131,10 @@ public class TestCreateCatalogTask
     public void testCaseInsensitiveDuplicatedCreateCatalog()
     {
         CreateCatalog statement = new CreateCatalog(new NodeLocation(1, 1), new Identifier(TEST_CATALOG.toUpperCase(ENGLISH)), false, new Identifier("tpch"), TPCH_PROPERTIES, Optional.empty(), Optional.empty());
-        getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
+        getFutureValue(task.execute(statement, queryStateMachine, List.of(), WarningCollector.NOOP));
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isTrue();
         assertThatExceptionOfType(TrinoException.class)
-                .isThrownBy(() -> getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP)))
+                .isThrownBy(() -> getFutureValue(task.execute(statement, queryStateMachine, List.of(), WarningCollector.NOOP)))
                 .withMessage("Catalog '%s' already exists", TEST_CATALOG);
     }
 
@@ -143,9 +142,9 @@ public class TestCreateCatalogTask
     public void testDuplicatedCreateCatalogIfNotExists()
     {
         CreateCatalog statement = new CreateCatalog(new NodeLocation(1, 1), new Identifier(TEST_CATALOG), true, new Identifier("tpch"), TPCH_PROPERTIES, Optional.empty(), Optional.empty());
-        getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
+        getFutureValue(task.execute(statement, queryStateMachine, List.of(), WarningCollector.NOOP));
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isTrue();
-        getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
+        getFutureValue(task.execute(statement, queryStateMachine, List.of(), WarningCollector.NOOP));
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isTrue();
     }
 
@@ -163,7 +162,7 @@ public class TestCreateCatalogTask
                                 Optional.empty(),
                                 Optional.empty()),
                         queryStateMachine,
-                        emptyList(),
+                        List.of(),
                         WarningCollector.NOOP)))
                 .withMessageContaining("TEST create catalog fail: " + TEST_CATALOG);
     }
@@ -208,7 +207,7 @@ public class TestCreateCatalogTask
                     Optional.empty(),
                     Optional.empty());
 
-            assertThatThrownBy(() -> getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP)))
+            assertThatThrownBy(() -> getFutureValue(task.execute(statement, queryStateMachine, List.of(), WarningCollector.NOOP)))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageContaining("Add or replace catalog failed");
             assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isFalse();

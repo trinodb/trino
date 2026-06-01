@@ -21,7 +21,6 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tests.product.hive.util.TableLocationUtils.getTableLocation;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -39,7 +38,7 @@ public abstract class BaseTestSyncPartitionMetadata
         onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'ADD')");
         assertPartitions(tableName, row("a", "1"), row("b", "2"), row("f", "9"));
         assertQueryFailure(() -> onTrino().executeQuery("SELECT payload, col_x, col_y FROM " + tableName + " ORDER BY 1, 2, 3 ASC"))
-                .hasMessageMatching(format(".*Partition location does not exist: .*%s/col_x=b/col_y=2", tableLocation(tableName)));
+                .hasMessageMatching(".*Partition location does not exist: .*%s/col_x=b/col_y=2".formatted(tableLocation(tableName)));
         cleanup(tableName);
     }
 
@@ -50,20 +49,18 @@ public abstract class BaseTestSyncPartitionMetadata
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + mirrorTableName);
 
-        onTrino().executeQuery(format(
-                "" +
-                        "CREATE TABLE %s (payload bigint, col_date varchar, col_time varchar)" +
-                        "WITH (format = 'ORC', partitioned_by = ARRAY[ 'col_date', 'col_time' ])",
+        onTrino().executeQuery(("" +
+        "CREATE TABLE %s (payload bigint, col_date varchar, col_time varchar)" +
+        "WITH (format = 'ORC', partitioned_by = ARRAY[ 'col_date', 'col_time' ])").formatted(
                 tableName));
         onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1024, '2022-02-01', '19:00:15'), (1024, '2022-01-17', '20:00:12')");
         String sharedTableLocation = getTableLocation(tableName, 2);
         // avoid dealing with the intricacies of adding content on the file system level
         // and possibly url encoding the file path by using
         // an external table which mirrors the previously created table
-        onTrino().executeQuery(format(
-                "" +
-                        "CREATE TABLE %s (payload bigint, col_date varchar, col_time varchar)" +
-                        "WITH (external_location = '%s', format = 'ORC', partitioned_by = ARRAY[ 'col_date', 'col_time' ])",
+        onTrino().executeQuery(("" +
+        "CREATE TABLE %s (payload bigint, col_date varchar, col_time varchar)" +
+        "WITH (external_location = '%s', format = 'ORC', partitioned_by = ARRAY[ 'col_date', 'col_time' ])").formatted(
                 mirrorTableName,
                 sharedTableLocation));
         onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + mirrorTableName + "', 'ADD')");
@@ -101,10 +98,9 @@ public abstract class BaseTestSyncPartitionMetadata
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + mirrorTableName);
 
-        onTrino().executeQuery(format(
-                "" +
-                        "CREATE TABLE %s (payload bigint, col_date varchar, col_time varchar)" +
-                        "WITH (format = 'ORC', partitioned_by = ARRAY[ 'col_date', 'col_time' ])",
+        onTrino().executeQuery(("" +
+        "CREATE TABLE %s (payload bigint, col_date varchar, col_time varchar)" +
+        "WITH (format = 'ORC', partitioned_by = ARRAY[ 'col_date', 'col_time' ])").formatted(
                 tableName));
         onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1024, '2022-01-17', '20:00:12') , (4096, '2022-01-18', '10:40:16')");
 
@@ -112,10 +108,9 @@ public abstract class BaseTestSyncPartitionMetadata
         // and possibly url encoding the file path by using
         // an external table which mirrors the previously created table
         String sharedTableLocation = getTableLocation(tableName, 2);
-        onTrino().executeQuery(format(
-                "" +
-                        "CREATE TABLE %s (payload bigint, col_date varchar, col_time varchar)" +
-                        "WITH (external_location = '%s', format = 'ORC', partitioned_by = ARRAY[ 'col_date', 'col_time' ])",
+        onTrino().executeQuery(("" +
+        "CREATE TABLE %s (payload bigint, col_date varchar, col_time varchar)" +
+        "WITH (external_location = '%s', format = 'ORC', partitioned_by = ARRAY[ 'col_date', 'col_time' ])").formatted(
                 mirrorTableName,
                 sharedTableLocation));
         onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + mirrorTableName + "', 'ADD')");
@@ -165,11 +160,11 @@ public abstract class BaseTestSyncPartitionMetadata
         prepare(tableName);
         String tableLocation = tableLocation(tableName);
 
-        makeHdfsDirectory(format("%s/col_x=h/col_Y=11", tableLocation));
-        copyOrcFileToHdfsDirectory(tableName, format("%s/col_x=h/col_Y=11", tableLocation));
+        makeHdfsDirectory("%s/col_x=h/col_Y=11".formatted(tableLocation));
+        copyOrcFileToHdfsDirectory(tableName, "%s/col_x=h/col_Y=11".formatted(tableLocation));
 
-        makeHdfsDirectory(format("%s/COL_X=UPPER/COL_Y=12", tableLocation));
-        copyOrcFileToHdfsDirectory(tableName, format("%s/COL_X=UPPER/COL_Y=12", tableLocation));
+        makeHdfsDirectory("%s/COL_X=UPPER/COL_Y=12".formatted(tableLocation));
+        copyOrcFileToHdfsDirectory(tableName, "%s/COL_X=UPPER/COL_Y=12".formatted(tableLocation));
 
         onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'FULL', false)");
         assertPartitions(tableName, row("UPPER", "12"), row("a", "1"), row("f", "9"), row("g", "10"), row("h", "11"));
@@ -182,11 +177,11 @@ public abstract class BaseTestSyncPartitionMetadata
         String tableLocation = tableLocation(tableName);
         prepare(tableName);
         // this conflicts with a partition that already exits in the metastore
-        makeHdfsDirectory(format("%s/COL_X=a/cOl_y=1", tableLocation));
-        copyOrcFileToHdfsDirectory(tableName, format("%s/COL_X=a/cOl_y=1", tableLocation));
+        makeHdfsDirectory("%s/COL_X=a/cOl_y=1".formatted(tableLocation));
+        copyOrcFileToHdfsDirectory(tableName, "%s/COL_X=a/cOl_y=1".formatted(tableLocation));
 
         assertThatThrownBy(() -> onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'ADD', false)"))
-                .hasMessageContaining(format("One or more partitions already exist for table 'default.%s'", tableName));
+                .hasMessageContaining("One or more partitions already exist for table 'default.%s'".formatted(tableName));
         assertPartitions(tableName, row("a", "1"), row("b", "2"));
     }
 
@@ -217,20 +212,20 @@ public abstract class BaseTestSyncPartitionMetadata
         onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1, 'a', '1'), (2, 'b', '2')");
 
         // remove partition col_x=b/col_y=2
-        removeHdfsDirectory(format("%s/col_x=b/col_y=2", tableLocation));
+        removeHdfsDirectory("%s/col_x=b/col_y=2".formatted(tableLocation));
         // add partition directory col_x=f/col_y=9 with single_int_column/data.orc file
-        makeHdfsDirectory(format("%s/col_x=f/col_y=9", tableLocation));
-        copyOrcFileToHdfsDirectory(tableName, format("%s/col_x=f/col_y=9", tableLocation));
+        makeHdfsDirectory("%s/col_x=f/col_y=9".formatted(tableLocation));
+        copyOrcFileToHdfsDirectory(tableName, "%s/col_x=f/col_y=9".formatted(tableLocation));
 
         // should only be picked up when not in case sensitive mode
-        makeHdfsDirectory(format("%s/COL_X=g/col_y=10", tableLocation));
-        copyOrcFileToHdfsDirectory(tableName, format("%s/COL_X=g/col_y=10", tableLocation));
+        makeHdfsDirectory("%s/COL_X=g/col_y=10".formatted(tableLocation));
+        copyOrcFileToHdfsDirectory(tableName, "%s/COL_X=g/col_y=10".formatted(tableLocation));
 
         // add invalid partition path
-        makeHdfsDirectory(format("%s/col_x=d", tableLocation));
-        makeHdfsDirectory(format("%s/col_y=3/col_x=h", tableLocation));
-        makeHdfsDirectory(format("%s/col_y=3", tableLocation));
-        makeHdfsDirectory(format("%s/xyz", tableLocation));
+        makeHdfsDirectory("%s/col_x=d".formatted(tableLocation));
+        makeHdfsDirectory("%s/col_y=3/col_x=h".formatted(tableLocation));
+        makeHdfsDirectory("%s/col_y=3".formatted(tableLocation));
+        makeHdfsDirectory("%s/xyz".formatted(tableLocation));
 
         assertPartitions(tableName, row("a", "1"), row("b", "2"));
     }

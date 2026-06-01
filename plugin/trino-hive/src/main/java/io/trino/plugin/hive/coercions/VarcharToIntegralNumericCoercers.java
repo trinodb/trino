@@ -26,7 +26,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static java.lang.String.format;
 
 public final class VarcharToIntegralNumericCoercers
 {
@@ -106,7 +105,7 @@ public final class VarcharToIntegralNumericCoercers
                 maxValue = Long.MAX_VALUE;
             }
             else {
-                throw new TrinoException(NOT_SUPPORTED, format("Could not create Coercer from varchar to %s", toType));
+                throw new TrinoException(NOT_SUPPORTED, "Could not create Coercer from varchar to %s".formatted(toType));
             }
         }
 

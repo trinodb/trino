@@ -89,7 +89,6 @@ import static io.trino.spi.block.ColumnarMap.toColumnarMap;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class CoercionUtils
@@ -280,7 +279,7 @@ public final class CoercionUtils
             return Optional.of(createVarbinaryToVarcharCoercer(varcharType, coercionContext.storageFormat()));
         }
 
-        throw new TrinoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported coercion from %s to %s".formatted(fromHiveType, toHiveType));
     }
 
     public static boolean narrowerThan(VarcharType first, VarcharType second)
@@ -547,6 +546,6 @@ public final class CoercionUtils
                 return format;
             }
         }
-        throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("SerDe %s is not supported", deserializedClass));
+        throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "SerDe %s is not supported".formatted(deserializedClass));
     }
 }

@@ -25,7 +25,6 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
-import static java.lang.String.format;
 
 @ScalarFunction("at_timezone")
 public final class AtTimeZone
@@ -40,7 +39,7 @@ public final class AtTimeZone
             return packDateTimeWithZone(unpackMillisUtc(packedEpochMillis), zoneId.toStringUtf8());
         }
         catch (TimeZoneNotSupportedException e) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId.toStringUtf8()));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'%s' is not a valid time zone".formatted(zoneId.toStringUtf8()));
         }
     }
 
@@ -52,7 +51,7 @@ public final class AtTimeZone
             return LongTimestampWithTimeZone.fromEpochMillisAndFraction(timestamp.getEpochMillis(), timestamp.getPicosOfMilli(), getTimeZoneKey(zoneId.toStringUtf8()));
         }
         catch (TimeZoneNotSupportedException e) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId.toStringUtf8()));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'%s' is not a valid time zone".formatted(zoneId.toStringUtf8()));
         }
     }
 }

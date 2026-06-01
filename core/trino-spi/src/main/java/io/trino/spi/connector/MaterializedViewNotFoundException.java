@@ -13,7 +13,6 @@
  */
 package io.trino.spi.connector;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class MaterializedViewNotFoundException
@@ -23,7 +22,7 @@ public class MaterializedViewNotFoundException
 
     public MaterializedViewNotFoundException(SchemaTableName materializedViewName)
     {
-        this(materializedViewName, format("Materialized View '%s' not found", materializedViewName));
+        this(materializedViewName, "Materialized View '%s' not found".formatted(materializedViewName));
     }
 
     public MaterializedViewNotFoundException(SchemaTableName materializedViewName, String message)
@@ -34,7 +33,7 @@ public class MaterializedViewNotFoundException
 
     public MaterializedViewNotFoundException(SchemaTableName materializedViewName, Throwable cause)
     {
-        this(materializedViewName, format("Materialized View '%s' not found", materializedViewName), cause);
+        this(materializedViewName, "Materialized View '%s' not found".formatted(materializedViewName), cause);
     }
 
     public MaterializedViewNotFoundException(SchemaTableName materializedViewName, String message, Throwable cause)

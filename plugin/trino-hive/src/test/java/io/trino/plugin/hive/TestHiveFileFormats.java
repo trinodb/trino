@@ -120,7 +120,6 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -194,7 +193,6 @@ import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.readAllBytes;
 import static java.util.Arrays.fill;
@@ -1018,7 +1016,7 @@ public final class TestHiveFileFormats
                 .collect(toList());
 
         String partitionName = String.join("/", partitionKeys.stream()
-                .map(partitionKey -> format("%s=%s", partitionKey.name(), partitionKey.value()))
+                .map(partitionKey -> "%s=%s".formatted(partitionKey.name(), partitionKey.value()))
                 .collect(toImmutableList()));
 
         List<HivePageSourceProvider.ColumnMapping> columnMappings = buildColumnMappings(
@@ -1206,7 +1204,7 @@ public final class TestHiveFileFormats
             TestColumn baseColumn = new TestColumn(
                     "new_col" + i,
                     rowType(field("field0", testColumn.type())),
-                    Collections.singletonList(testColumn.writeValue()),
+                    List.of(testColumn.writeValue()),
                     rowBlockOf(ImmutableList.of(testColumn.type()), testColumn.expectedValue()));
 
             TestColumn projectedColumn = baseColumn.withDereferenceFirstField(testColumn.writeValue(), testColumn.expectedValue());

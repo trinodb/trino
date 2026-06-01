@@ -38,7 +38,6 @@ import static io.trino.plugin.resourcegroups.TestingResourceGroups.managerSpec;
 import static io.trino.plugin.resourcegroups.TestingResourceGroups.resourceGroupSpec;
 import static io.trino.plugin.resourcegroups.TestingResourceGroups.selectorSpec;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -326,7 +325,7 @@ public class TestFileResourceGroupConfigurationManager
     {
         ResourceGroupId resourceGroupId = match(manager, criteria).getResourceGroupId();
         assertThat(resourceGroupId.toString())
-                .describedAs(format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId))
+                .describedAs("Expected: '%s' resource group, found: %s".formatted(expectedResourceGroup, resourceGroupId))
                 .isEqualTo(expectedResourceGroup);
     }
 

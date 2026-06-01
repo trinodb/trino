@@ -33,7 +33,6 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.NON_TRANSACTIONAL_MERGE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -263,7 +262,7 @@ public class TestIgniteConnectorTest
             assertQuery("SELECT \"a,b\" FROM " + tableName + " where \"a,b\" > 1", "values (2), (3)");
 
             assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
-                    .isEqualTo(format(pattern, catalog, schema, tableName));
+                    .isEqualTo(pattern.formatted(catalog, schema, tableName));
         }
     }
 
@@ -339,7 +338,7 @@ public class TestIgniteConnectorTest
                         "CAST ('0.12345671234567123456712345671234567127' AS decimal(38, 38)), 7"))) {
             assertThat(query("SELECT avg(a) avg_a  FROM " + testTable.getName()))
                     .matches("SELECT CAST ('0.12345671234567123456712345671234567124' AS decimal(38, 38))");
-            assertThat(query(format("SELECT avg(a) avg_a FROM %s WHERE b <= 2", testTable.getName())))
+            assertThat(query("SELECT avg(a) avg_a FROM %s WHERE b <= 2".formatted(testTable.getName())))
                     .matches("SELECT CAST ('0.123456712345671234567123456712345671215' AS decimal(38, 38))");
         }
     }
@@ -443,7 +442,7 @@ public class TestIgniteConnectorTest
     @Override
     protected TestTable simpleTable()
     {
-        return new TestTable(onRemoteDatabase(), format("%s.simple_table", getSession().getSchema().orElseThrow()), "(col BIGINT, id bigint primary key)", ImmutableList.of("1, 1", "2, 2"));
+        return new TestTable(onRemoteDatabase(), "%s.simple_table".formatted(getSession().getSchema().orElseThrow()), "(col BIGINT, id bigint primary key)", ImmutableList.of("1, 1", "2, 2"));
     }
 
     @Test
@@ -457,7 +456,7 @@ public class TestIgniteConnectorTest
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        return format("Failed to insert data: Null value is not allowed for column '%s'", columnName.toUpperCase(Locale.ENGLISH));
+        return "Failed to insert data: Null value is not allowed for column '%s'".formatted(columnName.toUpperCase(Locale.ENGLISH));
     }
 
     @Test

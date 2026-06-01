@@ -33,7 +33,6 @@ import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_IS
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAzureBlobFileSystem
@@ -49,7 +48,7 @@ public class TestAzureBlobFileSystem
     {
         String container = requireEnv("ABFS_CONTAINER");
         String account = requireEnv("ABFS_ACCOUNT");
-        schemaLocation = format("abfs://%s@%s.dfs.core.windows.net/%s", container, account, schema);
+        schemaLocation = "abfs://%s@%s.dfs.core.windows.net/%s".formatted(container, account, schema);
 
         onHive().executeQuery("dfs -rm -f -r " + schemaLocation);
         onHive().executeQuery("dfs -mkdir -p " + schemaLocation);

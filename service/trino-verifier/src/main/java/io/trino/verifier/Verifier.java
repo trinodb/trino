@@ -13,7 +13,6 @@
  */
 package io.trino.verifier;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -45,7 +44,6 @@ import static io.trino.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static io.trino.verifier.QueryResult.State.SUCCESS;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createDirectories;
 import static java.util.Locale.ENGLISH;
@@ -132,7 +130,7 @@ public class Verifier
         int totalQueries = queries.size() * suiteRepetitions * queryRepetitions;
         log.info("Total Queries:     %d", totalQueries);
 
-        log.info("Allowed Queries: %s", Joiner.on(',').join(allowedQueries));
+        log.info("Allowed Queries: %s", String.join(",", allowedQueries));
 
         int queriesSubmitted = 0;
         for (int i = 0; i < suiteRepetitions; i++) {
@@ -198,8 +196,7 @@ public class Verifier
             QueryResult controlResult = validator.getControlResult();
             if (simplifiedControlQueriesGenerationEnabled && controlResult.getState() == SUCCESS) {
                 QueryPair queryPair = validator.getQueryPair();
-                Path path = Path.of(format(
-                        "%s/%s/%s/%s.sql",
+                Path path = Path.of("%s/%s/%s/%s.sql".formatted(
                         simplifiedControlQueriesOutputDirectory,
                         runId,
                         queryPair.getSuite(),
@@ -266,7 +263,7 @@ public class Verifier
         QueryResult test = validator.getTestResult();
 
         if (!validator.valid()) {
-            errorMessage = format("Test state %s, Control state %s\n", test.getState(), control.getState());
+            errorMessage = "Test state %s, Control state %s\n".formatted(test.getState(), control.getState());
             Exception e = test.getException();
             if (e != null && shouldAddStackTrace(e)) {
                 errorMessage += getStackTraceAsString(e);
@@ -400,7 +397,7 @@ public class Verifier
             case "CHAR", "VARCHAR" -> value.map(v -> baseType + " '" + v.replaceAll("'", "''") + "'").orElse("NULL");
             case "VARBINARY" -> value.map(v -> "X'" + v + "'").orElse("NULL");
             case "UNKNOWN" -> "NULL";
-            default -> throw new IllegalArgumentException(format("Unexpected type: %s", type));
+            default -> throw new IllegalArgumentException("Unexpected type: %s".formatted(type));
         };
     }
 

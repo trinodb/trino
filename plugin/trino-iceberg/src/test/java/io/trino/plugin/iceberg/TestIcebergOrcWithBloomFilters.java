@@ -22,7 +22,6 @@ import java.util.Map;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergOrcWithBloomFilters
@@ -42,8 +41,7 @@ public class TestIcebergOrcWithBloomFilters
     @Override
     protected String getTableProperties(String bloomFilterColumnName, String bucketingColumnName)
     {
-        return format(
-                "format = 'ORC', orc_bloom_filter_columns = ARRAY['%s'], partitioning = ARRAY['bucket(%s, 1)']",
+        return "format = 'ORC', orc_bloom_filter_columns = ARRAY['%s'], partitioning = ARRAY['bucket(%s, 1)']".formatted(
                 bloomFilterColumnName,
                 bucketingColumnName);
     }

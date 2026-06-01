@@ -52,7 +52,6 @@ import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -88,7 +87,7 @@ public class SetColumnTypeTask
         QualifiedObjectName qualifiedObjectName = createQualifiedObjectName(session, statement, statement.getTableName());
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, qualifiedObjectName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
-            String exceptionMessage = format("Table '%s' does not exist", qualifiedObjectName);
+            String exceptionMessage = "Table '%s' does not exist".formatted(qualifiedObjectName);
             if (metadata.getMaterializedView(session, qualifiedObjectName).isPresent()) {
                 exceptionMessage += ", but a materialized view with that name exists.";
             }

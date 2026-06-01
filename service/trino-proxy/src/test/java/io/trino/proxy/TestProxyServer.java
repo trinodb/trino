@@ -54,7 +54,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.QueryState.FAILED;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -228,7 +227,7 @@ public class TestProxyServer
     private QueryState getQueryState(String queryId)
             throws SQLException
     {
-        String sql = format("SELECT state FROM system.runtime.queries WHERE query_id = '%s'", queryId);
+        String sql = "SELECT state FROM system.runtime.queries WHERE query_id = '%s'".formatted(queryId);
         try (Connection connection = createConnection();
                 Statement statement = connection.createStatement();
                 ResultSet rs = statement.executeQuery(sql)) {
@@ -260,7 +259,7 @@ public class TestProxyServer
             throws SQLException
     {
         URI uri = httpServerInfo.getHttpUri();
-        String url = format("jdbc:trino://%s:%s", uri.getHost(), uri.getPort());
+        String url = "jdbc:trino://%s:%s".formatted(uri.getHost(), uri.getPort());
         return DriverManager.getConnection(url, "test", null);
     }
 }

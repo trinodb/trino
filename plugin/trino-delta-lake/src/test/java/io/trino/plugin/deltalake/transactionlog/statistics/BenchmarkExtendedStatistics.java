@@ -44,7 +44,6 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
-import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -146,7 +145,7 @@ public class BenchmarkExtendedStatistics
                 .verbosity(VerboseMode.NORMAL)
                 .include(".*" + BenchmarkExtendedStatistics.class.getSimpleName() + ".*")
                 .resultFormat(ResultFormatType.JSON)
-                .result(format("%s/%s-result-%s.json", System.getProperty("java.io.tmpdir"), BenchmarkExtendedStatistics.class.getSimpleName(), ISO_DATE_TIME.format(LocalDateTime.now())))
+                .result("%s/%s-result-%s.json".formatted(System.getProperty("java.io.tmpdir"), BenchmarkExtendedStatistics.class.getSimpleName(), ISO_DATE_TIME.format(LocalDateTime.now())))
                 .build();
         new Runner(options).run();
     }

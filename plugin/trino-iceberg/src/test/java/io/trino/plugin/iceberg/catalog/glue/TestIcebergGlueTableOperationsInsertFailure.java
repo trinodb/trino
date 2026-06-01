@@ -45,7 +45,6 @@ import java.util.Optional;
 import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -119,7 +118,7 @@ public class TestIcebergGlueTableOperationsInsertFailure
     {
         String tableName = "test_insert_failure" + randomNameSuffix();
 
-        getQueryRunner().execute(format("CREATE TABLE %s (a_varchar) AS VALUES ('Trino')", tableName));
+        getQueryRunner().execute("CREATE TABLE %s (a_varchar) AS VALUES ('Trino')".formatted(tableName));
         assertThatThrownBy(() -> getQueryRunner().execute("INSERT INTO " + tableName + " VALUES 'rocks'"))
                 .satisfies(throwable -> {
                     assertThat(throwable).isInstanceOf(QueryFailedException.class);

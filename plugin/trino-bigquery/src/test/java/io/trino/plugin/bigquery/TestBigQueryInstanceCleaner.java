@@ -33,7 +33,6 @@ import java.util.Map.Entry;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.TEST_SCHEMA;
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.TPCH_SCHEMA;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toUnmodifiableSet;
@@ -109,13 +108,12 @@ public class TestBigQueryInstanceCleaner
 
         LOG.info("Identifying tables to drop...");
         // Drop all tables created more than 24 hours ago
-        TableResult result = bigQuerySqlExecutor.executeQuery(format(
-                "" +
-                        "SELECT table_name, table_type " +
-                        "FROM %s.INFORMATION_SCHEMA.TABLES " +
-                        "WHERE datetime_diff(current_datetime(), datetime(creation_time), HOUR) > 24 " +
-                        "AND table_name NOT IN (%s)" +
-                        "AND table_type IN (%s)",
+        TableResult result = bigQuerySqlExecutor.executeQuery(("" +
+        "SELECT table_name, table_type " +
+        "FROM %s.INFORMATION_SCHEMA.TABLES " +
+        "WHERE datetime_diff(current_datetime(), datetime(creation_time), HOUR) > 24 " +
+        "AND table_name NOT IN (%s)" +
+        "AND table_type IN (%s)").formatted(
                 quoted(schemaName),
                 tablesToKeep.stream().collect(joining("','", "'", "'")),
                 tableTypesToDrop.stream().collect(joining("','", "'", "'"))));
@@ -141,11 +139,10 @@ public class TestBigQueryInstanceCleaner
 
     private void logObjectsCount(String schemaName)
     {
-        TableResult result = bigQuerySqlExecutor.executeQuery(format(
-                "" +
-                        "SELECT table_type, count(*) AS c " +
-                        "FROM %s.INFORMATION_SCHEMA.TABLES " +
-                        "GROUP BY table_type",
+        TableResult result = bigQuerySqlExecutor.executeQuery(("" +
+        "SELECT table_type, count(*) AS c " +
+        "FROM %s.INFORMATION_SCHEMA.TABLES " +
+        "GROUP BY table_type").formatted(
                 quoted(schemaName)));
         result.getValues().forEach(fieldValues -> LOG.info(
                 "Schema '%s' contains '%s' objects of type '%s'",
@@ -157,10 +154,10 @@ public class TestBigQueryInstanceCleaner
     private static String getDropStatement(String schemaName, String objectName, String objectType)
     {
         return switch (objectType) {
-            case "BASE TABLE" -> format("DROP TABLE IF EXISTS %s.%s", quoted(schemaName), quoted(objectName));
-            case "VIEW" -> format("DROP VIEW IF EXISTS %s.%s", quoted(schemaName), quoted(objectName));
-            case "MATERIALIZED VIEW" -> format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", quoted(schemaName), quoted(objectName));
-            case "SNAPSHOT" -> format("DROP SNAPSHOT TABLE IF EXISTS %s.%s", quoted(schemaName), quoted(objectName));
+            case "BASE TABLE" -> "DROP TABLE IF EXISTS %s.%s".formatted(quoted(schemaName), quoted(objectName));
+            case "VIEW" -> "DROP VIEW IF EXISTS %s.%s".formatted(quoted(schemaName), quoted(objectName));
+            case "MATERIALIZED VIEW" -> "DROP MATERIALIZED VIEW IF EXISTS %s.%s".formatted(quoted(schemaName), quoted(objectName));
+            case "SNAPSHOT" -> "DROP SNAPSHOT TABLE IF EXISTS %s.%s".formatted(quoted(schemaName), quoted(objectName));
             default -> throw new IllegalArgumentException("Unexpected object type " + objectType);
         };
     }

@@ -41,7 +41,6 @@ import static io.trino.testing.containers.ldap.LdapUtil.addLdapDefinition;
 import static io.trino.testing.containers.ldap.LdapUtil.buildLdapGroupObject;
 import static io.trino.testing.containers.ldap.LdapUtil.buildLdapOrganizationObject;
 import static io.trino.testing.containers.ldap.LdapUtil.buildLdapUserObject;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class TestingOpenLdapServer
@@ -78,7 +77,7 @@ public class TestingOpenLdapServer
 
     public String getLdapUrl()
     {
-        return format("ldap://%s:%s", openLdapServer.getHost(), openLdapServer.getMappedPort(LDAP_PORT));
+        return "ldap://%s:%s".formatted(openLdapServer.getHost(), openLdapServer.getMappedPort(LDAP_PORT));
     }
 
     public DisposableSubContext createOrganization()

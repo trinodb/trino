@@ -86,7 +86,6 @@ import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
@@ -114,7 +113,7 @@ public class BlackHoleMetadata
     public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
     {
         if (schemas.contains(schemaName)) {
-            throw new TrinoException(ALREADY_EXISTS, format("Schema [%s] already exists", schemaName));
+            throw new TrinoException(ALREADY_EXISTS, "Schema [%s] already exists".formatted(schemaName));
         }
         schemas.add(schemaName);
     }
@@ -378,8 +377,7 @@ public class BlackHoleMetadata
 
         if (((splitCount > 0) || (pagesPerSplit > 0) || (rowsPerPage > 0)) &&
                 ((splitCount == 0) || (pagesPerSplit == 0) || (rowsPerPage == 0))) {
-            throw new TrinoException(INVALID_TABLE_PROPERTY, format(
-                    "All properties [%s, %s, %s] must be set if any are set",
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "All properties [%s, %s, %s] must be set if any are set".formatted(
                     SPLIT_COUNT_PROPERTY,
                     PAGES_PER_SPLIT_PROPERTY,
                     ROWS_PER_PAGE_PROPERTY));

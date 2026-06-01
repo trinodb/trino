@@ -45,7 +45,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -952,7 +951,7 @@ class TestTupleDomain
         Predicate<Map<ColumnHandle, NullableValue>> predicate = tupleDomain.asPredicate();
         boolean result = predicate.test(bindings);
         assertThat(expected)
-                .withFailMessage(() -> format("asPredicate(%s).test(%s) returned %s instead of %s", tupleDomain, bindings, result, expected))
+                .withFailMessage(() -> "asPredicate(%s).test(%s) returned %s instead of %s".formatted(tupleDomain, bindings, result, expected))
                 .isEqualTo(result);
     }
 

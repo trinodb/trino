@@ -13,7 +13,6 @@
  */
 package io.trino.sql.analyzer;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -434,10 +433,9 @@ import static io.trino.sql.tree.SaveMode.REPLACE;
 import static io.trino.sql.util.AstUtils.preOrder;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 class StatementAnalyzer
 {
@@ -690,8 +688,8 @@ class StatementAnalyzer
                         TYPE_MISMATCH,
                         insert,
                         "Insert query has mismatched column types: Table: [%s], Query: [%s]",
-                        Joiner.on(", ").join(tableTypes),
-                        Joiner.on(", ").join(queryTypes));
+                        tableTypes.stream().map(Object::toString).collect(joining(", ")),
+                        queryTypes.stream().map(Object::toString).collect(joining(", ")));
             }
 
             Stream<Column> columnStream = Streams.zip(
@@ -952,7 +950,7 @@ class StatementAnalyzer
                 accessControl.checkCanInsertIntoTable(session.toSecurityContext(), tableName, Optional.empty());
             }
             catch (AccessDeniedException exception) {
-                throw new AccessDeniedException(format("Cannot ANALYZE (missing insert privilege) table %s", tableName), exception);
+                throw new AccessDeniedException("Cannot ANALYZE (missing insert privilege) table %s".formatted(tableName), exception);
             }
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
@@ -1623,7 +1621,7 @@ class StatementAnalyzer
             Scope withScope = analyzeWith(node, scope);
             Scope queryBodyScope = process(node.getQueryBody(), withScope);
 
-            List<Expression> orderByExpressions = emptyList();
+            List<Expression> orderByExpressions = List.of();
             if (node.getOrderBy().isPresent()) {
                 orderByExpressions = analyzeOrderBy(node, getSortItemsFromOrderBy(node.getOrderBy()), queryBodyScope);
 
@@ -1856,10 +1854,10 @@ class StatementAnalyzer
             Set<String> allInputs = ImmutableSet.copyOf(tableArgumentsByName.keySet());
             requiredColumns.forEach((name, columns) -> {
                 if (!allInputs.contains(name)) {
-                    throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, format("Table function %s specifies required columns from table argument %s which cannot be found", node.getName(), name));
+                    throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Table function %s specifies required columns from table argument %s which cannot be found".formatted(node.getName(), name));
                 }
                 if (columns.isEmpty()) {
-                    throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, format("Table function %s specifies empty list of required columns from table argument %s", node.getName(), name));
+                    throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Table function %s specifies empty list of required columns from table argument %s".formatted(node.getName(), name));
                 }
                 // the scope is recorded, because table arguments are already analyzed
                 Scope inputScope = analysis.getScope(tableArgumentsByName.get(name).getRelation());
@@ -1867,7 +1865,7 @@ class StatementAnalyzer
                         .filter(column -> column < 0 || column >= inputScope.getRelationType().getVisibleFieldCount())
                         .findFirst()
                         .ifPresent(column -> {
-                            throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, format("Invalid index: %s of required column from table argument %s", column, name));
+                            throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Invalid index: %s of required column from table argument %s".formatted(column, name));
                         });
                 // record the required columns for access control
                 columns.stream()
@@ -1879,7 +1877,7 @@ class StatementAnalyzer
                     .filter(input -> !requiredInputs.contains(input))
                     .findFirst()
                     .ifPresent(input -> {
-                        throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, format("Table function %s does not specify required input columns from table argument %s", node.getName(), input));
+                        throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Table function %s does not specify required input columns from table argument %s".formatted(node.getName(), input));
                     });
 
             // The result relation type of a table function consists of:
@@ -2250,7 +2248,7 @@ class StatementAnalyzer
 
                 // resolve copartition tables as references to table arguments
                 for (QualifiedName name : nameList) {
-                    Collection<TableArgumentAnalysis> candidates = emptyList();
+                    Collection<TableArgumentAnalysis> candidates = List.of();
                     if (name.getParts().size() == 1) {
                         // try to match unqualified name. it might be a reference to a CTE or an aliased relation
                         candidates = unqualifiedInputs.get(name);
@@ -2513,7 +2511,7 @@ class StatementAnalyzer
         private void checkStorageTableNotRedirected(QualifiedObjectName source)
         {
             metadata.getRedirectionAwareTableHandle(session, source).redirectedTableName().ifPresent(name -> {
-                throw new TrinoException(NOT_SUPPORTED, format("Redirection of materialized view storage table '%s' to '%s' is not supported", source, name));
+                throw new TrinoException(NOT_SUPPORTED, "Redirection of materialized view storage table '%s' to '%s' is not supported".formatted(source, name));
             });
         }
 
@@ -2576,11 +2574,11 @@ class StatementAnalyzer
                         expression = sqlParser.createExpression(defaultValue);
                     }
                     catch (ParsingException e) {
-                        throw new TrinoException(INVALID_DEFAULT_COLUMN_VALUE, extractLocation(table), format("Invalid default column value for '%s.%s': %s", table.getName(), columnMetadata.getName(), e.getErrorMessage()), e);
+                        throw new TrinoException(INVALID_DEFAULT_COLUMN_VALUE, extractLocation(table), "Invalid default column value for '%s.%s': %s".formatted(table.getName(), columnMetadata.getName(), e.getErrorMessage()), e);
                     }
 
                     if (!(expression instanceof Literal)) {
-                        throw new TrinoException(NOT_SUPPORTED, extractLocation(table), format("Default column value supports only literals '%s.%s': %s", table.getName(), columnMetadata.getName(), expression), null);
+                        throw new TrinoException(NOT_SUPPORTED, extractLocation(table), "Default column value supports only literals '%s.%s': %s".formatted(table.getName(), columnMetadata.getName(), expression), null);
                     }
                     analyzeExpression(expression, scope);
                     analysis.addDefaultColumnValue(table, columnHandle, expression);
@@ -3275,7 +3273,7 @@ class StatementAnalyzer
 
             Scope outputScope = computeAndAssignOutputScope(node, scope, sourceScope);
 
-            List<Expression> orderByExpressions = emptyList();
+            List<Expression> orderByExpressions = List.of();
             Optional<Scope> orderByScope = Optional.empty();
             if (node.getOrderBy().isPresent()) {
                 OrderBy orderBy = node.getOrderBy().get();
@@ -3715,8 +3713,8 @@ class StatementAnalyzer
                         TYPE_MISMATCH,
                         update,
                         "UPDATE table column types don't match SET expressions: Table: [%s], Expressions: [%s]",
-                        Joiner.on(", ").join(tableTypes),
-                        Joiner.on(", ").join(expressionTypes));
+                        tableTypes.stream().map(Object::toString).collect(joining(", ")),
+                        expressionTypes.stream().map(Object::toString).collect(joining(", ")));
             }
 
             for (int index = 0; index < expressionTypes.size(); index++) {
@@ -3905,8 +3903,8 @@ class StatementAnalyzer
                             operation,
                             "MERGE table column types don't match for MERGE case %s, SET expressions: Table: [%s], Expressions: [%s]",
                             caseCounter,
-                            Joiner.on(", ").join(setColumnTypes),
-                            Joiner.on(", ").join(setExpressionTypes));
+                            setColumnTypes.stream().map(Object::toString).collect(joining(", ")),
+                            setExpressionTypes.stream().map(Object::toString).collect(joining(", ")));
                 }
                 for (int index = 0; index < caseColumnNames.size(); index++) {
                     Expression expression = operation.getSetExpressions().get(index);
@@ -3997,10 +3995,9 @@ class StatementAnalyzer
                         // This shouldn't happen, as the connector should only return partitioning columns that are present in the
                         // table schema, but validation is performed here to avoid NPEs in case of a bug in the connector
                         if (value == null) {
-                            throw new TrinoException(GENERIC_INTERNAL_ERROR, format(
-                                    "Unable to determine field index for partitioning column '%s' (available columns: [%s])",
+                            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unable to determine field index for partitioning column '%s' (available columns: [%s])".formatted(
                                     partitioningColumnName,
-                                    fieldIndexes.keySet().stream().map(key -> format("'%s'", key)).collect(Collectors.joining(", "))));
+                                    fieldIndexes.keySet().stream().map(key -> "'%s'".formatted(key)).collect(Collectors.joining(", "))));
                         }
                         return value;
                     })
@@ -5398,8 +5395,7 @@ class StatementAnalyzer
         private Optional<String> checkViewStaleness(List<ViewColumn> columns, Collection<Field> fields, QualifiedObjectName name, Node node)
         {
             if (columns.size() != fields.size()) {
-                return Optional.of(format(
-                        "stored view column count (%s) does not match column count derived from the view query analysis (%s)",
+                return Optional.of("stored view column count (%s) does not match column count derived from the view query analysis (%s)".formatted(
                         columns.size(),
                         fields.size()));
             }
@@ -5410,15 +5406,13 @@ class StatementAnalyzer
                 Type type = getViewColumnType(column, name, node);
                 Field field = fieldList.get(i);
                 if (field.getName().isEmpty()) {
-                    return Optional.of(format(
-                            "a column of type %s projected from query view at position %s has no name",
+                    return Optional.of("a column of type %s projected from query view at position %s has no name".formatted(
                             field.getType(),
                             i));
                 }
                 String fieldName = field.getName().orElseThrow();
                 if (!column.name().equalsIgnoreCase(fieldName)) {
-                    return Optional.of(format(
-                            "column [%s] of type %s projected from query view at position %s has a different name from column [%s] of type %s stored in view definition",
+                    return Optional.of("column [%s] of type %s projected from query view at position %s has a different name from column [%s] of type %s stored in view definition".formatted(
                             fieldName,
                             field.getType(),
                             i,
@@ -5426,8 +5420,7 @@ class StatementAnalyzer
                             type));
                 }
                 if (!typeCoercion.canCoerce(field.getType(), type)) {
-                    return Optional.of(format(
-                            "column [%s] of type %s projected from query view at position %s cannot be coerced to column [%s] of type %s stored in view definition",
+                    return Optional.of("column [%s] of type %s projected from query view at position %s cannot be coerced to column [%s] of type %s stored in view definition".formatted(
                             fieldName,
                             field.getType(),
                             i,
@@ -5480,7 +5473,7 @@ class StatementAnalyzer
         private void analyzeRowFilter(String currentIdentity, Table table, QualifiedObjectName name, Scope scope, ViewExpression filter)
         {
             if (analysis.hasRowFilter(name, currentIdentity)) {
-                throw new TrinoException(INVALID_ROW_FILTER, extractLocation(table), format("Row filter for '%s' is recursive", name), null);
+                throw new TrinoException(INVALID_ROW_FILTER, extractLocation(table), "Row filter for '%s' is recursive".formatted(name), null);
             }
 
             Expression expression;
@@ -5488,12 +5481,12 @@ class StatementAnalyzer
                 expression = sqlParser.createExpression(filter.getExpression());
             }
             catch (ParsingException e) {
-                throw new TrinoException(INVALID_ROW_FILTER, extractLocation(table), format("Invalid row filter for '%s': %s", name, e.getErrorMessage()), e);
+                throw new TrinoException(INVALID_ROW_FILTER, extractLocation(table), "Invalid row filter for '%s': %s".formatted(name, e.getErrorMessage()), e);
             }
 
             analysis.registerTableForRowFiltering(name, currentIdentity, expression.toString());
 
-            verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, expression, format("Row filter for '%s'", name));
+            verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, expression, "Row filter for '%s'".formatted(name));
 
             ExpressionAnalysis expressionAnalysis;
             try {
@@ -5514,7 +5507,7 @@ class StatementAnalyzer
                         correlationSupport);
             }
             catch (TrinoException e) {
-                throw new TrinoException(e::getErrorCode, extractLocation(table), format("Invalid row filter for '%s': %s", name, e.getRawMessage()), e);
+                throw new TrinoException(e::getErrorCode, extractLocation(table), "Invalid row filter for '%s': %s".formatted(name, e.getRawMessage()), e);
             }
             finally {
                 analysis.unregisterTableForRowFiltering(name, currentIdentity);
@@ -5527,7 +5520,7 @@ class StatementAnalyzer
                 TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
 
                 if (!coercion.canCoerce(actualType, BOOLEAN)) {
-                    throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected row filter for '%s' to be of type BOOLEAN, but was %s", name, actualType), null);
+                    throw new TrinoException(TYPE_MISMATCH, extractLocation(table), "Expected row filter for '%s' to be of type BOOLEAN, but was %s".formatted(name, actualType), null);
                 }
 
                 analysis.addCoercion(expression, BOOLEAN);
@@ -5543,10 +5536,10 @@ class StatementAnalyzer
                 expression = sqlParser.createExpression(constraint.getExpression());
             }
             catch (ParsingException e) {
-                throw new TrinoException(INVALID_CHECK_CONSTRAINT, extractLocation(table), format("Invalid check constraint for '%s': %s", name, e.getErrorMessage()), e);
+                throw new TrinoException(INVALID_CHECK_CONSTRAINT, extractLocation(table), "Invalid check constraint for '%s': %s".formatted(name, e.getErrorMessage()), e);
             }
 
-            verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, expression, format("Check constraint for '%s'", name));
+            verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, expression, "Check constraint for '%s'".formatted(name));
 
             List<SubqueryExpression> subQueries = extractExpressions(ImmutableList.of(expression), SubqueryExpression.class);
             if (!subQueries.isEmpty() && Set.of("UPDATE", "MERGE").contains(analysis.getUpdateType())) {
@@ -5572,7 +5565,7 @@ class StatementAnalyzer
                         correlationSupport);
             }
             catch (TrinoException e) {
-                throw new TrinoException(e::getErrorCode, extractLocation(table), format("Invalid check constraint for '%s': %s", name, e.getRawMessage()), e);
+                throw new TrinoException(e::getErrorCode, extractLocation(table), "Invalid check constraint for '%s': %s".formatted(name, e.getRawMessage()), e);
             }
 
             // Ensure that the expression doesn't contain non-deterministic functions. This should be "retrospectively deterministic" per SQL standard.
@@ -5590,7 +5583,7 @@ class StatementAnalyzer
                 TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
 
                 if (!coercion.canCoerce(actualType, BOOLEAN)) {
-                    throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected check constraint for '%s' to be of type BOOLEAN, but was %s", name, actualType), null);
+                    throw new TrinoException(TYPE_MISMATCH, extractLocation(table), "Expected check constraint for '%s' to be of type BOOLEAN, but was %s".formatted(name, actualType), null);
                 }
 
                 analysis.addCoercion(expression, BOOLEAN);
@@ -5603,7 +5596,7 @@ class StatementAnalyzer
         {
             String column = field.getName().orElseThrow();
             if (analysis.hasColumnMask(tableName, column, currentIdentity)) {
-                throw new TrinoException(INVALID_COLUMN_MASK, extractLocation(table), format("Column mask for '%s.%s' is recursive", tableName, column), null);
+                throw new TrinoException(INVALID_COLUMN_MASK, extractLocation(table), "Column mask for '%s.%s' is recursive".formatted(tableName, column), null);
             }
 
             Expression expression;
@@ -5611,13 +5604,13 @@ class StatementAnalyzer
                 expression = sqlParser.createExpression(mask.getExpression());
             }
             catch (ParsingException e) {
-                throw new TrinoException(INVALID_COLUMN_MASK, extractLocation(table), format("Invalid column mask for '%s.%s': %s", tableName, column, e.getErrorMessage()), e);
+                throw new TrinoException(INVALID_COLUMN_MASK, extractLocation(table), "Invalid column mask for '%s.%s': %s".formatted(tableName, column, e.getErrorMessage()), e);
             }
 
             ExpressionAnalysis expressionAnalysis;
             analysis.registerTableForColumnMasking(tableName, column, currentIdentity, expression.toString());
 
-            verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, expression, format("Column mask for '%s.%s'", table.getName(), column));
+            verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, expression, "Column mask for '%s.%s'".formatted(table.getName(), column));
 
             try {
                 Identity maskIdentity = mask.getSecurityIdentity()
@@ -5637,7 +5630,7 @@ class StatementAnalyzer
                         correlationSupport);
             }
             catch (TrinoException e) {
-                throw new TrinoException(e::getErrorCode, extractLocation(table), format("Invalid column mask for '%s.%s': %s", tableName, column, e.getRawMessage()), e);
+                throw new TrinoException(e::getErrorCode, extractLocation(table), "Invalid column mask for '%s.%s': %s".formatted(tableName, column, e.getRawMessage()), e);
             }
             finally {
                 analysis.unregisterTableForColumnMasking(tableName, column, currentIdentity);
@@ -5651,7 +5644,7 @@ class StatementAnalyzer
                 TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
 
                 if (!coercion.canCoerce(actualType, field.getType())) {
-                    throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected column mask for '%s.%s' to be of type %s, but was %s", tableName, column, field.getType(), actualType), null);
+                    throw new TrinoException(TYPE_MISMATCH, extractLocation(table), "Expected column mask for '%s.%s' to be of type %s, but was %s".formatted(tableName, column, field.getType(), actualType), null);
                 }
 
                 // TODO: this could use "coercion.isTypeOnlyCoercion(actualType, expectedType)" to skip
@@ -6184,7 +6177,7 @@ class StatementAnalyzer
 
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope)
         {
-            return createAndAssignScope(node, parentScope, emptyList());
+            return createAndAssignScope(node, parentScope, List.of());
         }
 
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, Field... fields)

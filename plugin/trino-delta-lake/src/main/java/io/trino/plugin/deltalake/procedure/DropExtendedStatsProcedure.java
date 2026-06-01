@@ -34,7 +34,6 @@ import java.util.Optional;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
@@ -85,7 +84,7 @@ public class DropExtendedStatsProcedure
         try (UncheckedCloseable ignore = () -> metadata.cleanupQuery(session)) {
             LocatedTableHandle tableHandle = metadata.getTableHandle(session, name, Optional.empty(), Optional.empty());
             if (tableHandle == null) {
-                throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", name));
+                throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Table '%s' does not exist".formatted(name));
             }
             accessControl.checkCanInsertIntoTable(null, name, Optional.empty());
             statsAccess.deleteExtendedStatistics(session, name, tableHandle.location(), tableHandle.toCredentialsHandle());

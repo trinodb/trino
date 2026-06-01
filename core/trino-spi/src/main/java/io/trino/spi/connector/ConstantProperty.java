@@ -16,7 +16,6 @@ package io.trino.spi.connector;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.Collections;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -50,7 +49,7 @@ public final class ConstantProperty<E>
     @Override
     public Set<E> getColumns()
     {
-        return Collections.singleton(column);
+        return Set.of(column);
     }
 
     @Override

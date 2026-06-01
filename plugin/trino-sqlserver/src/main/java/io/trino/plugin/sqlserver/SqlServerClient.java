@@ -215,7 +215,6 @@ import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
@@ -419,7 +418,7 @@ public class SqlServerClient
         try (Connection connection = connectionFactory.openConnection(session)) {
             // 'table lock on bulk load' table option causes the bulk load processes on user-defined tables to obtain a bulk update lock
             // note: this is not a request to lock a table immediately
-            String sql = format("EXEC sp_tableoption '%s', 'table lock on bulk load', '1'",
+            String sql = "EXEC sp_tableoption '%s', 'table lock on bulk load', '1'".formatted(
                     quoted(
                             table.getRemoteTableName().getCatalogName().orElse(null),
                             table.getRemoteTableName().getSchemaName().orElse(null),
@@ -471,7 +470,7 @@ public class SqlServerClient
     {
         // SQL Server truncates table name to the max length silently when renaming a table
         if (tableName.length() > databaseMetadata.getMaxTableNameLength()) {
-            throw new TrinoException(NOT_SUPPORTED, format("Table name must be shorter than or equal to '%s' characters but got '%s'", databaseMetadata.getMaxTableNameLength(), tableName.length()));
+            throw new TrinoException(NOT_SUPPORTED, "Table name must be shorter than or equal to '%s' characters but got '%s'".formatted(databaseMetadata.getMaxTableNameLength(), tableName.length()));
         }
     }
 
@@ -482,7 +481,7 @@ public class SqlServerClient
         // SQL Server truncates table name to the max length silently when renaming a column
         // SQL Server driver doesn't communicate with a server in getMaxColumnNameLength. The cost to call this method per column is low.
         if (columnName.length() > databaseMetadata.getMaxColumnNameLength()) {
-            throw new TrinoException(NOT_SUPPORTED, format("Column name must be shorter than or equal to '%s' characters but got '%s': '%s'", databaseMetadata.getMaxColumnNameLength(), columnName.length(), columnName));
+            throw new TrinoException(NOT_SUPPORTED, "Column name must be shorter than or equal to '%s' characters but got '%s': '%s'".formatted(databaseMetadata.getMaxColumnNameLength(), columnName.length(), columnName));
         }
     }
 
@@ -553,8 +552,7 @@ public class SqlServerClient
     @Override
     protected void copyTableSchema(ConnectorSession session, Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
     {
-        String sql = format(
-                "SELECT %s INTO %s FROM %s WHERE 0 = 1",
+        String sql = "SELECT %s INTO %s FROM %s WHERE 0 = 1".formatted(
                 columnNames.stream()
                         .map(this::quoted)
                         .collect(joining(", ")),
@@ -702,7 +700,7 @@ public class SqlServerClient
             return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
         }
         if (type instanceof DecimalType decimalType) {
-            String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            String dataType = "decimal(%s, %s)".formatted(decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
@@ -741,13 +739,13 @@ public class SqlServerClient
 
         if (type instanceof TimeType timeType) {
             int precision = min(timeType.getPrecision(), MAX_SUPPORTED_TEMPORAL_PRECISION);
-            String dataType = format("time(%d)", precision);
+            String dataType = "time(%d)".formatted(precision);
             return WriteMapping.longMapping(dataType, sqlServerTimeWriteFunction(precision));
         }
 
         if (type instanceof TimestampType timestampType) {
             int precision = min(timestampType.getPrecision(), MAX_SUPPORTED_TEMPORAL_PRECISION);
-            String dataType = format("datetime2(%d)", precision);
+            String dataType = "datetime2(%d)".formatted(precision);
             if (timestampType.getPrecision() <= MAX_SHORT_PRECISION) {
                 return WriteMapping.longMapping(dataType, timestampWriteFunction(timestampType));
             }
@@ -849,7 +847,7 @@ public class SqlServerClient
                 long distinctValues = 0;
 
                 try (CallableStatement showStatistics = handle.getConnection().prepareCall("DBCC SHOW_STATISTICS (?, ?)")) {
-                    showStatistics.setString(1, format("%s.%s.%s", catalog, schema, tableName));
+                    showStatistics.setString(1, "%s.%s.%s".formatted(catalog, schema, tableName));
                     showStatistics.setString(2, statisticName);
 
                     boolean isResultSet = showStatistics.execute();
@@ -993,7 +991,7 @@ public class SqlServerClient
             {
                 // Binding setObject(LocalTime) can result with "The data types time and datetime are incompatible in the equal to operator."
                 // when write function is used for predicate pushdown.
-                return format("CAST(? AS time(%s))", precision);
+                return "CAST(? AS time(%s))".formatted(precision);
             }
 
             @Override
@@ -1116,7 +1114,7 @@ public class SqlServerClient
     @Override
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
-        return Optional.of((sql, limit) -> format("SELECT TOP %s * FROM (%s) o", limit, sql));
+        return Optional.of((sql, limit) -> "SELECT TOP %s * FROM (%s) o".formatted(limit, sql));
     }
 
     @Override
@@ -1145,17 +1143,17 @@ public class SqlServerClient
             String orderBy = sortItems.stream()
                     .flatMap(sortItem -> {
                         String ordering = sortItem.sortOrder().isAscending() ? "ASC" : "DESC";
-                        String columnSorting = format("%s %s", quoted(sortItem.column().getColumnName()), ordering);
+                        String columnSorting = "%s %s".formatted(quoted(sortItem.column().getColumnName()), ordering);
 
                         return switch (sortItem.sortOrder()) {
                             // In SQL Server ASC implies NULLS FIRST, DESC implies NULLS LAST
                             case ASC_NULLS_FIRST, DESC_NULLS_LAST -> Stream.of(columnSorting);
-                            case ASC_NULLS_LAST -> Stream.of(format("(CASE WHEN %s IS NULL THEN 1 ELSE 0 END) ASC", quoted(sortItem.column().getColumnName())), columnSorting);
-                            case DESC_NULLS_FIRST -> Stream.of(format("(CASE WHEN %s IS NULL THEN 1 ELSE 0 END) DESC", quoted(sortItem.column().getColumnName())), columnSorting);
+                            case ASC_NULLS_LAST -> Stream.of("(CASE WHEN %s IS NULL THEN 1 ELSE 0 END) ASC".formatted(quoted(sortItem.column().getColumnName())), columnSorting);
+                            case DESC_NULLS_FIRST -> Stream.of("(CASE WHEN %s IS NULL THEN 1 ELSE 0 END) DESC".formatted(quoted(sortItem.column().getColumnName())), columnSorting);
                         };
                     })
                     .collect(joining(", "));
-            return format("%s ORDER BY %s OFFSET 0 ROWS FETCH NEXT %s ROWS ONLY", query, orderBy, limit);
+            return "%s ORDER BY %s OFFSET 0 ROWS FETCH NEXT %s ROWS ONLY".formatted(query, orderBy, limit);
         });
     }
 
@@ -1199,12 +1197,11 @@ public class SqlServerClient
         if (tableMetadata.getComment().isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
         }
-        return ImmutableList.of(format(
-                "CREATE TABLE %s (%s) %s",
+        return ImmutableList.of("CREATE TABLE %s (%s) %s".formatted(
                 quoted(remoteTableName),
                 join(", ", columns),
                 getDataCompression(tableMetadata.getProperties())
-                        .map(dataCompression -> format("WITH (DATA_COMPRESSION = %s)", dataCompression))
+                        .map(dataCompression -> "WITH (DATA_COMPRESSION = %s)".formatted(dataCompression))
                         .orElse("")));
     }
 
@@ -1396,7 +1393,7 @@ public class SqlServerClient
         Long getTableObjectId(String catalog, String schema, String tableName)
         {
             return handle.createQuery("SELECT object_id(:table)")
-                    .bind("table", format("%s.%s.%s", catalog, schema, tableName))
+                    .bind("table", "%s.%s.%s".formatted(catalog, schema, tableName))
                     .mapTo(Long.class)
                     .one();
         }

@@ -63,7 +63,6 @@ import static io.trino.testing.QueryAssertions.assertContainsEventually;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.type.IpAddressType.IPADDRESS;
-import static java.lang.String.format;
 import static java.util.Comparator.comparing;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -242,7 +241,7 @@ public class TestCassandraConnectorTest
                 "table_pushdown_uuid_partition_key",
                 ImmutableList.of(partitionColumn("col_uuid", "uuid"), generalColumn("col_text", "text")),
                 ImmutableList.of("00000000-0000-0000-0000-000000000001, 'Trino'"))) {
-            assertThat(query(format("SELECT col_text FROM %s WHERE col_uuid = UUID '00000000-0000-0000-0000-000000000001'", testCassandraTable.getTableName())))
+            assertThat(query("SELECT col_text FROM %s WHERE col_uuid = UUID '00000000-0000-0000-0000-000000000001'".formatted(testCassandraTable.getTableName())))
                     .matches("VALUES CAST('Trino' AS varchar)");
         }
     }
@@ -442,10 +441,9 @@ public class TestCassandraConnectorTest
                 "test_timestamp",
                 ImmutableList.of(partitionColumn("c1", "timestamp")),
                 ImmutableList.of("'2017-04-01T11:21:59.001+0000'"))) {
-            String sql = format(
-                    "SELECT * " +
-                            "FROM %s " +
-                            "WHERE c1 = TIMESTAMP '2017-04-01 11:21:59.001 UTC'",
+            String sql = ("SELECT * " +
+            "FROM %s " +
+            "WHERE c1 = TIMESTAMP '2017-04-01 11:21:59.001 UTC'").formatted(
                     testCassandraTable.getTableName());
             MaterializedResult result = computeActual(sql);
 
@@ -481,27 +479,27 @@ public class TestCassandraConnectorTest
                         generalColumn("typemap", "frozen <map<int, bigint>>"),
                         generalColumn("typeset", "frozen <set<boolean>>")),
                 columnsValue(9, ImmutableList.of(
-                        rowNumber -> format("'key %d'", rowNumber),
-                        rowNumber -> format("00000000-0000-0000-0000-%012d", rowNumber),
+                        rowNumber -> "'key %d'".formatted(rowNumber),
+                        rowNumber -> "00000000-0000-0000-0000-%012d".formatted(rowNumber),
                         String::valueOf,
                         String::valueOf,
                         String::valueOf,
                         rowNumber -> String.valueOf(rowNumber + 1000),
                         rowNumber -> toHexString(ByteBuffer.wrap(Ints.toByteArray(rowNumber)).asReadOnlyBuffer()),
-                        _ -> format("'%s'", DateTimeFormatter.ofPattern("uuuu-MM-dd").format(TIMESTAMP_VALUE)),
-                        _ -> format("'%s'", DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSZ").format(TIMESTAMP_VALUE)),
-                        rowNumber -> format("'ansi %d'", rowNumber),
+                        _ -> "'%s'".formatted(DateTimeFormatter.ofPattern("uuuu-MM-dd").format(TIMESTAMP_VALUE)),
+                        _ -> "'%s'".formatted(DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSZ").format(TIMESTAMP_VALUE)),
+                        rowNumber -> "'ansi %d'".formatted(rowNumber),
                         rowNumber -> String.valueOf(rowNumber % 2 == 0),
                         rowNumber -> new BigDecimal(Math.pow(2, rowNumber)).toString(),
                         rowNumber -> String.valueOf(Math.pow(4, rowNumber)),
                         rowNumber -> String.valueOf((float) Math.pow(8, rowNumber)),
-                        _ -> format("'%s'", "127.0.0.1"),
-                        rowNumber -> format("'varchar %d'", rowNumber),
+                        _ -> "'%s'".formatted("127.0.0.1"),
+                        rowNumber -> "'varchar %d'".formatted(rowNumber),
                         rowNumber -> BigInteger.TEN.pow(rowNumber).toString(),
-                        rowNumber -> format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber),
-                        rowNumber -> format("['list-value-1%d', 'list-value-2%d']", rowNumber, rowNumber),
-                        rowNumber -> format("{%d:%d, %d:%d}", rowNumber, rowNumber + 1, rowNumber + 2, rowNumber + 3),
-                        _ -> format("{false, true}"))))) {
+                        rowNumber -> "d2177dd0-eaa2-11de-a572-001b779c76e%d".formatted(rowNumber),
+                        rowNumber -> "['list-value-1%d', 'list-value-2%d']".formatted(rowNumber, rowNumber),
+                        rowNumber -> "{%d:%d, %d:%d}".formatted(rowNumber, rowNumber + 1, rowNumber + 2, rowNumber + 3),
+                        _ -> "{false, true}".formatted())))) {
             assertSelect(testCassandraTable.getTableName());
         }
 
@@ -530,27 +528,27 @@ public class TestCassandraConnectorTest
                         partitionColumn("typemap", "frozen <map<int, bigint>>"),
                         partitionColumn("typeset", "frozen <set<boolean>>")),
                 columnsValue(9, ImmutableList.of(
-                        rowNumber -> format("'key %d'", rowNumber),
-                        rowNumber -> format("00000000-0000-0000-0000-%012d", rowNumber),
+                        rowNumber -> "'key %d'".formatted(rowNumber),
+                        rowNumber -> "00000000-0000-0000-0000-%012d".formatted(rowNumber),
                         String::valueOf,
                         String::valueOf,
                         String::valueOf,
                         rowNumber -> String.valueOf(rowNumber + 1000),
                         rowNumber -> toHexString(ByteBuffer.wrap(Ints.toByteArray(rowNumber))),
-                        _ -> format("'%s'", DateTimeFormatter.ofPattern("uuuu-MM-dd").format(TIMESTAMP_VALUE)),
-                        _ -> format("'%s'", DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSZ").format(TIMESTAMP_VALUE)),
-                        rowNumber -> format("'ansi %d'", rowNumber),
+                        _ -> "'%s'".formatted(DateTimeFormatter.ofPattern("uuuu-MM-dd").format(TIMESTAMP_VALUE)),
+                        _ -> "'%s'".formatted(DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSZ").format(TIMESTAMP_VALUE)),
+                        rowNumber -> "'ansi %d'".formatted(rowNumber),
                         rowNumber -> String.valueOf(rowNumber % 2 == 0),
                         rowNumber -> new BigDecimal(Math.pow(2, rowNumber)).toString(),
                         rowNumber -> String.valueOf(Math.pow(4, rowNumber)),
                         rowNumber -> String.valueOf((float) Math.pow(8, rowNumber)),
-                        _ -> format("'%s'", "127.0.0.1"),
-                        rowNumber -> format("'varchar %d'", rowNumber),
+                        _ -> "'%s'".formatted("127.0.0.1"),
+                        rowNumber -> "'varchar %d'".formatted(rowNumber),
                         rowNumber -> BigInteger.TEN.pow(rowNumber).toString(),
-                        rowNumber -> format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber),
-                        rowNumber -> format("['list-value-1%d', 'list-value-2%d']", rowNumber, rowNumber),
-                        rowNumber -> format("{%d:%d, %d:%d}", rowNumber, rowNumber + 1, rowNumber + 2, rowNumber + 3),
-                        _ -> format("{false, true}"))))) {
+                        rowNumber -> "d2177dd0-eaa2-11de-a572-001b779c76e%d".formatted(rowNumber),
+                        rowNumber -> "['list-value-1%d', 'list-value-2%d']".formatted(rowNumber, rowNumber),
+                        rowNumber -> "{%d:%d, %d:%d}".formatted(rowNumber, rowNumber + 1, rowNumber + 2, rowNumber + 3),
+                        _ -> "{false, true}".formatted())))) {
             assertSelect(testCassandraTable.getTableName());
         }
     }
@@ -573,7 +571,7 @@ public class TestCassandraConnectorTest
                 ImmutableList.of(partitionColumn("key", "int"), generalColumn("value", "frozen<tuple<int, text, float>>")),
                 ImmutableList.of())) {
             assertQueryFails(
-                    format("INSERT INTO %s (key, value) VALUES (1, ROW(1, 'text-1', 1.11))", table.getTableName()),
+                    "INSERT INTO %s (key, value) VALUES (1, ROW(1, 'text-1', 1.11))".formatted(table.getTableName()),
                     "\\QUnsupported column type: row(integer, varchar, real)");
         }
     }
@@ -650,27 +648,27 @@ public class TestCassandraConnectorTest
                         generalColumn("typemap", "frozen <map<int, bigint>>"),
                         generalColumn("typeset", "frozen <set<boolean>>")),
                 columnsValue(9, ImmutableList.of(
-                        rowNumber -> format("'key %d'", rowNumber),
-                        rowNumber -> format("00000000-0000-0000-0000-%012d", rowNumber),
+                        rowNumber -> "'key %d'".formatted(rowNumber),
+                        rowNumber -> "00000000-0000-0000-0000-%012d".formatted(rowNumber),
                         String::valueOf,
                         String::valueOf,
                         String::valueOf,
                         rowNumber -> String.valueOf(rowNumber + 1000),
                         rowNumber -> toHexString(ByteBuffer.wrap(Ints.toByteArray(rowNumber))),
-                        _ -> format("'%s'", DateTimeFormatter.ofPattern("uuuu-MM-dd").format(TIMESTAMP_VALUE)),
-                        _ -> format("'%s'", DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSZ").format(TIMESTAMP_VALUE)),
-                        rowNumber -> format("'ansi %d'", rowNumber),
+                        _ -> "'%s'".formatted(DateTimeFormatter.ofPattern("uuuu-MM-dd").format(TIMESTAMP_VALUE)),
+                        _ -> "'%s'".formatted(DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSZ").format(TIMESTAMP_VALUE)),
+                        rowNumber -> "'ansi %d'".formatted(rowNumber),
                         rowNumber -> String.valueOf(rowNumber % 2 == 0),
                         rowNumber -> new BigDecimal(Math.pow(2, rowNumber)).toString(),
                         rowNumber -> String.valueOf(Math.pow(4, rowNumber)),
                         rowNumber -> String.valueOf((float) Math.pow(8, rowNumber)),
-                        _ -> format("'%s'", "127.0.0.1"),
-                        rowNumber -> format("'varchar %d'", rowNumber),
+                        _ -> "'%s'".formatted("127.0.0.1"),
+                        rowNumber -> "'varchar %d'".formatted(rowNumber),
                         rowNumber -> BigInteger.TEN.pow(rowNumber).toString(),
-                        rowNumber -> format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber),
-                        rowNumber -> format("['list-value-1%d', 'list-value-2%d']", rowNumber, rowNumber),
-                        rowNumber -> format("{%d:%d, %d:%d}", rowNumber, rowNumber + 1, rowNumber + 2, rowNumber + 3),
-                        _ -> format("{false, true}"))))) {
+                        rowNumber -> "d2177dd0-eaa2-11de-a572-001b779c76e%d".formatted(rowNumber),
+                        rowNumber -> "['list-value-1%d', 'list-value-2%d']".formatted(rowNumber, rowNumber),
+                        rowNumber -> "{%d:%d, %d:%d}".formatted(rowNumber, rowNumber + 1, rowNumber + 2, rowNumber + 3),
+                        _ -> "{false, true}".formatted())))) {
             assertUpdate("DROP TABLE IF EXISTS table_all_types_copy");
             assertUpdate("CREATE TABLE table_all_types_copy AS SELECT * FROM " + testCassandraTable.getTableName(), 9);
             assertSelect("table_all_types_copy");
@@ -709,10 +707,10 @@ public class TestCassandraConnectorTest
                         clusterColumn("clust_three", "text"),
                         generalColumn("data", "text")),
                 columnsValue(9, ImmutableList.of(
-                        rowNumber -> format("'key_%d'", rowNumber),
+                        rowNumber -> "'key_%d'".formatted(rowNumber),
                         _ -> "'clust_one'",
-                        rowNumber -> format("'clust_two_%d'", rowNumber),
-                        rowNumber -> format("'clust_three_%d'", rowNumber),
+                        rowNumber -> "'clust_two_%d'".formatted(rowNumber),
+                        rowNumber -> "'clust_three_%d'".formatted(rowNumber),
                         _ -> "null")))) {
             String sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key='key_1' AND clust_one='clust_one'";
             assertThat(computeActual(sql).getRowCount()).isEqualTo(1);
@@ -748,11 +746,11 @@ public class TestCassandraConnectorTest
                         clusterColumn("clust_three", "text"),
                         generalColumn("data", "text")),
                 columnsValue(9, ImmutableList.of(
-                        rowNumber -> format("'partition_one_%d'", rowNumber),
-                        rowNumber -> format("'partition_two_%d'", rowNumber),
+                        rowNumber -> "'partition_one_%d'".formatted(rowNumber),
+                        rowNumber -> "'partition_two_%d'".formatted(rowNumber),
                         _ -> "'clust_one'",
-                        rowNumber -> format("'clust_two_%d'", rowNumber),
-                        rowNumber -> format("'clust_three_%d'", rowNumber),
+                        rowNumber -> "'clust_two_%d'".formatted(rowNumber),
+                        rowNumber -> "'clust_three_%d'".formatted(rowNumber),
                         _ -> "null")))) {
             String partitionInPredicates = " partition_one IN ('partition_one_1','partition_one_2') AND partition_two IN ('partition_two_1','partition_two_2') ";
             String sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE partition_one='partition_one_1' AND partition_two='partition_two_1' AND clust_one='clust_one'";
@@ -791,10 +789,10 @@ public class TestCassandraConnectorTest
                         clusterColumn("clust_three", "text"),
                         generalColumn("data", "text")),
                 columnsValue(9, ImmutableList.of(
-                        rowNumber -> format("'key_%d'", rowNumber),
+                        rowNumber -> "'key_%d'".formatted(rowNumber),
                         _ -> "'clust_one'",
-                        rowNumber -> format("'clust_two_%d'", rowNumber),
-                        rowNumber -> format("'clust_three_%d'", rowNumber),
+                        rowNumber -> "'clust_two_%d'".formatted(rowNumber),
+                        rowNumber -> "'clust_three_%d'".formatted(rowNumber),
                         _ -> "null")))) {
             String sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE clust_one='clust_one'";
             assertThat(computeActual(sql).getRowCount()).isEqualTo(9);
@@ -813,10 +811,10 @@ public class TestCassandraConnectorTest
                         clusterColumn("clust_three", "text"),
                         generalColumn("data", "text")),
                 columnsValue(1000, ImmutableList.of(
-                        rowNumber -> format("'key_%d'", rowNumber),
+                        rowNumber -> "'key_%d'".formatted(rowNumber),
                         _ -> "'clust_one'",
-                        rowNumber -> format("'clust_two_%d'", rowNumber),
-                        rowNumber -> format("'clust_three_%d'", rowNumber),
+                        rowNumber -> "'clust_two_%d'".formatted(rowNumber),
+                        rowNumber -> "'clust_three_%d'".formatted(rowNumber),
                         _ -> "null")))) {
             // below test cases are needed to verify clustering key pushdown with unpartitioned table
             // for the smaller table (<200 partitions by default) connector fetches all the partitions id
@@ -862,8 +860,8 @@ public class TestCassandraConnectorTest
                 columnsValue(4, ImmutableList.of(
                         _ -> "'key_1'",
                         _ -> "'clust_one'",
-                        rowNumber -> format("%d", rowNumber),
-                        rowNumber -> format("%d", Timestamp.from(TIMESTAMP_VALUE.toInstant()).getTime() + rowNumber * 10),
+                        rowNumber -> "%d".formatted(rowNumber),
+                        rowNumber -> "%d".formatted(Timestamp.from(TIMESTAMP_VALUE.toInstant()).getTime() + rowNumber * 10),
                         _ -> "null")))) {
             String sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key='key_1' AND clust_one != 'clust_one'";
             assertThat(computeActual(sql).getRowCount()).isEqualTo(0);
@@ -890,8 +888,8 @@ public class TestCassandraConnectorTest
                 columnsValue(4, ImmutableList.of(
                         _ -> "'key_1'",
                         _ -> "'clust_one'",
-                        rowNumber -> format("%d", rowNumber),
-                        rowNumber -> format("%d", Timestamp.from(TIMESTAMP_VALUE.toInstant()).getTime() + rowNumber * 10),
+                        rowNumber -> "%d".formatted(rowNumber),
+                        rowNumber -> "%d".formatted(Timestamp.from(TIMESTAMP_VALUE.toInstant()).getTime() + rowNumber * 10),
                         _ -> "null")))) {
             String sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key='key_1' AND clust_one='clust_one'";
             assertThat(computeActual(sql).getRowCount()).isEqualTo(4);
@@ -1328,14 +1326,14 @@ public class TestCassandraConnectorTest
                 ImmutableList.of("1, NULL, ''"))) {
             String tableName = testCassandraTable.getTableName();
 
-            assertThat(query(format("SELECT timestamp_column_with_null FROM %s", tableName)))
+            assertThat(query("SELECT timestamp_column_with_null FROM %s".formatted(tableName)))
                     .matches("VALUES CAST(NULL AS timestamp(3) with time zone)");
-            assertThat(query(format("SELECT timestamp_column_with_empty FROM %s", tableName)))
+            assertThat(query("SELECT timestamp_column_with_empty FROM %s".formatted(tableName)))
                     .matches("VALUES CAST(NULL AS timestamp(3) with time zone)");
 
-            assertThat(query(format("SELECT id FROM %s WHERE timestamp_column_with_null IS NULL", tableName)))
+            assertThat(query("SELECT id FROM %s WHERE timestamp_column_with_null IS NULL".formatted(tableName)))
                     .matches("VALUES 1");
-            assertThat(query(format("SELECT id FROM %s WHERE timestamp_column_with_empty IS NULL", tableName)))
+            assertThat(query("SELECT id FROM %s WHERE timestamp_column_with_empty IS NULL".formatted(tableName)))
                     .matches("VALUES 1");
         }
     }
@@ -1351,10 +1349,10 @@ public class TestCassandraConnectorTest
                 ImmutableList.of("1, ''"))) {
             String tableName = testCassandraTable.getTableName();
 
-            assertThat(query(format("SELECT timestamp_column_with_empty FROM %s", tableName)))
+            assertThat(query("SELECT timestamp_column_with_empty FROM %s".formatted(tableName)))
                     .matches("VALUES CAST(NULL AS timestamp(3) with time zone)");
 
-            assertThat(query(format("SELECT id FROM %s WHERE timestamp_column_with_empty IS NULL", tableName)))
+            assertThat(query("SELECT id FROM %s WHERE timestamp_column_with_empty IS NULL".formatted(tableName)))
                     .matches("VALUES 1");
         }
     }
@@ -1957,7 +1955,7 @@ public class TestCassandraConnectorTest
             assertThat(sortedRows.get(rowNumber - 1)).isEqualTo(new MaterializedRow(
                     DEFAULT_PRECISION,
                     "key " + rowNumber,
-                    java.util.UUID.fromString(format("00000000-0000-0000-0000-%012d", rowNumber)),
+                    java.util.UUID.fromString("00000000-0000-0000-0000-%012d".formatted(rowNumber)),
                     rowNumber,
                     rowNumber + 1000L,
                     Bytes.fromBytes(Ints.toByteArray(rowNumber)),
@@ -1970,9 +1968,9 @@ public class TestCassandraConnectorTest
                     "127.0.0.1",
                     "varchar " + rowNumber,
                     BigInteger.TEN.pow(rowNumber).toString(),
-                    java.util.UUID.fromString(format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber)),
-                    format("[\"list-value-1%1$d\",\"list-value-2%1$d\"]", rowNumber),
-                    format("{%d:%d,%d:%d}", rowNumber, rowNumber + 1L, rowNumber + 2, rowNumber + 3L),
+                    java.util.UUID.fromString("d2177dd0-eaa2-11de-a572-001b779c76e%d".formatted(rowNumber)),
+                    "[\"list-value-1%1$d\",\"list-value-2%1$d\"]".formatted(rowNumber),
+                    "{%d:%d,%d:%d}".formatted(rowNumber, rowNumber + 1L, rowNumber + 2, rowNumber + 3L),
                     "[false,true]"));
         }
     }

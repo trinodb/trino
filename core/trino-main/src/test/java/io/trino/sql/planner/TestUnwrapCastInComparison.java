@@ -62,7 +62,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.type.Reals.toReal;
-import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
@@ -438,15 +437,15 @@ public class TestUnwrapCastInComparison
     {
         // smoke tests for various type combinations
         for (String type : asList("SMALLINT", "INTEGER", "BIGINT", "REAL", "DOUBLE")) {
-            testUnwrap("tinyint", format("a = %s '1'", type), new Comparison(EQUAL, new Reference(TINYINT, "a"), new Constant(TINYINT, 1L)));
+            testUnwrap("tinyint", "a = %s '1'".formatted(type), new Comparison(EQUAL, new Reference(TINYINT, "a"), new Constant(TINYINT, 1L)));
         }
 
         for (String type : asList("INTEGER", "BIGINT", "REAL", "DOUBLE")) {
-            testUnwrap("smallint", format("a = %s '1'", type), new Comparison(EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 1L)));
+            testUnwrap("smallint", "a = %s '1'".formatted(type), new Comparison(EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 1L)));
         }
 
         for (String type : asList("BIGINT", "DOUBLE")) {
-            testUnwrap("integer", format("a = %s '1'", type), new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
+            testUnwrap("integer", "a = %s '1'".formatted(type), new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
         }
 
         testUnwrap("real", "a = DOUBLE '1'", new Comparison(EQUAL, new Reference(REAL, "a"), new Constant(REAL, toReal(1.0f))));
@@ -822,7 +821,7 @@ public class TestUnwrapCastInComparison
 
     private void testRemoveFilter(String inputType, String inputPredicate)
     {
-        assertPlan(format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s AND rand() = 42", inputType, inputPredicate),
+        assertPlan("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s AND rand() = 42".formatted(inputType, inputPredicate),
                 output(
                         filter(new Comparison(EQUAL, new Call(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 42.0)),
                                 values("a"))));
@@ -846,7 +845,7 @@ public class TestUnwrapCastInComparison
             expected = new Logical(OR, ImmutableList.of(expected, antiOptimization));
         }
 
-        assertPlan(format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE (%s) OR rand() = 42", inputType, inputPredicate),
+        assertPlan("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE (%s) OR rand() = 42".formatted(inputType, inputPredicate),
                 session,
                 output(
                         filter(

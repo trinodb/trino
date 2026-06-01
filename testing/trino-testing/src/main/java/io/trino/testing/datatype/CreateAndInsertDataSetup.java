@@ -23,7 +23,6 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
 public class CreateAndInsertDataSetup
@@ -57,7 +56,7 @@ public class CreateAndInsertDataSetup
         String valueLiterals = inputs.stream()
                 .map(ColumnSetup::getInputLiteral)
                 .collect(joining(", "));
-        sqlExecutor.execute(format("INSERT INTO %s VALUES(%s)", testTable.getName(), valueLiterals));
+        sqlExecutor.execute("INSERT INTO %s VALUES(%s)".formatted(testTable.getName(), valueLiterals));
     }
 
     private TestTable createTestTable(List<ColumnSetup> inputs)
@@ -70,7 +69,7 @@ public class CreateAndInsertDataSetup
         if (inputs.stream().allMatch(input -> input.getDeclaredType().isPresent())) {
             // When all types are explicitly specified, use ordinary CREATE TABLE
             return IntStream.range(0, inputs.size())
-                    .mapToObj(column -> format("col_%d %s", column, inputs.get(column).getDeclaredType().orElseThrow()))
+                    .mapToObj(column -> "col_%d %s".formatted(column, inputs.get(column).getDeclaredType().orElseThrow()))
                     .collect(joining(",\n", "(\n", ")"));
         }
 
@@ -83,10 +82,10 @@ public class CreateAndInsertDataSetup
                 .mapToObj(column -> {
                     ColumnSetup input = inputs.get(column);
                     if (input.getDeclaredType().isEmpty()) {
-                        return format("%s AS col_%d", input.getInputLiteral(), column);
+                        return "%s AS col_%d".formatted(input.getInputLiteral(), column);
                     }
 
-                    return format("CAST(%s AS %s) AS col_%d", input.getInputLiteral(), input.getDeclaredType().get(), column);
+                    return "CAST(%s AS %s) AS col_%d".formatted(input.getInputLiteral(), input.getDeclaredType().get(), column);
                 })
                 .collect(joining(",\n", "AS\nSELECT\n", "\nWHERE 'with no' = 'data'"));
     }

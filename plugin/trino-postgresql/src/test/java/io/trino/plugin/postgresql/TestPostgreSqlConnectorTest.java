@@ -80,7 +80,6 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHD
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.Math.round;
-import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
@@ -180,7 +179,7 @@ public class TestPostgreSqlConnectorTest
     {
         try (TestTable testTable = newTrinoTable(
                 "test_coercion_show_create_table",
-                format("(a %s)", inputType))) {
+                "(a %s)".formatted(inputType))) {
             assertThat(getColumnType(testTable.getName(), "a")).isEqualTo(expectedType);
         }
     }
@@ -219,11 +218,11 @@ public class TestPostgreSqlConnectorTest
     {
         try (TestTable testTable = newTrinoTable(
                 "test_coercion_show_create_table",
-                format("AS SELECT %s a", inputType))) {
+                "AS SELECT %s a".formatted(inputType))) {
             assertThat(getColumnType(testTable.getName(), "a")).isEqualTo(tableType);
             assertQuery(
-                    format("SELECT * FROM %s", testTable.getName()),
-                    format("VALUES (%s)", tableValue));
+                    "SELECT * FROM %s".formatted(testTable.getName()),
+                    "VALUES (%s)".formatted(tableValue));
         }
     }
 
@@ -261,7 +260,7 @@ public class TestPostgreSqlConnectorTest
     {
         try (TestTable testTable = newTrinoTable(
                 "test_coercion_show_create_table",
-                format("AS SELECT %s a WITH NO DATA", inputType))) {
+                "AS SELECT %s a WITH NO DATA".formatted(inputType))) {
             assertThat(getColumnType(testTable.getName(), "a")).isEqualTo(tableType);
         }
     }
@@ -337,13 +336,13 @@ public class TestPostgreSqlConnectorTest
                 "(id int NOT NULL, payload varchar, logdate date NOT NULL) PARTITION BY RANGE (logdate)")) {
             String values202111 = "(1, 'A', '2021-11-01'), (2, 'B', '2021-11-25')";
             String values202112 = "(3, 'C', '2021-12-01')";
-            onRemoteDatabase().execute(format("CREATE TABLE %s_2021_11 PARTITION OF %s FOR VALUES FROM ('2021-11-01') TO ('2021-12-01')", testTable.getName(), testTable.getName()));
-            onRemoteDatabase().execute(format("CREATE TABLE %s_2021_12 PARTITION OF %s FOR VALUES FROM ('2021-12-01') TO ('2022-01-01')", testTable.getName(), testTable.getName()));
-            onRemoteDatabase().execute(format("INSERT INTO %s VALUES %s ,%s", testTable.getName(), values202111, values202112));
+            onRemoteDatabase().execute("CREATE TABLE %s_2021_11 PARTITION OF %s FOR VALUES FROM ('2021-11-01') TO ('2021-12-01')".formatted(testTable.getName(), testTable.getName()));
+            onRemoteDatabase().execute("CREATE TABLE %s_2021_12 PARTITION OF %s FOR VALUES FROM ('2021-12-01') TO ('2022-01-01')".formatted(testTable.getName(), testTable.getName()));
+            onRemoteDatabase().execute("INSERT INTO %s VALUES %s ,%s".formatted(testTable.getName(), values202111, values202112));
             assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet())
                     .contains(testTable.getName(), testTable.getName() + "_2021_11", testTable.getName() + "_2021_12");
-            assertQuery(format("SELECT * FROM %s", testTable.getName()), format("VALUES %s, %s", values202111, values202112));
-            assertQuery(format("SELECT * FROM %s_2021_12", testTable.getName()), "VALUES " + values202112);
+            assertQuery("SELECT * FROM %s".formatted(testTable.getName()), "VALUES %s, %s".formatted(values202111, values202112));
+            assertQuery("SELECT * FROM %s_2021_12".formatted(testTable.getName()), "VALUES " + values202112);
         }
 
         try (TestTable testTable = new TestTable(
@@ -352,13 +351,13 @@ public class TestPostgreSqlConnectorTest
                 "(id int NOT NULL, type varchar, logdate varchar) PARTITION BY LIST (type)")) {
             String valuesA = "(1, 'A', '2021-11-11'), (4, 'A', '2021-12-25')";
             String valuesB = "(3, 'B', '2021-12-12'), (2, 'B', '2021-12-28')";
-            onRemoteDatabase().execute(format("CREATE TABLE %s_a PARTITION OF %s FOR VALUES IN ('A')", testTable.getName(), testTable.getName()));
-            onRemoteDatabase().execute(format("CREATE TABLE %s_b PARTITION OF %s FOR VALUES IN ('B')", testTable.getName(), testTable.getName()));
-            assertUpdate(format("INSERT INTO %s VALUES %s ,%s", testTable.getName(), valuesA, valuesB), 4);
+            onRemoteDatabase().execute("CREATE TABLE %s_a PARTITION OF %s FOR VALUES IN ('A')".formatted(testTable.getName(), testTable.getName()));
+            onRemoteDatabase().execute("CREATE TABLE %s_b PARTITION OF %s FOR VALUES IN ('B')".formatted(testTable.getName(), testTable.getName()));
+            assertUpdate("INSERT INTO %s VALUES %s ,%s".formatted(testTable.getName(), valuesA, valuesB), 4);
             assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet())
                     .contains(testTable.getName(), testTable.getName() + "_a", testTable.getName() + "_b");
-            assertQuery(format("SELECT * FROM %s", testTable.getName()), format("VALUES %s, %s", valuesA, valuesB));
-            assertQuery(format("SELECT * FROM %s_a", testTable.getName()), "VALUES " + valuesA);
+            assertQuery("SELECT * FROM %s".formatted(testTable.getName()), "VALUES %s, %s".formatted(valuesA, valuesB));
+            assertQuery("SELECT * FROM %s_a".formatted(testTable.getName()), "VALUES " + valuesA);
         }
     }
 
@@ -368,8 +367,8 @@ public class TestPostgreSqlConnectorTest
         String unsupportedDataType = "interval";
         String supportedDataType = "varchar(5)";
 
-        try (TestTable noSupportedColumns = new TestTable(onRemoteDatabase(), "no_supported_columns", format("(c %s)", unsupportedDataType));
-                TestTable supportedColumns = new TestTable(onRemoteDatabase(), "supported_columns", format("(good %s)", supportedDataType));
+        try (TestTable noSupportedColumns = new TestTable(onRemoteDatabase(), "no_supported_columns", "(c %s)".formatted(unsupportedDataType));
+                TestTable supportedColumns = new TestTable(onRemoteDatabase(), "supported_columns", "(good %s)".formatted(supportedDataType));
                 TestTable noColumns = new TestTable(onRemoteDatabase(), "no_columns", "()")) {
             assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).contains("orders", noSupportedColumns.getName(), supportedColumns.getName(), noColumns.getName());
 
@@ -406,15 +405,15 @@ public class TestPostgreSqlConnectorTest
     public void testInsertWithFailureDoesNotLeaveBehindOrphanedTable()
             throws Exception
     {
-        String schemaName = format("tmp_schema_%s", UUID.randomUUID().toString().replaceAll("-", ""));
+        String schemaName = "tmp_schema_%s".formatted(UUID.randomUUID().toString().replaceAll("-", ""));
         try (AutoCloseable schema = withSchema(schemaName);
-                TestTable table = new TestTable(onRemoteDatabase(), format("%s.test_cleanup", schemaName), "(x INTEGER)")) {
-            assertQuery(format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", schemaName), "VALUES '" + table.getName().replace(schemaName + ".", "") + "'");
+                TestTable table = new TestTable(onRemoteDatabase(), "%s.test_cleanup".formatted(schemaName), "(x INTEGER)")) {
+            assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'".formatted(schemaName), "VALUES '" + table.getName().replace(schemaName + ".", "") + "'");
 
             onRemoteDatabase().execute("ALTER TABLE " + table.getName() + " ADD CHECK (x > 0)");
 
             assertQueryFails("INSERT INTO " + table.getName() + " (x) VALUES (0)", "ERROR: new row .* violates check constraint [\\s\\S]*");
-            assertQuery(format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", schemaName), "VALUES '" + table.getName().replace(schemaName + ".", "") + "'");
+            assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'".formatted(schemaName), "VALUES '" + table.getName().replace(schemaName + ".", "") + "'");
         }
     }
 
@@ -643,7 +642,7 @@ public class TestPostgreSqlConnectorTest
                     joinOverTableScans);
             assertConditionallyPushedDown(
                     session,
-                    format("SELECT n.name, nl.regionkey FROM nation n JOIN %s nl ON n.name = nl.name", nationLowercaseTable.getName()),
+                    "SELECT n.name, nl.regionkey FROM nation n JOIN %s nl ON n.name = nl.name".formatted(nationLowercaseTable.getName()),
                     true,
                     joinOverTableScans);
 
@@ -656,12 +655,12 @@ public class TestPostgreSqlConnectorTest
                 log.info("Testing operator=%s", operator);
 
                 // bigint inequality predicate
-                assertThat(query(withoutDynamicFiltering, format("SELECT r.name, n.name FROM nation n JOIN region r ON n.regionkey %s r.regionkey", operator)))
+                assertThat(query(withoutDynamicFiltering, "SELECT r.name, n.name FROM nation n JOIN region r ON n.regionkey %s r.regionkey".formatted(operator)))
                         // Currently no pushdown as inequality predicate is removed from Join to maintain Cross Join and Filter as separate nodes
                         .isNotFullyPushedDown(broadcastJoinOverTableScans);
 
                 // varchar inequality predicate
-                assertThat(query(withoutDynamicFiltering, format("SELECT n.name, nl.name FROM nation n JOIN %s nl ON n.name %s nl.name", nationLowercaseTable.getName(), operator)))
+                assertThat(query(withoutDynamicFiltering, "SELECT n.name, nl.name FROM nation n JOIN %s nl ON n.name %s nl.name".formatted(nationLowercaseTable.getName(), operator)))
                         // Currently no pushdown as inequality predicate is removed from Join to maintain Cross Join and Filter as separate nodes
                         .isNotFullyPushedDown(broadcastJoinOverTableScans);
             }
@@ -671,7 +670,7 @@ public class TestPostgreSqlConnectorTest
                 log.info("Testing operator=%s", operator);
                 assertConditionallyPushedDown(
                         session,
-                        format("SELECT n.name, c.name FROM nation n JOIN customer c ON n.nationkey = c.nationkey AND n.regionkey %s c.custkey", operator),
+                        "SELECT n.name, c.name FROM nation n JOIN customer c ON n.nationkey = c.nationkey AND n.regionkey %s c.custkey".formatted(operator),
                         expectJoinPushdown(operator),
                         joinOverTableScans);
             }
@@ -681,7 +680,7 @@ public class TestPostgreSqlConnectorTest
                 log.info("Testing operator=%s", operator);
                 assertConditionallyPushedDown(
                         session,
-                        format("SELECT n.name, nl.name FROM nation n JOIN %s nl ON n.regionkey = nl.regionkey AND n.name %s nl.name", nationLowercaseTable.getName(), operator),
+                        "SELECT n.name, nl.name FROM nation n JOIN %s nl ON n.regionkey = nl.regionkey AND n.name %s nl.name".formatted(nationLowercaseTable.getName(), operator),
                         expectJoinPushdown(operator),
                         joinOverTableScans);
             }
@@ -1022,7 +1021,7 @@ public class TestPostgreSqlConnectorTest
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        return format("(?s).*null value in column \"%s\" violates not-null constraint.*", columnName);
+        return "(?s).*null value in column \"%s\" violates not-null constraint.*".formatted(columnName);
     }
 
     @Test
@@ -1087,11 +1086,11 @@ public class TestPostgreSqlConnectorTest
                     "(1, timestamp '2020-01-01 01:01:01.000')," +
                     "(2, timestamp '2019-01-01 01:01:01.000')");
 
-            assertThat(query(format("SELECT id FROM %s WHERE ts_col >= TIMESTAMP '2019-01-01 00:00:00 %s'", table.getName(), getSession().getTimeZoneKey().getId())))
+            assertThat(query("SELECT id FROM %s WHERE ts_col >= TIMESTAMP '2019-01-01 00:00:00 %s'".formatted(table.getName(), getSession().getTimeZoneKey().getId())))
                     .matches("VALUES 1, 2")
                     .isFullyPushedDown();
 
-            assertThat(query(format("SELECT id FROM %s WHERE ts_col >= TIMESTAMP '2019-01-01 00:00:00 %s'", table.getName(), "UTC")))
+            assertThat(query("SELECT id FROM %s WHERE ts_col >= TIMESTAMP '2019-01-01 00:00:00 %s'".formatted(table.getName(), "UTC")))
                     .matches("VALUES 1")
                     .isFullyPushedDown();
         }
@@ -1400,12 +1399,12 @@ public class TestPostgreSqlConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (a int, b int)");
         assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1), (2, 2)", 2);
 
-        assertQueryFails(format("DELETE FROM %s WHERE a IS NOT NULL AND abs(a + b) > 10", tableName), "The connector can not perform merge on the target table without primary keys");
-        assertQueryFails(format("UPDATE %s SET a = a+b WHERE a IS NOT NULL AND (a + b) > 10", tableName), "The connector can not perform merge on the target table without primary keys");
-        assertQueryFails(format("MERGE INTO %s t USING (VALUES (3, 3)) AS s(x, y) " +
+        assertQueryFails("DELETE FROM %s WHERE a IS NOT NULL AND abs(a + b) > 10".formatted(tableName), "The connector can not perform merge on the target table without primary keys");
+        assertQueryFails("UPDATE %s SET a = a+b WHERE a IS NOT NULL AND (a + b) > 10".formatted(tableName), "The connector can not perform merge on the target table without primary keys");
+        assertQueryFails(("MERGE INTO %s t USING (VALUES (3, 3)) AS s(x, y) " +
                 "   ON t.a = s.x " +
                 "   WHEN MATCHED THEN UPDATE SET b = y " +
-                "   WHEN NOT MATCHED THEN INSERT (a, b) VALUES (s.x, s.y) ", tableName), "The connector can not perform merge on the target table without primary keys");
+                "   WHEN NOT MATCHED THEN INSERT (a, b) VALUES (s.x, s.y) ").formatted(tableName), "The connector can not perform merge on the target table without primary keys");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1420,8 +1419,8 @@ public class TestPostgreSqlConnectorTest
 
     private AutoCloseable withSchema(String schema)
     {
-        onRemoteDatabase().execute(format("CREATE SCHEMA %s", schema));
-        return () -> onRemoteDatabase().execute(format("DROP SCHEMA %s", schema));
+        onRemoteDatabase().execute("CREATE SCHEMA %s".formatted(schema));
+        return () -> onRemoteDatabase().execute("DROP SCHEMA %s".formatted(schema));
     }
 
     @Override
@@ -1446,7 +1445,7 @@ public class TestPostgreSqlConnectorTest
     protected TestView createSleepingView(Duration minimalQueryDuration)
     {
         long secondsToSleep = round(minimalQueryDuration.convertTo(SECONDS).getValue() + 1);
-        return new TestView(onRemoteDatabase(), "test_sleeping_view", format("SELECT 1 FROM pg_sleep(%d)", secondsToSleep));
+        return new TestView(onRemoteDatabase(), "test_sleeping_view", "SELECT 1 FROM pg_sleep(%d)".formatted(secondsToSleep));
     }
 
     @Override
@@ -1525,7 +1524,7 @@ public class TestPostgreSqlConnectorTest
     protected void createTableForWrites(String createTable, String tableName, Optional<String> primaryKey, OptionalInt updateCount)
     {
         super.createTableForWrites(createTable, tableName, primaryKey, updateCount);
-        primaryKey.ifPresent(key -> onRemoteDatabase().execute(format("ALTER TABLE %s ADD CONSTRAINT %s PRIMARY KEY (%s)", tableName, "pk_" + tableName, key)));
+        primaryKey.ifPresent(key -> onRemoteDatabase().execute("ALTER TABLE %s ADD CONSTRAINT %s PRIMARY KEY (%s)".formatted(tableName, "pk_" + tableName, key)));
     }
 
     @Override
@@ -1533,7 +1532,7 @@ public class TestPostgreSqlConnectorTest
     {
         TestTable testTable = super.createTestTableForWrites(namePrefix, tableDefinition, primaryKey);
         String tableName = testTable.getName();
-        onRemoteDatabase().execute(format("ALTER TABLE %s ADD CONSTRAINT %s PRIMARY KEY (%s)", tableName, "pk_" + tableName, primaryKey));
+        onRemoteDatabase().execute("ALTER TABLE %s ADD CONSTRAINT %s PRIMARY KEY (%s)".formatted(tableName, "pk_" + tableName, primaryKey));
         return testTable;
     }
 
@@ -1542,7 +1541,7 @@ public class TestPostgreSqlConnectorTest
     {
         TestTable testTable = super.createTestTableForWrites(namePrefix, tableDefinition, rowsToInsert, primaryKey);
         String tableName = testTable.getName();
-        onRemoteDatabase().execute(format("ALTER TABLE %s ADD CONSTRAINT %s PRIMARY KEY (%s)", tableName, "pk_" + tableName, primaryKey));
+        onRemoteDatabase().execute("ALTER TABLE %s ADD CONSTRAINT %s PRIMARY KEY (%s)".formatted(tableName, "pk_" + tableName, primaryKey));
         return testTable;
     }
 }

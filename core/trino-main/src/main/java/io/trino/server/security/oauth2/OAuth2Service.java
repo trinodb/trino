@@ -46,7 +46,6 @@ import static io.trino.server.security.oauth2.TokenPairSerializer.TokenPair.from
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
 import static io.trino.web.ui.WebUiResources.readWebUiResource;
 import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Instant.now;
 import static java.util.Objects.requireNonNull;
@@ -134,7 +133,7 @@ public class OAuth2Service
             Optional.ofNullable(stateClaims.get(HANDLER_STATE_CLAIM, String.class))
                     .ifPresent(value ->
                             tokenHandler.setTokenExchangeError(value,
-                                    format("Authentication response could not be verified: error=%s, errorDescription=%s, errorUri=%s",
+                                    "Authentication response could not be verified: error=%s, errorDescription=%s, errorUri=%s".formatted(
                                             error,
                                             errorDescription,
                                             errorDescription)));
@@ -204,7 +203,7 @@ public class OAuth2Service
         catch (ChallengeFailedException | RuntimeException e) {
             LOG.debug(e, "Authentication response could not be verified: state=%s", state);
             handlerState.ifPresent(value ->
-                    tokenHandler.setTokenExchangeError(value, format("Authentication response could not be verified: state=%s", value)));
+                    tokenHandler.setTokenExchangeError(value, "Authentication response could not be verified: state=%s".formatted(value)));
             return Response.status(BAD_REQUEST)
                     .cookie(NonceCookie.delete())
                     .entity(getInternalFailureHtml("Authentication response could not be verified"))

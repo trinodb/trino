@@ -124,7 +124,6 @@ import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static io.trino.spi.security.AccessDeniedException.denyViewQuery;
 import static io.trino.spi.security.AccessDeniedException.denyWriteSystemInformationAccess;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FileBasedSystemAccessControl
@@ -1154,7 +1153,7 @@ public class FileBasedSystemAccessControl
                 .toList();
 
         if (masks.size() > 1) {
-            throw new TrinoException(INVALID_COLUMN_MASK, format("Multiple masks defined for %s.%s", table, columnName));
+            throw new TrinoException(INVALID_COLUMN_MASK, "Multiple masks defined for %s.%s".formatted(table, columnName));
         }
 
         return masks.stream().findFirst();

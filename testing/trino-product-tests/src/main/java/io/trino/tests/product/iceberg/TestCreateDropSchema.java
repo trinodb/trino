@@ -25,7 +25,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
@@ -49,9 +48,9 @@ public class TestCreateDropSchema
     public void testDropSchemaFiles()
     {
         String schemaName = "schema_without_location_" + randomNameSuffix();
-        String schemaDir = format("%s/%s.db/", warehouseDirectory, schemaName);
+        String schemaDir = "%s/%s.db/".formatted(warehouseDirectory, schemaName);
 
-        onTrino().executeQuery(format("CREATE SCHEMA %s", schemaName));
+        onTrino().executeQuery("CREATE SCHEMA %s".formatted(schemaName));
         assertFileExistence(schemaDir, true, "schema directory exists after creating schema");
         onTrino().executeQuery("DROP SCHEMA " + schemaName);
         assertFileExistence(schemaDir, false, "schema directory exists after dropping schema");
@@ -63,7 +62,7 @@ public class TestCreateDropSchema
         String schemaName = "schema_with_empty_location_" + randomNameSuffix();
         String schemaDir = warehouseDirectory + "/schema-with-empty-location/";
 
-        onTrino().executeQuery(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
+        onTrino().executeQuery("CREATE SCHEMA %s WITH (location = '%s')".formatted(schemaName, schemaDir));
         assertFileExistence(schemaDir, true, "schema directory exists after creating schema");
         onTrino().executeQuery("DROP SCHEMA " + schemaName);
         assertFileExistence(schemaDir, false, "schema directory exists after dropping schema");
@@ -82,7 +81,7 @@ public class TestCreateDropSchema
         hdfsClient.createDirectory(subDir);
         hdfsClient.saveFile(externalFile, "");
 
-        onTrino().executeQuery(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
+        onTrino().executeQuery("CREATE SCHEMA %s WITH (location = '%s')".formatted(schemaName, schemaDir));
         assertFileExistence(externalFile, true, "external file exists after creating schema");
         onTrino().executeQuery("DROP SCHEMA " + schemaName);
         assertFileExistence(externalFile, true, "external file exists after dropping schema");
@@ -94,7 +93,7 @@ public class TestCreateDropSchema
     public void testDropWithExternalFiles()
     {
         String schemaName = "schema_with_files_in_default_location_" + randomNameSuffix();
-        String schemaDir = format("%s/%s.db/", warehouseDirectory, schemaName);
+        String schemaDir = "%s/%s.db/".formatted(warehouseDirectory, schemaName);
 
         // Create file in schema directory before creating schema
         String externalFile = schemaDir + "external-file";
@@ -122,7 +121,7 @@ public class TestCreateDropSchema
             onTrino().executeQuery(query);
         }
         catch (QueryExecutionException e) {
-            fail(format("Expected query to succeed: %s", query), e.getCause());
+            fail("Expected query to succeed: %s".formatted(query), e.getCause());
         }
     }
 }

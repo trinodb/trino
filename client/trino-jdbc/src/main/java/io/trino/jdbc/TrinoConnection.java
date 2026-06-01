@@ -14,7 +14,6 @@
 package io.trino.jdbc;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -176,7 +175,7 @@ public class TrinoConnection
         this.httpCallFactory = requireNonNull(httpCallFactory, "httpCallFactory is null");
         this.segmentHttpCallFactory = requireNonNull(segmentHttpCallFactory, "segmentHttpCallFactory is null");
         uri.getClientInfo().ifPresent(tags -> clientInfo.put(CLIENT_INFO, tags));
-        uri.getClientTags().ifPresent(tags -> clientInfo.put(CLIENT_TAGS, Joiner.on(",").join(tags)));
+        uri.getClientTags().ifPresent(tags -> clientInfo.put(CLIENT_TAGS, String.join(",", tags)));
         uri.getTraceToken().ifPresent(tags -> clientInfo.put(TRACE_TOKEN, tags));
 
         roles.putAll(uri.getRoles());

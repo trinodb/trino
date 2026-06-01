@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class CachingOrcDataSource
@@ -100,13 +99,13 @@ public class CachingOrcDataSource
             throws IOException
     {
         if (position < cachePosition) {
-            throw new IllegalArgumentException(format("read request (offset %d length %d) is before cache (offset %d length %d)", position, length, cachePosition, cacheLength));
+            throw new IllegalArgumentException("read request (offset %d length %d) is before cache (offset %d length %d)".formatted(position, length, cachePosition, cacheLength));
         }
         if (position >= cachePosition + cacheLength) {
             readCacheAt(position);
         }
         if (position + length > cachePosition + cacheLength) {
-            throw new IllegalArgumentException(format("read request (offset %d length %d) partially overlaps cache (offset %d length %d)", position, length, cachePosition, cacheLength));
+            throw new IllegalArgumentException("read request (offset %d length %d) partially overlaps cache (offset %d length %d)".formatted(position, length, cachePosition, cacheLength));
         }
         return cache.slice(toIntExact(position - cachePosition), length);
     }

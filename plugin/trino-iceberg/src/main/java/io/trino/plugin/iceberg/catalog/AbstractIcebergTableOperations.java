@@ -58,7 +58,6 @@ import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
 import static io.trino.plugin.iceberg.IcebergUtil.parseVersion;
 import static io.trino.plugin.iceberg.procedure.MigrateProcedure.PROVIDER_PROPERTY_KEY;
 import static io.trino.plugin.iceberg.procedure.MigrateProcedure.PROVIDER_PROPERTY_VALUE;
-import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -209,14 +208,14 @@ public abstract class AbstractIcebergTableOperations
         if (metadata != null) {
             String writeLocation = metadata.properties().get(WRITE_METADATA_LOCATION);
             if (writeLocation != null) {
-                return format("%s/%s", stripTrailingSlash(writeLocation), filename);
+                return "%s/%s".formatted(stripTrailingSlash(writeLocation), filename);
             }
             location = metadata.location();
         }
         else {
             location = this.location.orElseThrow(() -> new IllegalStateException("Location not set"));
         }
-        return format("%s/%s/%s", stripTrailingSlash(location), METADATA_FOLDER_NAME, filename);
+        return "%s/%s/%s".formatted(stripTrailingSlash(location), METADATA_FOLDER_NAME, filename);
     }
 
     @Override
@@ -297,16 +296,16 @@ public abstract class AbstractIcebergTableOperations
     protected static String newTableMetadataFilePath(TableMetadata meta, int newVersion)
     {
         String codec = meta.property(METADATA_COMPRESSION, METADATA_COMPRESSION_DEFAULT);
-        return metadataFileLocation(meta, format("%05d-%s%s", newVersion, randomUUID(), getFileExtension(codec)));
+        return metadataFileLocation(meta, "%05d-%s%s".formatted(newVersion, randomUUID(), getFileExtension(codec)));
     }
 
     protected static String metadataFileLocation(TableMetadata metadata, String filename)
     {
         String location = metadata.properties().get(WRITE_METADATA_LOCATION);
         if (location != null) {
-            return format("%s/%s", stripTrailingSlash(location), filename);
+            return "%s/%s".formatted(stripTrailingSlash(location), filename);
         }
-        return format("%s/%s/%s", stripTrailingSlash(metadata.location()), METADATA_FOLDER_NAME, filename);
+        return "%s/%s/%s".formatted(stripTrailingSlash(metadata.location()), METADATA_FOLDER_NAME, filename);
     }
 
     public static List<Column> toHiveColumns(List<NestedField> columns)

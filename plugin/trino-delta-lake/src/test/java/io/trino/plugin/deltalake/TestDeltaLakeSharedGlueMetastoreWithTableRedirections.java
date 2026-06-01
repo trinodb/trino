@@ -40,7 +40,6 @@ import java.util.Map;
 import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -113,7 +112,7 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                 "   location = '%s'\n" +
                 ")";
 
-        return format(expectedHiveCreateSchema, catalogName, schema, dataDirectory.toUri());
+        return expectedHiveCreateSchema.formatted(catalogName, schema, dataDirectory.toUri());
     }
 
     @Override
@@ -123,7 +122,7 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                 "WITH (\n" +
                 "   location = '%s'\n" +
                 ")";
-        return format(expectedDeltaLakeCreateSchema, catalogName, schema, dataDirectory.toUri());
+        return expectedDeltaLakeCreateSchema.formatted(catalogName, schema, dataDirectory.toUri());
     }
 
     @Test

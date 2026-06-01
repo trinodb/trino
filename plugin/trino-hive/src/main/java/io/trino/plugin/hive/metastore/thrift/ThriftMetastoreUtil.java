@@ -160,7 +160,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.ceilDiv;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -521,7 +520,7 @@ public final class ThriftMetastoreUtil
         fromMetastoreApiStorageDescriptor(
                 storageDescriptor,
                 partitionBuilder.getStorageBuilder(),
-                format("%s.%s", partition.getTableName(), partition.getValues()));
+                "%s.%s".formatted(partition.getTableName(), partition.getValues()));
 
         return partitionBuilder.build();
     }
@@ -832,7 +831,7 @@ public final class ThriftMetastoreUtil
             case BINARY -> createBinaryStatistics(columnName, columnType, statistics);
             case DECIMAL -> createDecimalStatistics(columnName, columnType, statistics);
             case TIMESTAMPLOCALTZ, INTERVAL_YEAR_MONTH, INTERVAL_DAY_TIME,
-                 VARIANT, VOID, UNKNOWN -> throw new IllegalArgumentException(format("unsupported type: %s", columnType));
+                 VARIANT, VOID, UNKNOWN -> throw new IllegalArgumentException("unsupported type: %s".formatted(columnType));
         };
     }
 

@@ -27,7 +27,6 @@ import static io.trino.re2j.Options.Algorithm.DFA_FALLBACK_TO_NFA;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 
 public final class Re2JRegexp
 {
@@ -160,7 +159,7 @@ public final class Re2JRegexp
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Group cannot be negative");
         }
         if (group > groupCount) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Pattern has %d groups. Cannot access group %d", groupCount, group));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Pattern has %d groups. Cannot access group %d".formatted(groupCount, group));
         }
     }
 

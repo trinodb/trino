@@ -80,7 +80,6 @@ import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
-import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static java.time.temporal.ChronoUnit.SECONDS;
 import static java.util.Objects.requireNonNull;
@@ -921,7 +920,7 @@ public class TestPinotConnectorSmokeTest
         // TODO https://github.com/trinodb/trino/issues/14045 Fix ORDER BY ... LIMIT query
         assertQueryFails(
                 "SELECT regionkey FROM nation ORDER BY name LIMIT 3",
-                format("Segment query returned '%2$s' rows per split, maximum allowed is '%1$s' rows. with query \"SELECT \"name\", \"regionkey\" FROM nation_REALTIME  LIMIT 12\"", MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
+                "Segment query returned '%2$s' rows per split, maximum allowed is '%1$s' rows. with query \"SELECT \"name\", \"regionkey\" FROM nation_REALTIME  LIMIT 12\"".formatted(MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
     }
 
     @Test
@@ -931,7 +930,7 @@ public class TestPinotConnectorSmokeTest
         // TODO https://github.com/trinodb/trino/issues/14046 Fix JOIN query
         assertQueryFails(
                 "SELECT n.name, r.name FROM nation n JOIN region r on n.regionkey = r.regionkey",
-                format("Segment query returned '%2$s' rows per split, maximum allowed is '%1$s' rows. with query \"SELECT \"name\", \"regionkey\" FROM nation_REALTIME  LIMIT 12\"", MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
+                "Segment query returned '%2$s' rows per split, maximum allowed is '%1$s' rows. with query \"SELECT \"name\", \"regionkey\" FROM nation_REALTIME  LIMIT 12\"".formatted(MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
     }
 
     @Test
@@ -1027,7 +1026,7 @@ public class TestPinotConnectorSmokeTest
         long rowCount = (long) computeScalar("SELECT COUNT(*) FROM " + MIXED_CASE_COLUMN_NAMES_TABLE);
         List<String> rows = new ArrayList<>();
         for (int i = 0; i < rowCount; i++) {
-            rows.add(format("('string_%s', '%s', '%s')", i, i, initialUpdatedAt.plusMillis(i * 1000L).getEpochSecond()));
+            rows.add("('string_%s', '%s', '%s')".formatted(i, i, initialUpdatedAt.plusMillis(i * 1000L).getEpochSecond()));
         }
         String mixedCaseColumnNamesTableValues = rows.stream().collect(joining(",", "VALUES ", ""));
 
@@ -1080,7 +1079,7 @@ public class TestPinotConnectorSmokeTest
         long rowCount = (long) computeScalar("SELECT COUNT(*) FROM " + MIXED_CASE_TABLE_NAME);
         List<String> rows = new ArrayList<>();
         for (int i = 0; i < rowCount; i++) {
-            rows.add(format("('string_%s', '%s', '%s')", i, i, initialUpdatedAt.plusMillis(i * 1000L).getEpochSecond()));
+            rows.add("('string_%s', '%s', '%s')".formatted(i, i, initialUpdatedAt.plusMillis(i * 1000L).getEpochSecond()));
         }
 
         String mixedCaseColumnNamesTableValues = rows.stream().collect(joining(",", "VALUES ", ""));
@@ -1195,10 +1194,10 @@ public class TestPinotConnectorSmokeTest
         // The connector will not allow segment queries to return more than MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES.
         // This is not a pinot error, it is enforced by the connector to avoid stressing pinot servers.
         assertQueryFails("SELECT string_col, updated_at_seconds FROM " + TOO_MANY_ROWS_TABLE,
-                format("Segment query returned '%2$s' rows per split, maximum allowed is '%1$s' rows. with query \"SELECT \"string_col\", \"updated_at_seconds\" FROM too_many_rows_REALTIME  LIMIT %2$s\"", MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
+                "Segment query returned '%2$s' rows per split, maximum allowed is '%1$s' rows. with query \"SELECT \"string_col\", \"updated_at_seconds\" FROM too_many_rows_REALTIME  LIMIT %2$s\"".formatted(MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
 
         // Verify the row count is greater than the max rows per segment limit
-        assertQuery("SELECT \"count(*)\" FROM \"SELECT COUNT(*) FROM " + TOO_MANY_ROWS_TABLE + "\"", format("VALUES(%s)", MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
+        assertQuery("SELECT \"count(*)\" FROM \"SELECT COUNT(*) FROM " + TOO_MANY_ROWS_TABLE + "\"", "VALUES(%s)".formatted(MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
     }
 
     @Test
@@ -1210,7 +1209,7 @@ public class TestPinotConnectorSmokeTest
         // ingest the row from kafka.
         List<String> tooManyRowsTableValues = new ArrayList<>();
         for (int i = 0; i < MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1; i++) {
-            tooManyRowsTableValues.add(format("('string_%s', '%s')", i, initialUpdatedAt.plusMillis(i * 1000L).getEpochSecond()));
+            tooManyRowsTableValues.add("('string_%s', '%s')".formatted(i, initialUpdatedAt.plusMillis(i * 1000L).getEpochSecond()));
         }
 
         // Explicit limit is necessary otherwise pinot returns 10 rows.
@@ -1242,7 +1241,7 @@ public class TestPinotConnectorSmokeTest
 
         List<String> tooManyBrokerRowsTableValues = new ArrayList<>();
         for (int i = 0; i < MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES; i++) {
-            tooManyBrokerRowsTableValues.add(format("('string_%s', '%s')", i, initialUpdatedAt.plusMillis(i * 1000L).getEpochSecond()));
+            tooManyBrokerRowsTableValues.add("('string_%s', '%s')".formatted(i, initialUpdatedAt.plusMillis(i * 1000L).getEpochSecond()));
         }
 
         // Explicit limit is necessary otherwise pinot returns 10 rows.

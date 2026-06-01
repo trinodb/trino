@@ -17,7 +17,6 @@ import com.google.errorprone.annotations.FormatMethod;
 import io.trino.util.MoreMath;
 
 import static java.lang.Double.isNaN;
-import static java.lang.String.format;
 
 public final class EstimateAssertion
 {
@@ -33,7 +32,7 @@ public final class EstimateAssertion
         }
 
         if (!MoreMath.nearlyEqual(actual, expected, TOLERANCE)) {
-            throw new AssertionError(format(messageFormat, messageObjects) + format(", expected [%f], but got [%f]", expected, actual));
+            throw new AssertionError(messageFormat.formatted(messageObjects) + ", expected [%f], but got [%f]".formatted(expected, actual));
         }
     }
 }

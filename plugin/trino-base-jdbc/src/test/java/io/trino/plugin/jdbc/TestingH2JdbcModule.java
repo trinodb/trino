@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class TestingH2JdbcModule
@@ -78,7 +77,7 @@ public class TestingH2JdbcModule
 
     public static String createH2ConnectionUrl()
     {
-        return format("jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1;DEFAULT_LOCK_TIMEOUT=30000", System.nanoTime() + ThreadLocalRandom.current().nextLong());
+        return "jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1;DEFAULT_LOCK_TIMEOUT=30000".formatted(System.nanoTime() + ThreadLocalRandom.current().nextLong());
     }
 
     public interface TestingH2JdbcClientFactory

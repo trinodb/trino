@@ -30,7 +30,6 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 // TODO: When we move RowExpressions to the SPI, we should get rid of this. This is effectively a ConstantExpression.
@@ -45,7 +44,7 @@ public final class NullableValue
     {
         requireNonNull(type, "type is null");
         if (value != null && !Primitives.wrap(type.getJavaType()).isInstance(value)) {
-            throw new IllegalArgumentException(format("Object '%s' does not match type %s", value, type.getJavaType()));
+            throw new IllegalArgumentException("Object '%s' does not match type %s".formatted(value, type.getJavaType()));
         }
 
         this.type = type;

@@ -87,7 +87,6 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Double.NaN;
-import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -429,7 +428,7 @@ public class TestMetastoreHiveStatisticsProvider
 
     private static void assertConvertPartitionValueToDouble(Type type, String value, double expected)
     {
-        Object trinoValue = parsePartitionValue(format("p=%s", value), value, type).getValue();
+        Object trinoValue = parsePartitionValue("p=%s".formatted(value), value, type).getValue();
         assertThat(convertPartitionValueToDouble(type, trinoValue)).isEqualTo(OptionalDouble.of(expected));
     }
 
@@ -792,8 +791,8 @@ public class TestMetastoreHiveStatisticsProvider
         String partitionName2 = "p1=string2/p2=1235";
         String partitionName3 = "p1=string3/p2=1236";
         String partitionName4 = "p1=string4/p2=1237";
-        String partitionName5 = format("p1=%s/p2=1237", HIVE_DEFAULT_DYNAMIC_PARTITION);
-        String partitionName6 = format("p1=string5/p2=%s", HIVE_DEFAULT_DYNAMIC_PARTITION);
+        String partitionName5 = "p1=%s/p2=1237".formatted(HIVE_DEFAULT_DYNAMIC_PARTITION);
+        String partitionName6 = "p1=string5/p2=%s".formatted(HIVE_DEFAULT_DYNAMIC_PARTITION);
 
         HiveColumnHandle columnHandle = createBaseColumn(COLUMN, 2, HIVE_LONG, BIGINT, REGULAR, Optional.empty());
 
@@ -843,12 +842,12 @@ public class TestMetastoreHiveStatisticsProvider
 
     private static String invalidPartitionStatistics(String message)
     {
-        return format("Corrupted partition statistics (Table: %s Partition: [%s]): %s", TABLE, PARTITION, message);
+        return "Corrupted partition statistics (Table: %s Partition: [%s]): %s".formatted(TABLE, PARTITION, message);
     }
 
     private static String invalidColumnStatistics(String message)
     {
-        return format("Corrupted partition statistics (Table: %s Partition: [%s] Column: %s): %s", TABLE, PARTITION, COLUMN, message);
+        return "Corrupted partition statistics (Table: %s Partition: [%s] Column: %s): %s".formatted(TABLE, PARTITION, COLUMN, message);
     }
 
     private static HivePartition partition(String name)

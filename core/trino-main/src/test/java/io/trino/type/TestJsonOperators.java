@@ -49,7 +49,6 @@ import static io.trino.type.JsonType.JSON;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -1119,7 +1118,7 @@ public class TestJsonOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "TIMESTAMP '1970-01-01 00:00:01'"))
                 .hasType(JSON)
-                .isEqualTo(format("\"%s\"", sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0)));
+                .isEqualTo("\"%s\"".formatted(sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0)));
     }
 
     @Test

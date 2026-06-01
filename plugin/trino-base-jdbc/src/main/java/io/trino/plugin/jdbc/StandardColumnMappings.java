@@ -82,7 +82,6 @@ import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
@@ -384,8 +383,7 @@ public final class StandardColumnMappings
         if (countCodePoints(value) <= lengthLimit) {
             return;
         }
-        throw new IllegalStateException(format(
-                "Illegal value for type %s: '%s' [%s]",
+        throw new IllegalStateException("Illegal value for type %s: '%s' [%s]".formatted(
                 characterDataType,
                 value.toStringUtf8(),
                 base16().encode(value.getBytes())));

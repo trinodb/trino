@@ -25,7 +25,6 @@ import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class BigintDecoder
@@ -57,11 +56,11 @@ public class BigintDecoder
                 BIGINT.writeLong(output, Long.parseLong(stringValue));
             }
             catch (NumberFormatException e) {
-                throw new TrinoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as BIGINT: %s", path, value));
+                throw new TrinoException(TYPE_MISMATCH, "Cannot parse value for field '%s' as BIGINT: %s".formatted(path, value));
             }
         }
         else {
-            throw new TrinoException(TYPE_MISMATCH, format("Expected a numeric value for field '%s' of type BIGINT: %s [%s]", path, value, value.getClass().getSimpleName()));
+            throw new TrinoException(TYPE_MISMATCH, "Expected a numeric value for field '%s' of type BIGINT: %s [%s]".formatted(path, value, value.getClass().getSimpleName()));
         }
     }
 

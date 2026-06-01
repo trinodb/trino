@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
@@ -100,7 +99,6 @@ import static io.trino.testing.TestingPageSinkId.TESTING_PAGE_SINK_ID;
 import static io.trino.tpch.LineItemColumn.SHIP_MODE;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.round;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -161,7 +159,7 @@ public class TestHivePageSink
 
                 long length = writeTestFile(fileSystemFactory, config, sortingFileWriterConfig, metastore, makeFileName(config));
                 assertThat(uncompressedLength > length)
-                        .describedAs(format("%s with %s compressed to %s which is not less than %s", format, codec, length, uncompressedLength))
+                        .describedAs("%s with %s compressed to %s which is not less than %s".formatted(format, codec, length, uncompressedLength))
                         .isTrue();
             }
         }
@@ -392,8 +390,8 @@ public class TestHivePageSink
         long length = fileSystemFactory.create(ConnectorIdentity.ofUser("test")).newInputFile(location).length();
         Map<String, String> splitProperties = ImmutableMap.<String, String>builder()
                 .put(FILE_INPUT_FORMAT, config.getHiveStorageFormat().getInputFormat())
-                .put(LIST_COLUMNS, Joiner.on(',').join(getColumnHandles().stream().map(HiveColumnHandle::getName).collect(toImmutableList())))
-                .put(LIST_COLUMN_TYPES, Joiner.on(',').join(getColumnHandles().stream().map(HiveColumnHandle::getHiveType).map(hiveType -> hiveType.getHiveTypeName().toString()).collect(toImmutableList())))
+                .put(LIST_COLUMNS, String.join(",", getColumnHandles().stream().map(HiveColumnHandle::getName).collect(toImmutableList())))
+                .put(LIST_COLUMN_TYPES, String.join(",", getColumnHandles().stream().map(HiveColumnHandle::getHiveType).map(hiveType -> hiveType.getHiveTypeName().toString()).collect(toImmutableList())))
                 .buildOrThrow();
         HiveSplit split = new HiveSplit(
                 "",

@@ -59,7 +59,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.type.IpAddressType.IPADDRESS;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -278,10 +277,10 @@ public abstract class BaseClickHouseTypeMapping
         // Prevent writing incorrect results in the connector
         try (TestTable table = new TestTable(onRemoteDatabase(), "tpch.test_unsupported_uint8", "(value UInt8) ENGINE=Log")) {
             assertQueryFails(
-                    format("INSERT INTO %s VALUES (-1)", table.getName()),
+                    "INSERT INTO %s VALUES (-1)".formatted(table.getName()),
                     "Value must be between 0 and 255 in ClickHouse: -1");
             assertQueryFails(
-                    format("INSERT INTO %s VALUES (256)", table.getName()),
+                    "INSERT INTO %s VALUES (256)".formatted(table.getName()),
                     "Value must be between 0 and 255 in ClickHouse: 256");
         }
     }
@@ -314,10 +313,10 @@ public abstract class BaseClickHouseTypeMapping
         // Prevent writing incorrect results in the connector
         try (TestTable table = new TestTable(onRemoteDatabase(), "tpch.test_unsupported_uint16", "(value UInt16) ENGINE=Log")) {
             assertQueryFails(
-                    format("INSERT INTO %s VALUES (-1)", table.getName()),
+                    "INSERT INTO %s VALUES (-1)".formatted(table.getName()),
                     "Value must be between 0 and 65535 in ClickHouse: -1");
             assertQueryFails(
-                    format("INSERT INTO %s VALUES (65536)", table.getName()),
+                    "INSERT INTO %s VALUES (65536)".formatted(table.getName()),
                     "Value must be between 0 and 65535 in ClickHouse: 65536");
         }
     }
@@ -350,10 +349,10 @@ public abstract class BaseClickHouseTypeMapping
         // Prevent writing incorrect results in the connector
         try (TestTable table = new TestTable(onRemoteDatabase(), "tpch.test_unsupported_uint32", "(value UInt32) ENGINE=Log")) {
             assertQueryFails(
-                    format("INSERT INTO %s VALUES (CAST('-1' AS BIGINT))", table.getName()),
+                    "INSERT INTO %s VALUES (CAST('-1' AS BIGINT))".formatted(table.getName()),
                     "Value must be between 0 and 4294967295 in ClickHouse: -1");
             assertQueryFails(
-                    format("INSERT INTO %s VALUES (CAST('4294967296' AS BIGINT))", table.getName()),
+                    "INSERT INTO %s VALUES (CAST('4294967296' AS BIGINT))".formatted(table.getName()),
                     "Value must be between 0 and 4294967295 in ClickHouse: 4294967296");
         }
     }
@@ -386,10 +385,10 @@ public abstract class BaseClickHouseTypeMapping
         // Prevent writing incorrect results in the connector
         try (TestTable table = new TestTable(onRemoteDatabase(), "tpch.test_unsupported_uint64", "(value UInt64) ENGINE=Log")) {
             assertQueryFails(
-                    format("INSERT INTO %s VALUES (CAST('-1' AS decimal(20, 0)))", table.getName()),
+                    "INSERT INTO %s VALUES (CAST('-1' AS decimal(20, 0)))".formatted(table.getName()),
                     "Value must be between 0 and 18446744073709551615 in ClickHouse: -1");
             assertQueryFails(
-                    format("INSERT INTO %s VALUES (CAST('18446744073709551616' AS decimal(20, 0)))", table.getName()),
+                    "INSERT INTO %s VALUES (CAST('18446744073709551616' AS decimal(20, 0)))".formatted(table.getName()),
                     "Value must be between 0 and 18446744073709551615 in ClickHouse: 18446744073709551616");
         }
     }
@@ -766,9 +765,9 @@ public abstract class BaseClickHouseTypeMapping
 
     private static SqlDataTypeTest textAsBinaryRoundTripTest(String inputType)
     {
-        String nullInputType = format("Nullable(%s)", inputType);
-        String lowCardInputType = format("LowCardinality(%s)", inputType);
-        String nullLowCardInputType = format("LowCardinality(Nullable(%s))", inputType);
+        String nullInputType = "Nullable(%s)".formatted(inputType);
+        String lowCardInputType = "LowCardinality(%s)".formatted(inputType);
+        String nullLowCardInputType = "LowCardinality(Nullable(%s))".formatted(inputType);
 
         return SqlDataTypeTest.create()
                 .addRoundTrip(inputType, "''", VARBINARY, "X''")
@@ -963,7 +962,7 @@ public abstract class BaseClickHouseTypeMapping
     private void testClickHouseDateMinMaxValues(String date)
     {
         SqlDataTypeTest dateTests = SqlDataTypeTest.create()
-                .addRoundTrip("date", format("DATE '%s'", date), DATE, format("DATE '%s'", date));
+                .addRoundTrip("date", "DATE '%s'".formatted(date), DATE, "DATE '%s'".formatted(date));
 
         for (ZoneId timeZoneId : timezones()) {
             Session session = Session.builder(getSession())
@@ -992,13 +991,13 @@ public abstract class BaseClickHouseTypeMapping
 
         try (TestTable table = newTrinoTable("test_unsupported_date", "(dt date)")) {
             assertQueryFails(
-                    format("INSERT INTO %s VALUES (DATE '%s')", table.getName(), unsupportedDate),
-                    format("Date must be between %s and %s in ClickHouse: %s", minSupportedDate, maxSupportedDate, unsupportedDate));
+                    "INSERT INTO %s VALUES (DATE '%s')".formatted(table.getName(), unsupportedDate),
+                    "Date must be between %s and %s in ClickHouse: %s".formatted(minSupportedDate, maxSupportedDate, unsupportedDate));
         }
 
         try (TestTable table = new TestTable(onRemoteDatabase(), "tpch.test_unsupported_date", "(dt date) ENGINE=Log")) {
-            onRemoteDatabase().execute(format("INSERT INTO %s VALUES ('%s')", table.getName(), unsupportedDate));
-            assertQuery(format("SELECT dt <> DATE '%s' FROM %s", unsupportedDate, table.getName()), "SELECT true"); // Inserting an unsupported date in ClickHouse will turn it into another date
+            onRemoteDatabase().execute("INSERT INTO %s VALUES ('%s')".formatted(table.getName(), unsupportedDate));
+            assertQuery("SELECT dt <> DATE '%s' FROM %s".formatted(unsupportedDate, table.getName()), "SELECT true"); // Inserting an unsupported date in ClickHouse will turn it into another date
         }
     }
 
@@ -1034,7 +1033,7 @@ public abstract class BaseClickHouseTypeMapping
                 .addRoundTrip(inputType, "'2018-03-25 03:17:17'", createTimestampType(0), "TIMESTAMP '2018-03-25 03:17:17'") // time gap in Vilnius
                 .addRoundTrip(inputType, "'2018-10-28 01:33:17'", createTimestampType(0), "TIMESTAMP '2018-10-28 01:33:17'") // time doubled in JVM zone
                 .addRoundTrip(inputType, "'2018-10-28 03:33:33'", createTimestampType(0), "TIMESTAMP '2018-10-28 03:33:33'") // time double in Vilnius
-                .addRoundTrip(format("Nullable(%s)", inputType), "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))");
+                .addRoundTrip("Nullable(%s)".formatted(inputType), "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))");
     }
 
     protected SqlDataTypeTest unsupportedTimestampBecomeUnexpectedValueTest(String inputType)
@@ -1053,11 +1052,11 @@ public abstract class BaseClickHouseTypeMapping
     private void testClickHouseDateTimeMinMaxValues(String timestamp)
     {
         SqlDataTypeTest dateTests1 = SqlDataTypeTest.create()
-                .addRoundTrip("timestamp(0)", format("timestamp '%s'", timestamp), createTimestampType(0), format("TIMESTAMP '%s'", timestamp));
+                .addRoundTrip("timestamp(0)", "timestamp '%s'".formatted(timestamp), createTimestampType(0), "TIMESTAMP '%s'".formatted(timestamp));
         SqlDataTypeTest dateTests2 = SqlDataTypeTest.create()
-                .addRoundTrip("timestamp", format("'%s'", timestamp), createTimestampType(0), format("TIMESTAMP '%s'", timestamp));
+                .addRoundTrip("timestamp", "'%s'".formatted(timestamp), createTimestampType(0), "TIMESTAMP '%s'".formatted(timestamp));
         SqlDataTypeTest dateTests3 = SqlDataTypeTest.create()
-                .addRoundTrip("datetime", format("'%s'", timestamp), createTimestampType(0), format("TIMESTAMP '%s'", timestamp));
+                .addRoundTrip("datetime", "'%s'".formatted(timestamp), createTimestampType(0), "TIMESTAMP '%s'".formatted(timestamp));
 
         for (ZoneId timeZoneId : timezones()) {
             Session session = Session.builder(getSession())
@@ -1084,13 +1083,13 @@ public abstract class BaseClickHouseTypeMapping
     {
         try (TestTable table = newTrinoTable("test_unsupported_timestamp", "(dt timestamp(0))")) {
             assertQueryFails(
-                    format("INSERT INTO %s VALUES (TIMESTAMP '%s')", table.getName(), unsupportedTimestamp),
-                    format("Timestamp must be between %s and %s in ClickHouse: %s", MIN_SUPPORTED_DATETIME_VALUE, MAX_SUPPORTED_DATETIME_VALUE, unsupportedTimestamp));
+                    "INSERT INTO %s VALUES (TIMESTAMP '%s')".formatted(table.getName(), unsupportedTimestamp),
+                    "Timestamp must be between %s and %s in ClickHouse: %s".formatted(MIN_SUPPORTED_DATETIME_VALUE, MAX_SUPPORTED_DATETIME_VALUE, unsupportedTimestamp));
         }
 
         try (TestTable table = new TestTable(onRemoteDatabase(), "tpch.test_unsupported_timestamp", "(dt datetime) ENGINE=Log")) {
-            onRemoteDatabase().execute(format("INSERT INTO %s VALUES ('%s')", table.getName(), unsupportedTimestamp));
-            assertQuery(format("SELECT dt <> TIMESTAMP '%s' FROM %s", unsupportedTimestamp, table.getName()), "SELECT true"); // Inserting an unsupported datetime in ClickHouse will turn it into another datetime
+            onRemoteDatabase().execute("INSERT INTO %s VALUES ('%s')".formatted(table.getName(), unsupportedTimestamp));
+            assertQuery("SELECT dt <> TIMESTAMP '%s' FROM %s".formatted(unsupportedTimestamp, table.getName()), "SELECT true"); // Inserting an unsupported datetime in ClickHouse will turn it into another datetime
         }
     }
 
@@ -1137,7 +1136,7 @@ public abstract class BaseClickHouseTypeMapping
     private SqlDataTypeTest dateTimeWithTimeZoneTest(Function<ZoneId, String> inputTypeFactory)
     {
         SqlDataTypeTest tests = SqlDataTypeTest.create()
-                .addRoundTrip(format("Nullable(%s)", inputTypeFactory.apply(UTC)), "NULL", TIMESTAMP_TZ_SECONDS, "CAST(NULL AS TIMESTAMP(0) WITH TIME ZONE)")
+                .addRoundTrip("Nullable(%s)".formatted(inputTypeFactory.apply(UTC)), "NULL", TIMESTAMP_TZ_SECONDS, "CAST(NULL AS TIMESTAMP(0) WITH TIME ZONE)")
 
                 // Since ClickHouse datetime(timezone) does not support values before epoch, we do not test this here.
 

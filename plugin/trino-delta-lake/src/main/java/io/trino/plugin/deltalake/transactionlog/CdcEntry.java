@@ -26,7 +26,6 @@ import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.canonicalizePartitionValues;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class CdcEntry
@@ -84,7 +83,7 @@ public class CdcEntry
     @Override
     public String toString()
     {
-        return format("CdcEntry{path=%s, partitionValues=%s, size=%d, dataChange=false}", path, partitionValues, size);
+        return "CdcEntry{path=%s, partitionValues=%s, size=%d, dataChange=false}".formatted(path, partitionValues, size);
     }
 
     public long getRetainedSizeInBytes()

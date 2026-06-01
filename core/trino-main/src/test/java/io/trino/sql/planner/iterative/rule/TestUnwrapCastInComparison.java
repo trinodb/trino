@@ -20,7 +20,6 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 
 import static io.trino.sql.planner.iterative.rule.UnwrapCastInComparison.isTimestampToTimestampWithTimeZoneInjectiveAt;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestUnwrapCastInComparison
@@ -69,7 +68,7 @@ public class TestUnwrapCastInComparison
     {
         boolean actual = isTimestampToTimestampWithTimeZoneInjectiveAt(sessionZone, instant);
         assertThat(actual)
-                .as(format("isTimestampToTimestampWithTimeZoneInjectiveAt(%s, %s)", sessionZone, instant))
+                .as("isTimestampToTimestampWithTimeZoneInjectiveAt(%s, %s)".formatted(sessionZone, instant))
                 .isEqualTo(expected);
     }
 }

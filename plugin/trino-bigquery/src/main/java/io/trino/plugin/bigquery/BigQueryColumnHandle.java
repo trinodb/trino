@@ -16,7 +16,6 @@ package io.trino.plugin.bigquery;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.StandardSQLTypeName;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -68,11 +67,10 @@ public record BigQueryColumnHandle(
     @JsonIgnore
     public String getQualifiedName()
     {
-        return Joiner.on('.')
-                .join(ImmutableList.<String>builder()
-                        .add(name)
-                        .addAll(dereferenceNames)
-                        .build());
+        return String.join(".", ImmutableList.<String>builder()
+                .add(name)
+                .addAll(dereferenceNames)
+                .build());
     }
 
     @JsonIgnore

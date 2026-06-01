@@ -75,7 +75,6 @@ import static io.trino.execution.SqlTaskExecution.SplitsState.ADDING_SPLITS;
 import static io.trino.execution.SqlTaskExecution.SplitsState.FINISHED;
 import static io.trino.execution.SqlTaskExecution.SplitsState.NO_MORE_SPLITS;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -514,7 +513,7 @@ public class SqlTaskExecution
         // This method should not have significant performance impact. If it does, it may be reasonably to remove this method.
         // This intentionally does not use checkState.
         if (!Thread.holdsLock(this)) {
-            throw new IllegalStateException(format("Thread must hold a lock on the %s", getClass().getSimpleName()));
+            throw new IllegalStateException("Thread must hold a lock on the %s".formatted(getClass().getSimpleName()));
         }
     }
 

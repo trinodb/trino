@@ -97,7 +97,6 @@ import static io.trino.spi.StandardErrorCode.ABANDONED_TASK;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.lang.System.lineSeparator;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
@@ -329,7 +328,7 @@ public class SqlTaskManager
             if (task.getTaskState().isDone()) {
                 continue;
             }
-            task.failed(new TrinoException(SERVER_SHUTTING_DOWN, format("Server is shutting down. Task %s has been canceled", task.getTaskId())));
+            task.failed(new TrinoException(SERVER_SHUTTING_DOWN, "Server is shutting down. Task %s has been canceled".formatted(task.getTaskId())));
             taskCanceled = true;
         }
         if (taskCanceled) {
@@ -684,7 +683,7 @@ public class SqlTaskManager
                 Instant lastHeartbeat = sqlTask.lastHeartbeat();
                 if (lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat)) {
                     log.info("Failing abandoned task %s", taskId);
-                    sqlTask.failed(new TrinoException(ABANDONED_TASK, format("Task %s has not been accessed since %s: currentTime %s", taskId, lastHeartbeat, now)));
+                    sqlTask.failed(new TrinoException(ABANDONED_TASK, "Task %s has not been accessed since %s: currentTime %s".formatted(taskId, lastHeartbeat, now)));
                 }
             }
             catch (RuntimeException e) {
@@ -840,7 +839,7 @@ public class SqlTaskManager
                     });
 
             for (TaskId stuckSplitTaskId : stuckSplitTaskIds) {
-                failTask(stuckSplitTaskId, new TrinoException(GENERIC_USER_ERROR, format("Task %s is failed, due to containing long running stuck splits.", stuckSplitTaskId)));
+                failTask(stuckSplitTaskId, new TrinoException(GENERIC_USER_ERROR, "Task %s is failed, due to containing long running stuck splits.".formatted(stuckSplitTaskId)));
             }
         }
     }

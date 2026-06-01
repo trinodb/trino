@@ -30,7 +30,6 @@ import static io.trino.spi.block.ArrayBlock.fromElementBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestArrayBlock
@@ -66,7 +65,7 @@ public class TestArrayBlock
         for (int i = 0; i < ARRAY_SIZES.length; i++) {
             expectedValues[i] = new Slice[ARRAY_SIZES[i]];
             for (int j = 0; j < ARRAY_SIZES[i]; j++) {
-                expectedValues[i][j] = Slices.utf8Slice(format("%d.%d", i, j));
+                expectedValues[i][j] = Slices.utf8Slice("%d.%d".formatted(i, j));
             }
         }
 

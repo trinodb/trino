@@ -121,7 +121,6 @@ import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -809,7 +808,7 @@ public class MongoSession
 
         if (doc == null) {
             if (!collectionExists(db, tableName)) {
-                throw new TableNotFoundException(new SchemaTableName(schemaName, tableName), format("Table '%s.%s' not found", schemaName, tableName), null);
+                throw new TableNotFoundException(new SchemaTableName(schemaName, tableName), "Table '%s.%s' not found".formatted(schemaName, tableName), null);
             }
             Document metadata = new Document(TABLE_NAME_KEY, tableName);
             metadata.append(FIELDS_KEY, guessTableFields(schemaName, tableName));
@@ -983,7 +982,7 @@ public class MongoSession
                 // TODO: client doesn't handle empty field name row type yet
                 type = RowType.from(IntStream.range(0, subTypes.size())
                         .mapToObj(idx -> RowType.field(
-                                format("%s%d", implicitPrefix, idx + 1),
+                                "%s%d".formatted(implicitPrefix, idx + 1),
                                 subTypes.get(idx).get()))
                         .toList());
             }

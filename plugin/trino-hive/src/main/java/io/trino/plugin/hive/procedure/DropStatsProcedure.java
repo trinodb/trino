@@ -48,7 +48,6 @@ import static io.trino.metastore.StatisticsUpdateMode.CLEAR_ALL;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
@@ -110,7 +109,7 @@ public class DropStatsProcedure
             SchemaTableName schemaTableName = new SchemaTableName(schema, table);
             ConnectorTableHandle handle = hiveMetadata.getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty());
             if (handle == null) {
-                throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", schemaTableName));
+                throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Table '%s' does not exist".formatted(schemaTableName));
             }
 
             accessControl.checkCanInsertIntoTable(null, schemaTableName, Optional.empty());
@@ -194,7 +193,7 @@ public class DropStatsProcedure
             if (value.size() != partitionColumns.size()) {
                 throw new TrinoException(
                         INVALID_PROCEDURE_ARGUMENT,
-                        format("Partition values %s don't match the number of partition columns (%s)", value, partitionColumns.size()));
+                        "Partition values %s don't match the number of partition columns (%s)".formatted(value, partitionColumns.size()));
             }
         });
     }

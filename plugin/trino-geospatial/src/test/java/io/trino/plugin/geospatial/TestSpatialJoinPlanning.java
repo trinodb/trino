@@ -78,7 +78,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.unnest;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -110,7 +109,7 @@ public class TestSpatialJoinPlanning
         planTester.installPlugin(new GeoPlugin());
         planTester.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
         planTester.createCatalog("memory", new MemoryConnectorFactory(), ImmutableMap.of());
-        planTester.executeStatement(format("CREATE TABLE kdb_tree AS SELECT '%s' AS v", KDB_TREE_JSON.toStringUtf8()));
+        planTester.executeStatement("CREATE TABLE kdb_tree AS SELECT '%s' AS v".formatted(KDB_TREE_JSON.toStringUtf8()));
         planTester.executeStatement("CREATE TABLE points (lng, lat, name) AS (VALUES (2.1e0, 2.1e0, 'x'))");
         planTester.executeStatement("CREATE TABLE polygons (wkt, name) AS (VALUES ('POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))', 'a'))");
         return planTester;
@@ -264,7 +263,7 @@ public class TestSpatialJoinPlanning
                 "Invalid JSON string for KDB tree: .*");
 
         // more than one row
-        getPlanTester().executeStatement(format("CREATE TABLE too_many_rows AS SELECT * FROM (VALUES '%s', '%s') AS t(v)", KDB_TREE_JSON, KDB_TREE_JSON));
+        getPlanTester().executeStatement("CREATE TABLE too_many_rows AS SELECT * FROM (VALUES '%s', '%s') AS t(v)".formatted(KDB_TREE_JSON, KDB_TREE_JSON));
 
         assertInvalidSpatialPartitioning(
                 withSpatialPartitioning("too_many_rows"),
@@ -289,12 +288,12 @@ public class TestSpatialJoinPlanning
         PlanTester planTester = getPlanTester();
         try {
             planTester.inTransaction(session, transactionSession -> planTester.createPlan(transactionSession, sql));
-            throw new AssertionError(format("Expected query to fail: %s", sql));
+            throw new AssertionError("Expected query to fail: %s".formatted(sql));
         }
         catch (TrinoException ex) {
             assertThat(ex.getErrorCode()).isEqualTo(INVALID_SPATIAL_PARTITIONING.toErrorCode());
             if (!nullToEmpty(ex.getMessage()).matches(expectedMessageRegExp)) {
-                throw new AssertionError(format("Expected exception message '%s' to match '%s' for query: %s", ex.getMessage(), expectedMessageRegExp, sql), ex);
+                throw new AssertionError("Expected exception message '%s' to match '%s' for query: %s".formatted(ex.getMessage(), expectedMessageRegExp, sql), ex);
             }
         }
     }
@@ -358,11 +357,11 @@ public class TestSpatialJoinPlanning
     @Test
     public void testNotIntersects()
     {
-        assertPlan(format("SELECT b.name, a.name " +
+        assertPlan(("SELECT b.name, a.name " +
                         "FROM " +
                         singleRow("IF(rand() >= 0, 'POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))')", "'a'") + " AS a (wkt, name), " +
                         singleRow("IF(rand() >= 0, 'POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))')", "'a'") + " AS b (wkt, name) " +
-                        "           WHERE NOT ST_Intersects(ST_GeometryFromText(a.wkt), ST_GeometryFromText(b.wkt))", singleRow()),
+                        "           WHERE NOT ST_Intersects(ST_GeometryFromText(a.wkt), ST_GeometryFromText(b.wkt))").formatted(singleRow()),
                 anyTree(
                         filter(
                                 not(
@@ -549,7 +548,7 @@ public class TestSpatialJoinPlanning
     private String singleRow(String... columns)
     {
         String outputs = String.join(", ", columns);
-        return format("(SELECT %s FROM tpch.tiny.region WHERE regionkey = 1)", outputs);
+        return "(SELECT %s FROM tpch.tiny.region WHERE regionkey = 1)".formatted(outputs);
     }
 
     /**
@@ -572,7 +571,7 @@ public class TestSpatialJoinPlanning
     private static String doubleLiteral(double value)
     {
         checkArgument(Double.isFinite(value));
-        return format("%.16E", value);
+        return "%.16E".formatted(value);
     }
 
     private Call functionCall(String name, List<Type> types, List<Expression> arguments)

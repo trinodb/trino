@@ -18,7 +18,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -34,33 +33,33 @@ public class TestMinimalFunctionalityWithoutKeyPrefix
     @Test
     public void testStringValueWhereClauseHasData()
     {
-        assertThat(assertions.query(format("SELECT count(1) FROM %s WHERE redis_key IN ('%s:0', '%s:999')", stringValueTableName, stringValueTableName, tableName)))
+        assertThat(assertions.query("SELECT count(1) FROM %s WHERE redis_key IN ('%s:0', '%s:999')".formatted(stringValueTableName, stringValueTableName, tableName)))
                 .matches("VALUES BIGINT '2'");
 
-        assertThat(assertions.query(format("SELECT count(1) FROM %s WHERE redis_key = '%s:999'", stringValueTableName, tableName)))
+        assertThat(assertions.query("SELECT count(1) FROM %s WHERE redis_key = '%s:999'".formatted(stringValueTableName, tableName)))
                 .matches("VALUES BIGINT '1'");
 
-        assertThat(assertions.query(format("SELECT count(1) FROM %s WHERE redis_key IN ('%s:0', '%s:999')", stringValueTableName, tableName, tableName)))
+        assertThat(assertions.query("SELECT count(1) FROM %s WHERE redis_key IN ('%s:0', '%s:999')".formatted(stringValueTableName, tableName, tableName)))
                 .matches("VALUES BIGINT '2'");
     }
 
     @Test
     public void testHashValueWhereClauseHasData()
     {
-        assertThat(assertions.query(format("SELECT count(1) FROM %s WHERE redis_key IN ('%s:0', '%s:999')", hashValueTableName, hashValueTableName, hashValueTableName)))
+        assertThat(assertions.query("SELECT count(1) FROM %s WHERE redis_key IN ('%s:0', '%s:999')".formatted(hashValueTableName, hashValueTableName, hashValueTableName)))
                 .matches("VALUES BIGINT '2'");
 
-        assertThat(assertions.query(format("SELECT count(1) FROM %s WHERE redis_key = '%s:999'", hashValueTableName, hashValueTableName)))
+        assertThat(assertions.query("SELECT count(1) FROM %s WHERE redis_key = '%s:999'".formatted(hashValueTableName, hashValueTableName)))
                 .matches("VALUES BIGINT '1'");
     }
 
     @Test
     public void testHashValueWhereClauseHasNoData()
     {
-        assertThat(assertions.query(format("SELECT count(1) FROM %s WHERE redis_key = 'does_not_exist'", hashValueTableName)))
+        assertThat(assertions.query("SELECT count(1) FROM %s WHERE redis_key = 'does_not_exist'".formatted(hashValueTableName)))
                 .matches("VALUES BIGINT '0'");
 
-        assertThat(assertions.query(format("SELECT count(1) FROM %s WHERE redis_key = '%s:999' AND id = 1", hashValueTableName, hashValueTableName)))
+        assertThat(assertions.query("SELECT count(1) FROM %s WHERE redis_key = '%s:999' AND id = 1".formatted(hashValueTableName, hashValueTableName)))
                 .matches("VALUES BIGINT '0'");
     }
 
@@ -68,7 +67,7 @@ public class TestMinimalFunctionalityWithoutKeyPrefix
     public void testHashValueWhereClauseError()
     {
         assertThatThrownBy(() -> queryRunner.execute(
-                format("SELECT count(1) FROM %s WHERE redis_key = '%s:999'", hashValueTableName, stringValueTableName)))
+                "SELECT count(1) FROM %s WHERE redis_key = '%s:999'".formatted(hashValueTableName, stringValueTableName)))
                 .hasMessageContaining("WRONGTYPE Operation against a key holding the wrong kind of value");
     }
 }

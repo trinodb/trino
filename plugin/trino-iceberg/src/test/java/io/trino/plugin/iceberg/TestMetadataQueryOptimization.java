@@ -39,7 +39,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 
 public class TestMetadataQueryOptimization
         extends BasePushdownPlanTest
@@ -87,8 +86,7 @@ public class TestMetadataQueryOptimization
     {
         String testTable = "test_metadata_optimization";
 
-        getPlanTester().executeStatement(format(
-                "CREATE TABLE %s (a, b, c) WITH (PARTITIONING = ARRAY['b', 'c']) AS VALUES (5, 6, 7), (8, 9, 10)",
+        getPlanTester().executeStatement("CREATE TABLE %s (a, b, c) WITH (PARTITIONING = ARRAY['b', 'c']) AS VALUES (5, 6, 7), (8, 9, 10)".formatted(
                 testTable));
 
         Session session = Session.builder(getPlanTester().getDefaultSession())
@@ -96,7 +94,7 @@ public class TestMetadataQueryOptimization
                 .build();
 
         assertPlan(
-                format("SELECT DISTINCT b, c FROM %s ORDER BY b", testTable),
+                "SELECT DISTINCT b, c FROM %s ORDER BY b".formatted(testTable),
                 session,
                 anyTree(values(
                         ImmutableList.of("b", "c"),
@@ -105,7 +103,7 @@ public class TestMetadataQueryOptimization
                                 ImmutableList.of(new Constant(INTEGER, 6L), new Constant(INTEGER, 7L))))));
 
         assertPlan(
-                format("SELECT DISTINCT b, c FROM %s LIMIT 10", testTable),
+                "SELECT DISTINCT b, c FROM %s LIMIT 10".formatted(testTable),
                 session,
                 anyTree(values(
                         ImmutableList.of("b", "c"),
@@ -114,14 +112,14 @@ public class TestMetadataQueryOptimization
                                 ImmutableList.of(new Constant(INTEGER, 6L), new Constant(INTEGER, 7L))))));
 
         assertPlan(
-                format("SELECT DISTINCT b, c FROM %s WHERE b > 7", testTable),
+                "SELECT DISTINCT b, c FROM %s WHERE b > 7".formatted(testTable),
                 session,
                 anyTree(values(
                         ImmutableList.of("b", "c"),
                         ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 9L), new Constant(INTEGER, 10L))))));
 
         assertPlan(
-                format("SELECT DISTINCT b, c FROM %s WHERE b > 7 AND c < 8", testTable),
+                "SELECT DISTINCT b, c FROM %s WHERE b > 7 AND c < 8".formatted(testTable),
                 session,
                 anyTree(
                         values(ImmutableList.of("b", "c"), ImmutableList.of())));
@@ -132,8 +130,7 @@ public class TestMetadataQueryOptimization
     {
         String testTable = "test_metadata_optimization_on_partition_with_multiple_files";
 
-        getPlanTester().executeStatement(format(
-                "CREATE TABLE %s (a, b, c) WITH (PARTITIONING = ARRAY['b', 'c']) AS VALUES (1, 8, 9), (2, 8, 9)",
+        getPlanTester().executeStatement("CREATE TABLE %s (a, b, c) WITH (PARTITIONING = ARRAY['b', 'c']) AS VALUES (1, 8, 9), (2, 8, 9)".formatted(
                 testTable));
 
         Session session = Session.builder(getPlanTester().getDefaultSession())
@@ -141,12 +138,11 @@ public class TestMetadataQueryOptimization
                 .build();
 
         // Insert again to generate another file in same partition
-        getPlanTester().executeStatement(format(
-                "INSERT INTO %s VALUES (3, 8, 9)",
+        getPlanTester().executeStatement("INSERT INTO %s VALUES (3, 8, 9)".formatted(
                 testTable));
 
         assertPlan(
-                format("SELECT DISTINCT b, c FROM %s ORDER BY b", testTable),
+                "SELECT DISTINCT b, c FROM %s ORDER BY b".formatted(testTable),
                 session,
                 anyTree(values(
                         ImmutableList.of("b", "c"),
@@ -159,9 +155,8 @@ public class TestMetadataQueryOptimization
     {
         String testTable = "test_metadata_optimization_with_null_partitions";
 
-        getPlanTester().executeStatement(format(
-                "CREATE TABLE %s (a, b, c) WITH (PARTITIONING = ARRAY['b', 'c'])" +
-                        "AS VALUES (5, 6, CAST(NULL AS INTEGER)), (8, 9, CAST(NULL AS INTEGER))",
+        getPlanTester().executeStatement(("CREATE TABLE %s (a, b, c) WITH (PARTITIONING = ARRAY['b', 'c'])" +
+        "AS VALUES (5, 6, CAST(NULL AS INTEGER)), (8, 9, CAST(NULL AS INTEGER))").formatted(
                 testTable));
 
         Session session = Session.builder(getPlanTester().getDefaultSession())
@@ -169,7 +164,7 @@ public class TestMetadataQueryOptimization
                 .build();
 
         assertPlan(
-                format("SELECT DISTINCT b, c FROM %s ORDER BY b", testTable),
+                "SELECT DISTINCT b, c FROM %s ORDER BY b".formatted(testTable),
                 session,
                 anyTree(values(
                         ImmutableList.of("b", "c"),

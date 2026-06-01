@@ -48,7 +48,6 @@ import static io.trino.client.spooling.DataAttribute.SCHEMA;
 import static io.trino.client.spooling.DataAttribute.SEGMENT_SIZE;
 import static io.trino.client.spooling.Segment.inlined;
 import static io.trino.client.spooling.Segment.spooled;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -228,49 +227,48 @@ public class TestQueryDataSerialization
 
     private String queryResultsJson(String expectedDataField)
     {
-        return format(
-                """
-                {
-                  "id": "20160128_214710_00012_rk68b",
-                  "infoUri": "http://coordinator/query.html?20160128_214710_00012_rk68b",
-                  "columns": [
-                    {
-                      "name": "_col0",
-                      "type": "bigint",
-                      "typeSignature": {
-                        "rawType": "bigint",
-                        "arguments": []
-                      }
-                    }
-                  ],
-                  "data": %s,
-                  "stats": {
-                    "state": "FINISHED",
-                    "queued": false,
-                    "scheduled": false,
-                    "nodes": 0,
-                    "totalSplits": 0,
-                    "queuedSplits": 0,
-                    "runningSplits": 0,
-                    "completedSplits": 0,
-                    "planningTimeMillis": 0,
-                    "analysisTimeMillis": 0,
-                    "cpuTimeMillis": 0,
-                    "wallTimeMillis": 0,
-                    "queuedTimeMillis": 0,
-                    "elapsedTimeMillis": 0,
-                    "finishingTimeMillis": 0,
-                    "physicalInputTimeMillis": 0,
-                    "processedRows": 0,
-                    "processedBytes": 0,
-                    "physicalInputBytes": 0,
-                    "physicalWrittenBytes": 0,
-                    "internalNetworkInputBytes": 0,
-                    "peakMemoryBytes": 0,
-                    "spilledBytes": 0
-                  },
-                  "warnings": []
-                }""",
+        return """
+               {
+                 "id": "20160128_214710_00012_rk68b",
+                 "infoUri": "http://coordinator/query.html?20160128_214710_00012_rk68b",
+                 "columns": [
+                   {
+                     "name": "_col0",
+                     "type": "bigint",
+                     "typeSignature": {
+                       "rawType": "bigint",
+                       "arguments": []
+                     }
+                   }
+                 ],
+                 "data": %s,
+                 "stats": {
+                   "state": "FINISHED",
+                   "queued": false,
+                   "scheduled": false,
+                   "nodes": 0,
+                   "totalSplits": 0,
+                   "queuedSplits": 0,
+                   "runningSplits": 0,
+                   "completedSplits": 0,
+                   "planningTimeMillis": 0,
+                   "analysisTimeMillis": 0,
+                   "cpuTimeMillis": 0,
+                   "wallTimeMillis": 0,
+                   "queuedTimeMillis": 0,
+                   "elapsedTimeMillis": 0,
+                   "finishingTimeMillis": 0,
+                   "physicalInputTimeMillis": 0,
+                   "processedRows": 0,
+                   "processedBytes": 0,
+                   "physicalInputBytes": 0,
+                   "physicalWrittenBytes": 0,
+                   "internalNetworkInputBytes": 0,
+                   "peakMemoryBytes": 0,
+                   "spilledBytes": 0
+                 },
+                 "warnings": []
+               }""".formatted(
                 expectedDataField);
     }
 

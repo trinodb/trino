@@ -33,7 +33,6 @@ import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -185,7 +184,7 @@ class TestNodeStateManager
                 () -> assertThat(sqlTasksObservable.getTasks()).hasSize(1));
 
         // simulate task completion after some time
-        tasks.set(Collections.emptyList());
+        tasks.set(List.of());
         sqlTasksObservable.getTasks().get(task.taskStatus().taskId())
                 .stateChanged(TaskState.FINISHED);
 
@@ -222,7 +221,7 @@ class TestNodeStateManager
                 () -> assertThat(sqlTasksObservable.getTasks()).hasSize(1));
 
         // simulate task completion after some time
-        tasks.set(Collections.emptyList());
+        tasks.set(List.of());
         sqlTasksObservable.getTasks().get(task.taskStatus().taskId())
                 .stateChanged(TaskState.FINISHED);
 
@@ -270,7 +269,7 @@ class TestNodeStateManager
                 () -> assertThat(sqlTasksObservable.getTasks()).hasSize(1));
 
         // simulate task completion after some time
-        tasks.set(Collections.emptyList());
+        tasks.set(List.of());
         sqlTasksObservable.getTasks().get(task.taskStatus().taskId())
                 .stateChanged(TaskState.FINISHED);
 
@@ -310,7 +309,7 @@ class TestNodeStateManager
                 taskInfoSupplier,
                 serverConfig,
                 shutdownAction,
-                new LifeCycleManager("node-state-manager", Collections.emptyList(), null),
+                new LifeCycleManager("node-state-manager", List.of(), null),
                 executor);
     }
 

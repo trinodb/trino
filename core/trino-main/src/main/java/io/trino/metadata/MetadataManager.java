@@ -181,8 +181,6 @@ import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
-import static java.lang.String.format;
-import static java.util.Collections.singletonList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -789,7 +787,7 @@ public final class MetadataManager
             }
             catch (TypeNotFoundException e) {
                 QualifiedObjectName name = new QualifiedObjectName(catalogName, materializedViewName.getSchemaName(), materializedViewName.getTableName());
-                throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in materialized view: %s", column.getType(), column.getName(), name));
+                throw new TrinoException(INVALID_VIEW, "Unknown type '%s' for column '%s' in materialized view: %s".formatted(column.getType(), column.getName(), name));
             }
         }
         return columnMetadata.build();
@@ -808,7 +806,7 @@ public final class MetadataManager
             }
             catch (TypeNotFoundException e) {
                 QualifiedObjectName name = new QualifiedObjectName(catalogName, viewName.getSchemaName(), viewName.getTableName());
-                throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), name));
+                throw new TrinoException(INVALID_VIEW, "Unknown type '%s' for column '%s' in view: %s".formatted(column.getType(), column.getName(), name));
             }
         }
         return columnMetadata.build();
@@ -1184,7 +1182,7 @@ public final class MetadataManager
         return metadata.getSupportedType(session.toConnectorSession(catalogHandle), tableProperties, type)
                 .map(newType -> {
                     if (!typeCoercion.isCompatible(newType, type)) {
-                        throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, format("Type '%s' is not compatible with the supplied type '%s' in getSupportedType", type, newType));
+                        throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Type '%s' is not compatible with the supplied type '%s' in getSupportedType".formatted(type, newType));
                     }
                     return newType;
                 });
@@ -1556,7 +1554,7 @@ public final class MetadataManager
     public Map<String, Object> getSchemaProperties(Session session, CatalogSchemaName schemaName)
     {
         if (!schemaExists(session, schemaName)) {
-            throw new TrinoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", schemaName));
+            throw new TrinoException(SCHEMA_NOT_FOUND, "Schema '%s' does not exist".formatted(schemaName));
         }
         CatalogMetadata catalogMetadata = getRequiredCatalogMetadata(session, schemaName.getCatalogName());
         CatalogHandle catalogHandle = catalogMetadata.getConnectorHandleForSchema(schemaName);
@@ -1570,7 +1568,7 @@ public final class MetadataManager
     public Optional<TrinoPrincipal> getSchemaOwner(Session session, CatalogSchemaName schemaName)
     {
         if (!schemaExists(session, schemaName)) {
-            throw new TrinoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", schemaName));
+            throw new TrinoException(SCHEMA_NOT_FOUND, "Schema '%s' does not exist".formatted(schemaName));
         }
         CatalogMetadata catalogMetadata = getRequiredCatalogMetadata(session, schemaName.getCatalogName());
         if (catalogMetadata.getSecurityManagement() == SYSTEM) {
@@ -2017,13 +2015,13 @@ public final class MetadataManager
             // Check for loop in redirection
             if (!visitedTableNames.add(tableName)) {
                 throw new TrinoException(TABLE_REDIRECTION_ERROR,
-                        format("Table redirections form a loop: %s",
+                        "Table redirections form a loop: %s".formatted(
                                 Streams.concat(visitedTableNames.stream(), Stream.of(tableName))
                                         .map(QualifiedObjectName::toString)
                                         .collect(Collectors.joining(" -> "))));
             }
         }
-        throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table redirected too many times (%d): %s", MAX_TABLE_REDIRECTIONS, visitedTableNames));
+        throw new TrinoException(TABLE_REDIRECTION_ERROR, "Table redirected too many times (%d): %s".formatted(MAX_TABLE_REDIRECTIONS, visitedTableNames));
     }
 
     @Override
@@ -2047,12 +2045,12 @@ public final class MetadataManager
 
         // Redirected table must exist
         if (getCatalogHandle(session, targetTableName.catalogName()).isEmpty()) {
-            throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table '%s' redirected to '%s', but the target catalog '%s' does not exist", tableName, targetTableName, targetTableName.catalogName()));
+            throw new TrinoException(TABLE_REDIRECTION_ERROR, "Table '%s' redirected to '%s', but the target catalog '%s' does not exist".formatted(tableName, targetTableName, targetTableName.catalogName()));
         }
         if (!schemaExists(session, new CatalogSchemaName(targetTableName.catalogName(), targetTableName.schemaName()))) {
-            throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table '%s' redirected to '%s', but the target schema '%s' does not exist", tableName, targetTableName, targetTableName.schemaName()));
+            throw new TrinoException(TABLE_REDIRECTION_ERROR, "Table '%s' redirected to '%s', but the target schema '%s' does not exist".formatted(tableName, targetTableName, targetTableName.schemaName()));
         }
-        throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table '%s' redirected to '%s', but the target table '%s' does not exist", tableName, targetTableName, targetTableName));
+        throw new TrinoException(TABLE_REDIRECTION_ERROR, "Table '%s' redirected to '%s', but the target table '%s' does not exist".formatted(tableName, targetTableName, targetTableName));
     }
 
     @Override
@@ -2179,8 +2177,7 @@ public final class MetadataManager
                     || rightColumnHandlesMappingKeys.size() != rightColumnHandles.size()
                     || !leftColumnHandlesMappingKeys.containsAll(leftColumnHandles)
                     || !rightColumnHandlesMappingKeys.containsAll(rightColumnHandles)) {
-                throw new IllegalStateException(format(
-                        "Column handle mappings do not match old column handles: left=%s; right=%s; newLeft=%s, newRight=%s",
+                throw new IllegalStateException("Column handle mappings do not match old column handles: left=%s; right=%s; newLeft=%s, newRight=%s".formatted(
                         leftColumnHandles,
                         rightColumnHandles,
                         leftColumnHandlesMappingKeys,
@@ -2598,7 +2595,7 @@ public final class MetadataManager
             ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogHandle());
 
             List<CatalogHandle> catalogHandles = prefix.asQualifiedObjectName()
-                    .map(qualifiedTableName -> singletonList(catalogMetadata.getCatalogHandle(session, qualifiedTableName, Optional.empty(), Optional.empty())))
+                    .map(qualifiedTableName -> List.of(catalogMetadata.getCatalogHandle(session, qualifiedTableName, Optional.empty(), Optional.empty())))
                     .orElseGet(catalogMetadata::listCatalogHandles);
             for (CatalogHandle catalogHandle : catalogHandles) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
@@ -2699,7 +2696,7 @@ public final class MetadataManager
     {
         // coercion can only be resolved for builtin functions
         if (!isBuiltinFunctionName(name)) {
-            throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", name));
+            throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, "%s not found".formatted(name));
         }
 
         return functionResolver.resolveCoercion(name.functionName(), fromType, toType);

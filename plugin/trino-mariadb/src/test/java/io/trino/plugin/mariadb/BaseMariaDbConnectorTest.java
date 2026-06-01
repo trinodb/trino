@@ -27,7 +27,6 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -274,23 +273,23 @@ public abstract class BaseMariaDbConnectorTest
     public void testInsertIntoNotNullColumn()
     {
         try (TestTable table = newTrinoTable("insert_not_null", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
-            assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
+            assertUpdate("INSERT INTO %s (not_null_col) VALUES (2)".formatted(table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
-            assertQueryFails(format("INSERT INTO %s (nullable_col) VALUES (1)", table.getName()), errorMessageForInsertIntoNotNullColumn("not_null_col"));
-            assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (NULL, 3)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
-            assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (TRY(5/0), 4)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
-            assertQueryFails(format("INSERT INTO %s (not_null_col) VALUES (TRY(6/0))", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
-            assertQueryFails(format("INSERT INTO %s (nullable_col) SELECT nationkey FROM nation", table.getName()), errorMessageForInsertIntoNotNullColumn("not_null_col"));
+            assertQueryFails("INSERT INTO %s (nullable_col) VALUES (1)".formatted(table.getName()), errorMessageForInsertIntoNotNullColumn("not_null_col"));
+            assertQueryFails("INSERT INTO %s (not_null_col, nullable_col) VALUES (NULL, 3)".formatted(table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+            assertQueryFails("INSERT INTO %s (not_null_col, nullable_col) VALUES (TRY(5/0), 4)".formatted(table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+            assertQueryFails("INSERT INTO %s (not_null_col) VALUES (TRY(6/0))".formatted(table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+            assertQueryFails("INSERT INTO %s (nullable_col) SELECT nationkey FROM nation".formatted(table.getName()), errorMessageForInsertIntoNotNullColumn("not_null_col"));
             // TODO (https://github.com/trinodb/trino/issues/13551) This doesn't fail for other connectors so
             //  probably shouldn't fail for MariaDB either. Once fixed, remove test override.
-            assertQueryFails(format("INSERT INTO %s (nullable_col) SELECT nationkey FROM nation WHERE regionkey < 0", table.getName()), ".*Field 'not_null_col' doesn't have a default value.*");
+            assertQueryFails("INSERT INTO %s (nullable_col) SELECT nationkey FROM nation WHERE regionkey < 0".formatted(table.getName()), ".*Field 'not_null_col' doesn't have a default value.*");
         }
 
         try (TestTable table = newTrinoTable("commuted_not_null", "(nullable_col BIGINT, not_null_col BIGINT NOT NULL)")) {
-            assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
+            assertUpdate("INSERT INTO %s (not_null_col) VALUES (2)".formatted(table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
             // This is enforced by the engine and not the connector
-            assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (NULL, 3)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+            assertQueryFails("INSERT INTO %s (not_null_col, nullable_col) VALUES (NULL, 3)".formatted(table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
         }
     }
 
@@ -314,7 +313,7 @@ public abstract class BaseMariaDbConnectorTest
         // The query fails because there are no columns, but even if columns were not required, the query would fail
         // to execute in MariaDB because the connector wraps it in additional syntax, which causes syntax error.
         try (TestTable testTable = simpleTable()) {
-            assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
+            assertThat(query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))".formatted(testTable.getName())))
                     .nonTrinoExceptionFailure().hasMessageContaining("descriptor has no fields");
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
         }
@@ -323,19 +322,19 @@ public abstract class BaseMariaDbConnectorTest
     @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
-        return format("Failed to insert data: \\(conn=.*\\) Incorrect date value: '%s'.*", date);
+        return "Failed to insert data: \\(conn=.*\\) Incorrect date value: '%s'.*".formatted(date);
     }
 
     @Override
     protected String errorMessageForInsertNegativeDate(String date)
     {
-        return format("Failed to insert data: \\(conn=.*\\) Incorrect date value: '%s'.*", date);
+        return "Failed to insert data: \\(conn=.*\\) Incorrect date value: '%s'.*".formatted(date);
     }
 
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        return format("Failed to insert data: \\(conn=.*\\) Field '%s' doesn't have a default value", columnName);
+        return "Failed to insert data: \\(conn=.*\\) Field '%s' doesn't have a default value".formatted(columnName);
     }
 
     @Override

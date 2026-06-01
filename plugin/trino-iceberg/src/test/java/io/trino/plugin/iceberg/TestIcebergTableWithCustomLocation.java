@@ -32,7 +32,6 @@ import static io.trino.plugin.iceberg.DataFileRecord.toDataFileRecord;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergTableWithCustomLocation
@@ -64,11 +63,11 @@ public class TestIcebergTableWithCustomLocation
     public void testTableHasUuidSuffixInLocation()
     {
         String tableName = "table_with_uuid";
-        assertQuerySucceeds(format("CREATE TABLE %s as select 1 as val", tableName));
+        assertQuerySucceeds("CREATE TABLE %s as select 1 as val".formatted(tableName));
         Optional<Table> table = metastore.getTable("tpch", tableName);
         assertThat(table).as("Table should exist").isPresent();
         String location = table.get().getStorage().getLocation();
-        assertThat(location).matches(format(".*%s-[0-9a-f]{32}", tableName));
+        assertThat(location).matches(".*%s-[0-9a-f]{32}".formatted(tableName));
     }
 
     @Test
@@ -76,7 +75,7 @@ public class TestIcebergTableWithCustomLocation
             throws IOException
     {
         String tableName = "test_create_and_drop";
-        assertQuerySucceeds(format("CREATE TABLE %s as select 1 as val", tableName));
+        assertQuerySucceeds("CREATE TABLE %s as select 1 as val".formatted(tableName));
         Table table = metastore.getTable("tpch", tableName).orElseThrow();
         assertThat(table.getTableType()).isEqualTo(EXTERNAL_TABLE.name());
 
@@ -93,7 +92,7 @@ public class TestIcebergTableWithCustomLocation
                 .describedAs("The data file should exist")
                 .isTrue();
 
-        assertQuerySucceeds(format("DROP TABLE %s", tableName));
+        assertQuerySucceeds("DROP TABLE %s".formatted(tableName));
         assertThat(metastore.getTable("tpch", tableName).isPresent())
                 .describedAs("Table should be dropped")
                 .isFalse();
@@ -110,12 +109,12 @@ public class TestIcebergTableWithCustomLocation
     {
         String tableName = "test_create_rename_drop";
         String renamedName = "test_create_rename_drop_renamed";
-        assertQuerySucceeds(format("CREATE TABLE %s as select 1 as val", tableName));
+        assertQuerySucceeds("CREATE TABLE %s as select 1 as val".formatted(tableName));
         Optional<Table> table = metastore.getTable("tpch", tableName);
         assertThat(table).as("Table should exist").isPresent();
         String tableInitialLocation = table.get().getStorage().getLocation();
 
-        assertQuerySucceeds(format("ALTER TABLE %s RENAME TO %s", tableName, renamedName));
+        assertQuerySucceeds("ALTER TABLE %s RENAME TO %s".formatted(tableName, renamedName));
         Optional<Table> renamedTable = metastore.getTable("tpch", renamedName);
         assertThat(renamedTable).as("Table should exist").isPresent();
         String renamedTableLocation = renamedTable.get().getStorage().getLocation();
@@ -123,7 +122,7 @@ public class TestIcebergTableWithCustomLocation
                 .describedAs("Location should not be changed")
                 .isEqualTo(tableInitialLocation);
 
-        assertQuerySucceeds(format("DROP TABLE %s", renamedName));
+        assertQuerySucceeds("DROP TABLE %s".formatted(renamedName));
         assertThat(metastore.getTable("tpch", tableName)).as("Initial table should not exist").isEmpty();
         assertThat(metastore.getTable("tpch", renamedName)).as("Renamed table should be dropped").isEmpty();
     }
@@ -133,12 +132,12 @@ public class TestIcebergTableWithCustomLocation
     {
         String tableName = "test_create_rename_create";
         String renamedName = "test_create_rename_create_renamed";
-        assertQuerySucceeds(format("CREATE TABLE %s as select 1 as val", tableName));
+        assertQuerySucceeds("CREATE TABLE %s as select 1 as val".formatted(tableName));
         Optional<Table> table = metastore.getTable("tpch", tableName);
         assertThat(table).as("Table should exist").isPresent();
         String tableInitialLocation = table.get().getStorage().getLocation();
 
-        assertQuerySucceeds(format("ALTER TABLE %s RENAME TO %s", tableName, renamedName));
+        assertQuerySucceeds("ALTER TABLE %s RENAME TO %s".formatted(tableName, renamedName));
         Optional<Table> renamedTable = metastore.getTable("tpch", renamedName);
         assertThat(renamedTable).as("Table should exist").isPresent();
         String renamedTableLocation = renamedTable.get().getStorage().getLocation();
@@ -146,7 +145,7 @@ public class TestIcebergTableWithCustomLocation
                 .describedAs("Location should not be changed")
                 .isEqualTo(tableInitialLocation);
 
-        assertQuerySucceeds(format("CREATE TABLE %s as select 1 as val", tableName));
+        assertQuerySucceeds("CREATE TABLE %s as select 1 as val".formatted(tableName));
         Optional<Table> recreatedTableWithInitialName = metastore.getTable("tpch", tableName);
         assertThat(recreatedTableWithInitialName).as("Table should exist").isPresent();
         String recreatedTableLocation = recreatedTableWithInitialName.get().getStorage().getLocation();

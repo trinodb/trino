@@ -29,7 +29,6 @@ import java.util.Map;
 
 import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static io.trino.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_PARSE_ERROR;
-import static java.util.Collections.singletonList;
 
 public class PrometheusQueryResponseParse
 {
@@ -91,8 +90,8 @@ public class PrometheusQueryResponseParse
                     PrometheusTimeSeriesValue stringOrScalarResult = mapper.readValue(result, new TypeReference<PrometheusTimeSeriesValue>() {});
                     Map<String, String> madeUpMetricHeader = new HashMap<>();
                     madeUpMetricHeader.put("__name__", resultType);
-                    PrometheusTimeSeriesValueArray timeSeriesValues = new PrometheusTimeSeriesValueArray(singletonList(stringOrScalarResult));
-                    results = singletonList(new PrometheusMetricResult(madeUpMetricHeader, timeSeriesValues));
+                    PrometheusTimeSeriesValueArray timeSeriesValues = new PrometheusTimeSeriesValueArray(List.of(stringOrScalarResult));
+                    results = List.of(new PrometheusMetricResult(madeUpMetricHeader, timeSeriesValues));
                 }
             }
         }

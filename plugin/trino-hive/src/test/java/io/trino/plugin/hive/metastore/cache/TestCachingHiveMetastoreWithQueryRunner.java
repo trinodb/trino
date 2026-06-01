@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.metastore.cache;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Key;
@@ -194,7 +193,7 @@ public class TestCachingHiveMetastoreWithQueryRunner
             getQueryRunner().execute("INSERT INTO test_part_append VALUES " + row);
         }
 
-        String expected = Joiner.on(",").join(nCopies(nodeCount + 1, row));
+        String expected = String.join(",", nCopies(nodeCount + 1, row));
         assertQuery("SELECT * FROM test_part_append", "VALUES " + expected);
     }
 }

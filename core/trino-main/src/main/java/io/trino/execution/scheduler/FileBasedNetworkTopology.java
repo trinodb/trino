@@ -32,7 +32,6 @@ import java.util.Map;
 
 import static com.google.common.base.CharMatcher.whitespace;
 import static io.trino.execution.scheduler.NetworkLocation.ROOT_LOCATION;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -134,6 +133,6 @@ public final class FileBasedNetworkTopology
 
     private static RuntimeException invalidFile(int lineNumber, String message)
     {
-        return new RuntimeException(format("Error in network topology file line %s: %s", lineNumber, message));
+        return new RuntimeException("Error in network topology file line %s: %s".formatted(lineNumber, message));
     }
 }

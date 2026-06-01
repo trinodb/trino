@@ -101,7 +101,6 @@ import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH
 import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_QUERY_FAILURE;
 import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_SSL_INITIALIZATION_FAILURE;
 import static java.lang.StrictMath.toIntExact;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -179,7 +178,7 @@ public class ElasticsearchClient
                     .map(ElasticsearchNode::address)
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    .map(address -> HttpHost.create(format("%s://%s", tlsEnabled ? "https" : "http", address)))
+                    .map(address -> HttpHost.create("%s://%s".formatted(tlsEnabled ? "https" : "http", address)))
                     .toArray(HttpHost[]::new);
 
             if (hosts.length > 0 && !ignorePublishAddress) {
@@ -324,7 +323,7 @@ public class ElasticsearchClient
         Map<String, ElasticsearchNode> nodeById = getNodes().stream()
                 .collect(toImmutableMap(ElasticsearchNode::id, Function.identity()));
 
-        SearchShardsResponse shardsResponse = doRequest(format("/%s/_search_shards", index), SEARCH_SHARDS_RESPONSE_CODEC::fromJson);
+        SearchShardsResponse shardsResponse = doRequest("/%s/_search_shards".formatted(index), SEARCH_SHARDS_RESPONSE_CODEC::fromJson);
 
         ImmutableList.Builder<Shard> shards = ImmutableList.builder();
         List<ElasticsearchNode> nodes = ImmutableList.copyOf(nodeById.values());
@@ -366,7 +365,7 @@ public class ElasticsearchClient
 
     public boolean indexExists(String index)
     {
-        String path = format("/%s/_mappings", index);
+        String path = "/%s/_mappings".formatted(index);
 
         try {
             Response response = client.getLowLevelClient()
@@ -447,7 +446,7 @@ public class ElasticsearchClient
 
     public IndexMetadata getIndexMetadata(String index)
     {
-        String path = format("/%s/_mappings", index);
+        String path = "/%s/_mappings".formatted(index);
 
         return doRequest(path, body -> {
             try {
@@ -508,7 +507,7 @@ public class ElasticsearchClient
             if (isArray && asRawJson) {
                 throw new TrinoException(
                         ELASTICSEARCH_INVALID_METADATA,
-                        format("A column, (%s) cannot be declared as a Trino array and also be rendered as json.", name));
+                        "A column, (%s) cannot be declared as a Trino array and also be rendered as json.".formatted(name));
             }
 
             switch (type) {
@@ -545,7 +544,7 @@ public class ElasticsearchClient
 
     public String executeQuery(String index, String query)
     {
-        String path = format("/%s/_search", index);
+        String path = "/%s/_search".formatted(index);
 
         Response response;
         try {
@@ -662,7 +661,7 @@ public class ElasticsearchClient
                 response = client.getLowLevelClient()
                         .performRequest(
                                 "GET",
-                                format("/%s/_count?preference=_shards:%s", index, shard),
+                                "/%s/_count?preference=_shards:%s".formatted(index, shard),
                                 ImmutableMap.of(),
                                 new StringEntity(sourceBuilder.toString(), UTF_8),
                                 new BasicHeader("Content-Type", "application/json"));

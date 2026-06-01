@@ -28,7 +28,6 @@ import io.trino.spi.catalog.CatalogName;
 import org.weakref.jmx.guice.MBeanModule;
 
 import static com.google.common.reflect.Reflection.newProxy;
-import static java.lang.String.format;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class JdbcDiagnosticModule
@@ -54,7 +53,7 @@ public class JdbcDiagnosticModule
     @Singleton
     public StatisticsAwareJdbcClient createStatisticsAwareJdbcClient(@ForBaseJdbc JdbcClient client, CatalogName catalogName)
     {
-        Logger logger = Logger.get(format("io.trino.plugin.jdbc.%s.jdbcclient", catalogName));
+        Logger logger = Logger.get("io.trino.plugin.jdbc.%s.jdbcclient".formatted(catalogName));
 
         JdbcClient loggingInvocationsJdbcClient = newProxy(JdbcClient.class, new LoggingInvocationHandler(client, logger::debug));
 

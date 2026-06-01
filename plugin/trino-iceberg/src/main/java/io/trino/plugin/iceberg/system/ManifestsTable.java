@@ -48,7 +48,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ManifestsTable
@@ -112,7 +111,7 @@ public class ManifestsTable
 
         Snapshot snapshot = icebergTable.snapshot(snapshotId);
         if (snapshot == null) {
-            throw new TrinoException(ICEBERG_INVALID_METADATA, format("Snapshot ID [%s] does not exist for table: %s", snapshotId, icebergTable));
+            throw new TrinoException(ICEBERG_INVALID_METADATA, "Snapshot ID [%s] does not exist for table: %s".formatted(snapshotId, icebergTable));
         }
 
         Map<Integer, PartitionSpec> partitionSpecsById = icebergTable.specs();

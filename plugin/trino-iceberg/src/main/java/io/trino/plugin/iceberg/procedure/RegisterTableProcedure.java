@@ -49,7 +49,6 @@ import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
@@ -148,7 +147,7 @@ public class RegisterTableProcedure
         accessControl.checkCanCreateTable(null, schemaTableName, ImmutableMap.of());
         TrinoCatalog catalog = catalogFactory.create(clientSession.getIdentity());
         if (!catalog.namespaceExists(clientSession, schemaTableName.getSchemaName())) {
-            throw new TrinoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", schemaTableName.getSchemaName()));
+            throw new TrinoException(SCHEMA_NOT_FOUND, "Schema '%s' does not exist".formatted(schemaTableName.getSchemaName()));
         }
 
         TrinoFileSystem fileSystem = fileSystemFactory.create(clientSession);
@@ -188,7 +187,7 @@ public class RegisterTableProcedure
     private static String getMetadataLocation(TrinoFileSystem fileSystem, String location, Optional<String> metadataFileName)
     {
         return metadataFileName
-                .map(fileName -> format("%s/%s/%s", stripTrailingSlash(location), METADATA_FOLDER_NAME, fileName))
+                .map(fileName -> "%s/%s/%s".formatted(stripTrailingSlash(location), METADATA_FOLDER_NAME, fileName))
                 .orElseGet(() -> getLatestMetadataLocation(fileSystem, location));
     }
 

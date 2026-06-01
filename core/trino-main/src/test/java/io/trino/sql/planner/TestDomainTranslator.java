@@ -84,7 +84,6 @@ import static io.trino.type.ColorType.COLOR;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.Reals.toReal;
-import static java.lang.String.format;
 import static java.math.BigDecimal.ONE;
 import static java.math.BigDecimal.TWO;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -1772,7 +1771,7 @@ public class TestDomainTranslator
         TupleDomain<Symbol> actual = result.getTupleDomain();
         TupleDomain<Symbol> expected = tupleDomain(symbol, expectedDomain);
         if (!actual.equals(expected)) {
-            fail(format("for comparison [%s] expected [%s] but found [%s]", expression, expected, actual));
+            fail("for comparison [%s] expected [%s] but found [%s]".formatted(expression, expected, actual));
         }
     }
 

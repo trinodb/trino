@@ -24,7 +24,6 @@ import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
-import static java.lang.String.format;
 
 public final class SemanticExceptions
 {
@@ -55,6 +54,6 @@ public final class SemanticExceptions
     @FormatMethod
     public static TrinoException semanticException(ErrorCodeSupplier code, Node node, Throwable cause, String format, Object... args)
     {
-        throw new TrinoException(code, extractLocation(node), format(format, args), cause);
+        throw new TrinoException(code, extractLocation(node), format.formatted(args), cause);
     }
 }

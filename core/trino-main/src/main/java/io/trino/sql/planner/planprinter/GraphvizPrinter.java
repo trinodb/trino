@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.planprinter;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.trino.sql.ir.Comparison;
@@ -77,7 +76,6 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.planprinter.PlanPrinter.formatAggregation;
-import static java.lang.String.format;
 
 public final class GraphvizPrinter
 {
@@ -194,7 +192,7 @@ public final class GraphvizPrinter
                 .append(" {")
                 .append('\n');
 
-        output.append(format("label = \"%s\"", fragment.getPartitioning()))
+        output.append("label = \"%s\"".formatted(fragment.getPartitioning()))
                 .append('\n');
 
         PlanNode plan = fragment.getRoot();
@@ -220,7 +218,7 @@ public final class GraphvizPrinter
         @Override
         protected Void visitPlan(PlanNode node, Void context)
         {
-            throw new UnsupportedOperationException(format("Node %s does not have a Graphviz visitor", node.getClass().getName()));
+            throw new UnsupportedOperationException("Node %s does not have a Graphviz visitor".formatted(node.getClass().getName()));
         }
 
         @Override
@@ -230,42 +228,42 @@ public final class GraphvizPrinter
             for (int i = 0; i < node.getColumnNames().size(); i++) {
                 columns.add(node.getColumnNames().get(i) + " := " + node.getColumns().get(i));
             }
-            printNode(node, format("TableWriter[%s]", Joiner.on(", ").join(columns)), NODE_COLORS.get(NodeType.TABLE_WRITER));
+            printNode(node, "TableWriter[%s]".formatted(String.join(", ", columns)), NODE_COLORS.get(NodeType.TABLE_WRITER));
             return node.getSource().accept(this, context);
         }
 
         @Override
         public Void visitStatisticsWriterNode(StatisticsWriterNode node, Void context)
         {
-            printNode(node, format("StatisticsWriterNode[%s]", Joiner.on(", ").join(node.getOutputSymbols())), NODE_COLORS.get(NodeType.ANALYZE_FINISH));
+            printNode(node, "StatisticsWriterNode[%s]".formatted(node.getOutputSymbols().stream().map(Object::toString).collect(Collectors.joining(", "))), NODE_COLORS.get(NodeType.ANALYZE_FINISH));
             return node.getSource().accept(this, context);
         }
 
         @Override
         public Void visitTableFinish(TableFinishNode node, Void context)
         {
-            printNode(node, format("TableFinish[%s]", Joiner.on(", ").join(node.getOutputSymbols())), NODE_COLORS.get(NodeType.TABLE_FINISH));
+            printNode(node, "TableFinish[%s]".formatted(node.getOutputSymbols().stream().map(Object::toString).collect(Collectors.joining(", "))), NODE_COLORS.get(NodeType.TABLE_FINISH));
             return node.getSource().accept(this, context);
         }
 
         @Override
         public Void visitSample(SampleNode node, Void context)
         {
-            printNode(node, format("Sample[type=%s, ratio=%f]", node.getSampleType(), node.getSampleRatio()), NODE_COLORS.get(NodeType.SAMPLE));
+            printNode(node, "Sample[type=%s, ratio=%f]".formatted(node.getSampleType(), node.getSampleRatio()), NODE_COLORS.get(NodeType.SAMPLE));
             return node.getSource().accept(this, context);
         }
 
         @Override
         public Void visitSort(SortNode node, Void context)
         {
-            printNode(node, format("Sort[%s]", Joiner.on(", ").join(node.getOrderingScheme().orderBy())), NODE_COLORS.get(NodeType.SORT));
+            printNode(node, "Sort[%s]".formatted(node.getOrderingScheme().orderBy().stream().map(Object::toString).collect(Collectors.joining(", "))), NODE_COLORS.get(NodeType.SORT));
             return node.getSource().accept(this, context);
         }
 
         @Override
         public Void visitMarkDistinct(MarkDistinctNode node, Void context)
         {
-            printNode(node, format("MarkDistinct[%s]", node.getMarkerSymbol()), format("%s => %s", node.getDistinctSymbols(), node.getMarkerSymbol()), NODE_COLORS.get(NodeType.MARK_DISTINCT));
+            printNode(node, "MarkDistinct[%s]".formatted(node.getMarkerSymbol()), "%s => %s".formatted(node.getDistinctSymbols(), node.getMarkerSymbol()), NODE_COLORS.get(NodeType.MARK_DISTINCT));
             return node.getSource().accept(this, context);
         }
 
@@ -275,11 +273,10 @@ public final class GraphvizPrinter
             printNode(
                     node,
                     "Window",
-                    format(
-                            "partition by = %s|order by = %s",
-                            Joiner.on(", ").join(node.getPartitionBy()),
+                    "partition by = %s|order by = %s".formatted(
+                            node.getPartitionBy().stream().map(Object::toString).collect(Collectors.joining(", ")),
                             node.getOrderingScheme()
-                                    .map(orderingScheme -> Joiner.on(", ").join(orderingScheme.orderBy()))
+                                    .map(orderingScheme -> orderingScheme.orderBy().stream().map(Object::toString).collect(Collectors.joining(", ")))
                                     .orElse("")),
                     NODE_COLORS.get(NodeType.WINDOW));
             return node.getSource().accept(this, context);
@@ -291,11 +288,10 @@ public final class GraphvizPrinter
             printNode(
                     node,
                     "PatternRecognition",
-                    format(
-                            "partition by = %s|order by = %s",
-                            Joiner.on(", ").join(node.getPartitionBy()),
+                    "partition by = %s|order by = %s".formatted(
+                            node.getPartitionBy().stream().map(Object::toString).collect(Collectors.joining(", ")),
                             node.getOrderingScheme()
-                                    .map(orderingScheme -> Joiner.on(", ").join(orderingScheme.orderBy()))
+                                    .map(orderingScheme -> orderingScheme.orderBy().stream().map(Object::toString).collect(Collectors.joining(", ")))
                                     .orElse("")),
                     NODE_COLORS.get(NodeType.WINDOW));
             return node.getSource().accept(this, context);
@@ -307,7 +303,7 @@ public final class GraphvizPrinter
             printNode(
                     node,
                     "RowNumber",
-                    format("partition by = %s", Joiner.on(", ").join(node.getPartitionBy())),
+                    "partition by = %s".formatted(node.getPartitionBy().stream().map(Object::toString).collect(Collectors.joining(", "))),
                     NODE_COLORS.get(NodeType.WINDOW));
             return node.getSource().accept(this, context);
         }
@@ -318,10 +314,10 @@ public final class GraphvizPrinter
             printNode(
                     node,
                     "TopNRanking",
-                    format("type=%s|partition by = %s|order by = %s|n = %s",
+                    "type=%s|partition by = %s|order by = %s|n = %s".formatted(
                             node.getRankingType(),
-                            Joiner.on(", ").join(node.getPartitionBy()),
-                            Joiner.on(", ").join(node.getOrderingScheme().orderBy()),
+                            node.getPartitionBy().stream().map(Object::toString).collect(Collectors.joining(", ")),
+                            node.getOrderingScheme().orderBy().stream().map(Object::toString).collect(Collectors.joining(", ")),
                             node.getMaxRankingPerPartition()),
                     NODE_COLORS.get(NodeType.WINDOW));
             return node.getSource().accept(this, context);
@@ -356,8 +352,8 @@ public final class GraphvizPrinter
             if (node.getType() == REPARTITION) {
                 symbols = node.getPartitioningScheme().getPartitioning().getArguments();
             }
-            String columns = Joiner.on(", ").join(symbols);
-            printNode(node, format("ExchangeNode[%s]", node.getType()), columns, NODE_COLORS.get(NodeType.EXCHANGE));
+            String columns = symbols.stream().map(Object::toString).collect(Collectors.joining(", "));
+            printNode(node, "ExchangeNode[%s]".formatted(node.getType()), columns, NODE_COLORS.get(NodeType.EXCHANGE));
             for (PlanNode planNode : node.getSources()) {
                 planNode.accept(this, context);
             }
@@ -369,9 +365,9 @@ public final class GraphvizPrinter
         {
             StringBuilder builder = new StringBuilder();
             for (Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
-                builder.append(format("%s := %s\\n", entry.getKey(), formatAggregation(new NoOpAnonymizer(), entry.getValue())));
+                builder.append("%s := %s\\n".formatted(entry.getKey(), formatAggregation(new NoOpAnonymizer(), entry.getValue())));
             }
-            printNode(node, format("Aggregate[%s]", node.getStep()), builder.toString(), NODE_COLORS.get(NodeType.AGGREGATE));
+            printNode(node, "Aggregate[%s]".formatted(node.getStep()), builder.toString(), NODE_COLORS.get(NodeType.AGGREGATE));
             return node.getSource().accept(this, context);
         }
 
@@ -380,12 +376,13 @@ public final class GraphvizPrinter
         {
             // grouping sets are easier to understand in terms of inputs
             List<String> inputGroupingSetSymbols = node.getGroupingSets().stream()
-                    .map(set -> "(" + Joiner.on(", ").join(set.stream()
+                    .map(set -> "(" + set.stream()
                             .map(symbol -> node.getGroupingColumns().get(symbol))
-                            .collect(Collectors.toList())) + ")")
+                            .map(Object::toString)
+                            .collect(Collectors.joining(", ")) + ")")
                     .collect(Collectors.toList());
 
-            printNode(node, "GroupId", Joiner.on(", ").join(inputGroupingSetSymbols), NODE_COLORS.get(NodeType.AGGREGATE));
+            printNode(node, "GroupId", String.join(", ", inputGroupingSetSymbols), NODE_COLORS.get(NodeType.AGGREGATE));
             return node.getSource().accept(this, context);
         }
 
@@ -407,7 +404,7 @@ public final class GraphvizPrinter
                     // skip identity assignments
                     continue;
                 }
-                builder.append(format("%s := %s\\n", entry.getKey(), entry.getValue()));
+                builder.append("%s := %s\\n".formatted(entry.getKey(), entry.getValue()));
             }
 
             printNode(node, "Project", builder.toString(), NODE_COLORS.get(NodeType.PROJECT));
@@ -435,7 +432,7 @@ public final class GraphvizPrinter
                     .map(UnnestNode.Mapping::getInput)
                     .collect(toImmutableList());
 
-            label.append(format(" [%s", unnestInputs))
+            label.append(" [%s".formatted(unnestInputs))
                     .append(node.getOrdinalitySymbol().isPresent() ? " (ordinality)]" : "]");
 
             printNode(node, label.toString(), "", NODE_COLORS.get(NodeType.UNNEST));
@@ -450,7 +447,7 @@ public final class GraphvizPrinter
                     .map(input -> input + " " + node.getOrderingScheme().ordering(input))
                     .collect(Collectors.joining(", "));
 
-            printNode(node, format("TopN[%s]", node.getCount()), keys, NODE_COLORS.get(NodeType.TOPN));
+            printNode(node, "TopN[%s]".formatted(node.getCount()), keys, NODE_COLORS.get(NodeType.TOPN));
             return node.getSource().accept(this, context);
         }
 
@@ -458,28 +455,28 @@ public final class GraphvizPrinter
         public Void visitOutput(OutputNode node, Void context)
         {
             String columns = getColumns(node);
-            printNode(node, format("Output[%s]", columns), NODE_COLORS.get(NodeType.OUTPUT));
+            printNode(node, "Output[%s]".formatted(columns), NODE_COLORS.get(NodeType.OUTPUT));
             return node.getSource().accept(this, context);
         }
 
         @Override
         public Void visitDistinctLimit(DistinctLimitNode node, Void context)
         {
-            printNode(node, format("DistinctLimit[%s]", node.getLimit()), NODE_COLORS.get(NodeType.LIMIT));
+            printNode(node, "DistinctLimit[%s]".formatted(node.getLimit()), NODE_COLORS.get(NodeType.LIMIT));
             return node.getSource().accept(this, context);
         }
 
         @Override
         public Void visitLimit(LimitNode node, Void context)
         {
-            printNode(node, format("Limit[%s]", node.getCount()), NODE_COLORS.get(NodeType.LIMIT));
+            printNode(node, "Limit[%s]".formatted(node.getCount()), NODE_COLORS.get(NodeType.LIMIT));
             return node.getSource().accept(this, context);
         }
 
         @Override
         public Void visitTableScan(TableScanNode node, Void context)
         {
-            printNode(node, format("TableScan[%s]", node.getTable()), NODE_COLORS.get(NodeType.TABLESCAN));
+            printNode(node, "TableScan[%s]".formatted(node.getTable()), NODE_COLORS.get(NodeType.TABLESCAN));
             return null;
         }
 
@@ -505,7 +502,7 @@ public final class GraphvizPrinter
                 joinExpressions.add(clause.toExpression());
             }
 
-            String criteria = Joiner.on(" AND ").join(joinExpressions);
+            String criteria = joinExpressions.stream().map(Object::toString).collect(Collectors.joining(" AND "));
             printNode(node, node.getType().getJoinLabel(), criteria, NODE_COLORS.get(NodeType.JOIN));
 
             node.getLeft().accept(this, context);
@@ -517,7 +514,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitSemiJoin(SemiJoinNode node, Void context)
         {
-            printNode(node, "SemiJoin", format("%s = %s", node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol()), NODE_COLORS.get(NodeType.JOIN));
+            printNode(node, "SemiJoin", "%s = %s".formatted(node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol()), NODE_COLORS.get(NodeType.JOIN));
 
             node.getSource().accept(this, context);
             node.getFilteringSource().accept(this, context);
@@ -539,7 +536,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitApply(ApplyNode node, Void context)
         {
-            String parameters = Joiner.on(",").join(node.getCorrelation());
+            String parameters = node.getCorrelation().stream().map(Object::toString).collect(Collectors.joining(","));
             printNode(node, "Apply", parameters, NODE_COLORS.get(NodeType.JOIN));
 
             node.getInput().accept(this, context);
@@ -560,7 +557,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitCorrelatedJoin(CorrelatedJoinNode node, Void context)
         {
-            String correlationSymbols = Joiner.on(",").join(node.getCorrelation());
+            String correlationSymbols = node.getCorrelation().stream().map(Object::toString).collect(Collectors.joining(","));
             String filterExpression = "";
             if (!node.getFilter().equals(TRUE)) {
                 filterExpression = " " + node.getFilter().toString();
@@ -577,7 +574,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitIndexSource(IndexSourceNode node, Void context)
         {
-            printNode(node, format("IndexSource[%s]", node.getIndexHandle()), NODE_COLORS.get(NodeType.INDEX_SOURCE));
+            printNode(node, "IndexSource[%s]".formatted(node.getIndexHandle()), NODE_COLORS.get(NodeType.INDEX_SOURCE));
             return null;
         }
 
@@ -592,8 +589,8 @@ public final class GraphvizPrinter
                         clause.getIndex().toSymbolReference()));
             }
 
-            String criteria = Joiner.on(" AND ").join(joinExpressions);
-            String joinLabel = format("%sIndexJoin", node.getType().getJoinLabel());
+            String criteria = joinExpressions.stream().map(Object::toString).collect(Collectors.joining(" AND "));
+            String joinLabel = "%sIndexJoin".formatted(node.getType().getJoinLabel());
             printNode(node, joinLabel, criteria, NODE_COLORS.get(NodeType.JOIN));
 
             node.getProbeSource().accept(this, context);
@@ -614,7 +611,7 @@ public final class GraphvizPrinter
             String nodeId = idGenerator.getNodeId(node);
             label = escapeSpecialCharacters(label);
             output.append(nodeId)
-                    .append(format("[label=\"{%s}\", style=\"rounded, filled\", shape=record, fillcolor=%s]", label, color))
+                    .append("[label=\"{%s}\", style=\"rounded, filled\", shape=record, fillcolor=%s]".formatted(label, color))
                     .append(';')
                     .append('\n');
         }
@@ -629,7 +626,7 @@ public final class GraphvizPrinter
                 label = escapeSpecialCharacters(label);
                 details = escapeSpecialCharacters(details);
                 output.append(nodeId)
-                        .append(format("[label=\"{%s|%s}\", style=\"rounded, filled\", shape=record, fillcolor=%s]", label, details, color))
+                        .append("[label=\"{%s|%s}\", style=\"rounded, filled\", shape=record, fillcolor=%s]".formatted(label, details, color))
                         .append(';')
                         .append('\n');
             }

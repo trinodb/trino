@@ -43,7 +43,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testcontainers.utility.MountableFile.forClasspathResource;
@@ -238,7 +237,7 @@ public class TestingDruidServer
 
     private static String getJdbcUrl(int port)
     {
-        return format("jdbc:avatica:remote:url=http://localhost:%s/druid/v2/sql/avatica/", port);
+        return "jdbc:avatica:remote:url=http://localhost:%s/druid/v2/sql/avatica/".formatted(port);
     }
 
     void ingestData(String datasource, Optional<String> fileName, String indexTask, String dataFilePath)

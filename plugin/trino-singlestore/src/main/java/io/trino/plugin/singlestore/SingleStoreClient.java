@@ -136,7 +136,6 @@ import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -451,8 +450,7 @@ public class SingleStoreClient
             throws SQLException
     {
         // SingleStore versions earlier than 5.7 do not support the CHANGE syntax
-        execute(session, connection, format(
-                "ALTER TABLE %s CHANGE %s %s",
+        execute(session, connection, "ALTER TABLE %s CHANGE %s %s".formatted(
                 quoted(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
                 quoted(remoteColumnName),
                 quoted(newRemoteColumnName)));
@@ -503,7 +501,7 @@ public class SingleStoreClient
             return WriteMapping.longMapping("bigint", bigintWriteFunction());
         }
         if (type instanceof DecimalType decimalType) {
-            String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            String dataType = "decimal(%s, %s)".formatted(decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
@@ -556,7 +554,7 @@ public class SingleStoreClient
             if (timestampType.getPrecision() == 0) {
                 return WriteMapping.longMapping("datetime", timestampWriteFunction(timestampType));
             }
-            return WriteMapping.longMapping(format("datetime(%s)", SINGLESTORE_DATE_TIME_MAX_PRECISION), timestampWriteFunction(TIMESTAMP_MICROS));
+            return WriteMapping.longMapping("datetime(%s)".formatted(SINGLESTORE_DATE_TIME_MAX_PRECISION), timestampWriteFunction(TIMESTAMP_MICROS));
         }
         if (type.equals(jsonType)) {
             return WriteMapping.sliceMapping("json", varcharWriteFunction());
@@ -597,17 +595,17 @@ public class SingleStoreClient
             String orderBy = sortItems.stream()
                     .flatMap(sortItem -> {
                         String ordering = sortItem.sortOrder().isAscending() ? "ASC" : "DESC";
-                        String columnSorting = format("%s %s", quoted(sortItem.column().getColumnName()), ordering);
+                        String columnSorting = "%s %s".formatted(quoted(sortItem.column().getColumnName()), ordering);
 
                         return switch (sortItem.sortOrder()) {
                             // In SingleStore ASC implies NULLS FIRST, DESC implies NULLS LAST
                             case ASC_NULLS_FIRST, DESC_NULLS_LAST -> Stream.of(columnSorting);
-                            case ASC_NULLS_LAST -> Stream.of(format("ISNULL(%s) ASC", quoted(sortItem.column().getColumnName())), columnSorting);
-                            case DESC_NULLS_FIRST -> Stream.of(format("ISNULL(%s) DESC", quoted(sortItem.column().getColumnName())), columnSorting);
+                            case ASC_NULLS_LAST -> Stream.of("ISNULL(%s) ASC".formatted(quoted(sortItem.column().getColumnName())), columnSorting);
+                            case DESC_NULLS_FIRST -> Stream.of("ISNULL(%s) DESC".formatted(quoted(sortItem.column().getColumnName())), columnSorting);
                         };
                     })
                     .collect(joining(", "));
-            return format("%s ORDER BY %s LIMIT %s", query, orderBy, limit);
+            return "%s ORDER BY %s LIMIT %s".formatted(query, orderBy, limit);
         });
     }
 
@@ -725,7 +723,7 @@ public class SingleStoreClient
                     return rounded;
                 }
                 catch (DateTimeParseException e) {
-                    throw new IllegalStateException(format("Supported Trino TIME type range is between 00:00:00 and 23:59:59.999999 but got %s", timeString), e);
+                    throw new IllegalStateException("Supported Trino TIME type range is between 00:00:00 and 23:59:59.999999 but got %s".formatted(timeString), e);
                 }
             }
         };

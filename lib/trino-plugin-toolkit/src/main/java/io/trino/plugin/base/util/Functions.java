@@ -17,7 +17,6 @@ import com.google.errorprone.annotations.FormatMethod;
 import io.trino.spi.TrinoException;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static java.lang.String.format;
 
 public final class Functions
 {
@@ -27,7 +26,7 @@ public final class Functions
     public static void checkFunctionArgument(boolean condition, String message, Object... args)
     {
         if (!condition) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format(message, args));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, message.formatted(args));
         }
     }
 }

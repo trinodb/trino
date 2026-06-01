@@ -48,7 +48,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
@@ -122,7 +121,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     public void testRenameSchema()
     {
         assertQueryFails(
-                format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomNameSuffix()),
+                "ALTER SCHEMA %s RENAME TO %s".formatted(schemaName, schemaName + randomNameSuffix()),
                 "Hive metastore does not support renaming schemas");
     }
 
@@ -266,8 +265,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     {
         String tableName = "test_path_special_character" + randomNameSuffix();
         String location = "s3://%s/%s/%s/".formatted(bucketName, schemaName, tableName);
-        assertUpdate(format(
-                "CREATE TABLE %s (id bigint, part varchar) WITH (partitioning = ARRAY['part'], location='%s')",
+        assertUpdate("CREATE TABLE %s (id bigint, part varchar) WITH (partitioning = ARRAY['part'], location='%s')".formatted(
                 tableName,
                 location));
 
@@ -321,7 +319,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
 
     private List<Long> getSnapshotIds(String tableName)
     {
-        return getQueryRunner().execute(format("SELECT snapshot_id FROM \"%s$snapshots\"", tableName))
+        return getQueryRunner().execute("SELECT snapshot_id FROM \"%s$snapshots\"".formatted(tableName))
                 .getOnlyColumn()
                 .map(Long.class::cast)
                 .collect(toImmutableList());
@@ -353,7 +351,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     @Override
     protected String schemaPath()
     {
-        return format("s3://%s/%s", bucketName, schemaName);
+        return "s3://%s/%s".formatted(bucketName, schemaName);
     }
 
     @Override

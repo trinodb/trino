@@ -55,7 +55,6 @@ import static io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE;
 import static io.trino.util.DateTimeZoneIndex.getChronology;
 import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 
 public final class DateTimeUtils
 {
@@ -337,10 +336,10 @@ public final class DateTimeUtils
     {
         String message;
         if (startField == endField) {
-            message = format("Invalid INTERVAL %s value: %s", startField.name(), value);
+            message = "Invalid INTERVAL %s value: %s".formatted(startField.name(), value);
         }
         else {
-            message = format("Invalid INTERVAL %s TO %s value: %s", startField.name(), endField.name(), value);
+            message = "Invalid INTERVAL %s TO %s value: %s".formatted(startField.name(), endField.name(), value);
         }
         return new TrinoException(INVALID_LITERAL, message, throwable);
     }

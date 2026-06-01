@@ -13,7 +13,6 @@
  */
 package io.trino.server.security;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.server.InternalAuthenticationManager;
@@ -112,7 +111,7 @@ public class AuthenticationFilter
         }
         // The error string is used by clients for exception messages and
         // is presented to the end user, thus it should be a single line.
-        String error = Joiner.on(" | ").join(messages);
+        String error = String.join(" | ", messages);
 
         sendWwwAuthenticate(request, error, authenticateHeaders);
     }

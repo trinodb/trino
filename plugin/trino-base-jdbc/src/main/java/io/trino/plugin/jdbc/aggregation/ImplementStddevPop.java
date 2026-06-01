@@ -33,7 +33,6 @@ import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functio
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleArgument;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.type;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.variable;
-import static java.lang.String.format;
 
 public class ImplementStddevPop
         implements AggregateFunctionRule<JdbcExpression, ParameterizedExpression>
@@ -60,7 +59,7 @@ public class ImplementStddevPop
 
         ParameterizedExpression rewrittenArgument = context.rewriteExpression(argument).orElseThrow();
         return Optional.of(new JdbcExpression(
-                format("stddev_pop(%s)", rewrittenArgument.expression()),
+                "stddev_pop(%s)".formatted(rewrittenArgument.expression()),
                 rewrittenArgument.parameters(),
                 columnHandle.getJdbcTypeHandle()));
     }

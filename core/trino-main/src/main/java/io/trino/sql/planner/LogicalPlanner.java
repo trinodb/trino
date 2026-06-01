@@ -164,7 +164,6 @@ import static io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import static io.trino.sql.planner.sanity.PlanSanityChecker.DISTRIBUTED_PLAN_SANITY_CHECKER;
 import static io.trino.tracing.ScopedSpan.scopedSpan;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class LogicalPlanner
@@ -846,8 +845,7 @@ public class LogicalPlanner
                                 new Constant(BIGINT, 0L))),
                 new Cast(expression, toType),
                 new Cast(
-                        failFunction(metadata, INVALID_CAST_ARGUMENT, format(
-                                "Cannot truncate non-space characters when casting from %s to %s on INSERT",
+                        failFunction(metadata, INVALID_CAST_ARGUMENT, "Cannot truncate non-space characters when casting from %s to %s on INSERT".formatted(
                                 fromType.getDisplayName(),
                                 toType.getDisplayName())),
                         toType));

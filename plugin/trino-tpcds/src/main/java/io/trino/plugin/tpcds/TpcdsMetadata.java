@@ -46,7 +46,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -157,7 +156,7 @@ public class TpcdsMetadata
                 return column;
             }
         }
-        throw new IllegalArgumentException(format("Table '%s' does not have column '%s'", tableMetadata.getTable(), columnName));
+        throw new IllegalArgumentException("Table '%s' does not have column '%s'".formatted(tableMetadata.getTable(), columnName));
     }
 
     @Override

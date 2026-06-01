@@ -39,7 +39,6 @@ import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -114,7 +113,7 @@ public class TestIntegerOperators
         assertThat(assertions.operator(ADD, "INTEGER '17'", "INTEGER '17'"))
                 .isEqualTo(17 + 17);
 
-        assertTrinoExceptionThrownBy(assertions.expression(format("INTEGER '%s' + INTEGER '1'", Integer.MAX_VALUE))::evaluate)
+        assertTrinoExceptionThrownBy(assertions.expression("INTEGER '%s' + INTEGER '1'".formatted(Integer.MAX_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("integer addition overflow: 2147483647 + 1");
     }
@@ -134,7 +133,7 @@ public class TestIntegerOperators
         assertThat(assertions.operator(SUBTRACT, "INTEGER '17'", "INTEGER '17'"))
                 .isEqualTo(0);
 
-        assertTrinoExceptionThrownBy(assertions.expression(format("INTEGER '%s' - INTEGER '1'", Integer.MIN_VALUE))::evaluate)
+        assertTrinoExceptionThrownBy(assertions.expression("INTEGER '%s' - INTEGER '1'".formatted(Integer.MIN_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("integer subtraction overflow: -2147483648 - 1");
     }
@@ -154,7 +153,7 @@ public class TestIntegerOperators
         assertThat(assertions.operator(MULTIPLY, "INTEGER '17'", "INTEGER '17'"))
                 .isEqualTo(17 * 17);
 
-        assertTrinoExceptionThrownBy(assertions.expression(format("INTEGER '%s' * INTEGER '2'", Integer.MAX_VALUE))::evaluate)
+        assertTrinoExceptionThrownBy(assertions.expression("INTEGER '%s' * INTEGER '2'".formatted(Integer.MAX_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("integer multiplication overflow: 2147483647 * 2");
     }
@@ -209,7 +208,7 @@ public class TestIntegerOperators
         assertThat(assertions.expression("-(INTEGER '" + Integer.MAX_VALUE + "')"))
                 .isEqualTo(Integer.MIN_VALUE + 1);
 
-        assertTrinoExceptionThrownBy(assertions.expression(format("-(INTEGER '%s')", Integer.MIN_VALUE))::evaluate)
+        assertTrinoExceptionThrownBy(assertions.expression("-(INTEGER '%s')".formatted(Integer.MIN_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("integer negation overflow: -2147483648");
     }

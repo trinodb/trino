@@ -16,7 +16,6 @@ package io.trino.plugin.mysql;
 import io.trino.testing.MaterializedRow;
 import org.junit.jupiter.api.Test;
 
-import static java.lang.String.format;
 import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseMySqlTableStatisticsIndexStatisticsTest
@@ -38,7 +37,7 @@ public abstract class BaseMySqlTableStatisticsIndexStatisticsTest
             if (columnType.startsWith("varchar")) {
                 continue;
             }
-            executeInMysql(format("CREATE INDEX %2$s ON %1$s (%2$s)", tableName, columnName).replace("\"", "`"));
+            executeInMysql("CREATE INDEX %2$s ON %1$s (%2$s)".formatted(tableName, columnName).replace("\"", "`"));
         }
         executeInMysql("ANALYZE TABLE " + tableName.replace("\"", "`"));
     }

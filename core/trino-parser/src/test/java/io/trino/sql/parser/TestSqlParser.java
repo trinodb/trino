@@ -16,7 +16,6 @@ package io.trino.sql.parser;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AliasedRelation;
 import io.trino.sql.tree.AllColumns;
@@ -254,6 +253,8 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -317,7 +318,6 @@ import static io.trino.sql.tree.Trim.Specification.BOTH;
 import static io.trino.sql.tree.Trim.Specification.LEADING;
 import static io.trino.sql.tree.Trim.Specification.TRAILING;
 import static io.trino.sql.tree.WindowFrame.Type.ROWS;
-import static java.util.Collections.emptyList;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -1838,11 +1838,11 @@ public class TestSqlParser
         String givenString = "ABCDEF";
         assertStatement("SELECT substring('%s' FROM 2)".formatted(givenString),
                 simpleQuery(selectList(
-                        new FunctionCall(QualifiedName.of("substr"), Lists.newArrayList(new StringLiteral(givenString), new LongLiteral("2"))))));
+                        new FunctionCall(QualifiedName.of("substr"), new ArrayList<>(Arrays.asList(new StringLiteral(givenString), new LongLiteral("2")))))));
 
         assertStatement("SELECT substring('%s' FROM 2 FOR 3)".formatted(givenString),
                 simpleQuery(selectList(
-                        new FunctionCall(QualifiedName.of("substr"), Lists.newArrayList(new StringLiteral(givenString), new LongLiteral("2"), new LongLiteral("3"))))));
+                        new FunctionCall(QualifiedName.of("substr"), new ArrayList<>(Arrays.asList(new StringLiteral(givenString), new LongLiteral("2"), new LongLiteral("3")))))));
     }
 
     @Test
@@ -1851,11 +1851,11 @@ public class TestSqlParser
         String givenString = "ABCDEF";
         assertStatement("SELECT substring('%s', 2)".formatted(givenString),
                 simpleQuery(selectList(
-                        new FunctionCall(QualifiedName.of("substring"), Lists.newArrayList(new StringLiteral(givenString), new LongLiteral("2"))))));
+                        new FunctionCall(QualifiedName.of("substring"), new ArrayList<>(Arrays.asList(new StringLiteral(givenString), new LongLiteral("2")))))));
 
         assertStatement("SELECT substring('%s', 2, 3)".formatted(givenString),
                 simpleQuery(selectList(
-                        new FunctionCall(QualifiedName.of("substring"), Lists.newArrayList(new StringLiteral(givenString), new LongLiteral("2"), new LongLiteral("3"))))));
+                        new FunctionCall(QualifiedName.of("substring"), new ArrayList<>(Arrays.asList(new StringLiteral(givenString), new LongLiteral("2"), new LongLiteral("3")))))));
     }
 
     @Test
@@ -2543,7 +2543,7 @@ public class TestSqlParser
                         new NodeLocation(1, 1),
                         QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 35), "VARCHAR"), true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 35), "VARCHAR"), true, List.of(), Optional.empty()),
                                 new LikeClause(
                                         QualifiedName.of("like_table"),
                                         Optional.empty())),
@@ -2557,11 +2557,11 @@ public class TestSqlParser
                         new NodeLocation(1, 1),
                         QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 35), "VARCHAR"), true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 35), "VARCHAR"), true, List.of(), Optional.empty()),
                                 new LikeClause(
                                         QualifiedName.of("like_table"),
                                         Optional.empty()),
-                                new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 63), "BIGINT"), true, emptyList(), Optional.empty())),
+                                new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 63), "BIGINT"), true, List.of(), Optional.empty())),
                         IGNORE,
                         ImmutableList.of(),
                         Optional.empty()));
@@ -2584,7 +2584,7 @@ public class TestSqlParser
                         new NodeLocation(1, 1),
                         QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 35), "VARCHAR"), true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 35), "VARCHAR"), true, List.of(), Optional.empty()),
                                 new LikeClause(
                                         QualifiedName.of("like_table"),
                                         Optional.of(LikeClause.PropertiesOption.EXCLUDING))),
@@ -2598,7 +2598,7 @@ public class TestSqlParser
                         new NodeLocation(1, 1),
                         QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 35), "VARCHAR"), true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 35), "VARCHAR"), true, List.of(), Optional.empty()),
                                 new LikeClause(
                                         QualifiedName.of("like_table"),
                                         Optional.of(LikeClause.PropertiesOption.EXCLUDING))),
@@ -2651,7 +2651,7 @@ public class TestSqlParser
                                         type,
                                         Optional.of(defaultValue),
                                         false,
-                                        emptyList(),
+                                        List.of(),
                                         Optional.empty())),
                         FAIL,
                         ImmutableList.of(),
@@ -2678,10 +2678,10 @@ public class TestSqlParser
                         new NodeLocation(1, 1),
                         QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(QualifiedName.of("a"), simpleType(location(1, 20), "VARCHAR"), false, emptyList(), Optional.of("column a")),
-                                new ColumnDefinition(QualifiedName.of("b"), simpleType(location(1, 59), "BIGINT"), true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 91), "IPADDRESS"), true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 104), "INTEGER"), false, emptyList(), Optional.empty())),
+                                new ColumnDefinition(QualifiedName.of("a"), simpleType(location(1, 20), "VARCHAR"), false, List.of(), Optional.of("column a")),
+                                new ColumnDefinition(QualifiedName.of("b"), simpleType(location(1, 59), "BIGINT"), true, List.of(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 91), "IPADDRESS"), true, List.of(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 104), "INTEGER"), false, List.of(), Optional.empty())),
                         FAIL,
                         ImmutableList.of(),
                         Optional.empty()));
@@ -4135,7 +4135,7 @@ public class TestSqlParser
                 .isEqualTo(new AddColumn(
                         new NodeLocation(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 31), "bigint"), true, emptyList(), Optional.empty()),
+                        new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 31), "bigint"), true, List.of(), Optional.empty()),
                         Optional.empty(),
                         false,
                         false));
@@ -4184,7 +4184,7 @@ public class TestSqlParser
                                 type,
                                 Optional.of(defaultValue),
                                 false,
-                                emptyList(),
+                                List.of(),
                                 Optional.empty()),
                         Optional.empty(),
                         false,
@@ -4199,7 +4199,7 @@ public class TestSqlParser
                 .isEqualTo(new AddColumn(
                         location(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 31), "double"), false, emptyList(), Optional.empty()),
+                        new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 31), "double"), false, List.of(), Optional.empty()),
                         Optional.empty(),
                         false,
                         false));
@@ -4209,7 +4209,7 @@ public class TestSqlParser
                 .isEqualTo(new AddColumn(
                         location(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 31), "double"), false, emptyList(), Optional.empty()),
+                        new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 31), "double"), false, List.of(), Optional.empty()),
                         Optional.empty(),
                         true,
                         false));
@@ -4219,7 +4219,7 @@ public class TestSqlParser
                 .isEqualTo(new AddColumn(
                         location(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 31), "double"), false, emptyList(), Optional.empty()),
+                        new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 31), "double"), false, List.of(), Optional.empty()),
                         Optional.empty(),
                         false,
                         true));
@@ -4229,7 +4229,7 @@ public class TestSqlParser
                 .isEqualTo(new AddColumn(
                         location(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 31), "double"), false, emptyList(), Optional.empty()),
+                        new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 31), "double"), false, List.of(), Optional.empty()),
                         Optional.empty(),
                         true,
                         true));
@@ -4239,7 +4239,7 @@ public class TestSqlParser
                 .isEqualTo(new AddColumn(
                         location(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 31), "bigint"), true, emptyList(), Optional.empty()),
+                        new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 31), "bigint"), true, List.of(), Optional.empty()),
                         Optional.of(new ColumnPosition.First()),
                         false,
                         false));
@@ -4249,7 +4249,7 @@ public class TestSqlParser
                 .isEqualTo(new AddColumn(
                         location(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 31), "bigint"), true, emptyList(), Optional.empty()),
+                        new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 31), "bigint"), true, List.of(), Optional.empty()),
                         Optional.of(new ColumnPosition.Last()),
                         false,
                         false));
@@ -4259,7 +4259,7 @@ public class TestSqlParser
                 .isEqualTo(new AddColumn(
                         location(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 31), "bigint"), true, emptyList(), Optional.empty()),
+                        new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 31), "bigint"), true, List.of(), Optional.empty()),
                         Optional.of(new ColumnPosition.After(identifier("b"))),
                         false,
                         false));
@@ -5631,7 +5631,7 @@ public class TestSqlParser
     public void testExecute()
     {
         assertThat(statement("EXECUTE myquery")).isEqualTo(
-                new Execute(location(1, 1), new Identifier(location(1, 9), "myquery", false), emptyList()));
+                new Execute(location(1, 1), new Identifier(location(1, 9), "myquery", false), List.of()));
     }
 
     @Test
@@ -5655,7 +5655,7 @@ public class TestSqlParser
                 new ExecuteImmediate(
                         new NodeLocation(1, 1),
                         new StringLiteral(new NodeLocation(1, 19), "SELECT * FROM foo"),
-                        emptyList()));
+                        List.of()));
     }
 
     @Test

@@ -15,7 +15,6 @@ package io.trino.json;
 
 import io.trino.json.ir.IrPathNode;
 
-import static java.lang.String.format;
 import static java.lang.System.identityHashCode;
 import static java.util.Objects.requireNonNull;
 
@@ -60,8 +59,7 @@ public final class IrPathNodeRef<T extends IrPathNode>
     @Override
     public String toString()
     {
-        return format(
-                "@%s: %s",
+        return "@%s: %s".formatted(
                 Integer.toHexString(identityHashCode(pathNode)),
                 pathNode);
     }

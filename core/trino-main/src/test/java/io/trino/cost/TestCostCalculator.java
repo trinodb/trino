@@ -74,7 +74,6 @@ import static io.trino.sql.planner.plan.ExchangeNode.replicatedExchange;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.offset;
@@ -656,7 +655,7 @@ public class TestCostCalculator
         return costCalculator.calculateCost(
                 node,
                 planNode -> requireNonNull(stats.apply(planNode), "no stats for node"),
-                source -> requireNonNull(costs.apply(source), format("no cost for source: %s", source.getId())),
+                source -> requireNonNull(costs.apply(source), "no cost for source: %s".formatted(source.getId())),
                 session);
     }
 

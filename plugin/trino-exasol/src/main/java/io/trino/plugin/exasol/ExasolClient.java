@@ -74,7 +74,6 @@ import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 
@@ -343,10 +342,10 @@ public class ExasolClient
                     .map(sortItem -> {
                         String ordering = sortItem.sortOrder().isAscending() ? "ASC" : "DESC";
                         String nullsHandling = sortItem.sortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
-                        return format("%s %s %s", quoted(sortItem.column().getColumnName()), ordering, nullsHandling);
+                        return "%s %s %s".formatted(quoted(sortItem.column().getColumnName()), ordering, nullsHandling);
                     })
                     .collect(joining(", "));
-            return format("%s ORDER BY %s LIMIT %d", query, orderBy, limit);
+            return "%s ORDER BY %s LIMIT %d".formatted(query, orderBy, limit);
         });
     }
 

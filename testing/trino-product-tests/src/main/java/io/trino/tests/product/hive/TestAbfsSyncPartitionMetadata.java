@@ -27,7 +27,6 @@ import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_IS
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.apache.parquet.Strings.isNullOrEmpty;
 
 public class TestAbfsSyncPartitionMetadata
@@ -55,7 +54,7 @@ public class TestAbfsSyncPartitionMetadata
     {
         String container = requireEnv("ABFS_CONTAINER");
         String account = requireEnv("ABFS_ACCOUNT");
-        return format("abfs://%s@%s.dfs.core.windows.net/%s", container, account, schema);
+        return "abfs://%s@%s.dfs.core.windows.net/%s".formatted(container, account, schema);
     }
 
     @Test(groups = AZURE)
@@ -146,7 +145,7 @@ public class TestAbfsSyncPartitionMetadata
     protected void copyOrcFileToHdfsDirectory(String tableName, String targetDirectory)
     {
         String orcFilePath = generateOrcFile();
-        onHive().executeQuery(format("dfs -cp %s %s", orcFilePath, targetDirectory));
+        onHive().executeQuery("dfs -cp %s %s".formatted(orcFilePath, targetDirectory));
     }
 
     @Override

@@ -46,9 +46,9 @@ import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 /**
  * Binds an actual call site signature to a function.
@@ -118,7 +118,7 @@ class FunctionBinder
             }
         }
 
-        throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", signature));
+        throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, "%s not found".formatted(signature));
     }
 
     private boolean canBindSignature(Signature declaredSignature, Signature actualSignature)
@@ -406,19 +406,19 @@ class FunctionBinder
     static TrinoException functionNotFound(String name, List<TypeSignatureProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates)
     {
         if (candidates.isEmpty()) {
-            return new TrinoException(FUNCTION_NOT_FOUND, format("Function '%s' not registered", name));
+            return new TrinoException(FUNCTION_NOT_FOUND, "Function '%s' not registered".formatted(name));
         }
 
         Set<String> expectedParameters = new TreeSet<>();
         for (CatalogFunctionMetadata function : candidates) {
-            String arguments = Joiner.on(", ").join(function.functionMetadata().getSignature().getArgumentTypes());
-            String constraints = Joiner.on(", ").join(function.functionMetadata().getSignature().getTypeVariableConstraints());
-            expectedParameters.add(format("%s(%s) %s", name, arguments, constraints).stripTrailing());
+            String arguments = function.functionMetadata().getSignature().getArgumentTypes().stream().map(Object::toString).collect(joining(", "));
+            String constraints = function.functionMetadata().getSignature().getTypeVariableConstraints().stream().map(Object::toString).collect(joining(", "));
+            expectedParameters.add("%s(%s) %s".formatted(name, arguments, constraints).stripTrailing());
         }
 
-        String parameters = Joiner.on(", ").join(parameterTypes);
-        String expected = Joiner.on(", ").join(expectedParameters);
-        String message = format("Unexpected parameters (%s) for function %s. Expected: %s", parameters, name, expected);
+        String parameters = parameterTypes.stream().map(Object::toString).collect(joining(", "));
+        String expected = String.join(", ", expectedParameters);
+        String message = "Unexpected parameters (%s) for function %s. Expected: %s".formatted(parameters, name, expected);
         return new TrinoException(FUNCTION_NOT_FOUND, message);
     }
 

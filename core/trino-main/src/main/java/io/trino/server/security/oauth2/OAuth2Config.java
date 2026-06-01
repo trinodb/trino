@@ -25,7 +25,6 @@ import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -41,7 +40,7 @@ public class OAuth2Config
     private String clientSecret;
     private Set<String> scopes = ImmutableSet.of(OPENID_SCOPE);
     private String principalField = "sub";
-    private List<String> additionalAudiences = Collections.emptyList();
+    private List<String> additionalAudiences = List.of();
     private Duration challengeTimeout = new Duration(15, TimeUnit.MINUTES);
     private Duration maxClockSkew = new Duration(1, TimeUnit.MINUTES);
     private Optional<String> jwtType = Optional.empty();

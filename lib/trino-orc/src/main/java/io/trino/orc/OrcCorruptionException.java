@@ -17,8 +17,6 @@ import com.google.errorprone.annotations.FormatMethod;
 
 import java.io.IOException;
 
-import static java.lang.String.format;
-
 public class OrcCorruptionException
         extends IOException
 {
@@ -41,6 +39,6 @@ public class OrcCorruptionException
 
     private static String formatMessage(OrcDataSourceId orcDataSourceId, String messageFormat, Object[] args)
     {
-        return "Malformed ORC file. " + format(messageFormat, args) + " [" + orcDataSourceId + "]";
+        return "Malformed ORC file. " + messageFormat.formatted(args) + " [" + orcDataSourceId + "]";
     }
 }

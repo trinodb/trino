@@ -16,7 +16,6 @@ package io.trino.metastore;
 import io.trino.spi.TrinoException;
 
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
-import static java.lang.String.format;
 
 public class SchemaAlreadyExistsException
         extends TrinoException
@@ -30,7 +29,7 @@ public class SchemaAlreadyExistsException
 
     public SchemaAlreadyExistsException(String schemaName, Throwable cause)
     {
-        this(schemaName, format("Schema already exists: '%s'", schemaName), cause);
+        this(schemaName, "Schema already exists: '%s'".formatted(schemaName), cause);
     }
 
     public SchemaAlreadyExistsException(String schemaName, String message, Throwable cause)

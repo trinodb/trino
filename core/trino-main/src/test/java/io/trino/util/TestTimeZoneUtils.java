@@ -28,7 +28,6 @@ import static io.trino.spi.type.TimeZoneKey.isUtcZoneId;
 import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static io.trino.util.DateTimeZoneIndex.unpackDateTimeZone;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
 
@@ -67,8 +66,7 @@ public class TestTimeZoneUtils
         long packWithDateTime = packDateTimeWithZone(new DateTime(42, dateTimeZone));
         long packWithZoneId = packDateTimeWithZone(42L, ZoneId.of(dateTimeZone.getID()).getId());
         if (packWithDateTime != packWithZoneId) {
-            fail(format(
-                    "packWithDateTime and packWithZoneId differ for zone [%s] / [%s]: %s [%s %s] and %s [%s %s]",
+            fail("packWithDateTime and packWithZoneId differ for zone [%s] / [%s]: %s [%s %s] and %s [%s %s]".formatted(
                     zoneId,
                     dateTimeZone,
                     packWithDateTime,

@@ -14,7 +14,6 @@
 package io.trino.tests.product.launcher.cli;
 
 import com.github.dockerjava.api.model.Bind;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.Module;
@@ -44,12 +43,14 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.stream.Stream;
 
 import static io.trino.tests.product.launcher.docker.DockerFiles.ROOT_PATH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 @CommandLine.Command(
         name = "describe",
@@ -103,8 +104,6 @@ public class EnvironmentDescribe
                 "size",
         };
 
-        private static final Joiner JOINER = Joiner.on('\n').skipNulls();
-
         private final EnvironmentFactory environmentFactory;
         private final EnvironmentConfig environmentConfig;
         private final EnvironmentOptions environmentOptions;
@@ -149,10 +148,10 @@ public class EnvironmentDescribe
                 containersTable.addRow(
                         container.getLogicalName(),
                         container.getDockerImageName(),
-                        JOINER.join(container.getNetworkAliases()),
-                        JOINER.join(container.getEnv()),
-                        JOINER.join(container.getExposedPorts()),
-                        Joiner.on(' ').join(container.getCommandParts()));
+                        container.getNetworkAliases().stream().filter(Objects::nonNull).collect(joining("\n")),
+                        container.getEnv().stream().filter(Objects::nonNull).collect(joining("\n")),
+                        container.getExposedPorts().stream().map(Object::toString).collect(joining("\n")),
+                        String.join(" ", container.getCommandParts()));
                 containersTable.addSeparator();
             }
 

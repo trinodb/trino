@@ -34,7 +34,6 @@ import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -391,8 +390,8 @@ public abstract class BaseOracleConnectorTest
                 getUser() + ".test_pdown_",
                 "(c_clob CLOB, c_nclob NCLOB)",
                 ImmutableList.of("'my_clob', 'my_nclob'"))) {
-            assertThat(query(format("SELECT c_clob FROM %s WHERE c_clob = VARCHAR 'my_clob'", table.getName()))).isNotFullyPushedDown(FilterNode.class);
-            assertThat(query(format("SELECT c_nclob FROM %s WHERE c_nclob = VARCHAR 'my_nclob'", table.getName()))).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT c_clob FROM %s WHERE c_clob = VARCHAR 'my_clob'".formatted(table.getName()))).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT c_nclob FROM %s WHERE c_nclob = VARCHAR 'my_nclob'".formatted(table.getName()))).isNotFullyPushedDown(FilterNode.class);
         }
     }
 
@@ -459,13 +458,13 @@ public abstract class BaseOracleConnectorTest
     protected TestTable simpleTable()
     {
         // override because Oracle does not support type bigint
-        return new TestTable(onRemoteDatabase(), format("%s.simple_table", getSession().getSchema().orElseThrow()), "(col decimal(2, 1))", ImmutableList.of("1", "2"));
+        return new TestTable(onRemoteDatabase(), "%s.simple_table".formatted(getSession().getSchema().orElseThrow()), "(col decimal(2, 1))", ImmutableList.of("1", "2"));
     }
 
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        return format("ORA-01400: cannot insert NULL into \\(.*\"%s\"\\)\n\nhttps://docs.oracle.com/error-help/db/ora-01400/", columnName.toUpperCase(ENGLISH));
+        return "ORA-01400: cannot insert NULL into \\(.*\"%s\"\\)\n\nhttps://docs.oracle.com/error-help/db/ora-01400/".formatted(columnName.toUpperCase(ENGLISH));
     }
 
     @Override
@@ -527,10 +526,10 @@ public abstract class BaseOracleConnectorTest
     {
         String tableName = ("test_pdown_" + oracleType.replaceAll("[^a-zA-Z0-9]", ""))
                 .replaceFirst("^(.{18}).*", "$1__");
-        try (TestTable table = new TestTable(onRemoteDatabase(), getUser() + "." + tableName, format("(c %s)", oracleType))) {
-            onRemoteDatabase().execute(format("INSERT INTO %s VALUES (%s)", table.getName(), oracleLiteral));
+        try (TestTable table = new TestTable(onRemoteDatabase(), getUser() + "." + tableName, "(c %s)".formatted(oracleType))) {
+            onRemoteDatabase().execute("INSERT INTO %s VALUES (%s)".formatted(table.getName(), oracleLiteral));
 
-            assertThat(query(format("SELECT * FROM %s WHERE c %s %s", table.getName(), operator, filterLiteral)))
+            assertThat(query("SELECT * FROM %s WHERE c %s %s".formatted(table.getName(), operator, filterLiteral)))
                     .isFullyPushedDown();
         }
     }

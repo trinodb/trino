@@ -62,7 +62,6 @@ import static io.trino.execution.QueryState.FINISHING;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.tracing.ScopedSpan.scopedSpan;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -302,7 +301,7 @@ public class QueryManager
         requireNonNull(queryExecution, "queryExecution is null");
 
         if (!queryTracker.addQuery(queryExecution)) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Query %s already registered", queryExecution.getQueryId()));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Query %s already registered".formatted(queryExecution.getQueryId()));
         }
 
         queryExecution.addFinalQueryInfoListener(_ -> {

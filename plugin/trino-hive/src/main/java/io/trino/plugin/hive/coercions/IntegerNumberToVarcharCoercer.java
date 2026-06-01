@@ -24,7 +24,6 @@ import io.trino.spi.type.VarcharType;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
-import static java.lang.String.format;
 
 public class IntegerNumberToVarcharCoercer<F extends Type>
         extends TypeCoercer<F, VarcharType>
@@ -40,7 +39,7 @@ public class IntegerNumberToVarcharCoercer<F extends Type>
         long value = fromType.getLong(block, position);
         Slice converted = utf8Slice(String.valueOf(value));
         if (!toType.isUnbounded() && countCodePoints(converted) > toType.getBoundedLength()) {
-            throw new TrinoException(INVALID_ARGUMENTS, format("Varchar representation of %s exceeds %s bounds", value, toType));
+            throw new TrinoException(INVALID_ARGUMENTS, "Varchar representation of %s exceeds %s bounds".formatted(value, toType));
         }
         toType.writeSlice(blockBuilder, converted);
     }

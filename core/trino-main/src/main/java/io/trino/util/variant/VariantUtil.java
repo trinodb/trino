@@ -117,7 +117,6 @@ import static io.trino.util.JsonUtil.createJsonGenerator;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
-import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.time.ZoneOffset.UTC;
 
@@ -786,7 +785,7 @@ public final class VariantUtil
                 return new RowBlockBuilderAppender(fieldAppenders, getFieldNameToIndex(rowFields));
             }
 
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Unsupported type: %s".formatted(type));
         }
     }
 
@@ -1137,7 +1136,7 @@ public final class VariantUtil
             }
 
             if (variant.basicType() != Header.BasicType.OBJECT) {
-                throw new VariantCastException(format("Expected a variant object, but got %s", variant.basicType()));
+                throw new VariantCastException("Expected a variant object, but got %s".formatted(variant.basicType()));
             }
 
             MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) blockBuilder;

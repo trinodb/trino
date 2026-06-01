@@ -59,7 +59,6 @@ import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
 import static io.trino.plugin.hive.util.HiveUtil.getRegularColumnHandles;
-import static java.lang.String.format;
 import static java.util.Map.Entry;
 import static java.util.function.Function.identity;
 
@@ -199,7 +198,7 @@ public final class HiveBucketing
             if (bucketColumnHandle == null) {
                 throw new TrinoException(
                         HIVE_INVALID_METADATA,
-                        format("Table '%s.%s' is bucketed on non-existent column '%s'", table.getDatabaseName(), table.getTableName(), bucketColumnName));
+                        "Table '%s.%s' is bucketed on non-existent column '%s'".formatted(table.getDatabaseName(), table.getTableName(), bucketColumnName));
             }
             bucketColumns.add(bucketColumnHandle);
         }
@@ -311,7 +310,7 @@ public final class HiveBucketing
             case "1" -> BUCKETING_V1;
             case "2" -> BUCKETING_V2;
             // org.apache.hadoop.hive.ql.exec.Utilities.getBucketingVersion is more permissive and treats any non-number as "1"
-            default -> throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, format("Unsupported bucketing version: '%s'", bucketingVersion));
+            default -> throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, "Unsupported bucketing version: '%s'".formatted(bucketingVersion));
         };
     }
 
@@ -324,7 +323,7 @@ public final class HiveBucketing
     {
         return bucketedBy.stream()
                 .map(columnName -> dataColumns.stream().filter(column -> column.getName().equals(columnName)).findFirst()
-                        .orElseThrow(() -> new IllegalArgumentException(format("Cannot find column '%s' in %s", columnName, tableName))))
+                        .orElseThrow(() -> new IllegalArgumentException("Cannot find column '%s' in %s".formatted(columnName, tableName))))
                 .map(Column::getType)
                 .map(HiveType::getTypeInfo)
                 .allMatch(HiveBucketing::isTypeSupportedForBucketing);

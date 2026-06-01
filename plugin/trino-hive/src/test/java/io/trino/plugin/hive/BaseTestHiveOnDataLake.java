@@ -63,7 +63,6 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistic
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static java.time.temporal.ChronoUnit.MINUTES;
@@ -122,8 +121,7 @@ abstract class BaseTestHiveOnDataLake
     @BeforeAll
     public void setUp()
     {
-        computeActual(format(
-                "CREATE SCHEMA hive.%1$s WITH (location='s3a://%2$s/%1$s')",
+        computeActual("CREATE SCHEMA hive.%1$s WITH (location='s3a://%2$s/%1$s')".formatted(
                 HIVE_TEST_SCHEMA,
                 bucketName));
         computeActual("CREATE SCHEMA hive.functions");
@@ -143,9 +141,9 @@ abstract class BaseTestHiveOnDataLake
         String viewName = "default.test_view_with_column_comment" + randomNameSuffix();
         String partitionedViewName = "default.test_partitioned_view_with_column_comment" + randomNameSuffix();
 
-        hiveMinioDataLake.runOnHive(format("CREATE TABLE %s(id int, name string) PARTITIONED BY (ds date)", tableName));
-        hiveMinioDataLake.runOnHive(format("CREATE VIEW %s(id, name COMMENT 'comment', ds COMMENT 'test comment') AS SELECT * FROM %s", viewName, tableName));
-        hiveMinioDataLake.runOnHive(format("CREATE VIEW %s(name COMMENT 'comment', ds COMMENT 'test comment') PARTITIONED ON (ds) AS SELECT name, ds FROM %s", partitionedViewName, tableName));
+        hiveMinioDataLake.runOnHive("CREATE TABLE %s(id int, name string) PARTITIONED BY (ds date)".formatted(tableName));
+        hiveMinioDataLake.runOnHive("CREATE VIEW %s(id, name COMMENT 'comment', ds COMMENT 'test comment') AS SELECT * FROM %s".formatted(viewName, tableName));
+        hiveMinioDataLake.runOnHive("CREATE VIEW %s(name COMMENT 'comment', ds COMMENT 'test comment') PARTITIONED ON (ds) AS SELECT name, ds FROM %s".formatted(partitionedViewName, tableName));
 
         assertThat(query("DESCRIBE " + viewName)).result()
                 .skippingTypesCheck()
@@ -178,7 +176,7 @@ abstract class BaseTestHiveOnDataLake
                             getQueryRunner().execute(session, createInsertAsSelectFromTpchStatement(testTable));
                         }))
                 .hasMessage("Overwriting existing partition in non auto commit context doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
-        computeActual(format("DROP TABLE %s", testTable));
+        computeActual("DROP TABLE %s".formatted(testTable));
     }
 
     @Test
@@ -189,7 +187,7 @@ abstract class BaseTestHiveOnDataLake
         assertInsertFailure(
                 testTable,
                 "Overwriting unpartitioned table not supported when writing directly to target directory");
-        computeActual(format("DROP TABLE %s", testTable));
+        computeActual("DROP TABLE %s".formatted(testTable));
     }
 
     @Test
@@ -203,7 +201,7 @@ abstract class BaseTestHiveOnDataLake
         assertInsertFailure(
                 testTable,
                 "Overwriting unpartitioned table not supported when writing directly to target directory");
-        computeActual(format("DROP TABLE %s", testTable));
+        computeActual("DROP TABLE %s".formatted(testTable));
     }
 
     @Test
@@ -249,7 +247,7 @@ abstract class BaseTestHiveOnDataLake
                 "partitioned_by=ARRAY['regionkey']",
                 "bucketed_by = ARRAY['nationkey']",
                 "bucket_count = 3",
-                format("external_location = 's3a://%s/%s/%s/'", this.bucketName, HIVE_TEST_SCHEMA, testTable)));
+                "external_location = 's3a://%s/%s/%s/'".formatted(this.bucketName, HIVE_TEST_SCHEMA, testTable)));
         copyTpchNationToTable(testTable);
         assertOverwritePartition(externalTableName);
     }
@@ -412,7 +410,7 @@ abstract class BaseTestHiveOnDataLake
     {
         String tableName = "test_sync_partition_case_variation_" + randomNameSuffix();
         String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
-        String tableLocation = format("s3://%s/%s/%s/", bucketName, HIVE_TEST_SCHEMA, tableName);
+        String tableLocation = "s3://%s/%s/%s/".formatted(bucketName, HIVE_TEST_SCHEMA, tableName);
 
         hiveMinioDataLake.getMinioClient().putObject(
                 bucketName,
@@ -454,7 +452,7 @@ abstract class BaseTestHiveOnDataLake
     {
         String tableName = "test_sync_partition_special_characters_" + randomNameSuffix();
         String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
-        String tableLocation = format("s3://%s/%s/%s/", bucketName, HIVE_TEST_SCHEMA, tableName);
+        String tableLocation = "s3://%s/%s/%s/".formatted(bucketName, HIVE_TEST_SCHEMA, tableName);
 
         hiveMinioDataLake.getMinioClient().putObject(
                 bucketName,
@@ -519,8 +517,7 @@ abstract class BaseTestHiveOnDataLake
                 tableName,
                 fullyQualifiedTestTableName,
                 partitionColumn,
-                format(
-                        "CALL system.flush_metadata_cache(schema_name => '%s', table_name => '%s', partition_columns => ARRAY['%s'], partition_values => ARRAY['0'])",
+                "CALL system.flush_metadata_cache(schema_name => '%s', table_name => '%s', partition_columns => ARRAY['%s'], partition_values => ARRAY['0'])".formatted(
                         HIVE_TEST_SCHEMA,
                         tableName,
                         partitionColumn));
@@ -531,15 +528,15 @@ abstract class BaseTestHiveOnDataLake
         // Create table with partition on regionkey
         computeActual(getCreateTableStatement(
                 fullyQualifiedTestTableName,
-                format("partitioned_by=ARRAY['%s']", partitionColumn)));
+                "partitioned_by=ARRAY['%s']".formatted(partitionColumn)));
         copyTpchNationToTable(fullyQualifiedTestTableName);
 
         String queryUsingPartitionCacheTemplate = "SELECT name FROM %s WHERE %s=%s";
         String partitionValue1 = "0";
-        String queryUsingPartitionCacheForValue1 = format(queryUsingPartitionCacheTemplate, fullyQualifiedTestTableName, partitionColumn, partitionValue1);
+        String queryUsingPartitionCacheForValue1 = queryUsingPartitionCacheTemplate.formatted(fullyQualifiedTestTableName, partitionColumn, partitionValue1);
         String expectedQueryResultForValue1 = "VALUES 'ALGERIA', 'MOROCCO', 'MOZAMBIQUE', 'ETHIOPIA', 'KENYA'";
         String partitionValue2 = "1";
-        String queryUsingPartitionCacheForValue2 = format(queryUsingPartitionCacheTemplate, fullyQualifiedTestTableName, partitionColumn, partitionValue2);
+        String queryUsingPartitionCacheForValue2 = queryUsingPartitionCacheTemplate.formatted(fullyQualifiedTestTableName, partitionColumn, partitionValue2);
         String expectedQueryResultForValue2 = "VALUES 'ARGENTINA', 'BRAZIL', 'CANADA', 'PERU', 'UNITED STATES'";
 
         // Fill partition cache and check we got expected results
@@ -563,8 +560,7 @@ abstract class BaseTestHiveOnDataLake
         assertQueryReturnsEmptyResult(queryUsingPartitionCacheForValue2);
 
         // Refresh cache for schema_name => 'dummy_schema', table_name => 'dummy_table'
-        getQueryRunner().execute(format(
-                "CALL system.flush_metadata_cache(schema_name => '%s', table_name => '%s')",
+        getQueryRunner().execute("CALL system.flush_metadata_cache(schema_name => '%s', table_name => '%s')".formatted(
                 HIVE_TEST_SCHEMA,
                 tableName));
 
@@ -572,19 +568,18 @@ abstract class BaseTestHiveOnDataLake
         assertQuery(queryUsingPartitionCacheForValue1, expectedQueryResultForValue1);
         assertQuery(queryUsingPartitionCacheForValue2, expectedQueryResultForValue2);
 
-        computeActual(format("DROP TABLE %s", fullyQualifiedTestTableName));
+        computeActual("DROP TABLE %s".formatted(fullyQualifiedTestTableName));
     }
 
     @Test
     public void testWriteDifferentSizes()
     {
         String testTable = getFullyQualifiedTestTableName();
-        computeActual(format(
-                "CREATE TABLE %s (" +
-                        "    col1 varchar, " +
-                        "    col2 varchar, " +
-                        "    regionkey bigint) " +
-                        "    WITH (partitioned_by=ARRAY['regionkey'])",
+        computeActual(("CREATE TABLE %s (" +
+        "    col1 varchar, " +
+        "    col2 varchar, " +
+        "    regionkey bigint) " +
+        "    WITH (partitioned_by=ARRAY['regionkey'])").formatted(
                 testTable));
 
         long partSizeInBytes = HIVE_S3_STREAMING_PART_SIZE.toBytes();
@@ -599,7 +594,7 @@ abstract class BaseTestHiveOnDataLake
         // 3. fileSize > 10MB (upload in three or more parts)
         testWriteWithFileSize(testTable, 150, partSizeInBytes * 2 + 1, partSizeInBytes * 3);
 
-        computeActual(format("DROP TABLE %s", testTable));
+        computeActual("DROP TABLE %s".formatted(testTable));
     }
 
     @Test
@@ -639,29 +634,29 @@ abstract class BaseTestHiveOnDataLake
                         ImmutableList.of("'CZECH_2'", "'Comment'", "3", "5", "'CZ2'"))));
 
         assertQuery(
-                format("SELECT * FROM %s", getFullyQualifiedTestTableName("\"" + tableName + "$partitions\"")),
+                "SELECT * FROM %s".formatted(getFullyQualifiedTestTableName("\"" + tableName + "$partitions\"")),
                 "VALUES 'PL1', 'CZ1'");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE \"short name\"='PL1'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE \"short name\"='PL1'".formatted(fullyQualifiedTestTableName),
                 "VALUES 'POLAND_1'");
 
         // No results should be returned as Partition Projection will not project partitions for this value
         assertQueryReturnsEmptyResult(
-                format("SELECT name FROM %s WHERE \"short name\"='PL2'", fullyQualifiedTestTableName));
+                "SELECT name FROM %s WHERE \"short name\"='PL2'".formatted(fullyQualifiedTestTableName));
 
         assertQuery(
-                format("SELECT name FROM %s WHERE \"short name\"='PL1' OR \"short name\"='CZ1'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE \"short name\"='PL1' OR \"short name\"='CZ1'".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('CZECH_1')");
 
         // Only POLAND_1 row will be returned as other value is outside of projection
         assertQuery(
-                format("SELECT name FROM %s WHERE \"short name\"='PL1' OR \"short name\"='CZ2'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE \"short name\"='PL1' OR \"short name\"='CZ2'".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1')");
 
         // All values within projection range will be returned
         assertQuery(
-                format("SELECT name FROM %s", fullyQualifiedTestTableName),
+                "SELECT name FROM %s".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('CZECH_1')");
     }
 
@@ -676,8 +671,7 @@ abstract class BaseTestHiveOnDataLake
         // We create new schema to include mixed case location path and create such keys in Object Store
         computeActual("CREATE SCHEMA hive.%1$s WITH (location='s3a://%2$s/%1$s')".formatted(schemaName, bucketName));
 
-        String storageFormat = format(
-                "s3a://%s/%s/%s/short_name1=${short_name1}/short_name2=${short_name2}/",
+        String storageFormat = "s3a://%s/%s/%s/short_name1=${short_name1}/short_name2=${short_name2}/".formatted(
                 this.bucketName,
                 schemaName,
                 tableName);
@@ -716,8 +710,7 @@ abstract class BaseTestHiveOnDataLake
     public void testEnumPartitionProjectionOnVarcharColumnWithStorageLocationTemplateCreatedOnHive()
     {
         String tableName = getRandomTestTableName();
-        String storageFormat = format(
-                "'s3a://%s/%s/%s/short_name1=${short_name1}/short_name2=${short_name2}/'",
+        String storageFormat = "'s3a://%s/%s/%s/short_name1=${short_name1}/short_name2=${short_name2}/'".formatted(
                 this.bucketName,
                 HIVE_TEST_SCHEMA,
                 tableName);
@@ -754,19 +747,19 @@ abstract class BaseTestHiveOnDataLake
                         ImmutableList.of("'CZECH_2'", "'Comment'", "3", "5", "'CZ1'", "'CZ2'"))));
 
         assertQuery(
-                format("SELECT * FROM %s", getFullyQualifiedTestTableName(schemaName, "\"" + tableName + "$partitions\"")),
+                "SELECT * FROM %s".formatted(getFullyQualifiedTestTableName(schemaName, "\"" + tableName + "$partitions\"")),
                 "VALUES ('PL1','PL2'), ('PL1','CZ2'), ('CZ1','PL2'), ('CZ1','CZ2')");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1' AND short_name2='CZ2'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1' AND short_name2='CZ2'".formatted(fullyQualifiedTestTableName),
                 "VALUES 'POLAND_2'");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1'".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2')");
 
         assertQuery(
-                format("SELECT name FROM %s", fullyQualifiedTestTableName),
+                "SELECT name FROM %s".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
     }
 
@@ -813,19 +806,19 @@ abstract class BaseTestHiveOnDataLake
                         ImmutableList.of("'CZECH_2'", "'Comment'", "3", "5", "'CZ1'", "'CZ2'"))));
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1' AND short_name2='CZ2'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1' AND short_name2='CZ2'".formatted(fullyQualifiedTestTableName),
                 "VALUES 'POLAND_2'");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2='CZ2' OR short_name2='PL2' )", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2='CZ2' OR short_name2='PL2' )".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2')");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1'".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2')");
 
         assertQuery(
-                format("SELECT name FROM %s", fullyQualifiedTestTableName),
+                "SELECT name FROM %s".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
     }
 
@@ -903,24 +896,24 @@ abstract class BaseTestHiveOnDataLake
                         ImmutableList.of("'CZECH_2'", "'Comment'", "3", "5", "'CZ1'", "'004'"))));
 
         assertQuery(
-                format("SELECT * FROM %s", getFullyQualifiedTestTableName("\"" + tableName + "$partitions\"")),
+                "SELECT * FROM %s".formatted(getFullyQualifiedTestTableName("\"" + tableName + "$partitions\"")),
                 "VALUES ('PL1','001'), ('PL1','002'), ('PL1','003'), ('PL1','004')," +
                         "('CZ1','001'), ('CZ1','002'), ('CZ1','003'), ('CZ1','004')");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1' AND short_name2='002'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1' AND short_name2='002'".formatted(fullyQualifiedTestTableName),
                 "VALUES 'POLAND_2'");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2='002' OR short_name2='001' )", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2='002' OR short_name2='001' )".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2')");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1'".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2')");
 
         assertQuery(
-                format("SELECT name FROM %s", fullyQualifiedTestTableName),
+                "SELECT name FROM %s".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
     }
 
@@ -969,19 +962,19 @@ abstract class BaseTestHiveOnDataLake
                         ImmutableList.of("'CZECH_2'", "'Comment'", "3", "5", "'CZ1'", "9"))));
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1' AND short_name2=3", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1' AND short_name2=3".formatted(fullyQualifiedTestTableName),
                 "VALUES 'POLAND_2'");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2=3 OR short_name2=0 )", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2=3 OR short_name2=0 )".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2')");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1'".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2')");
 
         assertQuery(
-                format("SELECT name FROM %s", fullyQualifiedTestTableName),
+                "SELECT name FROM %s".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
     }
 
@@ -1028,19 +1021,19 @@ abstract class BaseTestHiveOnDataLake
                         ImmutableList.of("'CZECH_2'", "'Comment'", "3", "5", "'CZ1'", "4"))));
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1' AND short_name2=2", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1' AND short_name2=2".formatted(fullyQualifiedTestTableName),
                 "VALUES 'POLAND_2'");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2=2 OR short_name2=1 )", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2=2 OR short_name2=1 )".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2')");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1'".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2')");
 
         assertQuery(
-                format("SELECT name FROM %s", fullyQualifiedTestTableName),
+                "SELECT name FROM %s".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
     }
 
@@ -1049,7 +1042,7 @@ abstract class BaseTestHiveOnDataLake
     {
         String tableName = "partition_projection_read_custom_date" + randomNameSuffix();
         String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
-        String tablePath = format("%s/%s/", HIVE_TEST_SCHEMA, tableName);
+        String tablePath = "%s/%s/".formatted(HIVE_TEST_SCHEMA, tableName);
 
         computeActual(
                 "CREATE TABLE " + fullyQualifiedTestTableName + " ( " +
@@ -1115,8 +1108,8 @@ abstract class BaseTestHiveOnDataLake
     {
         String tableName = "partition_projection_read_custom_date" + randomNameSuffix();
         String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
-        String tablePath = format("%s/%s", HIVE_TEST_SCHEMA, tableName);
-        String projectionLocationTemplate = format("s3://%s/%s/xxx/${dt}/${ts}-xyz", bucketName, tablePath);
+        String tablePath = "%s/%s".formatted(HIVE_TEST_SCHEMA, tableName);
+        String projectionLocationTemplate = "s3://%s/%s/xxx/${dt}/${ts}-xyz".formatted(bucketName, tablePath);
         String projectionLocationValueFormat = tablePath + "/xxx/%s/%s-xyz";
 
         computeActual(
@@ -1183,8 +1176,8 @@ abstract class BaseTestHiveOnDataLake
     {
         String tableName = "partition_write_not_support_custom_" + randomNameSuffix();
         String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
-        String tablePath = format("%s/%s", HIVE_TEST_SCHEMA, tableName);
-        String projectionLocationPrefix = format("s3://%s/%s/", bucketName, tablePath);
+        String tablePath = "%s/%s".formatted(HIVE_TEST_SCHEMA, tableName);
+        String projectionLocationPrefix = "s3://%s/%s/".formatted(bucketName, tablePath);
 
         computeActual(
                 "CREATE TABLE " + fullyQualifiedTestTableName + " ( " +
@@ -1315,32 +1308,32 @@ abstract class BaseTestHiveOnDataLake
                         ImmutableList.of("'CZECH_3'", "'Comment'", "4", "5", "'CZ1'", "DATE '2001-1-26'"))));
 
         assertQuery(
-                format("SELECT * FROM %s", getFullyQualifiedTestTableName("\"" + tableName + "$partitions\"")),
+                "SELECT * FROM %s".formatted(getFullyQualifiedTestTableName("\"" + tableName + "$partitions\"")),
                 "VALUES ('PL1','2001-1-22'), ('PL1','2001-1-23'), ('PL1','2001-1-24'), ('PL1','2001-1-25')," +
                         "('CZ1','2001-1-22'), ('CZ1','2001-1-23'), ('CZ1','2001-1-24'), ('CZ1','2001-1-25')");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1' AND short_name2=(DATE '2001-1-23')", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1' AND short_name2=(DATE '2001-1-23')".formatted(fullyQualifiedTestTableName),
                 "VALUES 'POLAND_2'");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2=(DATE '2001-1-23') OR short_name2=(DATE '2001-1-22') )", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2=(DATE '2001-1-23') OR short_name2=(DATE '2001-1-22') )".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2')");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name2 > DATE '2001-1-23'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name2 > DATE '2001-1-23'".formatted(fullyQualifiedTestTableName),
                 "VALUES ('CZECH_1'), ('CZECH_2')");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name2 >= DATE '2001-1-23' AND short_name2 <= DATE '2001-1-25'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name2 >= DATE '2001-1-23' AND short_name2 <= DATE '2001-1-25'".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1'".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2')");
 
         assertQuery(
-                format("SELECT name FROM %s", fullyQualifiedTestTableName),
+                "SELECT name FROM %s".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
     }
 
@@ -1394,27 +1387,27 @@ abstract class BaseTestHiveOnDataLake
                         ImmutableList.of("'CZECH_3'", "'Comment'", "4", "5", "'CZ1'", "TIMESTAMP '2001-1-22 00:00:08'"))));
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1' AND short_name2=(TIMESTAMP '2001-1-22 00:00:02')", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1' AND short_name2=(TIMESTAMP '2001-1-22 00:00:02')".formatted(fullyQualifiedTestTableName),
                 "VALUES 'POLAND_2'");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2=(TIMESTAMP '2001-1-22 00:00:00') OR short_name2=(TIMESTAMP '2001-1-22 00:00:02') )", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2=(TIMESTAMP '2001-1-22 00:00:00') OR short_name2=(TIMESTAMP '2001-1-22 00:00:02') )".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2')");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name2 > TIMESTAMP '2001-1-22 00:00:02'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name2 > TIMESTAMP '2001-1-22 00:00:02'".formatted(fullyQualifiedTestTableName),
                 "VALUES ('CZECH_1'), ('CZECH_2')");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name2 >= TIMESTAMP '2001-1-22 00:00:02' AND short_name2 <= TIMESTAMP '2001-1-22 00:00:06'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name2 >= TIMESTAMP '2001-1-22 00:00:02' AND short_name2 <= TIMESTAMP '2001-1-22 00:00:06'".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1'".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2')");
 
         assertQuery(
-                format("SELECT name FROM %s", fullyQualifiedTestTableName),
+                "SELECT name FROM %s".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
     }
 
@@ -1513,7 +1506,7 @@ abstract class BaseTestHiveOnDataLake
                         ImmutableList.of("'CZECH_3'", "'Comment'", "4", "5", "'CZ1'", "TIMESTAMP '" + minutes4AgoFormatted + "'"))));
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name2 > ( TIMESTAMP '%s' ) AND short_name2 <= ( TIMESTAMP '%s' )", fullyQualifiedTestTableName, minutes4AgoFormatted, minutes1AgoFormatter),
+                "SELECT name FROM %s WHERE short_name2 > ( TIMESTAMP '%s' ) AND short_name2 <= ( TIMESTAMP '%s' )".formatted(fullyQualifiedTestTableName, minutes4AgoFormatted, minutes1AgoFormatter),
                 "VALUES ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
     }
 
@@ -1567,27 +1560,27 @@ abstract class BaseTestHiveOnDataLake
                         ImmutableList.of("'CZECH_3'", "'Comment'", "4", "5", "'CZ1'", "'2001-01-22 08'"))));
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1' AND short_name2='2001-01-22 02'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1' AND short_name2='2001-01-22 02'".formatted(fullyQualifiedTestTableName),
                 "VALUES 'POLAND_2'");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2='2001-01-22 00' OR short_name2='2001-01-22 02' )", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2='2001-01-22 00' OR short_name2='2001-01-22 02' )".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2')");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name2 > '2001-01-22 02'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name2 > '2001-01-22 02'".formatted(fullyQualifiedTestTableName),
                 "VALUES ('CZECH_1'), ('CZECH_2')");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name2 >= '2001-01-22 02' AND short_name2 <= '2001-01-22 06'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name2 >= '2001-01-22 02' AND short_name2 <= '2001-01-22 06'".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1'".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2')");
 
         assertQuery(
-                format("SELECT name FROM %s", fullyQualifiedTestTableName),
+                "SELECT name FROM %s".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
     }
 
@@ -1641,27 +1634,27 @@ abstract class BaseTestHiveOnDataLake
                         ImmutableList.of("'CZECH_3'", "'Comment'", "4", "5", "'CZ1'", "'2001-01-09'"))));
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1' AND short_name2='2001-01-03'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1' AND short_name2='2001-01-03'".formatted(fullyQualifiedTestTableName),
                 "VALUES 'POLAND_2'");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2='2001-01-01' OR short_name2='2001-01-03' )", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2='2001-01-01' OR short_name2='2001-01-03' )".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2')");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name2 > '2001-01-03'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name2 > '2001-01-03'".formatted(fullyQualifiedTestTableName),
                 "VALUES ('CZECH_1'), ('CZECH_2')");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name2 >= '2001-01-03' AND short_name2 <= '2001-01-07'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name2 >= '2001-01-03' AND short_name2 <= '2001-01-07'".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1'".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2')");
 
         assertQuery(
-                format("SELECT name FROM %s", fullyQualifiedTestTableName),
+                "SELECT name FROM %s".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
     }
 
@@ -1721,27 +1714,27 @@ abstract class BaseTestHiveOnDataLake
                         ImmutableList.of("'CZECH_3'", "'Comment'", "4", "5", "'CZ1'", "'" + day4AgoFormatted + "'"))));
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1' AND short_name2='%s'", fullyQualifiedTestTableName, day1AgoFormatter),
+                "SELECT name FROM %s WHERE short_name1='PL1' AND short_name2='%s'".formatted(fullyQualifiedTestTableName, day1AgoFormatter),
                 "VALUES 'POLAND_2'");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2='%s' OR short_name2='%s' )", fullyQualifiedTestTableName, dayTodayFormatted, day1AgoFormatter),
+                "SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2='%s' OR short_name2='%s' )".formatted(fullyQualifiedTestTableName, dayTodayFormatted, day1AgoFormatter),
                 "VALUES ('POLAND_1'), ('POLAND_2')");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name2 > '%s'", fullyQualifiedTestTableName, day2AgoFormatted),
+                "SELECT name FROM %s WHERE short_name2 > '%s'".formatted(fullyQualifiedTestTableName, day2AgoFormatted),
                 "VALUES ('POLAND_1'), ('POLAND_2')");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name2 >= '%s' AND short_name2 <= '%s'", fullyQualifiedTestTableName, day4AgoFormatted, day1AgoFormatter),
+                "SELECT name FROM %s WHERE short_name2 >= '%s' AND short_name2 <= '%s'".formatted(fullyQualifiedTestTableName, day4AgoFormatted, day1AgoFormatter),
                 "VALUES ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1'".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2')");
 
         assertQuery(
-                format("SELECT name FROM %s", fullyQualifiedTestTableName),
+                "SELECT name FROM %s".formatted(fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
     }
 
@@ -1813,25 +1806,25 @@ abstract class BaseTestHiveOnDataLake
                         ImmutableList.of("'CZECH_2'", "'Comment'", "3", "5", "'CZ1'", "'004'"))));
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1' AND short_name2='002'", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1' AND short_name2='002'".formatted(fullyQualifiedTestTableName),
                 "VALUES 'POLAND_2'");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name2 IN ('001', '003')", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name2 IN ('001', '003')".formatted(fullyQualifiedTestTableName),
                 "VALUES 'POLAND_1', 'CZECH_1'");
 
         assertQuery(
-                format("SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2='002' OR short_name2='001' )", fullyQualifiedTestTableName),
+                "SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2='002' OR short_name2='001' )".formatted(fullyQualifiedTestTableName),
                 "VALUES 'POLAND_1', 'POLAND_2'");
 
         assertThatThrownBy(
                 () -> getQueryRunner().execute(
-                        format("SELECT name FROM %s", fullyQualifiedTestTableName)))
+                        "SELECT name FROM %s".formatted(fullyQualifiedTestTableName)))
                 .hasMessage("Column projection for column 'short_name2' failed. Injected projection requires single predicate for it's column in where clause");
 
         assertThatThrownBy(
                 () -> getQueryRunner().execute(
-                        format("SELECT name FROM %s WHERE short_name1='PL1'", fullyQualifiedTestTableName)))
+                        "SELECT name FROM %s WHERE short_name1='PL1'".formatted(fullyQualifiedTestTableName)))
                 .hasMessage("Column projection for column 'short_name2' failed. Injected projection requires single predicate for it's column in where clause");
     }
 
@@ -2142,17 +2135,16 @@ abstract class BaseTestHiveOnDataLake
     {
         String tableName = "test_external_location_with_trailing_space_" + randomNameSuffix();
         String tableLocationDirWithTrailingSpace = tableName + " ";
-        String tableLocation = format("s3a://%s/%s/%s", bucketName, HIVE_TEST_SCHEMA, tableLocationDirWithTrailingSpace);
+        String tableLocation = "s3a://%s/%s/%s".formatted(bucketName, HIVE_TEST_SCHEMA, tableLocationDirWithTrailingSpace);
 
         byte[] contents = "hello\u0001world\nbye\u0001world".getBytes(UTF_8);
-        String targetPath = format("%s/%s/test.txt", HIVE_TEST_SCHEMA, tableLocationDirWithTrailingSpace);
+        String targetPath = "%s/%s/test.txt".formatted(HIVE_TEST_SCHEMA, tableLocationDirWithTrailingSpace);
         hiveMinioDataLake.getMinioClient().putObject(bucketName, contents, targetPath);
 
-        assertUpdate(format(
-                "CREATE TABLE %s (" +
-                        "  a varchar, " +
-                        "  b varchar) " +
-                        "WITH (format='TEXTFILE', external_location='%s')",
+        assertUpdate(("CREATE TABLE %s (" +
+        "  a varchar, " +
+        "  b varchar) " +
+        "WITH (format='TEXTFILE', external_location='%s')").formatted(
                 tableName,
                 tableLocation));
 
@@ -2189,9 +2181,9 @@ abstract class BaseTestHiveOnDataLake
 
         for (String tableName : Arrays.asList("foo/bar", "foo/./bar", "foo/../bar")) {
             assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + HIVE_TEST_SCHEMA + ".\"" + tableName + "\" (col integer)"))
-                    .hasMessage(format("Invalid object name: '%s'", tableName));
+                    .hasMessage("Invalid object name: '%s'".formatted(tableName));
             assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + HIVE_TEST_SCHEMA + ".\"" + tableName + "\" (col) AS VALUES 1"))
-                    .hasMessage(format("Invalid object name: '%s'", tableName));
+                    .hasMessage("Invalid object name: '%s'".formatted(tableName));
         }
     }
 
@@ -2203,7 +2195,7 @@ abstract class BaseTestHiveOnDataLake
 
         for (String invalidSchemaName : Arrays.asList(".", "..", "foo/bar")) {
             assertThatThrownBy(() -> assertUpdate("ALTER SCHEMA hive." + schemaName + " RENAME TO  \"" + invalidSchemaName + "\""))
-                    .hasMessage(format("Invalid object name: '%s'", invalidSchemaName));
+                    .hasMessage("Invalid object name: '%s'".formatted(invalidSchemaName));
         }
 
         assertUpdate("DROP SCHEMA " + schemaName);
@@ -2217,12 +2209,12 @@ abstract class BaseTestHiveOnDataLake
 
         for (String invalidTableName : Arrays.asList(".", "..", "foo/bar")) {
             assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + getFullyQualifiedTestTableName(tableName) + " RENAME TO  \"" + invalidTableName + "\""))
-                    .hasMessage(format("Invalid object name: '%s'", invalidTableName));
+                    .hasMessage("Invalid object name: '%s'".formatted(invalidTableName));
         }
 
         for (String invalidSchemaName : Arrays.asList(".", "..", "foo/bar")) {
             assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + getFullyQualifiedTestTableName(tableName) + " RENAME TO  \"" + invalidSchemaName + "\".validTableName"))
-                    .hasMessage(format("Invalid object name: '%s'", invalidSchemaName));
+                    .hasMessage("Invalid object name: '%s'".formatted(invalidSchemaName));
         }
 
         assertUpdate("DROP TABLE " + getFullyQualifiedTestTableName(tableName));
@@ -2232,17 +2224,16 @@ abstract class BaseTestHiveOnDataLake
     public void testUnpartitionedTableExternalLocationWithTrainingSlash()
     {
         String tableName = "test_external_location_trailing_slash_" + randomNameSuffix();
-        String tableLocationWithTrailingSlash = format("s3://%s/%s/%s/", bucketName, HIVE_TEST_SCHEMA, tableName);
+        String tableLocationWithTrailingSlash = "s3://%s/%s/%s/".formatted(bucketName, HIVE_TEST_SCHEMA, tableName);
         byte[] contents = "Trino\nSQL\non\neverything".getBytes(UTF_8);
-        String dataFilePath = format("%s/%s/data.txt", HIVE_TEST_SCHEMA, tableName);
+        String dataFilePath = "%s/%s/data.txt".formatted(HIVE_TEST_SCHEMA, tableName);
         hiveMinioDataLake.getMinioClient().putObject(bucketName, contents, dataFilePath);
 
-        assertUpdate(format(
-                "CREATE TABLE %s (" +
-                        "  a_varchar varchar) " +
-                        "WITH (" +
-                        "   external_location='%s'," +
-                        "   format='TEXTFILE')",
+        assertUpdate(("CREATE TABLE %s (" +
+        "  a_varchar varchar) " +
+        "WITH (" +
+        "   external_location='%s'," +
+        "   format='TEXTFILE')").formatted(
                 tableName,
                 tableLocationWithTrailingSlash));
         assertQuery("SELECT * FROM " + tableName, "VALUES 'Trino', 'SQL', 'on', 'everything'");
@@ -2260,14 +2251,13 @@ abstract class BaseTestHiveOnDataLake
         byte[] contents = "Trino\nSQL\non\neverything".getBytes(UTF_8);
         hiveMinioDataLake.getMinioClient().putObject(topBucketName, contents, "data.txt");
 
-        assertUpdate(format(
-                "CREATE TABLE %s (" +
-                        "  a_varchar varchar) " +
-                        "WITH (" +
-                        "   external_location='%s'," +
-                        "   format='TEXTFILE')",
+        assertUpdate(("CREATE TABLE %s (" +
+        "  a_varchar varchar) " +
+        "WITH (" +
+        "   external_location='%s'," +
+        "   format='TEXTFILE')").formatted(
                 tableName,
-                format("s3://%s/", topBucketName)));
+                "s3://%s/".formatted(topBucketName)));
         assertQuery("SELECT * FROM " + tableName, "VALUES 'Trino', 'SQL', 'on', 'everything'");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -2280,15 +2270,14 @@ abstract class BaseTestHiveOnDataLake
         hiveMinioDataLake.getMinio().createBucket(topBucketName);
         String tableName = "test_external_location_top_of_the_bucket_" + randomNameSuffix();
 
-        assertUpdate(format(
-                "CREATE TABLE %s (" +
-                        "  a_varchar varchar, " +
-                        "  pkey integer) " +
-                        "WITH (" +
-                        "   external_location='%s'," +
-                        "   partitioned_by=ARRAY['pkey'])",
+        assertUpdate(("CREATE TABLE %s (" +
+        "  a_varchar varchar, " +
+        "  pkey integer) " +
+        "WITH (" +
+        "   external_location='%s'," +
+        "   partitioned_by=ARRAY['pkey'])").formatted(
                 tableName,
-                format("s3://%s/", topBucketName)));
+                "s3://%s/".formatted(topBucketName)));
         assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 1) , ('b', 1), ('c', 2), ('d', 2)", 4);
         assertQuery("SELECT * FROM " + tableName, "VALUES ('a', 1), ('b',1), ('c', 2), ('d', 2)");
         assertUpdate("DELETE FROM " + tableName + " where pkey = 2");
@@ -2311,7 +2300,7 @@ abstract class BaseTestHiveOnDataLake
                 ")").formatted(getFullyQualifiedTestTableName(tableName)));
 
         // Drop stats for partition which does not exist
-        assertThat(query(format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['partnotfound', '999']])", HIVE_TEST_SCHEMA, tableName)))
+        assertThat(query("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['partnotfound', '999']])".formatted(HIVE_TEST_SCHEMA, tableName)))
                 .failure().hasMessage("No partition found for name: p_varchar=partnotfound/p_integer=999");
 
         assertUpdate("INSERT INTO " + getFullyQualifiedTestTableName(tableName) + " VALUES (1, 'part1', 10) , (2, 'part2', 10), (12, 'part2', 20)", 3);
@@ -2328,7 +2317,7 @@ abstract class BaseTestHiveOnDataLake
                     (null, null, null, null, 3.0, null, null)
                 """);
 
-        assertUpdate(format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['part1', '10']])", HIVE_TEST_SCHEMA, tableName));
+        assertUpdate("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['part1', '10']])".formatted(HIVE_TEST_SCHEMA, tableName));
 
         assertQuery("SHOW STATS FOR " + getFullyQualifiedTestTableName(tableName),
                 """
@@ -2342,7 +2331,7 @@ abstract class BaseTestHiveOnDataLake
         assertUpdate("DELETE FROM " + getFullyQualifiedTestTableName(tableName) + " WHERE p_varchar ='part1' and p_integer = 10");
 
         // Drop stats for partition which does not exist
-        assertThat(query(format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['part1', '10']])", HIVE_TEST_SCHEMA, tableName)))
+        assertThat(query("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['part1', '10']])".formatted(HIVE_TEST_SCHEMA, tableName)))
                 .failure().hasMessage("No partition found for name: p_varchar=part1/p_integer=10");
 
         assertQuery("SHOW STATS FOR " + getFullyQualifiedTestTableName(tableName),
@@ -2547,8 +2536,8 @@ abstract class BaseTestHiveOnDataLake
 
     private void renamePartitionResourcesOutsideTrino(String tableName, String partitionColumn, String regionKey)
     {
-        String partitionName = format("%s=%s", partitionColumn, regionKey);
-        String partitionS3KeyPrefix = format("%s/%s/%s", HIVE_TEST_SCHEMA, tableName, partitionName);
+        String partitionName = "%s=%s".formatted(partitionColumn, regionKey);
+        String partitionS3KeyPrefix = "%s/%s/%s".formatted(HIVE_TEST_SCHEMA, tableName, partitionName);
         String renamedPartitionSuffix = "CP";
 
         // Copy whole partition to new location
@@ -2597,10 +2586,9 @@ abstract class BaseTestHiveOnDataLake
 
     private String createInsertAsSelectFromTpchStatement(String testTable)
     {
-        return format(
-                "INSERT INTO %s " +
-                        "SELECT name, comment, nationkey, regionkey " +
-                        "FROM tpch.tiny.nation",
+        return ("INSERT INTO %s " +
+        "SELECT name, comment, nationkey, regionkey " +
+        "FROM tpch.tiny.nation").formatted(
                 testTable);
     }
 
@@ -2609,7 +2597,7 @@ abstract class BaseTestHiveOnDataLake
         String values = data.stream()
                 .map(row -> String.join(", ", row))
                 .collect(Collectors.joining("), ("));
-        return format("INSERT INTO %s VALUES (%s)", testTable, values);
+        return "INSERT INTO %s VALUES (%s)".formatted(testTable, values);
     }
 
     protected void assertOverwritePartition(String testTable)
@@ -2619,7 +2607,7 @@ abstract class BaseTestHiveOnDataLake
                 ImmutableList.of(
                         ImmutableList.of("'POLAND'", "'Test Data'", "25", "5"),
                         ImmutableList.of("'CZECH'", "'Test Data'", "26", "5"))));
-        query(format("SELECT name, comment, nationkey, regionkey FROM %s WHERE regionkey = 5", testTable))
+        query("SELECT name, comment, nationkey, regionkey FROM %s WHERE regionkey = 5".formatted(testTable))
                 .assertThat()
                 .result()
                 .skippingTypesCheck()
@@ -2632,14 +2620,14 @@ abstract class BaseTestHiveOnDataLake
                 testTable,
                 ImmutableList.of(
                         ImmutableList.of("'POLAND'", "'Overwrite'", "25", "5"))));
-        query(format("SELECT name, comment, nationkey, regionkey FROM %s WHERE regionkey = 5", testTable))
+        query("SELECT name, comment, nationkey, regionkey FROM %s WHERE regionkey = 5".formatted(testTable))
                 .assertThat()
                 .result()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
                         .row("POLAND", "Overwrite", 25L, 5L)
                         .build());
-        computeActual(format("DROP TABLE %s", testTable));
+        computeActual("DROP TABLE %s".formatted(testTable));
     }
 
     protected String getRandomTestTableName()
@@ -2679,16 +2667,15 @@ abstract class BaseTestHiveOnDataLake
 
     protected String getCreateTableStatement(String tableName, List<String> propertiesEntries)
     {
-        return format(
-                "CREATE TABLE %s (" +
-                        "    name varchar(25), " +
-                        "    comment varchar(152),  " +
-                        "    nationkey bigint, " +
-                        "    regionkey bigint) " +
-                        (propertiesEntries.isEmpty() ? "" : propertiesEntries
-                                                            .stream()
-                                                            .collect(joining(",", "WITH (", ")"))),
-                tableName);
+        return ("CREATE TABLE %s (" +
+        "    name varchar(25), " +
+        "    comment varchar(152),  " +
+        "    nationkey bigint, " +
+        "    regionkey bigint) " +
+        (propertiesEntries.isEmpty() ? "" : propertiesEntries
+                .stream()
+                .collect(joining(",", "WITH (", ")")))).formatted(
+                        tableName);
     }
 
     protected void copyTpchNationToTable(String testTable)
@@ -2703,16 +2690,16 @@ abstract class BaseTestHiveOnDataLake
 
     private void testWriteWithFileSize(String testTable, int scaleFactorInThousands, long fileSizeRangeStart, long fileSizeRangeEnd)
     {
-        String scaledColumnExpression = format("array_join(transform(sequence(1, %d), x-> array_join(repeat(comment, 1000), '')), '')", scaleFactorInThousands);
-        computeActual(format("INSERT INTO %s SELECT %s, %s, regionkey FROM tpch.tiny.nation WHERE nationkey = 9", testTable, scaledColumnExpression, scaledColumnExpression));
-        query(format("SELECT length(col1) FROM %s", testTable))
+        String scaledColumnExpression = "array_join(transform(sequence(1, %d), x-> array_join(repeat(comment, 1000), '')), '')".formatted(scaleFactorInThousands);
+        computeActual("INSERT INTO %s SELECT %s, %s, regionkey FROM tpch.tiny.nation WHERE nationkey = 9".formatted(testTable, scaledColumnExpression, scaledColumnExpression));
+        query("SELECT length(col1) FROM %s".formatted(testTable))
                 .assertThat()
                 .result()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
                         .row(114L * scaleFactorInThousands * 1000)
                         .build());
-        query(format("SELECT \"$file_size\" BETWEEN %d AND %d FROM %s", fileSizeRangeStart, fileSizeRangeEnd, testTable))
+        query("SELECT \"$file_size\" BETWEEN %d AND %d FROM %s".formatted(fileSizeRangeStart, fileSizeRangeEnd, testTable))
                 .assertThat()
                 .result()
                 .skippingTypesCheck()

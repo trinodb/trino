@@ -33,7 +33,6 @@ import static io.trino.tests.product.hive.HiveTableDefinitions.NATION_PARTITIONE
 import static io.trino.tests.product.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExternalHiveTable
@@ -142,13 +141,13 @@ public class TestExternalHiveTable
         String schema = "schema_without_location";
         String schemaLocation = "/tmp/" + schema;
         hdfsClient.createDirectory(schemaLocation);
-        onTrino().executeQuery(format("CREATE SCHEMA %s.%s WITH (location='%s')", HIVE_CATALOG_WITH_EXTERNAL_WRITES, schema, schemaLocation));
+        onTrino().executeQuery("CREATE SCHEMA %s.%s WITH (location='%s')".formatted(HIVE_CATALOG_WITH_EXTERNAL_WRITES, schema, schemaLocation));
 
         hdfsClient.delete(schemaLocation);
 
         String table = "test_create_external";
         String tableLocation = "/tmp/" + table;
-        onTrino().executeQuery(format("CREATE TABLE %s.%s.%s WITH (external_location = '%s') AS SELECT * FROM tpch.tiny.nation", HIVE_CATALOG_WITH_EXTERNAL_WRITES, schema, table, tableLocation));
+        onTrino().executeQuery("CREATE TABLE %s.%s.%s WITH (external_location = '%s') AS SELECT * FROM tpch.tiny.nation".formatted(HIVE_CATALOG_WITH_EXTERNAL_WRITES, schema, table, tableLocation));
     }
 
     private void insertNationPartition(TableInstance<?> nation, int partition)

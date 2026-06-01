@@ -87,7 +87,6 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -133,7 +132,6 @@ import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.security.PrincipalType.USER;
-import static java.lang.String.format;
 import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
 
@@ -1126,14 +1124,14 @@ public final class ThriftHiveMetastore
                             if (partitionsAdded != partitions.size()) {
                                 throw new TrinoException(
                                         HIVE_METASTORE_ERROR,
-                                        format("Hive metastore only added %s of %s partitions", partitionsAdded, partitions.size()));
+                                        "Hive metastore only added %s of %s partitions".formatted(partitionsAdded, partitions.size()));
                             }
                             return null;
                         }
                     }));
         }
         catch (AlreadyExistsException e) {
-            throw new TrinoException(ALREADY_EXISTS, format("One or more partitions already exist for table '%s.%s'", databaseName, tableName), e);
+            throw new TrinoException(ALREADY_EXISTS, "One or more partitions already exist for table '%s.%s'".formatted(databaseName, tableName), e);
         }
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
@@ -1340,8 +1338,7 @@ public final class ThriftHiveMetastore
                                         iterator.remove();
                                     }
                                     else if (existingPrivilege.isContainedIn(requestedPrivilege)) {
-                                        throw new TrinoException(NOT_SUPPORTED, format(
-                                                "Granting %s WITH GRANT OPTION is not supported while %s possesses %s",
+                                        throw new TrinoException(NOT_SUPPORTED, "Granting %s WITH GRANT OPTION is not supported while %s possesses %s".formatted(
                                                 requestedPrivilege.getHivePrivilege().name(),
                                                 grantee,
                                                 requestedPrivilege.getHivePrivilege().name()));
@@ -1555,7 +1552,7 @@ public final class ThriftHiveMetastore
             DataOperationType operation,
             boolean isDynamicPartitionWrite)
     {
-        acquireSharedLock(transactionOwner, queryId, transactionId, ImmutableList.of(new SchemaTableName(dbName, tableName)), Collections.emptyList(), operation, isDynamicPartitionWrite);
+        acquireSharedLock(transactionOwner, queryId, transactionId, ImmutableList.of(new SchemaTableName(dbName, tableName)), List.of(), operation, isDynamicPartitionWrite);
     }
 
     private void acquireSharedLock(
@@ -1589,7 +1586,7 @@ public final class ThriftHiveMetastore
             request.addToComponent(createLockComponentForOperation(partition.getTableName(), operation, isDynamicPartitionWrite, Optional.of(partition.getPartitionId())));
         }
 
-        acquireLock(format("hive transaction %s for query %s", transactionId, queryId), request);
+        acquireLock("hive transaction %s for query %s".formatted(transactionId, queryId), request);
     }
 
     @Override
@@ -1612,7 +1609,7 @@ public final class ThriftHiveMetastore
                 .setDbname(dbName)
                 .setTablename(tableName));
 
-        return acquireLock(format("query %s", queryId), request);
+        return acquireLock("query %s".formatted(queryId), request);
     }
 
     private long acquireLock(String context, LockRequest lockRequest)
@@ -1624,7 +1621,7 @@ public final class ThriftHiveMetastore
             while (response.getState() == LockState.WAITING) {
                 if (Duration.nanosSince(waitStart).compareTo(maxWaitForLock) > 0) {
                     // timed out
-                    throw unlockSuppressing(lockId, new TrinoException(HIVE_TABLE_LOCK_NOT_ACQUIRED, format("Timed out waiting for lock %d for %s", lockId, context)));
+                    throw unlockSuppressing(lockId, new TrinoException(HIVE_TABLE_LOCK_NOT_ACQUIRED, "Timed out waiting for lock %d for %s".formatted(lockId, context)));
                 }
 
                 log.debug("Waiting for lock %d for %s", lockId, context);
@@ -1747,7 +1744,7 @@ public final class ThriftHiveMetastore
                         try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
                             return metastoreClient.getValidWriteIds(
                                     tables.stream()
-                                            .map(table -> format("%s.%s", table.getSchemaName(), table.getTableName()))
+                                            .map(table -> "%s.%s".formatted(table.getSchemaName(), table.getTableName()))
                                             .collect(toImmutableList()),
                                     currentTransactionId);
                         }
@@ -2031,12 +2028,12 @@ public final class ThriftHiveMetastore
         }
         if (DOT_MATCHER.matchesAllOf(objectName)) {
             // '.' or '..' object names can cause the object to have an inaccurate location on the object storage
-            throw new TrinoException(GENERIC_USER_ERROR, format("Invalid object name: '%s'", objectName));
+            throw new TrinoException(GENERIC_USER_ERROR, "Invalid object name: '%s'".formatted(objectName));
         }
         if (objectName.contains("/")) {
             // Older HMS instances may allow names like 'foo/bar', which can cause managed tables to be
             // saved in a different location than its intended schema directory
-            throw new TrinoException(GENERIC_USER_ERROR, format("Invalid object name: '%s'", objectName));
+            throw new TrinoException(GENERIC_USER_ERROR, "Invalid object name: '%s'".formatted(objectName));
         }
     }
 }

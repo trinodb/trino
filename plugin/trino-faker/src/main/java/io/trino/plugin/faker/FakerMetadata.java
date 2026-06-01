@@ -116,7 +116,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
@@ -169,7 +168,7 @@ public class FakerMetadata
     public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
     {
         if (schemas.stream().anyMatch(schema -> schema.name().equals(schemaName))) {
-            throw new TrinoException(SCHEMA_ALREADY_EXISTS, format("Schema '%s' already exists", schemaName));
+            throw new TrinoException(SCHEMA_ALREADY_EXISTS, "Schema '%s' already exists".formatted(schemaName));
         }
         schemas.add(new SchemaInfo(schemaName, properties));
     }
@@ -186,7 +185,7 @@ public class FakerMetadata
                 .filter(schemaInfo -> schemaInfo.name().equals(name))
                 .findAny();
         if (schema.isEmpty()) {
-            throw new TrinoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", name));
+            throw new TrinoException(SCHEMA_NOT_FOUND, "Schema '%s' does not exist".formatted(name));
         }
         return schema.get();
     }
@@ -438,21 +437,21 @@ public class FakerMetadata
     private synchronized void checkSchemaExists(String schemaName)
     {
         if (schemas.stream().noneMatch(schema -> schema.name().equals(schemaName))) {
-            throw new TrinoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", schemaName));
+            throw new TrinoException(SCHEMA_NOT_FOUND, "Schema '%s' does not exist".formatted(schemaName));
         }
     }
 
     private synchronized void checkTableNotExists(SchemaTableName tableName)
     {
         if (tables.containsKey(tableName)) {
-            throw new TrinoException(TABLE_ALREADY_EXISTS, format("Table '%s' already exists", tableName));
+            throw new TrinoException(TABLE_ALREADY_EXISTS, "Table '%s' already exists".formatted(tableName));
         }
     }
 
     private synchronized void checkViewNotExists(SchemaTableName viewName)
     {
         if (views.containsKey(viewName)) {
-            throw new TrinoException(ALREADY_EXISTS, format("View '%s' already exists", viewName));
+            throw new TrinoException(ALREADY_EXISTS, "View '%s' already exists".formatted(viewName));
         }
     }
 
@@ -741,7 +740,7 @@ public class FakerMetadata
                 .filter(s -> s.name().equals(schemaName))
                 .findAny();
         if (schema.isEmpty()) {
-            throw new TrinoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", schemaName));
+            throw new TrinoException(SCHEMA_NOT_FOUND, "Schema '%s' does not exist".formatted(schemaName));
         }
 
         return schema.get().properties();

@@ -41,7 +41,7 @@ public class CreateAsSelectDataSetup
                 .map(this::format)
                 .collect(toList());
         String selectBody = range(0, columnValues.size())
-                .mapToObj(i -> String.format("%s col_%d", columnValues.get(i), i))
+                .mapToObj(i -> "%s col_%d".formatted(columnValues.get(i), i))
                 .collect(joining(",\n"));
         return new TestTable(sqlExecutor, tableNamePrefix, "AS SELECT " + selectBody);
     }
@@ -51,8 +51,7 @@ public class CreateAsSelectDataSetup
         if (input.getDeclaredType().isEmpty()) {
             return input.getInputLiteral();
         }
-        return String.format(
-                "CAST(%s AS %s)",
+        return "CAST(%s AS %s)".formatted(
                 input.getInputLiteral(),
                 input.getDeclaredType().get());
     }

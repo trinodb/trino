@@ -368,7 +368,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.time.Instant.EPOCH;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Comparator.naturalOrder;
@@ -642,7 +641,7 @@ public class DeltaLakeMetadata
         catch (IOException e) {
             throw new TrinoException(
                     DELTA_LAKE_FILESYSTEM_ERROR,
-                    format("Unexpected IO exception occurred while reading the entries under the location %s for finding latest snapshot id before or at %s",
+                    "Unexpected IO exception occurred while reading the entries under the location %s for finding latest snapshot id before or at %s".formatted(
                             tableLocation,
                             Instant.ofEpochMilli(epochMillis)),
                     e);
@@ -820,7 +819,7 @@ public class DeltaLakeMetadata
                 versionChecksum = readVersionChecksumFile(fileSystem, tableLocation, latestCommitVersion);
             }
             catch (IOException | UncheckedIOException e) {
-                throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Failed to read checksum file for version %d of table %s", latestCommitVersion, tableName), e);
+                throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Failed to read checksum file for version %d of table %s".formatted(latestCommitVersion, tableName), e);
             }
             if (versionChecksum.isEmpty()) {
                 return Optional.empty();
@@ -847,10 +846,10 @@ public class DeltaLakeMetadata
             commit = findLatestCommitVersion(fileSystem, tableLocation, lastCheckpoint);
         }
         catch (IOException | UncheckedIOException e) {
-            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Failed to determine latest commit version for %s", tableName), e);
+            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Failed to determine latest commit version for %s".formatted(tableName), e);
         }
         if (commit.isEmpty()) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, format("Delta table %s has no commits", tableName));
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Delta table %s has no commits".formatted(tableName));
         }
         latestCheckpoints.put(tableName, lastCheckpoint);
         return commit.getAsLong();
@@ -1396,7 +1395,7 @@ public class DeltaLakeMetadata
 
             String currentLocation = getLocation(existingTableMetadata.getProperties());
             if (location != null && !areDirectoryLocationsEquivalent(Location.of(location), Location.of(currentLocation))) {
-                throw new TrinoException(GENERIC_USER_ERROR, format("The provided location '%s' does not match the existing table location '%s'", location, currentLocation));
+                throw new TrinoException(GENERIC_USER_ERROR, "The provided location '%s' does not match the existing table location '%s'".formatted(location, currentLocation));
             }
             location = currentLocation;
             external = !tableHandle.isManaged();
@@ -1586,7 +1585,7 @@ public class DeltaLakeMetadata
 
             String currentLocation = getLocation(existingTableMetadata.getProperties());
             if (location != null && !areDirectoryLocationsEquivalent(Location.of(location), Location.of(currentLocation))) {
-                throw new TrinoException(GENERIC_USER_ERROR, format("The provided location '%s' does not match the existing table location '%s'", location, currentLocation));
+                throw new TrinoException(GENERIC_USER_ERROR, "The provided location '%s' does not match the existing table location '%s'".formatted(location, currentLocation));
             }
             location = currentLocation;
             external = !handle.isManaged();
@@ -1831,8 +1830,7 @@ public class DeltaLakeMetadata
                 TrinoFileSystem fileSystem = fileSystemFactory.create(session, location);
                 commitVersion = getMandatoryCurrentVersion(fileSystem, handle.location(), handle.readVersion().getAsLong()) + 1;
                 if (commitVersion != handle.readVersion().getAsLong() + 1) {
-                    throw new TransactionConflictException(format(
-                            "Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s",
+                    throw new TransactionConflictException("Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s".formatted(
                             handle.readVersion().getAsLong(),
                             commitVersion - 1));
                 }
@@ -1956,7 +1954,7 @@ public class DeltaLakeMetadata
             enqueueUpdateInfo(session, handle.getSchemaName(), handle.getTableName(), commitVersion, metadataEntry.getSchemaString(), comment);
         }
         catch (Exception e) {
-            throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to comment on table: %s.%s", handle.getSchemaName(), handle.getTableName()), e);
+            throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Unable to comment on table: %s.%s".formatted(handle.getSchemaName(), handle.getTableName()), e);
         }
     }
 
@@ -2002,7 +2000,7 @@ public class DeltaLakeMetadata
                     Optional.ofNullable(deltaLakeTableHandle.getMetadataEntry().getDescription()));
         }
         catch (Exception e) {
-            throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to add '%s' column comment for: %s.%s", deltaLakeColumnHandle.baseColumnName(), deltaLakeTableHandle.getSchemaName(), deltaLakeTableHandle.getTableName()), e);
+            throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Unable to add '%s' column comment for: %s.%s".formatted(deltaLakeColumnHandle.baseColumnName(), deltaLakeTableHandle.getSchemaName(), deltaLakeTableHandle.getTableName()), e);
         }
     }
 
@@ -2051,7 +2049,7 @@ public class DeltaLakeMetadata
                 tableHasDataFiles = addFileEntries.findAny().isPresent();
             }
             if (tableHasDataFiles) {
-                throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to add NOT NULL column '%s' for non-empty table: %s.%s", newColumnMetadata.getName(), handle.getSchemaName(), handle.getTableName()));
+                throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Unable to add NOT NULL column '%s' for non-empty table: %s.%s".formatted(newColumnMetadata.getName(), handle.getSchemaName(), handle.getTableName()));
             }
         }
 
@@ -2105,7 +2103,7 @@ public class DeltaLakeMetadata
                     Optional.ofNullable(handle.getMetadataEntry().getDescription()));
         }
         catch (Exception e) {
-            throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to add '%s' column for: %s.%s %s", newColumnMetadata.getName(), handle.getSchemaName(), handle.getTableName(), requireNonNullElse(e.getMessage(), e)), e);
+            throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Unable to add '%s' column for: %s.%s %s".formatted(newColumnMetadata.getName(), handle.getSchemaName(), handle.getTableName(), requireNonNullElse(e.getMessage(), e)), e);
         }
     }
 
@@ -2172,7 +2170,7 @@ public class DeltaLakeMetadata
             enqueueUpdateInfo(session, table.getSchemaName(), table.getTableName(), commitVersion, schemaString, Optional.ofNullable(metadataEntry.getDescription()));
         }
         catch (Exception e) {
-            throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to drop '%s' column from: %s.%s", dropColumnName, table.getSchemaName(), table.getTableName()), e);
+            throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Unable to drop '%s' column from: %s.%s".formatted(dropColumnName, table.getSchemaName(), table.getTableName()), e);
         }
 
         try {
@@ -2242,7 +2240,7 @@ public class DeltaLakeMetadata
             // Don't update extended statistics because it uses physical column names internally
         }
         catch (Exception e) {
-            throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to rename '%s' column for: %s.%s", sourceColumnName, table.getSchemaName(), table.getTableName()), e);
+            throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Unable to rename '%s' column for: %s.%s".formatted(sourceColumnName, table.getSchemaName(), table.getTableName()), e);
         }
     }
 
@@ -2279,7 +2277,7 @@ public class DeltaLakeMetadata
             enqueueUpdateInfo(session, table.getSchemaName(), table.getTableName(), commitVersion, schemaString, Optional.ofNullable(metadataEntry.getDescription()));
         }
         catch (Exception e) {
-            throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to drop not null constraint from '%s' column in: %s", columnName, table.getSchemaTableName()), e);
+            throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Unable to drop not null constraint from '%s' column in: %s".formatted(columnName, table.getSchemaTableName()), e);
         }
     }
 
@@ -3174,8 +3172,8 @@ public class DeltaLakeMetadata
             String fileSystem = Location.of(table.getLocation()).scheme().orElse("unknown");
             throw new TrinoException(
                     NOT_SUPPORTED,
-                    format("Writes are not enabled on the %1$s filesystem in order to avoid eventual data corruption which may be caused by concurrent data modifications on the table. " +
-                            "Writes to the %1$s filesystem can be however enabled with the '%2$s' configuration property.", fileSystem, ENABLE_NON_CONCURRENT_WRITES_CONFIGURATION_KEY));
+                    ("Writes are not enabled on the %1$s filesystem in order to avoid eventual data corruption which may be caused by concurrent data modifications on the table. " +
+                            "Writes to the %1$s filesystem can be however enabled with the '%2$s' configuration property.").formatted(fileSystem, ENABLE_NON_CONCURRENT_WRITES_CONFIGURATION_KEY));
         }
     }
 
@@ -3238,7 +3236,7 @@ public class DeltaLakeMetadata
         if (requiredWriterVersion > MAX_WRITER_VERSION) {
             throw new TrinoException(
                     NOT_SUPPORTED,
-                    format("Table %s requires Delta Lake writer version %d which is not supported", handle.getSchemaTableName(), requiredWriterVersion));
+                    "Table %s requires Delta Lake writer version %d which is not supported".formatted(handle.getSchemaTableName(), requiredWriterVersion));
         }
     }
 
@@ -3417,7 +3415,7 @@ public class DeltaLakeMetadata
                 fileSystemFactory.create(session, handle.toCredentialsHandle()).deleteDirectory(Location.of(handle.location()));
             }
             catch (IOException e) {
-                throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Failed to delete directory %s of the table %s", handle.location(), handle.schemaTableName()), e);
+                throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Failed to delete directory %s of the table %s".formatted(handle.location(), handle.schemaTableName()), e);
             }
         }
         // As a precaution, clear the caches
@@ -3910,7 +3908,7 @@ public class DeltaLakeMetadata
                 if (Collections.disjoint(referencedColumns, partitionColumns)) {
                     throw new TrinoException(
                             QUERY_REJECTED,
-                            format("Filter required on %s for at least one partition column: %s", deltaLakeTableHandle.getSchemaTableName(), String.join(", ", partitionColumns)));
+                            "Filter required on %s for at least one partition column: %s".formatted(deltaLakeTableHandle.getSchemaTableName(), String.join(", ", partitionColumns)));
                 }
             }
         }
@@ -3920,8 +3918,7 @@ public class DeltaLakeMetadata
     public ConnectorAnalyzeMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> analyzeProperties)
     {
         if (!isExtendedStatisticsEnabled(session)) {
-            throw new TrinoException(NOT_SUPPORTED, format(
-                    "ANALYZE not supported if extended statistics are disabled. Enable via %s config property or %s session property.",
+            throw new TrinoException(NOT_SUPPORTED, "ANALYZE not supported if extended statistics are disabled. Enable via %s config property or %s session property.".formatted(
                     DeltaLakeConfig.EXTENDED_STATISTICS_ENABLED,
                     DeltaLakeSessionProperties.EXTENDED_STATISTICS_ENABLED));
         }
@@ -3960,7 +3957,7 @@ public class DeltaLakeMetadata
             if (!allColumnNames.containsAll(columnNames)) {
                 throw new TrinoException(
                         INVALID_ANALYZE_PROPERTY,
-                        format("Invalid columns specified for analysis: %s", Sets.difference(columnNames, allColumnNames)));
+                        "Invalid columns specified for analysis: %s".formatted(Sets.difference(columnNames, allColumnNames)));
             }
         }
 
@@ -3968,8 +3965,7 @@ public class DeltaLakeMetadata
         Optional<Set<String>> oldAnalyzeColumnNames = statistics.flatMap(ExtendedStatistics::getAnalyzedColumns);
         if (oldAnalyzeColumnNames.isPresent()) {
             if (analyzeColumnNames.isEmpty() || !oldAnalyzeColumnNames.get().containsAll(analyzeColumnNames.get())) {
-                throw new TrinoException(INVALID_ANALYZE_PROPERTY, format(
-                        "List of columns to be analyzed must be a subset of previously used: %s. To extend list of analyzed columns drop table statistics",
+                throw new TrinoException(INVALID_ANALYZE_PROPERTY, "List of columns to be analyzed must be a subset of previously used: %s. To extend list of analyzed columns drop table statistics".formatted(
                         oldAnalyzeColumnNames.get()));
             }
         }
@@ -4272,7 +4268,7 @@ public class DeltaLakeMetadata
                     .collect(toImmutableSet());
             if (!mergedColumnStatistics.keySet().equals(analyzePhysicalColumns)) {
                 // sanity validation
-                throw new IllegalStateException(format("Unexpected columns in in mergedColumnStatistics %s; expected %s", mergedColumnStatistics.keySet(), analyzePhysicalColumns));
+                throw new IllegalStateException("Unexpected columns in in mergedColumnStatistics %s; expected %s".formatted(mergedColumnStatistics.keySet(), analyzePhysicalColumns));
             }
         });
 

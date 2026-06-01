@@ -79,7 +79,6 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class HiveWriteUtils
@@ -204,7 +203,7 @@ public final class HiveWriteUtils
 
         // verify skew info
         if (storage.isSkewed()) {
-            throw new TrinoException(NOT_SUPPORTED, format("Inserting into bucketed tables with skew is not supported. %s", tablePartitionDescription));
+            throw new TrinoException(NOT_SUPPORTED, "Inserting into bucketed tables with skew is not supported. %s".formatted(tablePartitionDescription));
         }
     }
 
@@ -219,10 +218,10 @@ public final class HiveWriteUtils
     public static Location getTableDefaultLocation(Database database, TrinoFileSystem fileSystem, String schemaName, String tableName)
     {
         Location location = database.getLocation().map(Location::of)
-                .orElseThrow(() -> new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName)));
+                .orElseThrow(() -> new TrinoException(HIVE_DATABASE_LOCATION_ERROR, "Database '%s' location is not set".formatted(schemaName)));
 
         if (!directoryExists(fileSystem, location).orElse(true)) {
-            throw new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location does not exist: %s", schemaName, location));
+            throw new TrinoException(HIVE_DATABASE_LOCATION_ERROR, "Database '%s' location does not exist: %s".formatted(schemaName, location));
         }
 
         return location.appendPath(escapeTableName(tableName));

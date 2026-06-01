@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.assertions;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.SortOrder;
@@ -26,8 +25,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.toSymbolReferences;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 final class AggregationFunctionProvider
         implements ExpectedValueProvider<AggregationFunction>
@@ -50,12 +49,11 @@ final class AggregationFunctionProvider
     @Override
     public String toString()
     {
-        return format(
-                "%s (%s%s) %s %s",
+        return "%s (%s%s) %s %s".formatted(
                 name,
                 distinct ? "DISTINCT" : "",
-                Joiner.on(", ").join(args),
-                orderBy.isEmpty() ? "" : " ORDER BY " + Joiner.on(", ").join(orderBy),
+                args.stream().map(Object::toString).collect(joining(", ")),
+                orderBy.isEmpty() ? "" : " ORDER BY " + orderBy.stream().map(Object::toString).collect(joining(", ")),
                 filter.isPresent() ? filter.get().toString() : "");
     }
 

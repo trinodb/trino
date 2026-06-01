@@ -40,7 +40,6 @@ import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 
 final class DateTimeParsing
@@ -205,7 +204,7 @@ final class DateTimeParsing
         }
 
         if (precision > MAX_SHORT_PRECISION) {
-            throw new IllegalArgumentException(format("Cannot parse '%s' as short timestamp. Max allowed precision = %s", value, MAX_SHORT_PRECISION));
+            throw new IllegalArgumentException("Cannot parse '%s' as short timestamp. Max allowed precision = %s".formatted(value, MAX_SHORT_PRECISION));
         }
 
         return multiplyExact(epochSecond, MICROSECONDS_PER_SECOND) + rescale(fractionValue, precision, 6);
@@ -227,7 +226,7 @@ final class DateTimeParsing
         String fraction = matcher.group("fraction");
 
         if (fraction == null || fraction.length() <= MAX_SHORT_PRECISION) {
-            throw new IllegalArgumentException(format("Cannot parse '%s' as long timestamp. Precision must be in the range [%s, %s]", value, MAX_SHORT_PRECISION + 1, TimestampType.MAX_PRECISION));
+            throw new IllegalArgumentException("Cannot parse '%s' as long timestamp. Precision must be in the range [%s, %s]".formatted(value, MAX_SHORT_PRECISION + 1, TimestampType.MAX_PRECISION));
         }
 
         int precision = fraction.length();
@@ -264,7 +263,7 @@ final class DateTimeParsing
         }
 
         if (precision > MAX_SHORT_PRECISION) {
-            throw new IllegalArgumentException(format("Cannot parse '%s' as short timestamp. Max allowed precision = %s", value, MAX_SHORT_PRECISION));
+            throw new IllegalArgumentException("Cannot parse '%s' as short timestamp. Max allowed precision = %s".formatted(value, MAX_SHORT_PRECISION));
         }
 
         long epochMillis = epochSecond * 1000 + rescale(fractionValue, precision, 3);
@@ -288,7 +287,7 @@ final class DateTimeParsing
         String timezone = matcher.group("timezone");
 
         if (fraction == null || fraction.length() <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
-            throw new IllegalArgumentException(format("Cannot parse '%s' as long timestamp. Precision must be in the range [%s, %s]", value, TimestampWithTimeZoneType.MAX_SHORT_PRECISION + 1, TimestampWithTimeZoneType.MAX_PRECISION));
+            throw new IllegalArgumentException("Cannot parse '%s' as long timestamp. Precision must be in the range [%s, %s]".formatted(value, TimestampWithTimeZoneType.MAX_SHORT_PRECISION + 1, TimestampWithTimeZoneType.MAX_PRECISION));
         }
 
         ZoneId zoneId = ZoneId.of(timezone);

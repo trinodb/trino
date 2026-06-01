@@ -27,7 +27,6 @@ import java.nio.file.Path;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -59,7 +58,7 @@ public class TestDeltaLakeRenameToWithGlueMetastore
         String newTable = "test_table_external_renamed_" + randomNameSuffix();
         Path tableLocation = getQueryRunner().getCoordinator().getBaseDataDir().resolve(oldTable);
         try {
-            assertUpdate(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS val ", oldTable, tableLocation.toFile().toURI()), 1);
+            assertUpdate("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS val ".formatted(oldTable, tableLocation.toFile().toURI()), 1);
             String oldLocation = (String) computeScalar("SELECT \"$path\" FROM " + oldTable);
             assertQuery("SELECT val FROM " + oldTable, "VALUES (1)");
 
@@ -80,7 +79,7 @@ public class TestDeltaLakeRenameToWithGlueMetastore
         String oldTable = "test_table_managed_to_be_renamed_" + randomNameSuffix();
         String newTable = "test_table_managed_renamed_" + randomNameSuffix();
         try {
-            assertUpdate(format("CREATE TABLE %s AS SELECT 1 AS val ", oldTable), 1);
+            assertUpdate("CREATE TABLE %s AS SELECT 1 AS val ".formatted(oldTable), 1);
             String oldLocation = (String) computeScalar("SELECT \"$path\" FROM " + oldTable);
             assertQuery("SELECT val FROM " + oldTable, "VALUES (1)");
 

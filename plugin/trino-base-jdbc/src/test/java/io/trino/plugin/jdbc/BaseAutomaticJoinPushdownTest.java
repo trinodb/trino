@@ -25,7 +25,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseAutomaticJoinPushdownTest
@@ -41,15 +40,15 @@ public abstract class BaseAutomaticJoinPushdownTest
             // pushdown should not happen without stats even if allowed join_to_tables ration is extremely high
 
             // no stats on left and right
-            assertThat(query(maxJoinToTablesRatio(session, 50.0), format("SELECT * FROM %s l JOIN %s r ON l.key = r.key", left.getName(), right.getName()))).isNotFullyPushedDown(joinOverTableScans());
+            assertThat(query(maxJoinToTablesRatio(session, 50.0), "SELECT * FROM %s l JOIN %s r ON l.key = r.key".formatted(left.getName(), right.getName()))).isNotFullyPushedDown(joinOverTableScans());
 
             // stats only for left
             gatherStats(left.getName());
-            assertThat(query(maxJoinToTablesRatio(session, 50.0), format("SELECT * FROM %s l JOIN %s r ON l.key = r.key", left.getName(), right.getName()))).isNotFullyPushedDown(joinOverTableScans());
+            assertThat(query(maxJoinToTablesRatio(session, 50.0), "SELECT * FROM %s l JOIN %s r ON l.key = r.key".formatted(left.getName(), right.getName()))).isNotFullyPushedDown(joinOverTableScans());
 
             // both tables with stats
             gatherStats(right.getName());
-            assertThat(query(maxJoinToTablesRatio(session, 50.0), format("SELECT * FROM %s l JOIN %s r ON l.key = r.key", left.getName(), right.getName()))).isFullyPushedDown();
+            assertThat(query(maxJoinToTablesRatio(session, 50.0), "SELECT * FROM %s l JOIN %s r ON l.key = r.key".formatted(left.getName(), right.getName()))).isFullyPushedDown();
         }
     }
 
@@ -64,7 +63,7 @@ public abstract class BaseAutomaticJoinPushdownTest
             gatherStats(right.getName());
 
             // single NDV in each table logically results in a cross join; should not be pushed down even at high allowed join_to_tables ratio
-            assertThat(query(maxJoinToTablesRatio(session, 5.0), format("SELECT * FROM %s l JOIN %s r ON l.key = r.key", left.getName(), right.getName()))).isNotFullyPushedDown(joinOverTableScans());
+            assertThat(query(maxJoinToTablesRatio(session, 5.0), "SELECT * FROM %s l JOIN %s r ON l.key = r.key".formatted(left.getName(), right.getName()))).isNotFullyPushedDown(joinOverTableScans());
         }
     }
 
@@ -85,21 +84,21 @@ public abstract class BaseAutomaticJoinPushdownTest
 
             // with default configuration such join should not be pushed down;
             // allowed join_to_tables ratio is 1.25 hence join size need to be less than (44_400 + 7_400) * 1.25 == 64_750
-            assertThat(query(session, format(simpleJoinQuery, left.getName(), right.getName())))
+            assertThat(query(session, simpleJoinQuery.formatted(left.getName(), right.getName())))
                     .isNotFullyPushedDown(joinOverTableScans());
 
             // relax allowed ratio to 3.0; base line is 111_200 / (44_400 + 7_400) == 2.14 but we add some margin to cover possible mistakes in NDV calculations.
-            assertThat(query(maxJoinToTablesRatio(session, 3.0), format(simpleJoinQuery, left.getName(), right.getName())))
+            assertThat(query(maxJoinToTablesRatio(session, 3.0), simpleJoinQuery.formatted(left.getName(), right.getName())))
                     .isFullyPushedDown();
 
             // keep ratio on level which allows pushdown but allow only very small tables in join pushdown
             Session onlySmallTablesAllowed = Session.builder(maxJoinToTablesRatio(session, 3.0))
                     .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_automatic_max_table_size", "0.1kB")
                     .build();
-            assertThat(query(onlySmallTablesAllowed, format(simpleJoinQuery, left.getName(), right.getName()))).isNotFullyPushedDown(joinOverTableScans());
+            assertThat(query(onlySmallTablesAllowed, simpleJoinQuery.formatted(left.getName(), right.getName()))).isNotFullyPushedDown(joinOverTableScans());
 
             // a query which constraints size of join output; only join key is in output
-            String smallJoinOutputQuery = format("SELECT l.key FROM %s l JOIN %s r ON l.key = r.key", left.getName(), right.getName());
+            String smallJoinOutputQuery = "SELECT l.key FROM %s l JOIN %s r ON l.key = r.key".formatted(left.getName(), right.getName());
             // estimated left table size is ~5_400
             // estimated right table size is ~900
             // estimated join size is ~5_400 (same as left table)
@@ -108,7 +107,7 @@ public abstract class BaseAutomaticJoinPushdownTest
             assertThat(query(session, smallJoinOutputQuery)).isFullyPushedDown();
 
             // if we move threshold lower it will not be pushed down any more
-            assertThat(query(maxJoinToTablesRatio(session, 1.0), format(simpleJoinQuery, left.getName(), right.getName())))
+            assertThat(query(maxJoinToTablesRatio(session, 1.0), simpleJoinQuery.formatted(left.getName(), right.getName())))
                     .isNotFullyPushedDown(joinOverTableScans());
         }
     }
@@ -127,11 +126,10 @@ public abstract class BaseAutomaticJoinPushdownTest
             gatherStats(left.getName());
             gatherStats(right.getName());
 
-            assertThat(query(session, format(
-                    "" +
-                            "SELECT * " +
-                            "FROM %s l " +
-                            "JOIN (SELECT DISTINCT key FROM %s) r ON l.key = r.key",
+            assertThat(query(session, ("" +
+            "SELECT * " +
+            "FROM %s l " +
+            "JOIN (SELECT DISTINCT key FROM %s) r ON l.key = r.key").formatted(
                     left.getName(),
                     right.getName())))
                     .isFullyPushedDown();
@@ -154,12 +152,12 @@ public abstract class BaseAutomaticJoinPushdownTest
             gatherStats(second.getName());
             gatherStats(third.getName());
 
-            assertThat(query(session, format(
-                    "" +
-                            "SELECT * " +
-                            "FROM %s first, %s second, %s third " +
-                            "WHERE first.key = second.key AND second.key = third.key " +
-                            "AND third.intpadding = 42", // one table is highly filtered for the join pushdown to always make sense
+            assertThat(query(session, ("" +
+            "SELECT * " +
+            "FROM %s first, %s second, %s third " +
+            "WHERE first.key = second.key AND second.key = third.key " +
+            "AND third.intpadding = 42").formatted(
+                    // one table is highly filtered for the join pushdown to always make sense
                     first.getName(),
                     second.getName(),
                     third.getName())))
@@ -181,7 +179,7 @@ public abstract class BaseAutomaticJoinPushdownTest
         String padding = "x".repeat(50);
         return newTrinoTable(
                 name,
-                format("(key, padding, intpadding) AS SELECT mod(orderkey, %s), '%s', orderkey FROM %s ORDER BY orderkey LIMIT %s", keyDistinctValues, padding, sourceTable, rowsCount));
+                "(key, padding, intpadding) AS SELECT mod(orderkey, %s), '%s', orderkey FROM %s ORDER BY orderkey LIMIT %s".formatted(keyDistinctValues, padding, sourceTable, rowsCount));
     }
 
     protected abstract void gatherStats(String tableName);

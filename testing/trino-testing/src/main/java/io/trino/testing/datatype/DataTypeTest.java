@@ -26,7 +26,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Collections.unmodifiableList;
 import static java.util.stream.Collectors.toList;
@@ -113,7 +112,7 @@ public class DataTypeTest
         for (int i = 0; i < inputs.size(); i++) {
             Input<?> input = inputs.get(i);
             if (input.isUseInWhereClause()) {
-                String debugQuery = format("SELECT col_%d FROM %s WHERE col_%d IS NOT DISTINCT FROM %s", i, temporaryRelation.getName(), i, input.toTrinoLiteral());
+                String debugQuery = "SELECT col_%d FROM %s WHERE col_%d IS NOT DISTINCT FROM %s".formatted(i, temporaryRelation.getName(), i, input.toTrinoLiteral());
                 log.info("Querying input: %d (expected type: %s, expectedResult: %s) using: %s", i, expectedTypes.get(i), expectedResults.get(i), debugQuery);
                 MaterializedResult debugRows = trinoExecutor.execute(session, debugQuery);
                 checkResults(expectedTypes.subList(i, i + 1), expectedResults.subList(i, i + 1), debugRows);
@@ -127,7 +126,7 @@ public class DataTypeTest
         for (int i = 0; i < inputs.size(); i++) {
             Input<?> input = inputs.get(i);
             if (input.isUseInWhereClause()) {
-                predicates.add(format("col_%d IS NOT DISTINCT FROM %s", i, input.toTrinoLiteral()));
+                predicates.add("col_%d IS NOT DISTINCT FROM %s".formatted(i, input.toTrinoLiteral()));
             }
         }
         return "SELECT * FROM " + temporaryRelation.getName() + " WHERE " + join(" AND ", predicates);

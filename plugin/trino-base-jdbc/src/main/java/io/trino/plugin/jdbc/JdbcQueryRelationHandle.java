@@ -18,8 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static java.lang.String.format;
-
 public class JdbcQueryRelationHandle
         extends JdbcRelationHandle
 {
@@ -40,7 +38,7 @@ public class JdbcQueryRelationHandle
     @Override
     public String toString()
     {
-        return format("Query[%s]", preparedQuery.query());
+        return "Query[%s]".formatted(preparedQuery.query());
     }
 
     @Override

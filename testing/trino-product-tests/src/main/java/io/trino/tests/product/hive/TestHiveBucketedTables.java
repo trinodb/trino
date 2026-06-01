@@ -53,7 +53,6 @@ import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MA
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static io.trino.tests.product.utils.TableDefinitionUtils.mutableTableInstanceOf;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.sql.JDBCType.VARCHAR;
 import static java.util.stream.Collectors.joining;
@@ -123,13 +122,13 @@ public class TestHiveBucketedTables
         populateHivePartitionedTable(tableName, NATION.getName(), "part_key = 'insert_1'");
         populateHivePartitionedTable(tableName, NATION.getName(), "part_key = 'insert_2'");
 
-        onHive().executeQuery(format("ALTER TABLE %s NOT CLUSTERED", tableName));
+        onHive().executeQuery("ALTER TABLE %s NOT CLUSTERED".formatted(tableName));
 
-        assertThat(onTrino().executeQuery(format("SELECT count(DISTINCT n_nationkey), count(*) FROM %s", tableName)))
+        assertThat(onTrino().executeQuery("SELECT count(DISTINCT n_nationkey), count(*) FROM %s".formatted(tableName)))
                 .hasRowsCount(1)
                 .contains(row(25, 50));
 
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s WHERE n_nationkey = 1", tableName)))
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s WHERE n_nationkey = 1".formatted(tableName)))
                 .containsExactlyInOrder(row(2));
     }
 
@@ -142,11 +141,11 @@ public class TestHiveBucketedTables
             populateHivePartitionedTable(tableName, NATION.getName(), "part_key = 'insert'");
         }
 
-        assertThat(onTrino().executeQuery(format("SELECT count(DISTINCT n_nationkey), count(*) FROM %s", tableName)))
+        assertThat(onTrino().executeQuery("SELECT count(DISTINCT n_nationkey), count(*) FROM %s".formatted(tableName)))
                 .hasRowsCount(1)
                 .contains(row(25, 75));
 
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s WHERE n_nationkey = 1", tableName)))
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s WHERE n_nationkey = 1".formatted(tableName)))
                 .containsExactlyInOrder(row(3));
     }
 
@@ -158,13 +157,13 @@ public class TestHiveBucketedTables
         populateHiveTable(tableName, NATION.getName());
         populateHiveTable(tableName, NATION.getName());
 
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s WHERE n_nationkey = 1", tableName)))
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s WHERE n_nationkey = 1".formatted(tableName)))
                 .containsExactlyInOrder(row(2));
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s WHERE n_regionkey = 1", tableName)))
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s WHERE n_regionkey = 1".formatted(tableName)))
                 .containsExactlyInOrder(row(10));
-        assertThat(onTrino().executeQuery(format("SELECT n_regionkey, count(*) FROM %s GROUP BY n_regionkey", tableName)))
+        assertThat(onTrino().executeQuery("SELECT n_regionkey, count(*) FROM %s GROUP BY n_regionkey".formatted(tableName)))
                 .containsOnly(row(0, 10), row(1, 10), row(2, 10), row(3, 10), row(4, 10));
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s n JOIN %s n1 ON n.n_regionkey = n1.n_regionkey", tableName, tableName)))
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s n JOIN %s n1 ON n.n_regionkey = n1.n_regionkey".formatted(tableName, tableName)))
                 .containsExactlyInOrder(row(500));
     }
 
@@ -176,13 +175,13 @@ public class TestHiveBucketedTables
         populateHiveTable(tableName, NATION.getName());
         populateHiveTable(tableName, NATION.getName());
 
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s WHERE n_nationkey = 1", tableName)))
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s WHERE n_nationkey = 1".formatted(tableName)))
                 .containsExactlyInOrder(row(2));
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s WHERE n_regionkey = 1", tableName)))
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s WHERE n_regionkey = 1".formatted(tableName)))
                 .containsExactlyInOrder(row(10));
-        assertThat(onTrino().executeQuery(format("SELECT n_regionkey, count(*) FROM %s GROUP BY n_regionkey", tableName)))
+        assertThat(onTrino().executeQuery("SELECT n_regionkey, count(*) FROM %s GROUP BY n_regionkey".formatted(tableName)))
                 .containsOnly(row(0, 10), row(1, 10), row(2, 10), row(3, 10), row(4, 10));
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s n JOIN %s n1 ON n.n_regionkey = n1.n_regionkey", tableName, tableName)))
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s n JOIN %s n1 ON n.n_regionkey = n1.n_regionkey".formatted(tableName, tableName)))
                 .containsExactlyInOrder(row(500));
     }
 
@@ -196,18 +195,18 @@ public class TestHiveBucketedTables
         populateHivePartitionedTable(tableName, NATION.getName(), "part_key = 'insert_1'");
         populateHivePartitionedTable(tableName, NATION.getName(), "part_key = 'insert_2'");
 
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s WHERE n_nationkey = 1", tableName)))
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s WHERE n_nationkey = 1".formatted(tableName)))
                 .containsExactlyInOrder(row(4));
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s WHERE n_regionkey = 1", tableName)))
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s WHERE n_regionkey = 1".formatted(tableName)))
                 .containsExactlyInOrder(row(20));
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s WHERE n_regionkey = 1 AND part_key = 'insert_1'", tableName)))
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s WHERE n_regionkey = 1 AND part_key = 'insert_1'".formatted(tableName)))
                 .hasRowsCount(1)
                 .containsExactlyInOrder(row(10));
-        assertThat(onTrino().executeQuery(format("SELECT n_regionkey, count(*) FROM %s WHERE part_key = 'insert_2' GROUP BY n_regionkey", tableName)))
+        assertThat(onTrino().executeQuery("SELECT n_regionkey, count(*) FROM %s WHERE part_key = 'insert_2' GROUP BY n_regionkey".formatted(tableName)))
                 .containsOnly(row(0, 10), row(1, 10), row(2, 10), row(3, 10), row(4, 10));
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s n JOIN %s n1 ON n.n_regionkey = n1.n_regionkey", tableName, tableName)))
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s n JOIN %s n1 ON n.n_regionkey = n1.n_regionkey".formatted(tableName, tableName)))
                 .containsExactlyInOrder(row(2000));
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s n JOIN %s n1 ON n.n_regionkey = n1.n_regionkey WHERE n.part_key = 'insert_1'", tableName, tableName)))
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s n JOIN %s n1 ON n.n_regionkey = n1.n_regionkey WHERE n.part_key = 'insert_1'".formatted(tableName, tableName)))
                 .containsExactlyInOrder(row(1000));
     }
 
@@ -216,7 +215,7 @@ public class TestHiveBucketedTables
     public void testSelectFromEmptyBucketedTableEmptyTablesAllowed()
     {
         String tableName = mutableTableInstanceOf(BUCKETED_NATION).getNameInDatabase();
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s", tableName)))
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s".formatted(tableName)))
                 .containsExactlyInOrder(row(0));
     }
 
@@ -227,9 +226,9 @@ public class TestHiveBucketedTables
         String tableName = mutableTableInstanceOf(BUCKETED_NATION).getNameInDatabase();
         populateRowToHiveTable(tableName, ImmutableList.of("2", "'name'", "2", "'comment'"), Optional.empty());
         // insert one row into nation
-        assertThat(onTrino().executeQuery(format("SELECT count(*) from %s", tableName)))
+        assertThat(onTrino().executeQuery("SELECT count(*) from %s".formatted(tableName)))
                 .containsExactlyInOrder(row(1));
-        assertThat(onTrino().executeQuery(format("select n_nationkey from %s where n_regionkey = 2", tableName)))
+        assertThat(onTrino().executeQuery("select n_nationkey from %s where n_regionkey = 2".formatted(tableName)))
                 .containsExactlyInOrder(row(2));
     }
 
@@ -241,12 +240,12 @@ public class TestHiveBucketedTables
 
         String ctasQuery = "CREATE TABLE %s WITH (bucket_count = 4, bucketed_by = ARRAY['n_regionkey'], partitioned_by = ARRAY['part_key']) " +
                 "AS SELECT n_nationkey, n_name, n_regionkey, n_comment, n_name as part_key FROM %s";
-        onTrino().executeQuery(format(ctasQuery, tableName, NATION.getName()));
+        onTrino().executeQuery(ctasQuery.formatted(tableName, NATION.getName()));
 
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s", tableName))).containsExactlyInOrder(row(25));
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactlyInOrder(row(5));
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s WHERE part_key='ALGERIA'", tableName))).containsExactlyInOrder(row(1));
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s WHERE n_regionkey=0 AND part_key='ALGERIA'", tableName))).containsExactlyInOrder(row(1));
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s".formatted(tableName))).containsExactlyInOrder(row(25));
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s WHERE n_regionkey=0".formatted(tableName))).containsExactlyInOrder(row(5));
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s WHERE part_key='ALGERIA'".formatted(tableName))).containsExactlyInOrder(row(1));
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s WHERE n_regionkey=0 AND part_key='ALGERIA'".formatted(tableName))).containsExactlyInOrder(row(1));
     }
 
     @Test
@@ -255,12 +254,12 @@ public class TestHiveBucketedTables
     {
         String tableName = mutableTablesState().get(BUCKETED_PARTITIONED_NATION).getNameInDatabase();
 
-        onTrino().executeQuery(format("INSERT INTO %s SELECT n_nationkey, n_name, n_regionkey, n_comment, n_name FROM %s", tableName, NATION.getName()));
+        onTrino().executeQuery("INSERT INTO %s SELECT n_nationkey, n_name, n_regionkey, n_comment, n_name FROM %s".formatted(tableName, NATION.getName()));
 
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s", tableName))).containsExactlyInOrder(row(25));
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactlyInOrder(row(5));
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s WHERE part_key='ALGERIA'", tableName))).containsExactlyInOrder(row(1));
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s WHERE n_regionkey=0 AND part_key='ALGERIA'", tableName))).containsExactlyInOrder(row(1));
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s".formatted(tableName))).containsExactlyInOrder(row(25));
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s WHERE n_regionkey=0".formatted(tableName))).containsExactlyInOrder(row(5));
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s WHERE part_key='ALGERIA'".formatted(tableName))).containsExactlyInOrder(row(1));
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s WHERE n_regionkey=0 AND part_key='ALGERIA'".formatted(tableName))).containsExactlyInOrder(row(1));
     }
 
     @Test
@@ -269,12 +268,12 @@ public class TestHiveBucketedTables
     {
         String tableName = mutableTablesState().get(BUCKETED_NATION).getNameInDatabase();
 
-        onTrino().executeQuery(format("INSERT INTO %s SELECT * FROM %s", tableName, NATION.getName()));
+        onTrino().executeQuery("INSERT INTO %s SELECT * FROM %s".formatted(tableName, NATION.getName()));
         // make sure that insert will not overwrite existing data
-        onTrino().executeQuery(format("INSERT INTO %s SELECT * FROM %s", tableName, NATION.getName()));
+        onTrino().executeQuery("INSERT INTO %s SELECT * FROM %s".formatted(tableName, NATION.getName()));
 
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s", tableName))).containsExactlyInOrder(row(50));
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactlyInOrder(row(10));
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s".formatted(tableName))).containsExactlyInOrder(row(50));
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s WHERE n_regionkey=0".formatted(tableName))).containsExactlyInOrder(row(10));
     }
 
     @Test
@@ -284,10 +283,10 @@ public class TestHiveBucketedTables
         String tableName = mutableTablesState().get(BUCKETED_NATION_PREPARED).getNameInDatabase();
 
         // nations has 25 rows and NDV=5 for n_regionkey, setting bucket_count=10 will surely create empty buckets
-        onTrino().executeQuery(format("CREATE TABLE %s WITH (bucket_count = 10, bucketed_by = ARRAY['n_regionkey']) AS SELECT * FROM %s", tableName, NATION.getName()));
+        onTrino().executeQuery("CREATE TABLE %s WITH (bucket_count = 10, bucketed_by = ARRAY['n_regionkey']) AS SELECT * FROM %s".formatted(tableName, NATION.getName()));
 
-        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName))).matches(TRINO_NATION_RESULT);
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactlyInOrder(row(5));
+        assertThat(onTrino().executeQuery("SELECT * FROM %s".formatted(tableName))).matches(TRINO_NATION_RESULT);
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM %s WHERE n_regionkey=0".formatted(tableName))).containsExactlyInOrder(row(5));
     }
 
     @Test
@@ -316,18 +315,17 @@ public class TestHiveBucketedTables
     {
         try (TemporaryHiveTable table = temporaryHiveTable("table_with_unsupported_bucketing_types_" + randomNameSuffix())) {
             String tableName = table.getName();
-            onHive().executeQuery(format(
-                    "CREATE TABLE %s (" +
-                            "n_integer       INT," +
-                            "n_decimal       DECIMAL(9, 2)," +
-                            "n_timestamp     TIMESTAMP," +
-                            "n_char          CHAR(10)," +
-                            "n_binary        BINARY," +
-                            "n_union         UNIONTYPE<INT,STRING>," +
-                            "n_struct        STRUCT<field1:INT,field2:STRING>) " +
-                            "CLUSTERED BY (%s) INTO 2 BUCKETS " +
-                            "STORED AS ORC " +
-                            "%s",
+            onHive().executeQuery(("CREATE TABLE %s (" +
+            "n_integer       INT," +
+            "n_decimal       DECIMAL(9, 2)," +
+            "n_timestamp     TIMESTAMP," +
+            "n_char          CHAR(10)," +
+            "n_binary        BINARY," +
+            "n_union         UNIONTYPE<INT,STRING>," +
+            "n_struct        STRUCT<field1:INT,field2:STRING>) " +
+            "CLUSTERED BY (%s) INTO 2 BUCKETS " +
+            "STORED AS ORC " +
+            "%s").formatted(
                     tableName,
                     columnToBeBucketed,
                     hiveTableProperties(bucketingType)));
@@ -336,20 +334,19 @@ public class TestHiveBucketedTables
             assertThat(showCreateTableResult)
                     .hasRowsCount(1);
             assertThat((String) showCreateTableResult.getOnlyValue())
-                    .matches(Pattern.compile(format(
-                            "\\QCREATE TABLE hive.default.%s (\n" +
-                                    "   n_integer integer,\n" +
-                                    "   n_decimal decimal(9, 2),\n" +
-                                    "   n_timestamp timestamp(3),\n" +
-                                    "   n_char char(10),\n" +
-                                    "   n_binary varbinary,\n" +
-                                    "   n_union ROW(tag tinyint, field0 integer, field1 varchar),\n" +
-                                    "   n_struct ROW(field1 integer, field2 varchar)\n" +
-                                    ")\n" +
-                                    "WITH (\\E(?s:.*)" +
-                                    "bucket_count = 2,\n(?s:.*)" +
-                                    "bucketed_by = ARRAY\\['%s'\\],\n(?s:.*)" +
-                                    "bucketing_version = %s,(?s:.*)",
+                    .matches(Pattern.compile(("\\QCREATE TABLE hive.default.%s (\n" +
+                    "   n_integer integer,\n" +
+                    "   n_decimal decimal(9, 2),\n" +
+                    "   n_timestamp timestamp(3),\n" +
+                    "   n_char char(10),\n" +
+                    "   n_binary varbinary,\n" +
+                    "   n_union ROW(tag tinyint, field0 integer, field1 varchar),\n" +
+                    "   n_struct ROW(field1 integer, field2 varchar)\n" +
+                    ")\n" +
+                    "WITH (\\E(?s:.*)" +
+                    "bucket_count = 2,\n(?s:.*)" +
+                    "bucketed_by = ARRAY\\['%s'\\],\n(?s:.*)" +
+                    "bucketing_version = %s,(?s:.*)").formatted(
                             tableName,
                             Pattern.quote(columnToBeBucketed),
                             getExpectedBucketVersion(bucketingType))));
@@ -367,40 +364,38 @@ public class TestHiveBucketedTables
                             .build(),
                     Optional.empty());
 
-            assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName)))
+            assertThat(onTrino().executeQuery("SELECT * FROM %s".formatted(tableName)))
                     .hasRowsCount(1);
 
             assertQueryFailure(() -> onTrino().executeQuery("SELECT \"$bucket\" FROM " + tableName))
                     .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:8: Column '$bucket' cannot be resolved");
 
-            assertQueryFailure(() -> onTrino().executeQuery(format("INSERT INTO %s(n_integer) VALUES (1)", tableName)))
+            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO %s(n_integer) VALUES (1)".formatted(tableName)))
                     .hasMessageMatching("Query failed \\(#\\w+\\): Cannot write to a table bucketed on an unsupported type");
 
             String newTableName = "new_" + tableName;
 
-            assertQueryFailure(() -> onTrino().executeQuery(format("CREATE TABLE %s (LIKE %s INCLUDING PROPERTIES)", newTableName, tableName)))
+            assertQueryFailure(() -> onTrino().executeQuery("CREATE TABLE %s (LIKE %s INCLUDING PROPERTIES)".formatted(newTableName, tableName)))
                     .hasMessageMatching("Query failed \\(#\\w+\\): Cannot create a table bucketed on an unsupported type");
 
-            assertQueryFailure(() -> onTrino().executeQuery(format(
-                    "CREATE TABLE %s (" +
-                            "n_integer       integer," +
-                            "n_decimal       decimal(9, 2)," +
-                            "n_timestamp     timestamp(3)," +
-                            "n_char          char(10)," +
-                            "n_binary        varbinary," +
-                            "n_union         ROW(tag tinyint, field0 integer, field1 varchar)," +
-                            "n_struct        ROW(field1 integer, field2 varchar)) " +
-                            "WITH (" +
-                            "   bucketed_by = ARRAY['%s']," +
-                            "   bucket_count = 2" +
-                            ")",
+            assertQueryFailure(() -> onTrino().executeQuery(("CREATE TABLE %s (" +
+            "n_integer       integer," +
+            "n_decimal       decimal(9, 2)," +
+            "n_timestamp     timestamp(3)," +
+            "n_char          char(10)," +
+            "n_binary        varbinary," +
+            "n_union         ROW(tag tinyint, field0 integer, field1 varchar)," +
+            "n_struct        ROW(field1 integer, field2 varchar)) " +
+            "WITH (" +
+            "   bucketed_by = ARRAY['%s']," +
+            "   bucket_count = 2" +
+            ")").formatted(
                     newTableName,
                     columnToBeBucketed)))
                     .hasMessageMatching("Query failed \\(#\\w+\\): Cannot create a table bucketed on an unsupported type");
 
             assertQueryFailure(() -> onTrino()
-                    .executeQuery(format(
-                            "CREATE TABLE %s WITH (%s) AS SELECT * FROM %s",
+                    .executeQuery("CREATE TABLE %s WITH (%s) AS SELECT * FROM %s".formatted(
                             newTableName,
                             bucketingType.getTrinoTableProperties(columnToBeBucketed, 2).stream().collect(joining(",")),
                             tableName)))
@@ -469,7 +464,7 @@ public class TestHiveBucketedTables
     private static void populateRowToHiveTable(String destination, List<String> values, Optional<String> partition)
     {
         String queryStatement = "INSERT INTO TABLE " + destination +
-                (partition.isPresent() ? format(" PARTITION (%s) ", partition.get()) : " ") +
+                (partition.isPresent() ? " PARTITION (%s) ".formatted(partition.get()) : " ") +
                 "SELECT " + join(",", values) + " FROM (SELECT 'foo') x";
 
         onHive().executeQuery("set hive.enforce.bucketing = true");
@@ -479,7 +474,7 @@ public class TestHiveBucketedTables
 
     private static void populateHivePartitionedTable(String destination, String source, String partition)
     {
-        String queryStatement = format("INSERT INTO TABLE %s PARTITION (%s) SELECT * FROM %s", destination, partition, source);
+        String queryStatement = "INSERT INTO TABLE %s PARTITION (%s) SELECT * FROM %s".formatted(destination, partition, source);
 
         onHive().executeQuery("set hive.enforce.bucketing = true");
         onHive().executeQuery("set hive.enforce.sorting = true");
@@ -490,6 +485,6 @@ public class TestHiveBucketedTables
     {
         onHive().executeQuery("set hive.enforce.bucketing = true");
         onHive().executeQuery("set hive.enforce.sorting = true");
-        onHive().executeQuery(format("INSERT INTO TABLE %s SELECT * FROM %s", destination, source));
+        onHive().executeQuery("INSERT INTO TABLE %s SELECT * FROM %s".formatted(destination, source));
     }
 }

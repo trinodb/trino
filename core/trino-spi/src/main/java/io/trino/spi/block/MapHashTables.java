@@ -25,7 +25,6 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.String.format;
 
 @ThreadSafe
 public final class MapHashTables
@@ -118,7 +117,7 @@ public final class MapHashTables
             int keyOffset = offsets[i];
             int keyCount = offsets[i + 1] - keyOffset;
             if (keyCount < 0) {
-                throw new IllegalArgumentException(format("Offset is not monotonically ascending. offsets[%s]=%s, offsets[%s]=%s", i, offsets[i], i + 1, offsets[i + 1]));
+                throw new IllegalArgumentException("Offset is not monotonically ascending. offsets[%s]=%s, offsets[%s]=%s".formatted(i, offsets[i], i + 1, offsets[i + 1]));
             }
             if (mapIsNull != null && mapIsNull[i] && keyCount != 0) {
                 throw new IllegalArgumentException("A null map must have zero entries");

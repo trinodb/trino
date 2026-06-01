@@ -124,7 +124,6 @@ import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -291,14 +290,14 @@ public class FileHiveMetastore
     private static void verifyDatabaseNameLength(String databaseName)
     {
         if (databaseName.length() > MAX_NAME_LENGTH) {
-            throw new TrinoException(NOT_SUPPORTED, format("Schema name must be shorter than or equal to '%s' characters but got '%s'", MAX_NAME_LENGTH, databaseName.length()));
+            throw new TrinoException(NOT_SUPPORTED, "Schema name must be shorter than or equal to '%s' characters but got '%s'".formatted(MAX_NAME_LENGTH, databaseName.length()));
         }
     }
 
     private static void verifyTableNameLength(String tableName)
     {
         if (tableName.length() > MAX_NAME_LENGTH) {
-            throw new TrinoException(NOT_SUPPORTED, format("Table name must be shorter than or equal to '%s' characters but got '%s'", MAX_NAME_LENGTH, tableName.length()));
+            throw new TrinoException(NOT_SUPPORTED, "Table name must be shorter than or equal to '%s' characters but got '%s'".formatted(MAX_NAME_LENGTH, tableName.length()));
         }
     }
 
@@ -1380,10 +1379,9 @@ public class FileHiveMetastore
         if (versionCompatibility == UNSAFE_ASSUME_COMPATIBILITY) {
             return;
         }
-        throw new RuntimeException(format(
-                "The metadata file was written with %s while current version is %s. " +
-                        "File metastore provides no compatibility for metadata written with a different version. " +
-                        "You can disable this check by setting '%s=%s' configuration property.",
+        throw new RuntimeException(("The metadata file was written with %s while current version is %s. " +
+        "File metastore provides no compatibility for metadata written with a different version. " +
+        "You can disable this check by setting '%s=%s' configuration property.").formatted(
                 writerVersion
                         .map(version -> "version " + version)
                         .orElse("unknown version"),

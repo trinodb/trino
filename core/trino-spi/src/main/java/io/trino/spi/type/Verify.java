@@ -15,8 +15,6 @@ package io.trino.spi.type;
 
 import com.google.errorprone.annotations.FormatMethod;
 
-import static java.lang.String.format;
-
 final class Verify
 {
     private Verify() {}
@@ -28,7 +26,7 @@ final class Verify
             Object... errorMessageArgs)
     {
         if (!expression) {
-            throw new VerifyException(format(errorMessageTemplate, errorMessageArgs));
+            throw new VerifyException(errorMessageTemplate.formatted(errorMessageArgs));
         }
     }
 

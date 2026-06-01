@@ -30,7 +30,6 @@ import static io.trino.tests.product.TestGroups.HUDI;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onHudi;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHudiSparkCompatibility
@@ -56,27 +55,26 @@ public class TestHudiSparkCompatibility
 
         try {
             assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE hudi.default." + tableName).getOnlyValue())
-                    .isEqualTo(format(
-                            "CREATE TABLE hudi.default.%s (\n" +
-                                    "   _hoodie_commit_time varchar,\n" +
-                                    "   _hoodie_commit_seqno varchar,\n" +
-                                    "   _hoodie_record_key varchar,\n" +
-                                    "   _hoodie_partition_path varchar,\n" +
-                                    "   _hoodie_file_name varchar,\n" +
-                                    "   id bigint,\n" +
-                                    "   name varchar,\n" +
-                                    "   price integer,\n" +
-                                    "   ts bigint\n" +
-                                    ")\n" +
-                                    "WITH (\n" +
-                                    "   location = 's3://%s/%s'\n" +
-                                    ")",
+                    .isEqualTo(("CREATE TABLE hudi.default.%s (\n" +
+                    "   _hoodie_commit_time varchar,\n" +
+                    "   _hoodie_commit_seqno varchar,\n" +
+                    "   _hoodie_record_key varchar,\n" +
+                    "   _hoodie_partition_path varchar,\n" +
+                    "   _hoodie_file_name varchar,\n" +
+                    "   id bigint,\n" +
+                    "   name varchar,\n" +
+                    "   price integer,\n" +
+                    "   ts bigint\n" +
+                    ")\n" +
+                    "WITH (\n" +
+                    "   location = 's3://%s/%s'\n" +
+                    ")").formatted(
                             tableName,
                             bucketName,
                             tableName));
             String lastCommitTimeSync = (String) onHudi().executeQuery("show TBLPROPERTIES " + tableName + " ('last_commit_time_sync')").project(2).getOnlyValue();
             assertThat((String) onHudi().executeQuery("SHOW CREATE TABLE default." + tableName).getOnlyValue())
-                    .isEqualTo(format(
+                    .isEqualTo(
                             """
                             CREATE TABLE default.%s (
                               _hoodie_commit_time STRING,
@@ -95,11 +93,11 @@ public class TestHudiSparkCompatibility
                               'preCombineField' = 'ts',
                               'primaryKey' = 'id',
                               'type' = 'cow')
-                            """,
-                            tableName,
-                            bucketName,
-                            tableName,
-                            lastCommitTimeSync));
+                            """.formatted(
+                                    tableName,
+                                    bucketName,
+                                    tableName,
+                                    lastCommitTimeSync));
         }
         finally {
             onHudi().executeQuery("DROP TABLE default." + tableName);
@@ -296,7 +294,7 @@ public class TestHudiSparkCompatibility
         String tableName = "test_hudi_timeline_system_table_" + randomNameSuffix();
         createNonPartitionedTable(tableName, COW_TABLE_TYPE);
         try {
-            assertThat(onTrino().executeQuery(format("SELECT action, state FROM hudi.default.\"%s$timeline\"", tableName)))
+            assertThat(onTrino().executeQuery("SELECT action, state FROM hudi.default.\"%s$timeline\"".formatted(tableName)))
                     .containsOnly(row("commit", "COMPLETED"));
         }
         finally {
@@ -311,9 +309,9 @@ public class TestHudiSparkCompatibility
         String nonExistingTableName = tableName + "_non_existing";
         createNonPartitionedTable(tableName, COW_TABLE_TYPE);
         try {
-            assertThat(onTrino().executeQuery(format("SELECT action, state FROM hive.default.\"%s$timeline\"", tableName)))
+            assertThat(onTrino().executeQuery("SELECT action, state FROM hive.default.\"%s$timeline\"".formatted(tableName)))
                     .containsOnly(row("commit", "COMPLETED"));
-            assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM hive.default.\"%s$timeline\"", nonExistingTableName)))
+            assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM hive.default.\"%s$timeline\"".formatted(nonExistingTableName)))
                     .hasMessageMatching(".*Table 'hive.default.\"test_hudi_timeline_system_table_redirect_.*_non_existing\\$timeline\"' does not exist");
         }
         finally {
@@ -349,7 +347,7 @@ public class TestHudiSparkCompatibility
 
     private void createNonPartitionedTable(String tableName, String tableType)
     {
-        onHudi().executeQuery(format(
+        onHudi().executeQuery(
                 """
                 CREATE TABLE default.%s (
                   id bigint,
@@ -362,18 +360,18 @@ public class TestHudiSparkCompatibility
                   primaryKey = 'id',
                   preCombineField = 'ts')
                 LOCATION 's3://%s/%s'
-                """,
-                tableName,
-                tableType,
-                bucketName,
-                tableName));
+                """.formatted(
+                        tableName,
+                        tableType,
+                        bucketName,
+                        tableName));
 
         onHudi().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 'a1', 20, 1000), (2, 'a2', 40, 2000)");
     }
 
     private void createPartitionedTable(String tableName, String tableType)
     {
-        onHudi().executeQuery(format(
+        onHudi().executeQuery(
                 """
                 CREATE TABLE default.%s (
                   id bigint,
@@ -388,11 +386,11 @@ public class TestHudiSparkCompatibility
                   preCombineField = 'ts')
                 PARTITIONED BY (dt, hh)
                 LOCATION 's3://%s/%s'
-                """,
-                tableName,
-                tableType,
-                bucketName,
-                tableName));
+                """.formatted(
+                        tableName,
+                        tableType,
+                        bucketName,
+                        tableName));
 
         onHudi().executeQuery("INSERT INTO default." + tableName + " PARTITION (dt, hh) SELECT 1 AS id, 'a1' AS name, 1000 AS ts, '2021-12-09' AS dt, '10' AS hh");
         onHudi().executeQuery("INSERT INTO default." + tableName + " PARTITION (dt = '2021-12-09', hh='11') SELECT 2, 'a2', 1000");

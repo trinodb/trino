@@ -41,7 +41,6 @@ import static com.google.cloud.bigquery.storage.v1.WriteStream.Type.COMMITTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_BAD_WRITE;
 import static io.trino.plugin.bigquery.BigQueryTypeUtils.readNativeValue;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -110,7 +109,7 @@ public class BigQueryPageSink
             ApiFuture<AppendRowsResponse> future = writer.append(batch);
             AppendRowsResponse response = future.get(); // Throw error
             if (response.hasError()) {
-                throw new TrinoException(BIGQUERY_BAD_WRITE, format("Response has error: %s", response.getError().getMessage()));
+                throw new TrinoException(BIGQUERY_BAD_WRITE, "Response has error: %s".formatted(response.getError().getMessage()));
             }
         }
         catch (Exception e) {

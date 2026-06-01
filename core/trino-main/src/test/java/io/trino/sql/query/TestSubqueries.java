@@ -59,7 +59,6 @@ import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -1110,8 +1109,8 @@ public class TestSubqueries
                 .matches("VALUES 1, 4");
 
         assertThat(assertions.query(
-                format("SELECT (SELECT * FROM UNNEST(a) u(x) LIMIT %d) " +
-                        "FROM (VALUES ARRAY[1], ARRAY[4]) t(a)", Long.MAX_VALUE)))
+                ("SELECT (SELECT * FROM UNNEST(a) u(x) LIMIT %d) " +
+                        "FROM (VALUES ARRAY[1], ARRAY[4]) t(a)").formatted(Long.MAX_VALUE)))
                 .matches("VALUES 1, 4");
 
         // limit with ties in subquery
@@ -1271,10 +1270,10 @@ public class TestSubqueries
                         "(ARRAY[3],    3)");
 
         assertThat(assertions.query(
-                format("SELECT * FROM (VALUES ARRAY[1, 2], ARRAY[3]) t(a) " +
+                ("SELECT * FROM (VALUES ARRAY[1, 2], ARRAY[3]) t(a) " +
                         "INNER JOIN " +
                         "LATERAL (SELECT * FROM UNNEST(a) LIMIT %d) " +
-                        "ON TRUE", Long.MAX_VALUE)))
+                        "ON TRUE").formatted(Long.MAX_VALUE)))
                 .matches("VALUES " +
                         "(ARRAY[1, 2], 1), " +
                         "(ARRAY[1, 2], 2), " +

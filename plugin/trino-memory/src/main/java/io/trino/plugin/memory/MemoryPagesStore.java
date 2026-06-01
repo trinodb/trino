@@ -37,7 +37,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.memory.MemoryErrorCode.MEMORY_LIMIT_EXCEEDED;
 import static io.trino.plugin.memory.MemoryErrorCode.MISSING_DATA;
-import static java.lang.String.format;
 
 @ThreadSafe
 public class MemoryPagesStore
@@ -72,7 +71,7 @@ public class MemoryPagesStore
 
         long newSize = currentBytes + page.getRetainedSizeInBytes();
         if (maxBytes < newSize) {
-            throw new TrinoException(MEMORY_LIMIT_EXCEEDED, format("Memory limit [%d] for memory connector exceeded", maxBytes));
+            throw new TrinoException(MEMORY_LIMIT_EXCEEDED, "Memory limit [%d] for memory connector exceeded".formatted(maxBytes));
         }
         currentBytes = newSize;
 
@@ -99,7 +98,7 @@ public class MemoryPagesStore
         if (tableData.getRows() < expectedRows) {
             throw new TrinoException(
                     MISSING_DATA,
-                    format("Expected to find [%s] rows on a worker, but found [%s].", expectedRows, tableData.getRows()));
+                    "Expected to find [%s] rows on a worker, but found [%s].".formatted(expectedRows, tableData.getRows()));
         }
 
         ImmutableList.Builder<Page> partitionedPages = ImmutableList.builder();

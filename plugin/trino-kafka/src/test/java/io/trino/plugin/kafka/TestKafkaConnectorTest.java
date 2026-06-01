@@ -55,7 +55,6 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -420,9 +419,9 @@ public class TestKafkaConnectorTest
     {
         // Override because the base test uses CREATE TABLE statement that is unsupported in Kafka connector
         assertQueryReturnsEmptyResult("SELECT dt FROM " + TABLE_INSERT_NEGATIVE_DATE);
-        assertUpdate(format("INSERT INTO %s (dt) VALUES (DATE '-0001-01-01')", TABLE_INSERT_NEGATIVE_DATE), 1);
+        assertUpdate("INSERT INTO %s (dt) VALUES (DATE '-0001-01-01')".formatted(TABLE_INSERT_NEGATIVE_DATE), 1);
         assertQuery("SELECT dt FROM " + TABLE_INSERT_NEGATIVE_DATE, "VALUES date '-0001-01-01'");
-        assertQuery(format("SELECT dt FROM %s WHERE dt = date '-0001-01-01'", TABLE_INSERT_NEGATIVE_DATE), "VALUES date '-0001-01-01'");
+        assertQuery("SELECT dt FROM %s WHERE dt = date '-0001-01-01'".formatted(TABLE_INSERT_NEGATIVE_DATE), "VALUES date '-0001-01-01'");
     }
 
     @Test
@@ -511,7 +510,7 @@ public class TestKafkaConnectorTest
                             .isEqualTo(expected);
                 }
                 catch (AssertionError e) {
-                    throw new AssertionError(format("Equality assertion failed for field '%s'\n%s", field.getFieldName(), e.getMessage()), e);
+                    throw new AssertionError("Equality assertion failed for field '%s'\n%s".formatted(field.getFieldName(), e.getMessage()), e);
                 }
             }
         }

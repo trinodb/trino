@@ -115,7 +115,6 @@ import static io.trino.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope
 import static io.trino.sql.analyzer.ScopeReferenceExtractor.isFieldFromScope;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -642,7 +641,7 @@ class AggregationAnalyzer
                     column = Integer.toString(node.getFieldIndex() + 1);
                 }
                 else if (field.getRelationAlias().isPresent()) {
-                    column = format("'%s.%s'", field.getRelationAlias().get(), field.getName().get());
+                    column = "'%s.%s'".formatted(field.getRelationAlias().get(), field.getName().get());
                 }
                 else {
                     column = "'" + field.getName().get() + "'";

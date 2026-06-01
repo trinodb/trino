@@ -47,7 +47,6 @@ import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.QueryAssertions.assertUpdate;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -153,7 +152,7 @@ public class TestGrantOnTable
         String username = randomUsername();
         Session user = sessionOf(username);
 
-        queryRunner.execute(admin, format("GRANT %s ON TABLE table_one TO %s", privilege, username));
+        queryRunner.execute(admin, "GRANT %s ON TABLE table_one TO %s".formatted(privilege, username));
 
         assertThat(assertions.query(user, "SHOW TABLES FROM default")).matches("VALUES (VARCHAR 'table_one')");
     }
@@ -165,7 +164,7 @@ public class TestGrantOnTable
         Session user = sessionOf(username);
         assertThat(assertions.query(user, "SHOW TABLES FROM default"))
                 .result().isEmpty();
-        queryRunner.execute(admin, format("GRANT SELECT ON TABLE test_view TO %s", username));
+        queryRunner.execute(admin, "GRANT SELECT ON TABLE test_view TO %s".formatted(username));
         assertThat(assertions.query(user, "SHOW TABLES FROM default"))
                 .matches("VALUES (VARCHAR 'test_view')");
     }
@@ -177,7 +176,7 @@ public class TestGrantOnTable
         Session user = sessionOf(username);
         assertThat(assertions.query(user, "SHOW TABLES FROM default"))
                 .result().isEmpty();
-        queryRunner.execute(admin, format("GRANT SELECT ON TABLE test_materialized_view TO %s", username));
+        queryRunner.execute(admin, "GRANT SELECT ON TABLE test_materialized_view TO %s".formatted(username));
         assertThat(assertions.query(user, "SHOW TABLES FROM default"))
                 .matches("VALUES (VARCHAR 'test_materialized_view')");
     }
@@ -199,61 +198,61 @@ public class TestGrantOnTable
         String username = randomUsername();
         Session user = sessionOf(username);
 
-        queryRunner.execute(admin, format("GRANT %s ON TABLE table_one TO %s WITH GRANT OPTION", privilege, username));
+        queryRunner.execute(admin, "GRANT %s ON TABLE table_one TO %s WITH GRANT OPTION".formatted(privilege, username));
 
         assertThat(assertions.query(user, "SHOW TABLES FROM default")).matches("VALUES (VARCHAR 'table_one')");
-        assertUpdate(queryRunner, user, format("GRANT %s ON TABLE table_one TO %s", privilege, randomUsername()), OptionalLong.empty());
-        assertUpdate(queryRunner, user, format("GRANT %s ON TABLE table_one TO %s WITH GRANT OPTION", privilege, randomUsername()), OptionalLong.empty());
+        assertUpdate(queryRunner, user, "GRANT %s ON TABLE table_one TO %s".formatted(privilege, randomUsername()), OptionalLong.empty());
+        assertUpdate(queryRunner, user, "GRANT %s ON TABLE table_one TO %s WITH GRANT OPTION".formatted(privilege, randomUsername()), OptionalLong.empty());
     }
 
     @Test
     public void testGrantOnNonExistingCatalog()
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT CREATE ON TABLE missing_catalog.missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "GRANT CREATE ON TABLE missing_catalog.missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'missing_catalog.missing_schema.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT SELECT ON TABLE missing_catalog.missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "GRANT SELECT ON TABLE missing_catalog.missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'missing_catalog.missing_schema.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT INSERT ON TABLE missing_catalog.missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "GRANT INSERT ON TABLE missing_catalog.missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'missing_catalog.missing_schema.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT UPDATE ON TABLE missing_catalog.missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "GRANT UPDATE ON TABLE missing_catalog.missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'missing_catalog.missing_schema.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT DELETE ON TABLE missing_catalog.missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "GRANT DELETE ON TABLE missing_catalog.missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'missing_catalog.missing_schema.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT ALL PRIVILEGES ON TABLE missing_catalog.missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "GRANT ALL PRIVILEGES ON TABLE missing_catalog.missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'missing_catalog.missing_schema.missing_table' does not exist");
     }
 
     @Test
     public void testGrantOnNonExistingSchema()
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT CREATE ON TABLE missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "GRANT CREATE ON TABLE missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.missing_schema.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT SELECT ON TABLE missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "GRANT SELECT ON TABLE missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.missing_schema.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT INSERT ON TABLE missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "GRANT INSERT ON TABLE missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.missing_schema.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT UPDATE ON TABLE missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "GRANT UPDATE ON TABLE missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.missing_schema.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT DELETE ON TABLE missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "GRANT DELETE ON TABLE missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.missing_schema.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT ALL PRIVILEGES ON TABLE missing_schema.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "GRANT ALL PRIVILEGES ON TABLE missing_schema.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.missing_schema.missing_table' does not exist");
     }
 
     @Test
     public void testGrantOnNonExistingTable()
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT CREATE ON TABLE default.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "GRANT CREATE ON TABLE default.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.default.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT SELECT ON TABLE default.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "GRANT SELECT ON TABLE default.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.default.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT INSERT ON TABLE default.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "GRANT INSERT ON TABLE default.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.default.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT UPDATE ON TABLE default.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "GRANT UPDATE ON TABLE default.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.default.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT DELETE ON TABLE default.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "GRANT DELETE ON TABLE default.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.default.missing_table' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT ALL PRIVILEGES ON TABLE default.missing_table TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "GRANT ALL PRIVILEGES ON TABLE default.missing_table TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Table 'local.default.missing_table' does not exist");
     }
 

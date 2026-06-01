@@ -36,7 +36,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.kafka.KafkaErrorCode.KAFKA_PRODUCER_ERROR;
 import static java.lang.Math.max;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -151,7 +150,7 @@ public class KafkaPageSink
         }
 
         if (producerCallback.getErrorCount() > 0) {
-            throw new TrinoException(KAFKA_PRODUCER_ERROR, format("%d producer record(s) failed to send", producerCallback.getErrorCount()), producerCallback.getFirstException());
+            throw new TrinoException(KAFKA_PRODUCER_ERROR, "%d producer record(s) failed to send".formatted(producerCallback.getErrorCount()), producerCallback.getFirstException());
         }
 
         checkArgument(

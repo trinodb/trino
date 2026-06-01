@@ -51,7 +51,6 @@ import static io.trino.ExceededSpillLimitException.exceededPerQueryLocalLimit;
 import static io.trino.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static io.trino.operator.Operator.NOT_BLOCKED;
 import static io.trino.operator.TaskContext.createTaskContext;
-import static java.lang.String.format;
 import static java.util.Map.Entry.comparingByValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -339,7 +338,7 @@ public class QueryContext
     {
         Map<String, Long> queryAllocations = memoryPool.getTaggedMemoryAllocations().get(queryId);
 
-        String additionalInfo = format("Allocated: %s, Delta: %s", succinctBytes(allocated), succinctBytes(delta));
+        String additionalInfo = "Allocated: %s, Delta: %s".formatted(succinctBytes(allocated), succinctBytes(delta));
 
         // It's possible that a query tries allocating more than the available memory
         // failing immediately before any allocation of that query is tagged
@@ -354,6 +353,6 @@ public class QueryContext
                 .collect(toImmutableMap(Entry::getKey, e -> succinctBytes(e.getValue())))
                 .toString();
 
-        return format("%s, Top Consumers: %s", additionalInfo, topConsumers);
+        return "%s, Top Consumers: %s".formatted(additionalInfo, topConsumers);
     }
 }

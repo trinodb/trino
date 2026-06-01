@@ -48,7 +48,6 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.type.JsonType.JSON;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -440,8 +439,7 @@ public class TestReadWrite
         @Override
         void writeNextRandomValue(Random random, BlockBuilder builder)
         {
-            String json = format(
-                    "{\"%s\": %d, \"%s\": \"%s\"}",
+            String json = "{\"%s\": %d, \"%s\": \"%s\"}".formatted(
                     nextString(random, MAX_GENERATED_JSON_KEY_LENGTH),
                     random.nextInt(),
                     nextString(random, MAX_GENERATED_JSON_KEY_LENGTH),

@@ -52,7 +52,6 @@ import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -164,7 +163,7 @@ public class TestClickHouseConnectorTest
     @Override
     protected String createTableSqlForAddingAndDroppingColumn(String tableName, String columnNameInSql)
     {
-        return format("CREATE TABLE %s(%s varchar(50), value varchar(50) NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['value'])", tableName, columnNameInSql);
+        return "CREATE TABLE %s(%s varchar(50), value varchar(50) NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['value'])".formatted(tableName, columnNameInSql);
     }
 
     @Test
@@ -397,38 +396,38 @@ public class TestClickHouseConnectorTest
         // one required property
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'Log')");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
-                .isEqualTo(format("" +
+                .isEqualTo(("" +
                         "CREATE TABLE clickhouse.tpch.%s (\n" +
                         "   id integer NOT NULL,\n" +
                         "   x varchar\n" +
                         ")\n" +
                         "WITH (\n" +
                         "   engine = 'LOG'\n" +
-                        ")", tableName));
+                        ")").formatted(tableName));
         assertUpdate("DROP TABLE " + tableName);
 
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'StripeLog')");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
-                .isEqualTo(format("" +
+                .isEqualTo(("" +
                         "CREATE TABLE clickhouse.tpch.%s (\n" +
                         "   id integer NOT NULL,\n" +
                         "   x varchar\n" +
                         ")\n" +
                         "WITH (\n" +
                         "   engine = 'STRIPELOG'\n" +
-                        ")", tableName));
+                        ")").formatted(tableName));
         assertUpdate("DROP TABLE " + tableName);
 
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'TinyLog')");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
-                .isEqualTo(format("" +
+                .isEqualTo(("" +
                         "CREATE TABLE clickhouse.tpch.%s (\n" +
                         "   id integer NOT NULL,\n" +
                         "   x varchar\n" +
                         ")\n" +
                         "WITH (\n" +
                         "   engine = 'TINYLOG'\n" +
-                        ")", tableName));
+                        ")").formatted(tableName));
         assertUpdate("DROP TABLE " + tableName);
 
         // Log engine DOES NOT any property
@@ -439,7 +438,7 @@ public class TestClickHouseConnectorTest
         // optional properties
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id'])");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
-                .isEqualTo(format("" +
+                .isEqualTo(("" +
                         "CREATE TABLE clickhouse.tpch.%s (\n" +
                         "   id integer NOT NULL,\n" +
                         "   x varchar\n" +
@@ -448,7 +447,7 @@ public class TestClickHouseConnectorTest
                         "   engine = 'MERGETREE',\n" +
                         "   order_by = ARRAY['id'],\n" +
                         "   primary_key = ARRAY['id']\n" + // order_by become primary_key automatically in ClickHouse
-                        ")", tableName));
+                        ")").formatted(tableName));
         assertUpdate("DROP TABLE " + tableName);
 
         // the column refers by order by must be not null
@@ -456,7 +455,7 @@ public class TestClickHouseConnectorTest
 
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id'], primary_key = ARRAY['id'])");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
-                .isEqualTo(format("" +
+                .isEqualTo(("" +
                         "CREATE TABLE clickhouse.tpch.%s (\n" +
                         "   id integer NOT NULL,\n" +
                         "   x varchar\n" +
@@ -465,12 +464,12 @@ public class TestClickHouseConnectorTest
                         "   engine = 'MERGETREE',\n" +
                         "   order_by = ARRAY['id'],\n" +
                         "   primary_key = ARRAY['id']\n" +
-                        ")", tableName));
+                        ")").formatted(tableName));
         assertUpdate("DROP TABLE " + tableName);
 
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR NOT NULL, y VARCHAR NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id', 'x', 'y'], primary_key = ARRAY['id', 'x'])");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
-                .isEqualTo(format("" +
+                .isEqualTo(("" +
                         "CREATE TABLE clickhouse.tpch.%s (\n" +
                         "   id integer NOT NULL,\n" +
                         "   x varchar NOT NULL,\n" +
@@ -480,12 +479,12 @@ public class TestClickHouseConnectorTest
                         "   engine = 'MERGETREE',\n" +
                         "   order_by = ARRAY['id','x','y'],\n" +
                         "   primary_key = ARRAY['id','x']\n" +
-                        ")", tableName));
+                        ")").formatted(tableName));
         assertUpdate("DROP TABLE " + tableName);
 
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x BOOLEAN NOT NULL, y VARCHAR NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id', 'x'], primary_key = ARRAY['id','x'], sample_by = 'x' )");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
-                .isEqualTo(format("" +
+                .isEqualTo(("" +
                         "CREATE TABLE clickhouse.tpch.%s (\n" +
                         "   id integer NOT NULL,\n" +
                         "   x boolean NOT NULL,\n" +
@@ -496,14 +495,14 @@ public class TestClickHouseConnectorTest
                         "   order_by = ARRAY['id','x'],\n" +
                         "   primary_key = ARRAY['id','x'],\n" +
                         "   sample_by = 'x'\n" +
-                        ")", tableName));
+                        ")").formatted(tableName));
         assertUpdate("DROP TABLE " + tableName);
 
         // Partition column
         assertUpdate("CREATE TABLE " + tableName + "(id int NOT NULL, part int NOT NULL) WITH " +
                 "(engine = 'MergeTree', order_by = ARRAY['id'], partition_by = ARRAY['part'])");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
-                .isEqualTo(format("" +
+                .isEqualTo(("" +
                         "CREATE TABLE clickhouse.tpch.%s (\n" +
                         "   id integer NOT NULL,\n" +
                         "   part integer NOT NULL\n" +
@@ -513,7 +512,7 @@ public class TestClickHouseConnectorTest
                         "   order_by = ARRAY['id'],\n" +
                         "   partition_by = ARRAY['part'],\n" +
                         "   primary_key = ARRAY['id']\n" +
-                        ")", tableName));
+                        ")").formatted(tableName));
         assertUpdate("DROP TABLE " + tableName);
 
         // Primary key must be a prefix of the sorting key,
@@ -639,26 +638,26 @@ public class TestClickHouseConnectorTest
     public void testInsertIntoNotNullColumn()
     {
         try (TestTable table = newTrinoTable("test_insert_not_null_", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
-            assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
+            assertUpdate("INSERT INTO %s (not_null_col) VALUES (2)".formatted(table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
             // ClickHouse inserts default values (e.g. 0 for integer column) even if we don't specify default clause in CREATE TABLE statement
-            assertUpdate(format("INSERT INTO %s (nullable_col) VALUES (1)", table.getName()), 1);
+            assertUpdate("INSERT INTO %s (nullable_col) VALUES (1)".formatted(table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2), (1, 0)");
         }
 
         try (TestTable table = newTrinoTable("test_commuted_not_null_table", "(nullable_col BIGINT, not_null_col BIGINT NOT NULL)")) {
-            assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
+            assertUpdate("INSERT INTO %s (not_null_col) VALUES (2)".formatted(table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
-            assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (NULL, 3)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+            assertQueryFails("INSERT INTO %s (not_null_col, nullable_col) VALUES (NULL, 3)".formatted(table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
         }
 
         try (TestTable table = newTrinoTable("not_null_no_cast", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
-            assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
+            assertUpdate("INSERT INTO %s (not_null_col) VALUES (2)".formatted(table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
             // This is enforced by the engine and not the connector
-            assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (NULL, 3)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
-            assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (TRY(5/0), 4)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
-            assertQueryFails(format("INSERT INTO %s (not_null_col) VALUES (TRY(6/0))", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+            assertQueryFails("INSERT INTO %s (not_null_col, nullable_col) VALUES (NULL, 3)".formatted(table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+            assertQueryFails("INSERT INTO %s (not_null_col, nullable_col) VALUES (TRY(5/0), 4)".formatted(table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+            assertQueryFails("INSERT INTO %s (not_null_col) VALUES (TRY(6/0))".formatted(table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
         }
     }
 

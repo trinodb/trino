@@ -33,7 +33,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.Varchars.truncateToLength;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class CsvColumnDecoder
@@ -57,7 +56,7 @@ public class CsvColumnDecoder
                 columnIndex = Integer.parseInt(columnHandle.getMapping());
             }
             catch (NumberFormatException e) {
-                throw new IllegalArgumentException(format("invalid mapping '%s' for column '%s'", columnHandle.getMapping(), columnName));
+                throw new IllegalArgumentException("invalid mapping '%s' for column '%s'".formatted(columnHandle.getMapping(), columnName));
             }
             checkArgument(columnIndex >= 0, "invalid mapping '%s' for column '%s'", columnHandle.getMapping(), columnName);
 
@@ -99,7 +98,7 @@ public class CsvColumnDecoder
                     return Boolean.parseBoolean(tokens[columnIndex].trim());
                 }
                 catch (NumberFormatException e) {
-                    throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("could not parse value '%s' as '%s' for column '%s'", tokens[columnIndex].trim(), columnType, columnName));
+                    throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, "could not parse value '%s' as '%s' for column '%s'".formatted(tokens[columnIndex].trim(), columnType, columnName));
                 }
             }
 
@@ -110,7 +109,7 @@ public class CsvColumnDecoder
                     return Long.parseLong(tokens[columnIndex].trim());
                 }
                 catch (NumberFormatException e) {
-                    throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("could not parse value '%s' as '%s' for column '%s'", tokens[columnIndex].trim(), columnType, columnName));
+                    throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, "could not parse value '%s' as '%s' for column '%s'".formatted(tokens[columnIndex].trim(), columnType, columnName));
                 }
             }
 
@@ -121,7 +120,7 @@ public class CsvColumnDecoder
                     return Double.parseDouble(tokens[columnIndex].trim());
                 }
                 catch (NumberFormatException e) {
-                    throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("could not parse value '%s' as '%s' for column '%s'", tokens[columnIndex].trim(), columnType, columnName));
+                    throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, "could not parse value '%s' as '%s' for column '%s'".formatted(tokens[columnIndex].trim(), columnType, columnName));
                 }
             }
 

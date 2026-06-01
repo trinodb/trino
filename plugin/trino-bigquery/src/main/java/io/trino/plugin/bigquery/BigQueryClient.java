@@ -33,7 +33,6 @@ import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.http.BaseHttpServiceException;
-import com.google.common.base.Joiner;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -87,7 +86,6 @@ import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_LISTING_TABLE_
 import static io.trino.plugin.bigquery.BigQuerySessionProperties.createDisposition;
 import static io.trino.plugin.bigquery.BigQuerySessionProperties.isQueryResultsCacheEnabled;
 import static io.trino.plugin.bigquery.BigQueryUtil.quote;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
@@ -514,7 +512,7 @@ public class BigQueryClient
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new BigQueryException(BaseHttpServiceException.UNKNOWN_CODE, format("Failed to run the query [%s]", job.getQuery()), e);
+            throw new BigQueryException(BaseHttpServiceException.UNKNOWN_CODE, "Failed to run the query [%s]".formatted(job.getQuery()), e);
         }
     }
 
@@ -583,13 +581,12 @@ public class BigQueryClient
         return selectSql(
                 table,
                 requiredColumns.stream()
-                        .map(column -> Joiner.on('.')
-                                .join(ImmutableList.<String>builder()
-                                        .add(format("`%s`", column.name()))
-                                        .addAll(column.dereferenceNames().stream()
-                                                .map(dereferenceName -> format("`%s`", dereferenceName))
-                                                .collect(toImmutableList()))
-                                        .build()))
+                        .map(column -> String.join(".", ImmutableList.<String>builder()
+                                .add("`%s`".formatted(column.name()))
+                                .addAll(column.dereferenceNames().stream()
+                                        .map(dereferenceName -> "`%s`".formatted(dereferenceName))
+                                        .collect(toImmutableList()))
+                                .build()))
                         .collect(joining(",")),
                 filter,
                 limit);
@@ -598,7 +595,7 @@ public class BigQueryClient
     public static String selectSql(TableId table, String formattedColumns, Optional<String> filter, OptionalLong limit)
     {
         String tableName = fullTableName(table);
-        String query = format("SELECT %s FROM `%s`", formattedColumns, tableName);
+        String query = "SELECT %s FROM `%s`".formatted(formattedColumns, tableName);
         if (filter.isPresent()) {
             query = query + " WHERE " + filter.get();
         }
@@ -610,7 +607,7 @@ public class BigQueryClient
 
     private static String fullTableName(TableId remoteTableId)
     {
-        return format("%s.%s.%s", remoteTableId.getProject(), remoteTableId.getDataset(), remoteTableId.getTable());
+        return "%s.%s.%s".formatted(remoteTableId.getProject(), remoteTableId.getDataset(), remoteTableId.getTable());
     }
 
     public Stream<RelationCommentMetadata> listRelationCommentMetadata(ConnectorSession session, BigQueryClient client, String schemaName)
@@ -655,7 +652,7 @@ public class BigQueryClient
         Schema schema = tableInfo.getDefinition().getSchema();
         if (schema == null) {
             SchemaTableName schemaTableName = new SchemaTableName(tableInfo.getTableId().getDataset(), tableInfo.getTableId().getTable());
-            throw new TableNotFoundException(schemaTableName, format("Table '%s' has no schema", schemaTableName));
+            throw new TableNotFoundException(schemaTableName, "Table '%s' has no schema".formatted(schemaTableName));
         }
         return schema.getFields()
                 .stream()

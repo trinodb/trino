@@ -32,7 +32,6 @@ import static io.trino.sql.ir.IrUtils.combinePredicates;
 import static io.trino.sql.ir.IrUtils.extractPredicates;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
-import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toList;
 
 public final class ExtractCommonPredicatesExpressionRewriter
@@ -87,7 +86,7 @@ public final class ExtractCommonPredicatesExpressionRewriter
             Set<Expression> commonPredicates = ImmutableSet.copyOf(subPredicates.stream()
                     .map(this::filterDeterministicPredicates)
                     .reduce(Sets::intersection)
-                    .orElse(emptySet()));
+                    .orElse(Set.of()));
 
             List<List<Expression>> uncorrelatedSubPredicates = subPredicates.stream()
                     .map(predicateList -> removeAll(predicateList, commonPredicates))

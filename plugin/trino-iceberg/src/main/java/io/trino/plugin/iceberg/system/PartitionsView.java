@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg.system;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.spi.connector.ConnectorViewDefinition;
@@ -26,6 +25,7 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.types.Types.NestedField;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -38,11 +38,10 @@ import static io.trino.plugin.iceberg.util.SystemTableUtil.getAllPartitionFields
 import static io.trino.plugin.iceberg.util.SystemTableUtil.getPartitionColumnType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public final class PartitionsView
 {
-    private static final Joiner COMMA_JOINER = Joiner.on(", ").skipNulls();
-
     private PartitionsView() {}
 
     public static ConnectorViewDefinition create(TypeManager typeManager, Table icebergTable, String catalogName, String schemaName, String tableName)
@@ -125,7 +124,9 @@ public final class PartitionsView
             rowTypes.add(buildColumnRowType(column.name(), trinoTypeDisplayName));
         }
 
-        return "CAST(ROW(%s) AS ROW(%s)) AS data".formatted(COMMA_JOINER.join(rowValues.build()), COMMA_JOINER.join(rowTypes.build()));
+        return "CAST(ROW(%s) AS ROW(%s)) AS data".formatted(
+                rowValues.build().stream().filter(Objects::nonNull).collect(joining(", ")),
+                rowTypes.build().stream().filter(Objects::nonNull).collect(joining(", ")));
     }
 
     private static String buildColumnAggregation(int fieldId)

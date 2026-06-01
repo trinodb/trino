@@ -25,7 +25,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -125,7 +124,7 @@ public class TestSessionFunctions
                 .build();
         try (QueryAssertions queryAssertions = new QueryAssertions(session)) {
             assertThat(queryAssertions.query("SELECT array_sort(current_groups())"))
-                    .matches(format("SELECT CAST(ARRAY[%s] AS ARRAY(VARCHAR))", groups.stream().map(e -> format("'%s'", e)).collect(joining(","))));
+                    .matches("SELECT CAST(ARRAY[%s] AS ARRAY(VARCHAR))".formatted(groups.stream().map(e -> "'%s'".formatted(e)).collect(joining(","))));
         }
     }
 }

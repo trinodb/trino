@@ -26,7 +26,6 @@ import org.intellij.lang.annotations.Language;
 import java.util.Optional;
 
 import static com.google.common.base.Strings.nullToEmpty;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Fail.fail;
@@ -70,7 +69,7 @@ class EventsAwaitingQueries
             if (expectedExceptionRegEx.isPresent()) {
                 String regex = expectedExceptionRegEx.get();
                 if (!nullToEmpty(exception.getMessage()).matches(regex)) {
-                    fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
+                    fail("Expected exception message '%s' to match '%s' for query: %s".formatted(exception.getMessage(), regex, sql), exception);
                 }
             }
             else {

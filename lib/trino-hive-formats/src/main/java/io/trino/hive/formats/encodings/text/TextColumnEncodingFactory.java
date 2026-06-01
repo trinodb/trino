@@ -39,7 +39,6 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class TextColumnEncodingFactory
@@ -65,20 +64,17 @@ public class TextColumnEncodingFactory
         }
         catch (NotEnoughSeparatorsException e) {
             if (e.getDepth() > EXTENDED_ADDITIONAL.getLevels()) {
-                throw new IllegalArgumentException(format(
-                        "Type %s requires %s nesting levels, which is not possible",
+                throw new IllegalArgumentException("Type %s requires %s nesting levels, which is not possible".formatted(
                         type,
                         e.getDepth()));
             }
             if (e.getDepth() > EXTENDED.getLevels()) {
-                throw new IllegalArgumentException(format(
-                        "Type %s requires %s nesting levels, which can be enabled with the %s table property",
+                throw new IllegalArgumentException("Type %s requires %s nesting levels, which can be enabled with the %s table property".formatted(
                         type,
                         e.getDepth(),
                         EXTENDED_ADDITIONAL.getTableProperty()));
             }
-            throw new IllegalArgumentException(format(
-                    "Type %s requires %s nesting levels, which can be enabled with the %s table property",
+            throw new IllegalArgumentException("Type %s requires %s nesting levels, which can be enabled with the %s table property".formatted(
                     type,
                     e.getDepth(),
                     EXTENDED.getTableProperty()));

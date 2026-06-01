@@ -13,7 +13,6 @@
  */
 package io.trino.sql.tree;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -21,6 +20,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public final class Values
         extends QueryBody
@@ -64,7 +64,7 @@ public final class Values
     @Override
     public String toString()
     {
-        return "(" + Joiner.on(", ").join(rows) + ")";
+        return "(" + rows.stream().map(Object::toString).collect(joining(", ")) + ")";
     }
 
     @Override

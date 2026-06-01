@@ -53,7 +53,6 @@ import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -129,7 +128,7 @@ public class JsonRowEncoder
             return DateTimeFormat.valueOf(dataFormat.toUpperCase(ENGLISH).replaceAll("-", "_").strip());
         }
         catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(format("Unable to parse data format '%s' for column '%s'", dataFormat, columnName), e);
+            throw new IllegalArgumentException("Unable to parse data format '%s' for column '%s'".formatted(dataFormat, columnName), e);
         }
     }
 
@@ -233,7 +232,7 @@ public class JsonRowEncoder
     public byte[] toByteArray()
     {
         // make sure entire row has been updated with new values
-        checkArgument(currentColumnIndex == columnHandles.size(), format("Missing %d columns", columnHandles.size() - currentColumnIndex + 1));
+        checkArgument(currentColumnIndex == columnHandles.size(), "Missing %d columns".formatted(columnHandles.size() - currentColumnIndex + 1));
 
         try {
             resetColumnIndex(); // reset currentColumnIndex to prepare for next row

@@ -32,7 +32,6 @@ import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.longProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
 public class DeltaLakeTableProperties
@@ -85,7 +84,7 @@ public class DeltaLakeTableProperties
                         value -> {
                             EnumSet<ColumnMappingMode> allowed = EnumSet.of(ColumnMappingMode.ID, ColumnMappingMode.NAME, ColumnMappingMode.NONE);
                             if (allowed.stream().map(Enum::name).noneMatch(mode -> mode.equalsIgnoreCase(value))) {
-                                throw new IllegalArgumentException(format("Invalid value [%s]. Valid values: [ID, NAME, NONE]", value));
+                                throw new IllegalArgumentException("Invalid value [%s]. Valid values: [ID, NAME, NONE]".formatted(value));
                             }
                         },
                         false))
@@ -118,7 +117,7 @@ public class DeltaLakeTableProperties
         Optional<Long> checkpointInterval = Optional.ofNullable((Long) tableProperties.get(CHECKPOINT_INTERVAL_PROPERTY));
         checkpointInterval.ifPresent(value -> {
             if (value <= 0) {
-                throw new TrinoException(INVALID_TABLE_PROPERTY, format("%s must be greater than 0", CHECKPOINT_INTERVAL_PROPERTY));
+                throw new TrinoException(INVALID_TABLE_PROPERTY, "%s must be greater than 0".formatted(CHECKPOINT_INTERVAL_PROPERTY));
             }
         });
 

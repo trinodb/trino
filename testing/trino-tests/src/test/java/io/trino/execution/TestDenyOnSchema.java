@@ -44,7 +44,6 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.trino.common.Randoms.randomUsername;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.Locale.ROOT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -136,41 +135,41 @@ public class TestDenyOnSchema
         }
         expectedGrantee = new TrinoPrincipal(USER, username);
 
-        queryRunner.execute(admin, format("DENY %s ON SCHEMA default TO %s", privilege, username));
+        queryRunner.execute(admin, "DENY %s ON SCHEMA default TO %s".formatted(privilege, username));
         assertThat(denyCalled).isTrue();
     }
 
     @Test
     public void testDenyOnNonExistingCatalog()
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY CREATE ON SCHEMA missing_catalog.missing_schema TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY CREATE ON SCHEMA missing_catalog.missing_schema TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY SELECT ON SCHEMA missing_catalog.missing_schema TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY SELECT ON SCHEMA missing_catalog.missing_schema TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY INSERT ON SCHEMA missing_catalog.missing_schema TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY INSERT ON SCHEMA missing_catalog.missing_schema TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY UPDATE ON SCHEMA missing_catalog.missing_schema TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY UPDATE ON SCHEMA missing_catalog.missing_schema TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY DELETE ON SCHEMA missing_catalog.missing_schema TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY DELETE ON SCHEMA missing_catalog.missing_schema TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY ALL PRIVILEGES ON SCHEMA missing_catalog.missing_schema TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY ALL PRIVILEGES ON SCHEMA missing_catalog.missing_schema TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
     }
 
     @Test
     public void testDenyOnNonExistingSchema()
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY CREATE ON SCHEMA missing_schema TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY CREATE ON SCHEMA missing_schema TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Schema 'local.missing_schema' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY SELECT ON SCHEMA missing_schema TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY SELECT ON SCHEMA missing_schema TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Schema 'local.missing_schema' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY INSERT ON SCHEMA missing_schema TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY INSERT ON SCHEMA missing_schema TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Schema 'local.missing_schema' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY UPDATE ON SCHEMA missing_schema TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY UPDATE ON SCHEMA missing_schema TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Schema 'local.missing_schema' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY DELETE ON SCHEMA missing_schema TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY DELETE ON SCHEMA missing_schema TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Schema 'local.missing_schema' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY ALL PRIVILEGES ON SCHEMA missing_schema TO %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "DENY ALL PRIVILEGES ON SCHEMA missing_schema TO %s".formatted(randomUsername())))
                 .hasMessageContaining("Schema 'local.missing_schema' does not exist");
     }
 

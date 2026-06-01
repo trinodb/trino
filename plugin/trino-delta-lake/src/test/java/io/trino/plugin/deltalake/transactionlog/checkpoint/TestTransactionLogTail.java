@@ -27,7 +27,6 @@ import java.util.Optional;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.deltalake.DeltaLakeConfig.DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTransactionLogTail
@@ -43,7 +42,7 @@ public class TestTransactionLogTail
     private void testTail(String dataSource)
             throws Exception
     {
-        String tableLocation = getClass().getClassLoader().getResource(format("%s/person", dataSource)).toURI().toString();
+        String tableLocation = getClass().getClassLoader().getResource("%s/person".formatted(dataSource)).toURI().toString();
         assertThat(readJsonTransactionLogTails(tableLocation)).hasSize(7);
         assertThat(updateJsonTransactionLogTails(tableLocation)).hasSize(7);
     }

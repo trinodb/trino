@@ -43,7 +43,6 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
-import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
@@ -194,7 +193,7 @@ public class TestStreamingAggregationOperator
 
         MaterializedResult.Builder builder = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT);
         for (int i = 0; i < 20; i++) {
-            builder.row(format("%s", i), 1L, Long.valueOf(i));
+            builder.row("%s".formatted(i), 1L, Long.valueOf(i));
         }
 
         assertOperatorEquals(operatorFactory, driverContext, input, builder.build());

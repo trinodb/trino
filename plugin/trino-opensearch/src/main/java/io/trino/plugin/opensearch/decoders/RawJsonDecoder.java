@@ -29,7 +29,6 @@ import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RawJsonDecoder
@@ -58,7 +57,7 @@ public class RawJsonDecoder
             catch (JsonProcessingException e) {
                 throw new TrinoException(
                         TYPE_MISMATCH,
-                        format("Expected valid json for field '%s' marked to be rendered as JSON: %s [%s]", path, value, value.getClass().getSimpleName()),
+                        "Expected valid json for field '%s' marked to be rendered as JSON: %s [%s]".formatted(path, value, value.getClass().getSimpleName()),
                         e);
             }
         }

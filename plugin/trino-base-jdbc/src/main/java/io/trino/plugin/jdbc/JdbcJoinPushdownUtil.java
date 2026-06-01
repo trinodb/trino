@@ -25,7 +25,6 @@ import java.util.function.Supplier;
 import static io.trino.plugin.jdbc.JdbcJoinPushdownSessionProperties.getJoinPushdownAutomaticJoinToTablesRatio;
 import static io.trino.plugin.jdbc.JdbcJoinPushdownSessionProperties.getJoinPushdownAutomaticMaxTableSize;
 import static io.trino.plugin.jdbc.JdbcJoinPushdownSessionProperties.getJoinPushdownStrategy;
-import static java.lang.String.format;
 
 public final class JdbcJoinPushdownUtil
 {
@@ -125,7 +124,7 @@ public final class JdbcJoinPushdownUtil
             PreparedQuery leftSource,
             PreparedQuery rightSource)
     {
-        return format("%s JOIN(%s; %s)", joinType, leftSource.query(), rightSource.query());
+        return "%s JOIN(%s; %s)".formatted(joinType, leftSource.query(), rightSource.query());
     }
 
     private static void logNoPushdown(String joinSignature, String reason)

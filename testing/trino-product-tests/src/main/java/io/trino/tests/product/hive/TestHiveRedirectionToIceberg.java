@@ -29,7 +29,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HIVE_ICEBERG_REDIRECTIONS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static java.sql.JDBCType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -297,7 +296,7 @@ public class TestHiveRedirectionToIceberg
                         "WITH (\n" +
                         "   format = 'PARQUET',\n" +
                         "   format_version = 2,\n" +
-                        format("   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/%s-\\E.*\\Q',\n", tableName) +
+                        "   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/%s-\\E.*\\Q',\n".formatted(tableName) +
                         "   partitioning = ARRAY['regionkey']\n" + // 'partitioning' comes from Iceberg
                         ")\\E");
 
@@ -423,7 +422,7 @@ public class TestHiveRedirectionToIceberg
         assertTableComment("iceberg", "default", tableName).isNull();
 
         String tableComment = "This is my table, there are many like it but this one is mine";
-        onTrino().executeQuery(format("COMMENT ON TABLE %s IS '%s'", hiveTableName, tableComment));
+        onTrino().executeQuery("COMMENT ON TABLE %s IS '%s'".formatted(hiveTableName, tableComment));
 
         assertTableComment("hive", "default", tableName).isEqualTo(tableComment);
         assertTableComment("iceberg", "default", tableName).isEqualTo(tableComment);
@@ -444,7 +443,7 @@ public class TestHiveRedirectionToIceberg
         assertColumnComment("iceberg", "default", tableName, columnName).isNull();
 
         String columnComment = "Internal identifier for the nation";
-        onTrino().executeQuery(format("COMMENT ON COLUMN %s.%s IS '%s'", hiveTableName, columnName, columnComment));
+        onTrino().executeQuery("COMMENT ON COLUMN %s.%s IS '%s'".formatted(hiveTableName, columnName, columnComment));
 
         assertColumnComment("hive", "default", tableName, columnName).isEqualTo(columnComment);
         assertColumnComment("iceberg", "default", tableName, columnName).isEqualTo(columnComment);
@@ -460,7 +459,7 @@ public class TestHiveRedirectionToIceberg
         String icebergTableName = "iceberg.default." + tableName;
         createIcebergTable(icebergTableName, false);
 
-        assertQueryFailure(() -> onTrino().executeQuery(format("SHOW GRANTS ON %s", hiveTableName)))
+        assertQueryFailure(() -> onTrino().executeQuery("SHOW GRANTS ON %s".formatted(hiveTableName)))
                 .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table " + hiveTableName + " is redirected to " + icebergTableName + " and SHOW GRANTS is not supported with table redirections");
 
         onTrino().executeQuery("DROP TABLE " + icebergTableName);
@@ -480,7 +479,7 @@ public class TestHiveRedirectionToIceberg
 
         // via redirection with table filter
         assertThat(onTrino().executeQuery(
-                format("SELECT * FROM hive.information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'", schemaName, tableName)))
+                "SELECT * FROM hive.information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'".formatted(schemaName, tableName)))
                 .containsOnly(
                         row("hive", schemaName, tableName, "nationkey", 1, null, "YES", "bigint"),
                         row("hive", schemaName, tableName, "name", 2, null, "YES", "varchar"),
@@ -489,7 +488,7 @@ public class TestHiveRedirectionToIceberg
 
         // test via redirection with just schema filter
         assertThat(onTrino().executeQuery(
-                format("SELECT * FROM hive.information_schema.columns WHERE table_schema = '%s'", schemaName)))
+                "SELECT * FROM hive.information_schema.columns WHERE table_schema = '%s'".formatted(schemaName)))
                 .containsOnly(
                         row("hive", schemaName, tableName, "nationkey", 1, null, "YES", "bigint"),
                         row("hive", schemaName, tableName, "name", 2, null, "YES", "varchar"),
@@ -498,7 +497,7 @@ public class TestHiveRedirectionToIceberg
 
         // sanity check that getting columns info without redirection produces matching result
         assertThat(onTrino().executeQuery(
-                format("SELECT * FROM iceberg.information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'", schemaName, tableName)))
+                "SELECT * FROM iceberg.information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'".formatted(schemaName, tableName)))
                 .containsOnly(
                         row("iceberg", schemaName, tableName, "nationkey", 1, null, "YES", "bigint"),
                         row("iceberg", schemaName, tableName, "name", 2, null, "YES", "varchar"),
@@ -523,7 +522,7 @@ public class TestHiveRedirectionToIceberg
 
         // via redirection with table filter
         assertThat(onTrino().executeQuery(
-                format("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = '%s' AND table_name = '%s'", schemaName, tableName)))
+                "SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = '%s' AND table_name = '%s'".formatted(schemaName, tableName)))
                 .containsOnly(
                         row("hive", schemaName, tableName, "nationkey"),
                         row("hive", schemaName, tableName, "name"),
@@ -533,7 +532,7 @@ public class TestHiveRedirectionToIceberg
         // test via redirection with just schema filter
         // via redirection with table filter
         assertThat(onTrino().executeQuery(
-                format("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = '%s'", schemaName)))
+                "SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = '%s'".formatted(schemaName)))
                 .containsOnly(
                         row("hive", schemaName, tableName, "nationkey"),
                         row("hive", schemaName, tableName, "name"),
@@ -542,7 +541,7 @@ public class TestHiveRedirectionToIceberg
 
         // sanity check that getting columns info without redirection produces matching result
         assertThat(onTrino().executeQuery(
-                format("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'iceberg' AND table_schem = '%s' AND table_name = '%s'", schemaName, tableName)))
+                "SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'iceberg' AND table_schem = '%s' AND table_name = '%s'".formatted(schemaName, tableName)))
                 .containsOnly(
                         row("iceberg", schemaName, tableName, "nationkey"),
                         row("iceberg", schemaName, tableName, "name"),
@@ -650,7 +649,7 @@ public class TestHiveRedirectionToIceberg
     private static QueryResult readColumnComment(String catalog, String schema, String tableName, String columnName)
     {
         return onTrino().executeQuery(
-                format("SELECT comment FROM %s.information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?", catalog),
+                "SELECT comment FROM %s.information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?".formatted(catalog),
                 param(VARCHAR, schema),
                 param(VARCHAR, tableName),
                 param(VARCHAR, columnName));

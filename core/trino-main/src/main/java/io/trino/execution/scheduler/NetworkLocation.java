@@ -13,7 +13,6 @@
  */
 package io.trino.execution.scheduler;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Collection;
@@ -77,7 +76,7 @@ public final class NetworkLocation
     public String toString()
     {
         return toStringHelper(this)
-                .add("location", "/" + Joiner.on("/").join(segments))
+                .add("location", "/" + String.join("/", segments))
                 .toString();
     }
 }

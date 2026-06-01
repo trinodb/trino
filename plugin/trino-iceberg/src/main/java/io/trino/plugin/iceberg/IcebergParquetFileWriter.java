@@ -32,7 +32,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -40,7 +40,6 @@ import java.util.stream.Stream;
 
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.util.ParquetUtil.footerMetrics;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class IcebergParquetFileWriter
@@ -90,7 +89,7 @@ public final class IcebergParquetFileWriter
             return new FileMetrics(footerMetrics(parquetMetadata, Stream.empty(), metricsConfig), Optional.of(getSplitOffsets(parquetMetadata)));
         }
         catch (IOException | UncheckedIOException e) {
-            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("Error creating metadata for Parquet file %s", location), e);
+            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Error creating metadata for Parquet file %s".formatted(location), e);
         }
     }
 
@@ -138,7 +137,7 @@ public final class IcebergParquetFileWriter
         for (BlockMetadata blockMetaData : blocks) {
             splitOffsets.add(blockMetaData.columns().getFirst().getStartingPos());
         }
-        Collections.sort(splitOffsets);
+        splitOffsets.sort(Comparator.naturalOrder());
         return ImmutableList.copyOf(splitOffsets);
     }
 }

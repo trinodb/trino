@@ -101,7 +101,6 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.partitionMatchesPredicate;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class TransactionLogAccess
@@ -708,7 +707,7 @@ public class TransactionLogAccess
                 .collect(toImmutableMap(
                         entry -> requireNonNull(
                                 canonicalColumnNames.get(entry.getKey()),
-                                format("Did not find CanonicalColumnName for %s", entry.getKey())),
+                                "Did not find CanonicalColumnName for %s".formatted(entry.getKey())),
                         Map.Entry::getValue));
     }
 

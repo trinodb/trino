@@ -25,7 +25,6 @@ import java.util.Map;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class Page
@@ -70,7 +69,7 @@ public final class Page
     private Page(boolean blocksCopyRequired, int positionCount, Block[] blocks)
     {
         if (positionCount < 0) {
-            throw new IllegalArgumentException(format("positionCount (%s) is negative", positionCount));
+            throw new IllegalArgumentException("positionCount (%s) is negative".formatted(positionCount));
         }
         requireNonNull(blocks, "blocks is null");
         this.positionCount = positionCount;
@@ -103,7 +102,7 @@ public final class Page
             for (Block block : blocks) {
                 long blockSizeInBytes = block.getSizeInBytes();
                 if (blockSizeInBytes < 0) {
-                    throw new IllegalStateException(format("Block sizeInBytes is negative (%s)", blockSizeInBytes));
+                    throw new IllegalStateException("Block sizeInBytes is negative (%s)".formatted(blockSizeInBytes));
                 }
                 sizeInBytes += blockSizeInBytes;
             }
@@ -142,7 +141,7 @@ public final class Page
     public Page getRegion(int positionOffset, int length)
     {
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
-            throw new IndexOutOfBoundsException(format("Invalid position %s and length %s in page with %s positions", positionOffset, length, positionCount));
+            throw new IndexOutOfBoundsException("Invalid position %s and length %s in page with %s positions".formatted(positionOffset, length, positionCount));
         }
 
         if (positionOffset == 0 && length == positionCount) {
@@ -272,7 +271,7 @@ public final class Page
     public Page prependColumn(Block column)
     {
         if (column.getPositionCount() != positionCount) {
-            throw new IllegalArgumentException(format("Column does not have same position count (%s) as page (%s)", column.getPositionCount(), positionCount));
+            throw new IllegalArgumentException("Column does not have same position count (%s) as page (%s)".formatted(column.getPositionCount(), positionCount));
         }
 
         Block[] result = new Block[blocks.length + 1];

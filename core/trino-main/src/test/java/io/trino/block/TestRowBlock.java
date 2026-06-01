@@ -26,7 +26,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,7 +35,6 @@ import static io.trino.spi.block.RowBlock.fromFieldBlocks;
 import static io.trino.spi.block.RowBlock.fromNotNullSuppressedFieldBlocks;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRowBlock
@@ -373,7 +372,7 @@ public class TestRowBlock
                         testRow.add(i * 100L + j);
                     }
                     else if (fieldTypes.get(j) == VARCHAR) {
-                        testRow.add(format("field(%s, %s)", i, j));
+                        testRow.add("field(%s, %s)".formatted(i, j));
                     }
                     else {
                         throw new IllegalArgumentException();
@@ -391,7 +390,7 @@ public class TestRowBlock
         for (int i = 0; i < numPositions; i++) {
             positions.add((7 * i + 3) % numRows);
         }
-        Collections.sort(positions);
+        positions.sort(Comparator.naturalOrder());
         return positions;
     }
 }

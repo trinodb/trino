@@ -23,7 +23,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -107,11 +106,10 @@ public class CassandraNamedRelationHandle
     @Override
     public String toString()
     {
-        String result = format("%s:%s", schemaName, tableName);
+        String result = "%s:%s".formatted(schemaName, tableName);
         if (this.partitions.isPresent()) {
             List<CassandraPartition> partitions = this.partitions.get();
-            result += format(
-                    " %d partitions %s",
+            result += " %d partitions %s".formatted(
                     partitions.size(),
                     Stream.concat(
                                     partitions.subList(0, Math.min(partitions.size(), 3)).stream(),
@@ -120,7 +118,7 @@ public class CassandraNamedRelationHandle
                             .collect(joining(", ", "[", "]")));
         }
         if (!clusteringKeyPredicates.isEmpty()) {
-            result += format(" constraint(%s)", clusteringKeyPredicates);
+            result += " constraint(%s)".formatted(clusteringKeyPredicates);
         }
         return result;
     }

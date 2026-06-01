@@ -39,7 +39,6 @@ import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -135,13 +134,13 @@ public class TestIcebergGcsConnectorSmokeTest
     @Override
     protected String createSchemaSql(String schema)
     {
-        return format("CREATE SCHEMA %1$s WITH (location = '%2$s%1$s')", schema, schemaPath());
+        return "CREATE SCHEMA %1$s WITH (location = '%2$s%1$s')".formatted(schema, schemaPath());
     }
 
     @Override
     protected String schemaPath()
     {
-        return format("gs://%s/%s/", gcpStorageBucket, schema);
+        return "gs://%s/%s/".formatted(gcpStorageBucket, schema);
     }
 
     @Override
@@ -161,7 +160,7 @@ public class TestIcebergGcsConnectorSmokeTest
     {
         String schemaName = getSession().getSchema().orElseThrow();
         assertQueryFails(
-                format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomNameSuffix()),
+                "ALTER SCHEMA %s RENAME TO %s".formatted(schemaName, schemaName + randomNameSuffix()),
                 "Hive metastore does not support renaming schemas");
     }
 

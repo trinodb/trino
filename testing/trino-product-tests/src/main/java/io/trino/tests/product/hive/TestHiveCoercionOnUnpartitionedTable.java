@@ -27,7 +27,6 @@ import java.util.Map;
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.trino.tests.product.TestGroups.JDBC;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
 public class TestHiveCoercionOnUnpartitionedTable
@@ -51,7 +50,7 @@ public class TestHiveCoercionOnUnpartitionedTable
 
     private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionBuilder(String fileFormat)
     {
-        String tableName = format("%s_hive_coercion_unpartitioned", fileFormat.toLowerCase(ENGLISH));
+        String tableName = "%s_hive_coercion_unpartitioned".formatted(fileFormat.toLowerCase(ENGLISH));
         return HiveTableDefinition.builder(tableName)
                 // all nested primitive coercions and adding/removing trailing nested fields are covered across row_to_row, list_to_list, and map_to_map
                 .setCreateTableDDLTemplate(
@@ -168,7 +167,7 @@ public class TestHiveCoercionOnUnpartitionedTable
 
     private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionForTimestampCoercionBuilder(String fileFormat)
     {
-        String tableName = format("%s_hive_timestamp_coercion_unpartitioned", fileFormat.toLowerCase(ENGLISH));
+        String tableName = "%s_hive_timestamp_coercion_unpartitioned".formatted(fileFormat.toLowerCase(ENGLISH));
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate(
                         """

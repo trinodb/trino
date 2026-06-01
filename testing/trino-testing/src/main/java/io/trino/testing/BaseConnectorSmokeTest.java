@@ -47,7 +47,6 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.REGION;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -165,7 +164,7 @@ public abstract class BaseConnectorSmokeTest
 
     protected String expectedValues(String values)
     {
-        return format("SELECT CAST(a AS bigint), CAST(b AS double) FROM (VALUES %s) AS t (a, b)", values);
+        return "SELECT CAST(a AS bigint), CAST(b AS double) FROM (VALUES %s) AS t (a, b)".formatted(values);
     }
 
     @Test
@@ -381,7 +380,7 @@ public abstract class BaseConnectorSmokeTest
             assertUpdate(createSchemaSql(schemaName));
             assertThat(query("SHOW SCHEMAS"))
                     .skippingTypesCheck()
-                    .containsAll(format("VALUES '%s', '%s'", getSession().getSchema().orElseThrow(), schemaName));
+                    .containsAll("VALUES '%s', '%s'".formatted(getSession().getSchema().orElseThrow(), schemaName));
         }
         finally {
             assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
@@ -400,7 +399,7 @@ public abstract class BaseConnectorSmokeTest
         assertUpdate(newSession, createSchemaSql(schemaName));
         assertThat(query(newSession, "SHOW SCHEMAS"))
                 .skippingTypesCheck()
-                .containsAll(format("VALUES '%s'", schemaName));
+                .containsAll("VALUES '%s'".formatted(schemaName));
         assertUpdate(newSession, "DROP SCHEMA " + schemaName);
     }
 
@@ -410,7 +409,7 @@ public abstract class BaseConnectorSmokeTest
         if (!hasBehavior(SUPPORTS_RENAME_SCHEMA)) {
             String schemaName = getSession().getSchema().orElseThrow();
             assertQueryFails(
-                    format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomNameSuffix()),
+                    "ALTER SCHEMA %s RENAME TO %s".formatted(schemaName, schemaName + randomNameSuffix()),
                     "This connector does not support renaming schemas");
             return;
         }
@@ -542,7 +541,7 @@ public abstract class BaseConnectorSmokeTest
     @Test
     public void testSelectInformationSchemaTables()
     {
-        assertThat(query(format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", getSession().getSchema().orElseThrow())))
+        assertThat(query("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'".formatted(getSession().getSchema().orElseThrow())))
                 .skippingTypesCheck()
                 .containsAll("VALUES 'nation', 'region'");
     }
@@ -550,7 +549,7 @@ public abstract class BaseConnectorSmokeTest
     @Test
     public void testSelectInformationSchemaColumns()
     {
-        assertThat(query(format("SELECT column_name FROM information_schema.columns WHERE table_schema = '%s' AND table_name = 'region'", getSession().getSchema().orElseThrow())))
+        assertThat(query("SELECT column_name FROM information_schema.columns WHERE table_schema = '%s' AND table_name = 'region'".formatted(getSession().getSchema().orElseThrow())))
                 .skippingTypesCheck()
                 .matches("VALUES 'regionkey', 'name', 'comment'");
     }
@@ -560,12 +559,11 @@ public abstract class BaseConnectorSmokeTest
     public void testShowCreateTable()
     {
         assertThat((String) computeScalar("SHOW CREATE TABLE region"))
-                .matches(format(
-                        "CREATE TABLE %s.%s.region \\(\n" +
-                                "   regionkey (bigint|decimal\\(19, 0\\)),\n" +
-                                "   name varchar(\\(\\d+\\))?,\n" +
-                                "   comment varchar(\\(\\d+\\))?\n" +
-                                "\\)",
+                .matches(("CREATE TABLE %s.%s.region \\(\n" +
+                "   regionkey (bigint|decimal\\(19, 0\\)),\n" +
+                "   name varchar(\\(\\d+\\))?,\n" +
+                "   comment varchar(\\(\\d+\\))?\n" +
+                "\\)").formatted(
                         Pattern.quote(getSession().getCatalog().orElseThrow()),
                         Pattern.quote(getSession().getSchema().orElseThrow())));
     }
@@ -762,8 +760,7 @@ public abstract class BaseConnectorSmokeTest
 
     protected String getColumnComment(String tableName, String columnName)
     {
-        return (String) computeScalar(format(
-                "SELECT comment FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s' AND column_name = '%s'",
+        return (String) computeScalar("SELECT comment FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s' AND column_name = '%s'".formatted(
                 getSession().getSchema().orElseThrow(),
                 tableName,
                 columnName));

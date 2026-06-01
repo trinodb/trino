@@ -26,7 +26,6 @@ import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -310,7 +309,7 @@ public final class Range
     private void checkTypeCompatibility(Range range)
     {
         if (!getType().equals(range.getType())) {
-            throw new IllegalArgumentException(format("Mismatched Range types: %s vs %s", getType(), range.getType()));
+            throw new IllegalArgumentException("Mismatched Range types: %s vs %s".formatted(getType(), range.getType()));
         }
     }
 
@@ -387,13 +386,12 @@ public final class Range
                 .orElse("<min>");
 
         if (isSingleValue()) {
-            return format("[%s]", lowObject);
+            return "[%s]".formatted(lowObject);
         }
         Object highObject = highValue
                 .map(value -> type.getObjectValue(nativeValueToBlock(type, value), 0))
                 .orElse("<max>");
-        return format(
-                "%s%s, %s%s",
+        return "%s%s, %s%s".formatted(
                 lowInclusive ? "[" : "(",
                 lowObject,
                 highObject,

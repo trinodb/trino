@@ -45,7 +45,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.SystemSessionProperties.isSourcePagesValidationEnabled;
 import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ExchangeOperator
@@ -107,7 +106,7 @@ public class ExchangeOperator
                 TaskId taskId = taskContext.getTaskId();
                 exchangeDataSource = new LazyExchangeDataSource(
                         taskId.queryId(),
-                        new ExchangeId(format("direct-exchange-%s-%s", taskId.stageId().id(), sourceId)),
+                        new ExchangeId("direct-exchange-%s-%s".formatted(taskId.stageId().id(), sourceId)),
                         taskContext.getSession().getQuerySpan(),
                         directExchangeClientSupplier,
                         memoryContext,

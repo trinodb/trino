@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -76,6 +75,6 @@ public class TestingWarningCollector
         // format string below is a hack to construct a vendor specific SQLState value
         // 01 is the class of warning code and 5 is the first allowed vendor defined prefix character
         // See the SQL Standard ISO_IEC_9075-2E_2016 24.1: SQLState for more information
-        return new TrinoWarning(new WarningCode(code, format("015%02d", code % 100)), "Test warning " + code);
+        return new TrinoWarning(new WarningCode(code, "015%02d".formatted(code % 100)), "Test warning " + code);
     }
 }

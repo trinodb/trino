@@ -44,7 +44,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -134,8 +133,8 @@ public abstract class BaseElasticsearchConnectorTest
         String catalogName = getSession().getCatalog().orElseThrow();
         assertQuerySucceeds("SELECT * FROM orders");
         // Check that JMX stats show no sign of backpressure
-        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"%s.client:*name=%s*\" WHERE \"backpressurestats.alltime.count\" > 0", jmxBaseName, catalogName));
-        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"%s.client:*name=%s*\" WHERE \"backpressurestats.alltime.max\" > 0", jmxBaseName, catalogName));
+        assertQueryReturnsEmptyResult("SELECT 1 FROM jmx.current.\"%s.client:*name=%s*\" WHERE \"backpressurestats.alltime.count\" > 0".formatted(jmxBaseName, catalogName));
+        assertQueryReturnsEmptyResult("SELECT 1 FROM jmx.current.\"%s.client:*name=%s*\" WHERE \"backpressurestats.alltime.max\" > 0".formatted(jmxBaseName, catalogName));
     }
 
     @Test
@@ -194,7 +193,7 @@ public abstract class BaseElasticsearchConnectorTest
     {
         String catalogName = getSession().getCatalog().orElseThrow();
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo(format("CREATE TABLE %s.tpch.orders (\n", catalogName) +
+                .isEqualTo("CREATE TABLE %s.tpch.orders (\n".formatted(catalogName) +
                         "   clerk varchar,\n" +
                         "   comment varchar,\n" +
                         "   custkey bigint,\n" +
@@ -1952,7 +1951,7 @@ public abstract class BaseElasticsearchConnectorTest
     public void testAlias()
             throws IOException
     {
-        String aliasName = format("alias_%s", randomNameSuffix());
+        String aliasName = "alias_%s".formatted(randomNameSuffix());
         addAlias("orders", aliasName);
 
         assertThat(query("SELECT count(*) FROM " + aliasName))
@@ -2001,7 +2000,7 @@ public abstract class BaseElasticsearchConnectorTest
 
         createIndex(indexName, mappings);
 
-        assertThat(query(format("SELECT column_name FROM information_schema.columns WHERE table_name = '%s'", indexName)))
+        assertThat(query("SELECT column_name FROM information_schema.columns WHERE table_name = '%s'".formatted(indexName)))
                 .matches("VALUES (VARCHAR 'dummy_column')");
         assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).contains(indexName);
         assertQueryReturnsEmptyResult("SELECT * FROM " + indexName);
@@ -2042,7 +2041,7 @@ public abstract class BaseElasticsearchConnectorTest
 
         // select single record
         assertThat(query("SELECT json_query(result, 'lax $[0][0].hits.hits._source') " +
-                format("FROM TABLE(%s.system.raw_query(", catalogName) +
+                "FROM TABLE(%s.system.raw_query(".formatted(catalogName) +
                 "schema => 'tpch', " +
                 "index => 'nation', " +
                 "query => '{\"query\": {\"match\": {\"name\": \"ALGERIA\"}}}')) t(result)"))
@@ -2052,14 +2051,14 @@ public abstract class BaseElasticsearchConnectorTest
         Session session = Session.builder(getSession())
                 .addPreparedStatement(
                         "my_query",
-                        format("SELECT json_query(result, 'lax $[0][0].hits.hits._source') FROM TABLE(%s.system.raw_query(schema => ?, index => ?, query => ?))", catalogName))
+                        "SELECT json_query(result, 'lax $[0][0].hits.hits._source') FROM TABLE(%s.system.raw_query(schema => ?, index => ?, query => ?))".formatted(catalogName))
                 .build();
         assertThat(query(session, "EXECUTE my_query USING 'tpch', 'nation', '{\"query\": {\"match\": {\"name\": \"ALGERIA\"}}}'"))
                 .matches("VALUES VARCHAR '{\"nationkey\":0,\"name\":\"ALGERIA\",\"regionkey\":0,\"comment\":\" haggle. carefully final deposits detect slyly agai\"}'");
 
         // select multiple records by range. Use array wrapper to wrap multiple results
         assertThat(query("SELECT array_sort(CAST(json_parse(json_query(result, 'lax $[0][0].hits.hits._source.name' WITH ARRAY WRAPPER)) AS array(varchar))) " +
-                format("FROM TABLE(%s.system.raw_query(", catalogName) +
+                "FROM TABLE(%s.system.raw_query(".formatted(catalogName) +
                 "schema => 'tpch', " +
                 "index => 'nation', " +
                 "query => '{\"query\": {\"range\": {\"nationkey\": {\"gte\": 0,\"lte\": 3}}}}')) t(result)"))
@@ -2093,7 +2092,7 @@ public abstract class BaseElasticsearchConnectorTest
 
         // no matches
         assertThat(query("SELECT json_query(result, 'lax $[0][0].hits.hits') " +
-                format("FROM TABLE(%s.system.raw_query(", catalogName) +
+                "FROM TABLE(%s.system.raw_query(".formatted(catalogName) +
                 "schema => 'tpch', " +
                 "index => 'nation', " +
                 "query => '{\"query\": {\"match\": {\"name\": \"UTOPIA\"}}}')) t(result)"))
@@ -2101,7 +2100,7 @@ public abstract class BaseElasticsearchConnectorTest
 
         // syntax error
         assertThat(query("SELECT * " +
-                format("FROM TABLE(%s.system.raw_query(", catalogName) +
+                "FROM TABLE(%s.system.raw_query(".formatted(catalogName) +
                 "schema => 'tpch', " +
                 "index => 'nation', " +
                 "query => 'wrong syntax')) t(result)"))
@@ -2574,9 +2573,9 @@ public abstract class BaseElasticsearchConnectorTest
             throws IOException
     {
         String suffix = randomNameSuffix();
-        String firstIndex = format("test_wildcard_%s_1", suffix);
-        String secondIndex = format("test_wildcard_%s_2", suffix);
-        String wildcardTable = format("test_wildcard_%s_*", suffix);
+        String firstIndex = "test_wildcard_%s_1".formatted(suffix);
+        String secondIndex = "test_wildcard_%s_2".formatted(suffix);
+        String wildcardTable = "test_wildcard_%s_*".formatted(suffix);
 
         String mappings =
                 """
@@ -2621,21 +2620,21 @@ public abstract class BaseElasticsearchConnectorTest
     protected void assertTableDoesNotExist(String name)
     {
         String catalogName = getSession().getCatalog().orElseThrow();
-        assertQueryReturnsEmptyResult(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", name));
+        assertQueryReturnsEmptyResult("SELECT * FROM information_schema.columns WHERE table_name = '%s'".formatted(name));
         assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).doesNotContain(name);
         assertQueryFails("SELECT * FROM " + name, ".*Table '" + catalogName + ".tpch." + name + "' does not exist");
     }
 
     protected String indexEndpoint(String index, String docId)
     {
-        return format("/%s/_doc/%s", index, docId);
+        return "/%s/_doc/%s".formatted(index, docId);
     }
 
     private void index(String index, Map<String, Object> document)
             throws IOException
     {
         String json = new JsonMapper().writeValueAsString(document);
-        String endpoint = format("%s?refresh", indexEndpoint(index, String.valueOf(System.nanoTime())));
+        String endpoint = "%s?refresh".formatted(indexEndpoint(index, String.valueOf(System.nanoTime())));
 
         Request request = new Request("PUT", endpoint);
         request.setJsonEntity(json);
@@ -2647,7 +2646,7 @@ public abstract class BaseElasticsearchConnectorTest
             throws IOException
     {
         client.getLowLevelClient()
-                .performRequest(new Request("PUT", format("/%s/_alias/%s", index, alias)));
+                .performRequest(new Request("PUT", "/%s/_alias/%s".formatted(index, alias)));
 
         refreshIndex(alias);
     }
@@ -2677,7 +2676,7 @@ public abstract class BaseElasticsearchConnectorTest
     private void refreshIndex(String index)
             throws IOException
     {
-        client.getLowLevelClient().performRequest(new Request("GET", format("/%s/_refresh", index)));
+        client.getLowLevelClient().performRequest(new Request("GET", "/%s/_refresh".formatted(index)));
     }
 
     private void deleteIndex(String indexName)

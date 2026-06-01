@@ -62,7 +62,6 @@ import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.UPDATE_TAB
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -625,10 +624,10 @@ public class TestHiveGlueMetastoreAccessOperations
                     int expectedCount = expected.count(key);
                     int actualCount = actual.count(key);
                     if (actualCount < expectedCount) {
-                        return Stream.of(format("%s more occurrences of %s", expectedCount - actualCount, key));
+                        return Stream.of("%s more occurrences of %s".formatted(expectedCount - actualCount, key));
                     }
                     if (actualCount > expectedCount) {
-                        return Stream.of(format("%s fewer occurrences of %s", actualCount - expectedCount, key));
+                        return Stream.of("%s fewer occurrences of %s".formatted(actualCount - expectedCount, key));
                     }
                     return Stream.of();
                 })

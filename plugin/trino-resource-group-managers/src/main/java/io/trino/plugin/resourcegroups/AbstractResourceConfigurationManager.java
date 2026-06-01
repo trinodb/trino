@@ -38,7 +38,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verifyNotNull;
 import static io.trino.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.function.Predicate.isEqual;
 
@@ -124,7 +123,7 @@ public abstract class AbstractResourceConfigurationManager
                     .stream()
                     .filter(groupSpec -> groupSpec.getName().equals(groupName))
                     .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException(format("Selector refers to nonexistent group: %s", fullyQualifiedGroupName)));
+                    .orElseThrow(() -> new IllegalArgumentException("Selector refers to nonexistent group: %s".formatted(fullyQualifiedGroupName)));
             fullyQualifiedGroupName.append(".");
             groups = match.getSubGroups();
         }
@@ -136,7 +135,7 @@ public abstract class AbstractResourceConfigurationManager
             QueryType.valueOf(queryType.toUpperCase(ENGLISH));
         }
         catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(format("Selector specifies an invalid query type: %s", queryType));
+            throw new IllegalArgumentException("Selector specifies an invalid query type: %s".formatted(queryType));
         }
     }
 
@@ -177,8 +176,7 @@ public abstract class AbstractResourceConfigurationManager
             for (ResourceGroupSpec candidate : candidates) {
                 if (candidate.getName().equals(segment)) {
                     if (match != null) {
-                        throw new TrinoException(INVALID_RESOURCE_GROUP, format(
-                                "Ambiguous configuration for [%s] using [%s]. Matches [%s] and [%s]",
+                        throw new TrinoException(INVALID_RESOURCE_GROUP, "Ambiguous configuration for [%s] using [%s]. Matches [%s] and [%s]".formatted(
                                 group.getId(),
                                 groupIdTemplate,
                                 match.getName(),

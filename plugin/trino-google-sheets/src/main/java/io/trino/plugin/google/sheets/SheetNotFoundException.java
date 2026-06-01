@@ -15,13 +15,11 @@ package io.trino.plugin.google.sheets;
 
 import io.trino.spi.connector.NotFoundException;
 
-import static java.lang.String.format;
-
 public class SheetNotFoundException
         extends NotFoundException
 {
     public SheetNotFoundException(String sheetExpression)
     {
-        super(format("Sheet '%s' not found", sheetExpression));
+        super("Sheet '%s' not found".formatted(sheetExpression));
     }
 }

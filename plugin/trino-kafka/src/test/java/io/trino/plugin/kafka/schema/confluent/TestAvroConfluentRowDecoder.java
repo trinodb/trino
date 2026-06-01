@@ -54,7 +54,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAvroConfluentRowDecoder
@@ -112,7 +111,7 @@ public class TestAvroConfluentRowDecoder
     {
         MockSchemaRegistryClient mockSchemaRegistryClient = new MockSchemaRegistryClient();
         Schema schema = Schema.create(Schema.Type.LONG);
-        mockSchemaRegistryClient.register(format("%s-key", TOPIC), new AvroSchema(schema));
+        mockSchemaRegistryClient.register("%s-key".formatted(TOPIC), new AvroSchema(schema));
         Set<DecoderColumnHandle> columnHandles = ImmutableSet.of(new KafkaColumnHandle("col1", BIGINT, "col1", null, null, false, false, false));
         RowDecoder rowDecoder = getRowDecoder(mockSchemaRegistryClient, columnHandles, schema);
         testSingleValueRow(rowDecoder, 3L, schema, 1);

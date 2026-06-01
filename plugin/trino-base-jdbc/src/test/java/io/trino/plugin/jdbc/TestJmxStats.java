@@ -30,7 +30,6 @@ import java.util.Set;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -61,7 +60,7 @@ public class TestJmxStats
 
         for (ObjectName objectName : objectNames) {
             MBeanInfo mbeanInfo = mbeanServer.getMBeanInfo(objectName);
-            assertThat(mbeanInfo.getAttributes().length).withFailMessage(format("Object %s doesn't expose JMX stats", objectName.getCanonicalName())).isNotEqualTo(0);
+            assertThat(mbeanInfo.getAttributes().length).withFailMessage("Object %s doesn't expose JMX stats".formatted(objectName.getCanonicalName())).isNotEqualTo(0);
         }
 
         connector.shutdown();

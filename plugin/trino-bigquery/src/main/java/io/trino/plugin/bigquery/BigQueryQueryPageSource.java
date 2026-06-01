@@ -66,7 +66,6 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
-import static java.lang.String.format;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static java.util.Objects.requireNonNull;
 
@@ -235,7 +234,7 @@ public class BigQueryQueryPageSource
                     type.writeLong(output, toTrinoTimestamp(value.getStringValue()));
                 }
                 else {
-                    throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for %s: %s".formatted(javaType.getSimpleName(), type));
                 }
             }
             else if (javaType == double.class) {
@@ -268,11 +267,11 @@ public class BigQueryQueryPageSource
                 });
             }
             else {
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for %s: %s".formatted(javaType.getSimpleName(), type));
             }
         }
         catch (ClassCastException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type), e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for %s: %s".formatted(javaType.getSimpleName(), type), e);
         }
     }
 

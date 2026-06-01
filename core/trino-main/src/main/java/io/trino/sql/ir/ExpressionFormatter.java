@@ -14,7 +14,6 @@
 package io.trino.sql.ir;
 
 import com.google.common.base.CharMatcher;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.RowType;
 import io.trino.sql.planner.Symbol;
@@ -211,7 +210,7 @@ public final class ExpressionFormatter
             parts.add("ELSE").add(process(node.defaultValue(), context));
             parts.add("END");
 
-            return "(" + Joiner.on(' ').join(parts.build()) + ")";
+            return "(" + String.join(" ", parts.build()) + ")";
         }
 
         @Override
@@ -229,7 +228,7 @@ public final class ExpressionFormatter
             parts.add("ELSE").add(process(node.defaultValue(), context));
             parts.add("END");
 
-            return "(" + Joiner.on(' ').join(parts.build()) + ")";
+            return "(" + String.join(" ", parts.build()) + ")";
         }
 
         protected String format(WhenClause node, Void context)

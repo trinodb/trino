@@ -45,7 +45,6 @@ import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.PART;
 import static io.trino.tpch.TpchTable.REGION;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -134,7 +133,7 @@ public final class DruidQueryRunner
             Optional<String> fileName)
             throws IOException, InterruptedException
     {
-        String tsvFileLocation = format("%s/%s.tsv", testingDruidServer.getHostWorkingDirectory(), targetDatasource);
+        String tsvFileLocation = "%s/%s.tsv".formatted(testingDruidServer.getHostWorkingDirectory(), targetDatasource);
         writeDataAsTsv(rows, tsvFileLocation);
         testingDruidServer.ingestData(
                 targetDatasource,
@@ -148,7 +147,7 @@ public final class DruidQueryRunner
     public static void copyAndIngestTpchData(MaterializedResult rows, TestingDruidServer testingDruidServer, String druidDatasource)
             throws IOException, InterruptedException
     {
-        String tsvFileLocation = format("%s/%s.tsv", testingDruidServer.getHostWorkingDirectory(), druidDatasource);
+        String tsvFileLocation = "%s/%s.tsv".formatted(testingDruidServer.getHostWorkingDirectory(), druidDatasource);
         writeDataAsTsv(rows, tsvFileLocation);
         testingDruidServer.ingestData(
                 druidDatasource,
@@ -161,7 +160,7 @@ public final class DruidQueryRunner
 
     private static String getIngestionSpecFileName(String datasource)
     {
-        return format("druid-tpch-ingest-%s.json", datasource);
+        return "druid-tpch-ingest-%s.json".formatted(datasource);
     }
 
     private static void writeDataAsTsv(MaterializedResult rows, String dataFile)

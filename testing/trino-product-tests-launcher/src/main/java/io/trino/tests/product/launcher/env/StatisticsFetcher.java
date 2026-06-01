@@ -36,8 +36,6 @@ import java.util.stream.Stream;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.tests.product.launcher.env.StatisticsFetcher.Stats.statisticsAreEmpty;
-import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
@@ -116,7 +114,7 @@ public class StatisticsFetcher
         stats.memoryUsagePerc = 100.0 * requireNonNullElse(memoryStats.getUsage(), 0L) / requireNonNullElse(memoryStats.getLimit(), 1L);
         stats.pids = requireNonNullElse(statistics.getPidsStats().getCurrent(), -1L);
 
-        Supplier<Stream<StatisticNetworksConfig>> stream = () -> Optional.ofNullable(statistics.getNetworks()).map(Map::values).orElse(emptyList()).stream();
+        Supplier<Stream<StatisticNetworksConfig>> stream = () -> Optional.ofNullable(statistics.getNetworks()).map(Map::values).orElse(List.of()).stream();
         stats.networkReceived = DataSize.ofBytes(stream.get().map(StatisticNetworksConfig::getRxBytes).filter(Objects::nonNull).reduce(0L, Long::sum)).succinct();
         stats.networkSent = DataSize.ofBytes(stream.get().map(StatisticNetworksConfig::getTxBytes).filter(Objects::nonNull).reduce(0L, Long::sum)).succinct();
 
@@ -216,13 +214,13 @@ public class StatisticsFetcher
 
             return new String[] {
                     name,
-                    format("%.2f%%", cpuUsagePerc),
+                    "%.2f%%".formatted(cpuUsagePerc),
                     memoryLimit.toString(),
                     memoryUsage.toString(),
-                    format("%.2f%%", memoryUsagePerc),
-                    format("%d", pids),
-                    format("%s", networkReceived),
-                    format("%s", networkSent),
+                    "%.2f%%".formatted(memoryUsagePerc),
+                    "%d".formatted(pids),
+                    "%s".formatted(networkReceived),
+                    "%s".formatted(networkSent),
             };
         }
 

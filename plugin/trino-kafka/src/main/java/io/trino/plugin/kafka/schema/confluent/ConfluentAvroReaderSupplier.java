@@ -31,7 +31,6 @@ import java.nio.ByteBuffer;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ConfluentAvroReaderSupplier<T>
@@ -58,7 +57,7 @@ public class ConfluentAvroReaderSupplier<T>
             return new GenericDatumReader<>(sourceSchema, targetSchema);
         }
         catch (IOException | RestClientException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Looking up schemaId '%s' from confluent schema registry failed", id), e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Looking up schemaId '%s' from confluent schema registry failed".formatted(id), e);
         }
     }
 

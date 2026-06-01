@@ -17,7 +17,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
-import static java.lang.String.format;
 
 public class TableAlreadyExistsException
         extends TrinoException
@@ -31,7 +30,7 @@ public class TableAlreadyExistsException
 
     public TableAlreadyExistsException(SchemaTableName tableName, Throwable cause)
     {
-        this(tableName, format("Table already exists: '%s'", tableName), cause);
+        this(tableName, "Table already exists: '%s'".formatted(tableName), cause);
     }
 
     public TableAlreadyExistsException(SchemaTableName tableName, String message, Throwable cause)

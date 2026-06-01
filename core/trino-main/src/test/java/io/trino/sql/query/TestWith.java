@@ -26,7 +26,6 @@ import org.junit.jupiter.api.parallel.Execution;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -65,10 +64,9 @@ public class TestWith
 
         // First, verify the assumption that the nation table contains the expected hidden column
         assertThat(assertions.query(
-                format(
-                        "SELECT count(*) " +
-                                "FROM information_schema.columns " +
-                                "WHERE table_catalog = '%s' and table_schema = '%s' and table_name = 'nation' and column_name = 'row_number'",
+                ("SELECT count(*) " +
+                "FROM information_schema.columns " +
+                "WHERE table_catalog = '%s' and table_schema = '%s' and table_name = 'nation' and column_name = 'row_number'").formatted(
                         TEST_CATALOG_NAME,
                         TINY_SCHEMA_NAME)))
                 .matches("VALUES BIGINT '0'");

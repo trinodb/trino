@@ -17,8 +17,6 @@ import com.google.errorprone.annotations.FormatMethod;
 
 import java.io.IOException;
 
-import static java.lang.String.format;
-
 public class ParquetCorruptionException
         extends IOException
 {
@@ -41,6 +39,6 @@ public class ParquetCorruptionException
 
     private static String formatMessage(ParquetDataSourceId dataSourceId, String messageFormat, Object[] args)
     {
-        return "Malformed Parquet file. " + format(messageFormat, args) + " [" + dataSourceId + "]";
+        return "Malformed Parquet file. " + messageFormat.formatted(args) + " [" + dataSourceId + "]";
     }
 }

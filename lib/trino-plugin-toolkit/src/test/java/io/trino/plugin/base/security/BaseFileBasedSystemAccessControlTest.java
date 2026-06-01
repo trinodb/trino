@@ -57,7 +57,6 @@ import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.security.Privilege.UPDATE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
-import static java.lang.String.format;
 import static java.lang.Thread.sleep;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.Objects.requireNonNull;
@@ -354,18 +353,18 @@ public abstract class BaseFileBasedSystemAccessControlTest
         accessControl.checkCanGrantSchemaPrivilege(BOB, privilege, new CatalogSchemaName("some-catalog", "authenticated"), grantee, grantOption);
         assertAccessDenied(
                 () -> accessControl.checkCanGrantSchemaPrivilege(BOB, privilege, new CatalogSchemaName("some-catalog", "test"), grantee, grantOption),
-                format(GRANT_SCHEMA_ACCESS_DENIED_MESSAGE, privilege, "some-catalog.test", ""));
+                GRANT_SCHEMA_ACCESS_DENIED_MESSAGE.formatted(privilege, "some-catalog.test", ""));
 
         assertAccessDenied(
                 () -> accessControl.checkCanGrantSchemaPrivilege(CHARLIE, privilege, new CatalogSchemaName("some-catalog", "bob"), grantee, grantOption),
-                format(GRANT_SCHEMA_ACCESS_DENIED_MESSAGE, privilege, "some-catalog.bob", ""));
+                GRANT_SCHEMA_ACCESS_DENIED_MESSAGE.formatted(privilege, "some-catalog.bob", ""));
         assertAccessDenied(
                 () -> accessControl.checkCanGrantSchemaPrivilege(CHARLIE, privilege, new CatalogSchemaName("some-catalog", "staff"), grantee, grantOption),
-                format(GRANT_SCHEMA_ACCESS_DENIED_MESSAGE, privilege, "some-catalog.staff", ""));
+                GRANT_SCHEMA_ACCESS_DENIED_MESSAGE.formatted(privilege, "some-catalog.staff", ""));
         accessControl.checkCanGrantSchemaPrivilege(CHARLIE, privilege, new CatalogSchemaName("some-catalog", "authenticated"), grantee, grantOption);
         assertAccessDenied(
                 () -> accessControl.checkCanGrantSchemaPrivilege(CHARLIE, privilege, new CatalogSchemaName("some-catalog", "test"), grantee, grantOption),
-                format(GRANT_SCHEMA_ACCESS_DENIED_MESSAGE, privilege, "some-catalog.test", ""));
+                GRANT_SCHEMA_ACCESS_DENIED_MESSAGE.formatted(privilege, "some-catalog.test", ""));
     }
 
     @Test
@@ -385,18 +384,18 @@ public abstract class BaseFileBasedSystemAccessControlTest
         accessControl.checkCanDenySchemaPrivilege(BOB, UPDATE, new CatalogSchemaName("some-catalog", "authenticated"), grantee);
         assertAccessDenied(
                 () -> accessControl.checkCanDenySchemaPrivilege(BOB, UPDATE, new CatalogSchemaName("some-catalog", "test"), grantee),
-                format(DENY_SCHEMA_ACCESS_DENIED_MESSAGE, UPDATE, "some-catalog.test", ""));
+                DENY_SCHEMA_ACCESS_DENIED_MESSAGE.formatted(UPDATE, "some-catalog.test", ""));
 
         assertAccessDenied(
                 () -> accessControl.checkCanDenySchemaPrivilege(CHARLIE, UPDATE, new CatalogSchemaName("some-catalog", "bob"), grantee),
-                format(DENY_SCHEMA_ACCESS_DENIED_MESSAGE, UPDATE, "some-catalog.bob", ""));
+                DENY_SCHEMA_ACCESS_DENIED_MESSAGE.formatted(UPDATE, "some-catalog.bob", ""));
         assertAccessDenied(
                 () -> accessControl.checkCanDenySchemaPrivilege(CHARLIE, UPDATE, new CatalogSchemaName("some-catalog", "staff"), grantee),
-                format(DENY_SCHEMA_ACCESS_DENIED_MESSAGE, UPDATE, "some-catalog.staff", ""));
+                DENY_SCHEMA_ACCESS_DENIED_MESSAGE.formatted(UPDATE, "some-catalog.staff", ""));
         accessControl.checkCanDenySchemaPrivilege(CHARLIE, UPDATE, new CatalogSchemaName("some-catalog", "authenticated"), grantee);
         assertAccessDenied(
                 () -> accessControl.checkCanDenySchemaPrivilege(CHARLIE, UPDATE, new CatalogSchemaName("some-catalog", "test"), grantee),
-                format(DENY_SCHEMA_ACCESS_DENIED_MESSAGE, UPDATE, "some-catalog.test", ""));
+                DENY_SCHEMA_ACCESS_DENIED_MESSAGE.formatted(UPDATE, "some-catalog.test", ""));
     }
 
     @Test
@@ -425,18 +424,18 @@ public abstract class BaseFileBasedSystemAccessControlTest
         accessControl.checkCanRevokeSchemaPrivilege(BOB, privilege, new CatalogSchemaName("some-catalog", "authenticated"), grantee, grantOption);
         assertAccessDenied(
                 () -> accessControl.checkCanRevokeSchemaPrivilege(BOB, privilege, new CatalogSchemaName("some-catalog", "test"), grantee, grantOption),
-                format(REVOKE_SCHEMA_ACCESS_DENIED_MESSAGE, privilege, "some-catalog.test", ""));
+                REVOKE_SCHEMA_ACCESS_DENIED_MESSAGE.formatted(privilege, "some-catalog.test", ""));
 
         assertAccessDenied(
                 () -> accessControl.checkCanRevokeSchemaPrivilege(CHARLIE, privilege, new CatalogSchemaName("some-catalog", "bob"), grantee, grantOption),
-                format(REVOKE_SCHEMA_ACCESS_DENIED_MESSAGE, privilege, "some-catalog.bob", ""));
+                REVOKE_SCHEMA_ACCESS_DENIED_MESSAGE.formatted(privilege, "some-catalog.bob", ""));
         assertAccessDenied(
                 () -> accessControl.checkCanRevokeSchemaPrivilege(CHARLIE, privilege, new CatalogSchemaName("some-catalog", "staff"), grantee, grantOption),
-                format(REVOKE_SCHEMA_ACCESS_DENIED_MESSAGE, privilege, "some-catalog.staff", ""));
+                REVOKE_SCHEMA_ACCESS_DENIED_MESSAGE.formatted(privilege, "some-catalog.staff", ""));
         accessControl.checkCanRevokeSchemaPrivilege(CHARLIE, privilege, new CatalogSchemaName("some-catalog", "authenticated"), grantee, grantOption);
         assertAccessDenied(
                 () -> accessControl.checkCanRevokeSchemaPrivilege(CHARLIE, privilege, new CatalogSchemaName("some-catalog", "test"), grantee, grantOption),
-                format(REVOKE_SCHEMA_ACCESS_DENIED_MESSAGE, privilege, "some-catalog.test", ""));
+                REVOKE_SCHEMA_ACCESS_DENIED_MESSAGE.formatted(privilege, "some-catalog.test", ""));
     }
 
     @Test

@@ -22,7 +22,6 @@ import org.testng.annotations.Test;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCreateDropSchema
@@ -39,16 +38,16 @@ public class TestCreateDropSchema
     public void testCreateDropSchema()
     {
         String schemaName = "test_drop_schema_" + randomNameSuffix();
-        String schemaDir = format("%s/%s.db", warehouseDirectory, schemaName);
+        String schemaDir = "%s/%s.db".formatted(warehouseDirectory, schemaName);
 
         onTrino().executeQuery("CREATE SCHEMA " + schemaName);
         assertFileExistence(schemaDir, true, "schema directory exists after creating schema");
 
-        onTrino().executeQuery(format("CREATE TABLE %s.test_drop (col1 int)", schemaName));
+        onTrino().executeQuery("CREATE TABLE %s.test_drop (col1 int)".formatted(schemaName));
         assertQueryFailure(() -> onTrino().executeQuery("DROP SCHEMA " + schemaName))
                 .hasMessageContaining("line 1:1: Cannot drop non-empty schema '%s'", schemaName);
 
-        onTrino().executeQuery(format("DROP TABLE %s.test_drop", schemaName));
+        onTrino().executeQuery("DROP TABLE %s.test_drop".formatted(schemaName));
         onTrino().executeQuery("DROP SCHEMA " + schemaName);
         assertFileExistence(schemaDir, false, "schema directory exists after dropping schema");
     }
@@ -57,9 +56,9 @@ public class TestCreateDropSchema
     public void testDropSchemaFiles()
     {
         String schemaName = "schema_without_location_" + randomNameSuffix();
-        String schemaDir = format("%s/%s.db/", warehouseDirectory, schemaName);
+        String schemaDir = "%s/%s.db/".formatted(warehouseDirectory, schemaName);
 
-        onTrino().executeQuery(format("CREATE SCHEMA %s", schemaName));
+        onTrino().executeQuery("CREATE SCHEMA %s".formatted(schemaName));
         assertFileExistence(schemaDir, true, "schema directory exists after creating schema");
         onTrino().executeQuery("DROP SCHEMA " + schemaName);
         assertFileExistence(schemaDir, false, "schema directory exists after dropping schema");
@@ -71,7 +70,7 @@ public class TestCreateDropSchema
         String schemaName = "schema_with_empty_location_" + randomNameSuffix();
         String schemaDir = warehouseDirectory + "/schema-with-empty-location/";
 
-        onTrino().executeQuery(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
+        onTrino().executeQuery("CREATE SCHEMA %s WITH (location = '%s')".formatted(schemaName, schemaDir));
         assertFileExistence(schemaDir, true, "schema directory exists after creating schema");
         onTrino().executeQuery("DROP SCHEMA " + schemaName);
         assertFileExistence(schemaDir, false, "schema directory exists after dropping schema");
@@ -90,7 +89,7 @@ public class TestCreateDropSchema
         hdfsClient.createDirectory(subDir);
         hdfsClient.saveFile(externalFile, "");
 
-        onTrino().executeQuery(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
+        onTrino().executeQuery("CREATE SCHEMA %s WITH (location = '%s')".formatted(schemaName, schemaDir));
         assertFileExistence(externalFile, true, "external file exists after creating schema");
         onTrino().executeQuery("DROP SCHEMA " + schemaName);
         assertFileExistence(externalFile, true, "external file exists after dropping schema");
@@ -102,7 +101,7 @@ public class TestCreateDropSchema
     public void testDropSchemaFilesWithEmptyExternalSubdir()
     {
         String schemaName = "schema_with_empty_subdirectory_" + randomNameSuffix();
-        String schemaDir = format("%s/%s.db/", warehouseDirectory, schemaName);
+        String schemaDir = "%s/%s.db/".formatted(warehouseDirectory, schemaName);
         String externalSubdir = schemaDir + "external-subdir/";
 
         hdfsClient.createDirectory(externalSubdir);
@@ -119,9 +118,9 @@ public class TestCreateDropSchema
     public void testDropSchemaFilesTransactions()
     {
         String schemaName = "schema_directory_transactions_" + randomNameSuffix();
-        String schemaDir = format("%s/%s.db/", warehouseDirectory, schemaName);
+        String schemaDir = "%s/%s.db/".formatted(warehouseDirectory, schemaName);
 
-        onTrino().executeQuery(format("CREATE SCHEMA %s", schemaName));
+        onTrino().executeQuery("CREATE SCHEMA %s".formatted(schemaName));
         assertFileExistence(schemaDir, true, "schema directory exists after creating schema");
 
         onTrino().executeQuery("START TRANSACTION");
@@ -130,8 +129,8 @@ public class TestCreateDropSchema
         assertFileExistence(schemaDir, true, "schema directory exists after rollback");
 
         // Sanity check: schema is still working
-        onTrino().executeQuery(format("CREATE TABLE %s.test_table (i integer)", schemaName));
-        onTrino().executeQuery(format("DROP TABLE %s.test_table", schemaName));
+        onTrino().executeQuery("CREATE TABLE %s.test_table (i integer)".formatted(schemaName));
+        onTrino().executeQuery("DROP TABLE %s.test_table".formatted(schemaName));
 
         onTrino().executeQuery("START TRANSACTION");
         onTrino().executeQuery("DROP SCHEMA " + schemaName);
@@ -150,7 +149,7 @@ public class TestCreateDropSchema
         hdfsClient.createDirectory(schemaDir);
         hdfsClient.saveFile(externalFile, "");
 
-        onTrino().executeQuery(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
+        onTrino().executeQuery("CREATE SCHEMA %s WITH (location = '%s')".formatted(schemaName, schemaDir));
 
         onTrino().executeQuery("START TRANSACTION");
         onTrino().executeQuery("DROP SCHEMA " + schemaName);
@@ -158,8 +157,8 @@ public class TestCreateDropSchema
         assertFileExistence(externalFile, true, "external file exists after rolling back drop schema");
 
         // Sanity check: schema is still working
-        onTrino().executeQuery(format("CREATE TABLE %s.test_table (i integer)", schemaName));
-        onTrino().executeQuery(format("DROP TABLE %s.test_table", schemaName));
+        onTrino().executeQuery("CREATE TABLE %s.test_table (i integer)".formatted(schemaName));
+        onTrino().executeQuery("DROP TABLE %s.test_table".formatted(schemaName));
 
         onTrino().executeQuery("START TRANSACTION");
         onTrino().executeQuery("DROP SCHEMA " + schemaName);

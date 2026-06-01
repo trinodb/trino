@@ -47,7 +47,6 @@ import static com.google.common.io.Resources.getResource;
 import static io.trino.plugin.base.ssl.SslUtils.createSSLContext;
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.PASSWORD;
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.USER;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -124,7 +123,7 @@ public class ElasticsearchServer
     private static HttpAsyncClientBuilder enableSecureCommunication(HttpAsyncClientBuilder clientBuilder)
     {
         return clientBuilder.setSSLContext(getSSLContext())
-                .setDefaultHeaders(ImmutableList.of(new BasicHeader("Authorization", format("Basic %s", Base64.getEncoder().encodeToString(format("%s:%s", USER, PASSWORD).getBytes(StandardCharsets.UTF_8))))));
+                .setDefaultHeaders(ImmutableList.of(new BasicHeader("Authorization", "Basic %s".formatted(Base64.getEncoder().encodeToString("%s:%s".formatted(USER, PASSWORD).getBytes(StandardCharsets.UTF_8))))));
     }
 
     private static SSLContext getSSLContext()

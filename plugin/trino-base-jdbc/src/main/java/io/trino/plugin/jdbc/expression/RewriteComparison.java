@@ -36,7 +36,6 @@ import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.expres
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.functionName;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.type;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static java.lang.String.format;
 
 public class RewriteComparison
         implements ConnectorExpressionRule<Call, ParameterizedExpression>
@@ -80,7 +79,7 @@ public class RewriteComparison
         verify(call.getFunctionName().getCatalogSchema().isEmpty()); // filtered out by the pattern
         ComparisonOperator operator = ComparisonOperator.forFunctionName(call.getFunctionName());
         return Optional.of(new ParameterizedExpression(
-                format("(%s) %s (%s)", left.get().expression(), operator.getOperator(), right.get().expression()),
+                "(%s) %s (%s)".formatted(left.get().expression(), operator.getOperator(), right.get().expression()),
                 ImmutableList.<QueryParameter>builder()
                         .addAll(left.get().parameters())
                         .addAll(right.get().parameters())

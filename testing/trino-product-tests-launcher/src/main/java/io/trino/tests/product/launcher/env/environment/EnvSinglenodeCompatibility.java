@@ -32,7 +32,6 @@ import java.util.Optional;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static java.lang.Integer.parseInt;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.wait.strategy.Wait.forHealthcheck;
 import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
@@ -162,8 +161,8 @@ public class EnvSinglenodeCompatibility
 
         public Config(Map<String, String> extraOptions)
         {
-            this.compatibilityTestVersion = parseInt(requireNonNull(extraOptions.get(TEST_DOCKER_VERSION), () -> format("Required extra option compatibility.%s is null", TEST_DOCKER_VERSION)));
-            this.compatibilityTestDockerImage = requireNonNull(extraOptions.get(TEST_DOCKER_IMAGE), () -> format("Required extra option compatibility.%s is null", TEST_DOCKER_IMAGE));
+            this.compatibilityTestVersion = parseInt(requireNonNull(extraOptions.get(TEST_DOCKER_VERSION), () -> "Required extra option compatibility.%s is null".formatted(TEST_DOCKER_VERSION)));
+            this.compatibilityTestDockerImage = requireNonNull(extraOptions.get(TEST_DOCKER_IMAGE), () -> "Required extra option compatibility.%s is null".formatted(TEST_DOCKER_IMAGE));
         }
 
         public int getCompatibilityTestVersion()

@@ -43,7 +43,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.util.MergeSortedPages.mergeSortedPages;
 import static io.trino.util.MoreLists.mappedCopy;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class MergeOperator
@@ -172,7 +171,7 @@ public class MergeOperator
         TaskContext taskContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext();
         DirectExchangeClient client = closer.register(directExchangeClientSupplier.get(
                 taskContext.getTaskId().queryId(),
-                new ExchangeId(format("direct-exchange-merge-%s-%s", taskContext.getTaskId().stageId().id(), sourceId)),
+                new ExchangeId("direct-exchange-merge-%s-%s".formatted(taskContext.getTaskId().stageId().id(), sourceId)),
                 taskContext.getSession().getQuerySpan(),
                 operatorContext.localUserMemoryContext(),
                 taskContext::sourceTaskFailed,

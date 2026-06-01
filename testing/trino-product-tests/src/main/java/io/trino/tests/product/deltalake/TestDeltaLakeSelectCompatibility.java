@@ -27,7 +27,6 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeSelectCompatibility
@@ -84,7 +83,7 @@ public class TestDeltaLakeSelectCompatibility
             String trinoFilePath = (String) onTrino().executeQuery("SELECT \"$path\" FROM delta.default." + tableName + " WHERE a_number = 1").getOnlyValue();
             // File paths returned by the input_file_name function are URI encoded https://github.com/delta-io/delta/issues/1517 while the $path of Trino is not
             assertThat(deltaFilePath).isNotEqualTo(trinoFilePath);
-            assertThat(format("s3://%s%s", bucketName, URI.create(deltaFilePath).getPath())).isEqualTo(trinoFilePath);
+            assertThat("s3://%s%s".formatted(bucketName, URI.create(deltaFilePath).getPath())).isEqualTo(trinoFilePath);
 
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName + " WHERE \"$path\" = '" + trinoFilePath + "'"))
                     .containsOnly(row(1, "spark=equal"));

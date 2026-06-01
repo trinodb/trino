@@ -23,7 +23,6 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import static java.lang.String.format;
 import static org.testcontainers.postgresql.PostgreSQLContainer.POSTGRESQL_PORT;
 
 public class TestingIcebergJdbcServer
@@ -63,8 +62,7 @@ public class TestingIcebergJdbcServer
 
     public String getJdbcUrl()
     {
-        return format(
-                "jdbc:postgresql://%s:%s/%s",
+        return "jdbc:postgresql://%s:%s/%s".formatted(
                 dockerContainer.getHost(),
                 dockerContainer.getMappedPort(POSTGRESQL_PORT),
                 DATABASE);

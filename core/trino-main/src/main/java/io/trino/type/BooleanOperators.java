@@ -29,7 +29,6 @@ import java.math.BigDecimal;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 import static java.lang.Float.floatToRawIntBits;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
 public final class BooleanOperators
@@ -98,7 +97,7 @@ public final class BooleanOperators
         if (slice.length() <= x) {
             return slice;
         }
-        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", value, x));
+        throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to varchar(%s)".formatted(value, x));
     }
 
     @SqlType(StandardTypes.BOOLEAN)

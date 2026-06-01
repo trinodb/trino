@@ -30,7 +30,6 @@ import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -171,7 +170,7 @@ final class TestIcebergS3TablesConnectorSmokeTest
         String tableLocationWithTrailingSpace = schemaPath() + tableName + " ";
 
         assertQueryFails(
-                format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace),
+                "CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c".formatted(tableName, tableLocationWithTrailingSpace),
                 "Failed to create transaction");
     }
 

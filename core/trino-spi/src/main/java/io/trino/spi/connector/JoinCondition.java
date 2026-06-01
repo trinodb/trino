@@ -29,7 +29,6 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
@@ -177,6 +176,6 @@ public final class JoinCondition
     @Override
     public String toString()
     {
-        return format("%s %s %s", leftExpression, operator.getValue(), rightExpression);
+        return "%s %s %s".formatted(leftExpression, operator.getValue(), rightExpression);
     }
 }

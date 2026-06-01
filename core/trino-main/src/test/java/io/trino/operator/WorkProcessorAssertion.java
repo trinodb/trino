@@ -24,7 +24,6 @@ import java.util.Optional;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -119,7 +118,7 @@ public final class WorkProcessorAssertion
         private TransformationState<R> transform(Optional<T> from, BiPredicate<Optional<T>, Optional<T>> equalsPredicate)
         {
             assertThat(equalsPredicate.test(from, this.from))
-                    .describedAs(format("Expected %s to be equal to %s", from, this.from))
+                    .describedAs("Expected %s to be equal to %s".formatted(from, this.from))
                     .isTrue();
             return to;
         }

@@ -19,7 +19,6 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.util.ArrayList;
 import java.util.List;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 record DFA(int start, IntArrayList acceptStates, List<List<Transition>> transitions)
@@ -35,7 +34,7 @@ record DFA(int start, IntArrayList acceptStates, List<List<Transition>> transiti
         @Override
         public String toString()
         {
-            return format("-[%s]-> %s", value, target);
+            return "-[%s]-> %s".formatted(value, target);
         }
     }
 

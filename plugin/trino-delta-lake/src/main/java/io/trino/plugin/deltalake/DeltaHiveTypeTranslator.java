@@ -60,7 +60,6 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaHiveTypeTranslator
@@ -104,14 +103,14 @@ public class DeltaHiveTypeTranslator
             if (varcharType.getBoundedLength() <= MAX_VARCHAR_LENGTH) {
                 return getVarcharTypeInfo(varcharType.getBoundedLength());
             }
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported VARCHAR types: VARCHAR(<=%d), VARCHAR.", type, MAX_VARCHAR_LENGTH));
+            throw new TrinoException(NOT_SUPPORTED, "Unsupported Hive type: %s. Supported VARCHAR types: VARCHAR(<=%d), VARCHAR.".formatted(type, MAX_VARCHAR_LENGTH));
         }
         if (type instanceof CharType charType) {
             int charLength = charType.getLength();
             if (charLength <= MAX_CHAR_LENGTH) {
                 return getCharTypeInfo(charLength);
             }
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported CHAR types: CHAR(<=%d).", type, MAX_CHAR_LENGTH));
+            throw new TrinoException(NOT_SUPPORTED, "Unsupported Hive type: %s. Supported CHAR types: CHAR(<=%d).".formatted(type, MAX_CHAR_LENGTH));
         }
         if (VARBINARY.equals(type)) {
             return HIVE_BINARY.getTypeInfo();
@@ -146,7 +145,7 @@ public class DeltaHiveTypeTranslator
             ImmutableList.Builder<String> fieldNames = ImmutableList.builder();
             for (RowType.Field field : rowType.getFields()) {
                 fieldNames.add(field.getName()
-                        .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, format("Anonymous row type is not supported in Hive. Please give each field a name: %s", type))));
+                        .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Anonymous row type is not supported in Hive. Please give each field a name: %s".formatted(type))));
             }
             return getStructTypeInfo(
                     fieldNames.build(),
@@ -154,6 +153,6 @@ public class DeltaHiveTypeTranslator
                             .map(DeltaHiveTypeTranslator::translate)
                             .collect(toImmutableList()));
         }
-        throw new TrinoException(NOT_SUPPORTED, format("Unsupported Delta Lake type: %s", type));
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported Delta Lake type: %s".formatted(type));
     }
 }

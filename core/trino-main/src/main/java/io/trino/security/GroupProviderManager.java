@@ -39,7 +39,6 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.trino.util.Case.KEEP;
-import static java.lang.String.format;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -67,7 +66,7 @@ public class GroupProviderManager
         requireNonNull(groupProviderFactory, "groupProviderFactory is null");
 
         if (groupProviderFactories.putIfAbsent(groupProviderFactory.getName(), groupProviderFactory) != null) {
-            throw new IllegalArgumentException(format("Group provider '%s' is already registered", groupProviderFactory.getName()));
+            throw new IllegalArgumentException("Group provider '%s' is already registered".formatted(groupProviderFactory.getName()));
         }
     }
 
@@ -99,8 +98,7 @@ public class GroupProviderManager
                     .filter(groupCase::equalsIgnoreCase)
                     .map(Case::valueOf)
                     .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException(format(
-                            "Group provider configuration %s does not contain valid %s. Expected one of: %s",
+                    .orElseThrow(() -> new IllegalArgumentException("Group provider configuration %s does not contain valid %s. Expected one of: %s".formatted(
                             groupProviderFile.getAbsoluteFile(),
                             GROUP_PROVIDER_PROPERTY_GROUP_CASE,
                             stream(Case.values()).map(Case::toString).collect(joining(", ", "[", "]")))));

@@ -24,7 +24,6 @@ import static io.trino.tests.product.TestGroups.MYSQL;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onMySql;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCreateTableAsSelect
@@ -36,13 +35,13 @@ public class TestCreateTableAsSelect
     @AfterMethodWithContext
     public void dropTestTable()
     {
-        onMySql().executeQuery(format("DROP TABLE IF EXISTS %s", TABLE_NAME));
+        onMySql().executeQuery("DROP TABLE IF EXISTS %s".formatted(TABLE_NAME));
     }
 
     @Test(groups = {MYSQL, PROFILE_SPECIFIC_TESTS})
     public void testCreateTableAsSelect()
     {
-        QueryResult queryResult = onTrino().executeQuery(format("CREATE TABLE mysql.%s AS SELECT * FROM tpch.tiny.nation", TABLE_NAME));
+        QueryResult queryResult = onTrino().executeQuery("CREATE TABLE mysql.%s AS SELECT * FROM tpch.tiny.nation".formatted(TABLE_NAME));
         assertThat(queryResult).containsOnly(row(25));
     }
 }

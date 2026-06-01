@@ -29,7 +29,6 @@ import java.util.Optional;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseDeltaLakeTableWithCustomLocation
@@ -40,13 +39,13 @@ public abstract class BaseDeltaLakeTableWithCustomLocation
     {
         String schema = getSession().getSchema().orElseThrow();
         String tableName = "table_with_uuid" + randomNameSuffix();
-        assertQuerySucceeds(format("CREATE TABLE %s AS SELECT 1 as val", tableName));
+        assertQuerySucceeds("CREATE TABLE %s AS SELECT 1 as val".formatted(tableName));
         Optional<Table> table = metastore().getTable(schema, tableName);
         assertThat(table.isPresent())
                 .describedAs("Table should exists")
                 .isTrue();
         String location = table.get().getStorage().getLocation();
-        assertThat(location).matches(format(".*%s-[0-9a-f]{32}", tableName));
+        assertThat(location).matches(".*%s-[0-9a-f]{32}".formatted(tableName));
     }
 
     @Test
@@ -55,7 +54,7 @@ public abstract class BaseDeltaLakeTableWithCustomLocation
     {
         String schema = getSession().getSchema().orElseThrow();
         String tableName = "test_create_and_drop" + randomNameSuffix();
-        assertQuerySucceeds(format("CREATE TABLE %s AS SELECT 1 as val", tableName));
+        assertQuerySucceeds("CREATE TABLE %s AS SELECT 1 as val".formatted(tableName));
         Table table = metastore().getTable(schema, tableName).orElseThrow();
         assertThat(table.getTableType()).isEqualTo(MANAGED_TABLE.name());
 
@@ -70,7 +69,7 @@ public abstract class BaseDeltaLakeTableWithCustomLocation
         assertThat(fileSystem.listFiles(filePath).hasNext())
                 .describedAs("The data file should exist")
                 .isTrue();
-        assertQuerySucceeds(format("DROP TABLE %s", tableName));
+        assertQuerySucceeds("DROP TABLE %s".formatted(tableName));
         assertThat(metastore().getTable(schema, tableName).isPresent())
                 .describedAs("Table should be dropped")
                 .isFalse();

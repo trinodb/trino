@@ -37,7 +37,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static java.lang.Integer.parseInt;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -173,7 +172,7 @@ public class TestJdbcResultSetCompatibilityOldServer
     {
         // This allows distinguishing tests run against different Trino server version from each other.
         // It is included in tests report and maven output.
-        return format("TestJdbcResultSetCompatibility[%s]", testedTrinoVersion.orElse("unknown"));
+        return "TestJdbcResultSetCompatibility[%s]".formatted(testedTrinoVersion.orElse("unknown"));
     }
 
     protected String getTestedTrinoVersion()

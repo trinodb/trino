@@ -93,7 +93,6 @@ import static io.trino.spi.type.Timestamps.round;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 
@@ -1121,7 +1120,7 @@ public final class ValueDecoders
                     if (overflows(buffer[i], decimalType.getPrecision())) {
                         throw new TrinoException(
                                 INVALID_CAST_ARGUMENT,
-                                format("Cannot read parquet INT32 value '%s' as DECIMAL(%s, %s)", buffer[i], decimalType.getPrecision(), decimalType.getScale()));
+                                "Cannot read parquet INT32 value '%s' as DECIMAL(%s, %s)".formatted(buffer[i], decimalType.getPrecision(), decimalType.getScale()));
                     }
                     values[i + offset] = rescale(buffer[i], 0, decimalType.getScale());
                 }

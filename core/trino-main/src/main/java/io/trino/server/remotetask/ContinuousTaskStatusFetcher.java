@@ -46,7 +46,6 @@ import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION_HEADER;
 import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT_HEADER;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class ContinuousTaskStatusFetcher
@@ -249,7 +248,7 @@ class ContinuousTaskStatusFetcher
             // This will also set the task status to FAILED state directly.
             // Additionally, this will issue a DELETE for the task to the worker.
             // While sending the DELETE is not required, it is preferred because a task was created by the previous request.
-            onFail.accept(new TrinoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(getTaskStatus().self()))));
+            onFail.accept(new TrinoException(REMOTE_TASK_MISMATCH, "%s (%s)".formatted(REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(getTaskStatus().self()))));
         }
 
         dynamicFiltersFetcher.updateDynamicFiltersVersionAndFetchIfNecessary(newValue.dynamicFiltersVersion());

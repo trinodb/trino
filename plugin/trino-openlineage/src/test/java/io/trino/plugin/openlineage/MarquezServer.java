@@ -25,8 +25,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 
-import static java.lang.String.format;
-
 public class MarquezServer
         implements Closeable
 {
@@ -122,17 +120,17 @@ public class MarquezServer
 
     private String getPostgresUri()
     {
-        return format("jdbc:postgresql://%s:%s/%s", POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB);
+        return "jdbc:postgresql://%s:%s/%s".formatted(POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB);
     }
 
     public URI getMarquezUri()
     {
-        return URI.create(format("http://%s:%s", dockerContainerAPI.getHost(), dockerContainerAPI.getMappedPort(MARQUEZ_PORT)));
+        return URI.create("http://%s:%s".formatted(dockerContainerAPI.getHost(), dockerContainerAPI.getMappedPort(MARQUEZ_PORT)));
     }
 
     public URI getMarquezWebUIUri()
     {
-        return URI.create(format("http://%s:%s", dockerWebUIContainerAPI.getHost(), dockerWebUIContainerAPI.getMappedPort(MARQUEZ_UI_PORT)));
+        return URI.create("http://%s:%s".formatted(dockerWebUIContainerAPI.getHost(), dockerWebUIContainerAPI.getMappedPort(MARQUEZ_UI_PORT)));
     }
 
     @Override

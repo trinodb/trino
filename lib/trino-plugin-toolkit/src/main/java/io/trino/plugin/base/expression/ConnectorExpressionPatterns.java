@@ -29,7 +29,6 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class ConnectorExpressionPatterns
@@ -87,7 +86,7 @@ public final class ConnectorExpressionPatterns
     public static Property<Call, ?, ConnectorExpression> argument(int argument)
     {
         checkArgument(0 <= argument, "Invalid argument index: %s", argument);
-        return Property.optionalProperty(format("argument(%s)", argument), call -> {
+        return Property.optionalProperty("argument(%s)".formatted(argument), call -> {
             if (argument < call.getArguments().size()) {
                 return Optional.of(call.getArguments().get(argument));
             }
@@ -98,7 +97,7 @@ public final class ConnectorExpressionPatterns
     public static Property<Call, ?, Type> argumentType(int argument)
     {
         checkArgument(0 <= argument, "Invalid argument index: %s", argument);
-        return Property.optionalProperty(format("argumentType(%s)", argument), call -> {
+        return Property.optionalProperty("argumentType(%s)".formatted(argument), call -> {
             if (argument < call.getArguments().size()) {
                 return Optional.of(call.getArguments().get(argument).getType());
             }

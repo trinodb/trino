@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.pinot.query;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.plugin.pinot.PinotColumnHandle;
@@ -44,7 +43,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -117,7 +115,7 @@ public final class PinotQueryBuilder
         }
         List<String> conjuncts = conjunctsBuilder.build();
         if (!conjuncts.isEmpty()) {
-            return Optional.of(Joiner.on(" AND ").join(conjuncts));
+            return Optional.of(String.join(" AND ", conjuncts));
         }
         return Optional.empty();
     }
@@ -128,7 +126,7 @@ public final class PinotQueryBuilder
         ValueSet valueSet = domain.getValues();
         if (valueSet.isNone()) {
             verify(!domain.isNullAllowed(), "IS NULL is not supported due to different null handling semantics. See https://docs.pinot.apache.org/developers/advanced/null-value-support");
-            return Optional.of(format("(%s != %s)", predicateArgument, predicateArgument));
+            return Optional.of("(%s != %s)".formatted(predicateArgument, predicateArgument));
         }
         if (valueSet.isAll()) {
             verify(domain.isNullAllowed(), "IS NOT NULL is not supported due to different null handling semantics. See https://docs.pinot.apache.org/developers/advanced/null-value-support");
@@ -162,7 +160,7 @@ public final class PinotQueryBuilder
                 }
                 // If rangeConjuncts is null, then the range was ALL, which is not supported in pql
                 checkState(!rangeConjuncts.isEmpty());
-                disjuncts.add("(" + Joiner.on(" AND ").join(rangeConjuncts) + ")");
+                disjuncts.add("(" + String.join(" AND ", rangeConjuncts) + ")");
             }
         }
         // Add back all of the possible single values either as an equality or an IN predicate
@@ -174,7 +172,7 @@ public final class PinotQueryBuilder
             String operator = invertPredicate ? "NOT IN" : "IN";
             disjuncts.add(inClauseValues(predicateArgument, operator, singleValues));
         }
-        return Optional.of("(" + Joiner.on(" OR ").join(disjuncts) + ")");
+        return Optional.of("(" + String.join(" OR ", disjuncts) + ")");
     }
 
     private static Object convertValue(Type type, Object value)
@@ -207,12 +205,12 @@ public final class PinotQueryBuilder
         if (value instanceof Slice) {
             value = ((Slice) value).toStringUtf8();
         }
-        return format("%s %s %s", columnName, operator, singleQuote(value));
+        return "%s %s %s".formatted(columnName, operator, singleQuote(value));
     }
 
     private static String inClauseValues(String columnName, String operator, List<Object> singleValues)
     {
-        return format("%s %s (%s)", columnName, operator, singleValues.stream()
+        return "%s %s (%s)".formatted(columnName, operator, singleValues.stream()
                 .map(PinotQueryBuilder::singleQuote)
                 .collect(joining(", ")));
     }
@@ -220,13 +218,13 @@ public final class PinotQueryBuilder
     private static String singleQuote(Object value)
     {
         if (value instanceof String string) {
-            return format("'%s'", string.replace("'", "''"));
+            return "'%s'".formatted(string.replace("'", "''"));
         }
-        return format("'%s'", value);
+        return "'%s'".formatted(value);
     }
 
     private static String quoteIdentifier(String identifier)
     {
-        return format("\"%s\"", identifier.replaceAll("\"", "\"\""));
+        return "\"%s\"".formatted(identifier.replaceAll("\"", "\"\""));
     }
 }

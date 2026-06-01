@@ -47,7 +47,6 @@ import java.net.URL;
 import java.security.Principal;
 import java.time.Instant;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -788,7 +787,7 @@ public class RangerSystemAccessControl
         RangerAccessResult result = getRowFilterResult(createAccessRequest(createTableResource(tableName), context, SELECT, "getRowFilters"));
 
         if (!isRowFilterEnabled(result)) {
-            return Collections.emptyList();
+            return List.of();
         }
 
         String filter = result.getFilterExpr();

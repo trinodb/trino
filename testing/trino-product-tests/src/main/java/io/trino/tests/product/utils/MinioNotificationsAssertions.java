@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static java.lang.String.join;
 
 public final class MinioNotificationsAssertions
@@ -31,7 +30,7 @@ public final class MinioNotificationsAssertions
 
     public static void createNotificationsTable(String tableName)
     {
-        onTrino().executeQuery(format("CREATE TABLE %s (" +
+        onTrino().executeQuery(("CREATE TABLE %s (" +
                 "name varchar, " +
                 "time timestamp, " +
                 "bucket varchar, " +
@@ -42,25 +41,24 @@ public final class MinioNotificationsAssertions
                 "object_size int, " +
                 "object_version varchar, " +
                 "object_etag varchar, " +
-                "sequencer varchar)", schemaTableName(tableName)));
+                "sequencer varchar)").formatted(schemaTableName(tableName)));
     }
 
     public static void deleteNotificationsTable(String tableName)
     {
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", schemaTableName(tableName)));
+        onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(schemaTableName(tableName)));
     }
 
     private static String schemaTableName(String tableName)
     {
-        return format("memory.default.\"%s\"", tableName);
+        return "memory.default.\"%s\"".formatted(tableName);
     }
 
     public static void recordNotification(String tableName, Event event)
     {
-        String insertQuery = format(
-                "INSERT INTO %s " +
-                        "(name, time, request, response, user_agent, bucket, object_key, object_size, object_version, object_etag, sequencer) " +
-                        "VALUES (%s, from_iso8601_timestamp(%s), %s, %s, %s, %s, url_decode(%s), %d, %s, %s, %s)",
+        String insertQuery = ("INSERT INTO %s " +
+        "(name, time, request, response, user_agent, bucket, object_key, object_size, object_version, object_etag, sequencer) " +
+        "VALUES (%s, from_iso8601_timestamp(%s), %s, %s, %s, %s, url_decode(%s), %d, %s, %s, %s)").formatted(
                 schemaTableName(tableName),
                 quote(event.eventName()),
                 quote(event.eventTime().toString()),
@@ -91,7 +89,7 @@ public final class MinioNotificationsAssertions
             values.add(quote(val));
         });
 
-        return format("map(ARRAY[%s], ARRAY[%s])", join(", ", keys.build()), join(", ", values.build()));
+        return "map(ARRAY[%s], ARRAY[%s])".formatted(join(", ", keys.build()), join(", ", values.build()));
     }
 
     private static String quote(String input)
@@ -105,18 +103,17 @@ public final class MinioNotificationsAssertions
 
     public static void assertNotificationsCount(String tableName, EventType eventType, String objectName, int expectedCalls)
     {
-        List<List<?>> rows = onTrino().executeQuery(format(
-                "SELECT name, request, time " +
-                        "FROM %s " +
-                        "WHERE name = %s AND object_key = %s " +
-                        "ORDER BY sequencer ASC", // sequencer specifies order of the notifications
+        List<List<?>> rows = onTrino().executeQuery(("SELECT name, request, time " +
+        "FROM %s " +
+        "WHERE name = %s AND object_key = %s " +
+        "ORDER BY sequencer ASC").formatted(
+                // sequencer specifies order of the notifications
                 schemaTableName(tableName),
                 quote(eventType.toString()),
                 quote(objectName))).rows();
 
         if (rows.size() != expectedCalls) {
-            throw new AssertionError(format(
-                    "Expected notification %s for '%s' %d time(s) but got %d: %s",
+            throw new AssertionError("Expected notification %s for '%s' %d time(s) but got %d: %s".formatted(
                     eventType,
                     objectName,
                     expectedCalls,
@@ -128,7 +125,7 @@ public final class MinioNotificationsAssertions
     private static String formatEvents(List<List<?>> calls)
     {
         return calls.stream()
-                .map(row -> format("%s at %s with request: %s", row.get(0), row.get(1), row.get(2)))
+                .map(row -> "%s at %s with request: %s".formatted(row.get(0), row.get(1), row.get(2)))
                 .collect(Collectors.joining(", ", "[", "]"));
     }
 }

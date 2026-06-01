@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static io.trino.plugin.exasol.TestingExasolServer.TEST_SCHEMA;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 final class ExasolTpchTables
@@ -44,19 +43,19 @@ final class ExasolTpchTables
         for (int i = 0; i < rows.getTypes().size(); i++) {
             columnDefinitions.add(rows.getColumnNames().get(i) + " " + convertType(tableName, rows.getColumnNames().get(i), rows.getTypes().get(i)));
         }
-        String createTableStatement = format("CREATE TABLE %s.%s (%s)", TEST_SCHEMA, tableName, String.join(",", columnDefinitions.build()));
+        String createTableStatement = "CREATE TABLE %s.%s (%s)".formatted(TEST_SCHEMA, tableName, String.join(",", columnDefinitions.build()));
         log.info("Creating table %s using definition '%s'", tableName, createTableStatement);
         server.execute(createTableStatement);
-        String importStatement = format(
+        String importStatement =
                 """
                 IMPORT INTO %s.%s
                 FROM LOCAL CSV FILE '%s'
                 ROW SEPARATOR = 'LF'
                 COLUMN SEPARATOR = ','
-                """,
-                TEST_SCHEMA,
-                tableName,
-                tempFile.toAbsolutePath());
+                """.formatted(
+                        TEST_SCHEMA,
+                        tableName,
+                        tempFile.toAbsolutePath());
         server.execute(importStatement);
     }
 

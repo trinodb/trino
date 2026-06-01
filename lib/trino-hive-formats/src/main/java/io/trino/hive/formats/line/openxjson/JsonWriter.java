@@ -203,7 +203,7 @@ final class JsonWriter
                 case '\f' -> out.append("\\f");
                 default -> {
                     if (currentChar <= 0x1F) {
-                        out.append(String.format("\\u%04x", (int) currentChar));
+                        out.append("\\u%04x".formatted((int) currentChar));
                     }
                     else {
                         out.append(currentChar);

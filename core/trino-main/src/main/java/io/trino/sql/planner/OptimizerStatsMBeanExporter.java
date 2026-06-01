@@ -33,7 +33,6 @@ import java.util.Map.Entry;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class OptimizerStatsMBeanExporter
@@ -69,7 +68,7 @@ public class OptimizerStatsMBeanExporter
                         .buildOrThrow()));
             }
             catch (RuntimeException e) {
-                throw new RuntimeException(format("Failed to export MBean with name '%s'", getName(entry.getKey())), e);
+                throw new RuntimeException("Failed to export MBean with name '%s'".formatted(getName(entry.getKey())), e);
             }
         }
 
@@ -82,7 +81,7 @@ public class OptimizerStatsMBeanExporter
                         .buildOrThrow()));
             }
             catch (RuntimeException e) {
-                throw new RuntimeException(format("Failed to export MBean with for rule '%s'", entry.getKey().getSimpleName()), e);
+                throw new RuntimeException("Failed to export MBean with for rule '%s'".formatted(entry.getKey().getSimpleName()), e);
             }
         }
     }

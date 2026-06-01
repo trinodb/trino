@@ -41,7 +41,6 @@ import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static java.lang.Float.floatToRawIntBits;
-import static java.lang.String.format;
 
 public final class NumberOperators
 {
@@ -196,7 +195,7 @@ public final class NumberOperators
     {
         AsBigDecimal asBigDecimal = value.toBigDecimal();
         if (asBigDecimal instanceof NotANumber) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast NUMBER '%s' to TINYINT", asBigDecimal));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast NUMBER '%s' to TINYINT".formatted(asBigDecimal));
         }
         try {
             if (asBigDecimal instanceof BigDecimalValue(BigDecimal bigDecimal)) {
@@ -207,9 +206,9 @@ public final class NumberOperators
             }
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to TINYINT", asBigDecimal), e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Cannot cast NUMBER '%s' to TINYINT".formatted(asBigDecimal), e);
         }
-        throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to TINYINT", asBigDecimal));
+        throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Cannot cast NUMBER '%s' to TINYINT".formatted(asBigDecimal));
     }
 
     @ScalarOperator(CAST)
@@ -218,7 +217,7 @@ public final class NumberOperators
     {
         AsBigDecimal asBigDecimal = value.toBigDecimal();
         if (asBigDecimal instanceof NotANumber) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast NUMBER '%s' to SMALLINT", asBigDecimal));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast NUMBER '%s' to SMALLINT".formatted(asBigDecimal));
         }
         try {
             if (asBigDecimal instanceof BigDecimalValue(BigDecimal bigDecimal)) {
@@ -229,9 +228,9 @@ public final class NumberOperators
             }
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to SMALLINT", asBigDecimal), e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Cannot cast NUMBER '%s' to SMALLINT".formatted(asBigDecimal), e);
         }
-        throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to SMALLINT", asBigDecimal));
+        throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Cannot cast NUMBER '%s' to SMALLINT".formatted(asBigDecimal));
     }
 
     @ScalarOperator(CAST)
@@ -240,7 +239,7 @@ public final class NumberOperators
     {
         AsBigDecimal asBigDecimal = value.toBigDecimal();
         if (asBigDecimal instanceof NotANumber) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast NUMBER '%s' to INTEGER", asBigDecimal));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast NUMBER '%s' to INTEGER".formatted(asBigDecimal));
         }
         try {
             if (asBigDecimal instanceof BigDecimalValue(BigDecimal bigDecimal)) {
@@ -251,9 +250,9 @@ public final class NumberOperators
             }
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to INTEGER", asBigDecimal), e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Cannot cast NUMBER '%s' to INTEGER".formatted(asBigDecimal), e);
         }
-        throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to INTEGER", asBigDecimal));
+        throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Cannot cast NUMBER '%s' to INTEGER".formatted(asBigDecimal));
     }
 
     @ScalarOperator(CAST)
@@ -262,7 +261,7 @@ public final class NumberOperators
     {
         AsBigDecimal asBigDecimal = value.toBigDecimal();
         if (asBigDecimal instanceof NotANumber) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast NUMBER '%s' to BIGINT", asBigDecimal));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast NUMBER '%s' to BIGINT".formatted(asBigDecimal));
         }
         try {
             if (asBigDecimal instanceof BigDecimalValue(BigDecimal bigDecimal)) {
@@ -270,9 +269,9 @@ public final class NumberOperators
             }
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to BIGINT", asBigDecimal), e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Cannot cast NUMBER '%s' to BIGINT".formatted(asBigDecimal), e);
         }
-        throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to BIGINT", asBigDecimal));
+        throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Cannot cast NUMBER '%s' to BIGINT".formatted(asBigDecimal));
     }
 
     @ScalarOperator(CAST)
@@ -311,6 +310,6 @@ public final class NumberOperators
         if (stringValue.length() <= x) {
             return utf8Slice(stringValue);
         }
-        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s cannot be represented as varchar(%s)", stringValue, x));
+        throw new TrinoException(INVALID_CAST_ARGUMENT, "Value %s cannot be represented as varchar(%s)".formatted(stringValue, x));
     }
 }

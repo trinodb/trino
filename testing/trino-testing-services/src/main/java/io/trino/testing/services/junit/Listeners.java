@@ -15,8 +15,6 @@ package io.trino.testing.services.junit;
 
 import com.google.errorprone.annotations.FormatMethod;
 
-import static java.lang.String.format;
-
 /**
  * @see io.trino.testng.services.Listeners for utlity class for TestNG listeners
  */
@@ -32,7 +30,7 @@ public final class Listeners
     @FormatMethod
     public static void reportListenerFailure(Class<?> listenerClass, String format, Object... args)
     {
-        System.err.println(format("FATAL: %s: ", listenerClass.getName()) + format(format, args));
+        System.err.println("FATAL: %s: ".formatted(listenerClass.getName()) + format.formatted(args));
         System.err.println("JVM will be terminated");
 
         // JUnit does not fail on a listener exception.

@@ -23,7 +23,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -51,7 +50,7 @@ public class Procedure
 
         Set<String> names = new HashSet<>();
         for (Argument argument : arguments) {
-            checkArgument(names.add(argument.getName()), format("Duplicate argument name: '%s'", argument.getName()));
+            checkArgument(names.add(argument.getName()), "Duplicate argument name: '%s'".formatted(argument.getName()));
         }
 
         for (int index = 1; index < arguments.size(); index++) {

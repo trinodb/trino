@@ -61,7 +61,6 @@ import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -107,7 +106,7 @@ public final class ViewReaderUtil
             ConnectorTableSchema tableSchema = metadataProvider.getRelationMetadata(session, target)
                     .orElseThrow(() -> new TableNotFoundException(
                             target.getSchemaTableName(),
-                            format("%s is redirected to %s, but that relation cannot be found", schemaTableName, target)));
+                            "%s is redirected to %s, but that relation cannot be found".formatted(schemaTableName, target)));
             List<Column> columns = tableSchema.getColumns().stream()
                     .filter(columnSchema -> !columnSchema.isHidden())
                     .map(columnSchema -> new Column(columnSchema.getName(), toHiveType(columnSchema.getType()), Optional.empty() /* comment */, Map.of()))
@@ -267,7 +266,7 @@ public final class ViewReaderUtil
             catch (Throwable e) {
                 throw new TrinoException(
                         HIVE_VIEW_TRANSLATION_ERROR,
-                        format("Failed to translate Hive view '%s': %s",
+                        "Failed to translate Hive view '%s': %s".formatted(
                                 table.getSchemaTableName(),
                                 e.getMessage()),
                         e);

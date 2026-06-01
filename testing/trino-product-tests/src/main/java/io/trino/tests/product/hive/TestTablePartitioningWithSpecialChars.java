@@ -24,7 +24,6 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTablePartitioningWithSpecialChars
@@ -64,10 +63,9 @@ public class TestTablePartitioningWithSpecialChars
         String tableName = "test_string_partitioning_with_special_chars_ctas_in_trino";
 
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s (id, part_col) " +
-                        "WITH (partitioned_by = ARRAY['part_col']) " +
-                        "AS VALUES " + INSERTED_PARTITION_VALUES,
+        onTrino().executeQuery(("CREATE TABLE %s (id, part_col) " +
+        "WITH (partitioned_by = ARRAY['part_col']) " +
+        "AS VALUES " + INSERTED_PARTITION_VALUES).formatted(
                 tableName));
 
         assertThat(onHive().executeQuery("SELECT * FROM " + tableName)).containsOnly(EXPECTED_PARTITION_VALUES);
@@ -80,8 +78,8 @@ public class TestTablePartitioningWithSpecialChars
         String tableName = "test_string_partitioning_with_special_chars_insert_in_trino";
 
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
-        onTrino().executeQuery(format("CREATE TABLE %s (id BIGINT, part_col VARCHAR) WITH (partitioned_by = ARRAY['part_col']) ", tableName));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES " + INSERTED_PARTITION_VALUES, tableName));
+        onTrino().executeQuery("CREATE TABLE %s (id BIGINT, part_col VARCHAR) WITH (partitioned_by = ARRAY['part_col']) ".formatted(tableName));
+        onTrino().executeQuery(("INSERT INTO %s VALUES " + INSERTED_PARTITION_VALUES).formatted(tableName));
 
         assertThat(onHive().executeQuery("SELECT * FROM " + tableName)).containsOnly(EXPECTED_PARTITION_VALUES);
         assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).contains(EXPECTED_PARTITION_VALUES);
@@ -94,12 +92,12 @@ public class TestTablePartitioningWithSpecialChars
         String tableName = "test_string_partitioning_with_special_chars_insert_in_hive";
 
         onTrino().executeQuery("DROP TABLE IF EXISTS " + sourceTableName);
-        onTrino().executeQuery(format("CREATE TABLE %s (id, part_col) AS VALUES " + INSERTED_PARTITION_VALUES, sourceTableName));
+        onTrino().executeQuery(("CREATE TABLE %s (id, part_col) AS VALUES " + INSERTED_PARTITION_VALUES).formatted(sourceTableName));
 
         onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
-        onHive().executeQuery(format("CREATE TABLE %s (id BIGINT) PARTITIONED BY (part_col STRING) ", tableName));
+        onHive().executeQuery("CREATE TABLE %s (id BIGINT) PARTITIONED BY (part_col STRING) ".formatted(tableName));
         onHive().executeQuery("set hive.exec.dynamic.partition.mode=nonstrict"); // needed for dynamic partitioning with no static partitions in insert statement
-        onHive().executeQuery(format("INSERT INTO %s PARTITION(part_col) SELECT * FROM %s", tableName, sourceTableName));
+        onHive().executeQuery("INSERT INTO %s PARTITION(part_col) SELECT * FROM %s".formatted(tableName, sourceTableName));
 
         assertThat(onHive().executeQuery("SELECT * FROM " + tableName)).containsOnly(EXPECTED_PARTITION_VALUES);
         assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).contains(EXPECTED_PARTITION_VALUES);
@@ -110,9 +108,9 @@ public class TestTablePartitioningWithSpecialChars
     {
         String tableName = "test_string_partitioning_with_utf_chars";
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
-        onTrino().executeQuery(format("CREATE TABLE %s (id BIGINT, part_col VARCHAR) WITH (partitioned_by = ARRAY['part_col']) ", tableName));
+        onTrino().executeQuery("CREATE TABLE %s (id BIGINT, part_col VARCHAR) WITH (partitioned_by = ARRAY['part_col']) ".formatted(tableName));
 
-        assertQueryFailure(() -> onTrino().executeQuery(format("INSERT INTO %s VALUES (1, 'łąka')", tableName)))
+        assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO %s VALUES (1, 'łąka')".formatted(tableName)))
                 .hasMessageContaining("Hive partition keys can only contain printable ASCII characters");
 
         // not testing on Hive. It allows inserting data to partition with utf chars. But then data is not visible, and table is not usable from Trino (e.g. one cannot drop a table)

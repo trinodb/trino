@@ -29,7 +29,6 @@ import java.util.concurrent.Callable;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 // TODO add tests (https://github.com/trinodb/trino/issues/12010)
@@ -72,8 +71,7 @@ public final class SelectedPortWaitStrategy
                     // Note: This condition requires a dependency on org.rnorth.duct-tape:duct-tape
                     if (!getRateLimiter().getWhenReady(() -> internalCheck.call() && externalCheck.call())) {
                         // We say "timed out" immediately. Failsafe will propagate this only when timeout reached.
-                        throw new ContainerLaunchException(format(
-                                "Timed out waiting for container port to open (%s ports: %s should be listening)",
+                        throw new ContainerLaunchException("Timed out waiting for container port to open (%s ports: %s should be listening)".formatted(
                                 waitStrategyTarget.getHost(),
                                 exposedPorts));
                     }

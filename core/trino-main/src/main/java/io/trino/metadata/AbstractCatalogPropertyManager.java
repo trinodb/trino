@@ -32,7 +32,6 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.metadata.PropertyUtil.evaluateProperties;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 abstract class AbstractCatalogPropertyManager
@@ -95,7 +94,7 @@ abstract class AbstractCatalogPropertyManager
                 includeAllProperties,
                 propertyMetadata,
                 propertyError,
-                format("catalog '%s' %s property", catalogName, propertyType));
+                "catalog '%s' %s property".formatted(catalogName, propertyType));
     }
 
     public Collection<PropertyMetadata<?>> getAllProperties(CatalogHandle catalogHandle)

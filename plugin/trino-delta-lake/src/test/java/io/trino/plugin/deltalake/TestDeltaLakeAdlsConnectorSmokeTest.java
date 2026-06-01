@@ -49,7 +49,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.filesystem.azure.AzureFileSystemFactory.createAzureHttpClient;
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.regex.Matcher.quoteReplacement;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -71,14 +70,14 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
         this.container = requiredNonEmptySystemProperty("testing.azure-abfs-container");
         this.account = requiredNonEmptySystemProperty("testing.azure-abfs-account");
         this.accessKey = requiredNonEmptySystemProperty("testing.azure-abfs-access-key");
-        this.adlsDirectory = format("abfs://%s@%s.dfs.core.windows.net/%s/", container, account, bucketName);
+        this.adlsDirectory = "abfs://%s@%s.dfs.core.windows.net/%s/".formatted(container, account, bucketName);
     }
 
     @Override
     protected HiveHadoop createHiveHadoop()
             throws Exception
     {
-        String connectionString = format("DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s;EndpointSuffix=core.windows.net", account, accessKey);
+        String connectionString = "DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s;EndpointSuffix=core.windows.net".formatted(account, accessKey);
         ConnectionProvider provider = ConnectionProvider.create("TestDeltaLakeAdsl");
         closeAfterClass(provider::dispose);
 
@@ -155,7 +154,7 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
             throw new UncheckedIOException(e);
         }
 
-        queryRunner.execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", table, getLocationForTable(bucketName, table)));
+        queryRunner.execute("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(table, getLocationForTable(bucketName, table)));
     }
 
     @Override
@@ -183,7 +182,7 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
         Duration timeout = Duration.ofMinutes(5);
         List<String> allPaths = azureContainerClient.listBlobs(new ListBlobsOptions().setPrefix(azurePath), timeout).stream()
                 .map(BlobItem::getName)
-                .map(relativePath -> format("abfs://%s@%s.dfs.core.windows.net/%s", container, account, relativePath))
+                .map(relativePath -> "abfs://%s@%s.dfs.core.windows.net/%s".formatted(container, account, relativePath))
                 .collect(toImmutableList());
 
         Set<String> directories = allPaths.stream()
@@ -206,6 +205,6 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
     @Override
     protected String bucketUrl()
     {
-        return format("abfs://%s@%s.dfs.core.windows.net/%s/", container, account, bucketName);
+        return "abfs://%s@%s.dfs.core.windows.net/%s/".formatted(container, account, bucketName);
     }
 }

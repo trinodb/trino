@@ -16,7 +16,6 @@ package io.trino.plugin.deltalake.metastore;
 import io.trino.spi.TrinoException;
 
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class NotADeltaLakeTableException
@@ -25,6 +24,6 @@ public class NotADeltaLakeTableException
     public NotADeltaLakeTableException(String databaseName, String tableName)
     {
         super(UNSUPPORTED_TABLE_TYPE,
-                format("%s.%s is not a Delta Lake table", requireNonNull(databaseName, "databaseName is null"), requireNonNull(tableName, "tableName is null")));
+                "%s.%s is not a Delta Lake table".formatted(requireNonNull(databaseName, "databaseName is null"), requireNonNull(tableName, "tableName is null")));
     }
 }

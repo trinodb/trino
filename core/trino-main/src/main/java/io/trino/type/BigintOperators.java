@@ -40,7 +40,6 @@ import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static java.lang.Float.floatToRawIntBits;
-import static java.lang.String.format;
 import static java.lang.runtime.ExactConversionsSupport.isLongToByteExact;
 import static java.lang.runtime.ExactConversionsSupport.isLongToIntExact;
 import static java.lang.runtime.ExactConversionsSupport.isLongToShortExact;
@@ -57,7 +56,7 @@ public final class BigintOperators
             return Math.addExact(left, right);
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("bigint addition overflow: %s + %s", left, right), e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "bigint addition overflow: %s + %s".formatted(left, right), e);
         }
     }
 
@@ -69,7 +68,7 @@ public final class BigintOperators
             return Math.subtractExact(left, right);
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("bigint subtraction overflow: %s - %s", left, right), e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "bigint subtraction overflow: %s - %s".formatted(left, right), e);
         }
     }
 
@@ -81,7 +80,7 @@ public final class BigintOperators
             return Math.multiplyExact(left, right);
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("bigint multiplication overflow: %s * %s", left, right), e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "bigint multiplication overflow: %s * %s".formatted(left, right), e);
         }
     }
 
@@ -91,7 +90,7 @@ public final class BigintOperators
     {
         try {
             if (left == Long.MIN_VALUE && right == -1) {
-                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("bigint division overflow: %s / %s", left, right));
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "bigint division overflow: %s / %s".formatted(left, right));
             }
             return left / right;
         }
@@ -215,6 +214,6 @@ public final class BigintOperators
             return utf8Slice(stringValue);
         }
 
-        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s cannot be represented as varchar(%s)", value, x));
+        throw new TrinoException(INVALID_CAST_ARGUMENT, "Value %s cannot be represented as varchar(%s)".formatted(value, x));
     }
 }

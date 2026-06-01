@@ -74,7 +74,6 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.arrow.compression.CommonsCompressionFactory.INSTANCE;
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WIDTH;
@@ -163,7 +162,7 @@ public class BigQueryArrowToPageConverter
                     writeVectorValues(output, vector, index -> type.writeLong(output, ((TimeMicroVector) vector).get(index) * PICOSECONDS_PER_MICROSECOND), offset, length);
                 }
                 else {
-                    throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for %s: %s".formatted(javaType.getSimpleName(), type));
                 }
             }
             else if (javaType == double.class) {
@@ -185,11 +184,11 @@ public class BigQueryArrowToPageConverter
                 writeVectorValues(output, vector, index -> writeRowBlock(allocator, output, rowType, vector, index), offset, length);
             }
             else {
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for %s: %s".formatted(javaType.getSimpleName(), type));
             }
         }
         catch (ClassCastException ex) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type), ex);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for %s: %s".formatted(javaType.getSimpleName(), type), ex);
         }
     }
 

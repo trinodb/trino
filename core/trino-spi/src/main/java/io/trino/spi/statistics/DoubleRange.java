@@ -23,7 +23,6 @@ import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class DoubleRange
@@ -46,8 +45,7 @@ public class DoubleRange
             return Optional.empty();
         }
         if (min.isEmpty() || max.isEmpty()) {
-            throw new IllegalStateException(format(
-                    "One of min/max was converted to stats representation while the other was not for type %s: %s, %s",
+            throw new IllegalStateException("One of min/max was converted to stats representation while the other was not for type %s: %s, %s".formatted(
                     type,
                     min,
                     max));
@@ -67,7 +65,7 @@ public class DoubleRange
             throw new IllegalArgumentException("max must not be NaN");
         }
         if (min > max) {
-            throw new IllegalArgumentException(format("max must be greater than or equal to min. min: %s. max: %s. ", min, max));
+            throw new IllegalArgumentException("max must be greater than or equal to min. min: %s. max: %s. ".formatted(min, max));
         }
         this.min = min;
         this.max = max;

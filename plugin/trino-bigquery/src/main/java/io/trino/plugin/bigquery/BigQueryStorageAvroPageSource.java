@@ -78,7 +78,6 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
@@ -239,7 +238,7 @@ public class BigQueryStorageAvroPageSource
                     type.writeLong(output, (long) value * PICOSECONDS_PER_MICROSECOND);
                 }
                 else {
-                    throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for %s: %s".formatted(javaType.getSimpleName(), type));
                 }
             }
             else if (javaType == double.class) {
@@ -264,7 +263,7 @@ public class BigQueryStorageAvroPageSource
                 writeRow((RowBlockBuilder) output, rowType, (GenericRecord) value);
             }
             else {
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for %s: %s".formatted(javaType.getSimpleName(), type));
             }
         }
         catch (ClassCastException ignore) {
@@ -403,7 +402,7 @@ public class BigQueryStorageAvroPageSource
 
         BigDecimal convert(int precision, int scale, Object value)
         {
-            Schema schema = new Schema.Parser().parse(format("{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":%d,\"scale\":%d}", precision, scale));
+            Schema schema = new Schema.Parser().parse("{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":%d,\"scale\":%d}".formatted(precision, scale));
             return AVRO_DECIMAL_CONVERSION.fromBytes((ByteBuffer) value, schema, schema.getLogicalType());
         }
     }

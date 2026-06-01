@@ -35,7 +35,6 @@ import static io.trino.tests.product.hive.Engine.DELTA;
 import static io.trino.tests.product.hive.Engine.TRINO;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeDropTableCompatibility
@@ -84,27 +83,25 @@ public class TestDeltaLakeDropTableCompatibility
     private void testDropTableAccuracy(Engine creator, Engine dropper, boolean explicitLocation)
     {
         String schemaName = "test_schema_with_location_" + randomNameSuffix();
-        String schemaLocation = format("s3://%s/databricks-compatibility-test-%s", bucketName, schemaName);
+        String schemaLocation = "s3://%s/databricks-compatibility-test-%s".formatted(bucketName, schemaName);
         String tableName = explicitLocation ? "test_external_table" : "test_managed_table";
         Optional<String> tableLocation = explicitLocation
-                ? Optional.of(format("s3://%s/databricks-compatibility-test-%s/%s", bucketName, schemaName, tableName))
+                ? Optional.of("s3://%s/databricks-compatibility-test-%s/%s".formatted(bucketName, schemaName, tableName))
                 : Optional.empty();
 
         switch (creator) {
-            case TRINO -> onTrino().executeQuery(format("CREATE SCHEMA delta.%s WITH (location = '%s')", schemaName, schemaLocation));
-            case DELTA -> onDelta().executeQuery(format("CREATE SCHEMA %s LOCATION \"%s\"", schemaName, schemaLocation));
+            case TRINO -> onTrino().executeQuery("CREATE SCHEMA delta.%s WITH (location = '%s')".formatted(schemaName, schemaLocation));
+            case DELTA -> onDelta().executeQuery("CREATE SCHEMA %s LOCATION \"%s\"".formatted(schemaName, schemaLocation));
             default -> throw new UnsupportedOperationException("Unsupported engine: " + creator);
         }
         try {
             onTrino().executeQuery("USE delta." + schemaName);
             switch (creator) {
-                case TRINO -> onTrino().executeQuery(format(
-                        "CREATE TABLE %s.%s (a, b) %s AS VALUES (1, 2), (2, 3), (3, 4)",
+                case TRINO -> onTrino().executeQuery("CREATE TABLE %s.%s (a, b) %s AS VALUES (1, 2), (2, 3), (3, 4)".formatted(
                         schemaName,
                         tableName,
                         tableLocation.map(location -> "WITH (location = '" + location + "')").orElse("")));
-                case DELTA -> onDelta().executeQuery(format(
-                        "CREATE TABLE %s.%s USING DELTA %s AS VALUES (1, 2), (2, 3), (3, 4)",
+                case DELTA -> onDelta().executeQuery("CREATE TABLE %s.%s USING DELTA %s AS VALUES (1, 2), (2, 3), (3, 4)".formatted(
                         schemaName,
                         tableName,
                         tableLocation.map(location -> "LOCATION \"" + location + "\"").orElse("")));

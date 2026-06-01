@@ -36,7 +36,6 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static io.trino.plugin.iceberg.catalog.nessie.IcebergNessieUtil.toIdentifier;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergNessieTableOperations
@@ -71,7 +70,7 @@ public class IcebergNessieTableOperations
             nessieClient.refresh();
         }
         catch (NessieNotFoundException e) {
-            throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to refresh as ref '%s' is no longer valid.", nessieClient.refName()), e);
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to refresh as ref '%s' is no longer valid.".formatted(nessieClient.refName()), e);
         }
     }
 
@@ -121,7 +120,7 @@ public class IcebergNessieTableOperations
                     toKey(database, tableName));
         }
         catch (NessieNotFoundException e) {
-            throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Cannot commit: ref '%s' no longer exists", nessieClient.refName()), e);
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Cannot commit: ref '%s' no longer exists".formatted(nessieClient.refName()), e);
         }
         catch (NessieConflictException e) {
             // CommitFailedException is handled as a special case in the Iceberg library. This commit will automatically retry
@@ -146,7 +145,7 @@ public class IcebergNessieTableOperations
                     toKey(database, tableName));
         }
         catch (NessieNotFoundException e) {
-            throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Cannot commit: ref '%s' no longer exists", nessieClient.refName()), e);
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Cannot commit: ref '%s' no longer exists".formatted(nessieClient.refName()), e);
         }
         catch (NessieConflictException e) {
             // CommitFailedException is handled as a special case in the Iceberg library. This commit will automatically retry

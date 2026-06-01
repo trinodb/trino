@@ -22,7 +22,6 @@ import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -49,17 +48,17 @@ public class TestTable
 
     protected void createAndInsert(List<String> rowsToInsert)
     {
-        sqlExecutor.execute(format("CREATE TABLE %s %s", name, tableDefinition));
+        sqlExecutor.execute("CREATE TABLE %s %s".formatted(name, tableDefinition));
         try {
             if (!rowsToInsert.isEmpty()) {
                 if (sqlExecutor.supportsMultiRowInsert()) {
-                    sqlExecutor.execute(format("INSERT INTO %s VALUES %s", name, rowsToInsert.stream()
+                    sqlExecutor.execute("INSERT INTO %s VALUES %s".formatted(name, rowsToInsert.stream()
                             .map("(%s)"::formatted)
                             .collect(joining(", "))));
                 }
                 else {
                     for (String row : rowsToInsert) {
-                        sqlExecutor.execute(format("INSERT INTO %s VALUES (%s)", name, row));
+                        sqlExecutor.execute("INSERT INTO %s VALUES (%s)".formatted(name, row));
                     }
                 }
             }
@@ -84,7 +83,7 @@ public class TestTable
                 namePrefix,
                 columns,
                 column -> {
-                    throw new IllegalArgumentException(String.format("Some values missing for column '%s'", column));
+                    throw new IllegalArgumentException("Some values missing for column '%s'".formatted(column));
                 });
     }
 

@@ -14,7 +14,6 @@
 package io.trino.plugin.resourcegroups;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -25,6 +24,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.stream.Collectors.joining;
 
 public class ResourceGroupNameTemplate
 {
@@ -91,7 +91,7 @@ public class ResourceGroupNameTemplate
     @Override
     public String toString()
     {
-        return Joiner.on("").join(fragments);
+        return fragments.stream().map(Object::toString).collect(joining(""));
     }
 
     @Override

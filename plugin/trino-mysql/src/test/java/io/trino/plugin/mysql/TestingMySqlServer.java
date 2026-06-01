@@ -25,7 +25,6 @@ import java.sql.Statement;
 import java.time.ZoneId;
 
 import static io.trino.testing.containers.TestContainers.startOrReuse;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.testcontainers.mysql.MySQLContainer.MYSQL_PORT;
 
@@ -79,7 +78,7 @@ public class TestingMySqlServer
 
         try (Connection connection = DriverManager.getConnection(getJdbcUrl(), "root", container.getPassword());
                 Statement statement = connection.createStatement()) {
-            statement.execute(format("GRANT ALL PRIVILEGES ON *.* TO '%s'", container.getUsername()));
+            statement.execute("GRANT ALL PRIVILEGES ON *.* TO '%s'".formatted(container.getUsername()));
         }
         catch (SQLException e) {
             throw new RuntimeException(e);
@@ -126,7 +125,7 @@ public class TestingMySqlServer
 
     public String getJdbcUrl()
     {
-        return format("jdbc:mysql://%s:%s?useSSL=false&allowPublicKeyRetrieval=true", container.getHost(), container.getMappedPort(MYSQL_PORT));
+        return "jdbc:mysql://%s:%s?useSSL=false&allowPublicKeyRetrieval=true".formatted(container.getHost(), container.getMappedPort(MYSQL_PORT));
     }
 
     @Override

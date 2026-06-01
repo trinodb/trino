@@ -53,7 +53,6 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static java.lang.StrictMath.floorDiv;
 import static java.lang.StrictMath.floorMod;
 import static java.lang.StrictMath.toIntExact;
-import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.time.format.ResolverStyle.LENIENT;
 import static java.time.temporal.ChronoField.DAY_OF_MONTH;
@@ -157,7 +156,7 @@ public final class HiveFormatUtils
     {
         BigDecimal bigDecimal = parseDecimal(value, decimalType);
         if (overflows(bigDecimal, decimalType.getPrecision())) {
-            throw new NumberFormatException(format("Cannot convert '%s' to %s. Value too large.", value, decimalType));
+            throw new NumberFormatException("Cannot convert '%s' to %s. Value too large.".formatted(value, decimalType));
         }
         if (decimalType.isShort()) {
             decimalType.writeLong(builder, bigDecimal.unscaledValue().longValueExact());
@@ -173,7 +172,7 @@ public final class HiveFormatUtils
             return scaleDecimal(new BigDecimal(value), decimalType);
         }
         catch (NumberFormatException e) {
-            throw new NumberFormatException(format("Cannot convert '%s' to %s. Value is not a number.", value, decimalType));
+            throw new NumberFormatException("Cannot convert '%s' to %s. Value is not a number.".formatted(value, decimalType));
         }
     }
 

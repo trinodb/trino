@@ -31,7 +31,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -117,8 +116,7 @@ public class TestDatabaseEventClient
 
     private static String getJdbcUrl(MySQLContainer container)
     {
-        return format(
-                "%s?user=%s&password=%s&useSSL=false&allowPublicKeyRetrieval=true",
+        return "%s?user=%s&password=%s&useSSL=false&allowPublicKeyRetrieval=true".formatted(
                 container.getJdbcUrl(),
                 container.getUsername(),
                 container.getPassword());

@@ -27,7 +27,6 @@ import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class RowBlock
@@ -69,7 +68,7 @@ public final class RowBlock
                 Block field = fieldBlocks[fieldIndex];
                 for (int position = 0; position < positionCount; position++) {
                     if (rowIsNull[position] && !field.isNull(position)) {
-                        throw new IllegalArgumentException(format("Field value for null row must be null: field %s, position %s", fieldIndex, position));
+                        throw new IllegalArgumentException("Field value for null row must be null: field %s, position %s".formatted(fieldIndex, position));
                     }
                 }
             }
@@ -105,7 +104,7 @@ public final class RowBlock
             int firstFieldBlockPositionCount = fieldBlocks[0].getPositionCount();
             for (int i = 1; i < fieldBlocks.length; i++) {
                 if (firstFieldBlockPositionCount != fieldBlocks[i].getPositionCount()) {
-                    throw new IllegalArgumentException(format("length of field blocks differ: field 0: %s, block %s: %s", firstFieldBlockPositionCount, i, fieldBlocks[i].getPositionCount()));
+                    throw new IllegalArgumentException("length of field blocks differ: field 0: %s, block %s: %s".formatted(firstFieldBlockPositionCount, i, fieldBlocks[i].getPositionCount()));
                 }
             }
 
@@ -239,7 +238,7 @@ public final class RowBlock
     @Override
     public String toString()
     {
-        return format("RowBlock{startOffset=%d, fieldCount=%d, positionCount=%d}", startOffset, fieldBlocks.length, positionCount);
+        return "RowBlock{startOffset=%d, fieldCount=%d, positionCount=%d}".formatted(startOffset, fieldBlocks.length, positionCount);
     }
 
     @Override

@@ -59,7 +59,6 @@ import java.util.UUID;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.openlineage.client.utils.UUIDUtils.generateStaticUUID;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
@@ -391,7 +390,7 @@ public class OpenLineageListener
 
     private String getDatasetName(String catalogName, String schemaName, String tableName)
     {
-        return format("%s.%s.%s", catalogName, schemaName, tableName);
+        return "%s.%s.%s".formatted(catalogName, schemaName, tableName);
     }
 
     private static URI defaultNamespace(URI uri)

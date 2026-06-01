@@ -43,7 +43,6 @@ import static io.trino.tests.product.TestGroups.LDAP_AND_FILE_CLI;
 import static io.trino.tests.product.TestGroups.LDAP_CLI;
 import static io.trino.tests.product.TestGroups.LDAP_MULTIPLE_BINDS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -156,7 +155,7 @@ public class TestTrinoLdapCli
         ldapUserName = CHILD_GROUP_USER.getAttributes().get("cn");
         launchTrinoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", SELECT_FROM_NATION);
         assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
-                assertThat(line).contains(format("User [%s] not a member of an authorized group", ldapUserName)));
+                assertThat(line).contains("User [%s] not a member of an authorized group".formatted(ldapUserName)));
     }
 
     @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
@@ -166,7 +165,7 @@ public class TestTrinoLdapCli
         ldapUserName = PARENT_GROUP_USER.getAttributes().get("cn");
         launchTrinoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", SELECT_FROM_NATION);
         assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
-                assertThat(line).contains(format("User [%s] not a member of an authorized group", ldapUserName)));
+                assertThat(line).contains("User [%s] not a member of an authorized group".formatted(ldapUserName)));
     }
 
     @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
@@ -176,7 +175,7 @@ public class TestTrinoLdapCli
         ldapUserName = ORPHAN_USER.getAttributes().get("cn");
         launchTrinoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", SELECT_FROM_NATION);
         assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
-                assertThat(line).contains(format("User [%s] not a member of an authorized group", ldapUserName)));
+                assertThat(line).contains("User [%s] not a member of an authorized group".formatted(ldapUserName)));
     }
 
     @Test(groups = {LDAP, LDAP_CLI, LDAP_MULTIPLE_BINDS, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
@@ -242,7 +241,7 @@ public class TestTrinoLdapCli
     public void shouldFailQueryForLdapWithoutHttps()
             throws IOException
     {
-        ldapServerAddress = format("http://%s:8443", serverHost);
+        ldapServerAddress = "http://%s:8443".formatted(serverHost);
         launchTrinoCliWithServerArgument("--execute", SELECT_FROM_NATION);
         assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
                 assertThat(line).contains("TLS/SSL is required for authentication with username and password"));

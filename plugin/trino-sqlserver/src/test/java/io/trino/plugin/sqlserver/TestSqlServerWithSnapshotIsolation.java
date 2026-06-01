@@ -15,8 +15,6 @@ package io.trino.plugin.sqlserver;
 
 import io.trino.testing.sql.SqlExecutor;
 
-import static java.lang.String.format;
-
 public class TestSqlServerWithSnapshotIsolation
         extends BaseSqlServerTransactionIsolationTest
 {
@@ -24,11 +22,11 @@ public class TestSqlServerWithSnapshotIsolation
     protected void configureDatabase(SqlExecutor executor, String databaseName)
     {
         // ALLOW_SNAPSHOT_ISOLATION controls whether SNAPSHOT ISOLATION is actually enabled
-        executor.execute(format("ALTER DATABASE %s SET ALLOW_SNAPSHOT_ISOLATION ON", databaseName));
+        executor.execute("ALTER DATABASE %s SET ALLOW_SNAPSHOT_ISOLATION ON".formatted(databaseName));
 
         // READ_COMMITTED_SNAPSHOT that READ COMMITTED transaction isolation uses SNAPSHOT ISOLATION by default
         // it has no effect when ALLOW_SNAPSHOT_ISOLATION is disabled
         // https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/sql/snapshot-isolation-in-sql-server#snapshot-isolation-level-extensions
-        executor.execute(format("ALTER DATABASE %s SET READ_COMMITTED_SNAPSHOT OFF", databaseName));
+        executor.execute("ALTER DATABASE %s SET READ_COMMITTED_SNAPSHOT OFF".formatted(databaseName));
     }
 }

@@ -41,7 +41,6 @@ import static io.trino.spi.HostAddress.fromUri;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static io.trino.util.Failures.WORKER_NODE_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -127,7 +126,7 @@ class RequestErrorTracker
             TrinoException exception = new TrinoTransportException(
                     TOO_MANY_REQUESTS_FAILED,
                     fromUri(taskUri),
-                    format("%s (%s %s - %s failures, failure duration %s, total failed request time %s)",
+                    "%s (%s %s - %s failures, failure duration %s, total failed request time %s)".formatted(
                             WORKER_NODE_ERROR,
                             jobDescription,
                             taskUri,

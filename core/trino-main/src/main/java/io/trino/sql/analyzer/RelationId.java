@@ -20,7 +20,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.lang.String.format;
 import static java.lang.System.identityHashCode;
 
 public class RelationId
@@ -83,12 +82,12 @@ public class RelationId
         if (isAnonymous()) {
             return toStringHelper(this)
                     .addValue("anonymous")
-                    .addValue(format("x%08x", identityHashCode(this)))
+                    .addValue("x%08x".formatted(identityHashCode(this)))
                     .toString();
         }
         return toStringHelper(this)
                 .addValue(sourceNode.get().getClass().getSimpleName())
-                .addValue(format("x%08x", identityHashCode(sourceNode.get())))
+                .addValue("x%08x".formatted(identityHashCode(sourceNode.get())))
                 .toString();
     }
 }

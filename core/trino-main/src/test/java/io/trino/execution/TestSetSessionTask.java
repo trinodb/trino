@@ -60,8 +60,6 @@ import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.testing.TestingSession.testSession;
-import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -189,7 +187,7 @@ public class TestSetSessionTask
 
     private void testSetSession(String property, Expression expression, String expectedValue)
     {
-        testSetSessionWithParameters(property, expression, expectedValue, emptyList());
+        testSetSessionWithParameters(property, expression, expectedValue, List.of());
     }
 
     private void testSetSessionWithParameters(String property, Expression expression, String expectedValue, List<Expression> parameters)
@@ -197,7 +195,7 @@ public class TestSetSessionTask
         QualifiedName qualifiedPropName = QualifiedName.of(CATALOG_NAME, property);
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 Optional.empty(),
-                format("set %s = 'old_value'", qualifiedPropName),
+                "set %s = 'old_value'".formatted(qualifiedPropName),
                 Optional.empty(),
                 testSession(),
                 URI.create("fake://uri"),

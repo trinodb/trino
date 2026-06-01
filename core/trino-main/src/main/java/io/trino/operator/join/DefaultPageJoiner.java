@@ -59,7 +59,6 @@ import static io.trino.operator.WorkProcessor.TransformationState.yielded;
 import static io.trino.operator.join.JoinType.FULL_OUTER;
 import static io.trino.operator.join.JoinType.PROBE_OUTER;
 import static io.trino.operator.join.spilling.PartitionedLookupSourceFactory.NO_SPILL_EPOCH;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class DefaultPageJoiner
@@ -347,7 +346,7 @@ public class DefaultPageJoiner
                         currentRowPartition,
                         new SavedRow(probe.getPage(), probe.getPosition(), getJoinPositionWithinPartition(), currentProbePositionProducedRow, joinSourcePositions),
                         (_, _) -> {
-                            throw new IllegalStateException(format("Partition %s is already spilled", currentRowPartition));
+                            throw new IllegalStateException("Partition %s is already spilled".formatted(currentRowPartition));
                         });
                 Page remaining = pageTail(probe.getPage(), probe.getPosition() + 1);
 

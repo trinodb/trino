@@ -39,7 +39,6 @@ import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAS
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -360,10 +359,9 @@ public abstract class AbstractDistributedEngineOnlyQueries
     @Timeout(10)
     public void testQueryTransitionsToRunningState()
     {
-        String query = format(
-                // use random marker in query for unique matching below
-                "SELECT count(*) c_%s FROM lineitem CROSS JOIN lineitem CROSS JOIN lineitem",
-                randomNameSuffix());
+        String query = // use random marker in query for unique matching below
+                "SELECT count(*) c_%s FROM lineitem CROSS JOIN lineitem CROSS JOIN lineitem".formatted(
+                        randomNameSuffix());
         QueryRunner queryRunner = getDistributedQueryRunner();
         ListenableFuture<?> queryFuture = Futures.submit(
                 () -> queryRunner.execute(getSession(), query), executorService);

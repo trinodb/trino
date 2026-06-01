@@ -96,13 +96,11 @@ import static io.trino.testing.datatype.DataType.realDataType;
 import static io.trino.testing.datatype.DataType.timestampDataType;
 import static io.trino.type.JsonType.JSON;
 import static java.lang.Integer.parseInt;
-import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
-import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -530,12 +528,12 @@ public abstract class BasePostgreSqlTypeMappingTest
 
         // too long for a char in Trino
         int length = CharType.MAX_LENGTH + 1;
-        String postgresqlType = format("char(%s)", length);
+        String postgresqlType = "char(%s)".formatted(length);
         Type trinoType = createVarcharType(length);
         SqlDataTypeTest.create()
-                .addRoundTrip(postgresqlType, "'test_f'", trinoType, format("'test_f%s'", " ".repeat(length - 6)))
-                .addRoundTrip(postgresqlType, format("'%s'", "a".repeat(length)), trinoType, format("'%s'", "a".repeat(length)))
-                .addRoundTrip(postgresqlType, "'\uD83D\uDE02'", trinoType, format("'\uD83D\uDE02%s'", " ".repeat(length - 1)))
+                .addRoundTrip(postgresqlType, "'test_f'", trinoType, "'test_f%s'".formatted(" ".repeat(length - 6)))
+                .addRoundTrip(postgresqlType, "'%s'".formatted("a".repeat(length)), trinoType, "'%s'".formatted("a".repeat(length)))
+                .addRoundTrip(postgresqlType, "'\uD83D\uDE02'", trinoType, "'\uD83D\uDE02%s'".formatted(" ".repeat(length - 1)))
                 .execute(getQueryRunner(), postgresCreateAndInsert("test_char"));
     }
 
@@ -605,7 +603,7 @@ public abstract class BasePostgreSqlTypeMappingTest
 
     private static String utf8ByteaLiteral(String string)
     {
-        return format("bytea E'\\\\x%s'", base16().encode(string.getBytes(UTF_8)));
+        return "bytea E'\\\\x%s'".formatted(base16().encode(string.getBytes(UTF_8)));
     }
 
     @Test
@@ -664,7 +662,7 @@ public abstract class BasePostgreSqlTypeMappingTest
                 asList("1234567890123456789012345678901234567890.123456789", "-1234567890123456789012345678901234567890.123456789"))) {
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'decimal(38,0)')");
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
@@ -676,7 +674,7 @@ public abstract class BasePostgreSqlTypeMappingTest
                     "Decimal overflow");
             assertQuery(
                     sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'varchar')");
             assertQuery(
                     sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
@@ -697,7 +695,7 @@ public abstract class BasePostgreSqlTypeMappingTest
                 asList("123456789012345678901234567890.123456789012345", "-123456789012345678901234567890.123456789012345"))) {
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'decimal(38,0)')");
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
@@ -709,7 +707,7 @@ public abstract class BasePostgreSqlTypeMappingTest
                     "VALUES (123456789012345678901234567890), (-123456789012345678901234567890)");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 8),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'decimal(38,8)')");
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 8),
@@ -721,7 +719,7 @@ public abstract class BasePostgreSqlTypeMappingTest
                     "VALUES (123456789012345678901234567890.12345679), (-123456789012345678901234567890.12345679)");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 22),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'decimal(38,20)')");
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 20),
@@ -733,7 +731,7 @@ public abstract class BasePostgreSqlTypeMappingTest
                     "Decimal overflow");
             assertQuery(
                     sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'varchar')");
             assertQuery(
                     sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
@@ -756,11 +754,11 @@ public abstract class BasePostgreSqlTypeMappingTest
         try (TestTable testTable = new TestTable(
                 jdbcSqlExecutor,
                 "test_exceeding_max_decimal",
-                format("(d_col decimal(%d,%d))", typePrecision, typeScale),
+                "(d_col decimal(%d,%d))".formatted(typePrecision, typeScale),
                 asList("12.01", "-12.01", "123", "-123", "1.12345678", "-1.12345678"))) {
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'decimal(38,0)')");
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
@@ -772,7 +770,7 @@ public abstract class BasePostgreSqlTypeMappingTest
                     "VALUES (12), (-12), (123), (-123), (1), (-1)");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 3),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'decimal(38,3)')");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 3),
@@ -784,7 +782,7 @@ public abstract class BasePostgreSqlTypeMappingTest
                     "Rounding necessary");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 8),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col', 'decimal(38,8)')");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 8),
@@ -813,7 +811,7 @@ public abstract class BasePostgreSqlTypeMappingTest
                 asList("1.12", "123456.789", "-1.12", "-123456.789"))) {
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col','decimal(38,0)')");
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
@@ -829,7 +827,7 @@ public abstract class BasePostgreSqlTypeMappingTest
                     "Rounding necessary");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 1),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col','decimal(38,1)')");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 1),
@@ -845,7 +843,7 @@ public abstract class BasePostgreSqlTypeMappingTest
                     "VALUES (1.12), (123456.79), (-1.12), (-123456.79)");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 3),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('d_col','decimal(38,3)')");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 3),
@@ -865,7 +863,7 @@ public abstract class BasePostgreSqlTypeMappingTest
                 asList("NULL, '1.12'", "NULL, '1234567890123456789012345678901234567890.1234567'"))) {
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('key', 'varchar(5)'),('d_col', 'decimal(38,0)')");
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
@@ -877,7 +875,7 @@ public abstract class BasePostgreSqlTypeMappingTest
                     "Decimal overflow");
             assertQuery(
                     sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('key', 'varchar(5)'),('d_col', 'varchar')");
             assertQuery(
                     sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
@@ -885,7 +883,7 @@ public abstract class BasePostgreSqlTypeMappingTest
                     "VALUES (NULL, '1.12'), (NULL, '1234567890123456789012345678901234567890.1234567')");
             assertQuery(
                     sessionWithDecimalMappingStrict(IGNORE),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'", testTable.getName()),
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'".formatted(testTable.getName()),
                     "VALUES ('key', 'varchar(5)')");
         }
     }
@@ -978,10 +976,10 @@ public abstract class BasePostgreSqlTypeMappingTest
 
         // TODO: Migrate from DataTypeTest. SqlDataTypeTest fails when verifying predicates since we don't support comparing arrays containing NULLs, see https://github.com/trinodb/trino/issues/11397.
         DataTypeTest.create()
-                .addRoundTrip(arrayDataType(realDataType()), singletonList(null))
+                .addRoundTrip(arrayDataType(realDataType()), List.of(null))
                 .addRoundTrip(arrayDataType(integerDataType()), asList(1, null, 3, null))
-                .addRoundTrip(arrayDataType(timestampDataType(3)), singletonList(null))
-                .addRoundTrip(arrayDataType(trinoTimestampWithTimeZoneDataType(3)), singletonList(null))
+                .addRoundTrip(arrayDataType(timestampDataType(3)), List.of(null))
+                .addRoundTrip(arrayDataType(trinoTimestampWithTimeZoneDataType(3)), List.of(null))
                 .execute(getQueryRunner(), sessionWithArrayAsArray(), trinoCreateAsSelect(sessionWithArrayAsArray(), "test_array_empty_or_nulls"))
                 .execute(getQueryRunner(), sessionWithArrayAsArray(), trinoCreateAndInsert(sessionWithArrayAsArray(), "test_array_empty_or_nulls"));
     }
@@ -1012,7 +1010,7 @@ public abstract class BasePostgreSqlTypeMappingTest
     {
         String sampleUnicodeText = "\u041d\u0443, \u043f\u043e\u0433\u043e\u0434\u0438!";
         return arrayUnicodeDataTypeTest(arrayTypeFactory)
-                .addRoundTrip(arrayTypeFactory.apply("varchar"), format("ARRAY['%s']", sampleUnicodeText), new ArrayType(createUnboundedVarcharType()), format("ARRAY[CAST('%s' AS varchar)]", sampleUnicodeText));
+                .addRoundTrip(arrayTypeFactory.apply("varchar"), "ARRAY['%s']".formatted(sampleUnicodeText), new ArrayType(createUnboundedVarcharType()), "ARRAY[CAST('%s' AS varchar)]".formatted(sampleUnicodeText));
     }
 
     private SqlDataTypeTest arrayUnicodeDataTypeTest(Function<String, String> arrayTypeFactory)
@@ -1020,10 +1018,10 @@ public abstract class BasePostgreSqlTypeMappingTest
         String sampleUnicodeText = "\u653b\u6bbb\u6a5f\u52d5\u968a";
         String sampleFourByteUnicodeCharacter = "\uD83D\uDE02";
         return SqlDataTypeTest.create()
-                .addRoundTrip(arrayTypeFactory.apply("char(5)"), format("ARRAY['%s']", sampleUnicodeText), new ArrayType(createCharType(5)), format("ARRAY[CAST('%s' AS char(5))]", sampleUnicodeText))
-                .addRoundTrip(arrayTypeFactory.apply("char(32)"), format("ARRAY['%s']", sampleUnicodeText), new ArrayType(createCharType(32)), format("ARRAY[CAST('%s' AS char(32))]", sampleUnicodeText))
-                .addRoundTrip(arrayTypeFactory.apply("char(20000)"), format("ARRAY['%s']", sampleUnicodeText), new ArrayType(createCharType(20000)), format("ARRAY[CAST('%s' AS char(20000))]", sampleUnicodeText))
-                .addRoundTrip(arrayTypeFactory.apply("char(1)"), format("ARRAY['%s']", sampleFourByteUnicodeCharacter), new ArrayType(createCharType(1)), format("ARRAY[CAST('%s' AS char(1))]", sampleFourByteUnicodeCharacter));
+                .addRoundTrip(arrayTypeFactory.apply("char(5)"), "ARRAY['%s']".formatted(sampleUnicodeText), new ArrayType(createCharType(5)), "ARRAY[CAST('%s' AS char(5))]".formatted(sampleUnicodeText))
+                .addRoundTrip(arrayTypeFactory.apply("char(32)"), "ARRAY['%s']".formatted(sampleUnicodeText), new ArrayType(createCharType(32)), "ARRAY[CAST('%s' AS char(32))]".formatted(sampleUnicodeText))
+                .addRoundTrip(arrayTypeFactory.apply("char(20000)"), "ARRAY['%s']".formatted(sampleUnicodeText), new ArrayType(createCharType(20000)), "ARRAY[CAST('%s' AS char(20000))]".formatted(sampleUnicodeText))
+                .addRoundTrip(arrayTypeFactory.apply("char(1)"), "ARRAY['%s']".formatted(sampleFourByteUnicodeCharacter), new ArrayType(createCharType(1)), "ARRAY[CAST('%s' AS char(1))]".formatted(sampleFourByteUnicodeCharacter));
     }
 
     private SqlDataTypeTest arrayDateTest(Function<String, String> arrayTypeFactory)
@@ -1160,7 +1158,7 @@ public abstract class BasePostgreSqlTypeMappingTest
 
     private static String trinoArrayFactory(String elementType)
     {
-        return format("ARRAY(%s)", elementType);
+        return "ARRAY(%s)".formatted(elementType);
     }
 
     private static String postgreSqlArrayFactory(String elementType)
@@ -1170,7 +1168,7 @@ public abstract class BasePostgreSqlTypeMappingTest
 
     private static <E> DataType<List<E>> arrayDataType(DataType<E> elementType)
     {
-        return arrayDataType(elementType, format("ARRAY(%s)", elementType.getInsertType()));
+        return arrayDataType(elementType, "ARRAY(%s)".formatted(elementType.getInsertType()));
     }
 
     private static <E> DataType<List<E>> arrayDataType(DataType<E> elementType, String insertType)
@@ -1906,7 +1904,7 @@ public abstract class BasePostgreSqlTypeMappingTest
                 postgreSqlServer::execute,
                 "test_array_nulls",
                 "(col_boolean boolean[], col_smallint smallint[], col_integer integer[], col_bigint bigint[], col_real real[], col_double double precision[], col_uuid uuid[])")) {
-            assertUpdate(session, format("INSERT INTO %s VALUES(%s, %s, %s, %s, %s, %s, %s)", table.getName(), "ARRAY[NULL, true]", "ARRAY[NULL, 123]", "ARRAY[NULL, 123]", "ARRAY[NULL, 123]", "ARRAY[NULL, 123.45]", "ARRAY[NULL, 123.45]", "ARRAY[NULL, UUID 'f47ac10b-58cc-4372-a567-0e02b2c3d479']"), 1);
+            assertUpdate(session, "INSERT INTO %s VALUES(%s, %s, %s, %s, %s, %s, %s)".formatted(table.getName(), "ARRAY[NULL, true]", "ARRAY[NULL, 123]", "ARRAY[NULL, 123]", "ARRAY[NULL, 123]", "ARRAY[NULL, 123.45]", "ARRAY[NULL, 123.45]", "ARRAY[NULL, UUID 'f47ac10b-58cc-4372-a567-0e02b2c3d479']"), 1);
 
             assertThat(query(session, "SELECT col_boolean FROM " + table.getName())).matches("VALUES CAST(ARRAY[NULL, true] AS ARRAY(boolean))");
             assertThat(query(session, "SELECT col_smallint FROM " + table.getName())).matches("VALUES CAST(ARRAY[NULL, 123] AS ARRAY(smallint))");
@@ -1935,7 +1933,7 @@ public abstract class BasePostgreSqlTypeMappingTest
         try (TestTable table = new TestTable(
                 jdbcSqlExecutor,
                 "unsupported_type",
-                format("(key varchar(5), unsupported_column %s)", dataTypeName),
+                "(key varchar(5), unsupported_column %s)".formatted(dataTypeName),
                 ImmutableList.of(
                         "'1', NULL",
                         "'2', " + databaseValue))) {
@@ -1945,7 +1943,7 @@ public abstract class BasePostgreSqlTypeMappingTest
                     "DESC " + table.getName(),
                     "VALUES ('key', 'varchar(5)','', '')"); // no 'unsupported_column'
 
-            assertUpdate(session, format("INSERT INTO %s VALUES '3'", table.getName()), 1);
+            assertUpdate(session, "INSERT INTO %s VALUES '3'".formatted(table.getName()), 1);
             assertQuery(session, "SELECT * FROM " + table.getName(), "VALUES '1', '2', '3'");
         }
     }
@@ -1956,7 +1954,7 @@ public abstract class BasePostgreSqlTypeMappingTest
         try (TestTable table = new TestTable(
                 jdbcSqlExecutor,
                 "unsupported_type",
-                format("(key varchar(5), unsupported_column %s)", dataTypeName),
+                "(key varchar(5), unsupported_column %s)".formatted(dataTypeName),
                 ImmutableList.of(
                         "1, NULL",
                         "2, " + databaseValue))) {
@@ -1966,10 +1964,10 @@ public abstract class BasePostgreSqlTypeMappingTest
             assertQuery(
                     convertToVarchar,
                     "SELECT * FROM " + table.getName(),
-                    format("VALUES ('1', NULL), ('2', %s)", trinoValue));
+                    "VALUES ('1', NULL), ('2', %s)".formatted(trinoValue));
             assertQuery(
                     convertToVarchar,
-                    format("SELECT key FROM %s WHERE unsupported_column = %s", table.getName(), trinoValue),
+                    "SELECT key FROM %s WHERE unsupported_column = %s".formatted(table.getName(), trinoValue),
                     "VALUES '2'");
             assertQuery(
                     convertToVarchar,
@@ -1979,20 +1977,20 @@ public abstract class BasePostgreSqlTypeMappingTest
                             "('unsupported_column', 'varchar', '', '')");
             assertUpdate(
                     convertToVarchar,
-                    format("INSERT INTO %s (key, unsupported_column) VALUES ('3', NULL)", table.getName()),
+                    "INSERT INTO %s (key, unsupported_column) VALUES ('3', NULL)".formatted(table.getName()),
                     1);
             assertQueryFails(
                     convertToVarchar,
-                    format("INSERT INTO %s (key, unsupported_column) VALUES ('4', %s)", table.getName(), trinoValue),
+                    "INSERT INTO %s (key, unsupported_column) VALUES ('4', %s)".formatted(table.getName(), trinoValue),
                     "\\QUnderlying type that is mapped to VARCHAR is not supported for INSERT: " + internalDataTypeName);
             assertUpdate(
                     convertToVarchar,
-                    format("INSERT INTO %s (key) VALUES '5'", table.getName()),
+                    "INSERT INTO %s (key) VALUES '5'".formatted(table.getName()),
                     1);
             assertQuery(
                     convertToVarchar,
                     "SELECT * FROM " + table.getName(),
-                    format("VALUES ('1', NULL), ('2', %s), ('3', NULL), ('5', NULL)", trinoValue));
+                    "VALUES ('1', NULL), ('2', %s), ('3', NULL), ('5', NULL)".formatted(trinoValue));
         }
     }
 
@@ -2007,7 +2005,7 @@ public abstract class BasePostgreSqlTypeMappingTest
     public static DataType<ZonedDateTime> trinoTimestampWithTimeZoneDataType(int precision)
     {
         return dataType(
-                format("timestamp(%d) with time zone", precision),
+                "timestamp(%d) with time zone".formatted(precision),
                 createTimestampWithTimeZoneType(precision),
                 zonedDateTime -> DateTimeFormatter.ofPattern("'TIMESTAMP '''uuuu-MM-dd HH:mm:ss.SSSSSS VV''").format(zonedDateTime),
                 // PostgreSQL does not store zone, only the point in time
@@ -2017,12 +2015,12 @@ public abstract class BasePostgreSqlTypeMappingTest
     public static DataType<ZonedDateTime> postgreSqlTimestampWithTimeZoneDataType(int precision)
     {
         return dataType(
-                format("timestamp(%d) with time zone", precision),
+                "timestamp(%d) with time zone".formatted(precision),
                 createTimestampWithTimeZoneType(precision),
                 // PostgreSQL never examines the content of a literal string before determining its type, so `TIMESTAMP '.... {zone}'` won't work.
                 // PostgreSQL does not store zone, only the point in time
                 zonedDateTime -> {
-                    String pattern = format("'TIMESTAMP (%d) WITH TIME ZONE '''uuuu-MM-dd HH:mm:ss.SSSSSS VV''", precision);
+                    String pattern = "'TIMESTAMP (%d) WITH TIME ZONE '''uuuu-MM-dd HH:mm:ss.SSSSSS VV''".formatted(precision);
                     return DateTimeFormatter.ofPattern(pattern).format(zonedDateTime.withZoneSameInstant(UTC));
                 },
                 zonedDateTime -> DateTimeFormatter.ofPattern("'TIMESTAMP '''uuuu-MM-dd HH:mm:ss.SSSSSS VV''").format(zonedDateTime),
@@ -2034,7 +2032,7 @@ public abstract class BasePostgreSqlTypeMappingTest
         if (insertWithTrino) {
             return arrayDataType(trinoTimestampWithTimeZoneDataType(precision));
         }
-        return arrayDataType(postgreSqlTimestampWithTimeZoneDataType(precision), format("timestamptz(%d)[]", precision));
+        return arrayDataType(postgreSqlTimestampWithTimeZoneDataType(precision), "timestamptz(%d)[]".formatted(precision));
     }
 
     protected Session sessionWithArrayAsArray()

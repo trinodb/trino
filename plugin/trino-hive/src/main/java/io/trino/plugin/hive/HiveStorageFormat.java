@@ -57,7 +57,6 @@ import static io.trino.hive.formats.HiveClassNames.SEQUENCEFILE_INPUT_FORMAT_CLA
 import static io.trino.hive.formats.HiveClassNames.TEXT_INPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.TWITTER_ELEPHANTBIRD_PROTOBUF_SERDE_CLASS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
@@ -170,16 +169,16 @@ public enum HiveStorageFormat
             TypeInfo keyType = mapTypeInfo(type).getMapKeyTypeInfo();
             if ((keyType.getCategory() != Category.PRIMITIVE) ||
                     (primitiveTypeInfo(keyType).getPrimitiveCategory() != PrimitiveCategory.STRING)) {
-                throw new TrinoException(NOT_SUPPORTED, format("Column '%s' has a non-varchar map key, which is not supported by Avro", columnName));
+                throw new TrinoException(NOT_SUPPORTED, "Column '%s' has a non-varchar map key, which is not supported by Avro".formatted(columnName));
             }
         }
         else if (type.getCategory() == Category.PRIMITIVE) {
             PrimitiveCategory primitive = primitiveTypeInfo(type).getPrimitiveCategory();
             if (primitive == PrimitiveCategory.BYTE) {
-                throw new TrinoException(NOT_SUPPORTED, format("Column '%s' is tinyint, which is not supported by Avro. Use integer instead.", columnName));
+                throw new TrinoException(NOT_SUPPORTED, "Column '%s' is tinyint, which is not supported by Avro. Use integer instead.".formatted(columnName));
             }
             if (primitive == PrimitiveCategory.SHORT) {
-                throw new TrinoException(NOT_SUPPORTED, format("Column '%s' is smallint, which is not supported by Avro. Use integer instead.", columnName));
+                throw new TrinoException(NOT_SUPPORTED, "Column '%s' is smallint, which is not supported by Avro. Use integer instead.".formatted(columnName));
             }
         }
     }

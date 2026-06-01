@@ -31,7 +31,6 @@ import java.util.Map.Entry;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -168,9 +167,9 @@ public class TestJsonReader
         // anything is allowed after the array
         assertJsonValue("[]anything allowed", ImmutableList.of());
 
-        assertJsonValue("[ 2.34 ]", singletonList(new JsonString("2.34", false)));
-        assertJsonValue("[ NaN ]", singletonList(new JsonString("NaN", false)));
-        assertJsonValue("[ \"NaN\" ]", singletonList(new JsonString("NaN", true)));
+        assertJsonValue("[ 2.34 ]", List.of(new JsonString("2.34", false)));
+        assertJsonValue("[ NaN ]", List.of(new JsonString("NaN", false)));
+        assertJsonValue("[ \"NaN\" ]", List.of(new JsonString("NaN", true)));
 
         assertJsonValue("[ 2.34 , ]", Arrays.asList(new JsonString("2.34", false), null));
         assertJsonValue("[ NaN , ]", Arrays.asList(new JsonString("NaN", false), null));

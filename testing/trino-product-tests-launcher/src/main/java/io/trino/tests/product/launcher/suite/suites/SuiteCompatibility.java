@@ -34,7 +34,6 @@ import static io.trino.tests.product.TestGroups.HIVE_VIEW_COMPATIBILITY;
 import static io.trino.tests.product.TestGroups.ICEBERG_FORMAT_VERSION_COMPATIBILITY;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 import static java.lang.Integer.parseInt;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SuiteCompatibility
@@ -88,7 +87,7 @@ public class SuiteCompatibility
                 if (testVersion < FIRST_TRINO_VERSION) {
                     break;
                 }
-                testedTrinoVersions.add(new TestedImage(testVersion, format("%s:%s", TRINO_IMAGE, testVersion)));
+                testedTrinoVersions.add(new TestedImage(testVersion, "%s:%s".formatted(TRINO_IMAGE, testVersion)));
                 testVersion -= TESTED_VERSIONS_GRANULARITY;
             }
 
@@ -101,7 +100,7 @@ public class SuiteCompatibility
 
     private static List<TestedImage> testedPrestoDockerImages()
     {
-        return ImmutableList.of(new TestedImage(LAST_PRESTOSQL_VERSION, format("%s:%s", PRESTOSQL_IMAGE, LAST_PRESTOSQL_VERSION)));
+        return ImmutableList.of(new TestedImage(LAST_PRESTOSQL_VERSION, "%s:%s".formatted(PRESTOSQL_IMAGE, LAST_PRESTOSQL_VERSION)));
     }
 
     record TestedImage(int version, String image)

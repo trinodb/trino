@@ -40,7 +40,6 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 
 public final class BenchmarkParquetFormatUtils
@@ -132,16 +131,16 @@ public final class BenchmarkParquetFormatUtils
     {
         String humanReadableSpeed;
         if (bytesPerSecond < 1024 * 10L) {
-            humanReadableSpeed = format("%dB/s", bytesPerSecond);
+            humanReadableSpeed = "%dB/s".formatted(bytesPerSecond);
         }
         else if (bytesPerSecond < 1024 * 1024 * 10L) {
-            humanReadableSpeed = format("%.1fkB/s", bytesPerSecond / 1024.0f);
+            humanReadableSpeed = "%.1fkB/s".formatted(bytesPerSecond / 1024.0f);
         }
         else if (bytesPerSecond < 1024 * 1024 * 1024 * 10L) {
-            humanReadableSpeed = format("%.1fMB/s", bytesPerSecond / (1024.0f * 1024.0f));
+            humanReadableSpeed = "%.1fMB/s".formatted(bytesPerSecond / (1024.0f * 1024.0f));
         }
         else {
-            humanReadableSpeed = format("%.1fGB/s", bytesPerSecond / (1024.0f * 1024.0f * 1024.0f));
+            humanReadableSpeed = "%.1fGB/s".formatted(bytesPerSecond / (1024.0f * 1024.0f * 1024.0f));
         }
         return humanReadableSpeed;
     }

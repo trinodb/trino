@@ -32,7 +32,6 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -72,10 +71,10 @@ public class TestDeltaLakeViewsGlueMetastore
         String viewName = "test_glue_view_" + randomNameSuffix();
         try (TestTable table = newTrinoTable(tableName, "AS SELECT 'test' x");
                 TestView view = new TestView(getQueryRunner()::execute, viewName, "SELECT * FROM " + table.getName())) {
-            assertQuery(format("SELECT * FROM %s", view.getName()), "VALUES 'test'");
-            assertQuery(format("SELECT table_type FROM information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", view.getName(), schema), "VALUES 'VIEW'");
+            assertQuery("SELECT * FROM %s".formatted(view.getName()), "VALUES 'test'");
+            assertQuery("SELECT table_type FROM information_schema.tables WHERE table_name = '%s' AND table_schema='%s'".formatted(view.getName(), schema), "VALUES 'VIEW'");
             // Ensure all relations are being listed
-            assertQuery(format("SELECT table_type FROM information_schema.tables WHERE table_name LIKE '%%%s' AND table_schema='%s'", view.getName(), schema), "VALUES 'VIEW'");
+            assertQuery("SELECT table_type FROM information_schema.tables WHERE table_name LIKE '%%%s' AND table_schema='%s'".formatted(view.getName(), schema), "VALUES 'VIEW'");
         }
     }
 }

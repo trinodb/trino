@@ -21,7 +21,6 @@ import org.intellij.lang.annotations.Language;
 import java.util.List;
 import java.util.Map;
 
-import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
 public class TestIcebergDynamicPartitionPruningTest
@@ -41,8 +40,7 @@ public class TestIcebergDynamicPartitionPruningTest
     @Override
     protected void createLineitemTable(String tableName, List<String> columns, List<String> partitionColumns)
     {
-        @Language("SQL") String sql = format(
-                "CREATE TABLE %s WITH (partitioning=array[%s]) AS SELECT %s FROM tpch.tiny.lineitem",
+        @Language("SQL") String sql = "CREATE TABLE %s WITH (partitioning=array[%s]) AS SELECT %s FROM tpch.tiny.lineitem".formatted(
                 tableName,
                 partitionColumns.stream().map(column -> "'" + column + "'").collect(joining(",")),
                 String.join(",", columns));
@@ -52,8 +50,7 @@ public class TestIcebergDynamicPartitionPruningTest
     @Override
     protected void createPartitionedTable(String tableName, List<String> columns, List<String> partitionColumns)
     {
-        @Language("SQL") String sql = format(
-                "CREATE TABLE %s (%s) WITH (partitioning=array[%s])",
+        @Language("SQL") String sql = "CREATE TABLE %s (%s) WITH (partitioning=array[%s])".formatted(
                 tableName,
                 String.join(",", columns),
                 partitionColumns.stream().map(column -> "'" + column + "'").collect(joining(",")));
@@ -67,8 +64,7 @@ public class TestIcebergDynamicPartitionPruningTest
         partitionColumns.forEach(partitioning::add);
         bucketColumns.forEach(column -> partitioning.add("bucket(%s,10)".formatted(column)));
 
-        String sql = format(
-                "CREATE TABLE %s (%s) WITH (partitioning=ARRAY[%s])",
+        String sql = "CREATE TABLE %s (%s) WITH (partitioning=ARRAY[%s])".formatted(
                 tableName,
                 String.join(",", columns),
                 String.join(",", partitioning.build().stream().map("'%s'"::formatted).toList()));

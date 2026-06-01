@@ -33,7 +33,6 @@ import static io.trino.plugin.mysql.TestingMySqlServer.LEGACY_IMAGE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -106,7 +105,7 @@ public class TestMySqlLegacyConnectorTest
     {
         // Create a table with CHARACTER SET utf8mb4 option in MySQL side to insert unicode values
         List<String> rows = Stream.of("a", "b", "A", "B", " a ", "a", "b", " b ", "ą")
-                .map(value -> format("'%1$s', '%1$s'", value))
+                .map(value -> "'%1$s', '%1$s'".formatted(value))
                 .collect(toImmutableList());
 
         try (TestTable testTable = new TestTable(onRemoteDatabase(), "tpch.distinct_strings", "(t_char CHAR(5) CHARACTER SET utf8mb4, t_varchar VARCHAR(5) CHARACTER SET utf8mb4)", rows)) {

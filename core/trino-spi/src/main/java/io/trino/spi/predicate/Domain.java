@@ -23,7 +23,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.instanceSize;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -257,10 +256,10 @@ public final class Domain
     private void checkCompatibility(Domain domain)
     {
         if (!getType().equals(domain.getType())) {
-            throw new IllegalArgumentException(format("Mismatched Domain types: %s vs %s", getType(), domain.getType()));
+            throw new IllegalArgumentException("Mismatched Domain types: %s vs %s".formatted(getType(), domain.getType()));
         }
         if (values.getClass() != domain.values.getClass()) {
-            throw new IllegalArgumentException(format("Mismatched Domain value set classes: %s vs %s", values.getClass(), domain.values.getClass()));
+            throw new IllegalArgumentException("Mismatched Domain value set classes: %s vs %s".formatted(values.getClass(), domain.values.getClass()));
         }
     }
 

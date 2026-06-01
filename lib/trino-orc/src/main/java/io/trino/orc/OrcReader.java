@@ -13,7 +13,6 @@
  */
 package io.trino.orc;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.FormatMethod;
@@ -60,6 +59,7 @@ import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
 import static org.joda.time.DateTimeZone.UTC;
@@ -391,7 +391,7 @@ public class OrcReader
             if (major > CURRENT_MAJOR_VERSION || (major == CURRENT_MAJOR_VERSION && minor > CURRENT_MINOR_VERSION)) {
                 log.warn("ORC file %s was written by a newer Hive version %s. This file may not be readable by this version of Hive (%s.%s).",
                         orcDataSource,
-                        Joiner.on('.').join(version),
+                        version.stream().map(Object::toString).collect(joining(".")),
                         CURRENT_MAJOR_VERSION,
                         CURRENT_MINOR_VERSION);
             }

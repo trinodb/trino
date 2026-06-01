@@ -24,7 +24,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -52,7 +51,7 @@ public class TestJsonCassandraHandles
                             ImmutableMap.of(
                                     "key", "a2V5",
                                     "partitionId", "partitionKey1 = 11 AND partitionKey2 = 22",
-                                    "tupleDomain", ImmutableMap.of("columnDomains", Collections.emptyList()),
+                                    "tupleDomain", ImmutableMap.of("columnDomains", List.of()),
                                     "indexedColumnPredicatePushdown", true)),
                     "clusteringKeyPredicates", "clusteringKey1 = 33"));
 

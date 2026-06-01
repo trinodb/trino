@@ -44,7 +44,6 @@ import static io.trino.orc.OrcTester.READER_OPTIONS;
 import static io.trino.orc.OrcTester.writeOrcColumnsHiveFile;
 import static io.trino.orc.metadata.CompressionKind.ZLIB;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -228,7 +227,7 @@ public class TestCachingOrcDataSource
                 .describedAs("expectedType is null")
                 .isNotNull();
         if (expectedType.isInstance(actual)) {
-            fail(format("expected:<%s> to not be an instance of <%s>", actual, expectedType.getName()));
+            fail("expected:<%s> to not be an instance of <%s>".formatted(actual, expectedType.getName()));
         }
     }
 

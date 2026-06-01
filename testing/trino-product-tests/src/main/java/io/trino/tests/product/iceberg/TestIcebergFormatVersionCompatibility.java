@@ -26,7 +26,6 @@ import static io.trino.tests.product.TestGroups.ICEBERG_FORMAT_VERSION_COMPATIBI
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onCompatibilityTestServer;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergFormatVersionCompatibility
@@ -36,24 +35,24 @@ public class TestIcebergFormatVersionCompatibility
     public void testTrinoTimeTravelReadTableCreatedByEarlyVersionTrino()
     {
         String baseTableName = "test_trino_time_travel_read_table_created_by_early_version_trino_" + randomNameSuffix();
-        String tableName = format("iceberg.default.%s", baseTableName);
-        String snapshotsTableName = format("iceberg.default.\"%s$snapshots\"", baseTableName);
+        String tableName = "iceberg.default.%s".formatted(baseTableName);
+        String snapshotsTableName = "iceberg.default.\"%s$snapshots\"".formatted(baseTableName);
 
-        onCompatibilityTestServer().executeQuery(format("CREATE TABLE %s (c VARCHAR)", tableName));
-        onCompatibilityTestServer().executeQuery(format("INSERT INTO %s VALUES 'a', 'b', 'c';", tableName));
+        onCompatibilityTestServer().executeQuery("CREATE TABLE %s (c VARCHAR)".formatted(tableName));
+        onCompatibilityTestServer().executeQuery("INSERT INTO %s VALUES 'a', 'b', 'c';".formatted(tableName));
 
         long latestSnapshotId = (long) onCompatibilityTestServer()
-                .executeQuery(format("SELECT snapshot_id FROM %s ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", snapshotsTableName))
+                .executeQuery("SELECT snapshot_id FROM %s ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES".formatted(snapshotsTableName))
                 .getOnlyValue();
-        assertThat(onTrino().executeQuery(format("SELECT snapshot_id FROM %s ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", snapshotsTableName)))
+        assertThat(onTrino().executeQuery("SELECT snapshot_id FROM %s ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES".formatted(snapshotsTableName)))
                 .containsOnly(row(latestSnapshotId));
 
-        List<QueryAssert.Row> expected = onCompatibilityTestServer().executeQuery(format("SELECT * FROM %s", tableName)).rows().stream()
+        List<QueryAssert.Row> expected = onCompatibilityTestServer().executeQuery("SELECT * FROM %s".formatted(tableName)).rows().stream()
                 .map(row -> row(row.toArray()))
                 .collect(toImmutableList());
         assertThat(expected).hasSize(3);
-        assertThat(onTrino().executeQuery(format("SELECT * FROM %s FOR VERSION AS OF %d", tableName, latestSnapshotId))).containsOnly(expected);
+        assertThat(onTrino().executeQuery("SELECT * FROM %s FOR VERSION AS OF %d".formatted(tableName, latestSnapshotId))).containsOnly(expected);
 
-        onCompatibilityTestServer().executeQuery(format("DROP TABLE %s", tableName));
+        onCompatibilityTestServer().executeQuery("DROP TABLE %s".formatted(tableName));
     }
 }

@@ -49,7 +49,6 @@ import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -343,7 +342,7 @@ public class TestQueues
                     .describedAs("Query should have a resource group")
                     .isTrue();
             assertThat(resourceGroupId.get())
-                    .describedAs(format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId.get()))
+                    .describedAs("Expected: '%s' resource group, found: %s".formatted(expectedResourceGroup, resourceGroupId.get()))
                     .isEqualTo(expectedResourceGroup);
         }
         finally {

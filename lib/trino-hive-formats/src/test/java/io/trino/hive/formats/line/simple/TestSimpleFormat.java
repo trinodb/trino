@@ -100,7 +100,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Collections.singletonMap;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
 import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMNS;
@@ -348,7 +347,7 @@ public class TestSimpleFormat
                         .put("b", 7L)
                         .buildOrThrow());
 
-        assertValue(mapType, "keyOnly", singletonMap("keyOnly", null));
+        assertValue(mapType, "keyOnly", Map.of("keyOnly", null));
 
         Map<Object, Object> expectedValue = new HashMap<>();
         expectedValue.put(1L, "a");
@@ -1220,14 +1219,14 @@ public class TestSimpleFormat
         internalAssertValueTrino(
                 new MapType(BIGINT, type, TYPE_OPERATORS),
                 "1234\3" + increaseDepth(value, 2, textEncodingOptions.getEscapeByte()),
-                singletonMap(1234L, expectedValue),
+                Map.of(1234L, expectedValue),
                 textEncodingOptions,
                 verifyByteForByte);
         if (expectedValue != null) {
             internalAssertValueTrino(
                     new MapType(type, BIGINT, TYPE_OPERATORS),
                     increaseDepth(value, 2, textEncodingOptions.getEscapeByte()) + "\3" + "1234",
-                    singletonMap(expectedValue, 1234L),
+                    Map.of(expectedValue, 1234L),
                     textEncodingOptions,
                     verifyByteForByte);
         }

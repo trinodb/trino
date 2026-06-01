@@ -52,7 +52,6 @@ import static io.trino.plugin.pinot.query.PinotPatterns.transformFunction;
 import static io.trino.plugin.pinot.query.PinotPatterns.transformFunctionType;
 import static io.trino.plugin.pinot.query.PinotSqlFormatter.getColumnHandle;
 import static io.trino.plugin.pinot.query.PinotTransformFunctionTypeResolver.getTransformFunctionType;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.pinot.common.function.TransformFunctionType.DATE_TIME_CONVERT;
@@ -142,7 +141,7 @@ public class PinotExpressionRewriter
         if (result.isPresent()) {
             return result.get();
         }
-        throw new PinotException(PINOT_EXCEPTION, Optional.empty(), format("Unsupported function expression '%s'", functionContext));
+        throw new PinotException(PINOT_EXCEPTION, Optional.empty(), "Unsupported function expression '%s'".formatted(functionContext));
     }
 
     private static <T> Optional<T> applyRule(RewriteRule<T> rule, T object, Context context)

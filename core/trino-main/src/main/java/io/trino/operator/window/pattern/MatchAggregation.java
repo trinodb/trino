@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -175,7 +174,7 @@ public class MatchAggregation
             accumulatorCopy = accumulator.copy();
         }
         catch (UnsupportedOperationException e) {
-            throw new TrinoException(NOT_SUPPORTED, format("aggregate function %s does not support copying", boundSignature.getName()), e);
+            throw new TrinoException(NOT_SUPPORTED, "aggregate function %s does not support copying".formatted(boundSignature.getName()), e);
         }
 
         return new MatchAggregation(boundSignature, mappedWindowIndex, accumulatorFactory, setEvaluator.copy(), accumulatorCopy, memoryContextSupplier);

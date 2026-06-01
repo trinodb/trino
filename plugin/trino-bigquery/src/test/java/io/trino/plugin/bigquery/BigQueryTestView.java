@@ -16,7 +16,6 @@ package io.trino.plugin.bigquery;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TemporaryRelation;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class BigQueryTestView
@@ -31,7 +30,7 @@ public class BigQueryTestView
         this.sqlExecutor = requireNonNull(sqlExecutor, "sqlExecutor is null");
         this.relation = requireNonNull(relation, "relation is null");
         this.viewName = relation.getName() + "_view";
-        sqlExecutor.execute(format("CREATE VIEW %s AS SELECT * FROM %s", viewName, relation.getName()));
+        sqlExecutor.execute("CREATE VIEW %s AS SELECT * FROM %s".formatted(viewName, relation.getName()));
     }
 
     @Override

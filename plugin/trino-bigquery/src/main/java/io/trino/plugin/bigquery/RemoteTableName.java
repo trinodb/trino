@@ -16,7 +16,6 @@ package io.trino.plugin.bigquery;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.storage.v1.TableName;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public record RemoteTableName(
@@ -49,6 +48,6 @@ public record RemoteTableName(
     @Override
     public String toString()
     {
-        return format("%s.%s.%s", projectId, datasetName, tableName);
+        return "%s.%s.%s".formatted(projectId, datasetName, tableName);
     }
 }

@@ -34,7 +34,6 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -82,16 +81,16 @@ public abstract class BaseDeltaLakeSharedMetastoreViewsTest
     public void testViewWithLiteralColumnCreatedInDeltaLakeIsReadableInHive()
     {
         String deltaViewName = "delta_view_" + randomNameSuffix();
-        String deltaView = format("%s.%s.%s", DELTA_CATALOG_NAME, SCHEMA, deltaViewName);
-        String deltaViewOnHiveCatalog = format("%s.%s.%s", HIVE_CATALOG_NAME, SCHEMA, deltaViewName);
+        String deltaView = "%s.%s.%s".formatted(DELTA_CATALOG_NAME, SCHEMA, deltaViewName);
+        String deltaViewOnHiveCatalog = "%s.%s.%s".formatted(HIVE_CATALOG_NAME, SCHEMA, deltaViewName);
         try {
-            assertUpdate(format("CREATE VIEW %s AS SELECT 1 bee", deltaView));
-            assertQuery(format("SELECT * FROM %s", deltaView), "VALUES 1");
-            assertQuery(format("SELECT * FROM %s", deltaViewOnHiveCatalog), "VALUES 1");
-            assertQuery(format("SELECT table_type FROM %s.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", HIVE_CATALOG_NAME, deltaViewName, SCHEMA), "VALUES 'VIEW'");
+            assertUpdate("CREATE VIEW %s AS SELECT 1 bee".formatted(deltaView));
+            assertQuery("SELECT * FROM %s".formatted(deltaView), "VALUES 1");
+            assertQuery("SELECT * FROM %s".formatted(deltaViewOnHiveCatalog), "VALUES 1");
+            assertQuery("SELECT table_type FROM %s.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'".formatted(HIVE_CATALOG_NAME, deltaViewName, SCHEMA), "VALUES 'VIEW'");
         }
         finally {
-            assertUpdate(format("DROP VIEW IF EXISTS %s", deltaView));
+            assertUpdate("DROP VIEW IF EXISTS %s".formatted(deltaView));
         }
     }
 
@@ -99,20 +98,20 @@ public abstract class BaseDeltaLakeSharedMetastoreViewsTest
     public void testViewOnDeltaLakeTableCreatedInDeltaLakeIsReadableInHive()
     {
         String deltaTableName = "delta_table_" + randomNameSuffix();
-        String deltaTable = format("%s.%s.%s", DELTA_CATALOG_NAME, SCHEMA, deltaTableName);
+        String deltaTable = "%s.%s.%s".formatted(DELTA_CATALOG_NAME, SCHEMA, deltaTableName);
         String deltaViewName = "delta_view_" + randomNameSuffix();
-        String deltaView = format("%s.%s.%s", DELTA_CATALOG_NAME, SCHEMA, deltaViewName);
-        String deltaViewOnHiveCatalog = format("%s.%s.%s", HIVE_CATALOG_NAME, SCHEMA, deltaViewName);
+        String deltaView = "%s.%s.%s".formatted(DELTA_CATALOG_NAME, SCHEMA, deltaViewName);
+        String deltaViewOnHiveCatalog = "%s.%s.%s".formatted(HIVE_CATALOG_NAME, SCHEMA, deltaViewName);
         try {
-            assertUpdate(format("CREATE TABLE %s AS SELECT 1 bee", deltaTable), 1);
-            assertUpdate(format("CREATE VIEW %s AS SELECT * from %s", deltaView, deltaTable));
-            assertQuery(format("SELECT * FROM %s", deltaView), "VALUES 1");
-            assertQuery(format("SELECT * FROM %s", deltaViewOnHiveCatalog), "VALUES 1");
-            assertQuery(format("SELECT table_type FROM %s.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", HIVE_CATALOG_NAME, deltaViewName, SCHEMA), "VALUES 'VIEW'");
+            assertUpdate("CREATE TABLE %s AS SELECT 1 bee".formatted(deltaTable), 1);
+            assertUpdate("CREATE VIEW %s AS SELECT * from %s".formatted(deltaView, deltaTable));
+            assertQuery("SELECT * FROM %s".formatted(deltaView), "VALUES 1");
+            assertQuery("SELECT * FROM %s".formatted(deltaViewOnHiveCatalog), "VALUES 1");
+            assertQuery("SELECT table_type FROM %s.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'".formatted(HIVE_CATALOG_NAME, deltaViewName, SCHEMA), "VALUES 'VIEW'");
         }
         finally {
-            assertUpdate(format("DROP TABLE IF EXISTS %s", deltaTable));
-            assertUpdate(format("DROP VIEW IF EXISTS %s", deltaView));
+            assertUpdate("DROP TABLE IF EXISTS %s".formatted(deltaTable));
+            assertUpdate("DROP VIEW IF EXISTS %s".formatted(deltaView));
         }
     }
 
@@ -120,16 +119,16 @@ public abstract class BaseDeltaLakeSharedMetastoreViewsTest
     public void testViewWithLiteralColumnCreatedInHiveIsReadableInDeltaLake()
     {
         String trinoViewOnHiveName = "trino_view_on_hive_" + randomNameSuffix();
-        String trinoViewOnHive = format("%s.%s.%s", HIVE_CATALOG_NAME, SCHEMA, trinoViewOnHiveName);
-        String trinoViewOnHiveOnDeltaCatalog = format("%s.%s.%s", DELTA_CATALOG_NAME, SCHEMA, trinoViewOnHiveName);
+        String trinoViewOnHive = "%s.%s.%s".formatted(HIVE_CATALOG_NAME, SCHEMA, trinoViewOnHiveName);
+        String trinoViewOnHiveOnDeltaCatalog = "%s.%s.%s".formatted(DELTA_CATALOG_NAME, SCHEMA, trinoViewOnHiveName);
         try {
-            assertUpdate(format("CREATE VIEW %s AS SELECT 1 bee", trinoViewOnHive));
-            assertQuery(format("SELECT * FROM %s", trinoViewOnHive), "VALUES 1");
-            assertQuery(format("SELECT * FROM %s", trinoViewOnHiveOnDeltaCatalog), "VALUES 1");
-            assertQuery(format("SELECT table_type FROM %s.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", HIVE_CATALOG_NAME, trinoViewOnHiveName, SCHEMA), "VALUES 'VIEW'");
+            assertUpdate("CREATE VIEW %s AS SELECT 1 bee".formatted(trinoViewOnHive));
+            assertQuery("SELECT * FROM %s".formatted(trinoViewOnHive), "VALUES 1");
+            assertQuery("SELECT * FROM %s".formatted(trinoViewOnHiveOnDeltaCatalog), "VALUES 1");
+            assertQuery("SELECT table_type FROM %s.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'".formatted(HIVE_CATALOG_NAME, trinoViewOnHiveName, SCHEMA), "VALUES 'VIEW'");
         }
         finally {
-            assertUpdate(format("DROP VIEW IF EXISTS %s", trinoViewOnHive));
+            assertUpdate("DROP VIEW IF EXISTS %s".formatted(trinoViewOnHive));
         }
     }
 
@@ -137,23 +136,23 @@ public abstract class BaseDeltaLakeSharedMetastoreViewsTest
     public void testViewOnHiveTableCreatedInHiveIsReadableInDeltaLake()
     {
         String hiveTableName = "hive_table_" + randomNameSuffix();
-        String hiveTable = format("%s.%s.%s", HIVE_CATALOG_NAME, SCHEMA, hiveTableName);
+        String hiveTable = "%s.%s.%s".formatted(HIVE_CATALOG_NAME, SCHEMA, hiveTableName);
         String trinoViewOnHiveName = "trino_view_on_hive_" + randomNameSuffix();
-        String trinoViewOnHive = format("%s.%s.%s", HIVE_CATALOG_NAME, SCHEMA, trinoViewOnHiveName);
-        String trinoViewOnHiveOnDeltaCatalog = format("%s.%s.%s", DELTA_CATALOG_NAME, SCHEMA, trinoViewOnHiveName);
+        String trinoViewOnHive = "%s.%s.%s".formatted(HIVE_CATALOG_NAME, SCHEMA, trinoViewOnHiveName);
+        String trinoViewOnHiveOnDeltaCatalog = "%s.%s.%s".formatted(DELTA_CATALOG_NAME, SCHEMA, trinoViewOnHiveName);
         try {
-            assertUpdate(format("CREATE TABLE %s AS SELECT 1 bee", hiveTable), 1);
-            assertUpdate(format("CREATE VIEW %s AS SELECT 1 bee", trinoViewOnHive));
-            assertQuery(format("SELECT * FROM %s", trinoViewOnHive), "VALUES 1");
-            assertQuery(format("SELECT * FROM %s", trinoViewOnHiveOnDeltaCatalog), "VALUES 1");
-            assertQuery(format("SELECT table_type FROM %s.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", DELTA_CATALOG_NAME, trinoViewOnHiveName, SCHEMA), "VALUES 'VIEW'");
+            assertUpdate("CREATE TABLE %s AS SELECT 1 bee".formatted(hiveTable), 1);
+            assertUpdate("CREATE VIEW %s AS SELECT 1 bee".formatted(trinoViewOnHive));
+            assertQuery("SELECT * FROM %s".formatted(trinoViewOnHive), "VALUES 1");
+            assertQuery("SELECT * FROM %s".formatted(trinoViewOnHiveOnDeltaCatalog), "VALUES 1");
+            assertQuery("SELECT table_type FROM %s.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'".formatted(DELTA_CATALOG_NAME, trinoViewOnHiveName, SCHEMA), "VALUES 'VIEW'");
             assertQuery(
-                    format("SELECT table_name FROM %s.information_schema.columns WHERE table_name = '%s' AND table_schema='%s'", DELTA_CATALOG_NAME, trinoViewOnHiveName, SCHEMA),
+                    "SELECT table_name FROM %s.information_schema.columns WHERE table_name = '%s' AND table_schema='%s'".formatted(DELTA_CATALOG_NAME, trinoViewOnHiveName, SCHEMA),
                     "VALUES '" + trinoViewOnHiveName + "'");
         }
         finally {
-            assertUpdate(format("DROP TABLE IF EXISTS %s", hiveTable));
-            assertUpdate(format("DROP VIEW IF EXISTS %s", trinoViewOnHive));
+            assertUpdate("DROP TABLE IF EXISTS %s".formatted(hiveTable));
+            assertUpdate("DROP VIEW IF EXISTS %s".formatted(trinoViewOnHive));
         }
     }
 
@@ -166,7 +165,7 @@ public abstract class BaseDeltaLakeSharedMetastoreViewsTest
         assertUpdate("CREATE SCHEMA %s.%s".formatted(HIVE_CATALOG_NAME, schemaName));
         try {
             assertUpdate("CREATE TABLE %s.%s.%s(id BIGINT)".formatted(HIVE_CATALOG_NAME, schemaName, tableName));
-            assertThat(computeScalar(format("SHOW TABLES FROM %s LIKE '%s'", schemaName, tableName))).isEqualTo(tableName);
+            assertThat(computeScalar("SHOW TABLES FROM %s LIKE '%s'".formatted(schemaName, tableName))).isEqualTo(tableName);
             assertQueryFails("DESCRIBE " + schemaName + "." + tableName, ".* is not a Delta Lake table");
         }
         finally {

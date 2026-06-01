@@ -23,7 +23,6 @@ import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 
 public class TimestampDecoder
@@ -41,8 +40,7 @@ public class TimestampDecoder
             if (value instanceof String stringValue) {
                 timestamp = PinotTimestamps.tryParse(stringValue);
                 if (timestamp == null) {
-                    throw new TrinoException(NOT_SUPPORTED, format(
-                            "Unable to parse string representation of type TIMESTAMP: %s [%s]",
+                    throw new TrinoException(NOT_SUPPORTED, "Unable to parse string representation of type TIMESTAMP: %s [%s]".formatted(
                             value,
                             value.getClass().getSimpleName()));
                 }
@@ -51,8 +49,7 @@ public class TimestampDecoder
                 timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(((Number) value).longValue()), UTC);
             }
             else {
-                throw new TrinoException(NOT_SUPPORTED, format(
-                        "Unsupported representation of type TIMESTAMP: %s [%s]",
+                throw new TrinoException(NOT_SUPPORTED, "Unsupported representation of type TIMESTAMP: %s [%s]".formatted(
                         value,
                         value.getClass().getSimpleName()));
             }

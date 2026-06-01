@@ -29,7 +29,6 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeTimeTravelCompatibility
@@ -41,8 +40,7 @@ public class TestDeltaLakeTimeTravelCompatibility
         String tableName = "test_dl_time_travel_restore_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onTrino().executeQuery(format(
-                "CREATE TABLE delta.default.%s (a_integer integer) WITH (location = 's3://%s/%s')",
+        onTrino().executeQuery("CREATE TABLE delta.default.%s (a_integer integer) WITH (location = 's3://%s/%s')".formatted(
                 tableName,
                 bucketName,
                 tableDirectory));

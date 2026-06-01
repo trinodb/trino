@@ -102,7 +102,6 @@ import static io.trino.plugin.iceberg.IcebergSchemaProperties.SUPPORTED_SCHEMA_P
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.ICEBERG_VIEW_RUN_AS_OWNER;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -392,7 +391,7 @@ public class TrinoRestCatalog
             log.debug(e, "Failed to list tables from %s namespace because of insufficient permissions", restNamespace);
         }
         catch (RESTException e) {
-            throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to list tables from namespace: %s", restNamespace), e);
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to list tables from namespace: %s".formatted(restNamespace), e);
         }
         return ImmutableList.of();
     }
@@ -528,7 +527,7 @@ public class TrinoRestCatalog
             fileSystem.deleteDirectory(Location.of(tableLocation));
         }
         catch (IOException e) {
-            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("Failed to delete directory %s of the table %s", tableLocation, schemaTableName), e);
+            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to delete directory %s of the table %s".formatted(tableLocation, schemaTableName), e);
         }
     }
 
@@ -559,7 +558,7 @@ public class TrinoRestCatalog
             restSessionCatalog.renameTable(convert(session), toRemoteTable(session, from, true), toRemoteTable(session, to, true));
         }
         catch (RESTException e) {
-            throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to rename table %s to %s", from, to), e);
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to rename table %s to %s".formatted(from, to), e);
         }
         invalidateTableCache(from);
         invalidateTableMappingCache(from);
@@ -589,7 +588,7 @@ public class TrinoRestCatalog
             if (e.getCause() instanceof NoSuchTableException) {
                 throw new TableNotFoundException(schemaTableName, e.getCause());
             }
-            throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to load table: %s in %s namespace", schemaTableName.getTableName(), namespace), e.getCause());
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to load table: %s in %s namespace".formatted(schemaTableName.getTableName(), namespace), e.getCause());
         }
     }
 
@@ -893,7 +892,7 @@ public class TrinoRestCatalog
         return switch (sessionType) {
             case NONE -> new SessionContext(randomUUID().toString(), null, credentials, ImmutableMap.of(), session.getIdentity());
             case USER -> {
-                String sessionId = format("%s-%s-%s", session.getUser(), session.getQueryId(), session.getSource().orElse("default"));
+                String sessionId = "%s-%s-%s".formatted(session.getUser(), session.getQueryId(), session.getSource().orElse("default"));
 
                 Map<String, String> properties = ImmutableMap.of(
                         "user", session.getUser(),

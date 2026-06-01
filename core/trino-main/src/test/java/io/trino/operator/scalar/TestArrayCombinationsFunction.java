@@ -32,7 +32,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -143,7 +142,7 @@ public class TestArrayCombinationsFunction
         for (int n = 0; n < 5; n++) {
             for (int k = 0; k <= n; k++) {
                 String array = "ARRAY" + ContiguousSet.closedOpen(0, n).asList();
-                assertThat(assertions.expression(format("cardinality(combinations(%s, %s))", array, k)))
+                assertThat(assertions.expression("cardinality(combinations(%s, %s))".formatted(array, k)))
                         .hasType(BIGINT)
                         .isEqualTo(factorial(n) / factorial(n - k) / factorial(k));
             }

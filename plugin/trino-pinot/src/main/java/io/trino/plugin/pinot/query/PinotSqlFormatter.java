@@ -72,7 +72,6 @@ import static io.trino.plugin.pinot.query.PinotPatterns.transformFunction;
 import static io.trino.plugin.pinot.query.PinotPatterns.transformFunctionName;
 import static io.trino.plugin.pinot.query.PinotPatterns.transformFunctionType;
 import static io.trino.plugin.pinot.query.PinotTransformFunctionTypeResolver.getTransformFunctionType;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.pinot.common.function.TransformFunctionType.CASE;
@@ -153,7 +152,7 @@ public class PinotSqlFormatter
         if (result.isPresent()) {
             return result.get();
         }
-        throw new PinotException(PINOT_INVALID_PQL_GENERATED, Optional.empty(), format("Unexpected filter type: '%s'", filterContext.getType()));
+        throw new PinotException(PINOT_INVALID_PQL_GENERATED, Optional.empty(), "Unexpected filter type: '%s'".formatted(filterContext.getType()));
     }
 
     private static String formatPredicate(Predicate predicate, Context context)
@@ -169,7 +168,7 @@ public class PinotSqlFormatter
         if (result.isPresent()) {
             return result.get();
         }
-        throw new PinotException(PINOT_EXCEPTION, Optional.empty(), format("Unsupported predicate type '%s'", predicate.getType()));
+        throw new PinotException(PINOT_EXCEPTION, Optional.empty(), "Unsupported predicate type '%s'".formatted(predicate.getType()));
     }
 
     public static String formatExpression(SchemaTableName schemaTableName, ExpressionContext expressionContext)
@@ -238,7 +237,7 @@ public class PinotSqlFormatter
         if (result.isPresent()) {
             return result.get();
         }
-        throw new PinotException(PINOT_EXCEPTION, Optional.empty(), format("Unsupported function expression '%s'", functionContext));
+        throw new PinotException(PINOT_EXCEPTION, Optional.empty(), "Unsupported function expression '%s'".formatted(functionContext));
     }
 
     private static <T> Optional<String> applyRule(Rule<T> rule, T object, Context context)
@@ -328,7 +327,7 @@ public class PinotSqlFormatter
         {
             FilterContext.Type filterType = captures.get(FILTER_TYPE);
             List<FilterContext> childFilters = captures.get(CHILD_FILTERS);
-            return format("%s(%s)", filterType.name(), childFilters.stream()
+            return "%s(%s)".formatted(filterType.name(), childFilters.stream()
                     .map(filterContext -> formatFilter(filterContext, context))
                     .collect(joining(", ")));
         }
@@ -385,7 +384,7 @@ public class PinotSqlFormatter
             ExpressionContext first = captures.get(FIRST_ARGUMENT);
             ExpressionContext second = captures.get(SECOND_ARGUMENT);
             String operator = captures.get(BINARY_OPERATOR_NAME);
-            return format("(%s) %s (%s)", formatExpression(first, context), operator, formatExpression(second, context));
+            return "(%s) %s (%s)".formatted(formatExpression(first, context), operator, formatExpression(second, context));
         }
     }
 
@@ -412,7 +411,7 @@ public class PinotSqlFormatter
             ExpressionContext predicateExpression = captures.get(PREDICATE_EXPRESSION);
             String singleValue = captures.get(BINARY_OPERATOR_VALUE);
             String operator = captures.get(BINARY_OPERATOR_NAME);
-            return format("(%s) %s %s", formatExpression(predicateExpression, context), operator, singleQuoteValue(singleValue));
+            return "(%s) %s %s".formatted(formatExpression(predicateExpression, context), operator, singleQuoteValue(singleValue));
         }
     }
 
@@ -446,7 +445,7 @@ public class PinotSqlFormatter
         {
             ExpressionContext predicateExpression = captures.get(PREDICATE_EXPRESSION);
             List<String> values = captures.get(VALUES_LIST);
-            return format("%s %s (%s)", formatExpression(predicateExpression, context), operator, singleQuoteValues(values));
+            return "%s %s (%s)".formatted(formatExpression(predicateExpression, context), operator, singleQuoteValues(values));
         }
     }
 
@@ -475,11 +474,11 @@ public class PinotSqlFormatter
             // Single value range should have been rewritten in formatBinaryOperatorPredicate
             checkState(!rangePredicate.getLowerBound().equals(UNBOUNDED) && !rangePredicate.getUpperBound().equals(UNBOUNDED), "Unexpected range predicate '%s'", rangePredicate);
             if (rangePredicate.isUpperInclusive() && rangePredicate.isLowerInclusive()) {
-                return format("(%s) BETWEEN %s AND %s", expression, singleQuoteValue(rangePredicate.getLowerBound()), singleQuoteValue(rangePredicate.getUpperBound()));
+                return "(%s) BETWEEN %s AND %s".formatted(expression, singleQuoteValue(rangePredicate.getLowerBound()), singleQuoteValue(rangePredicate.getUpperBound()));
             }
             String leftOperator = rangePredicate.isLowerInclusive() ? ">=" : ">";
             String rightOperator = rangePredicate.isUpperInclusive() ? "<=" : "<";
-            return format("(%1$s) %2$s %3$s AND (%1$s) %4$s %5$s", expression, leftOperator, singleQuoteValue(rangePredicate.getLowerBound()), rightOperator, singleQuoteValue(rangePredicate.getUpperBound()));
+            return "(%1$s) %2$s %3$s AND (%1$s) %4$s %5$s".formatted(expression, leftOperator, singleQuoteValue(rangePredicate.getLowerBound()), rightOperator, singleQuoteValue(rangePredicate.getUpperBound()));
         }
     }
 
@@ -513,7 +512,7 @@ public class PinotSqlFormatter
         {
             String value = captures.get(BINARY_FUNCTION_VALUE);
             ExpressionContext predicateExpression = captures.get(PREDICATE_EXPRESSION);
-            return format("%s(%s, %s)", functionName, formatExpression(predicateExpression, context), singleQuoteValue(value));
+            return "%s(%s, %s)".formatted(functionName, formatExpression(predicateExpression, context), singleQuoteValue(value));
         }
     }
 
@@ -544,7 +543,7 @@ public class PinotSqlFormatter
         public String formatToSql(Predicate object, Captures captures, Context context)
         {
             ExpressionContext predicateExpression = captures.get(PREDICATE_EXPRESSION);
-            return format("%s %s", formatExpression(predicateExpression, context), operator);
+            return "%s %s".formatted(formatExpression(predicateExpression, context), operator);
         }
     }
 
@@ -571,7 +570,7 @@ public class PinotSqlFormatter
         {
             ExpressionContext first = captures.get(FIRST_ARGUMENT);
             ExpressionContext second = captures.get(SECOND_ARGUMENT);
-            return format("%s - %s", formatExpression(first, context), formatExpression(second, context));
+            return "%s - %s".formatted(formatExpression(first, context), formatExpression(second, context));
         }
     }
 
@@ -599,7 +598,7 @@ public class PinotSqlFormatter
             ExpressionContext first = captures.get(FIRST_ARGUMENT);
             // Pinot interprets the second argument as a literal instead of a type
             ExpressionContext second = captures.get(SECOND_ARGUMENT);
-            return format("CAST(%s AS %s)", formatExpression(first, context), stripQuotes(formatExpression(second, context)));
+            return "CAST(%s AS %s)".formatted(formatExpression(first, context), stripQuotes(formatExpression(second, context)));
         }
     }
 
@@ -661,7 +660,7 @@ public class PinotSqlFormatter
         @Override
         public String formatToSql(FunctionContext object, Captures captures, Context context)
         {
-            return format("%s(%s)", object.getFunctionName(), WILDCARD);
+            return "%s(%s)".formatted(object.getFunctionName(), WILDCARD);
         }
     }
 
@@ -681,7 +680,7 @@ public class PinotSqlFormatter
         @Override
         public String formatToSql(FunctionContext object, Captures captures, Context context)
         {
-            return format("%s(%s)", object.getFunctionName(), captures.get(ARGUMENTS).stream()
+            return "%s(%s)".formatted(object.getFunctionName(), captures.get(ARGUMENTS).stream()
                     .map(expressionContext -> formatExpression(expressionContext, context))
                     .collect(joining(", ")));
         }

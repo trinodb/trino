@@ -15,7 +15,6 @@ package io.trino.spi.connector;
 
 import io.trino.spi.type.Type;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class Assignment
@@ -49,6 +48,6 @@ public class Assignment
     @Override
     public String toString()
     {
-        return format("%s: %s (%s)", variable, column, type);
+        return "%s: %s (%s)".formatted(variable, column, type);
     }
 }

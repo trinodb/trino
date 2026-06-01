@@ -21,7 +21,6 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.Decimals.encodeShortScaledValue;
 import static io.trino.spi.type.Decimals.overflows;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestDecimals
@@ -159,9 +158,9 @@ final class TestDecimals
             Decimals.parse(text);
         }
         catch (IllegalArgumentException e) {
-            String expectedMessage = format("Invalid DECIMAL value '%s'", text);
+            String expectedMessage = "Invalid DECIMAL value '%s'".formatted(text);
             assertThat(e.getMessage())
-                    .withFailMessage(() -> format("Unexpected exception, exception with message '%s' was expected", expectedMessage))
+                    .withFailMessage(() -> "Unexpected exception, exception with message '%s' was expected".formatted(expectedMessage))
                     .isEqualTo(expectedMessage);
             return;
         }

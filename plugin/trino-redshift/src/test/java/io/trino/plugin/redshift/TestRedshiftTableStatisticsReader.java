@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.Types;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -52,7 +53,6 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static io.trino.tpch.TpchTable.CUSTOMER;
-import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.from;
 import static org.assertj.core.api.Assertions.withinPercentage;
@@ -106,7 +106,7 @@ public class TestRedshiftTableStatisticsReader
         TableStatistics tableStatistics = collectStats("SELECT * FROM " + TEST_SCHEMA + ".customer WHERE false", CUSTOMER_COLUMNS);
         assertThat(tableStatistics)
                 .returns(Estimate.of(0.0), from(TableStatistics::getRowCount))
-                .returns(emptyMap(), from(TableStatistics::getColumnStatistics));
+                .returns(Map.of(), from(TableStatistics::getColumnStatistics));
     }
 
     @Test
@@ -129,7 +129,7 @@ public class TestRedshiftTableStatisticsReader
                     () -> ImmutableList.of(new JdbcColumnHandle("i", BIGINT_TYPE_HANDLE, BIGINT)));
             assertThat(stats)
                     .returns(Estimate.of(1.0), from(TableStatistics::getRowCount))
-                    .returns(emptyMap(), from(TableStatistics::getColumnStatistics));
+                    .returns(Map.of(), from(TableStatistics::getColumnStatistics));
         }
         finally {
             executeInRedshiftWithRetry("DROP TABLE IF EXISTS " + schemaAndTable);

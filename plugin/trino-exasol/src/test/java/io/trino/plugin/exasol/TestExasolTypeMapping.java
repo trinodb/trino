@@ -43,7 +43,6 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -200,10 +199,10 @@ final class TestExasolTypeMapping
                 "(d_col decimal(36,0))",
                 asList("123456789012345678901234567890123456", "-123456789012345678901234567890123456"))) {
             assertQuery(
-                    format("SELECT d_col from %s where d_col = CAST('123456789012345678901234567890123456' AS decimal(38))", testTable.getName()),
+                    "SELECT d_col from %s where d_col = CAST('123456789012345678901234567890123456' AS decimal(38))".formatted(testTable.getName()),
                     "VALUES (123456789012345678901234567890123456)");
             assertQuery(
-                    format("SELECT d_col from %s where d_col = CAST('-123456789012345678901234567890123456' AS decimal(38))", testTable.getName()),
+                    "SELECT d_col from %s where d_col = CAST('-123456789012345678901234567890123456' AS decimal(38))".formatted(testTable.getName()),
                     "VALUES (-123456789012345678901234567890123456)");
         }
     }
@@ -414,10 +413,10 @@ final class TestExasolTypeMapping
 
     private void testUnsupportedType(String dataTypeName, String value)
     {
-        try (TestTable table = new TestTable(onRemoteDatabase(), TestingExasolServer.TEST_SCHEMA + ".unsupported_type", format("(col %s)", dataTypeName))) {
-            onRemoteDatabase().execute(format("INSERT INTO %s (col) VALUES (%s)", table.getName(), value));
+        try (TestTable table = new TestTable(onRemoteDatabase(), TestingExasolServer.TEST_SCHEMA + ".unsupported_type", "(col %s)".formatted(dataTypeName))) {
+            onRemoteDatabase().execute("INSERT INTO %s (col) VALUES (%s)".formatted(table.getName(), value));
             assertQueryFails("SELECT * FROM " + table.getName(), "Table '.*' has no supported columns.*");
-            assertQueryFails(format("SELECT 1 FROM %s WHERE col = %s", table.getName(), value), "Table '.*' has no supported columns.*");
+            assertQueryFails("SELECT 1 FROM %s WHERE col = %s".formatted(table.getName(), value), "Table '.*' has no supported columns.*");
         }
     }
 

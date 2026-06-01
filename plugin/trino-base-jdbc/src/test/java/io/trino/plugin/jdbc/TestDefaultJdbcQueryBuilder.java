@@ -722,7 +722,7 @@ public class TestDefaultJdbcQueryBuilder
 
     private static Date toDate(int year, int month, int day)
     {
-        return Date.valueOf(format("%d-%d-%d", year, month, day));
+        return Date.valueOf("%d-%d-%d".formatted(year, month, day));
     }
 
     private static Time toTime(int hour, int minute, int second)

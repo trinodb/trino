@@ -42,7 +42,6 @@ import java.util.function.Consumer;
 import static io.trino.JdbcDriverCapabilities.driverVersion;
 import static io.trino.JdbcDriverCapabilities.jdbcDriver;
 import static io.trino.JdbcDriverCapabilities.testedVersion;
-import static java.lang.String.format;
 import static java.sql.Types.ARRAY;
 import static java.sql.Types.JAVA_OBJECT;
 import static java.sql.Types.TIMESTAMP;
@@ -79,7 +78,7 @@ public class TestJdbcCompatibility
 
         server.installPlugin(new MongoPlugin());
 
-        serverUrl = format("jdbc:trino://%s", server.getAddress());
+        serverUrl = "jdbc:trino://%s".formatted(server.getAddress());
     }
 
     @Test
@@ -107,7 +106,7 @@ public class TestJdbcCompatibility
     public void testLongPreparedStatement()
             throws Exception
     {
-        String sql = format("SELECT '%s' = '%s'", "x".repeat(100_000), "y".repeat(100_000));
+        String sql = "SELECT '%s' = '%s'".formatted("x".repeat(100_000), "y".repeat(100_000));
 
         try (Connection connection = getConnection();
                 PreparedStatement statement = connection.prepareStatement(sql);
@@ -209,7 +208,7 @@ public class TestJdbcCompatibility
 
     private void testSelectParametricTimestampInMap(String elementExpression, int expectedPrecision, Object expectedValue)
     {
-        String query = format("SELECT map_from_entries(ARRAY[('timestamp', %s)])", elementExpression);
+        String query = "SELECT map_from_entries(ARRAY[('timestamp', %s)])".formatted(elementExpression);
         checkRepresentation(query, expectedValue, JAVA_OBJECT, TestJdbcCompatibility::getSingleElementFromMap);
         checkDescribeTimestampType(query, "map(varchar(9), %s)", expectedPrecision, false);
     }
@@ -234,7 +233,7 @@ public class TestJdbcCompatibility
 
     private void testSelectParametricTimestampWithTimeZoneInMap(String elementExpression, int expectedPrecision, Object expectedValue)
     {
-        String query = format("SELECT map_from_entries(ARRAY[('timestamp', %s)])", elementExpression);
+        String query = "SELECT map_from_entries(ARRAY[('timestamp', %s)])".formatted(elementExpression);
 
         checkRepresentation(query, expectedValue, JAVA_OBJECT, TestJdbcCompatibility::getSingleElementFromMap);
         checkDescribeTimestampType(query, "map(varchar(9), %s)", expectedPrecision, true);
@@ -260,7 +259,7 @@ public class TestJdbcCompatibility
 
     private void testSelectParametricTimestampInArray(String elementExpression, int expectedPrecision, Object expectedValue)
     {
-        String query = format("SELECT ARRAY[%s]", elementExpression);
+        String query = "SELECT ARRAY[%s]".formatted(elementExpression);
         checkRepresentation(query, expectedValue, ARRAY, TestJdbcCompatibility::getSingleElementFromArray);
         checkDescribeTimestampType(query, "array(%s)", expectedPrecision, false);
     }
@@ -285,7 +284,7 @@ public class TestJdbcCompatibility
 
     private void testSelectParametricTimestampWithTimeZoneInArray(String elementExpression, int expectedPrecision, Object expectedValue)
     {
-        String query = format("SELECT ARRAY[%s]", elementExpression);
+        String query = "SELECT ARRAY[%s]".formatted(elementExpression);
         checkRepresentation(query, expectedValue, ARRAY, TestJdbcCompatibility::getSingleElementFromArray);
         checkDescribeTimestampType(query, "array(%s)", expectedPrecision, true);
     }
@@ -310,7 +309,7 @@ public class TestJdbcCompatibility
 
     private void testSelectParametricTimestampInRow(String elementExpression, int precision, Object expectedValue)
     {
-        String query = format("SELECT CAST(ROW(%s) AS row(timestamp timestamp(%d)))", elementExpression, precision);
+        String query = "SELECT CAST(ROW(%s) AS row(timestamp timestamp(%d)))".formatted(elementExpression, precision);
         checkRepresentation(query, expectedValue, JAVA_OBJECT, TestJdbcCompatibility::getSingleElementFromRow);
         checkDescribeTimestampType(query, "row(\"timestamp\" %s)", precision, false);
     }
@@ -335,7 +334,7 @@ public class TestJdbcCompatibility
 
     private void testSelectParametricTimestampWithTimeZoneInRow(String elementExpression, int precision, Object expectedValue)
     {
-        String query = format("SELECT CAST(ROW(%s) AS row(timestamp timestamp(%d) with time zone))", elementExpression, precision);
+        String query = "SELECT CAST(ROW(%s) AS row(timestamp timestamp(%d) with time zone))".formatted(elementExpression, precision);
         checkRepresentation(query, expectedValue, JAVA_OBJECT, TestJdbcCompatibility::getSingleElementFromRow);
         checkDescribeTimestampType(query, "row(\"timestamp\" %s)", precision, true);
     }
@@ -426,15 +425,15 @@ public class TestJdbcCompatibility
 
     private void checkDescribeTimestampType(String query, String expectedTypePattern, int precision, boolean withTimeZone)
     {
-        assertDescribeType(query, format(expectedTypePattern, describeTimestampType(precision, withTimeZone)));
-        assertDescribeOutputType(query, format(expectedTypePattern, describeTimestampType(precision, withTimeZone)));
+        assertDescribeType(query, expectedTypePattern.formatted(describeTimestampType(precision, withTimeZone)));
+        assertDescribeOutputType(query, expectedTypePattern.formatted(describeTimestampType(precision, withTimeZone)));
     }
 
     private void assertDescribeType(String query, String expectedType)
     {
         useConnection(connection -> {
             try {
-                connection.prepareStatement(format("SELECT 1 FROM (%s AS timestamp) WHERE timestamp = ?", query));
+                connection.prepareStatement("SELECT 1 FROM (%s AS timestamp) WHERE timestamp = ?".formatted(query));
 
                 try (ResultSet resultSet = connection.prepareStatement("DESCRIBE INPUT statement1").executeQuery()) {
                     assertThat(resultSet.next()).isTrue();
@@ -467,10 +466,10 @@ public class TestJdbcCompatibility
     private static String describeTimestampType(int precision, boolean withTimezone)
     {
         if (withTimezone) {
-            return format("timestamp(%d) with time zone", precision);
+            return "timestamp(%d) with time zone".formatted(precision);
         }
 
-        return format("timestamp(%d)", precision);
+        return "timestamp(%d)".formatted(precision);
     }
 
     private static Object getSingleElementFromArray(ResultSet resultSet, int columnIndex)

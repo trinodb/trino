@@ -34,7 +34,6 @@ import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleA
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.type;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.variable;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static java.lang.String.format;
 
 public class ImplementSqlServerStdev
         implements AggregateFunctionRule<JdbcExpression, ParameterizedExpression>
@@ -62,7 +61,7 @@ public class ImplementSqlServerStdev
 
         ParameterizedExpression rewrittenArgument = context.rewriteExpression(argument).orElseThrow();
         return Optional.of(new JdbcExpression(
-                format("STDEV(%s)", rewrittenArgument.expression()),
+                "STDEV(%s)".formatted(rewrittenArgument.expression()),
                 rewrittenArgument.parameters(),
                 columnHandle.getJdbcTypeHandle()));
     }

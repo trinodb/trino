@@ -17,7 +17,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.ValueBlock;
 
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
-import static java.lang.String.format;
 
 /**
  * @see ShortTimestampWithTimeZoneType
@@ -56,7 +55,7 @@ public abstract sealed class TimestampWithTimeZoneType
     public static TimestampWithTimeZoneType createTimestampWithTimeZoneType(int precision)
     {
         if (precision < 0 || precision > MAX_PRECISION) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIMESTAMP WITH TIME ZONE precision must be in range [0, %s]: %s", MAX_PRECISION, precision));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "TIMESTAMP WITH TIME ZONE precision must be in range [0, %s]: %s".formatted(MAX_PRECISION, precision));
         }
         return TYPES[precision];
     }
@@ -66,7 +65,7 @@ public abstract sealed class TimestampWithTimeZoneType
         super(new TypeSignature(NAME, TypeParameter.numericParameter(precision)), javaType, valueBlockType);
 
         if (precision < 0 || precision > MAX_PRECISION) {
-            throw new IllegalArgumentException(format("Precision must be in the range [0, %s]", MAX_PRECISION));
+            throw new IllegalArgumentException("Precision must be in the range [0, %s]".formatted(MAX_PRECISION));
         }
 
         this.precision = precision;

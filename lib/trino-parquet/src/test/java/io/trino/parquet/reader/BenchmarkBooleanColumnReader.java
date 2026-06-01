@@ -29,7 +29,6 @@ import java.util.Random;
 
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.RLE;
-import static java.lang.String.format;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;
 
 public class BenchmarkBooleanColumnReader
@@ -64,7 +63,7 @@ public class BenchmarkBooleanColumnReader
         else if (encoding == RLE) {
             return new RunLengthBitPackingHybridValuesWriter(1, bufferSize, bufferSize, HeapByteBufferAllocator.getInstance());
         }
-        throw new UnsupportedOperationException(format("encoding %s is not supported", encoding));
+        throw new UnsupportedOperationException("encoding %s is not supported".formatted(encoding));
     }
 
     @Override

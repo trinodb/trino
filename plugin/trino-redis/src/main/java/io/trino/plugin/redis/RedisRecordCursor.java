@@ -14,7 +14,6 @@
 package io.trino.plugin.redis;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.decoder.DecoderColumnHandle;
@@ -39,6 +38,7 @@ import redis.clients.jedis.resps.ScanResult;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -52,8 +52,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.decoder.FieldValueProviders.booleanValueProvider;
 import static io.trino.decoder.FieldValueProviders.bytesValueProvider;
 import static io.trino.decoder.FieldValueProviders.longValueProvider;
-import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static redis.clients.jedis.params.ScanParams.SCAN_POINTER_START;
@@ -298,7 +296,7 @@ public class RedisRecordCursor
     public Object getObject(int field)
     {
         checkArgument(field < columnHandles.size(), "Invalid field index");
-        throw new IllegalArgumentException(format("Type %s is not supported", getType(field)));
+        throw new IllegalArgumentException("Type %s is not supported".formatted(getType(field)));
     }
 
     private FieldValueProvider getFieldValueProvider(int field, Class<?> expectedType)
@@ -361,7 +359,7 @@ public class RedisRecordCursor
                 Domain domain = entry.getValue();
                 if (domain.isSingleValue()) {
                     String value = ((Slice) domain.getSingleValue()).toStringUtf8();
-                    keys = keyStringPrefix.isEmpty() || value.contains(keyStringPrefix) ? Lists.newArrayList(value) : emptyList();
+                    keys = keyStringPrefix.isEmpty() || value.contains(keyStringPrefix) ? new ArrayList<>(Arrays.asList(value)) : List.of();
                     log.debug("Set pushdown keys %s with single value", keys.toString());
                     return;
                 }

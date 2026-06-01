@@ -24,8 +24,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.function.Function;
 
-import static java.lang.String.format;
-
 public final class Threads
 {
     private Threads() {}
@@ -38,8 +36,7 @@ public final class Threads
     {
         StringBuilder sb = new StringBuilder();
 
-        sb.append(format(
-                "\"%s\"%s prio=%s Id=%s %s%s%s%s%s\n",
+        sb.append("\"%s\"%s prio=%s Id=%s %s%s%s%s%s\n".formatted(
                 thread.getThreadName(),
                 thread.isDaemon() ? " daemon" : "",
                 thread.getPriority(),
@@ -58,7 +55,7 @@ public final class Threads
         int depth = 0;
         if (stackTrace.hasNext()) {
             StackTraceElement first = stackTrace.next();
-            sb.append(format("\tat %s\n", first));
+            sb.append("\tat %s\n".formatted(first));
             LockInfo lockInfo = thread.getLockInfo();
             if (lockInfo != null) {
                 String lockVerb = switch (thread.getThreadState()) {
@@ -66,17 +63,17 @@ public final class Threads
                     case WAITING, TIMED_WAITING -> "waiting";
                     default -> "(unexpected lock info)";
                 };
-                sb.append(format("\t-  %s on %s\n", lockVerb, lockInfo));
+                sb.append("\t-  %s on %s\n".formatted(lockVerb, lockInfo));
             }
 
-            lockedMonitors.get(depth).forEach(monitor -> sb.append(format("\t-  locked %s\n", monitor)));
+            lockedMonitors.get(depth).forEach(monitor -> sb.append("\t-  locked %s\n".formatted(monitor)));
         }
 
         while (stackTrace.hasNext()) {
             StackTraceElement element = stackTrace.next();
             depth++;
-            sb.append(format("\tat %s\n", element));
-            lockedMonitors.get(depth).forEach(monitor -> sb.append(format("\t-  locked %s\n", monitor)));
+            sb.append("\tat %s\n".formatted(element));
+            lockedMonitors.get(depth).forEach(monitor -> sb.append("\t-  locked %s\n".formatted(monitor)));
         }
 
         LockInfo[] lockedSynchronizers = thread.getLockedSynchronizers();
@@ -84,7 +81,7 @@ public final class Threads
             sb.append("\n");
             sb.append("\tlocked synchronizers:\n");
             for (LockInfo locked : lockedSynchronizers) {
-                sb.append(format("\t- %s\n", locked));
+                sb.append("\t- %s\n".formatted(locked));
             }
         }
 

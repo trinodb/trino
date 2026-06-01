@@ -50,7 +50,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -412,7 +412,7 @@ public final class OrcWriter
                     .mapToLong(StreamDataOutput::size)
                     .sum();
         }
-        Collections.sort(dataStreams);
+        dataStreams.sort(Comparator.naturalOrder());
 
         // add data streams
         for (StreamDataOutput dataStream : dataStreams) {

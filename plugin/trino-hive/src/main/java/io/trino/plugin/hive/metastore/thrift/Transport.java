@@ -26,7 +26,6 @@ import java.net.Proxy;
 import java.net.Socket;
 import java.util.Optional;
 
-import static java.lang.String.format;
 import static java.net.Proxy.Type.SOCKS;
 import static java.util.Objects.requireNonNull;
 
@@ -97,7 +96,7 @@ public final class Transport
 
     private static TTransportException rewriteException(TTransportException e, HostAndPort address)
     {
-        String message = e.getMessage() != null ? format("%s: %s", address, e.getMessage()) : address.toString();
+        String message = e.getMessage() != null ? "%s: %s".formatted(address, e.getMessage()) : address.toString();
         return new TTransportException(e.getType(), message, e);
     }
 

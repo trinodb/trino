@@ -22,7 +22,6 @@ import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
-import static java.lang.String.format;
 
 public abstract class AbstractBearerAuthenticator
         implements Authenticator
@@ -56,7 +55,7 @@ public abstract class AbstractBearerAuthenticator
             throw needAuthentication(request, Optional.empty(), null);
         }
         if (headers.size() > 1) {
-            throw new IllegalArgumentException(format("Multiple %s headers detected: %s, where only single %s header is supported", AUTHORIZATION, headers, AUTHORIZATION));
+            throw new IllegalArgumentException("Multiple %s headers detected: %s, where only single %s header is supported".formatted(AUTHORIZATION, headers, AUTHORIZATION));
         }
 
         String header = getOnlyElement(headers);

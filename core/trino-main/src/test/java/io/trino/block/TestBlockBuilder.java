@@ -30,7 +30,6 @@ import java.util.stream.IntStream;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -146,6 +145,6 @@ public class TestBlockBuilder
     {
         assertThatThrownBy(() -> BIGINT.getLong(block.getPositions(positions, offset, length), 0))
                 .isInstanceOfAny(IllegalArgumentException.class, IndexOutOfBoundsException.class)
-                .hasMessage(format("Invalid offset %d and length %d in array with %d elements", offset, length, positions.length));
+                .hasMessage("Invalid offset %d and length %d in array with %d elements".formatted(offset, length, positions.length));
     }
 }

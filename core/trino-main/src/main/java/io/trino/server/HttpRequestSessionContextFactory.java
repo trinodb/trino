@@ -60,7 +60,6 @@ import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.trino.client.ProtocolHeaders.detectProtocol;
 import static io.trino.server.ServletSecurityUtils.authenticatedIdentity;
 import static io.trino.spi.security.AccessDeniedException.denySetRole;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -151,7 +150,7 @@ public class HttpRequestSessionContextFactory
                     // catalog session properties cannot be validated until the transaction has started
                     catalogSessionProperties.computeIfAbsent(catalogName.orElseThrow(), _ -> new HashMap<>()).put(propertyName, propertyValue);
                 }
-                default -> throw new BadRequestException(format("Invalid %s header", protocolHeaders.requestSession()));
+                default -> throw new BadRequestException("Invalid %s header".formatted(protocolHeaders.requestSession()));
             }
         }
         requireNonNull(catalogSessionProperties, "catalogSessionProperties is null");
@@ -334,7 +333,7 @@ public class HttpRequestSessionContextFactory
             role = SelectedRole.valueOf(value);
         }
         catch (IllegalArgumentException e) {
-            throw new BadRequestException(format("Invalid %s header", protocolHeaders.requestRole()));
+            throw new BadRequestException("Invalid %s header".formatted(protocolHeaders.requestRole()));
         }
         return role;
     }
@@ -358,7 +357,7 @@ public class HttpRequestSessionContextFactory
                 properties.put(nameValue.get(0), urlDecode(nameValue.get(1)));
             }
             catch (IllegalArgumentException e) {
-                throw new BadRequestException(format("Invalid %s header: %s", headerName, e));
+                throw new BadRequestException("Invalid %s header: %s".formatted(headerName, e));
             }
         }
         return properties;
@@ -395,10 +394,10 @@ public class HttpRequestSessionContextFactory
                         return;
                     }
                 }
-                throw new BadRequestException(format("Unsupported resource name %s", name));
+                throw new BadRequestException("Unsupported resource name %s".formatted(name));
             }
             catch (IllegalArgumentException e) {
-                throw new BadRequestException(format("Unsupported format for resource estimate '%s': %s", value, e));
+                throw new BadRequestException("Unsupported format for resource estimate '%s': %s".formatted(value, e));
             }
         });
 
@@ -418,7 +417,7 @@ public class HttpRequestSessionContextFactory
     private static void assertRequest(boolean expression, String format, Object... args)
     {
         if (!expression) {
-            throw new BadRequestException(format(format, args));
+            throw new BadRequestException(format.formatted(args));
         }
     }
 
@@ -431,7 +430,7 @@ public class HttpRequestSessionContextFactory
                 statementName = urlDecode(key);
             }
             catch (IllegalArgumentException e) {
-                throw new BadRequestException(format("Invalid %s header: %s", protocolHeaders.requestPreparedStatement(), e.getMessage()));
+                throw new BadRequestException("Invalid %s header: %s".formatted(protocolHeaders.requestPreparedStatement(), e.getMessage()));
             }
             String sqlString = preparedStatementEncoder.decodePreparedStatementFromHeader(value);
 
@@ -441,7 +440,7 @@ public class HttpRequestSessionContextFactory
                 sqlParser.createStatement(sqlString);
             }
             catch (ParsingException e) {
-                throw new BadRequestException(format("Invalid %s header: %s", protocolHeaders.requestPreparedStatement(), e.getMessage()));
+                throw new BadRequestException("Invalid %s header: %s".formatted(protocolHeaders.requestPreparedStatement(), e.getMessage()));
             }
 
             preparedStatements.put(statementName, sqlString);

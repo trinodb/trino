@@ -87,7 +87,6 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
 import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
-import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
@@ -255,13 +254,13 @@ public final class TransactionLogParser
         catch (RuntimeException e) {
             throw new TrinoException(
                     GENERIC_INTERNAL_ERROR,
-                    format("Unable to parse value [%s] from column %s with type %s", valueString, column.baseColumnName(), column.baseType()),
+                    "Unable to parse value [%s] from column %s with type %s".formatted(valueString, column.baseColumnName(), column.baseType()),
                     e);
         }
         // Anything else is not a supported DeltaLake column
         throw new TrinoException(
                 GENERIC_INTERNAL_ERROR,
-                format("Unable to parse value [%s] from column %s with type %s", valueString, column.baseColumnName(), column.baseType()));
+                "Unable to parse value [%s] from column %s with type %s".formatted(valueString, column.baseColumnName(), column.baseType()));
     }
 
     public static Optional<LastCheckpoint> readLastCheckpoint(TrinoFileSystem fileSystem, String tableLocation)

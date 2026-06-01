@@ -13,7 +13,6 @@
  */
 package io.trino.sql.rewrite;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
@@ -168,6 +167,7 @@ import static io.trino.sql.tree.LogicalExpression.and;
 import static io.trino.sql.tree.SaveMode.FAIL;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 public final class ShowQueriesRewrite
@@ -792,7 +792,7 @@ public final class ShowQueriesRewrite
             return row(
                     new StringLiteral(alias),
                     new StringLiteral(function.getSignature().getReturnType().toString()),
-                    new StringLiteral(Joiner.on(", ").join(function.getSignature().getArgumentTypes())),
+                    new StringLiteral(function.getSignature().getArgumentTypes().stream().map(Object::toString).collect(joining(", "))),
                     new StringLiteral(getFunctionType(function)),
                     function.isDeterministic() ? TRUE_LITERAL : FALSE_LITERAL,
                     new StringLiteral(nullToEmpty(function.getDescription())));

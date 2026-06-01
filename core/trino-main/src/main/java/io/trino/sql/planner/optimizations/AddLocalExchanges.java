@@ -104,7 +104,6 @@ import static io.trino.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.mergingExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -478,7 +477,7 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitTableFunction(TableFunctionNode node, StreamPreferredProperties parentPreferences)
         {
-            throw new IllegalStateException(format("Unexpected node: TableFunctionNode (%s)", node.getName()));
+            throw new IllegalStateException("Unexpected node: TableFunctionNode (%s)".formatted(node.getName()));
         }
 
         @Override

@@ -34,7 +34,6 @@ import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAg
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functionName;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleArgument;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.variable;
-import static java.lang.String.format;
 
 /**
  * Implements {@code min(x)}, {@code max(x)}.
@@ -73,7 +72,7 @@ public class ImplementMinMax
 
         ParameterizedExpression rewrittenArgument = context.rewriteExpression(argument).orElseThrow();
         return Optional.of(new JdbcExpression(
-                format("%s(%s)", aggregateFunction.getFunctionName(), rewrittenArgument.expression()),
+                "%s(%s)".formatted(aggregateFunction.getFunctionName(), rewrittenArgument.expression()),
                 rewrittenArgument.parameters(),
                 columnHandle.getJdbcTypeHandle()));
     }

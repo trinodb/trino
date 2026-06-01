@@ -87,7 +87,6 @@ import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.SampleType.SYSTEM;
 import static io.trino.spi.connector.SaveMode.REPLACE;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -126,7 +125,7 @@ public class MemoryMetadata
     public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
     {
         if (schemas.contains(schemaName)) {
-            throw new TrinoException(ALREADY_EXISTS, format("Schema [%s] already exists", schemaName));
+            throw new TrinoException(ALREADY_EXISTS, "Schema [%s] already exists".formatted(schemaName));
         }
         schemas.add(schemaName);
     }
@@ -135,7 +134,7 @@ public class MemoryMetadata
     public synchronized void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
         if (!schemas.contains(schemaName)) {
-            throw new TrinoException(NOT_FOUND, format("Schema [%s] does not exist", schemaName));
+            throw new TrinoException(NOT_FOUND, "Schema [%s] does not exist".formatted(schemaName));
         }
 
         if (cascade) {
@@ -385,10 +384,10 @@ public class MemoryMetadata
     private void checkTableNotExists(SchemaTableName tableName)
     {
         if (tableIds.containsKey(tableName)) {
-            throw new TrinoException(ALREADY_EXISTS, format("Table [%s] already exists", tableName));
+            throw new TrinoException(ALREADY_EXISTS, "Table [%s] already exists".formatted(tableName));
         }
         if (views.containsKey(tableName)) {
-            throw new TrinoException(ALREADY_EXISTS, format("View [%s] already exists", tableName));
+            throw new TrinoException(ALREADY_EXISTS, "View [%s] already exists".formatted(tableName));
         }
     }
 
@@ -452,7 +451,7 @@ public class MemoryMetadata
         TableInfo table = tables.get(handle.id());
 
         if (!column.isNullable() && !table.dataFragments().isEmpty()) {
-            throw new TrinoException(NOT_SUPPORTED, format("Unable to add NOT NULL column '%s' for non-empty table: %s", column.getName(), table.getSchemaTableName()));
+            throw new TrinoException(NOT_SUPPORTED, "Unable to add NOT NULL column '%s' for non-empty table: %s".formatted(column.getName(), table.getSchemaTableName()));
         }
 
         MemoryColumnHandle newColumn = new MemoryColumnHandle(table.columns().size(), column.getName(), column.getType());

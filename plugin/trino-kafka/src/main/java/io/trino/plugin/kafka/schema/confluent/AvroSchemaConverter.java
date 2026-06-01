@@ -42,7 +42,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.kafka.schema.confluent.EmptyFieldStrategy.DUMMY_ROW_TYPE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.avro.Schema.Type.ARRAY;
 import static org.apache.avro.Schema.Type.BYTES;
@@ -121,7 +120,7 @@ public class AvroSchemaConverter
             case ARRAY -> convertArray(schema);
             case MAP -> convertMap(schema);
             case RECORD -> convertRecord(schema);
-            case NULL -> throw new UnsupportedOperationException(format("Type %s not supported", schema.getType()));
+            case NULL -> throw new UnsupportedOperationException("Type %s not supported".formatted(schema.getType()));
         };
     }
 
@@ -153,7 +152,7 @@ public class AvroSchemaConverter
         if (BINARY_TYPES.containsAll(types)) {
             return Optional.of(VarbinaryType.VARBINARY);
         }
-        throw new UnsupportedOperationException(format("Incompatible UNION type: '%s'", JSON_PRETTY_FORMATTER.format(schema)));
+        throw new UnsupportedOperationException("Incompatible UNION type: '%s'".formatted(JSON_PRETTY_FORMATTER.format(schema)));
     }
 
     private Optional<Type> convertArray(Schema schema)
@@ -186,7 +185,7 @@ public class AvroSchemaConverter
             return switch (emptyFieldStrategy) {
                 case IGNORE -> Optional.empty();
                 case MARK -> Optional.of(DUMMY_ROW_TYPE);
-                case FAIL -> throw new IllegalStateException(format("Struct type has no valid fields for schema: '%s'", schema));
+                case FAIL -> throw new IllegalStateException("Struct type has no valid fields for schema: '%s'".formatted(schema));
             };
         }
         return Optional.of(RowType.from(fields));

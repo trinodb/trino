@@ -217,7 +217,6 @@ import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.time.format.DateTimeFormatter.ISO_DATE;
 import static java.util.Locale.ENGLISH;
@@ -326,7 +325,7 @@ public class MySqlClient
     @Override
     protected Map<String, CaseSensitivity> getCaseSensitivityForColumns(ConnectorSession session, Connection connection, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
     {
-        PreparedQuery preparedQuery = new PreparedQuery(format("SELECT * FROM %s", quoted(remoteTableName)), ImmutableList.of());
+        PreparedQuery preparedQuery = new PreparedQuery("SELECT * FROM %s".formatted(quoted(remoteTableName)), ImmutableList.of());
 
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.empty())) {
             ResultSetMetaData metadata = preparedStatement.getMetaData();
@@ -468,8 +467,7 @@ public class MySqlClient
     @Override
     public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
     {
-        String sql = format(
-                "ALTER TABLE %s COMMENT = %s",
+        String sql = "ALTER TABLE %s COMMENT = %s".formatted(
                 quoted(handle.asPlainTable().getRemoteTableName()),
                 mysqlVarcharLiteral(comment.orElse(NO_COMMENT))); // An empty character removes the existing comment in MySQL
         execute(session, sql);
@@ -494,7 +492,7 @@ public class MySqlClient
             verifyPrimaryKey(primaryKeys, tableMetadata.getColumns());
             columnDefinitions.add("PRIMARY KEY (" + primaryKeys.stream().map(this::quoted).collect(joining(", ")) + ")");
         }
-        return ImmutableList.of(format("CREATE TABLE %s (%s) COMMENT %s", quoted(remoteTableName), join(", ", columnDefinitions.build()), mysqlVarcharLiteral(tableMetadata.getComment().orElse(NO_COMMENT))));
+        return ImmutableList.of("CREATE TABLE %s (%s) COMMENT %s".formatted(quoted(remoteTableName), join(", ", columnDefinitions.build()), mysqlVarcharLiteral(tableMetadata.getComment().orElse(NO_COMMENT))));
     }
 
     private static void verifyPrimaryKey(List<String> primaryKeys, List<ColumnMetadata> columns)
@@ -510,7 +508,7 @@ public class MySqlClient
                 .collect(toImmutableSet());
         for (String primaryKey : primaryKeys) {
             if (!columnNames.contains(primaryKey)) {
-                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Column '%s' specified in property '%s' doesn't exist in table", primaryKey, PRIMARY_KEY_PROPERTY));
+                throw new TrinoException(INVALID_TABLE_PROPERTY, "Column '%s' specified in property '%s' doesn't exist in table".formatted(primaryKey, PRIMARY_KEY_PROPERTY));
             }
         }
     }
@@ -854,7 +852,7 @@ public class MySqlClient
         }
 
         if (type instanceof DecimalType decimalType) {
-            String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            String dataType = "decimal(%s, %s)".formatted(decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
@@ -867,28 +865,28 @@ public class MySqlClient
 
         if (type instanceof TimeType timeType) {
             if (timeType.getPrecision() <= MAX_SUPPORTED_DATE_TIME_PRECISION) {
-                return WriteMapping.longMapping(format("time(%s)", timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
+                return WriteMapping.longMapping("time(%s)".formatted(timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
             }
-            return WriteMapping.longMapping(format("time(%s)", MAX_SUPPORTED_DATE_TIME_PRECISION), timeWriteFunction(MAX_SUPPORTED_DATE_TIME_PRECISION));
+            return WriteMapping.longMapping("time(%s)".formatted(MAX_SUPPORTED_DATE_TIME_PRECISION), timeWriteFunction(MAX_SUPPORTED_DATE_TIME_PRECISION));
         }
 
         if (type instanceof TimestampType timestampType) {
             if (timestampType.getPrecision() <= MAX_SUPPORTED_DATE_TIME_PRECISION) {
                 verify(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION);
-                return WriteMapping.longMapping(format("datetime(%s)", timestampType.getPrecision()), timestampWriteFunction(timestampType));
+                return WriteMapping.longMapping("datetime(%s)".formatted(timestampType.getPrecision()), timestampWriteFunction(timestampType));
             }
-            return WriteMapping.objectMapping(format("datetime(%s)", MAX_SUPPORTED_DATE_TIME_PRECISION), longTimestampWriteFunction(timestampType, MAX_SUPPORTED_DATE_TIME_PRECISION));
+            return WriteMapping.objectMapping("datetime(%s)".formatted(MAX_SUPPORTED_DATE_TIME_PRECISION), longTimestampWriteFunction(timestampType, MAX_SUPPORTED_DATE_TIME_PRECISION));
         }
 
         if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
             if (timestampWithTimeZoneType.getPrecision() <= MAX_SUPPORTED_DATE_TIME_PRECISION) {
-                String dataType = format("timestamp(%d)", timestampWithTimeZoneType.getPrecision());
+                String dataType = "timestamp(%d)".formatted(timestampWithTimeZoneType.getPrecision());
                 if (timestampWithTimeZoneType.getPrecision() <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
                     return WriteMapping.longMapping(dataType, shortTimestampWithTimeZoneWriteFunction());
                 }
                 return WriteMapping.objectMapping(dataType, longTimestampWithTimeZoneWriteFunction());
             }
-            return WriteMapping.objectMapping(format("timestamp(%d)", MAX_SUPPORTED_DATE_TIME_PRECISION), longTimestampWithTimeZoneWriteFunction());
+            return WriteMapping.objectMapping("timestamp(%d)".formatted(MAX_SUPPORTED_DATE_TIME_PRECISION), longTimestampWithTimeZoneWriteFunction());
         }
 
         if (VARBINARY.equals(type)) {
@@ -965,8 +963,7 @@ public class MySqlClient
             String columnName = column.getName();
             verifyColumnName(connection.getMetaData(), columnName);
             String remoteColumnName = getIdentifierMapping().toRemoteColumnName(getRemoteIdentifiers(connection), columnName);
-            String sql = format(
-                    "ALTER TABLE %s ADD %s %s",
+            String sql = "ALTER TABLE %s ADD %s %s".formatted(
                     quoted(table),
                     getColumnDefinitionSql(session, column, remoteColumnName),
                     position);
@@ -981,8 +978,7 @@ public class MySqlClient
     protected void renameColumn(ConnectorSession session, Connection connection, RemoteTableName remoteTableName, String remoteColumnName, String newRemoteColumnName)
             throws SQLException
     {
-        String sql = format(
-                "ALTER TABLE %s RENAME COLUMN %s TO %s",
+        String sql = "ALTER TABLE %s RENAME COLUMN %s TO %s".formatted(
                 quoted(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
                 quoted(remoteColumnName),
                 quoted(newRemoteColumnName));
@@ -1014,8 +1010,7 @@ public class MySqlClient
         if (isGtidMode(connection)) {
             tableCopyFormat = "CREATE TABLE %s LIKE %s";
         }
-        String sql = format(
-                tableCopyFormat,
+        String sql = tableCopyFormat.formatted(
                 quoted(catalogName, schemaName, newTableName),
                 quoted(catalogName, schemaName, tableName));
         try {
@@ -1114,17 +1109,17 @@ public class MySqlClient
             String orderBy = sortItems.stream()
                     .flatMap(sortItem -> {
                         String ordering = sortItem.sortOrder().isAscending() ? "ASC" : "DESC";
-                        String columnSorting = format("%s %s", quoted(sortItem.column().getColumnName()), ordering);
+                        String columnSorting = "%s %s".formatted(quoted(sortItem.column().getColumnName()), ordering);
 
                         return switch (sortItem.sortOrder()) {
                             // In MySQL ASC implies NULLS FIRST, DESC implies NULLS LAST
                             case ASC_NULLS_FIRST, DESC_NULLS_LAST -> Stream.of(columnSorting);
-                            case ASC_NULLS_LAST -> Stream.of(format("ISNULL(%s) ASC", quoted(sortItem.column().getColumnName())), columnSorting);
-                            case DESC_NULLS_FIRST -> Stream.of(format("ISNULL(%s) DESC", quoted(sortItem.column().getColumnName())), columnSorting);
+                            case ASC_NULLS_LAST -> Stream.of("ISNULL(%s) ASC".formatted(quoted(sortItem.column().getColumnName())), columnSorting);
+                            case DESC_NULLS_FIRST -> Stream.of("ISNULL(%s) DESC".formatted(quoted(sortItem.column().getColumnName())), columnSorting);
                         };
                     })
                     .collect(joining(", "));
-            return format("%s ORDER BY %s LIMIT %s", query, orderBy, limit);
+            return "%s ORDER BY %s LIMIT %s".formatted(query, orderBy, limit);
         });
     }
 
@@ -1489,18 +1484,17 @@ public class MySqlClient
         {
             if (histogramType.isPresent() && buckets.isPresent()) {
                 switch (histogramType.get()) {
-                    case "singleton":
+                    case "singleton" -> {
                         return Optional.of((long) buckets.get().size());
-
-                    case "equi-height":
+                    }
+                    case "equi-height" -> {
                         long distinctValues = 0;
                         for (List<?> bucket : buckets.get()) {
                             distinctValues += ((Number) bucket.get(3)).longValue();
                         }
                         return Optional.of(distinctValues);
-
-                    default:
-                        log.debug("Unsupported histogram type: %s", histogramType.get());
+                    }
+                    default -> log.debug("Unsupported histogram type: %s", histogramType.get());
                 }
             }
             else {

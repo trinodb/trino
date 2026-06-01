@@ -34,7 +34,6 @@ import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
-import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 
@@ -66,7 +65,7 @@ public class DataType<T>
                     if (Float.isNaN(value)) {
                         return "nan()";
                     }
-                    return format("%sinfinity()", value > 0 ? "+" : "-");
+                    return "%sinfinity()".formatted(value > 0 ? "+" : "-");
                 });
     }
 
@@ -80,17 +79,17 @@ public class DataType<T>
                     if (Double.isNaN(value)) {
                         return "nan()";
                     }
-                    return format("%sinfinity()", value > 0 ? "+" : "-");
+                    return "%sinfinity()".formatted(value > 0 ? "+" : "-");
                 });
     }
 
     public static DataType<BigDecimal> decimalDataType(int precision, int scale)
     {
-        String databaseType = format("decimal(%s, %s)", precision, scale);
+        String databaseType = "decimal(%s, %s)".formatted(precision, scale);
         return dataType(
                 databaseType,
                 createDecimalType(precision, scale),
-                bigDecimal -> format("CAST('%s' AS %s)", bigDecimal, databaseType),
+                bigDecimal -> "CAST('%s' AS %s)".formatted(bigDecimal, databaseType),
                 bigDecimal -> bigDecimal.setScale(scale, UNNECESSARY));
     }
 
@@ -113,7 +112,7 @@ public class DataType<T>
         format.appendPattern("''");
 
         return dataType(
-                format("time(%s)", precision),
+                "time(%s)".formatted(precision),
                 createTimeType(precision),
                 format.toFormatter()::format);
     }
@@ -141,7 +140,7 @@ public class DataType<T>
         format.appendPattern("''");
 
         return dataType(
-                format("timestamp(%s)", precision),
+                "timestamp(%s)".formatted(precision),
                 createTimestampType(precision),
                 format.toFormatter()::format);
     }
@@ -159,7 +158,7 @@ public class DataType<T>
                 .appendPattern("''");
 
         return dataType(
-                format("timestamp(%s) with time zone", precision),
+                "timestamp(%s) with time zone".formatted(precision),
                 createTimestampWithTimeZoneType(precision),
                 format.toFormatter()::format);
     }

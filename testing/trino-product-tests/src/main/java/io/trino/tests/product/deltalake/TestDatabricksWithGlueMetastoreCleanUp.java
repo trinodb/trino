@@ -37,11 +37,9 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static java.util.stream.Collectors.toUnmodifiableList;
 
 public class TestDatabricksWithGlueMetastoreCleanUp
         extends ProductTest
@@ -60,7 +58,7 @@ public class TestDatabricksWithGlueMetastoreCleanUp
                 .rows().stream()
                 .map(row -> (String) row.get(0))
                 .filter(schema -> schema.toLowerCase(ENGLISH).startsWith("test") || schema.equals("default"))
-                .collect(toUnmodifiableList());
+                .toList();
 
         // this is needed to make deletion of some views possible
         onTrino().executeQuery("SET SESSION hive.hive_views_legacy_translation = true");
@@ -94,11 +92,11 @@ public class TestDatabricksWithGlueMetastoreCleanUp
                 Instant createTime = table.createTime();
                 if (createTime.isBefore(SCHEMA_CLEANUP_THRESHOLD)) {
                     if (getTableType(table).contains("VIEW")) {
-                        onTrino().executeQuery(format("DROP VIEW IF EXISTS %s.%s", schema, tableName));
+                        onTrino().executeQuery("DROP VIEW IF EXISTS %s.%s".formatted(schema, tableName));
                         log.info("Dropped view %s.%s", schema, tableName);
                     }
                     else {
-                        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s.%s", schema, tableName));
+                        onTrino().executeQuery("DROP TABLE IF EXISTS %s.%s".formatted(schema, tableName));
                         log.info("Dropped table %s.%s", schema, tableName);
                     }
                     droppedTablesCount++;
@@ -126,7 +124,7 @@ public class TestDatabricksWithGlueMetastoreCleanUp
     private Set<String> findAllTablesInSchema(String schema)
     {
         try {
-            QueryResult allTables = onTrino().executeQuery(format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", schema));
+            QueryResult allTables = onTrino().executeQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'".formatted(schema));
             return allTables.rows().stream()
                     .map(row -> (String) row.get(0))
                     .collect(Collectors.toUnmodifiableSet());

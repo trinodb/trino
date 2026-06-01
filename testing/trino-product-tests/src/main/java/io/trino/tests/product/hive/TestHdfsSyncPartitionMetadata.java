@@ -29,7 +29,6 @@ import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_IS
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 
 public class TestHdfsSyncPartitionMetadata
         extends BaseTestSyncPartitionMetadata
@@ -127,10 +126,9 @@ public class TestHdfsSyncPartitionMetadata
 
         String tableLocation = tableLocation(tableName);
         makeHdfsDirectory(tableLocation);
-        onTrino().executeQuery(format(
-                "" +
-                        "CREATE TABLE %s (payload bigint, col_x varchar, col_y varchar) " +
-                        "WITH (external_location = '%s', format = 'ORC', partitioned_by = ARRAY[ 'col_x', 'col_y' ])",
+        onTrino().executeQuery(("" +
+        "CREATE TABLE %s (payload bigint, col_x varchar, col_y varchar) " +
+        "WITH (external_location = '%s', format = 'ORC', partitioned_by = ARRAY[ 'col_x', 'col_y' ])").formatted(
                 tableName,
                 tableLocation));
 
@@ -144,10 +142,9 @@ public class TestHdfsSyncPartitionMetadata
         // Dropping an external table will not drop its contents
         cleanup(tableName);
 
-        onTrino().executeQuery(format(
-                "" +
-                        "CREATE TABLE %s (payload bigint, col_x varchar, col_y varchar) " +
-                        "WITH (external_location = '%s', format = 'ORC', partitioned_by = ARRAY[ 'col_x', 'col_y' ])",
+        onTrino().executeQuery(("" +
+        "CREATE TABLE %s (payload bigint, col_x varchar, col_y varchar) " +
+        "WITH (external_location = '%s', format = 'ORC', partitioned_by = ARRAY[ 'col_x', 'col_y' ])").formatted(
                 tableName,
                 tableLocation));
 

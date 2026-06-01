@@ -20,7 +20,6 @@ import io.trino.spi.block.MapHashTables;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 
 import static io.airlift.slice.SizeOf.instanceSize;
-import static java.lang.String.format;
 import static java.lang.reflect.Array.getLength;
 
 // This class tracks how many times an objects have been referenced
@@ -105,7 +104,7 @@ public final class ReferenceCountMap
             extraIdentity = (int) mapHashTables.getRetainedSizeInBytes();
         }
         else {
-            throw new IllegalArgumentException(format("Unsupported type for %s", key));
+            throw new IllegalArgumentException("Unsupported type for %s".formatted(key));
         }
         return extraIdentity;
     }

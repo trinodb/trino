@@ -60,7 +60,6 @@ import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
-import static java.lang.String.format;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -72,7 +71,7 @@ public class TestIcebergMaterializedViewExpiredSnapshotCleanup
     private static final String MV_METADATA_FILE_NAME = "00005-b395c800-9c5a-48d2-9dbe-ba7b630881aa.metadata.json";
     private static final String BUCKET_NAME = "test-bucket-mv-refresh-expired-snapshots";
     private static final String RESOURCE_DIRECTORY = "materialized_view_expired_snapshots";
-    private static final String S3_LOCATION_PREFIX = format("s3://%s/%s", BUCKET_NAME, RESOURCE_DIRECTORY);
+    private static final String S3_LOCATION_PREFIX = "s3://%s/%s".formatted(BUCKET_NAME, RESOURCE_DIRECTORY);
 
     private Minio minio;
 
@@ -107,15 +106,15 @@ public class TestIcebergMaterializedViewExpiredSnapshotCleanup
         String sourceTableName = "source_table";
         String materializedViewName = "materialized_view";
 
-        minio.copyResources(format("iceberg/%s", RESOURCE_DIRECTORY), BUCKET_NAME, RESOURCE_DIRECTORY);
-        getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", sourceTableName, format("%s/source_table", S3_LOCATION_PREFIX)));
-        assertQuery(format("SELECT * FROM %s", sourceTableName), "VALUES 4");
+        minio.copyResources("iceberg/%s".formatted(RESOURCE_DIRECTORY), BUCKET_NAME, RESOURCE_DIRECTORY);
+        getQueryRunner().execute("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(sourceTableName, "%s/source_table".formatted(S3_LOCATION_PREFIX)));
+        assertQuery("SELECT * FROM %s".formatted(sourceTableName), "VALUES 4");
 
         registerMaterializedView(
                 materializedViewName,
                 sourceTableName,
-                format("%s/materialized_view/metadata/%s", S3_LOCATION_PREFIX, MV_METADATA_FILE_NAME));
-        assertQuery(format("SELECT * FROM %s", materializedViewName), "VALUES 4");
+                "%s/materialized_view/metadata/%s".formatted(S3_LOCATION_PREFIX, MV_METADATA_FILE_NAME));
+        assertQuery("SELECT * FROM %s".formatted(materializedViewName), "VALUES 4");
 
         TrinoFileSystemFactory fileSystemFactory = getFileSystemFactory(getQueryRunner());
 
@@ -123,10 +122,10 @@ public class TestIcebergMaterializedViewExpiredSnapshotCleanup
         assertThat(firstSnapshotFiles.size()).isEqualTo(10);
 
         // Test that snapshots are removed up to the cap
-        assertUpdate(format("DELETE FROM %s WHERE a = 4", sourceTableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES 5", sourceTableName), 1);
-        assertUpdate(format("REFRESH MATERIALIZED VIEW %s", materializedViewName), 1);
-        assertQuery(format("SELECT a FROM %s", materializedViewName), "VALUES 5");
+        assertUpdate("DELETE FROM %s WHERE a = 4".formatted(sourceTableName), 1);
+        assertUpdate("INSERT INTO %s VALUES 5".formatted(sourceTableName), 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW %s".formatted(materializedViewName), 1);
+        assertQuery("SELECT a FROM %s".formatted(materializedViewName), "VALUES 5");
 
         List<Snapshot> secondSnapshotFiles = getMaterializedViewSnapshots(materializedViewName, fileSystemFactory);
         Ordering<Snapshot> snapshotOrdering = Ordering.from(Comparator.comparing(Snapshot::timestampMillis));
@@ -134,10 +133,10 @@ public class TestIcebergMaterializedViewExpiredSnapshotCleanup
         assertThat(secondSnapshotFiles.size()).isEqualTo(7);
         assertThat(secondSnapshotFiles).doesNotContainAnyElementsOf(snapshotOrdering.leastOf(firstSnapshotFiles, 5));
 
-        assertUpdate(format("DELETE FROM %s WHERE a = 5", sourceTableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES 6", sourceTableName), 1);
-        assertUpdate(format("REFRESH MATERIALIZED VIEW %s", materializedViewName), 1);
-        assertQuery(format("SELECT a FROM %s", materializedViewName), "VALUES 6");
+        assertUpdate("DELETE FROM %s WHERE a = 5".formatted(sourceTableName), 1);
+        assertUpdate("INSERT INTO %s VALUES 6".formatted(sourceTableName), 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW %s".formatted(materializedViewName), 1);
+        assertQuery("SELECT a FROM %s".formatted(materializedViewName), "VALUES 6");
 
         List<Snapshot> thirdSnapshotFiles = getMaterializedViewSnapshots(materializedViewName, fileSystemFactory);
 
@@ -145,18 +144,18 @@ public class TestIcebergMaterializedViewExpiredSnapshotCleanup
         assertThat(thirdSnapshotFiles).doesNotContainAnyElementsOf(snapshotOrdering.leastOf(secondSnapshotFiles, 5));
 
         // All additional snapshots are within the retention threshold, and will not be removed
-        assertUpdate(format("DELETE FROM %s WHERE a = 6", sourceTableName), 1);
-        assertUpdate(format("INSERT INTO %s VALUES 7", sourceTableName), 1);
-        assertUpdate(format("REFRESH MATERIALIZED VIEW %s", materializedViewName), 1);
-        assertQuery(format("SELECT a FROM %s", materializedViewName), "VALUES 7");
+        assertUpdate("DELETE FROM %s WHERE a = 6".formatted(sourceTableName), 1);
+        assertUpdate("INSERT INTO %s VALUES 7".formatted(sourceTableName), 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW %s".formatted(materializedViewName), 1);
+        assertQuery("SELECT a FROM %s".formatted(materializedViewName), "VALUES 7");
 
         List<Snapshot> fourthSnapshotFiles = getMaterializedViewSnapshots(materializedViewName, fileSystemFactory);
 
         assertThat(fourthSnapshotFiles.size()).isEqualTo(6);
         assertThat(fourthSnapshotFiles).containsAll(thirdSnapshotFiles);
 
-        assertUpdate(format("DROP MATERIALIZED VIEW %s", materializedViewName));
-        assertUpdate(format("DROP TABLE %s", sourceTableName));
+        assertUpdate("DROP MATERIALIZED VIEW %s".formatted(materializedViewName));
+        assertUpdate("DROP TABLE %s".formatted(sourceTableName));
     }
 
     private void registerMaterializedView(String materializedViewName, String sourceTableName, String metadataFileLocation)
@@ -167,7 +166,7 @@ public class TestIcebergMaterializedViewExpiredSnapshotCleanup
         List<IcebergMaterializedViewDefinition.Column> columns = ImmutableList.of(
                 new IcebergMaterializedViewDefinition.Column("a", TypeId.of("integer"), Optional.empty()));
         IcebergMaterializedViewDefinition definition = new IcebergMaterializedViewDefinition(
-                format("SELECT * FROM %s", sourceTableName),
+                "SELECT * FROM %s".formatted(sourceTableName),
                 Optional.of(ICEBERG_CATALOG),
                 Optional.of(schema),
                 columns,

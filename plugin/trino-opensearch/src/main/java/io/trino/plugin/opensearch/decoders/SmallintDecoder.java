@@ -24,7 +24,6 @@ import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SmallintDecoder
@@ -59,15 +58,15 @@ public class SmallintDecoder
                 decoded = Long.parseLong(stringValue);
             }
             catch (NumberFormatException e) {
-                throw new TrinoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as SMALLINT: %s", path, value));
+                throw new TrinoException(TYPE_MISMATCH, "Cannot parse value for field '%s' as SMALLINT: %s".formatted(path, value));
             }
         }
         else {
-            throw new TrinoException(TYPE_MISMATCH, format("Expected a numeric value for field '%s' of type SMALLINT: %s [%s]", path, value, value.getClass().getSimpleName()));
+            throw new TrinoException(TYPE_MISMATCH, "Expected a numeric value for field '%s' of type SMALLINT: %s [%s]".formatted(path, value, value.getClass().getSimpleName()));
         }
 
         if (decoded < Short.MIN_VALUE || decoded > Short.MAX_VALUE) {
-            throw new TrinoException(TYPE_MISMATCH, format("Value out of range for field '%s' of type SMALLINT: %s", path, decoded));
+            throw new TrinoException(TYPE_MISMATCH, "Value out of range for field '%s' of type SMALLINT: %s".formatted(path, decoded));
         }
 
         SMALLINT.writeLong(output, decoded);

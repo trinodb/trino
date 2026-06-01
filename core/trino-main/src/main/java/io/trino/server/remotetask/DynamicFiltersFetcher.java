@@ -45,7 +45,6 @@ import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS
 import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION_HEADER;
 import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT_HEADER;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class DynamicFiltersFetcher
@@ -192,7 +191,7 @@ class DynamicFiltersFetcher
                     stop();
                     onFail.accept(new TrinoException(
                             GENERIC_INTERNAL_ERROR,
-                            format("Dynamic filter response version (%s) is older than requested version (%s)", newDynamicFilterDomains.getVersion(), requestedDynamicFiltersVersion)));
+                            "Dynamic filter response version (%s) is older than requested version (%s)".formatted(newDynamicFilterDomains.getVersion(), requestedDynamicFiltersVersion)));
                 }
                 else {
                     updateDynamicFilterDomains(newDynamicFilterDomains);

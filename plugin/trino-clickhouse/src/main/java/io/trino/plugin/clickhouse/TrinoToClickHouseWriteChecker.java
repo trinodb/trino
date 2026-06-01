@@ -28,7 +28,6 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class TrinoToClickHouseWriteChecker<T>
@@ -111,7 +110,7 @@ public class TrinoToClickHouseWriteChecker<T>
                 return;
             }
 
-            throw new TrinoException(INVALID_ARGUMENTS, format("Value must be between %d and %d in ClickHouse: %d", range.getMin(), range.getMax(), value));
+            throw new TrinoException(INVALID_ARGUMENTS, "Value must be between %d and %d in ClickHouse: %d".formatted(range.getMin(), range.getMax(), value));
         }
     }
 
@@ -138,7 +137,7 @@ public class TrinoToClickHouseWriteChecker<T>
                 return;
             }
 
-            throw new TrinoException(INVALID_ARGUMENTS, format("Value must be between %s and %s in ClickHouse: %s", range.getMin(), range.getMax(), value));
+            throw new TrinoException(INVALID_ARGUMENTS, "Value must be between %s and %s in ClickHouse: %s".formatted(range.getMin(), range.getMax(), value));
         }
     }
 
@@ -162,7 +161,7 @@ public class TrinoToClickHouseWriteChecker<T>
             }
 
             if (value.isBefore(range.getMin()) || value.isAfter(range.getMax())) {
-                throw new TrinoException(INVALID_ARGUMENTS, format("Date must be between %s and %s in ClickHouse: %s", range.getMin(), range.getMax(), value));
+                throw new TrinoException(INVALID_ARGUMENTS, "Date must be between %s and %s in ClickHouse: %s".formatted(range.getMin(), range.getMax(), value));
             }
         }
     }
@@ -193,7 +192,7 @@ public class TrinoToClickHouseWriteChecker<T>
                         .toFormatter();
                 throw new TrinoException(
                         INVALID_ARGUMENTS,
-                        format("Timestamp must be between %s and %s in ClickHouse: %s", formatter.format(range.getMin()), formatter.format(range.getMax()), formatter.format(value)));
+                        "Timestamp must be between %s and %s in ClickHouse: %s".formatted(formatter.format(range.getMin()), formatter.format(range.getMax()), formatter.format(value)));
             }
         }
     }

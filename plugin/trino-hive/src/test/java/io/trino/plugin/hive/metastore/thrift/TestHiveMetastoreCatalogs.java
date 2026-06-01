@@ -35,7 +35,6 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveMetastoreCatalogs
@@ -139,7 +138,7 @@ public class TestHiveMetastoreCatalogs
                 .containsOnly("tabledefault");
         assertThat(computeActual(customCatalogSession, "SHOW TABLES IN " + customCatalogSchema).getOnlyColumn())
                 .containsOnly("tablecustom");
-        assertThat((String) computeScalar(customCatalogSession, format("SHOW CREATE TABLE %s.tablecustom", customCatalogSchema)))
+        assertThat((String) computeScalar(customCatalogSession, "SHOW CREATE TABLE %s.tablecustom".formatted(customCatalogSchema)))
                 .isEqualTo(
                         """
                         CREATE TABLE hive_custom_catalog.custom_catalog_schema.tablecustom (

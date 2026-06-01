@@ -61,7 +61,6 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.verifier.QueryResult.State;
 import static java.lang.Double.isFinite;
-import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
@@ -656,7 +655,7 @@ public class Validator
 
             StringBuilder sb = new StringBuilder();
 
-            sb.append(format("Control %s rows, Test %s rows%n", control.size(), test.size()));
+            sb.append("Control %s rows, Test %s rows%n".formatted(control.size(), test.size()));
             if (verboseResultsComparison) {
                 Joiner.on("\n").appendTo(sb, diff);
             }
@@ -702,7 +701,7 @@ public class Validator
                 boolean bothIntegral = isIntegral(x) && isIntegral(y);
                 boolean bothDecimals = isDecimal(x) && isDecimal(y);
                 if (!(bothReal || bothIntegral || bothDecimals)) {
-                    throw new TypesDoNotMatchException(format("item types do not match: %s vs %s", a.getClass().getName(), b.getClass().getName()));
+                    throw new TypesDoNotMatchException("item types do not match: %s vs %s".formatted(a.getClass().getName(), b.getClass().getName()));
                 }
                 if (isIntegral(x)) {
                     return Long.compare(x.longValue(), y.longValue());
@@ -713,7 +712,7 @@ public class Validator
                 return precisionCompare(x.doubleValue(), y.doubleValue(), precision);
             }
             if (a.getClass() != b.getClass()) {
-                throw new TypesDoNotMatchException(format("item types do not match: %s vs %s", a.getClass().getName(), b.getClass().getName()));
+                throw new TypesDoNotMatchException("item types do not match: %s vs %s".formatted(a.getClass().getName(), b.getClass().getName()));
             }
             if (a.getClass().isArray()) {
                 Object[] aArray = (Object[]) a;

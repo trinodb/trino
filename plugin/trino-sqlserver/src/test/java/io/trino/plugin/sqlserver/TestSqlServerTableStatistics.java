@@ -29,7 +29,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static io.trino.tpch.TpchTable.ORDERS;
-import static java.lang.String.format;
 import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestSqlServerTableStatistics
@@ -54,7 +53,7 @@ public class TestSqlServerTableStatistics
     {
         String tableName = "test_stats_not_analyzed";
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
+        computeActual("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders".formatted(tableName));
         try {
             assertQuery(
                     "SHOW STATS FOR " + tableName,
@@ -81,7 +80,7 @@ public class TestSqlServerTableStatistics
     {
         String tableName = "test_stats_orders";
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
+        computeActual("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders".formatted(tableName));
         try {
             gatherStats(tableName);
             assertQuery(
@@ -123,9 +122,9 @@ public class TestSqlServerTableStatistics
     {
         String tableName = "test_stats_table_all_nulls";
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        computeActual(format("CREATE TABLE %s AS SELECT orderkey, custkey, orderpriority, comment FROM tpch.tiny.orders WHERE false", tableName));
+        computeActual("CREATE TABLE %s AS SELECT orderkey, custkey, orderpriority, comment FROM tpch.tiny.orders WHERE false".formatted(tableName));
         try {
-            computeActual(format("INSERT INTO %s (orderkey) VALUES NULL, NULL, NULL", tableName));
+            computeActual("INSERT INTO %s (orderkey) VALUES NULL, NULL, NULL".formatted(tableName));
             gatherStats(tableName);
             assertQuery(
                     "SHOW STATS FOR " + tableName,
@@ -363,7 +362,7 @@ public class TestSqlServerTableStatistics
     {
         String tableName = "test_stats_create_index";
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
+        computeActual("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders".formatted(tableName));
 
         String expected = "VALUES " +
                 "('orderkey', null, 15000, 0, null, null, null)," +
@@ -382,10 +381,10 @@ public class TestSqlServerTableStatistics
             assertQuery("SHOW STATS FOR " + tableName, expected);
 
             // CREATE INDEX statement updates sys.partitions table
-            sqlServer.execute(format("CREATE INDEX idx ON %s (orderkey)", tableName));
-            sqlServer.execute(format("CREATE UNIQUE INDEX unique_index ON %s (orderkey)", tableName));
-            sqlServer.execute(format("CREATE CLUSTERED INDEX clustered_index ON %s (orderkey)", tableName));
-            sqlServer.execute(format("CREATE NONCLUSTERED INDEX non_clustered_index ON %s (orderkey)", tableName));
+            sqlServer.execute("CREATE INDEX idx ON %s (orderkey)".formatted(tableName));
+            sqlServer.execute("CREATE UNIQUE INDEX unique_index ON %s (orderkey)".formatted(tableName));
+            sqlServer.execute("CREATE CLUSTERED INDEX clustered_index ON %s (orderkey)".formatted(tableName));
+            sqlServer.execute("CREATE NONCLUSTERED INDEX non_clustered_index ON %s (orderkey)".formatted(tableName));
 
             assertQuery("SHOW STATS FOR " + tableName, expected);
         }
@@ -406,7 +405,7 @@ public class TestSqlServerTableStatistics
     private void gatherStats(String tableName, List<String> columnNames)
     {
         for (Object columnName : columnNames) {
-            sqlServer.execute(format("CREATE STATISTICS %1$s ON %2$s (%1$s)", columnName, tableName));
+            sqlServer.execute("CREATE STATISTICS %1$s ON %2$s (%1$s)".formatted(columnName, tableName));
         }
         sqlServer.execute("UPDATE STATISTICS " + tableName);
     }

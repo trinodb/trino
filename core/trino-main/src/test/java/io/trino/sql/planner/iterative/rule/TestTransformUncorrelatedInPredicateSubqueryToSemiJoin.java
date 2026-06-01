@@ -19,9 +19,10 @@ import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static java.util.Collections.emptyList;
 
 public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
         extends BaseRuleTest
@@ -32,7 +33,7 @@ public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
         tester().assertThat(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
                 .on(p -> p.apply(
                         ImmutableMap.of(),
-                        emptyList(),
+                        List.of(),
                         p.values(),
                         p.values()))
                 .doesNotFire();
@@ -44,7 +45,7 @@ public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
         tester().assertThat(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
                 .on(p -> p.apply(
                         ImmutableMap.of(p.symbol("x"), new ApplyNode.Exists()),
-                        emptyList(),
+                        List.of(),
                         p.values(),
                         p.values()))
                 .doesNotFire();
@@ -59,7 +60,7 @@ public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
                                 p.symbol("x"), new ApplyNode.In(
                                         p.symbol("y"),
                                         p.symbol("z"))),
-                        emptyList(),
+                        List.of(),
                         p.values(p.symbol("y")),
                         p.values(p.symbol("z"))))
                 .matches(node(SemiJoinNode.class, values("y"), values("z")));

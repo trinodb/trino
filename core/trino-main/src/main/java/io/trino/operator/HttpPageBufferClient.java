@@ -90,7 +90,6 @@ import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
 import static io.trino.util.Failures.WORKER_NODE_ERROR;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -375,7 +374,7 @@ public final class HttpPageBufferClient
                 boolean pagesAccepted;
                 try {
                     if (result.isTaskFailed()) {
-                        throw new TrinoException(REMOTE_TASK_FAILED, format("Remote task failed: %s", remoteTaskId));
+                        throw new TrinoException(REMOTE_TASK_FAILED, "Remote task failed: %s".formatted(remoteTaskId));
                     }
 
                     boolean shouldAcknowledge = false;
@@ -385,8 +384,7 @@ public final class HttpPageBufferClient
                         }
 
                         if (!isNullOrEmpty(taskInstanceId) && !result.getTaskInstanceId().equals(taskInstanceId)) {
-                            throw new TrinoException(REMOTE_TASK_MISMATCH, format(
-                                    "%s (%s). Expected taskInstanceId: %s, received taskInstanceId: %s",
+                            throw new TrinoException(REMOTE_TASK_MISMATCH, "%s (%s). Expected taskInstanceId: %s, received taskInstanceId: %s".formatted(
                                     REMOTE_TASK_MISMATCH_ERROR,
                                     fromUri(uri),
                                     taskInstanceId,
@@ -485,7 +483,7 @@ public final class HttpPageBufferClient
                         }
                         case ABORT -> {
                             // TrinoException will not be retried
-                            t = new TrinoException(GENERIC_INTERNAL_ERROR, format("Checksum verification failure on %s when reading from %s: %s", selfAddress, uri, t.getMessage()), t);
+                            t = new TrinoException(GENERIC_INTERNAL_ERROR, "Checksum verification failure on %s when reading from %s: %s".formatted(selfAddress, uri, t.getMessage()), t);
                         }
                         case RETRY -> log.warn("Checksum verification failure on %s when reading from %s, may be retried: %s", selfAddress, uri, t.getMessage());
                         default -> throw new AssertionError("Unsupported option: " + dataIntegrityVerification);
@@ -494,8 +492,7 @@ public final class HttpPageBufferClient
 
                 t = rewriteException(t);
                 if (!(t instanceof TrinoException) && backoff.failure()) {
-                    String message = format(
-                            "%s (%s - %s failures, failure duration %s, total failed request time %s)",
+                    String message = "%s (%s - %s failures, failure duration %s, total failed request time %s)".formatted(
                             WORKER_NODE_ERROR,
                             uri,
                             backoff.getFailureCount(),
@@ -531,7 +528,7 @@ public final class HttpPageBufferClient
                     onFailure(new TrinoTransportException(
                             REMOTE_BUFFER_CLOSE_FAILED,
                             fromUri(location),
-                            format("Error closing remote buffer, expected %s got %s", NO_CONTENT.code(), result.getStatusCode())));
+                            "Error closing remote buffer, expected %s got %s".formatted(NO_CONTENT.code(), result.getStatusCode())));
                     return;
                 }
 
@@ -554,8 +551,7 @@ public final class HttpPageBufferClient
 
                 log.error("Request to delete %s failed %s", location, t);
                 if (!(t instanceof TrinoException) && backoff.failure()) {
-                    String message = format(
-                            "Error closing remote buffer (%s - %s failures, failure duration %s, total failed request time %s)",
+                    String message = "Error closing remote buffer (%s - %s failures, failure duration %s, total failed request time %s)".formatted(
                             location,
                             backoff.getFailureCount(),
                             backoff.getFailureDuration().convertTo(SECONDS),
@@ -697,16 +693,16 @@ public final class HttpPageBufferClient
                     catch (RuntimeException | IOException e) {
                         // Ignored. Just return whatever message we were able to decode
                     }
-                    throw new PageTransportErrorException(fromUri(uri), format("Expected response code to be 200, but was %s:%n%s", response.getStatusCode(), body));
+                    throw new PageTransportErrorException(fromUri(uri), "Expected response code to be 200, but was %s:%n%s".formatted(response.getStatusCode(), body));
                 }
 
                 // invalid content type can happen when an error page is returned, but is unlikely given the above 200
                 Optional<String> contentType = response.getHeader(CONTENT_TYPE);
                 if (contentType.isEmpty()) {
-                    throw new PageTransportErrorException(fromUri(uri), format("%s header is not set: %s", CONTENT_TYPE, response));
+                    throw new PageTransportErrorException(fromUri(uri), "%s header is not set: %s".formatted(CONTENT_TYPE, response));
                 }
                 if (!mediaTypeMatches(contentType.orElseThrow(), TRINO_PAGES_TYPE)) {
-                    throw new PageTransportErrorException(fromUri(uri), format("Expected %s response from server but got %s", TRINO_PAGES_TYPE, contentType.orElseThrow()));
+                    throw new PageTransportErrorException(fromUri(uri), "Expected %s response from server but got %s".formatted(TRINO_PAGES_TYPE, contentType.orElseThrow()));
                 }
 
                 String taskInstanceId = getTaskInstanceId(response, uri);
@@ -718,7 +714,7 @@ public final class HttpPageBufferClient
                 try (LittleEndianDataInputStream input = new LittleEndianDataInputStream(response.getInputStream())) {
                     int magic = input.readInt();
                     if (magic != SERIALIZED_PAGES_MAGIC) {
-                        throw new IllegalStateException(format("Invalid stream header, expected 0x%08x, but was 0x%08x", SERIALIZED_PAGES_MAGIC, magic));
+                        throw new IllegalStateException("Invalid stream header, expected 0x%08x, but was 0x%08x".formatted(SERIALIZED_PAGES_MAGIC, magic));
                     }
                     long checksum = input.readLong();
                     int pagesCount = input.readInt();
@@ -732,7 +728,7 @@ public final class HttpPageBufferClient
                 }
             }
             catch (PageTransportErrorException e) {
-                throw new PageTransportErrorException(fromUri(uri), format("Error fetching %s: %s", request.getUri().toASCIIString(), e.getMessage()), e);
+                throw new PageTransportErrorException(fromUri(uri), "Error fetching %s: %s".formatted(request.getUri().toASCIIString(), e.getMessage()), e);
             }
         }
 
@@ -741,12 +737,12 @@ public final class HttpPageBufferClient
             if (dataIntegrityVerificationEnabled) {
                 long calculatedChecksum = calculateChecksum(pages);
                 if (readChecksum != calculatedChecksum) {
-                    throw new ChecksumVerificationException(format("Data corruption, read checksum: 0x%08x, calculated checksum: 0x%08x", readChecksum, calculatedChecksum));
+                    throw new ChecksumVerificationException("Data corruption, read checksum: 0x%08x, calculated checksum: 0x%08x".formatted(readChecksum, calculatedChecksum));
                 }
             }
             else {
                 if (readChecksum != NO_CHECKSUM) {
-                    throw new ChecksumVerificationException(format("Expected checksum to be NO_CHECKSUM (0x%08x) but is 0x%08x", NO_CHECKSUM, readChecksum));
+                    throw new ChecksumVerificationException("Expected checksum to be NO_CHECKSUM (0x%08x) but is 0x%08x".formatted(NO_CHECKSUM, readChecksum));
                 }
             }
         }
@@ -754,31 +750,31 @@ public final class HttpPageBufferClient
         private static String getTaskInstanceId(Response response, URI uri)
         {
             return response.getHeader(TRINO_TASK_INSTANCE_ID_HEADER)
-                    .orElseThrow(() -> new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_TASK_INSTANCE_ID_HEADER)));
+                    .orElseThrow(() -> new PageTransportErrorException(fromUri(uri), "Expected %s header".formatted(TRINO_TASK_INSTANCE_ID_HEADER)));
         }
 
         private static long getToken(Response response, URI uri)
         {
             return Long.parseLong(response.getHeader(TRINO_PAGE_TOKEN_HEADER)
-                    .orElseThrow(() -> new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_PAGE_TOKEN_HEADER))));
+                    .orElseThrow(() -> new PageTransportErrorException(fromUri(uri), "Expected %s header".formatted(TRINO_PAGE_TOKEN_HEADER))));
         }
 
         private static long getNextToken(Response response, URI uri)
         {
             return Long.parseLong(response.getHeader(TRINO_PAGE_NEXT_TOKEN_HEADER)
-                    .orElseThrow(() -> new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_PAGE_NEXT_TOKEN_HEADER))));
+                    .orElseThrow(() -> new PageTransportErrorException(fromUri(uri), "Expected %s header".formatted(TRINO_PAGE_NEXT_TOKEN_HEADER))));
         }
 
         private static boolean getComplete(Response response, URI uri)
         {
             return Boolean.parseBoolean(response.getHeader(TRINO_BUFFER_COMPLETE_HEADER)
-                    .orElseThrow(() -> new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_BUFFER_COMPLETE_HEADER))));
+                    .orElseThrow(() -> new PageTransportErrorException(fromUri(uri), "Expected %s header".formatted(TRINO_BUFFER_COMPLETE_HEADER))));
         }
 
         private static boolean getTaskFailed(Response response, URI uri)
         {
             return Boolean.parseBoolean(response.getHeader(TRINO_TASK_FAILED_HEADER)
-                    .orElseThrow(() -> new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_TASK_FAILED_HEADER))));
+                    .orElseThrow(() -> new PageTransportErrorException(fromUri(uri), "Expected %s header".formatted(TRINO_TASK_FAILED_HEADER))));
         }
 
         private static boolean mediaTypeMatches(String value, MediaType range)

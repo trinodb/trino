@@ -20,7 +20,6 @@ import java.util.Optional;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_READ_ONLY;
-import static java.lang.String.format;
 
 public class HiveReadOnlyException
         extends TrinoException
@@ -33,7 +32,7 @@ public class HiveReadOnlyException
     private static String composeMessage(SchemaTableName tableName, Optional<String> partition)
     {
         return partition.isPresent()
-                ? format("Table '%s' partition '%s' is read-only", tableName, partition.get())
-                : format("Table '%s' is read-only", tableName);
+                ? "Table '%s' partition '%s' is read-only".formatted(tableName, partition.get())
+                : "Table '%s' is read-only".formatted(tableName);
     }
 }

@@ -36,7 +36,6 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class KafkaSplitManager
@@ -110,7 +109,7 @@ public class KafkaSplitManager
             if (e instanceof TrinoException) {
                 throw e;
             }
-            throw new TrinoException(KAFKA_SPLIT_ERROR, format("Cannot list splits for table '%s' reading topic '%s'", kafkaTableHandle.tableName(), kafkaTableHandle.topicName()), e);
+            throw new TrinoException(KAFKA_SPLIT_ERROR, "Cannot list splits for table '%s' reading topic '%s'".formatted(kafkaTableHandle.tableName(), kafkaTableHandle.topicName()), e);
         }
     }
 

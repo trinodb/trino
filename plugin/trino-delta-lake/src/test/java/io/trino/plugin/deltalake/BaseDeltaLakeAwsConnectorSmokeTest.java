@@ -22,7 +22,6 @@ import org.junit.jupiter.api.TestInstance;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -49,8 +48,7 @@ public abstract class BaseDeltaLakeAwsConnectorSmokeTest
     protected void registerTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
     {
         hiveMinioDataLake.copyResources(resourcePath, table);
-        queryRunner.execute(format(
-                "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')",
+        queryRunner.execute("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(
                 table,
                 getLocationForTable(bucketName, table)));
     }
@@ -58,14 +56,14 @@ public abstract class BaseDeltaLakeAwsConnectorSmokeTest
     @Override
     protected String getLocationForTable(String bucketName, String tableName)
     {
-        return format("s3://%s/%s", bucketName, tableName);
+        return "s3://%s/%s".formatted(bucketName, tableName);
     }
 
     @Override
     protected List<String> getTableFiles(String tableName)
     {
         return hiveMinioDataLake.listFiles(tableName).stream()
-                .map(path -> format("s3://%s/%s", bucketName, path))
+                .map(path -> "s3://%s/%s".formatted(bucketName, path))
                 .collect(toImmutableList());
     }
 
@@ -73,7 +71,7 @@ public abstract class BaseDeltaLakeAwsConnectorSmokeTest
     protected List<String> listFiles(String directory)
     {
         return hiveMinioDataLake.listFiles(directory).stream()
-                .map(path -> format("s3://%s/%s", bucketName, path))
+                .map(path -> "s3://%s/%s".formatted(bucketName, path))
                 .collect(toImmutableList());
     }
 
@@ -88,6 +86,6 @@ public abstract class BaseDeltaLakeAwsConnectorSmokeTest
     @Override
     protected String bucketUrl()
     {
-        return format("s3://%s/", bucketName);
+        return "s3://%s/".formatted(bucketName);
     }
 }

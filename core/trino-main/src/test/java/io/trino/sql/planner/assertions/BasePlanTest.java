@@ -62,7 +62,6 @@ import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textDistributedPlan;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -297,8 +296,7 @@ public class BasePlanTest
                 SubPlan adaptivePlan = planTester.createAdaptivePlan(transactionSession, subPlan, optimizers, WarningCollector.NOOP, createPlanOptimizersStatsCollector(), createRuntimeInfoProvider(subPlan, completeStageStats));
                 String formattedPlan = textDistributedPlan(adaptivePlan, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), transactionSession, false, UNKNOWN);
                 if (!subPlanMatcher.matches(adaptivePlan, planTester.getStatsCalculator(), transactionSession, planTester.getPlannerContext().getMetadata())) {
-                    throw new AssertionError(format(
-                            "Adaptive plan does not match, expected [\n\n%s\n] but found [\n\n%s\n]",
+                    throw new AssertionError("Adaptive plan does not match, expected [\n\n%s\n] but found [\n\n%s\n]".formatted(
                             subPlanMatcher,
                             formattedPlan));
                 }
@@ -306,8 +304,7 @@ public class BasePlanTest
                     SubPlan idempotentPlan = planTester.createAdaptivePlan(transactionSession, adaptivePlan, optimizers, WarningCollector.NOOP, createPlanOptimizersStatsCollector(), createRuntimeInfoProvider(adaptivePlan, completeStageStats));
                     String formattedIdempotentPlan = textDistributedPlan(idempotentPlan, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), transactionSession, false, UNKNOWN);
                     if (!subPlanMatcher.matches(idempotentPlan, planTester.getStatsCalculator(), transactionSession, planTester.getPlannerContext().getMetadata())) {
-                        throw new AssertionError(format(
-                                "Adaptive plan is not idempotent, expected [\n\n%s\n] but found [\n\n%s\n]",
+                        throw new AssertionError("Adaptive plan is not idempotent, expected [\n\n%s\n] but found [\n\n%s\n]".formatted(
                                 subPlanMatcher,
                                 formattedIdempotentPlan));
                     }

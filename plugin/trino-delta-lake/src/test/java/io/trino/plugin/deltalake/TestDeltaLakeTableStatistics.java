@@ -22,7 +22,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -44,7 +43,7 @@ public class TestDeltaLakeTableStatistics
     {
         String dataPath = Resources.getResource("databricks73/person").toExternalForm();
         getQueryRunner().execute(
-                format("CALL system.register_table(CURRENT_SCHEMA, 'person', '%s')", dataPath));
+                "CALL system.register_table(CURRENT_SCHEMA, 'person', '%s')".formatted(dataPath));
     }
 
     @Test

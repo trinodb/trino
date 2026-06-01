@@ -42,7 +42,6 @@ import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.type.Reals.toReal;
 import static java.lang.Float.floatToRawIntBits;
-import static java.lang.String.format;
 import static java.lang.runtime.ExactConversionsSupport.isLongToByteExact;
 import static java.lang.runtime.ExactConversionsSupport.isLongToIntExact;
 import static java.lang.runtime.ExactConversionsSupport.isLongToShortExact;
@@ -222,7 +221,7 @@ public final class DoubleOperators
             return utf8Slice(stringValue);
         }
 
-        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s (%s) cannot be represented as varchar(%s)", value, stringValue, x));
+        throw new TrinoException(INVALID_CAST_ARGUMENT, "Value %s (%s) cannot be represented as varchar(%s)".formatted(value, stringValue, x));
     }
 
     @ScalarOperator(SATURATED_FLOOR_CAST)
@@ -283,7 +282,7 @@ public final class DoubleOperators
             return DoubleMath.roundToLong(value, FLOOR);
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Unable to cast double %s to %s", value, targetType), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Unable to cast double %s to %s".formatted(value, targetType), e);
         }
     }
 }

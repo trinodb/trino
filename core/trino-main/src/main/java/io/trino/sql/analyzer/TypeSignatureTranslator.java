@@ -63,7 +63,6 @@ import static io.trino.spi.type.TypeParameter.typeVariable;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
 public final class TypeSignatureTranslator
@@ -191,7 +190,7 @@ public final class TypeSignatureTranslator
             return INTERVAL_DAY_TIME.getTypeSignature();
         }
 
-        throw new TrinoException(NOT_SUPPORTED, format("INTERVAL %s type not supported", type.qualifier()));
+        throw new TrinoException(NOT_SUPPORTED, "INTERVAL %s type not supported".formatted(type.qualifier()));
     }
 
     private static TypeSignature toTypeSignature(DateTimeDataType type, Set<String> typeVariables)

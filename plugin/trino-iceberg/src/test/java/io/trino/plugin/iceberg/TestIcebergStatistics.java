@@ -49,7 +49,6 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.NATION;
-import static java.lang.String.format;
 import static java.math.RoundingMode.UP;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -670,7 +669,7 @@ public class TestIcebergStatistics
         long snapshotId = getCurrentSnapshotId(tableName);
         assertUpdate("INSERT INTO " + tableName + " VALUES 22", 1);
         assertThat(query("ANALYZE \"%s@%d\"".formatted(tableName, snapshotId)))
-                .failure().hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, snapshotId));
+                .failure().hasMessage("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist".formatted(tableName, snapshotId));
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES 11, 22");
 
@@ -759,7 +758,7 @@ public class TestIcebergStatistics
         assertAccessDenied(
                 "ALTER TABLE " + tableName + " EXECUTE DROP_EXTENDED_STATS",
                 "Cannot execute table procedure DROP_EXTENDED_STATS on iceberg.tpch.test_deny_drop_stats",
-                privilege(format("%s.%s.%s.DROP_EXTENDED_STATS", catalog, schema, tableName), EXECUTE_TABLE_PROCEDURE));
+                privilege("%s.%s.%s.DROP_EXTENDED_STATS".formatted(catalog, schema, tableName), EXECUTE_TABLE_PROCEDURE));
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -773,7 +772,7 @@ public class TestIcebergStatistics
         long snapshotId = getCurrentSnapshotId(tableName);
         assertUpdate("INSERT INTO " + tableName + " VALUES 22", 1);
         assertThat(query("ALTER TABLE \"%s@%d\" EXECUTE DROP_EXTENDED_STATS".formatted(tableName, snapshotId)))
-                .failure().hasMessage(format("line 1:7: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, snapshotId));
+                .failure().hasMessage("line 1:7: Table 'iceberg.tpch.\"%s@%s\"' does not exist".formatted(tableName, snapshotId));
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES 11, 22");
 
@@ -816,7 +815,7 @@ public class TestIcebergStatistics
                   (null,  null, null, null, 26, null, null)
                 """);
 
-        assertUpdate(format("ALTER TABLE %s.%s EXECUTE rollback_to_snapshot(%s)", schema, tableName, createSnapshot));
+        assertUpdate("ALTER TABLE %s.%s EXECUTE rollback_to_snapshot(%s)".formatted(schema, tableName, createSnapshot));
         // NDV information still present after rollback_to_snapshot
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -1277,7 +1276,7 @@ public class TestIcebergStatistics
 
     private long getCurrentSnapshotId(String tableName)
     {
-        return (long) computeActual(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", tableName))
+        return (long) computeActual("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES".formatted(tableName))
                 .getOnlyValue();
     }
 

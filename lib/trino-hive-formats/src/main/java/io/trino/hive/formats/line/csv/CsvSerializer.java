@@ -27,7 +27,6 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 
 /**
  * Serializer that is bug for bug compatible with OpenCSVSerde.
@@ -48,9 +47,9 @@ public class CsvSerializer
         columns.forEach(column -> checkArgument(column.type() == VARCHAR, "CSV only supports VARCHAR columns: %s", column));
         this.columns = ImmutableList.copyOf(columns);
 
-        checkArgument(separatorChar >= 0, format("Separator character must be 7-bit ASCII: %02x", separatorChar));
-        checkArgument(quoteChar >= 0, format("Quote character must be 7-bit ASCII: %02x", quoteChar));
-        checkArgument(escapeChar >= 0, format("Escape character must be 7-bit ASCII: %02x", escapeChar));
+        checkArgument(separatorChar >= 0, "Separator character must be 7-bit ASCII: %02x".formatted(separatorChar));
+        checkArgument(quoteChar >= 0, "Quote character must be 7-bit ASCII: %02x".formatted(quoteChar));
+        checkArgument(escapeChar >= 0, "Escape character must be 7-bit ASCII: %02x".formatted(escapeChar));
         checkArgument(separatorChar != '\0', "Separator can not be the null character (ASCII 0)");
         checkArgument(separatorChar != quoteChar, "Separator and quote character can not be the same");
         checkArgument(separatorChar != escapeChar, "Separator and escape character can not be the same");

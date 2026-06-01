@@ -32,7 +32,6 @@ import static io.trino.spi.type.Int128Math.rescaleTruncate;
 import static io.trino.spi.type.Int128Math.shiftLeftMultiPrecision;
 import static io.trino.spi.type.Int128Math.shiftRight;
 import static io.trino.spi.type.Int128Math.shiftRightMultiPrecision;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -785,8 +784,7 @@ final class TestInt128Math
                 return;
             }
 
-            throw new AssertionError(format(
-                    "%s / %s ([%s * 2^%d] / [%s * 2^%d]) Expected: %s(%s). Actual: %s(%s)",
+            throw new AssertionError("%s / %s ([%s * 2^%d] / [%s * 2^%d]) Expected: %s(%s). Actual: %s(%s)".formatted(
                     rescaledDividend,
                     rescaledDivisor,
                     dividendBigInteger,

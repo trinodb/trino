@@ -63,7 +63,6 @@ import static io.trino.plugin.iceberg.TableStatisticsReader.APACHE_DATASKETCHES_
 import static io.trino.plugin.iceberg.TableStatisticsReader.getLatestStatisticsFile;
 import static io.trino.plugin.iceberg.TableStatisticsWriter.StatsUpdateMode.INCREMENTAL_UPDATE;
 import static io.trino.plugin.iceberg.TableStatisticsWriter.StatsUpdateMode.REPLACE;
-import static java.lang.String.format;
 import static java.util.Map.Entry.comparingByKey;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -152,7 +151,7 @@ public class TableStatisticsWriter
                 .map(Types.NestedField::fieldId)
                 .collect(toImmutableSet());
 
-        String path = operations.metadataFileLocation(format("%s-%s.stats", session.getQueryId(), randomUUID()));
+        String path = operations.metadataFileLocation("%s-%s.stats".formatted(session.getQueryId(), randomUUID()));
         OutputFile outputFile = fileIO.newOutputFile(path);
         try {
             try (PuffinWriter writer = Puffin.write(outputFile)

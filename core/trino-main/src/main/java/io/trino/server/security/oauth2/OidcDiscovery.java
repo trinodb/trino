@@ -40,7 +40,6 @@ import static io.trino.server.security.oauth2.StaticOAuth2ServerConfig.AUTH_URL;
 import static io.trino.server.security.oauth2.StaticOAuth2ServerConfig.JWKS_URL;
 import static io.trino.server.security.oauth2.StaticOAuth2ServerConfig.TOKEN_URL;
 import static io.trino.server.security.oauth2.StaticOAuth2ServerConfig.USERINFO_URL;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class OidcDiscovery
@@ -95,7 +94,7 @@ public class OidcDiscovery
             if (statusCode < 400 || statusCode >= 500 || statusCode == REQUEST_TIMEOUT.code() || statusCode == TOO_MANY_REQUESTS.code()) {
                 throw new RuntimeException("Invalid response from OpenID Metadata endpoint: " + statusCode);
             }
-            throw new IllegalStateException(format("Invalid response from OpenID Metadata endpoint. Expected response code to be %s, but was %s", OK.code(), statusCode));
+            throw new IllegalStateException("Invalid response from OpenID Metadata endpoint. Expected response code to be %s, but was %s".formatted(OK.code(), statusCode));
         }
         return readConfiguration(response.getBody());
     }

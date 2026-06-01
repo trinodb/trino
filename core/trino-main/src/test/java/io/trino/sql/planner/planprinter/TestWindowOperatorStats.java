@@ -16,7 +16,8 @@ package io.trino.sql.planner.planprinter;
 import io.trino.operator.WindowInfo;
 import org.junit.jupiter.api.Test;
 
-import static java.util.Collections.emptyList;
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestWindowOperatorStats
@@ -24,7 +25,7 @@ public class TestWindowOperatorStats
     @Test
     public void testEmptyDriverInfosList()
     {
-        WindowInfo info = new WindowInfo(emptyList());
+        WindowInfo info = new WindowInfo(List.of());
 
         WindowOperatorStats stats = WindowOperatorStats.create(info);
 

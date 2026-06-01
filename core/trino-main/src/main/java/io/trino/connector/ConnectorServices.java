@@ -59,7 +59,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.CONNECTOR;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.SYSTEM;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorServices
@@ -99,21 +98,21 @@ public class ConnectorServices
         this.connector = requireNonNull(connector, "connector is null");
 
         Set<SystemTable> systemTables = connector.getSystemTables();
-        requireNonNull(systemTables, format("Connector '%s' returned a null system tables set", catalogHandle));
+        requireNonNull(systemTables, "Connector '%s' returned a null system tables set".formatted(catalogHandle));
         this.systemTables = ImmutableSet.copyOf(systemTables);
 
         Set<Procedure> procedures = connector.getProcedures();
-        requireNonNull(procedures, format("Connector '%s' returned a null procedures set", catalogHandle));
+        requireNonNull(procedures, "Connector '%s' returned a null procedures set".formatted(catalogHandle));
         this.procedures = new CatalogProcedures(procedures);
 
         Set<TableProcedureMetadata> tableProcedures = connector.getTableProcedures();
-        requireNonNull(procedures, format("Connector '%s' returned a null table procedures set", catalogHandle));
+        requireNonNull(procedures, "Connector '%s' returned a null table procedures set".formatted(catalogHandle));
         this.tableProcedures = new CatalogTableProcedures(tableProcedures);
 
-        this.functionProvider = requireNonNull(connector.getFunctionProvider(), format("Connector '%s' returned a null function provider", catalogHandle));
+        this.functionProvider = requireNonNull(connector.getFunctionProvider(), "Connector '%s' returned a null function provider".formatted(catalogHandle));
 
         Set<ConnectorTableFunction> tableFunctions = connector.getTableFunctions();
-        requireNonNull(tableFunctions, format("Connector '%s' returned a null table functions set", catalogHandle));
+        requireNonNull(tableFunctions, "Connector '%s' returned a null table functions set".formatted(catalogHandle));
         this.tableFunctions = new CatalogTableFunctions(tableFunctions);
         // TODO ConnectorTableFunction should be converted to a metadata class (and a separate analysis interface) which performs this validation in the constructor
         tableFunctions.forEach(ConnectorServices::validateTableFunction);
@@ -129,14 +128,14 @@ public class ConnectorServices
         ConnectorPageSourceProviderFactory connectorPageSourceProviderFactory = null;
         try {
             connectorPageSourceProviderFactory = connector.getPageSourceProviderFactory();
-            requireNonNull(connectorPageSourceProviderFactory, format("Connector '%s' returned a null page source provider factory", catalogHandle));
+            requireNonNull(connectorPageSourceProviderFactory, "Connector '%s' returned a null page source provider factory".formatted(catalogHandle));
         }
         catch (UnsupportedOperationException _) {
         }
 
         try {
             ConnectorRecordSetProvider connectorRecordSetProvider = connector.getRecordSetProvider();
-            requireNonNull(connectorRecordSetProvider, format("Connector '%s' returned a null record set provider", catalogHandle));
+            requireNonNull(connectorRecordSetProvider, "Connector '%s' returned a null record set provider".formatted(catalogHandle));
             verify(connectorPageSourceProviderFactory == null, "Connector '%s' returned both page source and record set providers", catalogHandle);
             var pageSourceProvider = new RecordPageSourceProvider(connectorRecordSetProvider);
             connectorPageSourceProviderFactory = () -> pageSourceProvider;
@@ -148,7 +147,7 @@ public class ConnectorServices
         ConnectorPageSinkProvider connectorPageSinkProvider = null;
         try {
             connectorPageSinkProvider = connector.getPageSinkProvider();
-            requireNonNull(connectorPageSinkProvider, format("Connector '%s' returned a null page sink provider", catalogHandle));
+            requireNonNull(connectorPageSinkProvider, "Connector '%s' returned a null page sink provider".formatted(catalogHandle));
         }
         catch (UnsupportedOperationException _) {
         }
@@ -157,7 +156,7 @@ public class ConnectorServices
         ConnectorIndexProvider indexProvider = null;
         try {
             indexProvider = connector.getIndexProvider();
-            requireNonNull(indexProvider, format("Connector '%s' returned a null index provider", catalogHandle));
+            requireNonNull(indexProvider, "Connector '%s' returned a null index provider".formatted(catalogHandle));
         }
         catch (UnsupportedOperationException _) {
         }
@@ -166,7 +165,7 @@ public class ConnectorServices
         ConnectorNodePartitioningProvider partitioningProvider = null;
         try {
             partitioningProvider = connector.getNodePartitioningProvider();
-            requireNonNull(partitioningProvider, format("Connector '%s' returned a null partitioning provider", catalogHandle));
+            requireNonNull(partitioningProvider, "Connector '%s' returned a null partitioning provider".formatted(catalogHandle));
         }
         catch (UnsupportedOperationException _) {
         }
@@ -182,39 +181,39 @@ public class ConnectorServices
         this.accessControl = Optional.ofNullable(accessControl);
 
         List<PropertyMetadata<?>> sessionProperties = connector.getSessionProperties();
-        requireNonNull(sessionProperties, format("Connector '%s' returned a null session properties set", catalogHandle));
+        requireNonNull(sessionProperties, "Connector '%s' returned a null session properties set".formatted(catalogHandle));
         this.sessionProperties = Maps.uniqueIndex(sessionProperties, PropertyMetadata::getName);
 
         List<PropertyMetadata<?>> tableProperties = connector.getTableProperties();
-        requireNonNull(tableProperties, format("Connector '%s' returned a null table properties set", catalogHandle));
+        requireNonNull(tableProperties, "Connector '%s' returned a null table properties set".formatted(catalogHandle));
         this.tableProperties = Maps.uniqueIndex(tableProperties, PropertyMetadata::getName);
 
         List<PropertyMetadata<?>> viewProperties = connector.getViewProperties();
-        requireNonNull(viewProperties, format("Connector '%s' returned a null view properties set", catalogHandle));
+        requireNonNull(viewProperties, "Connector '%s' returned a null view properties set".formatted(catalogHandle));
         this.viewProperties = Maps.uniqueIndex(viewProperties, PropertyMetadata::getName);
 
         List<PropertyMetadata<?>> materializedViewProperties = connector.getMaterializedViewProperties();
-        requireNonNull(materializedViewProperties, format("Connector '%s' returned a null materialized view properties set", catalogHandle));
+        requireNonNull(materializedViewProperties, "Connector '%s' returned a null materialized view properties set".formatted(catalogHandle));
         this.materializedViewProperties = Maps.uniqueIndex(materializedViewProperties, PropertyMetadata::getName);
 
         List<PropertyMetadata<?>> schemaProperties = connector.getSchemaProperties();
-        requireNonNull(schemaProperties, format("Connector '%s' returned a null schema properties set", catalogHandle));
+        requireNonNull(schemaProperties, "Connector '%s' returned a null schema properties set".formatted(catalogHandle));
         this.schemaProperties = Maps.uniqueIndex(schemaProperties, PropertyMetadata::getName);
 
         List<PropertyMetadata<?>> columnProperties = connector.getColumnProperties();
-        requireNonNull(columnProperties, format("Connector '%s' returned a null column properties set", catalogHandle));
+        requireNonNull(columnProperties, "Connector '%s' returned a null column properties set".formatted(catalogHandle));
         this.columnProperties = Maps.uniqueIndex(columnProperties, PropertyMetadata::getName);
 
         List<PropertyMetadata<?>> analyzeProperties = connector.getAnalyzeProperties();
-        requireNonNull(analyzeProperties, format("Connector '%s' returned a null analyze properties set", catalogHandle));
+        requireNonNull(analyzeProperties, "Connector '%s' returned a null analyze properties set".formatted(catalogHandle));
         this.analyzeProperties = Maps.uniqueIndex(analyzeProperties, PropertyMetadata::getName);
 
         List<PropertyMetadata<?>> branchProperties = connector.getBranchProperties();
-        requireNonNull(branchProperties, format("Connector '%s' returned a null branch properties set", catalogHandle));
+        requireNonNull(branchProperties, "Connector '%s' returned a null branch properties set".formatted(catalogHandle));
         this.branchProperties = Maps.uniqueIndex(branchProperties, PropertyMetadata::getName);
 
         Set<ConnectorCapabilities> capabilities = connector.getCapabilities();
-        requireNonNull(capabilities, format("Connector '%s' returned a null capabilities set", catalogHandle));
+        requireNonNull(capabilities, "Connector '%s' returned a null capabilities set".formatted(catalogHandle));
         this.capabilities = capabilities;
     }
 
@@ -397,8 +396,7 @@ public class ConnectorServices
     {
         try {
             clazz.getMethod(name, parameterTypes);
-            throw new IllegalArgumentException(format(
-                    "Access control %s must not implement removed method %s(%s)",
+            throw new IllegalArgumentException("Access control %s must not implement removed method %s(%s)".formatted(
                     clazz.getName(),
                     name,
                     Arrays.stream(parameterTypes).map(Class::getName).collect(Collectors.joining(", "))));

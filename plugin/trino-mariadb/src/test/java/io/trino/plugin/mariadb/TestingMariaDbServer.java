@@ -21,8 +21,6 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import static java.lang.String.format;
-
 public class TestingMariaDbServer
         implements AutoCloseable
 {
@@ -48,7 +46,7 @@ public class TestingMariaDbServer
 
         try (Connection connection = DriverManager.getConnection(getJdbcUrl(), "root", container.getPassword());
                 Statement statement = connection.createStatement()) {
-            statement.execute(format("GRANT ALL PRIVILEGES ON *.* TO '%s'", container.getUsername()));
+            statement.execute("GRANT ALL PRIVILEGES ON *.* TO '%s'".formatted(container.getUsername()));
         }
         catch (SQLException e) {
             throw new RuntimeException(e);
@@ -78,7 +76,7 @@ public class TestingMariaDbServer
 
     public String getJdbcUrl()
     {
-        return format("jdbc:mariadb://%s:%s", container.getHost(), container.getMappedPort(MARIADB_PORT));
+        return "jdbc:mariadb://%s:%s".formatted(container.getHost(), container.getMappedPort(MARIADB_PORT));
     }
 
     @Override

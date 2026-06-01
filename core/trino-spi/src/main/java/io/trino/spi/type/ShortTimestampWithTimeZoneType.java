@@ -42,7 +42,6 @@ import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
 /**
@@ -61,7 +60,7 @@ final class ShortTimestampWithTimeZoneType
         super(precision, long.class, LongArrayBlock.class);
 
         if (precision < 0 || precision > MAX_SHORT_PRECISION) {
-            throw new IllegalArgumentException(format("Precision must be in the range [0, %s]", MAX_SHORT_PRECISION));
+            throw new IllegalArgumentException("Precision must be in the range [0, %s]".formatted(MAX_SHORT_PRECISION));
         }
     }
 

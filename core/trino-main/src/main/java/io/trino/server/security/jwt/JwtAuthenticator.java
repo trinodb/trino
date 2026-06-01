@@ -33,7 +33,6 @@ import java.util.Optional;
 import static io.jsonwebtoken.Claims.AUDIENCE;
 import static io.trino.server.security.UserMapping.createUserMapping;
 import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
-import static java.lang.String.format;
 
 public class JwtAuthenticator
         extends AbstractBearerAuthenticator
@@ -85,16 +84,16 @@ public class JwtAuthenticator
         switch (tokenAudience) {
             case String value -> {
                 if (!requiredAudience.get().equals(value)) {
-                    throw new InvalidClaimException(format("Invalid Audience: %s. Allowed audiences: %s", tokenAudience, requiredAudience.get()));
+                    throw new InvalidClaimException("Invalid Audience: %s. Allowed audiences: %s".formatted(tokenAudience, requiredAudience.get()));
                 }
             }
             case Collection<?> collection -> {
                 if (collection.stream().noneMatch(aud -> requiredAudience.get().equals(aud))) {
-                    throw new InvalidClaimException(format("Invalid Audience: %s. Allowed audiences: %s", tokenAudience, requiredAudience.get()));
+                    throw new InvalidClaimException("Invalid Audience: %s. Allowed audiences: %s".formatted(tokenAudience, requiredAudience.get()));
                 }
             }
-            case null -> throw new InvalidClaimException(format("Expected %s claim to be: %s, but was not present in the JWT claims.", AUDIENCE, requiredAudience.get()));
-            default -> throw new InvalidClaimException(format("Invalid Audience: %s", tokenAudience));
+            case null -> throw new InvalidClaimException("Expected %s claim to be: %s, but was not present in the JWT claims.".formatted(AUDIENCE, requiredAudience.get()));
+            default -> throw new InvalidClaimException("Invalid Audience: %s".formatted(tokenAudience));
         }
     }
 

@@ -54,7 +54,6 @@ import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.PA
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Math.floorDiv;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
@@ -163,7 +162,7 @@ public class KafkaFilterManager
         try (Admin adminClient = adminFactory.create(session)) {
             ConfigResource topicResource = new ConfigResource(ConfigResource.Type.TOPIC, topic);
 
-            DescribeConfigsResult describeResult = adminClient.describeConfigs(Collections.singleton(topicResource));
+            DescribeConfigsResult describeResult = adminClient.describeConfigs(Set.of(topicResource));
             Map<ConfigResource, Config> configMap = describeResult.all().get();
 
             if (configMap != null) {
@@ -175,7 +174,7 @@ public class KafkaFilterManager
             }
         }
         catch (Exception e) {
-            throw new TrinoException(KAFKA_SPLIT_ERROR, format("Failed to get configuration for topic '%s'", topic), e);
+            throw new TrinoException(KAFKA_SPLIT_ERROR, "Failed to get configuration for topic '%s'".formatted(topic), e);
         }
         return KafkaSessionProperties.isTimestampUpperBoundPushdownEnabled(session);
     }

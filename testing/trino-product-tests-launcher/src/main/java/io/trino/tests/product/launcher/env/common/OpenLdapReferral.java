@@ -23,7 +23,6 @@ import java.util.List;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.LDAP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class OpenLdapReferral
@@ -42,7 +41,7 @@ public class OpenLdapReferral
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        String baseImage = format("ghcr.io/trinodb/testing/almalinux9-oj17-openldap-referrals:%s", imagesVersion);
+        String baseImage = "ghcr.io/trinodb/testing/almalinux9-oj17-openldap-referrals:%s".formatted(imagesVersion);
 
         builder.configureContainers(dockerContainer -> {
             if (isTrinoContainer(dockerContainer.getLogicalName())) {

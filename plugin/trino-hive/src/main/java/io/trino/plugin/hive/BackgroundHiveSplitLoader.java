@@ -125,7 +125,6 @@ import static io.trino.plugin.hive.util.PartitionMatchSupplier.createPartitionMa
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Integer.parseInt;
 import static java.lang.Math.max;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.max;
 import static java.util.Objects.requireNonNull;
@@ -363,8 +362,7 @@ public class BackgroundHiveSplitLoader
                 return COMPLETED_FUTURE;
             }
             if (partitionCount.incrementAndGet() > maxPartitions) {
-                throw new TrinoException(HIVE_EXCEEDED_PARTITION_LIMIT, format(
-                        "Query over table '%s' can potentially read more than %s partitions",
+                throw new TrinoException(HIVE_EXCEEDED_PARTITION_LIMIT, "Query over table '%s' can potentially read more than %s partitions".formatted(
                         partition.getHivePartition().getTableName(),
                         maxPartitions));
             }
@@ -726,9 +724,8 @@ public class BackgroundHiveSplitLoader
 
             // legacy mode requires exactly one file per bucket
             if (files.size() != partitionBucketCount) {
-                throw new TrinoException(HIVE_INVALID_BUCKET_FILES, format(
-                        "Hive table '%s' is corrupt. File '%s' does not match the standard naming pattern, and the number " +
-                                "of files in the directory (%s) does not match the declared bucket count (%s) for partition: %s",
+                throw new TrinoException(HIVE_INVALID_BUCKET_FILES, ("Hive table '%s' is corrupt. File '%s' does not match the standard naming pattern, and the number " +
+                "of files in the directory (%s) does not match the declared bucket count (%s) for partition: %s").formatted(
                         table.getSchemaTableName(),
                         fileName,
                         files.size(),
@@ -804,9 +801,8 @@ public class BackgroundHiveSplitLoader
         // validate the bucket number detected from files, fail the query if the highest bucket number detected from file
         // exceeds the allowed highest number
         if (highestBucketNumber >= partitionBucketCount) {
-            throw new TrinoException(HIVE_INVALID_BUCKET_FILES, format(
-                    "Hive table '%s' is corrupt. The highest bucket number in the directory (%s) exceeds the bucket number range " +
-                            "defined by the declared bucket count (%s) for partition: %s",
+            throw new TrinoException(HIVE_INVALID_BUCKET_FILES, ("Hive table '%s' is corrupt. The highest bucket number in the directory (%s) exceeds the bucket number range " +
+            "defined by the declared bucket count (%s) for partition: %s").formatted(
                     tableName,
                     highestBucketNumber,
                     partitionBucketCount,
@@ -888,7 +884,7 @@ public class BackgroundHiveSplitLoader
             String name = keys.get(i).getName();
             HiveType hiveType = keys.get(i).getType();
             if (!typeSupported(hiveType.getTypeInfo(), table.getStorage().getStorageFormat())) {
-                throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDatabaseName(), table.getTableName()));
+                throw new TrinoException(NOT_SUPPORTED, "Unsupported Hive type %s found in partition keys of table %s.%s".formatted(hiveType, table.getDatabaseName(), table.getTableName()));
             }
             String value = values.get(i);
             checkCondition(value != null, HIVE_INVALID_PARTITION_VALUE, "partition key value cannot be null for field: %s", name);

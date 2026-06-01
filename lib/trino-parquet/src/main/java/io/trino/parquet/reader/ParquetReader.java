@@ -98,7 +98,6 @@ import static io.trino.spi.type.VariantType.VARIANT;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
 
@@ -682,7 +681,7 @@ public class ParquetReader
         // to figure out which rows need to be read from the required parquet pages
         OffsetIndex offsetIndex = requireNonNull(
                 rowGroupColumnIndexStore.get().getOffsetIndex(columnPath),
-                format("Missing OffsetIndex for column %s", columnPath));
+                "Missing OffsetIndex for column %s".formatted(columnPath));
         return FilteredOffsetIndex.filterOffsetIndex(offsetIndex, rowRanges.getParquetRowRanges(), rowGroupRowCount);
     }
 

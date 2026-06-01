@@ -90,8 +90,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Collections.singletonList;
-import static java.util.Collections.singletonMap;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMNS;
 import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMN_TYPES;
@@ -664,7 +662,7 @@ public class TestJsonFormat
     private static void assertUnserializableJsonValue(Type type, Object value)
     {
         List<Column> columns = ImmutableList.of(new Column("test", type, 33));
-        Page page = toSingleRowPage(columns, singletonList(value));
+        Page page = toSingleRowPage(columns, List.of(value));
 
         // write the data to json
         LineSerializer serializer = new JsonSerializerFactory().create(columns, ImmutableMap.of());
@@ -900,7 +898,7 @@ public class TestJsonFormat
             throws IOException, SerDeException
     {
         internalAssertValueTrino(type, jsonValue, expectedValue, timestampFormats);
-        internalAssertValueTrino(new ArrayType(type), "[" + jsonValue + "]", singletonList(expectedValue), timestampFormats);
+        internalAssertValueTrino(new ArrayType(type), "[" + jsonValue + "]", List.of(expectedValue), timestampFormats);
         internalAssertValueTrino(
                 RowType.rowType(field("a", type), field("nested", type), field("b", type)),
                 "{ \"nested\" : " + jsonValue + " }",
@@ -909,7 +907,7 @@ public class TestJsonFormat
         internalAssertValueTrino(
                 new MapType(BIGINT, type, TYPE_OPERATORS),
                 "{ \"1234\" : " + jsonValue + " }",
-                singletonMap(1234L, expectedValue),
+                Map.of(1234L, expectedValue),
                 timestampFormats);
         if (expectedValue != null && isScalarType(type)) {
             if (testMapKey) {
@@ -962,7 +960,7 @@ public class TestJsonFormat
             throws IOException
     {
         List<Column> columns = ImmutableList.of(new Column("test", type, 33));
-        Page page = toSingleRowPage(columns, singletonList(expectedValue));
+        Page page = toSingleRowPage(columns, List.of(expectedValue));
 
         // write the data to json
         LineSerializer serializer = new JsonSerializerFactory().create(columns, ImmutableMap.of());

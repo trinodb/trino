@@ -68,7 +68,6 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilege
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toCollection;
@@ -1702,7 +1701,7 @@ public class TestDeltaLakeFileOperations
     private void registerTable(String name, String resourcePath)
     {
         String dataPath = getResourceLocation(resourcePath).toExternalForm();
-        getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", name, dataPath));
+        getQueryRunner().execute("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(name, dataPath));
     }
 
     private URL getResourceLocation(String resourcePath)

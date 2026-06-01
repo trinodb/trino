@@ -84,7 +84,6 @@ import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
@@ -217,14 +216,14 @@ public class TestCassandraConnector
 
                     assertThat(keyValue).isEqualTo("key " + rowId);
 
-                    assertThat(Bytes.toHexString(cursor.getSlice(columnIndex.get("typebytes")).getBytes())).isEqualTo(format("0x%08X", rowId));
+                    assertThat(Bytes.toHexString(cursor.getSlice(columnIndex.get("typebytes")).getBytes())).isEqualTo("0x%08X".formatted(rowId));
 
                     // VARINT is returned as a string
                     assertThat(cursor.getSlice(columnIndex.get("typeinteger")).toStringUtf8()).isEqualTo(String.valueOf(rowId));
 
                     assertThat(cursor.getLong(columnIndex.get("typelong"))).isEqualTo(1000 + rowId);
 
-                    assertThat(trinoUuidToJavaUuid(cursor.getSlice(columnIndex.get("typeuuid"))).toString()).isEqualTo(format("00000000-0000-0000-0000-%012d", rowId));
+                    assertThat(trinoUuidToJavaUuid(cursor.getSlice(columnIndex.get("typeuuid"))).toString()).isEqualTo("00000000-0000-0000-0000-%012d".formatted(rowId));
 
                     assertThat(cursor.getLong(columnIndex.get("typetimestamp"))).isEqualTo(packDateTimeWithZone(DATE.getTime(), UTC_KEY));
 
@@ -475,7 +474,7 @@ public class TestCassandraConnector
                 ImmutableMap.of(
                         column1, Domain.singleValue(BIGINT, value1),
                         column2, Domain.singleValue(INTEGER, value2)));
-        String partitionId = format("partition_one=%d AND partition_two=%d", value1, value2);
+        String partitionId = "partition_one=%d AND partition_two=%d".formatted(value1, value2);
         return new CassandraPartition(new byte[0], partitionId, tupleDomain, true);
     }
 

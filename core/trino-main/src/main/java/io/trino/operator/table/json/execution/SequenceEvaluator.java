@@ -26,7 +26,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
 import static io.trino.json.ir.SqlJsonLiteralConverter.getJsonNode;
-import static java.lang.String.format;
 
 public final class SequenceEvaluator
 {
@@ -73,8 +72,7 @@ public final class SequenceEvaluator
                 Optional<JsonNode> jsonNode = getJsonNode(typedValue);
                 if (jsonNode.isEmpty()) {
                     if (errorOnError) {
-                        throw new JsonOutputConversionException(format(
-                                "JSON path returned a scalar SQL value of type %s that cannot be represented as JSON",
+                        throw new JsonOutputConversionException("JSON path returned a scalar SQL value of type %s that cannot be represented as JSON".formatted(
                                 ((TypedValue) element).getType()));
                     }
                     // the error behavior is EMPTY ON ERROR. Empty sequence will result in an empty table.

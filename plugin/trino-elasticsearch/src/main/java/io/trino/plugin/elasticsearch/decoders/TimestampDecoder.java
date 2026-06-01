@@ -31,7 +31,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 import static java.util.Objects.requireNonNull;
@@ -54,7 +53,7 @@ public class TimestampDecoder
 
         if (documentField != null) {
             if (documentField.getValues().size() > 1) {
-                throw new TrinoException(TYPE_MISMATCH, format("Expected single value for column '%s', found: %s", path, documentField.getValues().size()));
+                throw new TrinoException(TYPE_MISMATCH, "Expected single value for column '%s', found: %s".formatted(path, documentField.getValues().size()));
             }
             value = documentField.getValue();
         }
@@ -80,8 +79,7 @@ public class TimestampDecoder
                 timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(number.longValue()), UTC);
             }
             else {
-                throw new TrinoException(NOT_SUPPORTED, format(
-                        "Unsupported representation for field '%s' of type TIMESTAMP: %s [%s]",
+                throw new TrinoException(NOT_SUPPORTED, "Unsupported representation for field '%s' of type TIMESTAMP: %s [%s]".formatted(
                         path,
                         value,
                         value.getClass().getSimpleName()));

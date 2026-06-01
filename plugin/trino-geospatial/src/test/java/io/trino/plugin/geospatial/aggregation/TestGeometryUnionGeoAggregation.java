@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.geospatial.aggregation;
 
-import com.google.common.base.Joiner;
 import io.trino.plugin.geospatial.GeoPlugin;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
@@ -29,7 +28,6 @@ import java.util.List;
 
 import static io.trino.plugin.geospatial.GeoTestUtils.assertSpatialEquals;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static java.lang.String.format;
 import static java.util.Collections.reverse;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,8 +53,6 @@ public class TestGeometryUnionGeoAggregation
         assertions.close();
         assertions = null;
     }
-
-    private static final Joiner COMMA_JOINER = Joiner.on(",");
 
     @Test
     public void testPoint()
@@ -326,12 +322,12 @@ public class TestGeometryUnionGeoAggregation
         if (wkts.length == 0) {
             return;
         }
-        List<String> wktList = Arrays.stream(wkts).map(wkt -> format("ST_GeometryFromText('%s')", wkt)).collect(toList());
-        String wktArray = "ARRAY[" + COMMA_JOINER.join(wktList) + "]";
+        List<String> wktList = Arrays.stream(wkts).map(wkt -> "ST_GeometryFromText('%s')".formatted(wkt)).collect(toList());
+        String wktArray = "ARRAY[" + String.join(",", wktList) + "]";
 
         assertSpatialEquals(assertions, "geometry_union(" + wktArray + ")", expectedWkt);
         reverse(wktList);
-        wktArray = "ARRAY[" + COMMA_JOINER.join(wktList) + "]";
+        wktArray = "ARRAY[" + String.join(",", wktList) + "]";
         assertSpatialEquals(assertions, "geometry_union(" + wktArray + ")", expectedWkt);
     }
 

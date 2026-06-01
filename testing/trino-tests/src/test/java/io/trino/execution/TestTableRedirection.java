@@ -51,7 +51,6 @@ import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.Collections.emptyIterator;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -120,7 +119,7 @@ public class TestTableRedirection
         if (columns != null) {
             return columns;
         }
-        throw new RuntimeException(format("Unknown schema: %s", table.getSchemaName()));
+        throw new RuntimeException("Unknown schema: %s".formatted(table.getSchemaName()));
     };
 
     private static final Session TEST_SESSION = testSessionBuilder()
@@ -195,11 +194,11 @@ public class TestTableRedirection
     public void testTableScans()
     {
         assertQuery(
-                format("SELECT c2 FROM %s.%s", SCHEMA_ONE, VALID_REDIRECTION_SRC),
+                "SELECT c2 FROM %s.%s".formatted(SCHEMA_ONE, VALID_REDIRECTION_SRC),
                 "SELECT 1 WHERE 1=0",
                 verifySingleTableScan(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
 
-        assertThat(query(format("SELECT c0 FROM %s.%s", SCHEMA_ONE, BAD_REDIRECTION_SRC)))
+        assertThat(query("SELECT c0 FROM %s.%s".formatted(SCHEMA_ONE, BAD_REDIRECTION_SRC)))
                 .failure()
                 .hasMessageContaining(
                         "Table '%s' redirected to '%s', but the target table '%s' does not exist",
@@ -208,11 +207,11 @@ public class TestTableRedirection
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE));
 
         assertQuery(
-                format("SELECT c0 FROM %s.%s", SCHEMA_ONE, REDIRECTION_TWICE_SRC),
+                "SELECT c0 FROM %s.%s".formatted(SCHEMA_ONE, REDIRECTION_TWICE_SRC),
                 "SELECT 1 WHERE 1=0",
                 verifySingleTableScan(SCHEMA_ONE, TABLE_FOO));
 
-        assertThat(query(format("SELECT c0 FROM %s.%s", SCHEMA_ONE, REDIRECTION_LOOP_PING)))
+        assertThat(query("SELECT c0 FROM %s.%s".formatted(SCHEMA_ONE, REDIRECTION_LOOP_PING)))
                 .failure()
                 .hasMessageContaining(
                         "Table redirections form a loop: %s -> %s -> %s",
@@ -220,7 +219,7 @@ public class TestTableRedirection
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, REDIRECTION_LOOP_PONG),
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, REDIRECTION_LOOP_PING));
 
-        assertThat(query(format("SELECT c4 FROM %s.%s", SCHEMA_THREE, REDIRECTION_CHAIN.get(0))))
+        assertThat(query("SELECT c4 FROM %s.%s".formatted(SCHEMA_THREE, REDIRECTION_CHAIN.get(0))))
                 .failure()
                 .hasMessageContaining(
                         "Table redirected too many times (10): [%s]",
@@ -233,36 +232,34 @@ public class TestTableRedirection
     public void testTableListing()
     {
         assertQuery(
-                format("SHOW TABLES FROM %s", SCHEMA_ONE),
-                format("VALUES %s",
+                "SHOW TABLES FROM %s".formatted(SCHEMA_ONE),
+                "VALUES %s".formatted(
                         SCHEMA_TABLE_MAPPING.get(SCHEMA_ONE).stream()
                                 .map(table -> "('" + table + "')")
                                 .collect(Collectors.joining(","))));
         assertQuery(
-                format("SELECT table_name FROM system.jdbc.tables WHERE table_cat = '%s' AND table_schem ='%s'", CATALOG_NAME, SCHEMA_ONE),
-                format("VALUES %s",
+                "SELECT table_name FROM system.jdbc.tables WHERE table_cat = '%s' AND table_schem ='%s'".formatted(CATALOG_NAME, SCHEMA_ONE),
+                "VALUES %s".formatted(
                         SCHEMA_TABLE_MAPPING.get(SCHEMA_ONE).stream()
                                 .map(table -> "('" + table + "')")
                                 .collect(Collectors.joining(","))));
 
         assertQuery(
-                format("SHOW TABLES FROM %s", SCHEMA_TWO),
-                format(
-                        "VALUES %s",
+                "SHOW TABLES FROM %s".formatted(SCHEMA_TWO),
+                "VALUES %s".formatted(
                         SCHEMA_TABLE_MAPPING.get(SCHEMA_TWO).stream()
                                 .map(table -> "('" + table + "')")
                                 .collect(Collectors.joining(","))));
         assertQuery(
-                format("SELECT table_name FROM system.jdbc.tables WHERE table_cat = '%s' AND table_schem ='%s'", CATALOG_NAME, SCHEMA_TWO),
-                format("VALUES %s",
+                "SELECT table_name FROM system.jdbc.tables WHERE table_cat = '%s' AND table_schem ='%s'".formatted(CATALOG_NAME, SCHEMA_TWO),
+                "VALUES %s".formatted(
                         SCHEMA_TABLE_MAPPING.get(SCHEMA_TWO).stream()
                                 .map(table -> "('" + table + "')")
                                 .collect(Collectors.joining(","))));
 
         assertQuery(
                 "SELECT table_schema, table_name FROM information_schema.tables WHERE table_schema != 'information_schema'",
-                format(
-                        "VALUES %s",
+                "VALUES %s".formatted(
                         SCHEMA_TABLE_MAPPING.entrySet().stream()
                                 .map(mappings -> mappings.getValue().stream()
                                         .map(tableName -> row(mappings.getKey(), tableName)))
@@ -270,27 +267,26 @@ public class TestTableRedirection
                                 .collect(Collectors.joining(","))));
 
         assertQuery(
-                format("SELECT table_schema, table_name"
-                                + " FROM information_schema.tables"
-                                + " WHERE table_catalog='%s' AND table_schema = '%s' AND table_name='%s'",
+                ("SELECT table_schema, table_name"
+                + " FROM information_schema.tables"
+                + " WHERE table_catalog='%s' AND table_schema = '%s' AND table_name='%s'").formatted(
                         CATALOG_NAME,
                         SCHEMA_ONE,
                         VALID_REDIRECTION_SRC),
-                format("VALUES ('%s', '%s')", SCHEMA_ONE, VALID_REDIRECTION_SRC));
+                "VALUES ('%s', '%s')".formatted(SCHEMA_ONE, VALID_REDIRECTION_SRC));
 
         assertQuery(
-                format("SELECT table_schema, table_name"
-                                + " FROM information_schema.tables"
-                                + " WHERE table_catalog='%s' AND table_schema = '%s' AND table_name='%s'",
+                ("SELECT table_schema, table_name"
+                + " FROM information_schema.tables"
+                + " WHERE table_catalog='%s' AND table_schema = '%s' AND table_name='%s'").formatted(
                         CATALOG_NAME,
                         SCHEMA_ONE,
                         BAD_REDIRECTION_SRC),
-                format("VALUES ('%s', '%s')", SCHEMA_ONE, BAD_REDIRECTION_SRC));
+                "VALUES ('%s', '%s')".formatted(SCHEMA_ONE, BAD_REDIRECTION_SRC));
 
-        assertQuery(format(
-                "SELECT table_schema, table_name"
-                        + " FROM information_schema.tables"
-                        + " WHERE table_catalog='%s' AND table_schema = '' AND table_name = ''",
+        assertQuery(("SELECT table_schema, table_name"
+        + " FROM information_schema.tables"
+        + " WHERE table_catalog='%s' AND table_schema = '' AND table_name = ''").formatted(
                 CATALOG_NAME));
     }
 
@@ -304,8 +300,8 @@ public class TestTableRedirection
                 + row(SCHEMA_ONE, VALID_REDIRECTION_SRC, C3) + ","
                 + row(SCHEMA_ONE, REDIRECTION_TWICE_SRC, C0) + ","
                 + row(SCHEMA_ONE, REDIRECTION_TWICE_SRC, C1);
-        assertQuery(format("SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE table_schema = '%s'", SCHEMA_ONE), schemaOneColumns);
-        assertQuery(format("SELECT table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_schem = '%s' AND table_cat = '%s'", SCHEMA_ONE, CATALOG_NAME), schemaOneColumns);
+        assertQuery("SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE table_schema = '%s'".formatted(SCHEMA_ONE), schemaOneColumns);
+        assertQuery("SELECT table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_schem = '%s' AND table_cat = '%s'".formatted(SCHEMA_ONE, CATALOG_NAME), schemaOneColumns);
 
         String schemaTwoColumns = "VALUES "
                 + row(SCHEMA_TWO, TABLE_BAR, C2) + ","
@@ -314,31 +310,31 @@ public class TestTableRedirection
                 + row(SCHEMA_TWO, VALID_REDIRECTION_TARGET, C3) + ","
                 + row(SCHEMA_TWO, INTERMEDIATE_TABLE, C0) + ","
                 + row(SCHEMA_TWO, INTERMEDIATE_TABLE, C1);
-        assertQuery(format("SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE table_schema = '%s'", SCHEMA_TWO), schemaTwoColumns);
-        assertQuery(format("SELECT table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_schem = '%s' AND table_cat = '%s'", SCHEMA_TWO, CATALOG_NAME), schemaTwoColumns);
+        assertQuery("SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE table_schema = '%s'".formatted(SCHEMA_TWO), schemaTwoColumns);
+        assertQuery("SELECT table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_schem = '%s' AND table_cat = '%s'".formatted(SCHEMA_TWO, CATALOG_NAME), schemaTwoColumns);
 
         String validRedirectionSrcColumns = "VALUES "
                 + row(SCHEMA_ONE, VALID_REDIRECTION_SRC, C2) + ","
                 + row(SCHEMA_ONE, VALID_REDIRECTION_SRC, C3);
-        assertQuery(format("SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'", SCHEMA_ONE, VALID_REDIRECTION_SRC), validRedirectionSrcColumns);
-        assertQuery(format("SELECT table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_schem = '%s' AND table_name='%s' AND table_cat = '%s'", SCHEMA_ONE, VALID_REDIRECTION_SRC, CATALOG_NAME), validRedirectionSrcColumns);
+        assertQuery("SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'".formatted(SCHEMA_ONE, VALID_REDIRECTION_SRC), validRedirectionSrcColumns);
+        assertQuery("SELECT table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_schem = '%s' AND table_name='%s' AND table_cat = '%s'".formatted(SCHEMA_ONE, VALID_REDIRECTION_SRC, CATALOG_NAME), validRedirectionSrcColumns);
 
         String emptyResult = "SELECT '', '', '' WHERE 1 = 0";
-        assertQuery(format("SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'", SCHEMA_ONE, BAD_REDIRECTION_SRC), emptyResult);
-        assertQuery(format("SELECT table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_schem = '%s' AND table_name='%s' AND table_cat = '%s'", SCHEMA_ONE, BAD_REDIRECTION_SRC, CATALOG_NAME), emptyResult);
+        assertQuery("SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'".formatted(SCHEMA_ONE, BAD_REDIRECTION_SRC), emptyResult);
+        assertQuery("SELECT table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_schem = '%s' AND table_name='%s' AND table_cat = '%s'".formatted(SCHEMA_ONE, BAD_REDIRECTION_SRC, CATALOG_NAME), emptyResult);
 
-        assertQuery(format("SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'", SCHEMA_ONE, REDIRECTION_LOOP_PING), emptyResult);
-        assertQuery(format("SELECT table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_schem = '%s' AND table_name = '%s' AND table_cat = '%s'", SCHEMA_ONE, REDIRECTION_LOOP_PING, CATALOG_NAME), emptyResult);
+        assertQuery("SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'".formatted(SCHEMA_ONE, REDIRECTION_LOOP_PING), emptyResult);
+        assertQuery("SELECT table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_schem = '%s' AND table_name = '%s' AND table_cat = '%s'".formatted(SCHEMA_ONE, REDIRECTION_LOOP_PING, CATALOG_NAME), emptyResult);
     }
 
     @Test
     public void testShowCreate()
     {
-        String showCreateValidSource = (String) computeScalar(format("SHOW CREATE TABLE %s.%s", SCHEMA_ONE, VALID_REDIRECTION_SRC));
-        String showCreateValidTarget = (String) computeScalar(format("SHOW CREATE TABLE %s.%s", SCHEMA_TWO, VALID_REDIRECTION_TARGET));
+        String showCreateValidSource = (String) computeScalar("SHOW CREATE TABLE %s.%s".formatted(SCHEMA_ONE, VALID_REDIRECTION_SRC));
+        String showCreateValidTarget = (String) computeScalar("SHOW CREATE TABLE %s.%s".formatted(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
         assertThat(showCreateValidTarget).isEqualTo(showCreateValidSource.replace(SCHEMA_ONE + "." + VALID_REDIRECTION_SRC, SCHEMA_TWO + "." + VALID_REDIRECTION_TARGET));
 
-        assertThat(query(format("SHOW CREATE TABLE %s.%s", SCHEMA_ONE, BAD_REDIRECTION_SRC)))
+        assertThat(query("SHOW CREATE TABLE %s.%s".formatted(SCHEMA_ONE, BAD_REDIRECTION_SRC)))
                 .failure()
                 .hasMessageContaining(
                         "Table '%s' redirected to '%s', but the target table '%s' does not exist",
@@ -346,7 +342,7 @@ public class TestTableRedirection
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE),
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE));
 
-        assertThat(query(format("SHOW CREATE TABLE %s.%s", SCHEMA_ONE, REDIRECTION_LOOP_PING)))
+        assertThat(query("SHOW CREATE TABLE %s.%s".formatted(SCHEMA_ONE, REDIRECTION_LOOP_PING)))
                 .failure()
                 .hasMessageContaining("Table redirections form a loop");
     }
@@ -354,10 +350,10 @@ public class TestTableRedirection
     @Test
     public void testDescribeTable()
     {
-        assertThat(query(format("DESCRIBE %s.%s", SCHEMA_ONE, VALID_REDIRECTION_SRC)))
-                .matches(format("DESCRIBE %s.%s", SCHEMA_TWO, VALID_REDIRECTION_TARGET));
+        assertThat(query("DESCRIBE %s.%s".formatted(SCHEMA_ONE, VALID_REDIRECTION_SRC)))
+                .matches("DESCRIBE %s.%s".formatted(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
 
-        assertThat(query(format("DESCRIBE %s.%s", SCHEMA_ONE, BAD_REDIRECTION_SRC)))
+        assertThat(query("DESCRIBE %s.%s".formatted(SCHEMA_ONE, BAD_REDIRECTION_SRC)))
                 .failure()
                 .hasMessageContaining(
                         "Table '%s' redirected to '%s', but the target table '%s' does not exist",
@@ -365,7 +361,7 @@ public class TestTableRedirection
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE),
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE));
 
-        assertThat(query(format("DESCRIBE %s.%s", SCHEMA_ONE, REDIRECTION_LOOP_PING)))
+        assertThat(query("DESCRIBE %s.%s".formatted(SCHEMA_ONE, REDIRECTION_LOOP_PING)))
                 .failure()
                 .hasMessageContaining("Table redirections form a loop");
     }
@@ -374,12 +370,12 @@ public class TestTableRedirection
     public void testShowColumns()
     {
         assertQuery(
-                format("SHOW COLUMNS FROM %s.%s", SCHEMA_ONE, VALID_REDIRECTION_SRC),
+                "SHOW COLUMNS FROM %s.%s".formatted(SCHEMA_ONE, VALID_REDIRECTION_SRC),
                 "VALUES "
                         + row(C2, BIGINT.getDisplayName(), "", "") + ","
                         + row(C3, BIGINT.getDisplayName(), "", ""));
 
-        assertThat(query(format("SHOW COLUMNS FROM %s.%s", SCHEMA_ONE, BAD_REDIRECTION_SRC)))
+        assertThat(query("SHOW COLUMNS FROM %s.%s".formatted(SCHEMA_ONE, BAD_REDIRECTION_SRC)))
                 .failure()
                 .hasMessageContaining(
                         "Table '%s' redirected to '%s', but the target table '%s' does not exist",
@@ -387,7 +383,7 @@ public class TestTableRedirection
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE),
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE));
 
-        assertThat(query(format("SHOW COLUMNS FROM %s.%s", SCHEMA_ONE, REDIRECTION_LOOP_PING)))
+        assertThat(query("SHOW COLUMNS FROM %s.%s".formatted(SCHEMA_ONE, REDIRECTION_LOOP_PING)))
                 .failure().hasMessageContaining("Table redirections form a loop");
     }
 
@@ -396,7 +392,7 @@ public class TestTableRedirection
     {
         assertUpdate(
                 getSession(),
-                format("INSERT INTO %s.%s VALUES (5, 6)", SCHEMA_ONE, VALID_REDIRECTION_SRC),
+                "INSERT INTO %s.%s VALUES (5, 6)".formatted(SCHEMA_ONE, VALID_REDIRECTION_SRC),
                 1,
                 // Verify the insert plan instead of through a successive SELECT, because insertion is a no-op for Mock connector
                 plan -> {
@@ -414,7 +410,7 @@ public class TestTableRedirection
     {
         assertUpdate(
                 getSession(),
-                format("DELETE FROM %s.%s WHERE %s = 5", SCHEMA_ONE, VALID_REDIRECTION_SRC, C2),
+                "DELETE FROM %s.%s WHERE %s = 5".formatted(SCHEMA_ONE, VALID_REDIRECTION_SRC, C2),
                 0,
                 // Verify the insert plan instead of through a successive SELECT, because deletion is a no-op for Mock connector
                 plan -> {
@@ -432,7 +428,7 @@ public class TestTableRedirection
     {
         assertUpdate(
                 getSession(),
-                format("UPDATE %s.%s SET %s = 5 WHERE %s = 1", SCHEMA_ONE, VALID_REDIRECTION_SRC, C3, C2),
+                "UPDATE %s.%s SET %s = 5 WHERE %s = 1".formatted(SCHEMA_ONE, VALID_REDIRECTION_SRC, C3, C2),
                 0,
                 // Verify the insert plan instead of through a successive SELECT, because update is a no-op for Mock connector
                 plan -> {

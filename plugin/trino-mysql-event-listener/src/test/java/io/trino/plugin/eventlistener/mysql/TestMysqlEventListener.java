@@ -49,7 +49,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,7 +60,6 @@ import static io.trino.spi.type.StandardTypes.BIGINT;
 import static io.trino.spi.type.StandardTypes.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.Boolean.TRUE;
-import static java.lang.String.format;
 import static java.time.Duration.ofMillis;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -124,23 +122,23 @@ final class TestMysqlEventListener
             128.0,
             129.0,
             // not stored
-            Collections.emptyList(),
+            List.of(),
             130,
             true,
             // not stored
-            Collections.emptyList(),
+            List.of(),
             // not stored
-            Collections.emptyList(),
+            List.of(),
             // not stored
-            Collections.emptyList(),
+            List.of(),
             // not stored
-            Collections.emptyList(),
+            List.of(),
             // not stored
-            Collections.emptyList(),
+            List.of(),
             // not stored
             List.of("{operator: \"operator1\"}", "{operator: \"operator2\"}"),
             // not stored
-            Collections.emptyList(),
+            List.of(),
             // not stored
             ImmutableMap.of(),
             // not stored
@@ -296,21 +294,21 @@ final class TestMysqlEventListener
             128.0,
             129.0,
             // not stored
-            Collections.emptyList(),
+            List.of(),
             130,
             false,
             // not stored
-            Collections.emptyList(),
+            List.of(),
             // not stored
-            Collections.emptyList(),
+            List.of(),
             // not stored
-            Collections.emptyList(),
+            List.of(),
             // not stored
-            Collections.emptyList(),
+            List.of(),
             // not stored
-            Collections.emptyList(),
-            Collections.emptyList(),
-            Collections.emptyList(),
+            List.of(),
+            List.of(),
+            List.of(),
             ImmutableMap.of(),
             ImmutableMap.of(),
             // not stored
@@ -388,8 +386,7 @@ final class TestMysqlEventListener
 
     private static String getJdbcUrl(MySQLContainer container)
     {
-        return format(
-                "%s?user=%s&password=%s&useSSL=false&allowPublicKeyRetrieval=true",
+        return "%s?user=%s&password=%s&useSSL=false&allowPublicKeyRetrieval=true".formatted(
                 container.getJdbcUrl(),
                 container.getUsername(),
                 container.getPassword());

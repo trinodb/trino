@@ -56,7 +56,6 @@ import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodHandles.constant;
 import static java.lang.invoke.MethodHandles.dropArguments;
@@ -248,8 +247,7 @@ public class TypeOperators
                 }
             }
 
-            throw new TrinoException(FUNCTION_NOT_FOUND, format(
-                    "%s %s operator can not be adapted to convention (%s). Available implementations: %s",
+            throw new TrinoException(FUNCTION_NOT_FOUND, "%s %s operator can not be adapted to convention (%s). Available implementations: %s".formatted(
                     operatorConvention.type(),
                     operatorConvention.operatorType(),
                     operatorConvention.callingConvention(),

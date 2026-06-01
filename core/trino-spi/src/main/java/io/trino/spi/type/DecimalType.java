@@ -23,7 +23,6 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.Decimals.MAX_PRECISION;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.TypeParameter.numericParameter;
-import static java.lang.String.format;
 
 public abstract sealed class DecimalType
         extends AbstractType
@@ -37,11 +36,11 @@ public abstract sealed class DecimalType
     public static DecimalType createDecimalType(int precision, int scale)
     {
         if (precision <= 0 || precision > MAX_PRECISION) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("DECIMAL precision must be in range [1, %d]: %s", MAX_PRECISION, precision));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "DECIMAL precision must be in range [1, %d]: %s".formatted(MAX_PRECISION, precision));
         }
 
         if (scale < 0 || scale > precision) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("DECIMAL scale must be in range [0, precision (%s)]: %s", precision, scale));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "DECIMAL scale must be in range [0, precision (%s)]: %s".formatted(precision, scale));
         }
 
         if (precision <= MAX_SHORT_PRECISION) {
@@ -112,7 +111,7 @@ public abstract sealed class DecimalType
     static void checkArgument(boolean condition, String format, Object... args)
     {
         if (!condition) {
-            throw new IllegalArgumentException(format(format, args));
+            throw new IllegalArgumentException(format.formatted(args));
         }
     }
 }

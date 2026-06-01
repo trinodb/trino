@@ -134,7 +134,6 @@ import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -274,7 +273,7 @@ public class IgniteClient
             return WriteMapping.doubleMapping("double", doubleWriteFunction());
         }
         if (type instanceof DecimalType decimalType) {
-            String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            String dataType = "decimal(%s, %s)".formatted(decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
@@ -358,7 +357,7 @@ public class IgniteClient
     private static void checkDateValue(long epochDay)
     {
         if (epochDay < MIN_DATE.toEpochDay() || epochDay > MAX_DATE.toEpochDay()) {
-            throw new TrinoException(INVALID_ARGUMENTS, format("Date must be between %s and %s in Ignite: %s", MIN_DATE, MAX_DATE, LocalDate.ofEpochDay(epochDay)));
+            throw new TrinoException(INVALID_ARGUMENTS, "Date must be between %s and %s in Ignite: %s".formatted(MIN_DATE, MAX_DATE, LocalDate.ofEpochDay(epochDay)));
         }
     }
 
@@ -392,7 +391,7 @@ public class IgniteClient
             if (!columnNames.contains(primaryKey)) {
                 throw new TrinoException(
                         INVALID_TABLE_PROPERTY,
-                        format("Column '%s' specified in property '%s' doesn't exist in table", primaryKey, PRIMARY_KEY_PROPERTY));
+                        "Column '%s' specified in property '%s' doesn't exist in table".formatted(primaryKey, PRIMARY_KEY_PROPERTY));
             }
         }
 
@@ -427,7 +426,7 @@ public class IgniteClient
         columnDefinitions.add("PRIMARY KEY (" + primaryKeys.stream().map(this::quoted).collect(joining(", ")) + ")");
 
         String remoteTableName = quoted(null, schemaTableName.getSchemaName(), schemaTableName.getTableName());
-        return format("CREATE TABLE %s (%s) ", remoteTableName, join(", ", columnDefinitions.build()));
+        return "CREATE TABLE %s (%s) ".formatted(remoteTableName, join(", ", columnDefinitions.build()));
     }
 
     @Override
@@ -489,11 +488,11 @@ public class IgniteClient
                         String nullsHandling = sortItem.sortOrder().isNullsFirst() ? "IS NULL DESC" : "IS NULL ASC";
                         String columnName = quoted(sortItem.column().getColumnName());
 
-                        return format("%s %s, %1$s %s", columnName, nullsHandling, ordering);
+                        return "%s %s, %1$s %s".formatted(columnName, nullsHandling, ordering);
                     })
                     .collect(joining(", "));
 
-            return format("%s ORDER BY %s OFFSET 0 ROWS FETCH NEXT %s ROWS ONLY", query, orderBy, limit);
+            return "%s ORDER BY %s OFFSET 0 ROWS FETCH NEXT %s ROWS ONLY".formatted(query, orderBy, limit);
         });
     }
 
@@ -573,8 +572,7 @@ public class IgniteClient
             params = nextId + params;
             columns = quoted(outputHandle.dummyIdColumn().get()) + ", " + columns;
         }
-        return format(
-                "INSERT INTO %s (%s) VALUES (%s)",
+        return "INSERT INTO %s (%s) VALUES (%s)".formatted(
                 quoted(handle.getRemoteTableName()),
                 columns,
                 params);

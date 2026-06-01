@@ -28,7 +28,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class LdapUtil
@@ -84,7 +83,7 @@ public final class LdapUtil
     public static LdapObjectDefinition buildLdapOrganizationObject(String name, String baseDistinguisedName)
     {
         return LdapObjectDefinition.builder(name)
-                .setDistinguishedName(format("ou=%s,%s", name, baseDistinguisedName))
+                .setDistinguishedName("ou=%s,%s".formatted(name, baseDistinguisedName))
                 .setAttributes(ImmutableMap.of("ou", name))
                 .setObjectClasses(ImmutableList.of("top", "organizationalUnit"))
                 .build();
@@ -93,10 +92,10 @@ public final class LdapUtil
     public static LdapObjectDefinition buildLdapGroupObject(String organizationName, String groupName)
     {
         return LdapObjectDefinition.builder(groupName)
-                .setDistinguishedName(format("cn=%s,%s", groupName, organizationName))
+                .setDistinguishedName("cn=%s,%s".formatted(groupName, organizationName))
                 .setAttributes(ImmutableMap.of(
                         "cn", groupName,
-                        MEMBER, format("uid=default-%s,%s", groupName, organizationName)))
+                        MEMBER, "uid=default-%s,%s".formatted(groupName, organizationName)))
                 .setObjectClasses(ImmutableList.of("groupOfNames"))
                 .build();
     }
@@ -104,7 +103,7 @@ public final class LdapUtil
     public static LdapObjectDefinition buildLdapUserObject(String organizationName, String userName, String password)
     {
         return LdapObjectDefinition.builder(userName)
-                .setDistinguishedName(format("uid=%s,%s", userName, organizationName))
+                .setDistinguishedName("uid=%s,%s".formatted(userName, organizationName))
                 .setAttributes(ImmutableMap.of(
                         "cn", userName,
                         "sn", userName,

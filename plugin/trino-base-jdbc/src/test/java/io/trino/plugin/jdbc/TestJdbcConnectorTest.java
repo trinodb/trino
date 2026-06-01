@@ -35,7 +35,6 @@ import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -155,7 +154,7 @@ public class TestJdbcConnectorTest
                     "DESCRIBE " + table.getName(),
                     "VALUES ('int_column', 'integer', '', '')");
 
-            assertUpdate(ignoreUnsupportedType, format("INSERT INTO %s (int_column) VALUES (3)", table.getName()), 1);
+            assertUpdate(ignoreUnsupportedType, "INSERT INTO %s (int_column) VALUES (3)".formatted(table.getName()), 1);
             assertQuery(ignoreUnsupportedType, "SELECT * FROM " + table.getName(), "VALUES 1, 2, 3");
         }
     }
@@ -177,11 +176,11 @@ public class TestJdbcConnectorTest
             // predicate pushdown
             assertQuery(
                     convertToVarcharUnsupportedTypes,
-                    format("SELECT int_column FROM %s WHERE geometry_column = 'POINT (7 52)'", table.getName()),
+                    "SELECT int_column FROM %s WHERE geometry_column = 'POINT (7 52)'".formatted(table.getName()),
                     "VALUES 2");
             assertQuery(
                     convertToVarcharUnsupportedTypes,
-                    format("SELECT int_column FROM %s WHERE geometry_column = 'invalid data'", table.getName()),
+                    "SELECT int_column FROM %s WHERE geometry_column = 'invalid data'".formatted(table.getName()),
                     "SELECT 1 WHERE false");
 
             assertQuery(
@@ -195,11 +194,11 @@ public class TestJdbcConnectorTest
 
             assertUpdate(
                     convertToVarcharUnsupportedTypes,
-                    format("INSERT INTO %s (int_column) VALUES (3)", table.getName()),
+                    "INSERT INTO %s (int_column) VALUES (3)".formatted(table.getName()),
                     1);
             assertQueryFails(
                     convertToVarcharUnsupportedTypes,
-                    format("INSERT INTO %s (int_column, geometry_column) VALUES (3, 'POINT (7 52)')", table.getName()),
+                    "INSERT INTO %s (int_column, geometry_column) VALUES (3, 'POINT (7 52)')".formatted(table.getName()),
                     "Underlying type that is mapped to VARCHAR is not supported for INSERT: GEOMETRY");
 
             assertQuery(
@@ -220,15 +219,15 @@ public class TestJdbcConnectorTest
             assertThat(getQueryRunner().execute("SELECT table_name FROM information_schema.tables").getOnlyColumn())
                     .contains(table.getName());
             assertQuery(
-                    format("SELECT count(*) FROM information_schema.tables WHERE table_name = '%s'", table.getName()),
+                    "SELECT count(*) FROM information_schema.tables WHERE table_name = '%s'".formatted(table.getName()),
                     "SELECT 1");
             assertQuery(
-                    format("SELECT count(*) FROM information_schema.columns WHERE table_name = '%s'", table.getName()),
+                    "SELECT count(*) FROM information_schema.columns WHERE table_name = '%s'".formatted(table.getName()),
                     "SELECT 0");
             assertQuery(
                     session,
-                    format("SHOW TABLES LIKE '%s'", table.getName()),
-                    format("SELECT '%s'", table.getName()));
+                    "SHOW TABLES LIKE '%s'".formatted(table.getName()),
+                    "SELECT '%s'".formatted(table.getName()));
             String unsupportedTableErrorMessage = "Table 'public.*' has no supported columns.*";
             assertQueryFails(
                     session,
@@ -253,14 +252,14 @@ public class TestJdbcConnectorTest
     @Override
     public void testNativeQueryColumnAlias()
     {
-        assertThat(query(format("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region WHERE regionkey = 0'))", getSession().getSchema().orElseThrow())))
+        assertThat(query("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region WHERE regionkey = 0'))".formatted(getSession().getSchema().orElseThrow())))
                 .matches("VALUES CAST('AFRICA' AS VARCHAR(25))");
     }
 
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        return format("NULL not allowed for column \"%s\"(?s).*", columnName.toUpperCase(ENGLISH));
+        return "NULL not allowed for column \"%s\"(?s).*".formatted(columnName.toUpperCase(ENGLISH));
     }
 
     @Override

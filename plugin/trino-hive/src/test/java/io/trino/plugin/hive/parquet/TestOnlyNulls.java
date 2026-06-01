@@ -39,7 +39,6 @@ import static io.trino.spi.predicate.Domain.notNull;
 import static io.trino.spi.predicate.Domain.onlyNull;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
-import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOnlyNulls
@@ -67,10 +66,10 @@ public class TestOnlyNulls
 
             assertThat(result.getMaterializedRows())
                     .isEqualTo(List.of(
-                            new MaterializedRow(singletonList(null)),
-                            new MaterializedRow(singletonList(null)),
-                            new MaterializedRow(singletonList(null)),
-                            new MaterializedRow(singletonList(null))));
+                            new MaterializedRow(List.of(null)),
+                            new MaterializedRow(List.of(null)),
+                            new MaterializedRow(List.of(null)),
+                            new MaterializedRow(List.of(null))));
         }
     }
 }

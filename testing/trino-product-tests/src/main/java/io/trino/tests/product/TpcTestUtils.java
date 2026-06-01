@@ -102,7 +102,7 @@ public final class TpcTestUtils
     {
         return IntStream.range(1, 23)
                 .filter(i -> i != 15) // Query creates a view beforehand, not supported here
-                .mapToObj(i -> String.format("%02d", i))
+                .mapToObj(i -> "%02d".formatted(i))
                 .sorted()
                 .map(value -> new Object[] {value})
                 .toArray(Object[][]::new);
@@ -118,7 +118,7 @@ public final class TpcTestUtils
                                 .filter(i -> i != 24)
                                 .filter(i -> i != 39)
                                 .filter(i -> i != 72) // TODO Results for q72 need to be fixed. https://github.com/trinodb/trino/issues/4564
-                                .mapToObj(i -> String.format("%02d", i)),
+                                .mapToObj(i -> "%02d".formatted(i)),
                         Stream.of("14_1", "14_2", "23_1", "23_2", "24_2", "39_1", "39_2")) // 24_1 is ignored as it relies on the order of the result
                 .sorted()
                 .map(value -> new Object[] {value})

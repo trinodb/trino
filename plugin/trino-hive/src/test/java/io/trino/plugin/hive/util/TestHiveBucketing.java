@@ -34,12 +34,12 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveVarcharOb
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Lists.newArrayList;
 import static io.trino.metastore.HiveType.HIVE_TIMESTAMP;
 import static io.trino.plugin.hive.HiveTestUtils.toNativeContainerValue;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
@@ -196,11 +196,11 @@ public class TestHiveBucketing
         assertBucketsEqual(
                 ImmutableList.of("double", "array<smallint>", "boolean", "map<string,bigint>", "tinyint"),
                 ImmutableList.of(
-                        newArrayList(null, 12.3),
-                        newArrayList(null, ImmutableList.of((short) 1, (short) 2, (short) 3)),
-                        newArrayList(null, false),
-                        newArrayList(null, ImmutableMap.of("key", 123L)),
-                        newArrayList(null, (byte) 120)),
+                        new ArrayList<>(Arrays.asList(null, 12.3)),
+                        new ArrayList<>(Arrays.asList(null, ImmutableList.of((short) 1, (short) 2, (short) 3))),
+                        new ArrayList<>(Arrays.asList(null, false)),
+                        new ArrayList<>(Arrays.asList(null, ImmutableMap.of("key", 123L))),
+                        new ArrayList<>(Arrays.asList(null, (byte) 120))),
                 32,
                 Optional.of(ImmutableSet.of(0, 1, 3, 18, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31)),
                 Optional.of(ImmutableSet.of(0, 2, 10, 11, 19, 21, 24, 29)));

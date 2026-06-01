@@ -96,7 +96,6 @@ import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatist
 import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport.UNKNOWN;
 import static io.trino.plugin.hive.metastore.thrift.TxnUtils.createValidReadTxnList;
 import static io.trino.plugin.hive.metastore.thrift.TxnUtils.createValidTxnWriteIdList;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.thrift.TApplicationException.UNKNOWN_METHOD;
@@ -317,7 +316,7 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         setColumnStatistics(
-                format("table %s.%s", databaseName, tableName),
+                "table %s.%s".formatted(databaseName, tableName),
                 statistics,
                 stats -> {
                     ColumnStatisticsDesc statisticsDescription = new ColumnStatisticsDesc(true, databaseName, tableName);
@@ -348,7 +347,7 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         setColumnStatistics(
-                format("partition of table %s.%s", databaseName, tableName),
+                "partition of table %s.%s".formatted(databaseName, tableName),
                 statistics,
                 stats -> {
                     ColumnStatisticsDesc statisticsDescription = new ColumnStatisticsDesc(false, databaseName, tableName);
@@ -746,7 +745,7 @@ public class ThriftHiveMetastoreClient
                     checkArgument(writeId >= table.getWriteId(), "The writeId supplied %s should be greater than or equal to the table writeId %s", writeId, table.getWriteId());
                     AlterTableRequest request = new AlterTableRequest(table.getDbName(), table.getTableName(), table);
                     catalogName.ifPresent(request::setCatName);
-                    request.setValidWriteIdList(getValidWriteIds(ImmutableList.of(format("%s.%s", table.getDbName(), table.getTableName())), transactionId));
+                    request.setValidWriteIdList(getValidWriteIds(ImmutableList.of("%s.%s".formatted(table.getDbName(), table.getTableName())), transactionId));
                     request.setWriteId(writeId);
                     request.setEnvironmentContext(environmentContext);
                     client.alterTableReq(request);

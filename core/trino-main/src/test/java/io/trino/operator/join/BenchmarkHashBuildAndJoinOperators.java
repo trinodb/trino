@@ -77,7 +77,6 @@ import static io.trino.operator.join.JoinBridgeManager.lookupAllAtOnce;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
-import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -126,7 +125,7 @@ public class BenchmarkHashBuildAndJoinOperators
                 case "varchar" -> hashChannels = Ints.asList(0);
                 case "bigint" -> hashChannels = Ints.asList(1);
                 case "all" -> hashChannels = Ints.asList(0, 1, 2);
-                default -> throw new UnsupportedOperationException(format("Unknown hashColumns value [%s]", hashColumns));
+                default -> throw new UnsupportedOperationException("Unknown hashColumns value [%s]".formatted(hashColumns));
             }
             executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
             scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
@@ -207,7 +206,7 @@ public class BenchmarkHashBuildAndJoinOperators
                 case "varchar" -> outputChannels = Ints.asList(0);
                 case "bigint" -> outputChannels = Ints.asList(1);
                 case "all" -> outputChannels = Ints.asList(0, 1, 2);
-                default -> throw new UnsupportedOperationException(format("Unknown outputColumns value [%s]", hashColumns));
+                default -> throw new UnsupportedOperationException("Unknown outputColumns value [%s]".formatted(hashColumns));
             }
 
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = getLookupSourceFactoryManager(this, outputChannels, partitionCount);
@@ -275,7 +274,7 @@ public class BenchmarkHashBuildAndJoinOperators
                         probePagesBuilder.pageBreak();
                         rowsInPage = 0;
                     }
-                    probePagesBuilder.row(format("%d", columnA), columnB, columnC);
+                    probePagesBuilder.row("%d".formatted(columnA), columnB, columnC);
                     --remainingRows;
                     rowsInPage++;
                 }

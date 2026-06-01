@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.projection;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -38,8 +37,8 @@ import static io.trino.plugin.hive.HiveTableProperties.getPartitionedBy;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
 import static java.lang.Boolean.parseBoolean;
-import static java.lang.String.format;
 import static java.util.Locale.ROOT;
+import static java.util.stream.Collectors.joining;
 
 public final class PartitionProjectionProperties
 {
@@ -130,11 +129,11 @@ public final class PartitionProjectionProperties
                     }
 
                     if (columnProperties.get(COLUMN_PROJECTION_VALUES) instanceof List<?> values) {
-                        metastoreTablePropertiesBuilder.put(getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_VALUES_SUFFIX), Joiner.on(",").join(values));
+                        metastoreTablePropertiesBuilder.put(getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_VALUES_SUFFIX), values.stream().map(Object::toString).collect(joining(",")));
                     }
 
                     if (columnProperties.get(COLUMN_PROJECTION_RANGE) instanceof List<?> range) {
-                        metastoreTablePropertiesBuilder.put(getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_RANGE_SUFFIX), Joiner.on(",").join(range));
+                        metastoreTablePropertiesBuilder.put(getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_RANGE_SUFFIX), range.stream().map(Object::toString).collect(joining(",")));
                     }
 
                     if (columnProperties.get(COLUMN_PROJECTION_INTERVAL) instanceof Integer interval) {
@@ -234,7 +233,7 @@ public final class PartitionProjectionProperties
         storageLocationTemplate.ifPresent(locationTemplate -> {
             for (String columnName : partitionColumns.keySet()) {
                 if (!locationTemplate.contains("${" + columnName + "}")) {
-                    throw new InvalidProjectionException(format("Partition projection location template: %s is missing partition column: '%s' placeholder", locationTemplate, columnName));
+                    throw new InvalidProjectionException("Partition projection location template: %s is missing partition column: '%s' placeholder".formatted(locationTemplate, columnName));
                 }
             }
         });
@@ -321,7 +320,7 @@ public final class PartitionProjectionProperties
             Function<I, T> decoder)
     {
         return getProjectionPropertyValue(columnProjectionProperties, propertyKey, decoder)
-                .orElseThrow(() -> new InvalidProjectionException(columnName, format("Missing required property: '%s'", propertyKey)));
+                .orElseThrow(() -> new InvalidProjectionException(columnName, "Missing required property: '%s'".formatted(propertyKey)));
     }
 
     static <T, I> Optional<T> getProjectionPropertyValue(

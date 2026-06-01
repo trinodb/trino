@@ -24,7 +24,6 @@ import java.util.Optional;
 import static io.trino.plugin.base.mapping.testing.RuleBasedIdentifierMappingUtils.REFRESH_PERIOD_DURATION;
 import static io.trino.plugin.base.mapping.testing.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 // With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
@@ -65,8 +64,8 @@ public class TestOracleCaseInsensitiveMapping
     @Override
     protected AutoCloseable withSchema(String schemaName)
     {
-        onRemoteDatabase().execute(format("CREATE USER %s IDENTIFIED BY SCM", quoted(schemaName)));
-        onRemoteDatabase().execute(format("GRANT UNLIMITED TABLESPACE TO %s", quoted(schemaName)));
+        onRemoteDatabase().execute("CREATE USER %s IDENTIFIED BY SCM".formatted(quoted(schemaName)));
+        onRemoteDatabase().execute("GRANT UNLIMITED TABLESPACE TO %s".formatted(quoted(schemaName)));
         return () -> onRemoteDatabase().execute("DROP USER " + quoted(schemaName));
     }
 
@@ -79,7 +78,7 @@ public class TestOracleCaseInsensitiveMapping
             schemaName = remoteSchemaName;
         }
         String quotedName = schemaName + "." + quoted(remoteTableName);
-        onRemoteDatabase().execute(format("CREATE TABLE %s %s", quotedName, tableDefinition));
+        onRemoteDatabase().execute("CREATE TABLE %s %s".formatted(quotedName, tableDefinition));
         return () -> onRemoteDatabase().execute("DROP TABLE " + quotedName);
     }
 

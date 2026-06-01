@@ -31,7 +31,6 @@ import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
-import static java.lang.String.format;
 
 public final class IntervalDayTimeOperators
 {
@@ -90,7 +89,7 @@ public final class IntervalDayTimeOperators
     public static long divideByDouble(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.DOUBLE) double right)
     {
         if (Double.isNaN(right) || right == 0) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Cannot divide by double %s", right));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot divide by double %s".formatted(right));
         }
         return (long) (left / right);
     }
@@ -112,6 +111,6 @@ public final class IntervalDayTimeOperators
         if (slice.length() <= x) {
             return slice;
         }
-        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", slice.toStringUtf8(), x));
+        throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to varchar(%s)".formatted(slice.toStringUtf8(), x));
     }
 }

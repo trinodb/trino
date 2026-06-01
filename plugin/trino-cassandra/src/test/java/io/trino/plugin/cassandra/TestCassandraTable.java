@@ -28,7 +28,6 @@ import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.base.Verify.verify;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.joining;
@@ -66,14 +65,14 @@ public class TestCassandraTable
         this.sqlExecutor = sqlExecutor;
         this.keyspace = keyspace;
         this.tableName = namePrefix + randomNameSuffix();
-        sqlExecutor.execute(format("CREATE TABLE %s.%s %s", keyspace, tableName, tableDefinition(columnDefinitions)));
+        sqlExecutor.execute("CREATE TABLE %s.%s %s".formatted(keyspace, tableName, tableDefinition(columnDefinitions)));
         String columns = columnDefinitions.stream()
                 .map(columnDefinition -> columnDefinition.name)
                 .collect(joining(", "));
         try {
             for (String row : rowsToInsert) {
                 // Cassandra does not support multi value insert statement
-                sqlExecutor.execute(format("INSERT INTO %s.%s (%s) VALUES (%s)", keyspace, tableName, columns, row));
+                sqlExecutor.execute("INSERT INTO %s.%s (%s) VALUES (%s)".formatted(keyspace, tableName, columns, row));
             }
 
             // Ensure that the currently created table is visible to Trino
@@ -92,7 +91,7 @@ public class TestCassandraTable
 
     public String getTableName()
     {
-        return format("%s.%s", keyspace, tableName);
+        return "%s.%s".formatted(keyspace, tableName);
     }
 
     private static String tableDefinition(List<ColumnDefinition> columnDefinitions)
@@ -112,8 +111,7 @@ public class TestCassandraTable
 
         verify(partitions.size() > 0, "Cassandra table must have at least one partition key");
 
-        String primaryKey = format(
-                "(%s%s)",
+        String primaryKey = "(%s%s)".formatted(
                 partitions.stream().collect(joining(", ", "(", ")")),
                 clusters.isEmpty() ? "" : clusters.stream().collect(joining(", ", ", ", "")));
 

@@ -21,7 +21,6 @@ import io.trino.spi.TrinoException;
 import java.util.Map;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -45,7 +44,7 @@ public class TransactionLogSynchronizerManager
                 .orElseThrow(() -> new IllegalArgumentException("URI scheme undefined for " + tableLocation));
         TransactionLogSynchronizer synchronizer = synchronizers.get(uriScheme.toLowerCase(ENGLISH));
         if (synchronizer == null) {
-            throw new TrinoException(NOT_SUPPORTED, format("Cannot write to table in %s; %s not supported", tableLocation, uriScheme));
+            throw new TrinoException(NOT_SUPPORTED, "Cannot write to table in %s; %s not supported".formatted(tableLocation, uriScheme));
         }
         return synchronizer;
     }

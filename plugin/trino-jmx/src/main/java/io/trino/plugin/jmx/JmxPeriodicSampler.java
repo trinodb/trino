@@ -22,7 +22,6 @@ import jakarta.annotation.PostConstruct;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -59,7 +58,7 @@ public class JmxPeriodicSampler
         for (String tableName : jmxHistoricalData.getTables()) {
             tableHandleBuilder.add(requireNonNull(
                     jmxMetadata.getTableHandle(new SchemaTableName(JmxMetadata.HISTORY_SCHEMA_NAME, tableName)),
-                    format("tableHandle is null for table [%s]", tableName)));
+                    "tableHandle is null for table [%s]".formatted(tableName)));
         }
 
         tableHandles = tableHandleBuilder.build();

@@ -42,7 +42,6 @@ import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
 public final class TinyintType
@@ -180,10 +179,10 @@ public final class TinyintType
     private static void checkValueValid(long value)
     {
         if (value > Byte.MAX_VALUE) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_BYTE", value));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Value %d exceeds MAX_BYTE".formatted(value));
         }
         if (value < Byte.MIN_VALUE) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_BYTE", value));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Value %d is less than MIN_BYTE".formatted(value));
         }
     }
 

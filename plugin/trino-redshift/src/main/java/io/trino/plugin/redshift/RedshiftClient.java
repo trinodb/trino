@@ -170,7 +170,6 @@ import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
@@ -341,7 +340,7 @@ public class RedshiftClient
     {
         checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
         ImmutableList.Builder<String> createTableSqlsBuilder = ImmutableList.builder();
-        createTableSqlsBuilder.add(format("CREATE TABLE %s (%s)", quoted(remoteTableName), join(", ", columns)));
+        createTableSqlsBuilder.add("CREATE TABLE %s (%s)".formatted(quoted(remoteTableName), join(", ", columns)));
         Optional<String> tableComment = tableMetadata.getComment();
         if (tableComment.isPresent()) {
             createTableSqlsBuilder.add(buildTableCommentSql(remoteTableName, tableComment));
@@ -357,8 +356,7 @@ public class RedshiftClient
 
     private String buildTableCommentSql(RemoteTableName remoteTableName, Optional<String> tableComment)
     {
-        return format(
-                "COMMENT ON TABLE %s IS %s",
+        return "COMMENT ON TABLE %s IS %s".formatted(
                 quoted(remoteTableName),
                 tableComment.map(RedshiftClient::redshiftVarcharLiteral).orElse("NULL"));
     }
@@ -413,11 +411,11 @@ public class RedshiftClient
                     .map(sortItem -> {
                         String ordering = sortItem.sortOrder().isAscending() ? "ASC" : "DESC";
                         String nullsHandling = sortItem.sortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
-                        return format("%s %s %s", quoted(sortItem.column().getColumnName()), ordering, nullsHandling);
+                        return "%s %s %s".formatted(quoted(sortItem.column().getColumnName()), ordering, nullsHandling);
                     })
                     .collect(joining(", "));
 
-            return format("%s ORDER BY %s LIMIT %d", query, orderBy, limit);
+            return "%s ORDER BY %s LIMIT %d".formatted(query, orderBy, limit);
         });
     }
 
@@ -489,8 +487,7 @@ public class RedshiftClient
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
 
-        execute(session, connection, format(
-                "ALTER TABLE %s RENAME TO %s",
+        execute(session, connection, "ALTER TABLE %s RENAME TO %s".formatted(
                 quoted(catalogName, remoteSchemaName, remoteTableName),
                 quoted(newRemoteTableName)));
     }
@@ -734,10 +731,10 @@ public class RedshiftClient
             if (decimal.getPrecision() == REDSHIFT_DECIMAL_CUTOFF_PRECISION) {
                 // See doc for REDSHIFT_DECIMAL_CUTOFF_PRECISION
                 return WriteMapping.objectMapping(
-                        format("decimal(%s, %s)", decimal.getPrecision(), decimal.getScale()),
+                        "decimal(%s, %s)".formatted(decimal.getPrecision(), decimal.getScale()),
                         writeDecimalAtRedshiftCutoff(decimal.getScale()));
             }
-            String name = format("decimal(%s, %s)", decimal.getPrecision(), decimal.getScale());
+            String name = "decimal(%s, %s)".formatted(decimal.getPrecision(), decimal.getScale());
             return decimal.isShort()
                     ? WriteMapping.longMapping(name, shortDecimalWriteFunction(decimal))
                     : WriteMapping.objectMapping(name, longDecimalWriteFunction(decimal));
@@ -750,12 +747,12 @@ public class RedshiftClient
             int size = charType.getLength();
             if (size <= REDSHIFT_MAX_CHAR) {
                 return WriteMapping.sliceMapping(
-                        format("char(%d)", size),
+                        "char(%d)".formatted(size),
                         RedshiftClient::writeChar);
             }
             int redshiftVarcharWidth = min(size, REDSHIFT_MAX_VARCHAR);
             return WriteMapping.sliceMapping(
-                    format("varchar(%d)", redshiftVarcharWidth),
+                    "varchar(%d)".formatted(redshiftVarcharWidth),
                     (statement, index, value) -> writeCharAsVarchar(statement, index, value, redshiftVarcharWidth));
         }
 
@@ -765,7 +762,7 @@ public class RedshiftClient
             int size = varcharType.getLength()
                     .filter(n -> n <= REDSHIFT_MAX_VARCHAR)
                     .orElse(REDSHIFT_MAX_VARCHAR);
-            return WriteMapping.sliceMapping(format("varchar(%d)", size), varcharWriteFunction());
+            return WriteMapping.sliceMapping("varchar(%d)".formatted(size), varcharWriteFunction());
         }
 
         if (VARBINARY.equals(type)) {
@@ -818,8 +815,7 @@ public class RedshiftClient
     public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
         // Redshift doesn't support prepared statement for COMMENT statement
-        String sql = format(
-                "COMMENT ON COLUMN %s.%s IS %s",
+        String sql = "COMMENT ON COLUMN %s.%s IS %s".formatted(
                 quoted(handle.asPlainTable().getRemoteTableName()),
                 quoted(column.getColumnName()),
                 comment.map(RedshiftClient::redshiftVarcharLiteral).orElse("NULL"));
@@ -892,7 +888,7 @@ public class RedshiftClient
             DateTimeFormatter format = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSSSS");
             throw new TrinoException(
                     INVALID_ARGUMENTS,
-                    format("Minimum timestamp with time zone in Redshift is %s: %s", REDSHIFT_MIN_SUPPORTED_TIMESTAMP_TZ.format(format), value.format(format)));
+                    "Minimum timestamp with time zone in Redshift is %s: %s".formatted(REDSHIFT_MIN_SUPPORTED_TIMESTAMP_TZ.format(format), value.format(format)));
         }
     }
 
@@ -907,8 +903,7 @@ public class RedshiftClient
                 (statement, index, decimal) -> {
                     BigInteger unscaled = decimal.toBigInteger();
                     if (unscaled.bitLength() > REDSHIFT_DECIMAL_CUTOFF_BITS) {
-                        throw new TrinoException(JDBC_NON_TRANSIENT_ERROR, format(
-                                "Value out of range for Redshift DECIMAL(%d, %d)",
+                        throw new TrinoException(JDBC_NON_TRANSIENT_ERROR, "Value out of range for Redshift DECIMAL(%d, %d)".formatted(
                                 REDSHIFT_DECIMAL_CUTOFF_PRECISION,
                                 scale));
                     }
@@ -928,7 +923,7 @@ public class RedshiftClient
         if (!CharMatcher.ascii().matchesAllOf(value)) {
             throw new TrinoException(
                     JDBC_NON_TRANSIENT_ERROR,
-                    format("Value for Redshift CHAR must be ASCII, but found '%s'", value));
+                    "Value for Redshift CHAR must be ASCII, but found '%s'".formatted(value));
         }
         statement.setString(index, slice.toStringAscii());
     }

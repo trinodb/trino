@@ -33,7 +33,6 @@ import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functio
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleArgument;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.type;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.variable;
-import static java.lang.String.format;
 
 public class ImplementStddevSamp
         implements AggregateFunctionRule<JdbcExpression, ParameterizedExpression>
@@ -60,7 +59,7 @@ public class ImplementStddevSamp
 
         ParameterizedExpression rewrittenArgument = context.rewriteExpression(argument).orElseThrow();
         return Optional.of(new JdbcExpression(
-                format("stddev_samp(%s)", rewrittenArgument.expression()),
+                "stddev_samp(%s)".formatted(rewrittenArgument.expression()),
                 rewrittenArgument.parameters(),
                 columnHandle.getJdbcTypeHandle()));
     }

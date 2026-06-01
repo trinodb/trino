@@ -35,7 +35,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.log.Level.WARN;
 import static io.trino.plugin.base.mapping.testing.RuleBasedIdentifierMappingUtils.updateRuleBasedIdentifierMappingFile;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -240,8 +239,8 @@ public abstract class BaseCaseInsensitiveMappingTest
                             .filter(anObject -> anObject.startsWith("casesensitivename")))
                             .hasSize(2);
                     assertQuery("SHOW TABLES FROM " + schema, "VALUES 'some_table_name'");
-                    assertUpdate(format("INSERT INTO %s.some_table_name VALUES 'a'", schema), 1);
-                    assertQuery(format("SELECT * FROM %s.some_table_name", schema), "VALUES 'a'");
+                    assertUpdate("INSERT INTO %s.some_table_name VALUES 'a'".formatted(schema), 1);
+                    assertQuery("SELECT * FROM %s.some_table_name".formatted(schema), "VALUES 'a'");
                 }
             }
         }
@@ -341,7 +340,7 @@ public abstract class BaseCaseInsensitiveMappingTest
     protected AutoCloseable withTable(String remoteSchemaName, String remoteTableName, String tableDefinition)
     {
         String quotedName = quoted(remoteSchemaName) + "." + quoted(remoteTableName);
-        onRemoteDatabase().execute(format("CREATE TABLE %s %s", quotedName, tableDefinition));
+        onRemoteDatabase().execute("CREATE TABLE %s %s".formatted(quotedName, tableDefinition));
         return () -> onRemoteDatabase().execute("DROP TABLE " + quotedName);
     }
 

@@ -52,7 +52,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.StrictMath.toIntExact;
-import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.regex.Pattern.DOTALL;
@@ -168,11 +167,11 @@ public class RegexDeserializer
             bigDecimal = new BigDecimal(value).setScale(DecimalConversions.intScale(decimalType.getScale()), HALF_UP);
         }
         catch (NumberFormatException e) {
-            throw new NumberFormatException(format("Cannot convert '%s' to %s. Value is not a number.", value, decimalType));
+            throw new NumberFormatException("Cannot convert '%s' to %s. Value is not a number.".formatted(value, decimalType));
         }
 
         if (overflows(bigDecimal, decimalType.getPrecision())) {
-            throw new IllegalArgumentException(format("Cannot convert '%s' to %s. Value too large.", value, decimalType));
+            throw new IllegalArgumentException("Cannot convert '%s' to %s. Value too large.".formatted(value, decimalType));
         }
 
         if (decimalType.isShort()) {

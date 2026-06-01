@@ -48,7 +48,6 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.TypeOperatorDeclaration.NO_TYPE_OPERATOR_DECLARATION;
 import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.insertArguments;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Arrays.asList;
@@ -122,7 +121,7 @@ public class MapType
                 SqlMap.class,
                 MapBlock.class);
         if (!keyType.isComparable()) {
-            throw new IllegalArgumentException(format("key type must be comparable, got %s", keyType));
+            throw new IllegalArgumentException("key type must be comparable, got %s".formatted(keyType));
         }
         this.keyType = keyType;
         this.valueType = valueType;

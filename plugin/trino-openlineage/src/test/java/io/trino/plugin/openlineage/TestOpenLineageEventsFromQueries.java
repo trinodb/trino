@@ -39,7 +39,6 @@ import java.util.Map;
 
 import static io.openlineage.client.OpenLineage.RunEvent.EventType.COMPLETE;
 import static io.openlineage.client.OpenLineage.RunEvent.EventType.START;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOpenLineageEventsFromQueries
@@ -183,7 +182,7 @@ public class TestOpenLineageEventsFromQueries
                 .hasSize(1);
         assertCompletedEventInput(
                 completeCreateTableEvent.getInputs().getFirst(),
-                format("marquez.default.%s", viewName),
+                "marquez.default.%s".formatted(viewName),
                 ImmutableList.of(
                         openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null, null),
                         openLineage.newSchemaDatasetFacetFields("regionkey", null, null, null, null),
@@ -196,28 +195,28 @@ public class TestOpenLineageEventsFromQueries
                 "nationkey", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
                         .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
                                 .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name(format("marquez.default.%s", viewName))
+                                .name("marquez.default.%s".formatted(viewName))
                                 .field("nationkey")
                                 .build()))
                         .build(),
                 "name", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
                         .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
                                 .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name(format("marquez.default.%s", viewName))
+                                .name("marquez.default.%s".formatted(viewName))
                                 .field("name")
                                 .build()))
                         .build(),
                 "regionkey", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
                         .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
                                 .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name(format("marquez.default.%s", viewName))
+                                .name("marquez.default.%s".formatted(viewName))
                                 .field("regionkey")
                                 .build()))
                         .build(),
                 "comment", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
                         .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
                                 .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name(format("marquez.default.%s", viewName))
+                                .name("marquez.default.%s".formatted(viewName))
                                 .field("comment")
                                 .build()))
                         .build());
@@ -1160,7 +1159,7 @@ public class TestOpenLineageEventsFromQueries
                         .satisfies(dataSourceFacet -> {
                             assertThat(expectedName).startsWith(dataSourceFacet.getName());
                             // URI is missing table name, but it include the namespace/catalog.schema
-                            assertThat(format("%s/%s", OPEN_LINEAGE_NAMESPACE, expectedName)).startsWith(dataSourceFacet.getUri().toString());
+                            assertThat("%s/%s".formatted(OPEN_LINEAGE_NAMESPACE, expectedName)).startsWith(dataSourceFacet.getUri().toString());
                         }));
     }
 

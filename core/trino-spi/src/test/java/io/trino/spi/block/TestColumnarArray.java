@@ -30,7 +30,6 @@ import static io.trino.spi.block.ColumnarTestUtils.createTestDictionaryExpectedV
 import static io.trino.spi.block.ColumnarTestUtils.createTestRleBlock;
 import static io.trino.spi.block.ColumnarTestUtils.createTestRleExpectedValues;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestColumnarArray
@@ -46,7 +45,7 @@ final class TestColumnarArray
             expectedValues[i] = new Slice[ARRAY_SIZES[i]];
             for (int j = 0; j < ARRAY_SIZES[i]; j++) {
                 if (j % 3 != 1) {
-                    expectedValues[i][j] = Slices.utf8Slice(format("%d.%d", i, j));
+                    expectedValues[i][j] = Slices.utf8Slice("%d.%d".formatted(i, j));
                 }
             }
         }

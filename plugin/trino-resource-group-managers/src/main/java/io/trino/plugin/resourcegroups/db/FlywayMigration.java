@@ -17,8 +17,6 @@ import io.airlift.log.Logger;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.output.MigrateResult;
 
-import static java.lang.String.format;
-
 public class FlywayMigration
 {
     private static final Logger log = Logger.get(FlywayMigration.class);
@@ -38,7 +36,7 @@ public class FlywayMigration
         }
         // validation is not performed in DbResourceGroupConfig because DB backed
         // resource group tests use the h2 database.
-        throw new IllegalArgumentException(format("Invalid JDBC URL: %s. Only PostgreSQL, MySQL, and Oracle are supported.", configDbUrl));
+        throw new IllegalArgumentException("Invalid JDBC URL: %s. Only PostgreSQL, MySQL, and Oracle are supported.".formatted(configDbUrl));
     }
 
     public static void migrate(DbResourceGroupConfig config)

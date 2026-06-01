@@ -22,7 +22,6 @@ import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeProceduresCompatibility
@@ -34,8 +33,7 @@ public class TestDeltaLakeProceduresCompatibility
         String tableName = "test_dl_unregister_table" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onTrino().executeQuery(format(
-                "CREATE TABLE delta.default.%s WITH (location = 's3://%s/%s') AS SELECT 123 AS col",
+        onTrino().executeQuery("CREATE TABLE delta.default.%s WITH (location = 's3://%s/%s') AS SELECT 123 AS col".formatted(
                 tableName,
                 bucketName,
                 tableDirectory));

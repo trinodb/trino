@@ -32,7 +32,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
-import static java.lang.String.format;
 import static java.util.Comparator.comparingInt;
 import static java.util.Objects.requireNonNull;
 
@@ -107,7 +106,7 @@ public final class ChoicesSpecializedSqlScalarFunction
         if (choices.isEmpty()) {
             throw new TrinoException(
                     FUNCTION_NOT_FOUND,
-                    format("Function implementation for (%s) cannot be adapted to convention (%s)", boundSignature, invocationConvention));
+                    "Function implementation for (%s) cannot be adapted to convention (%s)".formatted(boundSignature, invocationConvention));
         }
 
         ScalarImplementationChoice bestChoice = Collections.max(choices, comparingInt(ScalarImplementationChoice::getScore));

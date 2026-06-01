@@ -197,7 +197,6 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.round;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Collections.unmodifiableCollection;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Map.Entry.comparingByKey;
@@ -977,11 +976,11 @@ public class EventDrivenFaultTolerantQueryScheduler
             queryStateMachine.getFailureInfo().ifPresent(failureInfo -> {
                 if (failureInfo.errorCode() == EXCEEDED_TIME_LIMIT.toErrorCode()
                         && noEventsStopwatch.elapsed().toMillis() > SCHEDULER_STALLED_DURATION_ON_TIME_EXCEEDED_THRESHOLD_MILLIS) {
-                    logDebugInfoSafe(format("Scheduler stalled for %s on EXCEEDED_TIME_LIMIT", noEventsStopwatch.elapsed()));
+                    logDebugInfoSafe("Scheduler stalled for %s on EXCEEDED_TIME_LIMIT".formatted(noEventsStopwatch.elapsed()));
                 }
                 else if (failureInfo.errorCode() == USER_CANCELED.toErrorCode()
                         && noEventsStopwatch.elapsed().toMillis() > SCHEDULER_STALLED_DURATION_ON_USER_CANCELED_THRESHOLD_MILLIS) {
-                    logDebugInfoSafe(format("Scheduler stalled for %s on USER_CANCELED", noEventsStopwatch.elapsed()));
+                    logDebugInfoSafe("Scheduler stalled for %s on USER_CANCELED".formatted(noEventsStopwatch.elapsed()));
                 }
             });
 
@@ -2629,8 +2628,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
 
             if (errorCode != null && isOutOfMemoryError(errorCode) && newMemoryLimits.getRequiredMemory().toBytes() * 0.99 <= taskStatus.peakMemoryReservation().toBytes()) {
-                String message = format(
-                        "Cannot allocate enough memory for task %s. Reported peak memory reservation: %s. Maximum possible reservation: %s.",
+                String message = "Cannot allocate enough memory for task %s. Reported peak memory reservation: %s. Maximum possible reservation: %s.".formatted(
                         taskId,
                         taskStatus.peakMemoryReservation(),
                         newMemoryLimits.getRequiredMemory());

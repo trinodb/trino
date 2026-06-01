@@ -176,10 +176,8 @@ import static io.trino.sql.tree.WindowFrame.Type.RANGE;
 import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toUnmodifiableList;
 
 class QueryPlanner
 {
@@ -330,7 +328,7 @@ class QueryPlanner
                 0);
 
         // 2. append filter to fail on non-empty result
-        String recursionLimitExceededMessage = format("Recursion depth limit exceeded (%s). Use 'max_recursion_depth' session property to modify the limit.", maxRecursionDepth);
+        String recursionLimitExceededMessage = "Recursion depth limit exceeded (%s). Use 'max_recursion_depth' session property to modify the limit.".formatted(maxRecursionDepth);
         Expression predicate = ifExpression(
                 new Comparison(
                         GREATER_THAN_OR_EQUAL,
@@ -1470,11 +1468,11 @@ class QueryPlanner
         }
 
         // Need to preserve order of windows and window functions in each window to ensure deterministic query plans
-        Map<ResolvedWindow, List<FunctionCall>> functions = scopeAwareDistinct(subPlan, windowFunctions)
+        Map<ResolvedWindow, ImmutableList<FunctionCall>> functions = scopeAwareDistinct(subPlan, windowFunctions)
                 .stream()
-                .collect(Collectors.groupingBy(analysis::getWindow, LinkedHashMap::new, toUnmodifiableList()));
+                .collect(Collectors.groupingBy(analysis::getWindow, LinkedHashMap::new, toImmutableList()));
 
-        for (Entry<ResolvedWindow, List<FunctionCall>> entry : functions.entrySet()) {
+        for (Entry<ResolvedWindow, ImmutableList<FunctionCall>> entry : functions.entrySet()) {
             ResolvedWindow window = entry.getKey();
             List<FunctionCall> functionCalls = entry.getValue();
 
@@ -2350,7 +2348,7 @@ class QueryPlanner
         public Symbol get(io.trino.sql.tree.Expression expression)
         {
             return tryGet(expression)
-                    .orElseThrow(() -> new IllegalArgumentException(format("No mapping for expression: %s (%s)", expression, System.identityHashCode(expression))));
+                    .orElseThrow(() -> new IllegalArgumentException("No mapping for expression: %s (%s)".formatted(expression, System.identityHashCode(expression))));
         }
 
         public Optional<Symbol> tryGet(io.trino.sql.tree.Expression expression)

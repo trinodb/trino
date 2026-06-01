@@ -17,7 +17,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 
 import static io.trino.spi.StandardErrorCode.QUERY_QUEUE_FULL;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class QueryQueueFullException
@@ -27,7 +26,7 @@ public class QueryQueueFullException
 
     public QueryQueueFullException(ResourceGroupId resourceGroup)
     {
-        super(QUERY_QUEUE_FULL, format("Too many queued queries for \"%s\"", resourceGroup));
+        super(QUERY_QUEUE_FULL, "Too many queued queries for \"%s\"".formatted(resourceGroup));
         this.resourceGroup = requireNonNull(resourceGroup, "resourceGroup is null");
     }
 

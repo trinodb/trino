@@ -37,7 +37,6 @@ import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.OperatorNameUtil.isOperatorName;
 import static io.trino.metadata.OperatorNameUtil.unmangleOperator;
 import static io.trino.spi.function.OperatorType.CAST;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -335,7 +334,7 @@ public class InternalFunctionDependencies
         @Override
         public String toString()
         {
-            return format("cast(%s, %s)", fromType, toType);
+            return "cast(%s, %s)".formatted(fromType, toType);
         }
     }
 }

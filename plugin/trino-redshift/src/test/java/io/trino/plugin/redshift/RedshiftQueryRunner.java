@@ -42,7 +42,6 @@ import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshiftWi
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toUnmodifiableSet;
@@ -118,14 +117,14 @@ public final class RedshiftQueryRunner
                 createUserIfNotExists(NON_GRANTED_USER, JDBC_PASSWORD);
                 createUserIfNotExists(GRANTED_USER, JDBC_PASSWORD);
 
-                executeInRedshiftWithRetry(format("GRANT ALL PRIVILEGES ON DATABASE %s TO %s", TEST_DATABASE, GRANTED_USER));
-                executeInRedshiftWithRetry(format("GRANT ALL PRIVILEGES ON SCHEMA %s TO %s", TEST_SCHEMA, GRANTED_USER));
+                executeInRedshiftWithRetry("GRANT ALL PRIVILEGES ON DATABASE %s TO %s".formatted(TEST_DATABASE, GRANTED_USER));
+                executeInRedshiftWithRetry("GRANT ALL PRIVILEGES ON SCHEMA %s TO %s".formatted(TEST_SCHEMA, GRANTED_USER));
 
                 provisionTables(runner, initialTables);
 
                 // This step is necessary for product tests
                 for (TpchTable<?> table : initialTables) {
-                    executeInRedshiftWithRetry(format("GRANT ALL PRIVILEGES ON TABLE %s.%s TO %s", TEST_SCHEMA, table.getTableName(), GRANTED_USER));
+                    executeInRedshiftWithRetry("GRANT ALL PRIVILEGES ON TABLE %s.%s TO %s".formatted(TEST_SCHEMA, table.getTableName(), GRANTED_USER));
                 }
                 return runner;
             }
@@ -169,12 +168,12 @@ public final class RedshiftQueryRunner
 
     private static void copyFromS3(QueryRunner queryRunner, Session session, String name)
     {
-        String s3Path = format("%s/%s/%s/%s/", S3_TPCH_TABLES_ROOT, TPCH_CATALOG, TINY_SCHEMA_NAME, name);
+        String s3Path = "%s/%s/%s/%s/".formatted(S3_TPCH_TABLES_ROOT, TPCH_CATALOG, TINY_SCHEMA_NAME, name);
         log.info("Creating table %s in Redshift copying from %s", name, s3Path);
 
         // Create table in ephemeral Redshift cluster with no data
-        String createTableSql = format("CREATE TABLE %s.%s.%s AS ", session.getCatalog().orElseThrow(), session.getSchema().orElseThrow(), name) +
-                format("SELECT * FROM %s.%s.%s WITH NO DATA", TPCH_CATALOG, TINY_SCHEMA_NAME, name);
+        String createTableSql = "CREATE TABLE %s.%s.%s AS ".formatted(session.getCatalog().orElseThrow(), session.getSchema().orElseThrow(), name) +
+                "SELECT * FROM %s.%s.%s WITH NO DATA".formatted(TPCH_CATALOG, TINY_SCHEMA_NAME, name);
         queryRunner.execute(session, createTableSql);
 
         // Copy data from S3 bucket to ephemeral Redshift
@@ -190,20 +189,19 @@ public final class RedshiftQueryRunner
         // We want to verify that the loaded data has the same schema as if we created a fresh table from the TPC-H catalog
         // If this assertion fails, we may need to recreate the Redshift tables from the TPC-H catalog and unload the data to S3
         try {
-            long expectedCount = (long) queryRunner.execute("SELECT count(*) FROM " + format("%s.%s.%s", TPCH_CATALOG, TINY_SCHEMA_NAME, tpchTable.getTableName())).getOnlyValue();
+            long expectedCount = (long) queryRunner.execute("SELECT count(*) FROM " + "%s.%s.%s".formatted(TPCH_CATALOG, TINY_SCHEMA_NAME, tpchTable.getTableName())).getOnlyValue();
             long actualCount = (long) queryRunner.execute(
-                    "SELECT count(*) FROM " + format(
-                            "%s.%s.%s",
+                    "SELECT count(*) FROM " + "%s.%s.%s".formatted(
                             session.getCatalog().orElseThrow(),
                             session.getSchema().orElseThrow(),
                             tpchTable.getTableName())).getOnlyValue();
 
             if (expectedCount != actualCount) {
-                throw new RuntimeException(format("Table %s is not loaded correctly. Expected %s rows got %s", tpchTable.getTableName(), expectedCount, actualCount));
+                throw new RuntimeException("Table %s is not loaded correctly. Expected %s rows got %s".formatted(tpchTable.getTableName(), expectedCount, actualCount));
             }
 
             log.info("Checking column types on table %s", tpchTable.getTableName());
-            MaterializedResult expectedColumns = queryRunner.execute(format("DESCRIBE %s.%s.%s", TPCH_CATALOG, TINY_SCHEMA_NAME, tpchTable.getTableName()));
+            MaterializedResult expectedColumns = queryRunner.execute("DESCRIBE %s.%s.%s".formatted(TPCH_CATALOG, TINY_SCHEMA_NAME, tpchTable.getTableName()));
             MaterializedResult actualColumns = queryRunner.execute("DESCRIBE " + tpchTable.getTableName());
             assertThat(actualColumns).containsExactlyElementsOf(expectedColumns);
         }

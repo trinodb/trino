@@ -25,7 +25,6 @@ import java.nio.file.Path;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.query.QueryExecutor.param;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static java.nio.file.Files.newInputStream;
 import static java.sql.JDBCType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -64,19 +63,19 @@ public class TestAvroSchemaStrictness
             throws IOException
     {
         String tableName = "invalid_union_default";
-        String tablePath = format("/tmp/%s", tableName);
-        String schemaPath = format("/tmp/%s.avsc", tableName);
+        String tablePath = "/tmp/%s".formatted(tableName);
+        String schemaPath = "/tmp/%s.avsc".formatted(tableName);
 
         hdfsClient.createDirectory(tablePath);
         copyToHdfs(ILLEGAL_UNION_DEFAULT_DATA, Path.of(tablePath, "data.avro").toString());
         copyToHdfs(ILLEGAL_UNION_DEFAULT_SCHEMA, schemaPath);
 
         onTrino().executeQuery(
-                format("CREATE TABLE %s (x int) with (\n"
+                ("CREATE TABLE %s (x int) with (\n"
                         + "format = 'AVRO',\n"
                         + "avro_schema_url = ?,\n"
                         + "external_location = ?\n"
-                        + ")", tableName),
+                        + ")").formatted(tableName),
                 param(VARCHAR, schemaPath),
                 param(VARCHAR, tablePath));
 

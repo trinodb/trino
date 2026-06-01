@@ -38,7 +38,6 @@ import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RenameTableTask
@@ -125,7 +124,7 @@ public class RenameTableTask
     {
         requireNonNull(target, "target is null");
         if (target.getParts().size() > 3) {
-            throw new TrinoException(SYNTAX_ERROR, format("Too many dots in table name: %s", target));
+            throw new TrinoException(SYNTAX_ERROR, "Too many dots in table name: %s".formatted(target));
         }
 
         List<String> parts = target.getParts().reversed();

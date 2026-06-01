@@ -58,7 +58,6 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class OrcFileWriter
@@ -218,16 +217,16 @@ public final class OrcFileWriter
         Map<String, String> userMetadata = new HashMap<>();
         switch (writerKind) {
             case INSERT -> {
-                userMetadata.put("hive.acid.stats", format("%s,0,0", stripeRowCount));
+                userMetadata.put("hive.acid.stats", "%s,0,0".formatted(stripeRowCount));
             }
             case DELETE -> {
-                userMetadata.put("hive.acid.stats", format("0,0,%s", stripeRowCount));
+                userMetadata.put("hive.acid.stats", "0,0,%s".formatted(stripeRowCount));
             }
             default -> {
                 throw new IllegalStateException("In updateUserMetadata, unknown writerKind " + writerKind);
             }
         }
-        userMetadata.put("hive.acid.key.index", format("%s,%s,%s;", writeId, bucketValue, stripeRowCount - 1));
+        userMetadata.put("hive.acid.key.index", "%s,%s,%s;".formatted(writeId, bucketValue, stripeRowCount - 1));
         userMetadata.put("hive.acid.version", "2");
 
         orcWriter.updateUserMetadata(userMetadata);

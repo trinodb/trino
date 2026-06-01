@@ -36,7 +36,6 @@ import static java.lang.Integer.max;
 import static java.lang.Math.addExact;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
@@ -104,7 +103,7 @@ public class AlluxioInputStream
         if (n == -1) {
             return -1;
         }
-        throw new IOException(format("%d bytes read", n));
+        throw new IOException("%d bytes read".formatted(n));
     }
 
     @Override

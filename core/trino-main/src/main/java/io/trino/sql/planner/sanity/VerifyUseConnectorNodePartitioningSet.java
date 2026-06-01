@@ -20,7 +20,6 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static java.lang.String.format;
 
 public final class VerifyUseConnectorNodePartitioningSet
         implements PlanSanityChecker.Checker
@@ -39,7 +38,7 @@ public final class VerifyUseConnectorNodePartitioningSet
                 .map(TableScanNode.class::cast)
                 .filter(scan -> scan.getUseConnectorNodePartitioning().isEmpty())
                 .forEach(scan -> {
-                    throw new IllegalStateException(format("TableScanNode (%s) doesn't have useConnectorNodePartitioning set", scan));
+                    throw new IllegalStateException("TableScanNode (%s) doesn't have useConnectorNodePartitioning set".formatted(scan));
                 });
     }
 }

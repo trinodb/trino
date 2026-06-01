@@ -41,7 +41,6 @@ import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.column.values.bloomfilter.BlockSplitBloomFilter.UPPER_BOUND_BYTES;
 
@@ -170,7 +169,7 @@ public class BloomFilterStore
     {
         int numBytes = bloomFilterHeader.getNumBytes();
         if (numBytes <= 0 || numBytes > UPPER_BOUND_BYTES) {
-            throw new ParquetDecodingException(format("Column: %s has bloom filter number of bytes value of %d, which is out of bound of lower limit: %d and upper limit: %d", columnPath, numBytes, 0, UPPER_BOUND_BYTES));
+            throw new ParquetDecodingException("Column: %s has bloom filter number of bytes value of %d, which is out of bound of lower limit: %d and upper limit: %d".formatted(columnPath, numBytes, 0, UPPER_BOUND_BYTES));
         }
         return bloomFilterHeader.getHash().isSetXXHASH() && bloomFilterHeader.getAlgorithm().isSetBLOCK() && bloomFilterHeader.getCompression().isSetUNCOMPRESSED();
     }

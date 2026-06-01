@@ -22,7 +22,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class MatchContext
@@ -62,7 +61,7 @@ public class MatchContext
             if (first.equals(second)) {
                 return first;
             }
-            throw new IllegalStateException(format("%s is already mapped to %s, cannot remap to %s", name, first, second));
+            throw new IllegalStateException("%s is already mapped to %s, cannot remap to %s".formatted(name, first, second));
         };
     }
 }

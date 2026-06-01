@@ -35,7 +35,6 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICK
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -61,8 +60,8 @@ public class TestDeltaLakeCreateTableAsSelectCompatibility
                     ", (7, BOOLEAN 'true', TINYINT '0', SMALLINT '0', INTEGER '0', BIGINT '0', REAL '0x1.0p-126f', DOUBLE '0x1.0p-1022', CAST('0' AS DECIMAL(18,9)), CAST('0' AS DECIMAL(38,18)), CAST('Romania' AS VARCHAR(25)), CAST('Poland' AS VARCHAR), DATE '2001-08-22')"))
                     .containsOnly(row(7));
 
-            QueryResult databricksResult = onDelta().executeQuery(format("SELECT * FROM default.%s", tableName));
-            QueryResult trinoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\"", tableName));
+            QueryResult databricksResult = onDelta().executeQuery("SELECT * FROM default.%s".formatted(tableName));
+            QueryResult trinoResult = onTrino().executeQuery("SELECT * FROM delta.default.\"%s\"".formatted(tableName));
             assertThat(databricksResult).containsOnly(trinoResult.rows().stream()
                     .map(QueryAssert.Row::new)
                     .collect(toImmutableList()));

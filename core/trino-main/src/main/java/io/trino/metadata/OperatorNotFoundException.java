@@ -13,7 +13,6 @@
  */
 package io.trino.metadata;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.OperatorType;
@@ -23,8 +22,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class OperatorNotFoundException
         extends TrinoException
@@ -52,16 +51,15 @@ public class OperatorNotFoundException
     private static String formatErrorMessage(OperatorType operatorType, List<? extends Type> argumentTypes, Optional<Type> returnType)
     {
         return switch (operatorType) {
-            case ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO, EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> format("Cannot apply operator: %s %s %s", argumentTypes.get(0), operatorType.getOperator(), argumentTypes.get(1));
-            case NEGATION -> format("Cannot negate %s", argumentTypes.get(0));
-            case IDENTICAL -> format("Cannot check if %s is identical to %s", argumentTypes.get(0), argumentTypes.get(1));
-            case CAST -> format("Cannot cast %s to %s", argumentTypes.get(0), returnType.orElseThrow());
-            case SUBSCRIPT -> format("Cannot use %s for subscript of %s", argumentTypes.get(1), argumentTypes.get(0));
-            default -> format(
-                    "Operator '%s'%s cannot be applied to %s",
+            case ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO, EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> "Cannot apply operator: %s %s %s".formatted(argumentTypes.get(0), operatorType.getOperator(), argumentTypes.get(1));
+            case NEGATION -> "Cannot negate %s".formatted(argumentTypes.get(0));
+            case IDENTICAL -> "Cannot check if %s is identical to %s".formatted(argumentTypes.get(0), argumentTypes.get(1));
+            case CAST -> "Cannot cast %s to %s".formatted(argumentTypes.get(0), returnType.orElseThrow());
+            case SUBSCRIPT -> "Cannot use %s for subscript of %s".formatted(argumentTypes.get(1), argumentTypes.get(0));
+            default -> "Operator '%s'%s cannot be applied to %s".formatted(
                     operatorType.getOperator(),
                     returnType.map(value -> ":" + value.getDisplayName()).orElse(""),
-                    Joiner.on(", ").join(argumentTypes));
+                    argumentTypes.stream().map(Object::toString).collect(joining(", ")));
         };
     }
 

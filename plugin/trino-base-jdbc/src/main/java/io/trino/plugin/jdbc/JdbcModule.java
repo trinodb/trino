@@ -42,7 +42,6 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -164,7 +163,7 @@ public class JdbcModule
         @Override
         public ExecutorService get()
         {
-            return newCachedThreadPool(daemonThreadsNamed(format("%s-jdbc-client-%%d", catalogName)));
+            return newCachedThreadPool(daemonThreadsNamed("%s-jdbc-client-%%d".formatted(catalogName)));
         }
     }
 }

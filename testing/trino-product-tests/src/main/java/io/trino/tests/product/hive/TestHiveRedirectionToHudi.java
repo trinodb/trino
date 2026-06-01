@@ -28,7 +28,6 @@ import static io.trino.tests.product.TestGroups.HIVE_HUDI_REDIRECTIONS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onHudi;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveRedirectionToHudi
@@ -296,7 +295,7 @@ public class TestHiveRedirectionToHudi
 
         createHudiCowTable(schemaTableName, false);
 
-        assertQueryFailure(() -> onTrino().executeQuery(format("SHOW GRANTS ON %s", hiveTableName)))
+        assertQueryFailure(() -> onTrino().executeQuery("SHOW GRANTS ON %s".formatted(hiveTableName)))
                 .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table " + hiveTableName + " is redirected to " + hudiTableName + " and SHOW GRANTS is not supported with table redirections");
 
         onHudi().executeQuery("DROP TABLE " + schemaTableName);
@@ -410,7 +409,7 @@ public class TestHiveRedirectionToHudi
 
     private static void createHudiNonPartitionedTable(String tableName, String bucketName, String tableType)
     {
-        onHudi().executeQuery(format(
+        onHudi().executeQuery(
                 """
                 CREATE TABLE %s (
                   id bigint,
@@ -423,18 +422,18 @@ public class TestHiveRedirectionToHudi
                   primaryKey = 'id',
                   preCombineField = 'ts')
                 LOCATION 's3://%s/%s'
-                """,
-                tableName,
-                tableType,
-                bucketName,
-                tableName));
+                """.formatted(
+                        tableName,
+                        tableType,
+                        bucketName,
+                        tableName));
 
         onHudi().executeQuery("INSERT INTO " + tableName + " VALUES (1, 'a1', 20, 1000), (2, 'a2', 40, 2000)");
     }
 
     private static void createHudiPartitionedTable(String tableName, String bucketName, String tableType)
     {
-        onHudi().executeQuery(format(
+        onHudi().executeQuery(
                 """
                 CREATE TABLE %s (
                   id bigint,
@@ -449,11 +448,11 @@ public class TestHiveRedirectionToHudi
                   preCombineField = 'ts')
                 PARTITIONED BY (dt, hh)
                 LOCATION 's3://%s/%s'
-                """,
-                tableName,
-                tableType,
-                bucketName,
-                tableName));
+                """.formatted(
+                        tableName,
+                        tableType,
+                        bucketName,
+                        tableName));
 
         onHudi().executeQuery("INSERT INTO " + tableName + " PARTITION (dt, hh) SELECT 1 AS id, 'a1' AS name, 1000 AS ts, '2021-12-09' AS dt, '10' AS hh");
         onHudi().executeQuery("INSERT INTO " + tableName + " PARTITION (dt = '2021-12-09', hh='11') SELECT 2, 'a2', 1000");

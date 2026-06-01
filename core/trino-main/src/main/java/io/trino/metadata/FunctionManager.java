@@ -53,7 +53,6 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.metadata.LanguageFunctionManager.isTrinoSqlLanguageFunction;
 import static io.trino.spi.NodeVersion.UNKNOWN;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
-import static java.lang.String.format;
 import static java.time.Duration.ofHours;
 import static java.util.Objects.requireNonNull;
 
@@ -325,7 +324,7 @@ public class FunctionManager
     private static void verifyFunctionSignature(boolean check, String message, Object... args)
     {
         if (!check) {
-            throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, format(message, args));
+            throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, message.formatted(args));
         }
     }
 

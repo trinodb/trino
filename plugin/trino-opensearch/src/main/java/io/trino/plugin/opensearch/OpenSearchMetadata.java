@@ -121,7 +121,6 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Collections.emptyIterator;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -399,7 +398,7 @@ public class OpenSearchMetadata
                 return PASSTHROUGH_QUERY_RESULT_COLUMN_METADATA;
             }
 
-            throw new IllegalArgumentException(format("Unexpected column for table '%s$query': %s", table.index(), column.name()));
+            throw new IllegalArgumentException("Unexpected column for table '%s$query': %s".formatted(table.index(), column.name()));
         }
 
         return BuiltinColumns.of(column.name())

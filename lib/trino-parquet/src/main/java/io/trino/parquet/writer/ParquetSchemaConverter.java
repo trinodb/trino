@@ -47,7 +47,6 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.decimalType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.intType;
@@ -214,7 +213,7 @@ public class ParquetSchemaConverter
         if (type instanceof VarbinaryType) {
             return Types.primitive(PrimitiveType.PrimitiveTypeName.BINARY, repetition).named(name);
         }
-        throw new TrinoException(NOT_SUPPORTED, format("Unsupported primitive type: %s", type));
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported primitive type: %s".formatted(type));
     }
 
     private static org.apache.parquet.schema.Type getArrayType(

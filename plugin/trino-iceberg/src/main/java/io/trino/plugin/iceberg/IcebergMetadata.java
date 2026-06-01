@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Splitter.MapSplitter;
 import com.google.common.base.Suppliers;
@@ -418,7 +417,6 @@ import static io.trino.spi.type.VariantType.VARIANT;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.max;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
@@ -1184,7 +1182,7 @@ public class IcebergMetadata
                         .collect(joining(", "));
                 throw new TrinoException(
                         QUERY_REJECTED,
-                        format("Filter required for %s on at least one of the partition columns: %s", table.getSchemaTableName(), partitionColumnNames));
+                        "Filter required for %s on at least one of the partition columns: %s".formatted(table.getSchemaTableName(), partitionColumnNames));
             }
         }
     }
@@ -1310,7 +1308,7 @@ public class IcebergMetadata
             if (!nestedNamespaces.isEmpty()) {
                 throw new TrinoException(
                         ICEBERG_CATALOG_ERROR,
-                        format("Cannot drop non-empty schema: %s, contains %s nested schema(s)", schemaName, Joiner.on(", ").join(nestedNamespaces)));
+                        "Cannot drop non-empty schema: %s, contains %s nested schema(s)".formatted(schemaName, String.join(", ", nestedNamespaces)));
             }
 
             for (SchemaTableName materializedView : listMaterializedViews(session, Optional.of(schemaName))) {
@@ -1451,7 +1449,7 @@ public class IcebergMetadata
                 Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
                 Optional<String> providedTableLocation = getTableLocation(tableMetadata.getProperties());
                 if (providedTableLocation.isPresent() && !stripTrailingSlash(providedTableLocation.get()).equals(icebergTable.location())) {
-                    throw new TrinoException(INVALID_TABLE_PROPERTY, format("The provided location '%s' does not match the existing table location '%s'", providedTableLocation.get(), icebergTable.location()));
+                    throw new TrinoException(INVALID_TABLE_PROPERTY, "The provided location '%s' does not match the existing table location '%s'".formatted(providedTableLocation.get(), icebergTable.location()));
                 }
                 validateNotModifyingOldSnapshot(table, icebergTable);
                 tableLocation = icebergTable.location();
@@ -1474,9 +1472,9 @@ public class IcebergMetadata
             if (!isS3Tables(location.toString())) {
                 TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), IcebergTableCredentials.forFileIO(transaction.table().io()));
                 if (!replace && fileSystem.listFiles(location).hasNext()) {
-                    throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("" +
+                    throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, ("" +
                             "Cannot create a table on a non-empty location: %s, set 'iceberg.unique-table-location=true' in your Iceberg catalog properties " +
-                            "to use unique table locations for every table.", location));
+                            "to use unique table locations for every table.").formatted(location));
                 }
             }
             return newWritableTableHandle(tableMetadata.getTable(), transaction.table());
@@ -1503,7 +1501,7 @@ public class IcebergMetadata
         }
         catch (AlreadyExistsException e) {
             // May happen when table has been already created concurrently.
-            throw new TrinoException(TABLE_ALREADY_EXISTS, format("Table %s already exists", icebergTableHandle.name()), e);
+            throw new TrinoException(TABLE_ALREADY_EXISTS, "Table %s already exists".formatted(icebergTableHandle.name()), e);
         }
     }
 
@@ -1874,8 +1872,7 @@ public class IcebergMetadata
     {
         int tableFormatVersion = formatVersion(icebergTable);
         if (tableFormatVersion > maxVersion) {
-            throw new TrinoException(NOT_SUPPORTED, format(
-                    "%s is not supported for Iceberg table format version > %d. Table %s format version is %s.",
+            throw new TrinoException(NOT_SUPPORTED, "%s is not supported for Iceberg table format version > %d. Table %s format version is %s.".formatted(
                     icebergTableProcedureId.name(),
                     maxVersion,
                     icebergTable.name(),
@@ -2201,7 +2198,7 @@ public class IcebergMetadata
             commit(update, session);
         }
         catch (UncheckedIOException | ValidationException | CommitFailedException | CommitStateUnknownException | RESTException e) {
-            throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Failed to commit during %s: %s", operation, requireNonNullElse(e.getMessage(), e)), e);
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to commit during %s: %s".formatted(operation, requireNonNullElse(e.getMessage(), e)), e);
         }
     }
 
@@ -2211,7 +2208,7 @@ public class IcebergMetadata
             transaction.commitTransaction();
         }
         catch (UncheckedIOException | ValidationException | CommitFailedException | CommitStateUnknownException | RESTException e) {
-            throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Failed to commit the transaction during %s: %s", operation, requireNonNullElse(e.getMessage(), e)), e);
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to commit the transaction during %s: %s".formatted(operation, requireNonNullElse(e.getMessage(), e)), e);
         }
     }
 
@@ -2336,9 +2333,8 @@ public class IcebergMetadata
             // It is not known if future version won't bring any new kind of metadata or data files
             // because of the way procedures are implemented it is safer to fail here than to potentially remove
             // files that should stay there
-            throw new TrinoException(NOT_SUPPORTED, format(
-                    "%s is not supported for Iceberg table format version > %d. " +
-                            "Table %s format version is %s.",
+            throw new TrinoException(NOT_SUPPORTED, ("%s is not supported for Iceberg table format version > %d. " +
+            "Table %s format version is %s.").formatted(
                     procedureName,
                     CLEANING_UP_PROCEDURES_MAX_SUPPORTED_TABLE_VERSION,
                     schemaTableName,
@@ -2538,7 +2534,7 @@ public class IcebergMetadata
             }
             else {
                 validateOrcBloomFilterColumns(getColumnMetadatas(SchemaParser.fromJson(table.getTableSchemaJson()), typeManager, table.getFormatVersion()), orcBloomFilterColumns);
-                updateProperties.set(ORC_BLOOM_FILTER_COLUMNS, Joiner.on(",").join(orcBloomFilterColumns));
+                updateProperties.set(ORC_BLOOM_FILTER_COLUMNS, String.join(",", orcBloomFilterColumns));
             }
         }
 
@@ -3106,7 +3102,7 @@ public class IcebergMetadata
                         availableColumnNames -> {
                             throw new TrinoException(
                                     INVALID_ANALYZE_PROPERTY,
-                                    format("Invalid columns specified for analysis: %s", Sets.difference(analyzeColumnNames.orElseThrow(), availableColumnNames)));
+                                    "Invalid columns specified for analysis: %s".formatted(Sets.difference(analyzeColumnNames.orElseThrow(), availableColumnNames)));
                         }));
     }
 
@@ -4225,7 +4221,7 @@ public class IcebergMetadata
     {
         List<String> keyValue = Splitter.on("=").splitToList(entry);
         if (keyValue.size() != 2) {
-            throw new TrinoException(ICEBERG_INVALID_METADATA, format("Invalid entry in '%s' property: %s'", DEPENDS_ON_TABLES, entry));
+            throw new TrinoException(ICEBERG_INVALID_METADATA, "Invalid entry in '%s' property: %s'".formatted(DEPENDS_ON_TABLES, entry));
         }
         String tableName = keyValue.get(0);
         String value = keyValue.get(1);
@@ -4234,7 +4230,7 @@ public class IcebergMetadata
             strings = strings.subList(1, 3);
         }
         else if (strings.size() != 2) {
-            throw new TrinoException(ICEBERG_INVALID_METADATA, format("Invalid table name in '%s' property: %s'", DEPENDS_ON_TABLES, strings));
+            throw new TrinoException(ICEBERG_INVALID_METADATA, "Invalid table name in '%s' property: %s'".formatted(DEPENDS_ON_TABLES, strings));
         }
         String schema = strings.get(0);
         String name = strings.get(1);

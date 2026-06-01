@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.assertions;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.SortOrder;
@@ -27,6 +26,7 @@ import java.util.Optional;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.toSymbolReferences;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 final class WindowFunctionProvider
         implements ExpectedValueProvider<WindowFunction>
@@ -52,8 +52,8 @@ final class WindowFunctionProvider
         return "%s(%s%s%s) %s".formatted(
                 name,
                 distinct ? "DISTINCT " : "",
-                Joiner.on(", ").join(args),
-                orderBy.isEmpty() ? "" : " ORDER BY " + Joiner.on(", ").join(orderBy),
+                args.stream().map(Object::toString).collect(joining(", ")),
+                orderBy.isEmpty() ? "" : " ORDER BY " + orderBy.stream().map(Object::toString).collect(joining(", ")),
                 frame);
     }
 

@@ -23,7 +23,6 @@ import org.joda.time.format.DateTimeFormatterBuilder;
 import java.util.List;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static java.lang.String.format;
 
 public final class DateFormatParser
 {
@@ -45,10 +44,10 @@ public final class DateFormatParser
                 case DateFormat.YYYY -> builder.appendYear(4, 4);
                 case DateFormat.UNRECOGNIZED -> throw new TrinoException(
                         StandardErrorCode.INVALID_FUNCTION_ARGUMENT,
-                        format("Failed to tokenize string [%s] at offset [%d]", token.getText(), token.getCharPositionInLine()));
+                        "Failed to tokenize string [%s] at offset [%d]".formatted(token.getText(), token.getCharPositionInLine()));
                 default -> throw new TrinoException(
                         StandardErrorCode.INVALID_FUNCTION_ARGUMENT,
-                        format("Failed to tokenize string [%s] at offset [%d]", token.getText(), token.getCharPositionInLine()));
+                        "Failed to tokenize string [%s] at offset [%d]".formatted(token.getText(), token.getCharPositionInLine()));
             }
         }
 

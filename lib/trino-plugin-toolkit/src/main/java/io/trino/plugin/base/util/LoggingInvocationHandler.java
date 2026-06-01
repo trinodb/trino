@@ -26,7 +26,6 @@ import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.joining;
@@ -62,15 +61,15 @@ public class LoggingInvocationHandler
         catch (InvocationTargetException e) {
             Duration elapsed = Duration.nanosSince(startNanos);
             Throwable t = e.getCause();
-            logger.accept(format("%s took %s and failed with %s", invocationDescription(method, args), elapsed, t));
+            logger.accept("%s took %s and failed with %s".formatted(invocationDescription(method, args), elapsed, t));
             throw t;
         }
         Duration elapsed = Duration.nanosSince(startNanos);
         if (includeResult) {
-            logger.accept(format("%s succeeded in %s and returned %s", invocationDescription(method, args), elapsed, formatArgument(result)));
+            logger.accept("%s succeeded in %s and returned %s".formatted(invocationDescription(method, args), elapsed, formatArgument(result)));
         }
         else {
-            logger.accept(format("%s succeeded in %s", invocationDescription(method, args), elapsed));
+            logger.accept("%s succeeded in %s".formatted(invocationDescription(method, args), elapsed));
         }
         return result;
     }
@@ -82,7 +81,7 @@ public class LoggingInvocationHandler
                 IntStream.range(0, args.length)
                         .mapToObj(i -> {
                             if (parameterNames.isPresent()) {
-                                return format("%s=%s", parameterNames.get().get(i), formatArgument(args[i]));
+                                return "%s=%s".formatted(parameterNames.get().get(i), formatArgument(args[i]));
                             }
                             return formatArgument(args[i]);
                         })

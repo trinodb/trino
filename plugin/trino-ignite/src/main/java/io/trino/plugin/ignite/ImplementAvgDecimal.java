@@ -33,7 +33,6 @@ import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functio
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleArgument;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.type;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.variable;
-import static java.lang.String.format;
 
 /**
  * Implements {@code avg(decimal(p, s)}
@@ -66,7 +65,7 @@ public class ImplementAvgDecimal
         // wait https://issues.apache.org/jira/browse/IGNITE-14948 to be solved.
         ParameterizedExpression rewrittenArgument = context.rewriteExpression(argument).orElseThrow();
         return Optional.of(new JdbcExpression(
-                format("CAST(sum(%s) / count(%1$s) AS decimal(%s, %s))", rewrittenArgument.expression(), type.getPrecision() + 1, type.getScale()),
+                "CAST(sum(%s) / count(%1$s) AS decimal(%s, %s))".formatted(rewrittenArgument.expression(), type.getPrecision() + 1, type.getScale()),
                 rewrittenArgument.parameters(),
                 columnHandle.getJdbcTypeHandle()));
     }

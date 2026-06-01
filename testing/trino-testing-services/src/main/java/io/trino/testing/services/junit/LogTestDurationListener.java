@@ -39,7 +39,6 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.testing.SystemEnvironmentUtils.isEnvSet;
 import static io.trino.testing.services.junit.Listeners.reportListenerFailure;
-import static java.lang.String.format;
 import static java.lang.management.ManagementFactory.getThreadMXBean;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -142,15 +141,15 @@ public class LogTestDurationListener
         Map<TestIdentifier, Long> runningTests = ImmutableMap.copyOf(started);
         if (!runningTests.isEmpty()) {
             String testDetails = runningTests.entrySet().stream()
-                    .map(entry -> format("%s running for %s", testName(entry.getKey()), nanosSince(entry.getValue())))
+                    .map(entry -> "%s running for %s".formatted(testName(entry.getKey()), nanosSince(entry.getValue())))
                     .collect(joining("\n\t", "\n\t", ""));
-            dumpAllThreads(format("No test started or completed in %s. Running tests:%s.", GLOBAL_IDLE_LOGGING_THRESHOLD, testDetails));
+            dumpAllThreads("No test started or completed in %s. Running tests:%s.".formatted(GLOBAL_IDLE_LOGGING_THRESHOLD, testDetails));
         }
         else if (finished.get()) {
-            dumpAllThreads(format("Tests finished, but JVM did not shutdown in %s.", GLOBAL_IDLE_LOGGING_THRESHOLD));
+            dumpAllThreads("Tests finished, but JVM did not shutdown in %s.".formatted(GLOBAL_IDLE_LOGGING_THRESHOLD));
         }
         else {
-            dumpAllThreads(format("No test started in %s", GLOBAL_IDLE_LOGGING_THRESHOLD));
+            dumpAllThreads("No test started in %s".formatted(GLOBAL_IDLE_LOGGING_THRESHOLD));
         }
     }
 

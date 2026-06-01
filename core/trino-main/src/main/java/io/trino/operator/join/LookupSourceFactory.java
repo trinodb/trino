@@ -23,7 +23,6 @@ import java.util.OptionalInt;
 import java.util.function.Supplier;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static java.util.Collections.emptyList;
 
 public interface LookupSourceFactory
         extends JoinBridge
@@ -40,7 +39,7 @@ public interface LookupSourceFactory
     {
         return immediateFuture(new PartitionedConsumption<>(
                 1,
-                emptyList(),
+                List.of(),
                 _ -> {
                     throw new UnsupportedOperationException();
                 },

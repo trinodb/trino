@@ -41,7 +41,6 @@ import static io.trino.tests.product.TestGroups.AUTHORIZATION;
 import static io.trino.tests.product.TestGroups.CLI;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.writeString;
 import static java.util.Objects.requireNonNull;
@@ -229,7 +228,7 @@ public class TestTrinoCli
             throws Exception
     {
         String configPath = launchTrinoCliWithConfigurationFile(ImmutableList.of("unknown", "property", "catalog", "hive"));
-        assertThat(trimLines(trino.readRemainingErrorLines())).containsExactly(format("Configuration file %s contains unknown properties [unknown]", configPath));
+        assertThat(trimLines(trino.readRemainingErrorLines())).containsExactly("Configuration file %s contains unknown properties [unknown]".formatted(configPath));
 
         assertThatThrownBy(() -> trino.waitForWithTimeoutAndKill()).hasMessage("Child process exited with non-zero code: 1");
     }
@@ -501,7 +500,7 @@ public class TestTrinoCli
 
         return Lists.partition(trinoClientOptions.build(), 2)
                 .stream()
-                .map(argument -> format("%s=%s", argument.get(0), argument.get(1)))
+                .map(argument -> "%s=%s".formatted(argument.get(0), argument.get(1)))
                 .collect(toImmutableList());
     }
 

@@ -43,7 +43,6 @@ import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_IS
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveTableStatistics
@@ -1038,12 +1037,12 @@ public class TestHiveTableStatistics
         assertComputeTableStatisticsOnInsert(allTypesAllNullTable, getAllTypesAllNullTableStatistics());
 
         String tableName = "test_update_table_statistics";
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+        onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
         try {
-            onTrino().executeQuery(format("CREATE TABLE %s AS SELECT * FROM %s WITH NO DATA", tableName, allTypesTable));
-            onTrino().executeQuery(format("INSERT INTO %s SELECT * FROM %s", tableName, allTypesTable));
-            onTrino().executeQuery(format("INSERT INTO %s SELECT * FROM %s", tableName, allTypesAllNullTable));
-            onTrino().executeQuery(format("INSERT INTO %s SELECT * FROM %s", tableName, allTypesAllNullTable));
+            onTrino().executeQuery("CREATE TABLE %s AS SELECT * FROM %s WITH NO DATA".formatted(tableName, allTypesTable));
+            onTrino().executeQuery("INSERT INTO %s SELECT * FROM %s".formatted(tableName, allTypesTable));
+            onTrino().executeQuery("INSERT INTO %s SELECT * FROM %s".formatted(tableName, allTypesAllNullTable));
+            onTrino().executeQuery("INSERT INTO %s SELECT * FROM %s".formatted(tableName, allTypesAllNullTable));
             assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableName)).containsOnly(
                     row("c_tinyint", null, 2.0, 0.5, null, "121", "127"),
                     row("c_smallint", null, 2.0, 0.5, null, "32761", "32767"),
@@ -1062,7 +1061,7 @@ public class TestHiveTableStatistics
                     row("c_binary", 23.0, null, 0.5, null, null, null),
                     row(null, null, null, null, 4.0, null, null));
 
-            onTrino().executeQuery(format("INSERT INTO %s VALUES( " +
+            onTrino().executeQuery(("INSERT INTO %s VALUES( " +
                     "TINYINT '120', " +
                     "SMALLINT '32760', " +
                     "INTEGER '2147483640', " +
@@ -1077,7 +1076,7 @@ public class TestHiveTableStatistics
                     "CAST('ela ma ko' AS VARCHAR(10)), " +
                     "CAST('ela m     ' AS CHAR(10)), " +
                     "false, " +
-                    "CAST('cGllcyBiaW5hcm54' as VARBINARY))", tableName));
+                    "CAST('cGllcyBiaW5hcm54' as VARBINARY))").formatted(tableName));
 
             assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableName)).containsOnly(ImmutableList.of(
                     row("c_tinyint", null, 2.0, 0.4, null, "120", "127"),
@@ -1098,7 +1097,7 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, 5.0, null, null)));
         }
         finally {
-            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+            onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
         }
     }
 
@@ -1107,9 +1106,9 @@ public class TestHiveTableStatistics
     public void testComputePartitionStatisticsOnCreateTable()
     {
         String tableName = "test_compute_partition_statistics_on_create_table";
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+        onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
         try {
-            onTrino().executeQuery(format("CREATE TABLE %s WITH ( " +
+            onTrino().executeQuery(("CREATE TABLE %s WITH ( " +
                     " partitioned_by = ARRAY['p_bigint', 'p_varchar']" +
                     ") AS " +
                     "SELECT * FROM ( " +
@@ -1153,9 +1152,9 @@ public class TestHiveTableStatistics
                     "        ), " +
                     "        (null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '2', 'partition2') " +
                     "" +
-                    ") AS t (c_tinyint, c_smallint, c_int, c_bigint, c_float, c_double, c_decimal, c_decimal_w_params, c_timestamp, c_date, c_string, c_varchar, c_char, c_boolean, c_binary, p_bigint, p_varchar)", tableName));
+                    ") AS t (c_tinyint, c_smallint, c_int, c_bigint, c_float, c_double, c_decimal, c_decimal_w_params, c_timestamp, c_date, c_string, c_varchar, c_char, c_boolean, c_binary, p_bigint, p_varchar)").formatted(tableName));
 
-            assertThat(onTrino().executeQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_bigint = 1 AND p_varchar = 'partition1')", tableName))).containsOnly(ImmutableList.of(
+            assertThat(onTrino().executeQuery("SHOW STATS FOR (SELECT * FROM %s WHERE p_bigint = 1 AND p_varchar = 'partition1')".formatted(tableName))).containsOnly(ImmutableList.of(
                     row("c_tinyint", null, 1.0, 0.5, null, "120", "120"),
                     row("c_smallint", null, 1.0, 0.5, null, "32760", "32760"),
                     row("c_int", null, 1.0, 0.5, null, "2147483640", "2147483640"),
@@ -1175,7 +1174,7 @@ public class TestHiveTableStatistics
                     row("p_varchar", 20.0, 1.0, 0.0, null, null, null),
                     row(null, null, null, null, 2.0, null, null)));
 
-            assertThat(onTrino().executeQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_bigint = 2 AND p_varchar = 'partition2')", tableName))).containsOnly(ImmutableList.of(
+            assertThat(onTrino().executeQuery("SHOW STATS FOR (SELECT * FROM %s WHERE p_bigint = 2 AND p_varchar = 'partition2')".formatted(tableName))).containsOnly(ImmutableList.of(
                     row("c_tinyint", null, 1.0, 0.5, null, "99", "99"),
                     row("c_smallint", null, 1.0, 0.5, null, "333", "333"),
                     row("c_int", null, 1.0, 0.5, null, "444", "444"),
@@ -1196,7 +1195,7 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, 2.0, null, null)));
         }
         finally {
-            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+            onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
         }
     }
 
@@ -1206,9 +1205,9 @@ public class TestHiveTableStatistics
     {
         String tableName = "test_compute_partition_statistics_on_insert";
 
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+        onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
         try {
-            onTrino().executeQuery(format("CREATE TABLE %s(" +
+            onTrino().executeQuery(("CREATE TABLE %s(" +
                     "c_tinyint            TINYINT, " +
                     "c_smallint           SMALLINT, " +
                     "c_int                INT, " +
@@ -1228,18 +1227,18 @@ public class TestHiveTableStatistics
                     "p_varchar            VARCHAR " +
                     ") WITH ( " +
                     " partitioned_by = ARRAY['p_bigint', 'p_varchar']" +
-                    ")", tableName));
+                    ")").formatted(tableName));
 
-            onTrino().executeQuery(format("INSERT INTO %s VALUES " +
+            onTrino().executeQuery(("INSERT INTO %s VALUES " +
                     "(TINYINT '120', SMALLINT '32760', INTEGER '2147483640', BIGINT '9223372036854775800', REAL '123.340', DOUBLE '234.560', CAST(343.0 AS DECIMAL(10, 0)), CAST(345.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:15:30', DATE '2015-05-08', 'p1 varchar', CAST('p1 varchar10' AS VARCHAR(10)), CAST('p1 char10' AS CHAR(10)), false, CAST('p1 binary' as VARBINARY), BIGINT '1', 'partition1')," +
-                    "(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '1', 'partition1')", tableName));
+                    "(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '1', 'partition1')").formatted(tableName));
 
-            onTrino().executeQuery(format("INSERT INTO %s VALUES " +
+            onTrino().executeQuery(("INSERT INTO %s VALUES " +
                     "(TINYINT '99', SMALLINT '333', INTEGER '444', BIGINT '555', REAL '666.340', DOUBLE '777.560', CAST(888.0 AS DECIMAL(10, 0)), CAST(999.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:45:30', DATE '2015-05-09', 'p2 varchar', CAST('p2 varchar10' AS VARCHAR(10)), CAST('p2 char10' AS CHAR(10)), true, CAST('p2 binary' as VARBINARY), BIGINT '2', 'partition2')," +
-                    "(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '2', 'partition2')", tableName));
+                    "(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '2', 'partition2')").formatted(tableName));
 
-            String showStatsPartitionOne = format("SHOW STATS FOR (SELECT * FROM %s WHERE p_bigint = 1 AND p_varchar = 'partition1')", tableName);
-            String showStatsPartitionTwo = format("SHOW STATS FOR (SELECT * FROM %s WHERE p_bigint = 2 AND p_varchar = 'partition2')", tableName);
+            String showStatsPartitionOne = "SHOW STATS FOR (SELECT * FROM %s WHERE p_bigint = 1 AND p_varchar = 'partition1')".formatted(tableName);
+            String showStatsPartitionTwo = "SHOW STATS FOR (SELECT * FROM %s WHERE p_bigint = 2 AND p_varchar = 'partition2')".formatted(tableName);
 
             assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(ImmutableList.of(
                     row("c_tinyint", null, 1.0, 0.5, null, "120", "120"),
@@ -1281,8 +1280,8 @@ public class TestHiveTableStatistics
                     row("p_varchar", 20.0, 1.0, 0.0, null, null, null),
                     row(null, null, null, null, 2.0, null, null)));
 
-            onTrino().executeQuery(format("INSERT INTO %s VALUES( TINYINT '119', SMALLINT '32759', INTEGER '2147483639', BIGINT '9223372036854775799', REAL '122.340', DOUBLE '233.560', CAST(342.0 AS DECIMAL(10, 0)), CAST(344.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:15:29', DATE '2015-05-07', 'p1 varchar', CAST('p1 varchar10' AS VARCHAR(10)), CAST('p1 char10' AS CHAR(10)), true, CAST('p1 binary' as VARBINARY), BIGINT '1', 'partition1')", tableName));
-            onTrino().executeQuery(format("INSERT INTO %s VALUES( null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '1', 'partition1')", tableName));
+            onTrino().executeQuery("INSERT INTO %s VALUES( TINYINT '119', SMALLINT '32759', INTEGER '2147483639', BIGINT '9223372036854775799', REAL '122.340', DOUBLE '233.560', CAST(342.0 AS DECIMAL(10, 0)), CAST(344.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:15:29', DATE '2015-05-07', 'p1 varchar', CAST('p1 varchar10' AS VARCHAR(10)), CAST('p1 char10' AS CHAR(10)), true, CAST('p1 binary' as VARBINARY), BIGINT '1', 'partition1')".formatted(tableName));
+            onTrino().executeQuery("INSERT INTO %s VALUES( null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '1', 'partition1')".formatted(tableName));
 
             assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(ImmutableList.of(
                     row("c_tinyint", null, 1.0, 0.5, null, "119", "120"),
@@ -1304,8 +1303,8 @@ public class TestHiveTableStatistics
                     row("p_varchar", 40.0, 1.0, 0.0, null, null, null),
                     row(null, null, null, null, 4.0, null, null)));
 
-            onTrino().executeQuery(format("INSERT INTO %s VALUES( TINYINT '100', SMALLINT '334', INTEGER '445', BIGINT '556', REAL '667.340', DOUBLE '778.560', CAST(889.0 AS DECIMAL(10, 0)), CAST(1000.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:45:31', DATE '2015-05-10', VARCHAR 'p2 varchar', CAST('p2 varchar10' AS VARCHAR(10)), CAST('p2 char10' AS CHAR(10)), true, CAST('p2 binary' as VARBINARY), BIGINT '2', 'partition2')", tableName));
-            onTrino().executeQuery(format("INSERT INTO %s VALUES( null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '2', 'partition2')", tableName));
+            onTrino().executeQuery("INSERT INTO %s VALUES( TINYINT '100', SMALLINT '334', INTEGER '445', BIGINT '556', REAL '667.340', DOUBLE '778.560', CAST(889.0 AS DECIMAL(10, 0)), CAST(1000.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:45:31', DATE '2015-05-10', VARCHAR 'p2 varchar', CAST('p2 varchar10' AS VARCHAR(10)), CAST('p2 char10' AS CHAR(10)), true, CAST('p2 binary' as VARBINARY), BIGINT '2', 'partition2')".formatted(tableName));
+            onTrino().executeQuery("INSERT INTO %s VALUES( null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '2', 'partition2')".formatted(tableName));
 
             assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(ImmutableList.of(
                     row("c_tinyint", null, 1.0, 0.5, null, "99", "100"),
@@ -1328,7 +1327,7 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, 4.0, null, null)));
         }
         finally {
-            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+            onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
         }
     }
 
@@ -1338,14 +1337,13 @@ public class TestHiveTableStatistics
         String tableName = "test_compute_floating_point_statistics";
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
         try {
-            onTrino().executeQuery(format("CREATE TABLE %1$s(c_basic %2$s, c_minmax %2$s, c_inf %2$s, c_ninf %2$s, c_nan %2$s, c_nzero %2$s)", tableName, dataType));
+            onTrino().executeQuery("CREATE TABLE %1$s(c_basic %2$s, c_minmax %2$s, c_inf %2$s, c_ninf %2$s, c_nan %2$s, c_nzero %2$s)".formatted(tableName, dataType));
             onTrino().executeQuery("ANALYZE " + tableName); // TODO remove after https://github.com/trinodb/trino/issues/2469
 
-            onTrino().executeQuery(format(
-                    "INSERT INTO %1$s(c_basic, c_minmax, c_inf, c_ninf, c_nan, c_nzero) VALUES " +
-                            "  (%2$s '42.3', %2$s '576234.567',  %2$s 'Infinity', %2$s '-Infinity', %2$s 'NaN', %2$s '-0')," +
-                            "  (%2$s '42.3', %2$s '-1234567.89', %2$s '-15', %2$s '45', %2$s '12345', %2$s '-47'), " +
-                            "  (NULL, NULL, NULL, NULL, NULL, NULL)",
+            onTrino().executeQuery(("INSERT INTO %1$s(c_basic, c_minmax, c_inf, c_ninf, c_nan, c_nzero) VALUES " +
+            "  (%2$s '42.3', %2$s '576234.567',  %2$s 'Infinity', %2$s '-Infinity', %2$s 'NaN', %2$s '-0')," +
+            "  (%2$s '42.3', %2$s '-1234567.89', %2$s '-15', %2$s '45', %2$s '12345', %2$s '-47'), " +
+            "  (NULL, NULL, NULL, NULL, NULL, NULL)").formatted(
                     tableName,
                     dataType));
 
@@ -1385,7 +1383,7 @@ public class TestHiveTableStatistics
         String tableName = "test_compute_statistics_with_only_date_columns";
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
         try {
-            onTrino().executeQuery(format("CREATE TABLE %s AS SELECT date'2019-12-02' c_date", tableName));
+            onTrino().executeQuery("CREATE TABLE %s AS SELECT date'2019-12-02' c_date".formatted(tableName));
 
             List<Row> expectedStatistics = ImmutableList.of(
                     row("c_date", null, 1.0, 0.0, null, "2019-12-02", "2019-12-02"),
@@ -1406,19 +1404,19 @@ public class TestHiveTableStatistics
     public void testMixedHiveAndTrinoStatistics()
     {
         String tableName = "test_mixed_hive_and_trino_statistics";
-        onHive().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-        onHive().executeQuery(format("CREATE TABLE %s (a INT) PARTITIONED BY (p INT) STORED AS ORC TBLPROPERTIES ('transactional' = 'false')", tableName));
+        onHive().executeQuery("DROP TABLE IF EXISTS %s".formatted(tableName));
+        onHive().executeQuery("CREATE TABLE %s (a INT) PARTITIONED BY (p INT) STORED AS ORC TBLPROPERTIES ('transactional' = 'false')".formatted(tableName));
 
         try {
-            onHive().executeQuery(format("INSERT OVERWRITE TABLE %s PARTITION (p=1) VALUES (1),(2),(3),(4)", tableName));
-            onHive().executeQuery(format("INSERT OVERWRITE TABLE %s PARTITION (p=2) VALUES (10),(11),(12)", tableName));
+            onHive().executeQuery("INSERT OVERWRITE TABLE %s PARTITION (p=1) VALUES (1),(2),(3),(4)".formatted(tableName));
+            onHive().executeQuery("INSERT OVERWRITE TABLE %s PARTITION (p=2) VALUES (10),(11),(12)".formatted(tableName));
 
-            String showStatsPartitionOne = format("SHOW STATS FOR (SELECT * FROM %s WHERE p = 1)", tableName);
-            String showStatsPartitionTwo = format("SHOW STATS FOR (SELECT * FROM %s WHERE p = 2)", tableName);
-            String showStatsWholeTable = format("SHOW STATS FOR %s", tableName);
+            String showStatsPartitionOne = "SHOW STATS FOR (SELECT * FROM %s WHERE p = 1)".formatted(tableName);
+            String showStatsPartitionTwo = "SHOW STATS FOR (SELECT * FROM %s WHERE p = 2)".formatted(tableName);
+            String showStatsWholeTable = "SHOW STATS FOR %s".formatted(tableName);
 
             // drop all stats; which could have been created on insert
-            onTrino().executeQuery(format("CALL system.drop_stats('default', '%s')", tableName));
+            onTrino().executeQuery("CALL system.drop_stats('default', '%s')".formatted(tableName));
 
             // sanity check that there are no statistics
             assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
@@ -1435,9 +1433,9 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, null, null, null));
 
             // analyze first partition with Trino and second with Hive
-            onTrino().executeQuery(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['1']])", tableName));
-            onHive().executeQuery(format("ANALYZE TABLE %s PARTITION (p = \"2\") COMPUTE STATISTICS", tableName));
-            onHive().executeQuery(format("ANALYZE TABLE %s PARTITION (p = \"2\") COMPUTE STATISTICS FOR COLUMNS", tableName));
+            onTrino().executeQuery("ANALYZE %s WITH (partitions = ARRAY[ARRAY['1']])".formatted(tableName));
+            onHive().executeQuery("ANALYZE TABLE %s PARTITION (p = \"2\") COMPUTE STATISTICS".formatted(tableName));
+            onHive().executeQuery("ANALYZE TABLE %s PARTITION (p = \"2\") COMPUTE STATISTICS FOR COLUMNS".formatted(tableName));
             onTrino().executeQuery("CALL system.flush_metadata_cache()");
 
             // we can get stats for individual partitions
@@ -1466,17 +1464,17 @@ public class TestHiveTableStatistics
     {
         String tableName = "test_empty_partitioned_hive_" + randomNameSuffix();
         try {
-            onHive().executeQuery(format("CREATE TABLE %s (a INT) PARTITIONED BY (p INT)", tableName));
+            onHive().executeQuery("CREATE TABLE %s (a INT) PARTITIONED BY (p INT)".formatted(tableName));
 
             // disable computation of statistics
             onHive().executeQuery("set hive.stats.autogather=false");
 
-            onHive().executeQuery(format("INSERT INTO TABLE %s PARTITION (p=1) VALUES (11),(12),(13),(14)", tableName));
-            onHive().executeQuery(format("INSERT INTO TABLE %s PARTITION (p=2) VALUES (21),(22),(23)", tableName));
+            onHive().executeQuery("INSERT INTO TABLE %s PARTITION (p=1) VALUES (11),(12),(13),(14)".formatted(tableName));
+            onHive().executeQuery("INSERT INTO TABLE %s PARTITION (p=2) VALUES (21),(22),(23)".formatted(tableName));
 
-            String showStatsPartitionOne = format("SHOW STATS FOR (SELECT * FROM %s WHERE p = 1)", tableName);
-            String showStatsPartitionTwo = format("SHOW STATS FOR (SELECT * FROM %s WHERE p = 2)", tableName);
-            String showStatsWholeTable = format("SHOW STATS FOR %s", tableName);
+            String showStatsPartitionOne = "SHOW STATS FOR (SELECT * FROM %s WHERE p = 1)".formatted(tableName);
+            String showStatsPartitionTwo = "SHOW STATS FOR (SELECT * FROM %s WHERE p = 2)".formatted(tableName);
+            String showStatsWholeTable = "SHOW STATS FOR %s".formatted(tableName);
 
             assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                     row("p", null, 1.0, 0.0, null, "1", "1"),
@@ -1501,28 +1499,28 @@ public class TestHiveTableStatistics
     private static void assertComputeTableStatisticsOnCreateTable(String sourceTableName, List<Row> expectedStatistics)
     {
         String copiedTableName = "assert_compute_table_statistics_on_create_table_" + sourceTableName;
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", copiedTableName));
+        onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(copiedTableName));
         try {
-            onTrino().executeQuery(format("CREATE TABLE %s AS SELECT * FROM %s", copiedTableName, sourceTableName));
+            onTrino().executeQuery("CREATE TABLE %s AS SELECT * FROM %s".formatted(copiedTableName, sourceTableName));
             assertThat(onTrino().executeQuery("SHOW STATS FOR " + copiedTableName)).containsOnly(expectedStatistics);
         }
         finally {
-            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", copiedTableName));
+            onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(copiedTableName));
         }
     }
 
     private static void assertComputeTableStatisticsOnInsert(String sourceTableName, List<Row> expectedStatistics)
     {
         String copiedTableName = "assert_compute_table_statistics_on_insert_" + sourceTableName;
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", copiedTableName));
+        onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(copiedTableName));
         try {
-            onTrino().executeQuery(format("CREATE TABLE %s AS SELECT * FROM %s WITH NO DATA", copiedTableName, sourceTableName));
+            onTrino().executeQuery("CREATE TABLE %s AS SELECT * FROM %s WITH NO DATA".formatted(copiedTableName, sourceTableName));
             assertThat(onTrino().executeQuery("SHOW STATS FOR " + copiedTableName)).containsOnly(getAllTypesEmptyTableStatistics());
-            onTrino().executeQuery(format("INSERT INTO %s SELECT * FROM %s", copiedTableName, sourceTableName));
+            onTrino().executeQuery("INSERT INTO %s SELECT * FROM %s".formatted(copiedTableName, sourceTableName));
             assertThat(onTrino().executeQuery("SHOW STATS FOR " + copiedTableName)).containsOnly(expectedStatistics);
         }
         finally {
-            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", copiedTableName));
+            onTrino().executeQuery("DROP TABLE IF EXISTS %s".formatted(copiedTableName));
         }
     }
 }

@@ -45,7 +45,6 @@ import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static io.trino.util.Failures.checkCondition;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SetTimeZoneTask
@@ -102,7 +101,7 @@ public class SetTimeZoneTask
 
         Type type = analyzer.analyze(expression, Scope.create());
         if (!(type instanceof VarcharType || type instanceof IntervalDayTimeType)) {
-            throw new TrinoException(TYPE_MISMATCH, format("Expected expression of varchar or interval day-time type, but '%s' has %s type", expression, type.getDisplayName()));
+            throw new TrinoException(TYPE_MISMATCH, "Expected expression of varchar or interval day-time type, but '%s' has %s type".formatted(expression, type.getDisplayName()));
         }
 
         Object timeZoneValue = evaluateConstant(
@@ -121,7 +120,7 @@ public class SetTimeZoneTask
             timeZoneKey = getTimeZoneKeyForOffset(getZoneOffsetMinutes(value));
         }
         else {
-            throw new IllegalStateException(format("TIME ZONE expression '%s' not supported", expression));
+            throw new IllegalStateException("TIME ZONE expression '%s' not supported".formatted(expression));
         }
         return timeZoneKey.getId();
     }

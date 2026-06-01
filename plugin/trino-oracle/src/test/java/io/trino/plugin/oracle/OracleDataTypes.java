@@ -23,7 +23,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.function.Function;
 
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static java.lang.String.format;
 
 public final class OracleDataTypes
 {
@@ -39,8 +38,7 @@ public final class OracleDataTypes
                     if (zoneId.equals("Z")) {
                         zoneId = "UTC";
                     }
-                    return format(
-                            "from_tz(TIMESTAMP '%s', '%s')",
+                    return "from_tz(TIMESTAMP '%s', '%s')".formatted(
                             DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSSSSSSS").format(zonedDateTime.toLocalDateTime()),
                             zoneId);
                 },

@@ -46,7 +46,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
 import static io.trino.testing.QueryAssertions.getTrinoExceptionCause;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.regex.Matcher.quoteReplacement;
@@ -1876,7 +1875,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
             throw new UncheckedIOException(e);
         }
 
-        queryRunner.execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", table, tableLocation));
+        queryRunner.execute("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(table, tableLocation));
     }
 
     private Set<String> getActiveFiles(String tableName)

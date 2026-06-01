@@ -40,7 +40,6 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
 
@@ -133,11 +132,11 @@ public class RcFilePageSource
         }
         catch (FileCorruptionException e) {
             closeAllSuppress(e, this);
-            throw new TrinoException(HIVE_BAD_DATA, format("Corrupted RC file: %s", rcFileReader.getFileLocation()), e);
+            throw new TrinoException(HIVE_BAD_DATA, "Corrupted RC file: %s".formatted(rcFileReader.getFileLocation()), e);
         }
         catch (IOException | RuntimeException e) {
             closeAllSuppress(e, this);
-            throw new TrinoException(HIVE_CURSOR_ERROR, format("Failed to read RC file: %s", rcFileReader.getFileLocation()), e);
+            throw new TrinoException(HIVE_CURSOR_ERROR, "Failed to read RC file: %s".formatted(rcFileReader.getFileLocation()), e);
         }
     }
 
@@ -246,10 +245,10 @@ public class RcFilePageSource
                         block = rcFileReader.readBlock(hiveColumnIndexes[channel]);
                     }
                     catch (FileCorruptionException e) {
-                        throw new TrinoException(HIVE_BAD_DATA, format("Corrupted RC file: %s", rcFileReader.getFileLocation()), e);
+                        throw new TrinoException(HIVE_BAD_DATA, "Corrupted RC file: %s".formatted(rcFileReader.getFileLocation()), e);
                     }
                     catch (IOException | RuntimeException e) {
-                        throw new TrinoException(HIVE_CURSOR_ERROR, format("Failed to read RC file: %s", rcFileReader.getFileLocation()), e);
+                        throw new TrinoException(HIVE_CURSOR_ERROR, "Failed to read RC file: %s".formatted(rcFileReader.getFileLocation()), e);
                     }
                     block = selectedPositions.apply(block);
                 }

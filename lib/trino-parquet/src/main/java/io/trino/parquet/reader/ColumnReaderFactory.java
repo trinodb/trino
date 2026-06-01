@@ -72,7 +72,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MICROS;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MILLIS;
@@ -365,7 +364,7 @@ public final class ColumnReaderFactory
 
     private static TrinoException unsupportedException(Type type, PrimitiveField field)
     {
-        return new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, field.getDescriptor()));
+        return new TrinoException(NOT_SUPPORTED, "Unsupported Trino column type (%s) for Parquet column (%s)".formatted(type, field.getDescriptor()));
     }
 
     private static boolean isVectorizedDecodingSupported()

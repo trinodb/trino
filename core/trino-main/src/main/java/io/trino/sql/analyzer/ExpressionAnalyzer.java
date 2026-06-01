@@ -313,7 +313,6 @@ import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Locale.ENGLISH;
@@ -1476,7 +1475,7 @@ public class ExpressionAnalyzer
                 Expression expression = node.getArguments().get(argumentBinding.get(i)).getValue();
                 Type expectedType = signature.getArgumentTypes().get(i);
                 if (expectedType == null) {
-                    throw new NullPointerException(format("Type '%s' not found", signature.getArgumentTypes().get(i)));
+                    throw new NullPointerException("Type '%s' not found".formatted(signature.getArgumentTypes().get(i)));
                 }
                 if (node.isDistinct() && !expectedType.isComparable()) {
                     throw semanticException(TYPE_MISMATCH, node, "DISTINCT can only be applied to comparable types (actual: %s)", expectedType);
@@ -1487,7 +1486,7 @@ public class ExpressionAnalyzer
                 }
                 else {
                     Type actualType = plannerContext.getTypeManager().getType(argumentTypes.get(i).getTypeSignature());
-                    coerceType(expression, actualType, expectedType, format("Function %s argument %d", function, i));
+                    coerceType(expression, actualType, expectedType, "Function %s argument %d".formatted(function, i));
                 }
             }
             resolvedFunctions.put(NodeRef.of(node), function);
@@ -1761,7 +1760,7 @@ public class ExpressionAnalyzer
 
             BoundSignature signature = resolution.function().signature();
             Type expectedReceiverType = signature.getArgumentTypes().getFirst();
-            coerceType(receiver, receiverType, expectedReceiverType, format("Method .%s receiver", methodName));
+            coerceType(receiver, receiverType, expectedReceiverType, "Method .%s receiver".formatted(methodName));
             // Slot 0 of the signature is the receiver (self), so user-visible argument i maps to signature slot i + 1.
             for (int i = 0; i < arguments.size(); i++) {
                 Expression expression = arguments.get(i);
@@ -1772,7 +1771,7 @@ public class ExpressionAnalyzer
                 }
                 else {
                     Type actualType = plannerContext.getTypeManager().getType(resolution.argumentTypes().get(i + 1).getTypeSignature());
-                    coerceType(expression, actualType, expectedType, format("Method .%s argument %d", methodName, i));
+                    coerceType(expression, actualType, expectedType, "Method .%s argument %d".formatted(methodName, i));
                 }
             }
             resolvedFunctions.put(NodeRef.of(node), resolution.function());
@@ -1822,7 +1821,7 @@ public class ExpressionAnalyzer
                 }
                 else {
                     Type actualType = plannerContext.getTypeManager().getType(argumentTypes.get(i).getTypeSignature());
-                    coerceType(expression, actualType, expectedType, format("Static method %s::%s argument %d", receiver, node.getMethod().getValue(), i));
+                    coerceType(expression, actualType, expectedType, "Static method %s::%s argument %d".formatted(receiver, node.getMethod().getValue(), i));
                 }
             }
             resolvedFunctions.put(NodeRef.of(node), function);
@@ -2082,7 +2081,7 @@ public class ExpressionAnalyzer
             }
             Type expectedOffsetValueType = signature.getArgumentTypes().get(1);
             if (!expectedOffsetValueType.equals(offsetValueType)) {
-                coerceType(offsetValue, offsetValueType, expectedOffsetValueType, format("Function %s argument 1", function));
+                coerceType(offsetValue, offsetValueType, expectedOffsetValueType, "Function %s argument 1".formatted(function));
             }
             Type expectedFunctionResultType = signature.getReturnType();
             if (!expectedFunctionResultType.equals(sortKeyType)) {
@@ -2987,7 +2986,7 @@ public class ExpressionAnalyzer
                         throw semanticException(TYPE_MISMATCH, node, "Type [%s] must be comparable in order to be used in quantified comparison", comparisonType);
                     }
                 }
-                default -> throw new IllegalStateException(format("Unexpected comparison type: %s", node.getOperator()));
+                default -> throw new IllegalStateException("Unexpected comparison type: %s".formatted(node.getOperator()));
             }
 
             return setExpressionType(node, BOOLEAN);
@@ -3347,7 +3346,7 @@ public class ExpressionAnalyzer
             JsonFormat inputFormat = jsonPathInvocation.getInputFormat();
             ResolvedFunction inputFunction = getInputFunction(inputType, inputFormat, inputExpression);
             Type expectedType = inputFunction.signature().getArgumentType(0);
-            coerceType(inputExpression, inputType, expectedType, format("%s function input argument", functionName));
+            coerceType(inputExpression, inputType, expectedType, "%s function input argument".formatted(functionName));
             jsonInputFunctions.put(NodeRef.of(inputExpression), inputFunction);
 
             // ANALYZE JSON PATH PARAMETERS
@@ -3393,7 +3392,7 @@ public class ExpressionAnalyzer
                     // resolve function to read the parameter as JSON
                     ResolvedFunction parameterInputFunction = getInputFunction(parameterType, parameterFormat.get(), parameter);
                     Type expectedParameterType = parameterInputFunction.signature().getArgumentType(0);
-                    coerceType(parameter, parameterType, expectedParameterType, format("%s function JSON path parameter", functionName));
+                    coerceType(parameter, parameterType, expectedParameterType, "%s function JSON path parameter".formatted(functionName));
                     jsonInputFunctions.put(NodeRef.of(parameter), parameterInputFunction);
                     passedType = JSON_2016;
                 }
@@ -3466,7 +3465,7 @@ public class ExpressionAnalyzer
                 return plannerContext.getMetadata().resolveBuiltinFunction(name, fromTypes(type, BOOLEAN));
             }
             catch (TrinoException e) {
-                throw new TrinoException(TYPE_MISMATCH, extractLocation(node), format("Cannot read input of type %s as JSON using formatting %s", type, format), e);
+                throw new TrinoException(TYPE_MISMATCH, extractLocation(node), "Cannot read input of type %s as JSON using formatting %s".formatted(type, format), e);
             }
         }
 
@@ -3506,7 +3505,7 @@ public class ExpressionAnalyzer
                 return plannerContext.getMetadata().resolveBuiltinFunction(name, fromTypes(JSON_2016, TINYINT, BOOLEAN));
             }
             catch (TrinoException e) {
-                throw new TrinoException(TYPE_MISMATCH, extractLocation(node), format("Cannot output JSON value as %s using formatting %s", type, format), e);
+                throw new TrinoException(TYPE_MISMATCH, extractLocation(node), "Cannot output JSON value as %s using formatting %s".formatted(type, format), e);
             }
         }
 
@@ -3764,7 +3763,7 @@ public class ExpressionAnalyzer
             for (int i = 0; i < arguments.length; i++) {
                 Expression expression = arguments[i];
                 Type type = operatorSignature.getArgumentTypes().get(i);
-                coerceType(context, expression, type, format("Operator %s argument %d", operatorSignature, i));
+                coerceType(context, expression, type, "Operator %s argument %d".formatted(operatorSignature, i));
             }
 
             Type type = operatorSignature.getReturnType();

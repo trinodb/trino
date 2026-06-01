@@ -40,7 +40,6 @@ import java.util.Base64;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -243,7 +242,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
         String tableLocationWithoutTrailingSpace = schemaPath() + "/" + tableName;
         String tableLocationWithTrailingSpace = tableLocationWithoutTrailingSpace + " ";
 
-        assertThat(query(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace))).failure()
+        assertThat(query("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c".formatted(tableName, tableLocationWithTrailingSpace))).failure()
                 .hasMessage("Failed to create transaction")
                 .hasStackTraceContaining("Malformed request: The table `location` property can only point to the default path:");
     }

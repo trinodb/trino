@@ -45,7 +45,6 @@ import static io.trino.node.NodeState.ACTIVE;
 import static io.trino.node.NodeState.DRAINED;
 import static io.trino.node.NodeState.DRAINING;
 import static io.trino.node.NodeState.SHUTTING_DOWN;
-import static java.lang.String.format;
 import static java.lang.Thread.currentThread;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
@@ -177,7 +176,7 @@ public class NodeStateManager
             case INACTIVE, DRAINED, INVALID, GONE -> throw new IllegalArgumentException("Cannot transition state to internal state " + state);
         }
 
-        throw new IllegalStateException(format("Invalid state transition from %s to %s", currState, state));
+        throw new IllegalStateException("Invalid state transition from %s to %s".formatted(currState, state));
     }
 
     private synchronized void requestDrain()

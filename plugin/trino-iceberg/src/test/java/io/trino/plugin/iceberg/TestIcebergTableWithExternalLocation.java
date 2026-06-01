@@ -33,7 +33,6 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -69,8 +68,8 @@ public class TestIcebergTableWithExternalLocation
         String tableName = "test_table_external_create_and_drop";
         File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
         String tempDirPath = tempDir.toURI().toASCIIString() + randomNameSuffix();
-        assertQuerySucceeds(format("CREATE TABLE %s ( x bigint) WITH (location = '%s')", tableName, tempDirPath));
-        assertQuerySucceeds(format("INSERT INTO %s VALUES (1), (2), (3)", tableName));
+        assertQuerySucceeds("CREATE TABLE %s ( x bigint) WITH (location = '%s')".formatted(tableName, tempDirPath));
+        assertQuerySucceeds("INSERT INTO %s VALUES (1), (2), (3)".formatted(tableName));
 
         Table table = metastore.getTable("tpch", tableName).orElseThrow();
         assertThat(table.getTableType()).isEqualTo(EXTERNAL_TABLE.name());
@@ -86,7 +85,7 @@ public class TestIcebergTableWithExternalLocation
                 .describedAs("The data file should exist")
                 .isTrue();
 
-        assertQuerySucceeds(format("DROP TABLE %s", tableName));
+        assertQuerySucceeds("DROP TABLE %s".formatted(tableName));
         assertThat(metastore.getTable("tpch", tableName)).as("Table should be dropped").isEmpty();
         assertThat(fileSystem.newInputFile(dataFileLocation).exists())
                 .describedAs("The data file should have been removed")

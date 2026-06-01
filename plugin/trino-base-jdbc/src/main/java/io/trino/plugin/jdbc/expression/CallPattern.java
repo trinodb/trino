@@ -29,7 +29,6 @@ import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.argume
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.call;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.functionUnqualifiedName;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.type;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -98,8 +97,7 @@ public class CallPattern
     @Override
     public String toString()
     {
-        return format(
-                "%s(%s)%s",
+        return "%s(%s)%s".formatted(
                 functionName,
                 parameters.stream()
                         .map(Object::toString)

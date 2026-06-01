@@ -33,7 +33,6 @@ import static io.trino.plugin.exchange.filesystem.s3.S3FileSystemExchangeStorage
 import static io.trino.plugin.exchange.filesystem.s3.S3FileSystemExchangeStorage.CompatibilityMode.GCP;
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.String.format;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class FileSystemExchangeModule
@@ -71,7 +70,7 @@ public class FileSystemExchangeModule
         else {
             binder.addError(new TrinoException(
                     NOT_SUPPORTED,
-                    format("Scheme %s is not supported as exchange spooling storage in exchange manager type %s", scheme, FileSystemExchangeManagerFactory.FILESYSTEM)));
+                    "Scheme %s is not supported as exchange spooling storage in exchange manager type %s".formatted(scheme, FileSystemExchangeManagerFactory.FILESYSTEM)));
         }
     }
 }

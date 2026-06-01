@@ -49,7 +49,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -83,7 +82,7 @@ public class EventListenerManager
         requireNonNull(eventListenerFactory, "eventListenerFactory is null");
 
         if (eventListenerFactories.putIfAbsent(eventListenerFactory.getName(), eventListenerFactory) != null) {
-            throw new IllegalArgumentException(format("Event listener factory '%s' is already registered", eventListenerFactory.getName()));
+            throw new IllegalArgumentException("Event listener factory '%s' is already registered".formatted(eventListenerFactory.getName()));
         }
     }
 

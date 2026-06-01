@@ -55,7 +55,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.connector.SystemTable.Distribution.ALL_NODES;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SystemPageSourceProvider
@@ -97,7 +96,7 @@ public class SystemPageSourceProvider
         SchemaTableName tableName = ((SystemTableHandle) table).schemaTableName();
         SystemTable systemTable = tables.getSystemTable(session, tableName)
                 // table might disappear in the meantime
-                .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Table '%s' not found", tableName)));
+                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Table '%s' not found".formatted(tableName)));
 
         List<ColumnMetadata> tableColumns = systemTable.getTableMetadata().getColumns();
 
@@ -116,7 +115,7 @@ public class SystemPageSourceProvider
 
             Integer index = columnsByName.get(columnName);
             if (index == null) {
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Column does not exist: %s.%s", tableName, columnName));
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Column does not exist: %s.%s".formatted(tableName, columnName));
             }
 
             userToSystemFieldIndex.add(index);

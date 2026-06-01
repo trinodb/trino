@@ -55,7 +55,6 @@ import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
 import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
 import static io.trino.parquet.metadata.PrunedBlockMetadata.createPrunedColumnsMetadata;
 import static io.trino.plugin.redshift.RedshiftErrorCode.REDSHIFT_PARQUET_CURSOR_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RedshiftPageSourceProvider
@@ -96,7 +95,7 @@ public class RedshiftPageSourceProvider
             parquetReader = parquetReader(inputFile, columns);
         }
         catch (IOException e) {
-            throw new TrinoException(REDSHIFT_PARQUET_CURSOR_ERROR, format("Failed to open Parquet file: %s", path), e);
+            throw new TrinoException(REDSHIFT_PARQUET_CURSOR_ERROR, "Failed to open Parquet file: %s".formatted(path), e);
         }
         return new RedshiftParquetPageSource(parquetReader);
     }

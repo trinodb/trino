@@ -26,7 +26,6 @@ import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINA
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -94,7 +93,7 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
         String credentialValue = System.getenv(credentialEnvVariable);
         if (credentialValue == null) {
             if (required) {
-                throw new IllegalStateException(format("Environment variable %s not set", credentialEnvVariable));
+                throw new IllegalStateException("Environment variable %s not set".formatted(credentialEnvVariable));
             }
             return container;
         }

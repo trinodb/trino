@@ -35,7 +35,6 @@ import static io.trino.type.setdigest.SetDigest.DEFAULT_MAX_HASHES;
 import static io.trino.type.setdigest.SetDigest.NUMBER_OF_BUCKETS;
 import static io.trino.type.setdigest.SetDigestFunctions.hashCounts;
 import static io.trino.type.setdigest.SetDigestFunctions.intersectionCardinality;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSetDigest
@@ -85,7 +84,7 @@ public class TestSetDigest
 
             long estimatedCardinality = intersectionCardinality(digest1.serialize(), digest2.serialize());
             assertThat(Math.abs(expectedCardinality - estimatedCardinality) / (double) expectedCardinality < 0.10)
-                    .describedAs(format("Expected intersection cardinality %d +/- 10%%, got %d, for set of size %d", expectedCardinality, estimatedCardinality, size))
+                    .describedAs("Expected intersection cardinality %d +/- 10%%, got %d, for set of size %d".formatted(expectedCardinality, estimatedCardinality, size))
                     .isTrue();
         }
     }

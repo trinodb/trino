@@ -401,7 +401,6 @@ import static io.trino.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
 import static java.lang.Math.ceil;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.stream.Collectors.partitioningBy;
@@ -1719,7 +1718,7 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableFunction(TableFunctionNode node, LocalExecutionPlanContext context)
         {
-            throw new IllegalStateException(format("Unexpected node: TableFunctionNode (%s)", node.getName()));
+            throw new IllegalStateException("Unexpected node: TableFunctionNode (%s)".formatted(node.getName()));
         }
 
         @Override

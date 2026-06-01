@@ -18,7 +18,6 @@ import io.trino.spi.type.Type;
 import java.util.List;
 import java.util.Objects;
 
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class Variable
@@ -44,7 +43,7 @@ public class Variable
     @Override
     public List<? extends ConnectorExpression> getChildren()
     {
-        return emptyList();
+        return List.of();
     }
 
     @Override

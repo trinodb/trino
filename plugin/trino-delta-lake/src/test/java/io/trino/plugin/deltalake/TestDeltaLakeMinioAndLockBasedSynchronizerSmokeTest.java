@@ -44,7 +44,6 @@ import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -131,8 +130,8 @@ public class TestDeltaLakeMinioAndLockBasedSynchronizerSmokeTest
         String tableName = "test_writes_locked" + randomNameSuffix();
         try {
             assertUpdate(
-                    format("CREATE TABLE %s (a_number, a_string) WITH (location = 's3://%s/%s') AS " +
-                                    "VALUES (1, 'ala'), (2, 'ma')",
+                    ("CREATE TABLE %s (a_number, a_string) WITH (location = 's3://%s/%s') AS " +
+                    "VALUES (1, 'ala'), (2, 'ma')").formatted(
                             tableName,
                             bucketName,
                             tableName),
@@ -142,7 +141,7 @@ public class TestDeltaLakeMinioAndLockBasedSynchronizerSmokeTest
             assertThat(originalFiles).isNotEmpty(); // sanity check
 
             String lockFilePath = lockTable(tableName, java.time.Duration.ofMinutes(5));
-            assertThatThrownBy(() -> computeActual(format(writeStatement, tableName)))
+            assertThatThrownBy(() -> computeActual(writeStatement.formatted(tableName)))
                     .hasStackTraceContaining("Transaction log locked(1); lockingCluster=some_cluster; lockingQuery=some_query");
             assertThat(listLocks(tableName)).containsExactly(lockFilePath); // we should not delete exising, not-expired lock
 
@@ -174,15 +173,15 @@ public class TestDeltaLakeMinioAndLockBasedSynchronizerSmokeTest
     {
         String tableName = "test_writes_locked" + randomNameSuffix();
         assertUpdate(
-                format("CREATE TABLE %s (a_number, a_string) WITH (location = 's3://%s/%s') AS " +
-                                "VALUES (1, 'ala'), (2, 'ma')",
+                ("CREATE TABLE %s (a_number, a_string) WITH (location = 's3://%s/%s') AS " +
+                "VALUES (1, 'ala'), (2, 'ma')").formatted(
                         tableName,
                         bucketName,
                         tableName),
                 2);
 
         lockTable(tableName, java.time.Duration.ofSeconds(-5));
-        assertUpdate(format(writeStatement, tableName), 1);
+        assertUpdate(writeStatement.formatted(tableName), 1);
         assertQuery("SELECT * FROM " + tableName, expectedValues);
         assertThat(listLocks(tableName)).isEmpty(); // expired lock should be cleaned up
 
@@ -201,15 +200,15 @@ public class TestDeltaLakeMinioAndLockBasedSynchronizerSmokeTest
     {
         String tableName = "test_writes_locked" + randomNameSuffix();
         assertUpdate(
-                format("CREATE TABLE %s (a_number, a_string) WITH (location = 's3://%s/%s') AS " +
-                                "VALUES (1, 'ala'), (2, 'ma')",
+                ("CREATE TABLE %s (a_number, a_string) WITH (location = 's3://%s/%s') AS " +
+                "VALUES (1, 'ala'), (2, 'ma')").formatted(
                         tableName,
                         bucketName,
                         tableName),
                 2);
 
         String lockFilePath = invalidLockTable(tableName);
-        assertUpdate(format(writeStatement, tableName), 1);
+        assertUpdate(writeStatement.formatted(tableName), 1);
         assertQuery("SELECT * FROM " + tableName, expectedValues);
         assertThat(listLocks(tableName)).containsExactly(lockFilePath); // we should not delete unparsable lock file
 
@@ -219,21 +218,21 @@ public class TestDeltaLakeMinioAndLockBasedSynchronizerSmokeTest
     private String lockTable(String tableName, java.time.Duration lockDuration)
             throws Exception
     {
-        String lockFilePath = format("%s/00000000000000000001.json.sb-lock_blah", getLockFileDirectory(tableName));
+        String lockFilePath = "%s/00000000000000000001.json.sb-lock_blah".formatted(getLockFileDirectory(tableName));
         String lockFileContents = JSON_MAPPER.writeValueAsString(
                 new S3LockBasedTransactionLogSynchronizer.LockFileContents("some_cluster", "some_query", Instant.now().plus(lockDuration).toEpochMilli()));
         minioClient.putObject(bucketName, lockFileContents.getBytes(UTF_8), lockFilePath);
-        String lockUri = format("s3://%s/%s", bucketName, lockFilePath);
+        String lockUri = "s3://%s/%s".formatted(bucketName, lockFilePath);
         assertThat(listLocks(tableName)).containsExactly(lockUri); // sanity check
         return lockUri;
     }
 
     private String invalidLockTable(String tableName)
     {
-        String lockFilePath = format("%s/00000000000000000001.json.sb-lock_blah", getLockFileDirectory(tableName));
+        String lockFilePath = "%s/00000000000000000001.json.sb-lock_blah".formatted(getLockFileDirectory(tableName));
         String invalidLockFileContents = "some very wrong json contents";
         minioClient.putObject(bucketName, invalidLockFileContents.getBytes(UTF_8), lockFilePath);
-        String lockUri = format("s3://%s/%s", bucketName, lockFilePath);
+        String lockUri = "s3://%s/%s".formatted(bucketName, lockFilePath);
         assertThat(listLocks(tableName)).containsExactly(lockUri); // sanity check
         return lockUri;
     }
@@ -243,19 +242,19 @@ public class TestDeltaLakeMinioAndLockBasedSynchronizerSmokeTest
         List<String> paths = minioClient.listObjects(bucketName, getLockFileDirectory(tableName));
         return paths.stream()
                 .filter(path -> path.contains(".sb-lock_"))
-                .map(path -> format("s3://%s/%s", bucketName, path))
+                .map(path -> "s3://%s/%s".formatted(bucketName, path))
                 .collect(toImmutableList());
     }
 
     private String getLockFileDirectory(String tableName)
     {
-        return format("%s/_delta_log/_sb_lock", tableName);
+        return "%s/_delta_log/_sb_lock".formatted(tableName);
     }
 
     protected List<String> getTableFiles(String tableName)
     {
         return minioClient.listObjects(bucketName, tableName).stream()
-                .map(path -> format("s3://%s/%s", bucketName, path))
+                .map(path -> "s3://%s/%s".formatted(bucketName, path))
                 .collect(toImmutableList());
     }
 }

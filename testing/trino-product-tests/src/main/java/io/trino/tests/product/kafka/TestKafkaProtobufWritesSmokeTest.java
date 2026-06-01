@@ -31,7 +31,6 @@ import static io.trino.tempto.fulfillment.table.TableHandle.tableHandle;
 import static io.trino.tests.product.TestGroups.KAFKA;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestKafkaProtobufWritesSmokeTest
@@ -62,18 +61,16 @@ public class TestKafkaProtobufWritesSmokeTest
     public void testInsertAllDataType()
     {
         createProtobufTable(ALL_DATATYPES_PROTOBUF_TABLE_NAME, ALL_DATATYPES_PROTOBUF_TOPIC_NAME);
-        assertThat(onTrino().executeQuery(format(
-                "INSERT INTO %s.%s.%s VALUES " +
-                        "('Chennai', 314, 9223372036854775807, 1234567890.123456789, 3.14, true, 'ZERO', TIMESTAMP '2020-12-21 15:45:00.012345')," +
-                        "('TamilNadu', -314, -9223372036854775808, -1234567890.123456789, -3.14, false, 'ONE', TIMESTAMP '1970-01-01 15:45:00.012345'), " +
-                        "('India', 314, 9223372036854775807, 1234567890.123456789, 3.14, false, 'TWO', TIMESTAMP '0001-01-01 00:00:00.000001')",
+        assertThat(onTrino().executeQuery(("INSERT INTO %s.%s.%s VALUES " +
+        "('Chennai', 314, 9223372036854775807, 1234567890.123456789, 3.14, true, 'ZERO', TIMESTAMP '2020-12-21 15:45:00.012345')," +
+        "('TamilNadu', -314, -9223372036854775808, -1234567890.123456789, -3.14, false, 'ONE', TIMESTAMP '1970-01-01 15:45:00.012345'), " +
+        "('India', 314, 9223372036854775807, 1234567890.123456789, 3.14, false, 'TWO', TIMESTAMP '0001-01-01 00:00:00.000001')").formatted(
                 KAFKA_CATALOG,
                 KAFKA_SCHEMA,
                 ALL_DATATYPES_PROTOBUF_TABLE_NAME)))
                 .updatedRowsCountIsEqualTo(3);
 
-        assertThat(onTrino().executeQuery(format(
-                "SELECT * FROM %s.%s.%s",
+        assertThat(onTrino().executeQuery("SELECT * FROM %s.%s.%s".formatted(
                 KAFKA_CATALOG,
                 KAFKA_SCHEMA,
                 ALL_DATATYPES_PROTOBUF_TABLE_NAME)))
@@ -82,8 +79,7 @@ public class TestKafkaProtobufWritesSmokeTest
                         row("TamilNadu", -314, -9223372036854775808L, -1234567890.123456789, -3.14f, false, "ONE", Timestamp.valueOf("1970-01-01 15:45:00.012345")),
                         row("India", 314, 9223372036854775807L, 1234567890.123456789, 3.14f, false, "TWO", Timestamp.valueOf("0001-01-01 00:00:00.000001")));
 
-        assertQueryFailure(() -> onTrino().executeQuery(format(
-                "INSERT INTO %s.%s.%s (h_varchar) VALUES ('Chennai')", KAFKA_CATALOG, KAFKA_SCHEMA, ALL_DATATYPES_PROTOBUF_TABLE_NAME)))
+        assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO %s.%s.%s (h_varchar) VALUES ('Chennai')".formatted(KAFKA_CATALOG, KAFKA_SCHEMA, ALL_DATATYPES_PROTOBUF_TABLE_NAME)))
                 .isInstanceOf(SQLException.class)
                 .hasMessageMatching("Query failed \\(.+\\): Protobuf doesn't support serializing null values");
     }
@@ -92,23 +88,21 @@ public class TestKafkaProtobufWritesSmokeTest
     public void testInsertStructuralDataType()
     {
         createProtobufTable(STRUCTURAL_PROTOBUF_TABLE_NAME, STRUCTURAL_PROTOBUF_TOPIC_NAME);
-        assertThat(onTrino().executeQuery(format(
-                "INSERT INTO %s.%s.%s VALUES " +
-                        "(ARRAY[CAST(ROW('Entry1') AS ROW(simple_string VARCHAR))], " +
-                        "map_from_entries(ARRAY[('key1', CAST(ROW('value1') AS ROW(simple_string VARCHAR)))]), " +
-                        "CAST(ROW(1234567890.123456789, 3.14, 'ONE') AS ROW(d_double DOUBLE, e_float REAL, g_enum VARCHAR)), " +
-                        "'Chennai', " +
-                        "314, " +
-                        "9223372036854775807, " +
-                        "CAST(ROW('Entry2') AS ROW(simple_string VARCHAR)), " +
-                        "TIMESTAMP '2020-12-21 15:45:00.012345')",
+        assertThat(onTrino().executeQuery(("INSERT INTO %s.%s.%s VALUES " +
+        "(ARRAY[CAST(ROW('Entry1') AS ROW(simple_string VARCHAR))], " +
+        "map_from_entries(ARRAY[('key1', CAST(ROW('value1') AS ROW(simple_string VARCHAR)))]), " +
+        "CAST(ROW(1234567890.123456789, 3.14, 'ONE') AS ROW(d_double DOUBLE, e_float REAL, g_enum VARCHAR)), " +
+        "'Chennai', " +
+        "314, " +
+        "9223372036854775807, " +
+        "CAST(ROW('Entry2') AS ROW(simple_string VARCHAR)), " +
+        "TIMESTAMP '2020-12-21 15:45:00.012345')").formatted(
                 KAFKA_CATALOG,
                 KAFKA_SCHEMA,
                 STRUCTURAL_PROTOBUF_TABLE_NAME)))
                 .updatedRowsCountIsEqualTo(1);
 
-        assertThat(onTrino().executeQuery(format(
-                "SELECT c_array[1].simple_string, b_map['key1'].simple_string, a_row.d_double, a_row.e_float, a_row.g_enum, a_string, c_integer, c_bigint, d_row.simple_string, e_timestamp FROM %s.%s.%s",
+        assertThat(onTrino().executeQuery("SELECT c_array[1].simple_string, b_map['key1'].simple_string, a_row.d_double, a_row.e_float, a_row.g_enum, a_string, c_integer, c_bigint, d_row.simple_string, e_timestamp FROM %s.%s.%s".formatted(
                 KAFKA_CATALOG,
                 KAFKA_SCHEMA,
                 STRUCTURAL_PROTOBUF_TABLE_NAME)))

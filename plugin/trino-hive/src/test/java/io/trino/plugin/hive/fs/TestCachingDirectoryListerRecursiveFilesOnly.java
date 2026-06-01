@@ -26,7 +26,6 @@ import java.util.NoSuchElementException;
 
 import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -57,7 +56,7 @@ public class TestCachingDirectoryListerRecursiveFilesOnly
 
         // Replace the partitioned table a new unpartitioned table with the same root location, leaving the data in place
         Table partitionedTable = getTable(TPCH_SCHEMA, "recursive_directories")
-                .orElseThrow(() -> new NoSuchElementException(format("Failed to read table %s.%s", TPCH_SCHEMA, "recursive_directories")));
+                .orElseThrow(() -> new NoSuchElementException("Failed to read table %s.%s".formatted(TPCH_SCHEMA, "recursive_directories")));
         // Must not delete the data files when dropping the partitioned table
         dropTable(TPCH_SCHEMA, "recursive_directories", false);
         // Must create the table directly to bypass check that the target directory already exists

@@ -44,7 +44,6 @@ import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.Long.reverseBytes;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
 /**
@@ -170,7 +169,7 @@ public class UuidType
     public static UUID trinoUuidToJavaUuid(Slice uuid)
     {
         if (uuid.length() != INT128_BYTES) {
-            throw new IllegalStateException(format("Expected value to be exactly %d bytes but was %d", INT128_BYTES, uuid.length()));
+            throw new IllegalStateException("Expected value to be exactly %d bytes but was %d".formatted(INT128_BYTES, uuid.length()));
         }
         return new UUID(
                 reverseBytes(uuid.getLong(0)),

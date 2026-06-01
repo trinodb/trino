@@ -46,7 +46,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.JsonType.JSON;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -205,7 +204,7 @@ public class TestMongoTypeMapping
                 .addRoundTrip("char(1)", "'a'", createCharType(1), "CAST('a' AS char(1))")
                 .addRoundTrip("char(8)", "'abc'", createCharType(8), "CAST('abc' AS char(8))")
                 .addRoundTrip("char(8)", "'12345678'", createCharType(8), "CAST('12345678' AS char(8))")
-                .addRoundTrip("char(255)", format("'%s'", "a".repeat(255)), createCharType(255), format("CAST('%s' AS char(255))", "a".repeat(255)))
+                .addRoundTrip("char(255)", "'%s'".formatted("a".repeat(255)), createCharType(255), "CAST('%s' AS char(255))".formatted("a".repeat(255)))
                 .addRoundTrip("char(1)", "'攻'", createCharType(1), "CAST('攻' AS char(1))")
                 .addRoundTrip("char(5)", "'攻殻'", createCharType(5), "CAST('攻殻' AS char(5))")
                 .addRoundTrip("char(5)", "'攻殻機動隊'", createCharType(5), "CAST('攻殻機動隊' AS char(5))")

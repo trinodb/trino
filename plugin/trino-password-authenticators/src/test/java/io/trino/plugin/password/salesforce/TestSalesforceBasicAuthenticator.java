@@ -28,7 +28,6 @@ import static com.google.common.net.MediaType.ANY_TEXT_TYPE;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.testing.TestingResponse.mockResponse;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -58,7 +57,7 @@ public class TestSalesforceBasicAuthenticator
                 .setAllowedOrganizations(org)
                 .setCacheExpireDuration(Duration.succinctDuration(1, TimeUnit.SECONDS)); // Test cache timeout.
 
-        String xmlResponse = format(successResponse, org, username);
+        String xmlResponse = successResponse.formatted(org, username);
 
         HttpClient testHttpClient = new TestingHttpClient(_ -> mockResponse(OK, ANY_TEXT_TYPE, xmlResponse));
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
@@ -90,7 +89,7 @@ public class TestSalesforceBasicAuthenticator
         SalesforceConfig config = new SalesforceConfig()
                 .setAllowedOrganizations(org);
 
-        String xmlResponse = format(successResponse, "NotMyOrg", username);
+        String xmlResponse = successResponse.formatted("NotMyOrg", username);
 
         HttpClient testHttpClient = new TestingHttpClient(_ -> mockResponse(OK, ANY_TEXT_TYPE, xmlResponse));
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
@@ -128,7 +127,7 @@ public class TestSalesforceBasicAuthenticator
         SalesforceConfig config = new SalesforceConfig()
                 .setAllowedOrganizations(org);
 
-        String xmlResponse = format(successResponse, "some18CharOrgId", username);
+        String xmlResponse = successResponse.formatted("some18CharOrgId", username);
 
         HttpClient testHttpClient = new TestingHttpClient(_ -> mockResponse(OK, ANY_TEXT_TYPE, xmlResponse));
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
@@ -149,7 +148,7 @@ public class TestSalesforceBasicAuthenticator
         SalesforceConfig config = new SalesforceConfig()
                 .setAllowedOrganizations(org);
 
-        String xmlResponse = format(successResponse, "my18CharOrgId", username);
+        String xmlResponse = successResponse.formatted("my18CharOrgId", username);
 
         HttpClient testHttpClient = new TestingHttpClient(_ -> mockResponse(OK, ANY_TEXT_TYPE, xmlResponse));
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);

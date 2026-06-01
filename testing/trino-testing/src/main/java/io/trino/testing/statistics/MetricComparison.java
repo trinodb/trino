@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.testing.statistics.MetricComparison.Result.DIFFER;
 import static io.trino.testing.statistics.MetricComparison.Result.MATCH;
 import static io.trino.testing.statistics.MetricComparison.Result.NO_ESTIMATE;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class MetricComparison
@@ -38,8 +37,7 @@ public class MetricComparison
     @Override
     public String toString()
     {
-        return format(
-                "Metric [%s] - estimated: [%s], real: [%s]",
+        return "Metric [%s] - estimated: [%s], real: [%s]".formatted(
                 metric,
                 print(estimatedValue),
                 print(actualValue));

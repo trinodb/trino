@@ -30,7 +30,6 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDelta
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.removeS3Directory;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeActiveFilesCache
@@ -65,8 +64,7 @@ public class TestDeltaLakeActiveFilesCache
         // cache issue from https://github.com/trinodb/trino/issues/13737 does not reproduce
         String selectWithChecksumFilesDisabled = "WITH SESSION delta.load_metadata_from_checksum_file = false SELECT * FROM delta.default." + tableName;
 
-        onTrino().executeQuery(format(
-                "CREATE TABLE delta.default.%s (col INT) WITH (location = 's3://%s/%s')",
+        onTrino().executeQuery("CREATE TABLE delta.default.%s (col INT) WITH (location = 's3://%s/%s')".formatted(
                 tableName,
                 bucketName,
                 tableDirectory));
@@ -79,8 +77,7 @@ public class TestDeltaLakeActiveFilesCache
         // Delete the contents of the table explicitly from storage (because it has been created as `EXTERNAL`)
         removeS3Directory(s3, bucketName, tableDirectory);
 
-        onDelta().executeQuery(format(
-                "CREATE TABLE default.%s (col INTEGER) USING DELTA LOCATION 's3://%s/%s'",
+        onDelta().executeQuery("CREATE TABLE default.%s (col INTEGER) USING DELTA LOCATION 's3://%s/%s'".formatted(
                 tableName,
                 bucketName,
                 tableDirectory));

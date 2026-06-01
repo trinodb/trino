@@ -37,7 +37,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.client.ProtocolHeaders.createProtocolHeaders;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public final class SessionRepresentation
@@ -340,7 +339,7 @@ public final class SessionRepresentation
 
     public Identity toIdentity()
     {
-        return toIdentity(emptyMap());
+        return toIdentity(Map.of());
     }
 
     public Identity toIdentity(Map<String, String> extraCredentials)
@@ -366,7 +365,7 @@ public final class SessionRepresentation
 
     public Session toSession(SessionPropertyManager sessionPropertyManager)
     {
-        return toSession(sessionPropertyManager, emptyMap(), Optional.empty());
+        return toSession(sessionPropertyManager, Map.of(), Optional.empty());
     }
 
     public Session toSession(SessionPropertyManager sessionPropertyManager, Map<String, String> extraCredentials, Optional<Slice> exchangeEncryptionKey)

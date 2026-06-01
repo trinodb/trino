@@ -37,7 +37,6 @@ import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -72,7 +71,7 @@ public class CustomDateTimeJsonFieldDecoder
         catch (IllegalArgumentException e) {
             throw new TrinoException(
                     GENERIC_USER_ERROR,
-                    format("invalid Joda Time pattern '%s' passed as format hint for column '%s'", columnHandle.getFormatHint(), columnHandle.getName()));
+                    "invalid Joda Time pattern '%s' passed as format hint for column '%s'".formatted(columnHandle.getFormatHint(), columnHandle.getName()));
         }
     }
 
@@ -99,7 +98,7 @@ public class CustomDateTimeJsonFieldDecoder
             if (!value.isValueNode()) {
                 throw new TrinoException(
                         DECODER_CONVERSION_NOT_SUPPORTED,
-                        format("could not parse non-value node as '%s' for column '%s'", columnHandle.getType(), columnHandle.getName()));
+                        "could not parse non-value node as '%s' for column '%s'".formatted(columnHandle.getType(), columnHandle.getName()));
             }
             try {
                 return formatter.parseMillis(value.asText());
@@ -107,7 +106,7 @@ public class CustomDateTimeJsonFieldDecoder
             catch (IllegalArgumentException e) {
                 throw new TrinoException(
                         DECODER_CONVERSION_NOT_SUPPORTED,
-                        format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
+                        "could not parse value '%s' as '%s' for column '%s'".formatted(value.asText(), columnHandle.getType(), columnHandle.getName()));
             }
         }
 
@@ -121,12 +120,12 @@ public class CustomDateTimeJsonFieldDecoder
                 catch (IllegalArgumentException e) {
                     throw new TrinoException(
                             DECODER_CONVERSION_NOT_SUPPORTED,
-                            format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
+                            "could not parse value '%s' as '%s' for column '%s'".formatted(value.asText(), columnHandle.getType(), columnHandle.getName()));
                 }
             }
             throw new TrinoException(
                     DECODER_CONVERSION_NOT_SUPPORTED,
-                    format("could not parse non-value node as '%s' for column '%s'", columnHandle.getType(), columnHandle.getName()));
+                    "could not parse non-value node as '%s' for column '%s'".formatted(columnHandle.getType(), columnHandle.getName()));
         }
     }
 }

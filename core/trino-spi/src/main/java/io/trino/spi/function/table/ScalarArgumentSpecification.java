@@ -16,7 +16,6 @@ package io.trino.spi.function.table;
 import io.trino.spi.type.Type;
 
 import static io.trino.spi.function.table.Preconditions.checkArgument;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ScalarArgumentSpecification
@@ -29,7 +28,7 @@ public class ScalarArgumentSpecification
         super(name, required, defaultValue);
         this.type = requireNonNull(type, "type is null");
         if (defaultValue != null) {
-            checkArgument(Primitives.wrap(type.getJavaType()).isInstance(defaultValue), format("default value %s does not match the declared type: %s", defaultValue, type));
+            checkArgument(Primitives.wrap(type.getJavaType()).isInstance(defaultValue), "default value %s does not match the declared type: %s".formatted(defaultValue, type));
         }
     }
 

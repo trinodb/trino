@@ -27,7 +27,6 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -55,7 +54,7 @@ public class KafkaEventListenerConfig
     private Optional<String> clientId = Optional.empty();
     private DataSize maxRequestSize = DataSize.of(5, MEGABYTE); // Greater than default value because the size of completed events are quite large
     private DataSize batchSize = DataSize.of(16, KILOBYTE); // Default value of batch.size
-    private Set<String> excludedFields = Collections.emptySet();
+    private Set<String> excludedFields = Set.of();
     private Duration requestTimeout = new Duration(10, SECONDS);
     private boolean terminateOnInitializationFailure = true;
     private Optional<String> environmentVariablePrefix = Optional.empty();

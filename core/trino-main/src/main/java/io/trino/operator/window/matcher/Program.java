@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 
 public class Program
 {
@@ -73,7 +72,7 @@ public class Program
                 .append(minLabelCount)
                 .append("\n");
         for (int i = 0; i < instructions.size(); i++) {
-            builder.append(format("%s: %s\n", i, instructions.get(i)));
+            builder.append("%s: %s\n".formatted(i, instructions.get(i)));
         }
 
         return builder.toString();

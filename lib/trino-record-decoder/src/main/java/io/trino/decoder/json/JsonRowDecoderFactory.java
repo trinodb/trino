@@ -29,7 +29,6 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -70,7 +69,7 @@ public class JsonRowDecoderFactory
                 case "milliseconds-since-epoch" -> new MillisecondsSinceEpochJsonFieldDecoder(column);
                 case "rfc2822" -> new RFC2822JsonFieldDecoder(column);
                 case "" -> new DefaultJsonFieldDecoder(column);
-                default -> throw new IllegalArgumentException(format("unknown data format '%s' used for column '%s'", column.getDataFormat(), column.getName()));
+                default -> throw new IllegalArgumentException("unknown data format '%s' used for column '%s'".formatted(column.getDataFormat(), column.getName()));
             };
         }
         catch (IllegalArgumentException e) {
@@ -81,8 +80,8 @@ public class JsonRowDecoderFactory
     public static JsonFieldDecoder throwUnsupportedColumnType(DecoderColumnHandle column)
     {
         if (column.getDataFormat() == null) {
-            throw new IllegalArgumentException(format("unsupported column type '%s' for column '%s'", column.getType().getDisplayName(), column.getName()));
+            throw new IllegalArgumentException("unsupported column type '%s' for column '%s'".formatted(column.getType().getDisplayName(), column.getName()));
         }
-        throw new IllegalArgumentException(format("unsupported column type '%s' for column '%s' with data format '%s'", column.getType(), column.getName(), column.getDataFormat()));
+        throw new IllegalArgumentException("unsupported column type '%s' for column '%s' with data format '%s'".formatted(column.getType(), column.getName(), column.getDataFormat()));
     }
 }

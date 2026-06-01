@@ -17,7 +17,6 @@ import java.util.Arrays;
 
 import static io.trino.spi.block.BlockUtil.MAX_ARRAY_SIZE;
 import static java.lang.Math.clamp;
-import static java.lang.String.format;
 
 /**
  * A simplified version of fastutils IntArrayList for the purpose of positions copying.
@@ -31,7 +30,7 @@ class IntArrayList
     public IntArrayList(int initialCapacity)
     {
         if (initialCapacity < 0) {
-            throw new IllegalArgumentException(format("Initial capacity '%s' is negative", initialCapacity));
+            throw new IllegalArgumentException("Initial capacity '%s' is negative".formatted(initialCapacity));
         }
         array = new int[initialCapacity];
     }

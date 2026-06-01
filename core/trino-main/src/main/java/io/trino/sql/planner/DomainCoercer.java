@@ -40,7 +40,6 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -91,7 +90,7 @@ public final class DomainCoercer
             }
             catch (OperatorNotFoundException e) {
                 throw new IllegalStateException(
-                        format("Saturated floor cast operator not found for coercion from %s to %s", originalValueType, coercedValueType));
+                        "Saturated floor cast operator not found for coercion from %s to %s".formatted(originalValueType, coercedValueType));
             }
             this.castToOriginalTypeOperator = metadata.getCoercion(coercedValueType, originalValueType);
             // choice of placing unordered values first or last does not matter for this code

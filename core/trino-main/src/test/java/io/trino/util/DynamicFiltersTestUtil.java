@@ -38,7 +38,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 
 public final class DynamicFiltersTestUtil
 {
@@ -54,7 +53,7 @@ public final class DynamicFiltersTestUtil
          */
         String formattedValues;
         if (rangeCount == 1) {
-            formattedValues = format("{[%d]}", low);
+            formattedValues = "{[%d]}".formatted(low);
         }
         else if (rangeCount == 2) {
             formattedValues = LongStream.of(low, high)
@@ -62,7 +61,7 @@ public final class DynamicFiltersTestUtil
                     .collect(Collectors.joining(", ", "{", "}"));
         }
         else {
-            formattedValues = format("{[%d], ..., [%d]}", low, high);
+            formattedValues = "{[%d], ..., [%d]}".formatted(low, high);
         }
         return "[ " +
                 new StringJoiner(", ", SortedRangeSet.class.getSimpleName() + "[", "]")

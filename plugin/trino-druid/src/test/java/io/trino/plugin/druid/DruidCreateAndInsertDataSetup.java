@@ -28,7 +28,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class DruidCreateAndInsertDataSetup
@@ -69,11 +68,11 @@ public class DruidCreateAndInsertDataSetup
                 .collect(toImmutableList());
         int index = 0;
         for (ColumnSetup input : normalInputs) {
-            builder.addColumn(format("col_%s", index), input.getDeclaredType().orElse("string"));
+            builder.addColumn("col_%s".formatted(index), input.getDeclaredType().orElse("string"));
             index++;
         }
 
-        String dataFilePath = format("%s/%s.tsv", druidServer.getHostWorkingDirectory(), testTable.getName());
+        String dataFilePath = "%s/%s.tsv".formatted(druidServer.getHostWorkingDirectory(), testTable.getName());
         writeTsvFile(dataFilePath, inputs);
 
         this.druidServer.ingestData(testTable.getName(), Optional.empty(), builder.build(), dataFilePath);

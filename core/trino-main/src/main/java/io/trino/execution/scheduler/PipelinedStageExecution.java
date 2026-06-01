@@ -82,7 +82,6 @@ import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.synchronize;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -361,12 +360,12 @@ public class PipelinedStageExecution
                         .map(this::rewriteTransportFailure)
                         .map(ExecutionFailureInfo::toException)
                         // task is failed or failing, so we need to create a synthetic exception to fail the stage now
-                        .orElseGet(() -> new TrinoException(GENERIC_INTERNAL_ERROR, format("Task %s failed for an unknown reason", taskStatus.taskId())));
+                        .orElseGet(() -> new TrinoException(GENERIC_INTERNAL_ERROR, "Task %s failed for an unknown reason".formatted(taskStatus.taskId())));
                 fail(failure);
             }
             case CANCELING, CANCELED, ABORTING, ABORTED -> {
                 // A task should only be in the aborting, aborted, canceling, or canceled state if the STAGE is done (ABORTED or FAILED)
-                fail(new TrinoException(GENERIC_INTERNAL_ERROR, format("Task %s is in the %s state but stage %s is %s", taskStatus.taskId(), taskState, stateMachine.getStageId(), stateMachine.getState())));
+                fail(new TrinoException(GENERIC_INTERNAL_ERROR, "Task %s is in the %s state but stage %s is %s".formatted(taskStatus.taskId(), taskState, stateMachine.getStageId(), stateMachine.getState())));
             }
             case FLUSHING -> newFlushingOrFinishedTaskObserved = addFlushingTask(taskStatus.taskId());
             case FINISHED -> newFlushingOrFinishedTaskObserved = addFinishedTask(taskStatus.taskId());

@@ -26,7 +26,6 @@ import static io.trino.spi.type.Timestamps.SECONDS_PER_MINUTE;
 import static io.trino.spi.type.Timestamps.rescale;
 import static io.trino.spi.type.Timestamps.round;
 import static java.lang.Math.abs;
-import static java.lang.String.format;
 
 public final class SqlTimeWithTimeZone
 {
@@ -40,7 +39,7 @@ public final class SqlTimeWithTimeZone
             throw new IllegalArgumentException("Invalid precision: " + precision);
         }
         if (rescale(rescale(picoseconds, 12, precision), precision, 12) != picoseconds) {
-            throw new IllegalArgumentException(format("picoseconds contains data beyond specified precision (%s): %s", precision, picoseconds));
+            throw new IllegalArgumentException("picoseconds contains data beyond specified precision (%s): %s".formatted(precision, picoseconds));
         }
         if (picoseconds < 0 || picoseconds >= PICOSECONDS_PER_DAY) {
             throw new IllegalArgumentException("picoseconds is out of range: " + picoseconds);

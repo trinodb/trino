@@ -45,7 +45,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Fail.fail;
@@ -424,7 +423,7 @@ public class TestLakehouseConnectorTest
                     .setSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, "100ms")
                     .build();
             QueryRunner.MaterializedResultWithPlan result = getQueryRunner().executeWithPlan(smallOptimizerTimeout, query);
-            fail(format("Expected query to fail: %s [QueryId: %s]", query, result.queryId()));
+            fail("Expected query to fail: %s [QueryId: %s]".formatted(query, result.queryId()));
         }
         catch (QueryFailedException e) {
             assertThat(e.getMessage()).contains("The optimizer exhausted the time limit");

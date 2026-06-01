@@ -818,7 +818,7 @@ final class TestOpaAccessControl
                                 viewExpression.getSecurityIdentity()))
                 .containsExactlyInAnyOrderElementsOf(expectedExpressions);
 
-        String expectedRequest = String.format(
+        String expectedRequest =
                 """
                 {
                     "operation": "GetRowFilters",
@@ -830,10 +830,10 @@ final class TestOpaAccessControl
                         }
                     }
                 }\
-                """,
-                TEST_COLUMN_MASKING_TABLE_NAME.getCatalogName(),
-                TEST_COLUMN_MASKING_TABLE_NAME.getSchemaTableName().getSchemaName(),
-                TEST_COLUMN_MASKING_TABLE_NAME.getSchemaTableName().getTableName());
+                """.formatted(
+                        TEST_COLUMN_MASKING_TABLE_NAME.getCatalogName(),
+                        TEST_COLUMN_MASKING_TABLE_NAME.getSchemaTableName().getSchemaName(),
+                        TEST_COLUMN_MASKING_TABLE_NAME.getSchemaTableName().getTableName());
         assertStringRequestsEqual(ImmutableSet.of(expectedRequest), httpClient.getRequests(), "/input/action");
     }
 
@@ -887,37 +887,35 @@ final class TestOpaAccessControl
 
         Map<ColumnSchema, String> expressionWithoutIdentityResponses = IntStream.range(1, 10)
                 .mapToObj(index -> Map.entry(
-                        createColumnSchema(String.format("some-column-%d", index)),
-                        String.format(
-                                """
-                                {
-                                    "result": {"expression": "expression-%d"}
-                                }\
-                                """,
+                        createColumnSchema("some-column-%d".formatted(index)),
+                        """
+                        {
+                            "result": {"expression": "expression-%d"}
+                        }\
+                        """.formatted(
                                 index)))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         testGetColumnMasks(
                 expressionWithoutIdentityResponses,
                 IntStream.range(1, 10).mapToObj(index -> Map.entry(
-                        createColumnSchema(String.format("some-column-%d", index)),
-                        new OpaViewExpression(String.format("expression-%d", index), Optional.empty()))).collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
+                        createColumnSchema("some-column-%d".formatted(index)),
+                        new OpaViewExpression("expression-%d".formatted(index), Optional.empty()))).collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
 
         Map<ColumnSchema, String> expressionWithIdentityResponses = IntStream.range(1, 10)
                 .mapToObj(index -> Map.entry(
-                        createColumnSchema(String.format("some-column-%d", index)),
-                        String.format(
-                                """
-                                {
-                                    "result": {"expression": "expression-%1$d", "identity": "some_identity-%1$d"}
-                                }\
-                                """,
+                        createColumnSchema("some-column-%d".formatted(index)),
+                        """
+                        {
+                            "result": {"expression": "expression-%1$d", "identity": "some_identity-%1$d"}
+                        }\
+                        """.formatted(
                                 index)))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         testGetColumnMasks(
                 expressionWithIdentityResponses,
                 IntStream.range(1, 10).mapToObj(index -> Map.entry(
-                        createColumnSchema(String.format("some-column-%d", index)),
-                        new OpaViewExpression(String.format("expression-%d", index), Optional.of(String.format("some_identity-%d", index))))).collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
+                        createColumnSchema("some-column-%d".formatted(index)),
+                        new OpaViewExpression("expression-%d".formatted(index), Optional.of("some_identity-%d".formatted(index))))).collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
 
         Map<ColumnSchema, String> mixedExpressions = ImmutableMap.of(
                 createColumnSchema("some-column-1"), "{}",
@@ -1076,21 +1074,20 @@ final class TestOpaAccessControl
             return Map.entry(entry.getKey(), new OpaViewExpression(viewExpression.getExpression(), viewExpression.getSecurityIdentity()));
         })).containsExactlyInAnyOrderElementsOf(expectedResult.entrySet());
 
-        Set<String> expectedRequests = columnNames.stream().map(columnName -> String.format(
-                """
-                {
-                    "operation": "GetColumnMask",
-                    "resource": {
-                        "column": {
-                            "catalogName": "%s",
-                            "schemaName": "%s",
-                            "tableName": "%s",
-                            "columnName": "%s",
-                            "columnType": "varchar"
-                        }
-                    }
-                }\
-                """,
+        Set<String> expectedRequests = columnNames.stream().map(columnName -> """
+                                                                              {
+                                                                                  "operation": "GetColumnMask",
+                                                                                  "resource": {
+                                                                                      "column": {
+                                                                                          "catalogName": "%s",
+                                                                                          "schemaName": "%s",
+                                                                                          "tableName": "%s",
+                                                                                          "columnName": "%s",
+                                                                                          "columnType": "varchar"
+                                                                                      }
+                                                                                  }
+                                                                              }\
+                                                                              """.formatted(
                 TEST_COLUMN_MASKING_TABLE_NAME.getCatalogName(),
                 TEST_COLUMN_MASKING_TABLE_NAME.getSchemaTableName().getSchemaName(),
                 TEST_COLUMN_MASKING_TABLE_NAME.getSchemaTableName().getTableName(),

@@ -44,7 +44,6 @@ import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveGlueMetadataListing
@@ -119,19 +118,19 @@ public class TestHiveGlueMetadataListing
         assertThat(computeActual("SELECT table_name FROM hive.information_schema.tables WHERE table_schema='" + tpchSchema + "'").getOnlyColumnAsSet()).containsAll(expectedTables);
         assertThat(computeScalar("SELECT table_name FROM hive.information_schema.tables WHERE table_name = 'region' AND table_schema='" + tpchSchema + "'"))
                 .isEqualTo(TpchTable.REGION.getTableName());
-        assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_NULL_STORAGE_DESCRIPTOR_NAME, tpchSchema));
-        assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_NULL_TYPE, tpchSchema));
-        assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_BAD_HIVE_TYPE, tpchSchema));
-        assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_NULL_SERDE, tpchSchema));
+        assertQueryReturnsEmptyResult("SELECT table_name FROM hive.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'".formatted(FAILING_TABLE_WITH_NULL_STORAGE_DESCRIPTOR_NAME, tpchSchema));
+        assertQueryReturnsEmptyResult("SELECT table_name FROM hive.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'".formatted(FAILING_TABLE_WITH_NULL_TYPE, tpchSchema));
+        assertQueryReturnsEmptyResult("SELECT table_name FROM hive.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'".formatted(FAILING_TABLE_WITH_BAD_HIVE_TYPE, tpchSchema));
+        assertQueryReturnsEmptyResult("SELECT table_name FROM hive.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'".formatted(FAILING_TABLE_WITH_NULL_SERDE, tpchSchema));
 
         assertQuery("SELECT table_name, column_name from hive.information_schema.columns WHERE table_schema = '" + tpchSchema + "'",
                 "VALUES ('region', 'regionkey'), ('region', 'name'), ('region', 'comment'), ('nation', 'nationkey'), ('nation', 'name'), ('nation', 'regionkey'), ('nation', 'comment')");
         assertQuery("SELECT table_name, column_name from hive.information_schema.columns WHERE table_name = 'region' AND table_schema='" + tpchSchema + "'",
                 "VALUES ('region', 'regionkey'), ('region', 'name'), ('region', 'comment')");
-        assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.columns WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_NULL_STORAGE_DESCRIPTOR_NAME, tpchSchema));
-        assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.columns WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_NULL_TYPE, tpchSchema));
-        assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.columns WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_BAD_HIVE_TYPE, tpchSchema));
-        assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.columns WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_NULL_SERDE, tpchSchema));
+        assertQueryReturnsEmptyResult("SELECT table_name FROM hive.information_schema.columns WHERE table_name = '%s' AND table_schema='%s'".formatted(FAILING_TABLE_WITH_NULL_STORAGE_DESCRIPTOR_NAME, tpchSchema));
+        assertQueryReturnsEmptyResult("SELECT table_name FROM hive.information_schema.columns WHERE table_name = '%s' AND table_schema='%s'".formatted(FAILING_TABLE_WITH_NULL_TYPE, tpchSchema));
+        assertQueryReturnsEmptyResult("SELECT table_name FROM hive.information_schema.columns WHERE table_name = '%s' AND table_schema='%s'".formatted(FAILING_TABLE_WITH_BAD_HIVE_TYPE, tpchSchema));
+        assertQueryReturnsEmptyResult("SELECT table_name FROM hive.information_schema.columns WHERE table_name = '%s' AND table_schema='%s'".formatted(FAILING_TABLE_WITH_NULL_SERDE, tpchSchema));
 
         assertThat(computeActual("SHOW TABLES FROM hive." + tpchSchema).getOnlyColumnAsSet()).isEqualTo(expectedTables);
     }

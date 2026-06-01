@@ -35,7 +35,6 @@ import static io.airlift.bytecode.ParameterizedType.type;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class EmbedVersion
@@ -52,7 +51,7 @@ public class EmbedVersion
 
     public EmbedVersion(String version)
     {
-        Class<?> generatedClass = createClass(format("Trino_%s___", version));
+        Class<?> generatedClass = createClass("Trino_%s___".formatted(version));
         this.runnableConstructor = constructorMethodHandle(generatedClass, Runnable.class);
         this.callableConstructor = constructorMethodHandle(generatedClass, Callable.class);
     }

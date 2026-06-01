@@ -104,7 +104,6 @@ import static io.trino.util.DateTimeUtils.printDate;
 import static io.trino.util.JsonUtil.ObjectKeyProvider.createObjectKeyProvider;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
@@ -288,7 +287,7 @@ public final class JsonUtil
                 return (block, position) -> varcharType.getSlice(block, position).toStringUtf8();
             }
 
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Unsupported type: %s".formatted(type));
         }
     }
 
@@ -357,7 +356,7 @@ public final class JsonUtil
                 return new RowJsonGeneratorWriter(rowType, fieldWriters);
             }
 
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Unsupported type: %s".formatted(type));
         }
     }
 
@@ -734,7 +733,7 @@ public final class JsonUtil
             case VALUE_NUMBER_INT -> utf8Slice(parser.getText());
             case VALUE_TRUE -> BooleanOperators.castToVarchar(UNBOUNDED_LENGTH, true);
             case VALUE_FALSE -> BooleanOperators.castToVarchar(UNBOUNDED_LENGTH, false);
-            default -> throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.VARCHAR, parser.getText()));
+            default -> throw new JsonCastException("Unexpected token when cast to %s: %s".formatted(StandardTypes.VARCHAR, parser.getText()));
         };
     }
 
@@ -748,7 +747,7 @@ public final class JsonUtil
             case VALUE_NUMBER_INT -> parser.getLongValue();
             case VALUE_TRUE -> BooleanOperators.castToBigint(true);
             case VALUE_FALSE -> BooleanOperators.castToBigint(false);
-            default -> throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.BIGINT, parser.getText()));
+            default -> throw new JsonCastException("Unexpected token when cast to %s: %s".formatted(StandardTypes.BIGINT, parser.getText()));
         };
     }
 
@@ -762,7 +761,7 @@ public final class JsonUtil
             case VALUE_NUMBER_INT -> (long) toIntExact(parser.getLongValue());
             case VALUE_TRUE -> BooleanOperators.castToInteger(true);
             case VALUE_FALSE -> BooleanOperators.castToInteger(false);
-            default -> throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.INTEGER, parser.getText()));
+            default -> throw new JsonCastException("Unexpected token when cast to %s: %s".formatted(StandardTypes.INTEGER, parser.getText()));
         };
     }
 
@@ -776,7 +775,7 @@ public final class JsonUtil
             case VALUE_NUMBER_INT -> (long) Shorts.checkedCast(parser.getLongValue());
             case VALUE_TRUE -> BooleanOperators.castToSmallint(true);
             case VALUE_FALSE -> BooleanOperators.castToSmallint(false);
-            default -> throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.SMALLINT, parser.getText()));
+            default -> throw new JsonCastException("Unexpected token when cast to %s: %s".formatted(StandardTypes.SMALLINT, parser.getText()));
         };
     }
 
@@ -790,7 +789,7 @@ public final class JsonUtil
             case VALUE_NUMBER_INT -> (long) SignedBytes.checkedCast(parser.getLongValue());
             case VALUE_TRUE -> BooleanOperators.castToTinyint(true);
             case VALUE_FALSE -> BooleanOperators.castToTinyint(false);
-            default -> throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.TINYINT, parser.getText()));
+            default -> throw new JsonCastException("Unexpected token when cast to %s: %s".formatted(StandardTypes.TINYINT, parser.getText()));
         };
     }
 
@@ -806,7 +805,7 @@ public final class JsonUtil
             case VALUE_NUMBER_INT -> parser.getDoubleValue();
             case VALUE_TRUE -> BooleanOperators.castToDouble(true);
             case VALUE_FALSE -> BooleanOperators.castToDouble(false);
-            default -> throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.DOUBLE, parser.getText()));
+            default -> throw new JsonCastException("Unexpected token when cast to %s: %s".formatted(StandardTypes.DOUBLE, parser.getText()));
         };
     }
 
@@ -822,7 +821,7 @@ public final class JsonUtil
             case VALUE_NUMBER_INT -> (long) floatToRawIntBits(parser.getFloatValue());
             case VALUE_TRUE -> BooleanOperators.castToReal(true);
             case VALUE_FALSE -> BooleanOperators.castToReal(false);
-            default -> throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.REAL, parser.getText()));
+            default -> throw new JsonCastException("Unexpected token when cast to %s: %s".formatted(StandardTypes.REAL, parser.getText()));
         };
     }
 
@@ -836,7 +835,7 @@ public final class JsonUtil
             case VALUE_NUMBER_INT, VALUE_NUMBER_FLOAT -> TrinoNumber.from(parser.getDecimalValue());
             case VALUE_TRUE -> TrinoNumber.from(BigDecimal.ONE);
             case VALUE_FALSE -> TrinoNumber.from(BigDecimal.ZERO);
-            default -> throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.NUMBER, parser.getText()));
+            default -> throw new JsonCastException("Unexpected token when cast to %s: %s".formatted(StandardTypes.NUMBER, parser.getText()));
         };
     }
 
@@ -850,7 +849,7 @@ public final class JsonUtil
             case VALUE_NUMBER_INT -> BigintOperators.castToBoolean(parser.getLongValue());
             case VALUE_TRUE -> true;
             case VALUE_FALSE -> false;
-            default -> throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.BOOLEAN, parser.getText()));
+            default -> throw new JsonCastException("Unexpected token when cast to %s: %s".formatted(StandardTypes.BOOLEAN, parser.getText()));
         };
     }
 
@@ -893,11 +892,11 @@ public final class JsonUtil
             }
             case VALUE_TRUE -> result = BigDecimal.ONE.setScale(scale, HALF_UP);
             case VALUE_FALSE -> result = BigDecimal.ZERO.setScale(scale, HALF_UP);
-            default -> throw new JsonCastException(format("Unexpected token when cast to DECIMAL(%s,%s): %s", precision, scale, parser.getText()));
+            default -> throw new JsonCastException("Unexpected token when cast to DECIMAL(%s,%s): %s".formatted(precision, scale, parser.getText()));
         }
 
         if (result.precision() > precision) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast input json to DECIMAL(%s,%s)", precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Cannot cast input json to DECIMAL(%s,%s)".formatted(precision, scale));
         }
         return result;
     }
@@ -967,7 +966,7 @@ public final class JsonUtil
                 return new RowBlockBuilderAppender(fieldAppenders, getFieldNameToIndex(rowFields));
             }
 
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Unsupported type: %s".formatted(type));
         }
     }
 
@@ -1202,7 +1201,7 @@ public final class JsonUtil
             }
 
             if (parser.getCurrentToken() != START_ARRAY) {
-                throw new JsonCastException(format("Expected a json array, but got %s", parser.getText()));
+                throw new JsonCastException("Expected a json array, but got %s".formatted(parser.getText()));
             }
             ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
                 while (parser.nextToken() != END_ARRAY) {
@@ -1234,7 +1233,7 @@ public final class JsonUtil
             }
 
             if (parser.getCurrentToken() != START_OBJECT) {
-                throw new JsonCastException(format("Expected a json object, but got %s", parser.getText()));
+                throw new JsonCastException("Expected a json object, but got %s".formatted(parser.getText()));
             }
 
             MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) blockBuilder;
@@ -1280,7 +1279,7 @@ public final class JsonUtil
             }
 
             if (parser.getCurrentToken() != START_ARRAY && parser.getCurrentToken() != START_OBJECT) {
-                throw new JsonCastException(format("Expected a json array or object, but got %s", parser.getText()));
+                throw new JsonCastException("Expected a json array or object, but got %s".formatted(parser.getText()));
             }
 
             ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> parseJsonToSingleRowBlock(parser, fieldBuilders, fieldAppenders, fieldNameToIndex));
@@ -1316,7 +1315,7 @@ public final class JsonUtil
                 fieldAppenders[i].append(parser, fieldBuilders.get(i));
             }
             if (parser.nextToken() != JsonToken.END_ARRAY) {
-                throw new JsonCastException(format("Expected json array ending, but got %s", parser.getText()));
+                throw new JsonCastException("Expected json array ending, but got %s".formatted(parser.getText()));
             }
         }
         else {
@@ -1329,7 +1328,7 @@ public final class JsonUtil
 
             while (parser.nextToken() != JsonToken.END_OBJECT) {
                 if (parser.currentToken() != FIELD_NAME) {
-                    throw new JsonCastException(format("Expected a json field name, but got %s", parser.getText()));
+                    throw new JsonCastException("Expected a json field name, but got %s".formatted(parser.getText()));
                 }
                 String fieldName = parser.getText().toLowerCase(Locale.ENGLISH);
                 Integer fieldIndex = fieldNameToIndex.get().get(fieldName);

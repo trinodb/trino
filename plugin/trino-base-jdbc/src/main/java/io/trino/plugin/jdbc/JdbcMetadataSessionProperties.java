@@ -26,7 +26,6 @@ import java.util.Optional;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
-import static java.lang.String.format;
 
 public class JdbcMetadataSessionProperties
         implements SessionPropertiesProvider
@@ -132,12 +131,12 @@ public class JdbcMetadataSessionProperties
     private static void validateDomainCompactionThreshold(int domainCompactionThreshold, Optional<Integer> maxDomainCompactionThreshold)
     {
         if (domainCompactionThreshold < 1) {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, format("Domain compaction threshold (%s) must be greater than 0", domainCompactionThreshold));
+            throw new TrinoException(INVALID_SESSION_PROPERTY, "Domain compaction threshold (%s) must be greater than 0".formatted(domainCompactionThreshold));
         }
 
         maxDomainCompactionThreshold.ifPresent(max -> {
             if (domainCompactionThreshold > max) {
-                throw new TrinoException(INVALID_SESSION_PROPERTY, format("Domain compaction threshold (%s) cannot exceed %s", domainCompactionThreshold, max));
+                throw new TrinoException(INVALID_SESSION_PROPERTY, "Domain compaction threshold (%s) cannot exceed %s".formatted(domainCompactionThreshold, max));
             }
         });
     }

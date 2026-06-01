@@ -34,7 +34,6 @@ import static io.trino.plugin.iceberg.PartitionFields.fromIdentifierToColumn;
 import static io.trino.plugin.iceberg.PartitionFields.quotedName;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNullElse;
 
@@ -119,6 +118,6 @@ public final class SortFieldUtils
         verify(field.transform().isIdentity(), "Iceberg sort transforms are not supported");
 
         String name = quotedName(spec.schema().findColumnName(field.sourceId()));
-        return format("%s %s %s", name, field.direction(), field.nullOrder());
+        return "%s %s %s".formatted(name, field.direction(), field.nullOrder());
     }
 }

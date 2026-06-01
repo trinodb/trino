@@ -27,7 +27,6 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeSystemTableCompatibility
@@ -39,8 +38,7 @@ public class TestDeltaLakeSystemTableCompatibility
         String tableName = "test_dl_table_properties_case_sensitivity_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onDelta().executeQuery(format(
-                "CREATE TABLE default.%s (col INT) USING DELTA LOCATION 's3://%s/%s' TBLPROPERTIES ('test_key'='test_value', 'Test_Key'='Test_Mixed_Case')",
+        onDelta().executeQuery("CREATE TABLE default.%s (col INT) USING DELTA LOCATION 's3://%s/%s' TBLPROPERTIES ('test_key'='test_value', 'Test_Key'='Test_Mixed_Case')".formatted(
                 tableName,
                 bucketName,
                 tableDirectory));
@@ -65,9 +63,8 @@ public class TestDeltaLakeSystemTableCompatibility
         String tableName = "test_dl_table_properties_with_features_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onDelta().executeQuery(format(
-                "CREATE TABLE default.%s (col INT) USING DELTA LOCATION 's3://%s/%s'" +
-                        " TBLPROPERTIES ('delta.minReaderVersion'='3', 'delta.minWriterVersion'='7', 'delta.columnMapping.mode'='id')",
+        onDelta().executeQuery(("CREATE TABLE default.%s (col INT) USING DELTA LOCATION 's3://%s/%s'" +
+        " TBLPROPERTIES ('delta.minReaderVersion'='3', 'delta.minWriterVersion'='7', 'delta.columnMapping.mode'='id')").formatted(
                 tableName,
                 bucketName,
                 tableDirectory));
@@ -114,11 +111,11 @@ public class TestDeltaLakeSystemTableCompatibility
 
         try {
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 11, 'varchar_1'), (1, 19, 'varchar_1'), (1, 17, 'varchar_1'), (1, 13, 'varchar_2')");
-            assertThat(onTrino().executeQuery(format("SELECT cast(partition as json), file_count, total_size, cast(data as json) FROM delta.default.\"%s$partitions\"", tableName))).containsOnly(expectedBeforeDelete);
+            assertThat(onTrino().executeQuery("SELECT cast(partition as json), file_count, total_size, cast(data as json) FROM delta.default.\"%s$partitions\"".formatted(tableName))).containsOnly(expectedBeforeDelete);
             onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE b = 19");
-            assertThat(onTrino().executeQuery(format("SELECT cast(partition as json), file_count, total_size, cast(data as json) FROM delta.default.\"%s$partitions\"", tableName))).containsOnly(expectedAfterFirstDelete);
+            assertThat(onTrino().executeQuery("SELECT cast(partition as json), file_count, total_size, cast(data as json) FROM delta.default.\"%s$partitions\"".formatted(tableName))).containsOnly(expectedAfterFirstDelete);
             onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE c = 'varchar_2'");
-            assertThat(onTrino().executeQuery(format("SELECT cast(partition as json), file_count, total_size, cast(data as json) FROM delta.default.\"%s$partitions\"", tableName))).containsOnly(expectedAfterSecondDelete);
+            assertThat(onTrino().executeQuery("SELECT cast(partition as json), file_count, total_size, cast(data as json) FROM delta.default.\"%s$partitions\"".formatted(tableName))).containsOnly(expectedAfterSecondDelete);
         }
         finally {
             onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
@@ -144,7 +141,7 @@ public class TestDeltaLakeSystemTableCompatibility
 
         try {
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 11, 'varchar_1'), (1, 19, 'varchar_1'), (1, 17, 'varchar_1'), (1, 13, 'varchar_2'), (1, NULL, 'varchar_3')");
-            assertThat(onTrino().executeQuery(format("SELECT cast(partition as json), file_count, total_size, cast(data as json) FROM delta.default.\"%s$partitions\"", tableName))).containsOnly(expected);
+            assertThat(onTrino().executeQuery("SELECT cast(partition as json), file_count, total_size, cast(data as json) FROM delta.default.\"%s$partitions\"".formatted(tableName))).containsOnly(expected);
         }
         finally {
             onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);

@@ -59,7 +59,6 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.SIDECAR;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 
@@ -290,10 +289,10 @@ public class TableSnapshot
             fileSize = checkpointFile.length();
         }
         catch (FileNotFoundException e) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, format("%s mentions a non-existent checkpoint file for table: %s", checkpoint, table));
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "%s mentions a non-existent checkpoint file for table: %s".formatted(checkpoint, table));
         }
         catch (IOException e) {
-            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Unexpected IO exception occurred while retrieving the length of the file: %s for the table %s", checkpoint, table), e);
+            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Unexpected IO exception occurred while retrieving the length of the file: %s for the table %s".formatted(checkpoint, table), e);
         }
         if (checkpoint.v2Checkpoint().isPresent()) {
             return getV2CheckpointTransactionLogEntriesFrom(
@@ -421,7 +420,7 @@ public class TableSnapshot
                         .flatMap(logEntries -> logEntries.getEntries(fileSystem));
             }
             catch (IOException e) {
-                throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Unexpected IO exception occurred while reading the entries of the file: %s for the table %s", checkpoint, table), e);
+                throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Unexpected IO exception occurred while reading the entries of the file: %s for the table %s".formatted(checkpoint, table), e);
             }
         }
         if (checkpointFile.location().fileName().endsWith(".parquet")) {

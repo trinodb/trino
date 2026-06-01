@@ -17,7 +17,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.ValueBlock;
 
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
-import static java.lang.String.format;
 
 /**
  * A timestamp is to be interpreted as local date time without regards to any time zone.
@@ -58,7 +57,7 @@ public abstract sealed class TimestampType
     public static TimestampType createTimestampType(int precision)
     {
         if (precision < 0 || precision > MAX_PRECISION) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIMESTAMP precision must be in range [0, %s]: %s", MAX_PRECISION, precision));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "TIMESTAMP precision must be in range [0, %s]: %s".formatted(MAX_PRECISION, precision));
         }
         return TYPES[precision];
     }

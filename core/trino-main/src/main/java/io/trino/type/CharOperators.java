@@ -26,7 +26,6 @@ import java.math.BigDecimal;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.type.Reals.toReal;
-import static java.lang.String.format;
 
 public final class CharOperators
 {
@@ -49,7 +48,7 @@ public final class CharOperators
             return Double.parseDouble(slice.toStringUtf8().trim());
         }
         catch (Exception e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DOUBLE", slice.toStringUtf8()));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to DOUBLE".formatted(slice.toStringUtf8()));
         }
     }
 
@@ -62,7 +61,7 @@ public final class CharOperators
             return toReal(Float.parseFloat(slice.toStringUtf8().trim()));
         }
         catch (Exception e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to REAL", slice.toStringUtf8()));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to REAL".formatted(slice.toStringUtf8()));
         }
     }
 
@@ -75,7 +74,7 @@ public final class CharOperators
             return Long.parseLong(slice.toStringUtf8().trim());
         }
         catch (Exception e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to BIGINT", slice.toStringUtf8()));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to BIGINT".formatted(slice.toStringUtf8()));
         }
     }
 
@@ -88,7 +87,7 @@ public final class CharOperators
             return Integer.parseInt(slice.toStringUtf8().trim());
         }
         catch (Exception e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to INT", slice.toStringUtf8()));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to INT".formatted(slice.toStringUtf8()));
         }
     }
 
@@ -101,7 +100,7 @@ public final class CharOperators
             return Short.parseShort(slice.toStringUtf8().trim());
         }
         catch (Exception e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to SMALLINT", slice.toStringUtf8()));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to SMALLINT".formatted(slice.toStringUtf8()));
         }
     }
 
@@ -114,7 +113,7 @@ public final class CharOperators
             return Byte.parseByte(slice.toStringUtf8().trim());
         }
         catch (Exception e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to TINYINT", slice.toStringUtf8()));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to TINYINT".formatted(slice.toStringUtf8()));
         }
     }
 
@@ -133,7 +132,7 @@ public final class CharOperators
             });
         }
         catch (IllegalArgumentException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to NUMBER", value), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast '%s' to NUMBER".formatted(value), e);
         }
     }
 

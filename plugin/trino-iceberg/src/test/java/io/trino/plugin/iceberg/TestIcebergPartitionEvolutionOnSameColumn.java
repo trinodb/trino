@@ -26,7 +26,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -134,10 +133,9 @@ public class TestIcebergPartitionEvolutionOnSameColumn
         String tableName = "test_iceberg_partition_evolution_" + randomNameSuffix();
 
         minio.copyResources("iceberg/conflict_truncate", BUCKET_NAME, "conflict_truncate");
-        assertUpdate(format(
-                "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')",
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(
                 tableName,
-                format("s3://%s/conflict_truncate", BUCKET_NAME)));
+                "s3://%s/conflict_truncate".formatted(BUCKET_NAME)));
 
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES (VARCHAR 'abc'), (VARCHAR 'abcd')");

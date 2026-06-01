@@ -17,7 +17,6 @@ import io.trino.plugin.pinot.PinotColumnHandle;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.pinot.query.DynamicTablePqlExtractor.quoteIdentifier;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public record AggregateExpression(String function, String argument, boolean returnNullOnEmptyGroup)
@@ -41,11 +40,11 @@ public record AggregateExpression(String function, String argument, boolean retu
 
     public String fieldName()
     {
-        return format("%s(%s)", function, argument);
+        return "%s(%s)".formatted(function, argument);
     }
 
     public String expression()
     {
-        return format("%s(%s)", function, quoteIdentifier(argument));
+        return "%s(%s)".formatted(function, quoteIdentifier(argument));
     }
 }

@@ -25,7 +25,6 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -119,7 +118,7 @@ public class QueryIdGenerator
         long index = counter;
         counter++;
 
-        return new QueryId(format("%s_%05d_%s", lastTimestamp, index, coordinatorId));
+        return new QueryId("%s_%05d_%s".formatted(lastTimestamp, index, coordinatorId));
     }
 
     private static String formatEpochMilli(long milli)

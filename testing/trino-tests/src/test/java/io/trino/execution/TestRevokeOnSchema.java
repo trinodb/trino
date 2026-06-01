@@ -37,7 +37,6 @@ import java.util.EnumSet;
 import static io.trino.common.Randoms.randomUsername;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -90,7 +89,7 @@ public class TestRevokeOnSchema
     {
         assertThat(assertions.query(user, "SHOW SCHEMAS FROM local")).matches("VALUES (VARCHAR 'information_schema'), (VARCHAR 'default')");
 
-        queryRunner.execute(admin, format("REVOKE %s ON SCHEMA default FROM %s", privilege, user.getUser()));
+        queryRunner.execute(admin, "REVOKE %s ON SCHEMA default FROM %s".formatted(privilege, user.getUser()));
 
         assertThat(assertions.query(user, "SHOW SCHEMAS FROM local")).matches("VALUES (VARCHAR 'information_schema')");
     }
@@ -98,29 +97,29 @@ public class TestRevokeOnSchema
     @Test
     public void testRevokeOnNonExistingCatalog()
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("REVOKE SELECT ON SCHEMA missing_catalog.missing_schema FROM %s", userWithSelect.getUser())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "REVOKE SELECT ON SCHEMA missing_catalog.missing_schema FROM %s".formatted(userWithSelect.getUser())))
                 .hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("REVOKE ALL PRIVILEGES ON SCHEMA missing_catalog.missing_schema FROM %s", userWithAllPrivileges.getUser())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "REVOKE ALL PRIVILEGES ON SCHEMA missing_catalog.missing_schema FROM %s".formatted(userWithAllPrivileges.getUser())))
                 .hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
     }
 
     @Test
     public void testRevokeOnNonExistingSchema()
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("REVOKE SELECT ON SCHEMA missing_schema FROM %s", userWithSelect.getUser())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "REVOKE SELECT ON SCHEMA missing_schema FROM %s".formatted(userWithSelect.getUser())))
                 .hasMessageContaining("Schema 'local.missing_schema' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("REVOKE ALL PRIVILEGES ON SCHEMA missing_schema FROM %s", userWithAllPrivileges.getUser())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, "REVOKE ALL PRIVILEGES ON SCHEMA missing_schema FROM %s".formatted(userWithAllPrivileges.getUser())))
                 .hasMessageContaining("Schema 'local.missing_schema' does not exist");
     }
 
     @Test
     public void testAccessDenied()
     {
-        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("REVOKE CREATE ON SCHEMA default FROM %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), "REVOKE CREATE ON SCHEMA default FROM %s".formatted(randomUsername())))
                 .hasMessageContaining("Access Denied: Cannot revoke privilege CREATE on schema default");
-        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("REVOKE SELECT ON SCHEMA default FROM %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), "REVOKE SELECT ON SCHEMA default FROM %s".formatted(randomUsername())))
                 .hasMessageContaining("Access Denied: Cannot revoke privilege SELECT on schema default");
-        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("REVOKE ALL PRIVILEGES ON SCHEMA default FROM %s", randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), "REVOKE ALL PRIVILEGES ON SCHEMA default FROM %s".formatted(randomUsername())))
                 .hasMessageContaining("Access Denied: Cannot revoke privilege CREATE on schema default");
     }
 

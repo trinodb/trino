@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.metastore.glue;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.spi.predicate.Domain;
@@ -35,7 +34,6 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
 public final class GlueExpressionUtil
@@ -45,9 +43,7 @@ public final class GlueExpressionUtil
 
     private static final Set<String> QUOTED_TYPES = ImmutableSet.of("string", "char", "varchar", "date", "timestamp", "binary", "varbinary");
     private static final String CONJUNCT_SEPARATOR = " AND ";
-    private static final Joiner CONJUNCT_JOINER = Joiner.on(CONJUNCT_SEPARATOR);
     private static final String DISJUNCT_SEPARATOR = " OR ";
-    private static final Joiner DISJUNCT_JOINER = Joiner.on(DISJUNCT_SEPARATOR);
 
     /**
      * AWS Glue uses internally <a href="http://jsqlparser.sourceforge.net/home.php">JSQLParser</a>
@@ -130,7 +126,7 @@ public final class GlueExpressionUtil
             }
         }
 
-        return Joiner.on(CONJUNCT_SEPARATOR).join(perColumnExpressions);
+        return String.join(CONJUNCT_SEPARATOR, perColumnExpressions);
     }
 
     /**
@@ -159,13 +155,13 @@ public final class GlueExpressionUtil
 
         if (domain.getValues().isAll()) {
             verify(!domain.isNullAllowed(), "Unexpected domain: %s", domain);
-            return Optional.of(format("(%s <> '%s')", columnName, NULL_STRING));
+            return Optional.of("(%s <> '%s')".formatted(columnName, NULL_STRING));
         }
 
         if (domain.getValues().isNone()) {
             // null must be allowed for this case since callers must filter Domain.none() out
             verify(domain.isNullAllowed(), "Unexpected domain: %s", domain);
-            return Optional.of(format("(%s = '%s')", columnName, NULL_STRING));
+            return Optional.of("(%s = '%s')".formatted(columnName, NULL_STRING));
         }
 
         List<String> disjuncts = new ArrayList<>();
@@ -178,40 +174,38 @@ public final class GlueExpressionUtil
             else {
                 List<String> rangeConjuncts = new ArrayList<>();
                 if (!range.isLowUnbounded()) {
-                    rangeConjuncts.add(format(
-                            "%s %s %s",
+                    rangeConjuncts.add("%s %s %s".formatted(
                             columnName,
                             range.isLowInclusive() ? ">=" : ">",
                             valueToString(range.getType(), range.getLowBoundedValue())));
                 }
                 if (!range.isHighUnbounded()) {
-                    rangeConjuncts.add(format(
-                            "%s %s %s",
+                    rangeConjuncts.add("%s %s %s".formatted(
                             columnName,
                             range.isHighInclusive() ? "<=" : "<",
                             valueToString(range.getType(), range.getHighBoundedValue())));
                 }
                 // If rangeConjuncts is null, then the range was ALL, which should already have been checked for by callers
                 checkState(!rangeConjuncts.isEmpty());
-                disjuncts.add("(" + CONJUNCT_JOINER.join(rangeConjuncts) + ")");
+                disjuncts.add("(" + String.join(CONJUNCT_SEPARATOR, rangeConjuncts) + ")");
             }
         }
 
         if (singleValues.size() == 1) {
-            String equalsTest = format("(%s = %s)", columnName, getOnlyElement(singleValues));
+            String equalsTest = "(%s = %s)".formatted(columnName, getOnlyElement(singleValues));
             disjuncts.add(equalsTest);
         }
         else if (singleValues.size() > 1) {
-            String values = Joiner.on(", ").join(singleValues);
-            String inClause = format("(%s in (%s))", columnName, values);
+            String values = String.join(", ", singleValues);
+            String inClause = "(%s in (%s))".formatted(columnName, values);
 
             disjuncts.add(inClause);
         }
 
         if (domain.isNullAllowed()) {
-            disjuncts.add(format("(%s = '%s')", columnName, NULL_STRING));
+            disjuncts.add("(%s = '%s')".formatted(columnName, NULL_STRING));
         }
 
-        return Optional.of("(" + DISJUNCT_JOINER.join(disjuncts) + ")");
+        return Optional.of("(" + String.join(DISJUNCT_SEPARATOR, disjuncts) + ")");
     }
 }

@@ -28,7 +28,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.operator.annotations.FunctionsParserHelper.validateSignaturesCompatibility;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toUnmodifiableList;
 
 /**
  * This class represents set of three collections representing implementations of operators
@@ -160,7 +159,7 @@ public class ParametricImplementationsGroup<T extends ParametricImplementation>
             List<Argument> stripped = signature.getArguments().stream()
                     .map(Argument::type)
                     .map(Argument::of)
-                    .collect(toUnmodifiableList());
+                    .toList();
             return Signature.builder(signature).arguments(stripped).build();
         }
 

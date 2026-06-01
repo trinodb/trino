@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HivePageSinkMetadataProvider
@@ -50,7 +49,7 @@ public class HivePageSinkMetadataProvider
     {
         if (table.isEmpty() || table.get().getPartitionColumns().isEmpty()) {
             throw new IllegalArgumentException(
-                    format("Unexpected call to getPartition. Table name: %s", schemaTableName));
+                    "Unexpected call to getPartition. Table name: %s".formatted(schemaTableName));
         }
         Optional<Partition> modifiedPartition = modifiedPartitions.get(partitionValues);
         if (modifiedPartition == null) {
