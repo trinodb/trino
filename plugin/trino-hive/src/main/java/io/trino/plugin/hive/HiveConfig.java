@@ -74,6 +74,7 @@ public class HiveConfig
     private boolean singleStatementWritesOnly;
 
     private DataSize maxSplitSize = DataSize.of(64, MEGABYTE);
+    private DataSize parquetMaxSplitSize = DataSize.of(120, MEGABYTE);
     private int maxPartitionsPerScan = 1_000_000;
     private int maxPartitionsForEagerLoad = 100_000;
     private int maxOutstandingSplits = 3_000;
@@ -363,6 +364,20 @@ public class HiveConfig
     public HiveConfig setMaxSplitSize(DataSize maxSplitSize)
     {
         this.maxSplitSize = maxSplitSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getParquetMaxSplitSize()
+    {
+        return parquetMaxSplitSize;
+    }
+
+    @Config("hive.parquet.max-split-size")
+    @ConfigDescription("Largest size of a single file section assigned to a worker for Parquet files")
+    public HiveConfig setParquetMaxSplitSize(DataSize parquetMaxSplitSize)
+    {
+        this.parquetMaxSplitSize = parquetMaxSplitSize;
         return this;
     }
 

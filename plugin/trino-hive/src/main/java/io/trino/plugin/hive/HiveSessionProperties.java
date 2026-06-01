@@ -107,6 +107,7 @@ public final class HiveSessionProperties
     private static final String PARQUET_WRITER_BATCH_SIZE = "parquet_writer_batch_size";
     private static final String PARQUET_OPTIMIZED_WRITER_VALIDATION_PERCENTAGE = "parquet_optimized_writer_validation_percentage";
     private static final String MAX_SPLIT_SIZE = "max_split_size";
+    private static final String PARQUET_MAX_SPLIT_SIZE = "parquet_max_split_size";
     private static final String RCFILE_OPTIMIZED_WRITER_VALIDATE = "rcfile_optimized_writer_validate";
     private static final String SORTED_WRITING_ENABLED = "sorted_writing_enabled";
     private static final String PROPAGATE_TABLE_SCAN_SORTING_PROPERTIES = "propagate_table_scan_sorting_properties";
@@ -439,6 +440,11 @@ public final class HiveSessionProperties
                         MAX_SPLIT_SIZE,
                         "Max split size",
                         hiveConfig.getMaxSplitSize(),
+                        true),
+                dataSizeProperty(
+                        PARQUET_MAX_SPLIT_SIZE,
+                        "Max split size for Parquet files",
+                        hiveConfig.getParquetMaxSplitSize(),
                         true),
                 booleanProperty(
                         RCFILE_OPTIMIZED_WRITER_VALIDATE,
@@ -808,6 +814,11 @@ public final class HiveSessionProperties
     public static DataSize getMaxSplitSize(ConnectorSession session)
     {
         return session.getProperty(MAX_SPLIT_SIZE, DataSize.class);
+    }
+
+    public static DataSize getParquetMaxSplitSize(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_MAX_SPLIT_SIZE, DataSize.class);
     }
 
     public static boolean isRcfileOptimizedWriterValidate(ConnectorSession session)
