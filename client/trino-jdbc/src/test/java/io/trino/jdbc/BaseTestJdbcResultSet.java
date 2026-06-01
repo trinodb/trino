@@ -54,6 +54,7 @@ import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -62,6 +63,11 @@ public abstract class BaseTestJdbcResultSet
 {
     protected abstract Connection createConnection()
             throws SQLException;
+
+    protected String legacyCanonicalize(String value)
+    {
+        return value.toUpperCase(ENGLISH);
+    }
 
     @Test
     public void testDuplicateColumnLabels()
@@ -72,13 +78,13 @@ public abstract class BaseTestJdbcResultSet
             try (ResultSet rs = connectedStatement.getStatement().executeQuery("SELECT 123 x, 456 x")) {
                 ResultSetMetaData metadata = rs.getMetaData();
                 assertThat(metadata.getColumnCount()).isEqualTo(2);
-                assertThat(metadata.getColumnName(1)).isEqualTo("X");
-                assertThat(metadata.getColumnName(2)).isEqualTo("X");
+                assertThat(metadata.getColumnName(1)).isEqualTo(legacyCanonicalize("x"));
+                assertThat(metadata.getColumnName(2)).isEqualTo(legacyCanonicalize("x"));
 
                 assertThat(rs.next()).isTrue();
                 assertThat(rs.getLong(1)).isEqualTo(123L);
                 assertThat(rs.getLong(2)).isEqualTo(456L);
-                assertThat(rs.getLong("X")).isEqualTo(123L);
+                assertThat(rs.getLong(legacyCanonicalize("x"))).isEqualTo(123L);
             }
         }
     }

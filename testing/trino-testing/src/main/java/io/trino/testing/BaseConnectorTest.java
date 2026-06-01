@@ -260,6 +260,29 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testIssue17()
+    {
+        String tableName = "test_issue_17_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id VARCHAR)");
+
+        assertQueryReturnsEmptyResult(
+                """
+                WITH
+                t1 AS (
+                    SELECT NULL AS "address_id" FROM %1$s i1
+                        INNER JOIN %1$s i2 ON i1.id = i2.id),
+                t2 AS (
+                    SELECT "name" AS "address_id" FROM "nation"
+                    UNION
+                    SELECT * FROM t1)
+                SELECT * FROM t2
+                    INNER JOIN %1$s i ON i.id = t2."address_id"\
+                """.formatted(tableName));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testShowCreateSchema()
     {
         String schemaName = getSession().getSchema().orElseThrow();

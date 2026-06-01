@@ -20,12 +20,23 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.trino.JdbcDriverCapabilities.testedVersion;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJdbcResultSetCompatibilityOldDriver
         extends TestJdbcResultSet
 {
+    private static final int SUPPORT_CANONICALIZER = 482;
     private static final Optional<Integer> VERSION_UNDER_TEST = testedVersion();
+
+    @Override
+    protected String legacyCanonicalize(String value)
+    {
+        if (VERSION_UNDER_TEST.isPresent() && SUPPORT_CANONICALIZER > VERSION_UNDER_TEST.get()) {
+            return value.toLowerCase(ENGLISH);
+        }
+        return value.toUpperCase(ENGLISH);
+    }
 
     @Test
     public void ensureProperTestVersionLoaded()

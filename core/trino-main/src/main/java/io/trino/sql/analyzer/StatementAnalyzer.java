@@ -2404,7 +2404,7 @@ class StatementAnalyzer
         {
             // is this a reference to a WITH query?
             if (table.getName().getPrefix().isEmpty()) {
-                Resolver resolver = plannerContext.getQueryResolver(session, scope);
+                Resolver resolver = plannerContext.getResolverManager().getWithResolver();
                 QualifiedName tableName = QualifiedName.of(resolver.getCanonicalizer(), table.getName());
                 Optional<WithQuery> withQuery = createScope(scope).getNamedQuery(tableName.getSuffix());
                 if (withQuery.isPresent()) {
@@ -2418,6 +2418,7 @@ class StatementAnalyzer
                     // adjust local and outer parent scopes accordingly to the local context of the recursive reference
                     Scope resultScope = scopeBuilder(scope)
                             .withRelationType(baseScope.getRelationId(), baseScope.getRelationType())
+                            .withResolver(baseScope.getResolver())
                             .build();
                     analysis.setScope(table, resultScope);
                     analysis.setRelationName(table, tableName);
@@ -2514,7 +2515,7 @@ class StatementAnalyzer
             analysis.registerTable(table, tableHandle, targetTableName, getBranchName(table), session.getIdentity().getUser(), accessControlScope, Optional.empty());
 
             // FIXME: To be able to have working JOIN and MERGE clause then we need to inject the connector resolver in tableScope
-            Scope tableScope = createAndAssignScope(resolver, table, scope, outputFields);
+            Scope tableScope = createAndAssignScope(scope.map(s -> s.getResolver().orElse(resolver)).orElse(resolver), table, scope, outputFields);
 
             if (addRowIdColumn) {
                 FieldReference reference = new FieldReference(outputFields.size() - 1);
@@ -2904,7 +2905,7 @@ class StatementAnalyzer
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
             for (ColumnSchema column : tableSchema.columns()) {
                 Field field = Field.newQualified(
-                        QualifiedName.of(resolver::canonicalize, table.getName()),
+                        QualifiedName.of(resolver.getCanonicalizer(), table.getName()),
                         Optional.of(column.getName()),
                         column.getType(),
                         column.isHidden(),
@@ -3323,9 +3324,8 @@ class StatementAnalyzer
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope.orElseThrow());
-            // FIXME: For queries other than WITH, the query scope resolver must be propagated to the outer query.
-            Optional<Resolver> resolver = plannerContext.getResolverManager().isWithQuery() ? Optional.empty() : queryScope.getResolver();
-            return createAndAssignScope(resolver, node, scope, queryScope.getRelationType());
+            // FIXME: The query scope resolver must be propagated to the outer query.
+            return createAndAssignScope(queryScope.getResolver(), node, scope, queryScope.getRelationType());
        }
 
         private String getScopeInfo(Optional<Scope> scope)
@@ -5788,13 +5788,12 @@ class StatementAnalyzer
             if (node.getWith().isEmpty()) {
                 return createScope(scope);
             }
-            // FIXME: For WITH clause we use the WITH resolver (ie: Identity canonicalizer)
+            // FIXME: For WITH clause we use the WITH resolver (ie: UPPERCASE_CANONICALIZER)
             Resolver resolver = plannerContext.getResolverManager().getWithResolver();
-            plannerContext.getResolverManager().setQueryResolver(session, resolver);
 
             // analyze WITH clause
             With with = node.getWith().get();
-            Scope.Builder withScopeBuilder = scopeBuilder(scope);
+            Scope.Builder withScopeBuilder = scopeBuilder(scope, Optional.of(resolver));
 
             for (WithQuery withQuery : with.getQueries()) {
 

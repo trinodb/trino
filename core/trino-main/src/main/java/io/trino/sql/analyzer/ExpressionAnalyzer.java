@@ -891,8 +891,8 @@ public class ExpressionAnalyzer
             }
 
             Identifier field = node.getField().orElseThrow();
-            // FIXME: field will bee compared case insensitive
-            String fieldName = field.getCanonicalValue();
+            // FIXME: field will bee canonicalized
+            String fieldName = resolver.canonicalize(field);
 
             boolean foundFieldName = false;
             Type rowFieldType = null;

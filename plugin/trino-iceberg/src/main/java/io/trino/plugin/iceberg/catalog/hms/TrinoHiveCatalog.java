@@ -177,10 +177,6 @@ public class TrinoHiveCatalog
     @Override
     public boolean namespaceExists(ConnectorSession session, String namespace)
     {
-        if (!namespace.equals(namespace.toLowerCase(ENGLISH))) {
-            // Currently, Trino schemas are always lowercase, so this one cannot exist (https://github.com/trinodb/trino/issues/17)
-            return false;
-        }
         if (HiveUtil.isHiveSystemSchema(namespace)) {
             return false;
         }

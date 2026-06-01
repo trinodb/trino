@@ -40,7 +40,6 @@ public class ResolverManager
 
     private final Map<String, Resolver> resolvers = new ConcurrentHashMap<>();
     private final Map<String, String> queries = new ConcurrentHashMap<>();
-    private boolean isWithQuery;
 
     public ResolverManager() {}
 
@@ -68,14 +67,8 @@ public class ResolverManager
         return Optional.empty();
     }
 
-    public Boolean isWithQuery()
-    {
-        return isWithQuery;
-    }
-
     public Resolver getWithResolver()
     {
-        isWithQuery = true;
         return WITH_RESOLVER;
     }
 

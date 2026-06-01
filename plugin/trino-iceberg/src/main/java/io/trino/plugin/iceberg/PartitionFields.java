@@ -175,7 +175,7 @@ public final class PartitionFields
         // Currently, all Iceberg columns are stored in lowercase in the Iceberg metadata files.
         // Unquoted identifiers are canonicalized to lowercase here which is not according ANSI SQL spec.
         // See https://github.com/trinodb/trino/issues/17
-        return identifier.toLowerCase(ENGLISH);
+        return identifier;
     }
 
     private static boolean tryMatch(CharSequence value, Pattern pattern, Consumer<MatchResult> match)
