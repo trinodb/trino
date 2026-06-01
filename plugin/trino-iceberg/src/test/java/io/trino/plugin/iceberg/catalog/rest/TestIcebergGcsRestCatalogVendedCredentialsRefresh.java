@@ -43,10 +43,10 @@ import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.iceberg.CatalogProperties.FILE_IO_IMPL;
 
-final class TestIcebergGcsRestCatalogVendedCredentialsRefreshTest
-        extends AbstractTestIcebergRestCatalogVendedCredentialsRefreshTest
+final class TestIcebergGcsRestCatalogVendedCredentialsRefresh
+        extends AbstractTestIcebergRestCatalogVendedCredentialsRefresh
 {
-    private static final Logger LOG = Logger.get(TestIcebergGcsRestCatalogVendedCredentialsRefreshTest.class);
+    private static final Logger LOG = Logger.get(TestIcebergGcsRestCatalogVendedCredentialsRefresh.class);
 
     private final String gcpCredentialKey = requiredNonEmptySystemProperty("testing.gcp-credentials-key");
     private final String gcpStorageBucket = requiredNonEmptySystemProperty("testing.gcp-storage-bucket");
