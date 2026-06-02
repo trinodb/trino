@@ -27,6 +27,9 @@ Geographic coordinates are spherical coordinates expressed in angular units (deg
 The basis for the `Geometry` type is a plane. The shortest path between two points on the plane is a
 straight line. That means calculations on geometries (areas, distances, lengths, intersections, etc.)
 can be calculated using cartesian mathematics and straight line vectors.
+Geometry values can include Z coordinates. Trino preserves Z coordinates in
+geometry values and format round trips, but geometry calculations are planar and
+use the X and Y coordinates.
 
 The basis for the `SphericalGeography` type is a sphere. The shortest path between two points on the
 sphere is a great circle arc. That means that calculations on geographies (areas, distances,
@@ -47,7 +50,7 @@ returns `312822.179` in meters.
 ## Constructors
 
 :::{function} ST_AsBinary(Geometry) -> varbinary
-Returns the WKB representation of the geometry.
+Returns the ISO WKB representation of the geometry.
 :::
 
 :::{function} ST_AsText(Geometry) -> varchar
@@ -56,12 +59,22 @@ Returns the WKT representation of the geometry. For empty geometries,
 and `ST_AsText(ST_Polygon('POLYGON EMPTY'))` will produce `'MULTIPOLYGON EMPTY'`.
 :::
 
+:::{function} ST_AsEWKT(Geometry) -> varchar
+Returns the EWKT representation of the geometry, including the SRID when it is
+non-zero.
+:::
+
 :::{function} ST_GeometryFromText(varchar) -> Geometry
 Returns a geometry type object from WKT representation.
 :::
 
 :::{function} ST_GeomFromBinary(varbinary) -> Geometry
 Returns a geometry type object from WKB or EWKB representation.
+:::
+
+:::{function} ST_GeomFromEWKT(varchar) -> Geometry
+Returns a geometry type object from EWKT representation. EWKT accepts WKT with
+an optional `SRID=<srid>;` prefix.
 :::
 
 :::{function} ST_GeomFromKML(varchar) -> Geometry
@@ -79,7 +92,8 @@ Returns a geometry type linestring object from WKT representation.
 :::{function} ST_LineString(array(Point)) -> LineString
 Returns a LineString formed from an array of points. If there are fewer than
 two non-empty points in the input array, an empty LineString will be returned.
-Array elements must not be `NULL` or the same as the previous element.
+Array elements must not be `NULL` or have the same X, Y, and Z coordinates as
+the previous element.
 The returned geometry may not be simple, e.g. may self-intersect or may contain
 duplicate vertexes depending on the input.
 :::
@@ -90,8 +104,37 @@ Array elements must not be `NULL` or empty.
 The returned geometry may not be simple and may contain duplicate points if input array has duplicates.
 :::
 
-:::{function} ST_Point(lon: double, lat: double) -> Point
+:::{function} ST_Point(x: double, y: double) -> Point
 Returns a geometry type point object with the given coordinate values.
+:::
+
+:::{function} ST_Point(x: double, y: double, srid: integer) -> Point
+:noindex: true
+
+Returns a two-dimensional point with the given X and Y coordinate values and
+SRID.
+:::
+
+:::{function} ST_Point(x: double, y: double, z: double) -> Point
+:noindex: true
+
+Returns a geometry type point object with the given X, Y, and Z coordinate
+values. The Z coordinate must be finite.
+:::
+
+:::{warning}
+The SQL type of the third argument selects between the three-argument
+overloads. An `INTEGER` third argument is interpreted as the SRID, while a
+`DOUBLE` third argument is interpreted as the Z coordinate. Cast the argument
+explicitly when necessary. For example, use `ST_Point(1, 2, DOUBLE '3')` to
+construct a point with Z coordinate `3`.
+:::
+
+:::{function} ST_Point(x: double, y: double, z: double, srid: integer) -> Point
+:noindex: true
+
+Returns a geometry type point object with the given X, Y, and Z coordinate
+values and SRID. The Z coordinate must be finite.
 :::
 
 :::{function} ST_Polygon(varchar) -> Polygon
@@ -360,6 +403,11 @@ Returns the X coordinate of the point.
 
 :::{function} ST_Y(Point) -> double
 Returns the Y coordinate of the point.
+:::
+
+:::{function} ST_Z(Point) -> double
+Returns the Z coordinate of the point, or `NULL` if the point is empty or does
+not have a Z coordinate.
 :::
 
 :::{function} ST_InteriorRings(Geometry) -> array(Geometry)

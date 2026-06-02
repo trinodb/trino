@@ -17,8 +17,11 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.geospatial.GeometryType;
 import org.junit.jupiter.api.Test;
+import org.locationtech.jts.geom.CoordinateXYM;
+import org.locationtech.jts.geom.CoordinateXYZM;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKBWriter;
 import org.locationtech.jts.io.WKTReader;
@@ -37,12 +40,15 @@ import static io.trino.geospatial.serde.JtsGeometrySerde.deserializeType;
 import static io.trino.geospatial.serde.JtsGeometrySerde.ewkbToWkb;
 import static io.trino.geospatial.serde.JtsGeometrySerde.extractSrid;
 import static io.trino.geospatial.serde.JtsGeometrySerde.serialize;
+import static io.trino.geospatial.serde.JtsGeometrySerde.serializeWithoutSrid;
 import static io.trino.geospatial.serde.JtsGeometrySerde.wkbToEwkb;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestGeometrySerialization
 {
+    private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
+
     @Test
     public void testPoint()
     {
@@ -150,6 +156,30 @@ public class TestGeometrySerialization
     }
 
     @Test
+    public void testPointWithZRoundTrip()
+    {
+        testSerializationWithZ("POINT Z (1 2 3)", 3.0);
+    }
+
+    @Test
+    public void testLineStringWithZRoundTrip()
+    {
+        testSerializationWithZ("LINESTRING Z (0 1 2, 3 4 5)", 5.0);
+    }
+
+    @Test
+    public void testPolygonWithZRoundTrip()
+    {
+        testSerializationWithZ("POLYGON Z ((0 0 1, 0 1 2, 1 1 3, 0 0 1))", 3.0);
+    }
+
+    @Test
+    public void testGeometryCollectionWithZRoundTrip()
+    {
+        testSerializationWithZ("GEOMETRYCOLLECTION (POINT Z (1 2 3), LINESTRING (4 5, 6 7))", 3.0);
+    }
+
+    @Test
     public void testCrsToSridRejectsNonPositiveEpsgCodes()
     {
         assertThat(crsToSrid("EPSG:3857")).isEqualTo(3857);
@@ -175,17 +205,97 @@ public class TestGeometrySerialization
     }
 
     @Test
-    public void testRejectsWkbWithMoreThanTwoCoordinateDimensions()
+    public void testSridHelpersPreserveZ()
     {
         Geometry geometry = createJtsGeometry("POINT Z (1 2 3)");
 
         Slice wkb = Slices.wrappedBuffer(new WKBWriter(3, false).write(geometry));
-        assertThatThrownBy(() -> wkbToEwkb(wkb, 4326))
-                .hasMessage("Geospatial values with more than 2 coordinate dimensions are not supported");
+        Slice ewkb = wkbToEwkb(wkb, 4326);
+        assertThat(extractSrid(ewkb)).isEqualTo(4326);
+        assertThat(deserialize(ewkb).getCoordinate().getZ()).isEqualTo(3.0);
 
-        Slice ewkb = Slices.wrappedBuffer(new WKBWriter(3, true).write(geometry));
-        assertThatThrownBy(() -> ewkbToWkb(ewkb))
-                .hasMessage("Geospatial values with more than 2 coordinate dimensions are not supported");
+        Slice stripped = ewkbToWkb(ewkb);
+        assertThat(extractSrid(stripped)).isEqualTo(0);
+        assertThat(deserialize(stripped).getCoordinate().getZ()).isEqualTo(3.0);
+    }
+
+    @Test
+    public void testSridHelpersRejectMeasureCoordinates()
+    {
+        Slice mWkb = Slices.wrappedBuffer(new byte[] {1, 1, 0, 0, 0x40});
+        assertThatThrownBy(() -> wkbToEwkb(mWkb, 4326))
+                .hasMessage("Geospatial values with measure coordinates are not supported");
+
+        Slice mEwkb = Slices.wrappedBuffer(new byte[] {1, 1, 0, 0, 0x40, 0, 0, 0, 0});
+        assertThatThrownBy(() -> ewkbToWkb(mEwkb))
+                .hasMessage("Geospatial values with measure coordinates are not supported");
+    }
+
+    @Test
+    public void testSerializeRejectsMeasureCoordinates()
+    {
+        Geometry pointWithM = GEOMETRY_FACTORY.createPoint(new CoordinateXYM(1, 2, 3));
+        assertThatThrownBy(() -> serialize(pointWithM))
+                .hasMessage("Geospatial values with measure coordinates are not supported");
+        assertThatThrownBy(() -> serializeWithoutSrid(pointWithM))
+                .hasMessage("Geospatial values with measure coordinates are not supported");
+
+        Geometry pointWithZAndM = GEOMETRY_FACTORY.createPoint(new CoordinateXYZM(1, 2, 3, 4));
+        assertThatThrownBy(() -> serialize(pointWithZAndM))
+                .hasMessage("Geospatial values with measure coordinates are not supported");
+        assertThatThrownBy(() -> serializeWithoutSrid(pointWithZAndM))
+                .hasMessage("Geospatial values with measure coordinates are not supported");
+    }
+
+    @Test
+    public void testSerializeWithoutSridPreservesZ()
+    {
+        Geometry geometry = createJtsGeometry("POINT Z (1 2 3)");
+        geometry.setSRID(4326);
+
+        Slice wkb = serializeWithoutSrid(geometry);
+        Geometry deserialized = deserialize(wkb);
+
+        assertThat(deserialized.getSRID()).isEqualTo(0);
+        assertThat(deserialized.getCoordinate().getZ()).isEqualTo(3.0);
+    }
+
+    @Test
+    public void testSerializeWithoutSridUsesIsoZTypeCodes()
+    {
+        assertIsoZType("POINT Z (1 2 3)", 1001);
+        assertIsoZType("LINESTRING Z (0 0 1, 1 1 2)", 1002);
+        assertIsoZType("POLYGON Z ((0 0 1, 0 1 2, 1 0 3, 0 0 1))", 1003);
+        assertIsoZType("MULTIPOINT Z ((0 0 1), (1 1 2))", 1004);
+        assertIsoZType("MULTILINESTRING Z ((0 0 1, 1 1 2))", 1005);
+        assertIsoZType("MULTIPOLYGON Z (((0 0 1, 0 1 2, 1 0 3, 0 0 1)))", 1006);
+        assertIsoZType("GEOMETRYCOLLECTION Z (POINT Z (0 0 1))", 1007);
+
+        Slice collection = serializeWithoutSrid(createJtsGeometry("GEOMETRYCOLLECTION Z (POINT Z (0 0 1), LINESTRING Z (0 0 2, 1 1 3))"));
+        assertThat(readWkbType(collection, 0)).isEqualTo(1007);
+        assertThat(readWkbType(collection, 9)).isEqualTo(1001);
+        assertThat(readWkbType(collection, 38)).isEqualTo(1002);
+    }
+
+    private static void assertIsoZType(String wkt, int expectedType)
+    {
+        Slice wkb = serializeWithoutSrid(createJtsGeometry(wkt));
+        assertThat(readWkbType(wkb, 0)).isEqualTo(expectedType);
+    }
+
+    private static int readWkbType(Slice slice, int geometryOffset)
+    {
+        int offset = geometryOffset + 1;
+        if (slice.getByte(geometryOffset) == 0) {
+            return ((slice.getByte(offset) & 0xFF) << 24) |
+                    ((slice.getByte(offset + 1) & 0xFF) << 16) |
+                    ((slice.getByte(offset + 2) & 0xFF) << 8) |
+                    (slice.getByte(offset + 3) & 0xFF);
+        }
+        return (slice.getByte(offset) & 0xFF) |
+                ((slice.getByte(offset + 1) & 0xFF) << 8) |
+                ((slice.getByte(offset + 2) & 0xFF) << 16) |
+                ((slice.getByte(offset + 3) & 0xFF) << 24);
     }
 
     @Test
@@ -286,6 +396,18 @@ public class TestGeometrySerialization
 
         assertThat(deserialized.norm()).isEqualTo(geometry.norm());
         assertThat(deserialized.getSRID()).isEqualTo(srid);
+    }
+
+    private static void testSerializationWithZ(String wkt, double expectedZ)
+    {
+        Geometry geometry = createJtsGeometry(wkt);
+        Slice serialized = serialize(geometry);
+        Geometry deserialized = deserialize(serialized);
+
+        assertThat(deserialized.norm()).isEqualTo(geometry.norm());
+        assertThat(deserialized.getCoordinates())
+                .extracting(coordinate -> coordinate.getZ())
+                .contains(expectedZ);
     }
 
     private static Slice geometryFromText(String wkt)
