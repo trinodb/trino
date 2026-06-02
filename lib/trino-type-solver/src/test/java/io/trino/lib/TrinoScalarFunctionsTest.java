@@ -107,6 +107,21 @@ public class TrinoScalarFunctionsTest
     }
 
     @Test
+    void testDecimalRoundingResolvesToDecimal()
+    {
+        // ceil/floor/round(decimal(10, 2)) -> decimal(min(38, 10 - 2 + min(2, 1)), 0) = decimal(9, 0).
+        for (String name : List.of("ceil", "ceiling", "floor", "round")) {
+            assertThat(LIBRARY.resolveFunction(name, List.of(apply("decimal", literal(10), literal(2)))))
+                    .isInstanceOfSatisfying(FunctionResolver.Resolved.class, r ->
+                            assertThat(r.resolution().returnType()).isEqualTo(apply("decimal", literal(9), literal(0))));
+        }
+        // sign(decimal(10, 2)) -> decimal(1, 0).
+        assertThat(LIBRARY.resolveFunction("sign", List.of(apply("decimal", literal(10), literal(2)))))
+                .isInstanceOfSatisfying(FunctionResolver.Resolved.class, r ->
+                        assertThat(r.resolution().returnType()).isEqualTo(apply("decimal", literal(1), literal(0))));
+    }
+
+    @Test
     void testPiIsZeroArg()
     {
         assertThat(LIBRARY.resolveFunction("pi", List.of()))

@@ -24,6 +24,7 @@ import java.util.List;
 import static org.weakref.solver.Expression.BinaryOperator.ADD;
 import static org.weakref.solver.Expression.BinaryOperator.MIN;
 import static org.weakref.solver.Expression.BinaryOperator.MULTIPLY;
+import static org.weakref.solver.Expression.BinaryOperator.SUBTRACT;
 import static org.weakref.solver.Expression.apply;
 import static org.weakref.solver.Expression.function;
 import static org.weakref.solver.Expression.literal;
@@ -167,6 +168,24 @@ public final class TrinoScalarFunctions
         builder.registerFunction("round", function(List.of(symbol("integer")), symbol("integer")));
         builder.registerFunction("round", function(List.of(symbol("number")), symbol("number")));
         builder.registerFunction("round", function(List.of(symbol("number"), symbol("integer")), symbol("number")));
+        // Decimal ceil/floor/round to an integer-valued decimal: decimal(min(38, p - s + min(s, 1)), 0).
+        TypeScheme decimalRoundToInteger = new TypeScheme(
+                List.of(variable("@p"), variable("@s")),
+                List.of(),
+                function(
+                        List.of(apply("decimal", variable("@p"), variable("@s"))),
+                        apply("decimal",
+                                operation(
+                                        MIN,
+                                        literal(38),
+                                        operation(
+                                                ADD,
+                                                operation(SUBTRACT, variable("@p"), variable("@s")),
+                                                operation(MIN, variable("@s"), literal(1)))),
+                                literal(0))));
+        for (String name : List.of("ceil", "ceiling", "floor", "round")) {
+            builder.registerFunction(name, decimalRoundToInteger);
+        }
         builder.registerFunction("truncate", function(List.of(symbol("double")), symbol("double")));
         builder.registerFunction("truncate", function(List.of(symbol("double"), symbol("integer")), symbol("double")));
         builder.registerFunction("truncate", function(List.of(symbol("number")), symbol("number")));
@@ -204,6 +223,11 @@ public final class TrinoScalarFunctions
         builder.registerFunction("sign", function(List.of(symbol("double")), symbol("double")));
         builder.registerFunction("sign", function(List.of(symbol("real")), symbol("real")));
         builder.registerFunction("sign", function(List.of(symbol("number")), symbol("number")));
+        // sign(decimal(p, s)) -> decimal(1, 0).
+        builder.registerFunction("sign", new TypeScheme(
+                List.of(variable("@p"), variable("@s")),
+                List.of(),
+                function(List.of(apply("decimal", variable("@p"), variable("@s"))), apply("decimal", literal(1), literal(0)))));
         builder.registerFunction("mod", function(List.of(symbol("bigint"), symbol("bigint")), symbol("bigint")));
         builder.registerFunction("mod", function(List.of(symbol("integer"), symbol("integer")), symbol("integer")));
         builder.registerFunction("mod", function(List.of(symbol("double"), symbol("double")), symbol("double")));
