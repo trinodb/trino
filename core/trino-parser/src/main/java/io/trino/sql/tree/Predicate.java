@@ -30,6 +30,7 @@ public abstract sealed class Predicate
                 IsNullPredicate,
                 LikePredicate,
                 MatchPredicate,
+                MemberPredicate,
                 OverlapsPredicate,
                 QuantifiedComparisonPredicate,
                 SetPredicate,
