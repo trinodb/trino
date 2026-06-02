@@ -367,6 +367,24 @@ public final class TrinoPreset
                 new PatternCoercion(apply("timestamp", variable("@p")), symbol("date"), List.of()),
                 new PatternCoercion(apply("timestamp_with_time_zone", variable("@p1")), apply("timestamp", variable("@p2")), List.of()),
                 new PatternCoercion(apply("time_with_time_zone", variable("@p1")), apply("time", variable("@p2")), List.of()),
+                // time / time-with-time-zone explicit casts (the implicit rules only cover widening).
+                // Casting to a timestamp target combines the time with the current date.
+                new PatternCoercion(apply("time", variable("@p1")), apply("time", variable("@p2")), List.of()),
+                new PatternCoercion(apply("time", variable("@p1")), apply("time_with_time_zone", variable("@p2")), List.of()),
+                new PatternCoercion(apply("time", variable("@p1")), apply("timestamp", variable("@p2")), List.of()),
+                new PatternCoercion(apply("time", variable("@p1")), apply("timestamp_with_time_zone", variable("@p2")), List.of()),
+                new PatternCoercion(apply("time_with_time_zone", variable("@p1")), apply("timestamp", variable("@p2")), List.of()),
+                new PatternCoercion(apply("time_with_time_zone", variable("@p1")), apply("timestamp_with_time_zone", variable("@p2")), List.of()),
+                new PatternCoercion(apply("time_with_time_zone", variable("@p1")), apply("time_with_time_zone", variable("@p2")), List.of()),
+                // timestamp / timestamp-with-time-zone explicit casts (implicit rules only widen).
+                new PatternCoercion(apply("timestamp", variable("@p1")), apply("timestamp", variable("@p2")), List.of()),
+                new PatternCoercion(apply("timestamp", variable("@p1")), apply("timestamp_with_time_zone", variable("@p2")), List.of()),
+                new PatternCoercion(apply("timestamp", variable("@p1")), apply("time", variable("@p2")), List.of()),
+                new PatternCoercion(apply("timestamp", variable("@p1")), apply("time_with_time_zone", variable("@p2")), List.of()),
+                new PatternCoercion(apply("timestamp_with_time_zone", variable("@p")), symbol("date"), List.of()),
+                new PatternCoercion(apply("timestamp_with_time_zone", variable("@p1")), apply("time", variable("@p2")), List.of()),
+                new PatternCoercion(apply("timestamp_with_time_zone", variable("@p1")), apply("time_with_time_zone", variable("@p2")), List.of()),
+                new PatternCoercion(apply("timestamp_with_time_zone", variable("@p1")), apply("timestamp_with_time_zone", variable("@p2")), List.of()),
 
                 // Decimal narrowing (any decimal → any decimal, cast-only).
                 new PatternCoercion(

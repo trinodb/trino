@@ -185,6 +185,19 @@ public class CastTest
     }
 
     @Test
+    void testTemporalToTemporalCasts()
+    {
+        // time -> timestamp (combines with current date), time precision narrowing, zoned conversions.
+        assertThat(LIBRARY.resolveCast(apply("time", literal(3)), apply("timestamp", literal(6)))).isPresent();
+        assertThat(LIBRARY.resolveCast(apply("time", literal(6)), apply("time", literal(0)))).isPresent();
+        assertThat(LIBRARY.resolveCast(apply("time", literal(3)), apply("timestamp_with_time_zone", literal(3)))).isPresent();
+        assertThat(LIBRARY.resolveCast(apply("timestamp", literal(6)), apply("time", literal(3)))).isPresent();
+        assertThat(LIBRARY.resolveCast(apply("timestamp", literal(6)), apply("timestamp", literal(0)))).isPresent();
+        assertThat(LIBRARY.resolveCast(apply("timestamp_with_time_zone", literal(6)), symbol("date"))).isPresent();
+        assertThat(LIBRARY.resolveCast(apply("timestamp_with_time_zone", literal(6)), apply("time", literal(3)))).isPresent();
+    }
+
+    @Test
     void testNumberCasts()
     {
         // boolean -> number and number -> json are cast-only conversions Trino allows.
