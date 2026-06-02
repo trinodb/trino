@@ -1010,7 +1010,7 @@ public final class DomainTranslator
             }
 
             Expression prefix = args.get(1);
-            if (!(prefix instanceof Constant literal && literal.type().equals(VarcharType.VARCHAR))) {
+            if (!(prefix instanceof Constant literal && literal.type() instanceof VarcharType)) {
                 // dynamic pattern
                 return Optional.empty();
             }
