@@ -46,10 +46,24 @@ public class TrinoScalarFunctionsTest
     }
 
     @Test
-    void testUpperWithBoundedVarcharCoerces()
+    void testStringFunctionsPreserveVarcharLength()
     {
-        // upper(varchar(10)) — varchar(10) widens to unbounded varchar.
-        assertThat(LIBRARY.resolveFunction("upper", List.of(apply("varchar", literal(10)))))
+        // Length-preserving functions return varchar(x) for varchar(x), like Trino.
+        for (String name : List.of("upper", "lower", "title_case", "trim", "ltrim", "rtrim", "reverse")) {
+            assertThat(LIBRARY.resolveFunction(name, List.of(apply("varchar", literal(10)))))
+                    .isInstanceOfSatisfying(FunctionResolver.Resolved.class, r ->
+                            assertThat(r.resolution().returnType()).isEqualTo(apply("varchar", literal(10))));
+        }
+        // substr/substring preserve the source length.
+        assertThat(LIBRARY.resolveFunction("substr", List.of(apply("varchar", literal(10)), symbol("bigint"))))
+                .isInstanceOfSatisfying(FunctionResolver.Resolved.class, r ->
+                        assertThat(r.resolution().returnType()).isEqualTo(apply("varchar", literal(10))));
+        // replace(varchar(10), varchar(2), varchar(2)) -> varchar(10 + 2 * (10 + 1)) = varchar(32).
+        assertThat(LIBRARY.resolveFunction("replace", List.of(apply("varchar", literal(10)), apply("varchar", literal(2)), apply("varchar", literal(2)))))
+                .isInstanceOfSatisfying(FunctionResolver.Resolved.class, r ->
+                        assertThat(r.resolution().returnType()).isEqualTo(apply("varchar", literal(32))));
+        // Unbounded varchar still resolves to unbounded varchar.
+        assertThat(LIBRARY.resolveFunction("upper", List.of(symbol("varchar"))))
                 .isInstanceOfSatisfying(FunctionResolver.Resolved.class, r ->
                         assertThat(r.resolution().returnType()).isEqualTo(symbol("varchar")));
     }

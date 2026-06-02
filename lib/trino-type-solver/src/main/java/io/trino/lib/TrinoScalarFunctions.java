@@ -13,6 +13,7 @@
  */
 package io.trino.lib;
 
+import org.weakref.solver.Expression;
 import org.weakref.solver.RequireComparable;
 import org.weakref.solver.RequireOrderable;
 import org.weakref.solver.TypeLibrary;
@@ -20,8 +21,13 @@ import org.weakref.solver.TypeScheme;
 
 import java.util.List;
 
+import static org.weakref.solver.Expression.BinaryOperator.ADD;
+import static org.weakref.solver.Expression.BinaryOperator.MIN;
+import static org.weakref.solver.Expression.BinaryOperator.MULTIPLY;
 import static org.weakref.solver.Expression.apply;
 import static org.weakref.solver.Expression.function;
+import static org.weakref.solver.Expression.literal;
+import static org.weakref.solver.Expression.operation;
 import static org.weakref.solver.Expression.symbol;
 import static org.weakref.solver.Expression.variable;
 import static org.weakref.solver.Expression.variadicFunction;
@@ -63,18 +69,37 @@ public final class TrinoScalarFunctions
                 List.of(),
                 List.of(),
                 variadicFunction(List.of(symbol("varchar"), symbol("varchar")), symbol("varchar"), symbol("varchar"))));
-        builder.registerFunction("substr", function(List.of(symbol("varchar"), symbol("bigint")), symbol("varchar")));
-        builder.registerFunction("substr", function(List.of(symbol("varchar"), symbol("bigint"), symbol("bigint")), symbol("varchar")));
-        builder.registerFunction("substring", function(List.of(symbol("varchar"), symbol("bigint")), symbol("varchar")));
-        builder.registerFunction("substring", function(List.of(symbol("varchar"), symbol("bigint"), symbol("bigint")), symbol("varchar")));
-        builder.registerFunction("upper", function(List.of(symbol("varchar")), symbol("varchar")));
-        builder.registerFunction("lower", function(List.of(symbol("varchar")), symbol("varchar")));
-        builder.registerFunction("trim", function(List.of(symbol("varchar")), symbol("varchar")));
-        builder.registerFunction("ltrim", function(List.of(symbol("varchar")), symbol("varchar")));
-        builder.registerFunction("rtrim", function(List.of(symbol("varchar")), symbol("varchar")));
+        // Length-preserving varchar functions: Trino returns varchar(x) for a varchar(x) input.
+        // The unbounded overload keeps unbounded-varchar input resolving; coercion-count
+        // specificity prefers the exact bounded overload when the argument has a length.
+        for (String name : List.of("upper", "lower", "title_case", "trim", "ltrim", "rtrim", "reverse")) {
+            builder.registerFunction(name, function(List.of(symbol("varchar")), symbol("varchar")));
+            builder.registerFunction(name, varcharLengthPreserving(List.of(apply("varchar", variable("@x"))), variable("@x")));
+        }
+        for (String name : List.of("substr", "substring")) {
+            builder.registerFunction(name, function(List.of(symbol("varchar"), symbol("bigint")), symbol("varchar")));
+            builder.registerFunction(name, function(List.of(symbol("varchar"), symbol("bigint"), symbol("bigint")), symbol("varchar")));
+            builder.registerFunction(name, varcharLengthPreserving(List.of(apply("varchar", variable("@x")), symbol("bigint")), variable("@x")));
+            builder.registerFunction(name, varcharLengthPreserving(List.of(apply("varchar", variable("@x")), symbol("bigint"), symbol("bigint")), variable("@x")));
+        }
+
+        // replace(varchar(x), varchar(y)) -> varchar(x); the removal form cannot grow the string.
         builder.registerFunction("replace", function(List.of(symbol("varchar"), symbol("varchar")), symbol("varchar")));
+        builder.registerFunction("replace", new TypeScheme(
+                List.of(variable("@x"), variable("@y")),
+                List.of(),
+                function(List.of(apply("varchar", variable("@x")), apply("varchar", variable("@y"))), apply("varchar", variable("@x")))));
+        // replace(varchar(x), varchar(y), varchar(z)) -> varchar(min(2147483647, x + z * (x + 1))).
         builder.registerFunction("replace", function(List.of(symbol("varchar"), symbol("varchar"), symbol("varchar")), symbol("varchar")));
-        builder.registerFunction("reverse", function(List.of(symbol("varchar")), symbol("varchar")));
+        builder.registerFunction("replace", new TypeScheme(
+                List.of(variable("@x"), variable("@y"), variable("@z")),
+                List.of(),
+                function(
+                        List.of(apply("varchar", variable("@x")), apply("varchar", variable("@y")), apply("varchar", variable("@z"))),
+                        apply("varchar", operation(
+                                MIN,
+                                literal(2147483647),
+                                operation(ADD, variable("@x"), operation(MULTIPLY, variable("@z"), operation(ADD, variable("@x"), literal(1)))))))));
         builder.registerFunction("repeat", new TypeScheme(
                 List.of(variable("@T")),
                 List.of(),
@@ -107,6 +132,14 @@ public final class TrinoScalarFunctions
         builder.registerFunction("normalize", function(List.of(symbol("varchar")), symbol("varchar")));
         builder.registerFunction("normalize", function(List.of(symbol("varchar"), symbol("varchar")), symbol("varchar")));
         builder.registerFunction("hamming_distance", function(List.of(symbol("varchar"), symbol("varchar")), symbol("bigint")));
+    }
+
+    private static TypeScheme varcharLengthPreserving(List<Expression> parameterTypes, Expression length)
+    {
+        return new TypeScheme(
+                List.of(variable("@x")),
+                List.of(),
+                function(parameterTypes, apply("varchar", length)));
     }
 
     private static void registerNumericFunctions(TypeLibrary.Builder builder)
