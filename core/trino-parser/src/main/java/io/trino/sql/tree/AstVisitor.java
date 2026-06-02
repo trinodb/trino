@@ -517,6 +517,11 @@ public abstract class AstVisitor<R, C>
         return visitPredicate(node, context);
     }
 
+    protected R visitMemberPredicate(MemberPredicate node, C context)
+    {
+        return visitPredicate(node, context);
+    }
+
     protected R visitSetPredicate(SetPredicate node, C context)
     {
         return visitPredicate(node, context);

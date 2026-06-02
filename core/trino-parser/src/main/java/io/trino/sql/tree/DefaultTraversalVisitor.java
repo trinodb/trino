@@ -104,6 +104,14 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitMemberPredicate(MemberPredicate node, C context)
+    {
+        process(node.getRight(), context);
+
+        return null;
+    }
+
+    @Override
     protected Void visitSubscriptExpression(SubscriptExpression node, C context)
     {
         process(node.getBase(), context);

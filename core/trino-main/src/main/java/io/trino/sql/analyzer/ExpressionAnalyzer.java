@@ -143,6 +143,7 @@ import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MatchPredicate;
 import io.trino.sql.tree.MeasureDefinition;
+import io.trino.sql.tree.MemberPredicate;
 import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.MultisetConstructor;
 import io.trino.sql.tree.MultisetSetOperation;
@@ -1272,6 +1273,7 @@ public class ExpressionAnalyzer
                 case IsNullPredicate _ -> analyzeIsNull(node.getValue(), node, context);
                 case LikePredicate predicate -> analyzeLike(node.getValue(), predicate, node, context);
                 case MatchPredicate predicate -> analyzeMatchPredicate(node.getValue(), predicate, node, context);
+                case MemberPredicate predicate -> analyzeMember(node.getValue(), predicate, node, context);
                 case OverlapsPredicate predicate -> analyzeOverlaps(node.getValue(), predicate, node, context);
                 case QuantifiedComparisonPredicate predicate -> analyzeQuantifiedComparison(node.getValue(), predicate, node, context);
                 case SubmultisetPredicate predicate -> analyzeSubmultiset(node.getValue(), predicate, node, context);
@@ -1429,6 +1431,7 @@ public class ExpressionAnalyzer
                         case IsNullPredicate _ -> analyzeIsNull(operand, whenClause, context);
                         case LikePredicate fragment -> analyzeLike(operand, fragment, whenClause, context);
                         case MatchPredicate fragment -> analyzeMatchPredicate(operand, fragment, whenClause, context);
+                        case MemberPredicate fragment -> analyzeMember(operand, fragment, whenClause, context);
                         case OverlapsPredicate fragment -> analyzeOverlaps(operand, fragment, whenClause, context);
                         case QuantifiedComparisonPredicate fragment -> analyzeQuantifiedComparison(operand, fragment, whenClause, context);
                         case SubmultisetPredicate fragment -> analyzeSubmultiset(operand, fragment, whenClause, context);
@@ -1450,7 +1453,17 @@ public class ExpressionAnalyzer
                     case WhenClause.Partial(Predicate predicate) -> comparedValues.addAll(operandComparedValues(predicate));
                 }
             }
-            if (comparedValues.isEmpty()) {
+            // MEMBER OF compares the operand against the elements of its right-hand multiset rather
+            // than against the multiset itself, so those fragments reconcile through their element
+            // type and are coerced element-wise once the common type is known.
+            List<Expression> memberMultisets = new ArrayList<>();
+            for (WhenClause whenClause : whenClauses) {
+                if (whenClause.getMatch() instanceof WhenClause.Partial(MemberPredicate member)) {
+                    memberMultisets.add(member.getRight());
+                }
+            }
+
+            if (comparedValues.isEmpty() && memberMultisets.isEmpty()) {
                 return;
             }
 
@@ -1462,6 +1475,11 @@ public class ExpressionAnalyzer
                 commonType = typeCoercion.getCommonSuperType(commonType, valueType)
                         .orElseThrow(() -> semanticException(TYPE_MISMATCH, value, "CASE operand type does not match WHEN clause operand type: %s vs %s", operandType, valueType));
             }
+            for (Expression multiset : memberMultisets) {
+                Type elementType = ((MultisetType) process(multiset, context)).getElementType();
+                commonType = typeCoercion.getCommonSuperType(commonType, elementType)
+                        .orElseThrow(() -> semanticException(TYPE_MISMATCH, multiset, "CASE operand type does not match WHEN clause operand type: %s vs %s", operandType, elementType));
+            }
 
             if (commonType != operandType) {
                 addOrReplaceExpressionCoercion(operand, commonType);
@@ -1469,6 +1487,12 @@ public class ExpressionAnalyzer
             for (int i = 0; i < valueTypes.size(); i++) {
                 if (!valueTypes.get(i).equals(commonType)) {
                     addOrReplaceExpressionCoercion(comparedValues.get(i), commonType);
+                }
+            }
+            for (Expression multiset : memberMultisets) {
+                Type elementType = ((MultisetType) process(multiset, context)).getElementType();
+                if (!elementType.equals(commonType)) {
+                    addOrReplaceExpressionCoercion(multiset, multisetOf(commonType));
                 }
             }
         }
@@ -1642,6 +1666,30 @@ public class ExpressionAnalyzer
                 throw semanticException(TYPE_MISMATCH, anchor, "SUBMULTISET requires multiset operands, got: %s", type);
             }
             return setExpressionType(anchor, BOOLEAN);
+        }
+
+        private Type analyzeMember(Expression value, MemberPredicate predicate, Expression anchor, Context context)
+        {
+            Type valueType = process(value, context);
+            Type rightType = process(predicate.getRight(), context);
+            if (!(rightType instanceof MultisetType multisetType)) {
+                throw semanticException(TYPE_MISMATCH, anchor, "MEMBER OF requires a multiset on the right, got: %s", rightType);
+            }
+            Type elementType = multisetType.getElementType();
+            Type commonType = typeCoercion.getCommonSuperType(valueType, elementType)
+                    .orElseThrow(() -> semanticException(TYPE_MISMATCH, anchor, "Cannot check if %s is a member of %s", valueType, rightType));
+            if (!valueType.equals(commonType)) {
+                addOrReplaceExpressionCoercion(value, commonType);
+            }
+            if (!elementType.equals(commonType)) {
+                addOrReplaceExpressionCoercion(predicate.getRight(), multisetOf(commonType));
+            }
+            return setExpressionType(anchor, BOOLEAN);
+        }
+
+        private Type multisetOf(Type elementType)
+        {
+            return plannerContext.getTypeManager().getParameterizedType(MULTISET.getName(), ImmutableList.of(TypeParameter.typeParameter(elementType.getTypeDescriptor())));
         }
 
         private Type analyzeSet(Expression value, Expression anchor, Context context)

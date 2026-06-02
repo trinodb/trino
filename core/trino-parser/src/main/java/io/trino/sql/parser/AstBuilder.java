@@ -187,6 +187,7 @@ import io.trino.sql.tree.LoopStatement;
 import io.trino.sql.tree.MatchPredicate;
 import io.trino.sql.tree.MaterializedViewExecute;
 import io.trino.sql.tree.MeasureDefinition;
+import io.trino.sql.tree.MemberPredicate;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
 import io.trino.sql.tree.MergeDelete;
@@ -2670,6 +2671,15 @@ class AstBuilder
     public Node visitSubmultiset(SqlBaseParser.SubmultisetContext context)
     {
         return new SubmultisetPredicate(
+                getLocation(context),
+                context.NOT() != null,
+                (Expression) visit(context.right));
+    }
+
+    @Override
+    public Node visitMember(SqlBaseParser.MemberContext context)
+    {
+        return new MemberPredicate(
                 getLocation(context),
                 context.NOT() != null,
                 (Expression) visit(context.right));
