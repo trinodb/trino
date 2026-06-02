@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.predicate.Domain;
@@ -67,6 +68,7 @@ import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -1424,7 +1426,7 @@ public class TestDomainTranslator
                         false));
 
         // dynamic escape
-        assertUnsupportedPredicate(like(C_VARCHAR, stringLiteral("abc\\_def"), C_VARCHAR_1.toSymbolReference()));
+        assertUnsupportedPredicate(like(C_VARCHAR, new Constant(VARCHAR, utf8Slice("abc\\_def")), C_VARCHAR_1.toSymbolReference()));
 
         // negation with literal
         testSimpleComparison(
@@ -1491,9 +1493,10 @@ public class TestDomainTranslator
         assertUnsupportedPredicate(new Call(
                 functionResolution.resolveFunction("length", fromTypes(VARCHAR)),
                 ImmutableList.of(C_VARCHAR.toSymbolReference())));
+        Constant replaceArgument = stringLiteral("abc");
         assertUnsupportedPredicate(new Call(
-                functionResolution.resolveFunction("replace", fromTypes(VARCHAR, VARCHAR)),
-                ImmutableList.of(C_VARCHAR.toSymbolReference(), stringLiteral("abc"))));
+                functionResolution.resolveFunction("replace", fromTypes(C_VARCHAR.type(), replaceArgument.type())),
+                ImmutableList.of(C_VARCHAR.toSymbolReference(), replaceArgument)));
     }
 
     @Test
@@ -1630,7 +1633,7 @@ public class TestDomainTranslator
     private Call startsWith(Symbol symbol, Expression expression)
     {
         return new Call(
-                functionResolution.resolveFunction("starts_with", fromTypes(VARCHAR, VARCHAR)),
+                functionResolution.resolveFunction("starts_with", fromTypes(symbol.type(), expression.type())),
                 ImmutableList.of(symbol.toSymbolReference(), expression));
     }
 
@@ -1732,7 +1735,8 @@ public class TestDomainTranslator
 
     private static Constant stringLiteral(String value)
     {
-        return new Constant(VARCHAR, utf8Slice(value));
+        Slice slice = utf8Slice(value);
+        return new Constant(createVarcharType(slice.length()), slice);
     }
 
     private static Expression nullLiteral(Type type)
