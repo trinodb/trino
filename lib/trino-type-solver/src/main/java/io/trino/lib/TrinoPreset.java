@@ -317,7 +317,6 @@ public final class TrinoPreset
                 new PrimitiveTypeCoercion("double", "json"),
                 new PatternCoercion(apply("decimal", variable("@p"), variable("@s")), symbol("json"), List.of()),
                 new PatternCoercion(apply("varchar", variable("@n")), symbol("json"), List.of()),
-                new PatternCoercion(apply("char", variable("@n")), symbol("json"), List.of()),
                 new PrimitiveTypeCoercion("json", "boolean"),
                 new PrimitiveTypeCoercion("json", "tinyint"),
                 new PrimitiveTypeCoercion("json", "smallint"),
@@ -326,7 +325,6 @@ public final class TrinoPreset
                 new PrimitiveTypeCoercion("json", "real"),
                 new PrimitiveTypeCoercion("json", "double"),
                 new PatternCoercion(symbol("json"), apply("varchar", variable("@n")), List.of()),
-                new PatternCoercion(symbol("json"), apply("char", variable("@n")), List.of()),
                 new PatternCoercion(symbol("json"), apply("decimal", variable("@p"), variable("@s")), List.of()),
 
                 // Compositional container → JSON casts: valid iff elements cast to JSON.

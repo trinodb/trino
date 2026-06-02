@@ -162,6 +162,17 @@ public class CastTest
     }
 
     @Test
+    void testCharHasNoDirectJsonCast()
+    {
+        // Trino registers json casts only for varchar, not char; char goes via varchar explicitly.
+        assertThat(LIBRARY.resolveCast(apply("char", literal(3)), symbol("json"))).isEmpty();
+        assertThat(LIBRARY.resolveCast(symbol("json"), apply("char", literal(3)))).isEmpty();
+        // varchar <-> json is unaffected.
+        assertThat(LIBRARY.resolveCast(apply("varchar", literal(3)), symbol("json"))).isPresent();
+        assertThat(LIBRARY.resolveCast(symbol("json"), apply("varchar", literal(3)))).isPresent();
+    }
+
+    @Test
     void testNumberCasts()
     {
         // boolean -> number and number -> json are cast-only conversions Trino allows.
