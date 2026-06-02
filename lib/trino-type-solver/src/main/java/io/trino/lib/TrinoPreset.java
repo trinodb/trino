@@ -379,7 +379,9 @@ public final class TrinoPreset
                 new PrimitiveTypeCoercion("number", "real"),
                 new PrimitiveTypeCoercion("number", "double"),
                 new PatternCoercion(symbol("number"), apply("varchar", variable("@n")), List.of()),
-                new PatternCoercion(symbol("number"), apply("decimal", variable("@p"), variable("@s")), List.of()));
+                new PatternCoercion(symbol("number"), apply("decimal", variable("@p"), variable("@s")), List.of()),
+                new PrimitiveTypeCoercion("boolean", "number"),
+                new PrimitiveTypeCoercion("number", "json"));
     }
 
     public static TypeLibrary.Builder install(TypeLibrary.Builder builder)

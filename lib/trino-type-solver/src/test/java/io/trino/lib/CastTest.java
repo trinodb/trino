@@ -138,4 +138,15 @@ public class CastTest
         assertThat(library.resolveFunction("requires_castable_to_date", List.of(symbol("boolean"))))
                 .isNotInstanceOf(FunctionResolver.Resolved.class);  // Incomplete or NoMatch — both non-success
     }
+
+    @Test
+    void testNumberCasts()
+    {
+        // boolean -> number and number -> json are cast-only conversions Trino allows.
+        assertThat(LIBRARY.resolveCast(symbol("boolean"), symbol("number"))).isPresent();
+        assertThat(LIBRARY.resolveCast(symbol("number"), symbol("json"))).isPresent();
+        // Neither is an implicit coercion.
+        assertThat(LIBRARY.typeSystem().coercionPlan(symbol("boolean"), symbol("number"))).isEmpty();
+        assertThat(LIBRARY.typeSystem().coercionPlan(symbol("number"), symbol("json"))).isEmpty();
+    }
 }
