@@ -45,7 +45,7 @@ runs:
         export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
         $MAVEN install \
           ${MAVEN_COMPILE_COMMITS} `# defaults, kept in sync with ci.yml` \
-          -Dair.check.skip-all=false -Dair.check.skip-basic=true -Dair.check.skip-extended=true -Dair.check.skip-checkstyle=false \
+          -Dair.check.skip-all=false -Dair.check.skip-basic=true -Dair.check.skip-extended=true -Dair.check.skip-checkstyle=false -Dair.check.skip-airstyle=false \
           ${MAVEN_GIB}
     - name: Mark this workspace as successfully compiled
       if: steps.check-compile-commit-success.outputs.cache-hit != 'true'
