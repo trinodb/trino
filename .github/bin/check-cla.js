@@ -351,8 +351,7 @@ async function main() {
         await setStatus(target.statusSha, 'failure', 'CLA is missing for one or more commit authors');
         await bestEffortUpdatePullRequests(() => markTargetFailed(target, result.message));
         const missing = result.unidentified || result.missing;
-        console.error(`CLA check failed for ${describeTarget(target)}: ${missing.join(', ')}`);
-        process.exitCode = 1;
+        console.log(`CLA status for ${describeTarget(target)} is failure: ${missing.join(', ')}`);
         return;
     }
     catch (error) {
