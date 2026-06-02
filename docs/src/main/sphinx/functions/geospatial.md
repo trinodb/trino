@@ -536,6 +536,11 @@ These functions build and apply a KDB tree for spatial joins. They use the
 two-dimensional envelope of each geometry, based on X and Y coordinates. SRID
 and Z metadata do not affect partitioning.
 
+Optimized spatial joins apply the same SRID compatibility rule before spatial
+pruning. The indexed side of the join may contain at most one non-zero SRID
+among non-null, non-empty geometries. If the indexed side has a non-zero SRID,
+probe geometries must either have SRID `0` or the same SRID.
+
 :::{function} spatial_partitioning(Geometry) -> varchar
 Returns a serialized KDB tree partitioning for the input geometries. The
 one-argument form is rewritten internally to
