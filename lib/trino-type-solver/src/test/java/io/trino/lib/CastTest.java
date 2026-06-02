@@ -153,6 +153,15 @@ public class CastTest
     }
 
     @Test
+    void testVarcharParseCastsForVarbinaryAndTimeZoneTemporals()
+    {
+        assertThat(LIBRARY.resolveCast(apply("varchar", literal(10)), symbol("varbinary"))).isPresent();
+        assertThat(LIBRARY.resolveCast(symbol("varchar"), symbol("varbinary"))).isPresent();
+        assertThat(LIBRARY.resolveCast(apply("varchar", literal(10)), apply("timestamp_with_time_zone", literal(3)))).isPresent();
+        assertThat(LIBRARY.resolveCast(symbol("varchar"), apply("time_with_time_zone", literal(6)))).isPresent();
+    }
+
+    @Test
     void testNumberCasts()
     {
         // boolean -> number and number -> json are cast-only conversions Trino allows.

@@ -267,6 +267,12 @@ public final class TrinoPreset
                 new PatternCoercion(apply("varchar", variable("@n")), symbol("date"), List.of()),
                 new PatternCoercion(apply("varchar", variable("@n1")), apply("time", variable("@p")), List.of()),
                 new PatternCoercion(apply("varchar", variable("@n1")), apply("timestamp", variable("@p")), List.of()),
+                new PatternCoercion(apply("varchar", variable("@n1")), apply("time_with_time_zone", variable("@p")), List.of()),
+                new PatternCoercion(apply("varchar", variable("@n1")), apply("timestamp_with_time_zone", variable("@p")), List.of()),
+                new PatternCoercion(apply("varchar", variable("@n")), symbol("varbinary"), List.of()),
+                new PatternCoercion(symbol("varchar"), apply("time_with_time_zone", variable("@p")), List.of()),
+                new PatternCoercion(symbol("varchar"), apply("timestamp_with_time_zone", variable("@p")), List.of()),
+                new PatternCoercion(symbol("varchar"), symbol("varbinary"), List.of()),
 
                 // Numeric / boolean format casts: ... -> varchar
                 new PatternCoercion(symbol("tinyint"), apply("varchar", variable("@n")), List.of()),
