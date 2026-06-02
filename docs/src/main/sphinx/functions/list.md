@@ -395,6 +395,7 @@
 - {func}`sqrt`
 - {func}`ST_Area`
 - {func}`ST_AsBinary`
+- {func}`ST_AsEWKT`
 - {func}`ST_AsText`
 - {func}`ST_Boundary`
 - {func}`ST_Buffer`
@@ -417,6 +418,7 @@
 - {func}`ST_GeometryN`
 - {func}`ST_GeometryType`
 - {func}`ST_GeomFromBinary`
+- {func}`ST_GeomFromEWKT`
 - {func}`ST_InteriorRingN`
 - {func}`ST_InteriorRings`
 - {func}`ST_Intersection`
@@ -429,6 +431,7 @@
 - {func}`ST_Length`
 - {func}`ST_LineFromText`
 - {func}`ST_LineString`
+- {func}`ST_MakePoint`
 - {func}`ST_MultiPoint`
 - {func}`ST_NumGeometries`
 - `ST_NumInteriorRing`
@@ -437,6 +440,7 @@
 - {func}`ST_Point`
 - {func}`ST_PointN`
 - {func}`ST_Points`
+- {func}`ST_PointZ`
 - {func}`ST_Polygon`
 - {func}`ST_Relate`
 - {func}`ST_StartPoint`
@@ -450,6 +454,7 @@
 - {func}`ST_Y`
 - {func}`ST_YMax`
 - {func}`ST_YMin`
+- {func}`ST_Z`
 - {func}`starts_with`
 - {func}`stddev`
 - {func}`stddev_pop`

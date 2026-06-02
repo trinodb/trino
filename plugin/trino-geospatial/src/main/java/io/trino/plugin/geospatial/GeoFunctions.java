@@ -17,7 +17,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.geospatial.GeometryType;
 import io.trino.geospatial.KdbTree;
 import io.trino.geospatial.Rectangle;
@@ -47,7 +46,6 @@ import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.io.ParseException;
-import org.locationtech.jts.io.WKBWriter;
 import org.locationtech.jts.io.WKTReader;
 import org.locationtech.jts.io.WKTWriter;
 import org.locationtech.jts.io.kml.KMLReader;
@@ -82,6 +80,7 @@ import static io.trino.geospatial.GeometryType.POINT;
 import static io.trino.geospatial.GeometryType.POLYGON;
 import static io.trino.geospatial.GeometryUtils.jsonFromJtsGeometry;
 import static io.trino.geospatial.GeometryUtils.jtsGeometryFromJson;
+import static io.trino.geospatial.serde.JtsGeometrySerde.serializeWithoutSrid;
 import static io.trino.geospatial.serde.JtsGeometrySerde.validateAndGetSrid;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -187,6 +186,31 @@ public final class GeoFunctions
         return GEOMETRY_FACTORY.createPoint(new Coordinate(x, y));
     }
 
+    @Description("Returns a Geometry type Point object with the given coordinate values")
+    @ScalarFunction("ST_MakePoint")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stMakePoint(@SqlType(DOUBLE) double x, @SqlType(DOUBLE) double y)
+    {
+        return stPoint(x, y);
+    }
+
+    @Description("Returns a Geometry type Point object with the given coordinate values")
+    @ScalarFunction("ST_MakePoint")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stMakePoint(@SqlType(DOUBLE) double x, @SqlType(DOUBLE) double y, @SqlType(DOUBLE) double z)
+    {
+        validateFiniteZ(z);
+        return GEOMETRY_FACTORY.createPoint(new Coordinate(x, y, z));
+    }
+
+    @Description("Returns a Geometry type Point object with the given X, Y, and Z coordinate values")
+    @ScalarFunction("ST_PointZ")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stPointZ(@SqlType(DOUBLE) double x, @SqlType(DOUBLE) double y, @SqlType(DOUBLE) double z)
+    {
+        return stMakePoint(x, y, z);
+    }
+
     @SqlNullable
     @Description("Returns a multi-point geometry formed from input points")
     @ScalarFunction("ST_MultiPoint")
@@ -240,6 +264,14 @@ public final class GeoFunctions
     public static Geometry stGeometryFromText(@SqlType(VARCHAR) Slice input)
     {
         return geometryFromText(input);
+    }
+
+    @Description("Returns a Geometry type object from Extended Well-Known Text representation (EWKT)")
+    @ScalarFunction("ST_GeomFromEWKT")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stGeomFromEwkt(@SqlType(VARCHAR) Slice input)
+    {
+        return geometryFromEwkt(input);
     }
 
     @Description("Returns a Geometry type object from Well-Known Binary representation (WKB or EWKB)")
@@ -394,7 +426,7 @@ public final class GeoFunctions
     @SqlType(VARCHAR)
     public static Slice stAsText(@SqlType(StandardTypes.GEOMETRY) Geometry geometry)
     {
-        return utf8Slice(new WKTWriter().write(geometry));
+        return utf8Slice(writeWkt(geometry));
     }
 
     @Description("Returns the Extended Well-Known Text (EWKT) representation of the geometry, including SRID")
@@ -402,7 +434,7 @@ public final class GeoFunctions
     @SqlType(VARCHAR)
     public static Slice stAsEwkt(@SqlType(StandardTypes.GEOMETRY) Geometry geometry)
     {
-        String wkt = new WKTWriter().write(geometry);
+        String wkt = writeWkt(geometry);
         int srid = geometry.getSRID();
         if (srid != 0) {
             return utf8Slice("SRID=" + srid + ";" + wkt);
@@ -415,8 +447,8 @@ public final class GeoFunctions
     @SqlType(VARBINARY)
     public static Slice stAsBinary(@SqlType(StandardTypes.GEOMETRY) Geometry geometry)
     {
-        // Strip SRID for OGC WKB compatibility (external systems expect standard WKB)
-        return Slices.wrappedBuffer(new WKBWriter(2, false).write(geometry));
+        // Strip SRID for OGC WKB compatibility while preserving Z when present.
+        return serializeWithoutSrid(geometry);
     }
 
     @SqlNullable
@@ -1188,6 +1220,23 @@ public final class GeoFunctions
         return ((Point) geometry).getY();
     }
 
+    @SqlNullable
+    @Description("Return the Z coordinate of the point")
+    @ScalarFunction("ST_Z")
+    @SqlType(DOUBLE)
+    public static Double stZ(@SqlType(StandardTypes.GEOMETRY) Geometry geometry)
+    {
+        validateType("ST_Z", geometry, EnumSet.of(POINT));
+        if (geometry.isEmpty()) {
+            return null;
+        }
+        double z = geometry.getCoordinate().getZ();
+        if (isNaN(z)) {
+            return null;
+        }
+        return z;
+    }
+
     @Description("Returns the closure of the combinatorial boundary of this Geometry")
     @ScalarFunction("ST_Boundary")
     @SqlType(StandardTypes.GEOMETRY)
@@ -1610,6 +1659,39 @@ public final class GeoFunctions
         }
     }
 
+    private static String writeWkt(Geometry geometry)
+    {
+        return new WKTWriter(3).write(geometry)
+                .replace(" Z(", " Z (")
+                .replace(" M(", " M (")
+                .replace(" ZM(", " ZM (");
+    }
+
+    private static Geometry geometryFromEwkt(Slice input)
+    {
+        String ewkt = input.toStringUtf8();
+        if (!ewkt.regionMatches(true, 0, "SRID=", 0, "SRID=".length())) {
+            return geometryFromText(input);
+        }
+
+        int separator = ewkt.indexOf(';');
+        if (separator < 0) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid EWKT: " + ewkt);
+        }
+
+        int srid;
+        try {
+            srid = Integer.parseInt(ewkt.substring("SRID=".length(), separator));
+        }
+        catch (NumberFormatException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid EWKT: " + ewkt, e);
+        }
+
+        Geometry geometry = geometryFromText(utf8Slice(ewkt.substring(separator + 1)));
+        geometry.setSRID(srid);
+        return geometry;
+    }
+
     private static Geometry geomFromKML(Slice input)
     {
         try {
@@ -1837,5 +1919,15 @@ public final class GeoFunctions
                 return (Geometry) GEOMETRY.getObject(block, iteratorPosition++);
             }
         };
+    }
+
+    private static void validateFiniteZ(double z)
+    {
+        if (isNaN(z)) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "z is NaN");
+        }
+        if (isInfinite(z)) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "z is infinite");
+        }
     }
 }

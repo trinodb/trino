@@ -46,6 +46,7 @@ import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -154,6 +155,38 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_AsText", "ST_Point(122.3, 10.55)"))
                 .hasType(VARCHAR)
                 .isEqualTo("POINT (122.3 10.55)");
+
+        assertThat(assertions.function("ST_AsText", "ST_MakePoint(1, 4)"))
+                .hasType(VARCHAR)
+                .isEqualTo("POINT (1 4)");
+
+        assertThat(assertions.function("ST_CoordDim", "ST_MakePoint(1, 4, 7)"))
+                .hasType(TINYINT)
+                .isEqualTo((byte) 3);
+
+        assertThat(assertions.function("ST_Z", "ST_MakePoint(1, 4, 7)"))
+                .hasType(DOUBLE)
+                .isEqualTo(7.0);
+
+        assertThat(assertions.function("ST_CoordDim", "ST_PointZ(1, 4, 7)"))
+                .hasType(TINYINT)
+                .isEqualTo((byte) 3);
+
+        assertThat(assertions.function("ST_Z", "ST_PointZ(1, 4, 7)"))
+                .hasType(DOUBLE)
+                .isEqualTo(7.0);
+
+        assertTrinoExceptionThrownBy(assertions.function("ST_MakePoint", "1", "4", "nan()")::evaluate)
+                .hasMessage("z is NaN");
+
+        assertTrinoExceptionThrownBy(assertions.function("ST_MakePoint", "1", "4", "infinity()")::evaluate)
+                .hasMessage("z is infinite");
+
+        assertTrinoExceptionThrownBy(assertions.function("ST_PointZ", "1", "4", "nan()")::evaluate)
+                .hasMessage("z is NaN");
+
+        assertTrinoExceptionThrownBy(assertions.function("ST_PointZ", "1", "4", "-infinity()")::evaluate)
+                .hasMessage("z is infinite");
     }
 
     @Test
@@ -440,6 +473,15 @@ public class TestGeoFunctions
 
         assertThat(assertions.function("ST_CoordDim", "ST_GeometryFromText('POINT (1 4)')"))
                 .isEqualTo((byte) 2);
+
+        assertThat(assertions.function("ST_CoordDim", "ST_GeometryFromText('POINT Z (1 4 7)')"))
+                .isEqualTo((byte) 3);
+
+        assertThat(assertions.function("ST_CoordDim", "ST_GeomFromBinary(ST_AsEWKB(ST_GeometryFromText('POINT Z (1 4 7)')))"))
+                .isEqualTo((byte) 3);
+
+        assertThat(assertions.query("SELECT ST_CoordDim(element_at(ARRAY[ST_GeometryFromText('POINT Z (1 4 7)')], 1))"))
+                .matches("VALUES TINYINT '3'");
     }
 
     @Test
@@ -1090,14 +1132,26 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_Y", "ST_GeometryFromText('POINT EMPTY')"))
                 .isNull(DOUBLE);
 
+        assertThat(assertions.function("ST_Z", "ST_GeometryFromText('POINT EMPTY')"))
+                .isNull(DOUBLE);
+
         assertThat(assertions.function("ST_X", "ST_GeometryFromText('POINT (1 2)')"))
                 .isEqualTo(1.0);
 
         assertThat(assertions.function("ST_Y", "ST_GeometryFromText('POINT (1 2)')"))
                 .isEqualTo(2.0);
 
+        assertThat(assertions.function("ST_Z", "ST_GeometryFromText('POINT (1 2)')"))
+                .isNull(DOUBLE);
+
+        assertThat(assertions.function("ST_Z", "ST_GeometryFromText('POINT Z (1 2 3)')"))
+                .isEqualTo(3.0);
+
         assertTrinoExceptionThrownBy(assertions.function("ST_Y", "ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1, 2 0))')")::evaluate)
                 .hasMessage("ST_Y only applies to POINT. Input type is: POLYGON");
+
+        assertTrinoExceptionThrownBy(assertions.function("ST_Z", "ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1, 2 0))')")::evaluate)
+                .hasMessage("ST_Z only applies to POINT. Input type is: POLYGON");
     }
 
     @Test
@@ -1310,6 +1364,25 @@ public class TestGeoFunctions
 
         assertThat(assertions.function("ST_Distance", "ST_GeometryFromText('MULTIPOLYGON EMPTY')", "ST_GeometryFromText('POLYGON ((10 100, 30 10, 10 100))')"))
                 .isNull(DOUBLE);
+    }
+
+    @Test
+    public void testGeometryOperationsArePlanarWithZ()
+    {
+        assertThat(assertions.function("ST_Distance", "ST_PointZ(0, 0, 0)", "ST_PointZ(0, 0, 10)"))
+                .isEqualTo(0.0);
+
+        assertThat(assertions.function("ST_Length", "ST_GeometryFromText('LINESTRING Z (0 0 0, 3 4 12)')"))
+                .isEqualTo(5.0);
+
+        assertThat(assertions.function("ST_Intersects", "ST_PointZ(1, 2, 3)", "ST_PointZ(1, 2, 99)"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("ST_Equals", "ST_PointZ(1, 2, 3)", "ST_PointZ(1, 2, 99)"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("ST_Contains", "ST_GeometryFromText('POLYGON Z ((0 0 1, 0 4 1, 4 4 1, 4 0 1, 0 0 1))')", "ST_PointZ(2, 2, 99)"))
+                .isEqualTo(true);
     }
 
     @Test
@@ -2599,10 +2672,44 @@ public class TestGeoFunctions
                 .hasType(VARCHAR)
                 .isEqualTo("SRID=4326;POINT (1 2)");
 
+        assertThat(assertions.function("ST_AsEWKT", "ST_SetSRID(ST_PointZ(1, 2, 3), 4326)"))
+                .hasType(VARCHAR)
+                .isEqualTo("SRID=4326;POINT Z (1 2 3)");
+
         // ST_AsEWKT - returns plain WKT when SRID is 0
         assertThat(assertions.function("ST_AsEWKT", "ST_Point(1, 2)"))
                 .hasType(VARCHAR)
                 .isEqualTo("POINT (1 2)");
+
+        assertThat(assertions.function("ST_AsEWKT", "ST_PointZ(1, 2, 3)"))
+                .hasType(VARCHAR)
+                .isEqualTo("POINT Z (1 2 3)");
+
+        assertThat(assertions.function("ST_SRID", "ST_GeomFromEWKT('SRID=4326;POINT (1 2)')"))
+                .hasType(INTEGER)
+                .isEqualTo(4326);
+
+        assertThat(assertions.function("ST_Z", "ST_GeomFromEWKT('SRID=4326;POINT Z (1 2 3)')"))
+                .hasType(DOUBLE)
+                .isEqualTo(3.0);
+
+        assertThat(assertions.function("ST_SRID", "ST_GeomFromEWKT('srid=3857;POINT Z (1 2 3)')"))
+                .hasType(INTEGER)
+                .isEqualTo(3857);
+
+        assertThat(assertions.function("ST_AsEWKT", "ST_GeomFromEWKT(ST_AsEWKT(ST_SetSRID(ST_PointZ(1, 2, 3), 4326)))"))
+                .hasType(VARCHAR)
+                .isEqualTo("SRID=4326;POINT Z (1 2 3)");
+
+        assertThat(assertions.function("ST_AsText", "ST_GeomFromEWKT('POINT Z (1 2 3)')"))
+                .hasType(VARCHAR)
+                .isEqualTo("POINT Z (1 2 3)");
+
+        assertTrinoExceptionThrownBy(assertions.function("ST_GeomFromEWKT", "'SRID=4326 POINT (1 2)'")::evaluate)
+                .hasMessage("Invalid EWKT: SRID=4326 POINT (1 2)");
+
+        assertTrinoExceptionThrownBy(assertions.function("ST_GeomFromEWKT", "'SRID=abc;POINT (1 2)'")::evaluate)
+                .hasMessage("Invalid EWKT: SRID=abc;POINT (1 2)");
     }
 
     @Test
@@ -2661,5 +2768,13 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_SRID", "ST_GeomFromBinary(ST_AsEWKB(ST_SetSRID(ST_Point(1, 2), 4326)))"))
                 .hasType(INTEGER)
                 .isEqualTo(4326);
+
+        assertThat(assertions.function("ST_CoordDim", "ST_GeomFromBinary(ST_AsBinary(ST_SetSRID(ST_GeometryFromText('POINT Z (1 2 3)'), 4326)))"))
+                .hasType(TINYINT)
+                .isEqualTo((byte) 3);
+
+        assertThat(assertions.function("ST_CoordDim", "ST_GeomFromBinary(ST_AsEWKB(ST_SetSRID(ST_GeometryFromText('POINT Z (1 2 3)'), 4326)))"))
+                .hasType(TINYINT)
+                .isEqualTo((byte) 3);
     }
 }
