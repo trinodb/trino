@@ -590,6 +590,7 @@ predicate[ParserRuleContext value]
     | IS NOT? DISTINCT FROM right=valueExpression                         #distinctFrom
     | MATCH UNIQUE? matchType=(SIMPLE | PARTIAL | FULL)? '(' query ')'    #match
     | NOT? SUBMULTISET OF? right=valueExpression                          #submultiset
+    | NOT? MEMBER OF? right=valueExpression                               #member
     | IS NOT? A SET                                                       #setPredicate
     ;
 
@@ -1088,7 +1089,7 @@ nonReserved
     | JSON
     | KEEP | KEY | KEYS
     | LANGUAGE | LAST | LATERAL | LEADING | LEAVE | LEVEL | LIMIT | LOCAL | LOGICAL | LOOP
-    | MAP | MATCH | MATCHED | MATCHES | MATCH_RECOGNIZE | MATERIALIZED | MEASURES | MERGE | MINUTE | MONTH | MULTISET
+    | MAP | MATCH | MATCHED | MATCHES | MATCH_RECOGNIZE | MATERIALIZED | MEASURES | MEMBER | MERGE | MINUTE | MONTH | MULTISET
     | NEAREST | NESTED | NEXT | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
     | OBJECT | OF | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OUTPUT | OVER | OVERFLOW | OVERLAY
     | PARTIAL | PARTITION | PARTITIONS | PASSING | PAST | PATH | PATTERN | PER | PERIOD | PERMUTE | PLACING | PLAN | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES | PRUNE
@@ -1265,6 +1266,7 @@ MATCHES: 'MATCHES';
 MATCH_RECOGNIZE: 'MATCH_RECOGNIZE';
 MATERIALIZED: 'MATERIALIZED';
 MEASURES: 'MEASURES';
+MEMBER: 'MEMBER';
 MERGE: 'MERGE';
 MINUTE: 'MINUTE';
 MONTH: 'MONTH';

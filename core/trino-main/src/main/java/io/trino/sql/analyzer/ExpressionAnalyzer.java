@@ -139,6 +139,7 @@ import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MatchPredicate;
 import io.trino.sql.tree.MeasureDefinition;
+import io.trino.sql.tree.MemberPredicate;
 import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.MultisetConstructor;
 import io.trino.sql.tree.MultisetSetOperation;
@@ -967,6 +968,7 @@ public class ExpressionAnalyzer
                 case IsNullPredicate _ -> analyzeIsNull(node.getValue(), node, context);
                 case LikePredicate predicate -> analyzeLike(node.getValue(), predicate, node, context);
                 case MatchPredicate predicate -> analyzeMatchPredicate(node.getValue(), predicate, node, context);
+                case MemberPredicate predicate -> analyzeMember(node.getValue(), predicate, node, context);
                 case QuantifiedComparisonPredicate predicate -> analyzeQuantifiedComparison(node.getValue(), predicate, node, context);
                 case SubmultisetPredicate predicate -> analyzeSubmultiset(node.getValue(), predicate, node, context);
                 case SetPredicate _ -> analyzeSet(node.getValue(), node, context);
@@ -1123,6 +1125,7 @@ public class ExpressionAnalyzer
                         case IsNullPredicate _ -> analyzeIsNull(operand, whenClause, context);
                         case LikePredicate fragment -> analyzeLike(operand, fragment, whenClause, context);
                         case MatchPredicate fragment -> analyzeMatchPredicate(operand, fragment, whenClause, context);
+                        case MemberPredicate fragment -> analyzeMember(operand, fragment, whenClause, context);
                         case QuantifiedComparisonPredicate fragment -> analyzeQuantifiedComparison(operand, fragment, whenClause, context);
                         case SubmultisetPredicate fragment -> analyzeSubmultiset(operand, fragment, whenClause, context);
                         case SetPredicate _ -> analyzeSet(operand, whenClause, context);
@@ -1309,6 +1312,26 @@ public class ExpressionAnalyzer
             Type type = coerceToSingleType(context, anchor, "Both operands of SUBMULTISET must be multisets", value, predicate.getRight());
             if (!(type instanceof MultisetType)) {
                 throw semanticException(TYPE_MISMATCH, anchor, "SUBMULTISET requires multiset operands, got: %s", type);
+            }
+            return setExpressionType(anchor, BOOLEAN);
+        }
+
+        private Type analyzeMember(Expression value, MemberPredicate predicate, Expression anchor, Context context)
+        {
+            Type valueType = process(value, context);
+            Type rightType = process(predicate.getRight(), context);
+            if (!(rightType instanceof MultisetType multisetType)) {
+                throw semanticException(TYPE_MISMATCH, anchor, "MEMBER OF requires a multiset on the right, got: %s", rightType);
+            }
+            Type elementType = multisetType.getElementType();
+            Type commonType = typeCoercion.getCommonSuperType(valueType, elementType)
+                    .orElseThrow(() -> semanticException(TYPE_MISMATCH, anchor, "Cannot check if %s is a member of %s", valueType, rightType));
+            if (!valueType.equals(commonType)) {
+                addOrReplaceExpressionCoercion(value, commonType);
+            }
+            if (!elementType.equals(commonType)) {
+                Type coercedMultiset = plannerContext.getTypeManager().getParameterizedType(MULTISET.getName(), ImmutableList.of(TypeParameter.typeParameter(commonType.getTypeDescriptor())));
+                addOrReplaceExpressionCoercion(predicate.getRight(), coercedMultiset);
             }
             return setExpressionType(anchor, BOOLEAN);
         }

@@ -81,6 +81,7 @@ import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MatchPredicate;
+import io.trino.sql.tree.MemberPredicate;
 import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.MultisetConstructor;
 import io.trino.sql.tree.MultisetSetOperation;
@@ -382,6 +383,12 @@ public final class ExpressionFormatter
         protected String visitSubmultisetPredicate(SubmultisetPredicate node, Void context)
         {
             return (node.isNegated() ? "NOT SUBMULTISET OF " : "SUBMULTISET OF ") + process(node.getRight(), context);
+        }
+
+        @Override
+        protected String visitMemberPredicate(MemberPredicate node, Void context)
+        {
+            return (node.isNegated() ? "NOT MEMBER OF " : "MEMBER OF ") + process(node.getRight(), context);
         }
 
         @Override

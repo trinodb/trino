@@ -138,6 +138,7 @@ import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MatchPredicate;
 import io.trino.sql.tree.MeasureDefinition;
+import io.trino.sql.tree.MemberPredicate;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
@@ -168,6 +169,7 @@ import io.trino.sql.tree.PatternVariable;
 import io.trino.sql.tree.PlanLeaf;
 import io.trino.sql.tree.PlanParentChild;
 import io.trino.sql.tree.PlanSiblings;
+import io.trino.sql.tree.Predicate;
 import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.PrincipalSpecification;
@@ -841,6 +843,23 @@ public class TestSqlParser
                                 location(1, 13),
                                 true,
                                 new MultisetConstructor(location(1, 32), ImmutableList.of(new LongLiteral(location(1, 41), "2"))))));
+    }
+
+    @Test
+    public void testMemberPredicate()
+    {
+        Expression member = createExpression("1 MEMBER OF MULTISET[2]");
+        assertThat(member).isInstanceOf(Predicated.class);
+        assertThat(((Predicated) member).getValue()).isInstanceOf(LongLiteral.class);
+        Predicate clause = ((Predicated) member).getPredicate();
+        assertThat(clause).isInstanceOf(MemberPredicate.class);
+        assertThat(((MemberPredicate) clause).getRight()).isInstanceOf(MultisetConstructor.class);
+        assertThat(((MemberPredicate) clause).isNegated()).isFalse();
+        // OF is optional
+        assertThat(((Predicated) createExpression("1 MEMBER MULTISET[2]")).getPredicate()).isInstanceOf(MemberPredicate.class);
+        // NOT is captured as a flag on the predicate
+        Predicate negated = ((Predicated) createExpression("1 NOT MEMBER OF MULTISET[2]")).getPredicate();
+        assertThat(((MemberPredicate) negated).isNegated()).isTrue();
     }
 
     @Test
