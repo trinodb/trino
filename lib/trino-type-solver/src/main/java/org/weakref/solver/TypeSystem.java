@@ -187,7 +187,28 @@ public class TypeSystem
         return switch (constraint) {
             case RequireCastableTo(Expression source, Expression target) -> !Expression.isGround(source) || !Expression.isGround(target) || castPlan(source, target).isPresent();
             case RequireCastableFrom(Expression target, Expression source) -> !Expression.isGround(source) || !Expression.isGround(target) || castPlan(source, target).isPresent();
+            // A numeric guard over ground operands (e.g. 50 <= 5 from a varchar narrowing) can be
+            // decided here. Non-ground guards are left for the full solver and treated permissively.
+            case NumericRelation relation -> evaluateGroundComparison(relation.operation()).orElse(true);
             default -> true;
+        };
+    }
+
+    private static Optional<Boolean> evaluateGroundComparison(Expression.BinaryOperation operation)
+    {
+        Expression left = Expression.evaluate(operation.left());
+        Expression right = Expression.evaluate(operation.right());
+        if (!(left instanceof Expression.Literal(int leftValue)) || !(right instanceof Expression.Literal(int rightValue))) {
+            return Optional.empty();
+        }
+        return switch (operation.operator()) {
+            case LESS_THAN -> Optional.of(leftValue < rightValue);
+            case LESS_THAN_OR_EQUAL -> Optional.of(leftValue <= rightValue);
+            case GREATER_THAN -> Optional.of(leftValue > rightValue);
+            case GREATER_THAN_OR_EQUAL -> Optional.of(leftValue >= rightValue);
+            case EQUAL -> Optional.of(leftValue == rightValue);
+            case NOT_EQUAL -> Optional.of(leftValue != rightValue);
+            case ADD, SUBTRACT, MULTIPLY, DIVIDE, MIN, MAX -> Optional.empty();
         };
     }
 
@@ -223,6 +244,7 @@ public class TypeSystem
         List<CoercionPlan> directPlans = coercions.stream()
                 .map(coercion -> coercion.matches(new VariableAllocator(), from, to))
                 .flatMap(Optional::stream)
+                .filter(match -> match.constraints().stream().allMatch(this::isGuardSatisfiable))
                 .map(CoercionRule.Match::plan)
                 .flatMap(Optional::stream)
                 .filter(plan -> plan.kind() == CoercionPlan.Kind.DIRECT)
