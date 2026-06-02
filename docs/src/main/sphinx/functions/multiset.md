@@ -143,6 +143,22 @@ SELECT MULTISET[1, 1, 2] SUBMULTISET OF MULTISET[1, 2];
 -- false
 ```
 
+(member-of-predicate)=
+### `MEMBER OF`
+
+`x MEMBER OF y` returns true when the value `x` is equal to at least one element
+of the multiset `y`. The `OF` keyword is optional, and `NOT` negates the
+predicate. Like `IN`, it is three-valued: the result is unknown (null) when `x`
+is null, or when `x` matches no element but `y` contains a null.
+
+```sql
+SELECT 2 MEMBER OF MULTISET[1, 2, 2];
+-- true
+
+SELECT 3 MEMBER OF MULTISET[1, 2];
+-- false
+```
+
 (is-a-set-predicate)=
 ### `IS A SET`
 

@@ -291,6 +291,7 @@
 - {func}`max`
 - {func}`max_by`
 - {func}`md5`
+- [MEMBER OF](member-of-predicate)
 - {func}`merge`
 - {func}`merge_set_digest`
 - {func}`millisecond`
