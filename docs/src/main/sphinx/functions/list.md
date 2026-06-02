@@ -397,6 +397,7 @@
 - {func}`sqrt`
 - {func}`ST_Area`
 - {func}`ST_AsBinary`
+- {func}`ST_AsEWKT`
 - {func}`ST_AsText`
 - {func}`ST_Boundary`
 - {func}`ST_Buffer`
@@ -419,6 +420,7 @@
 - {func}`ST_GeometryN`
 - {func}`ST_GeometryType`
 - {func}`ST_GeomFromBinary`
+- {func}`ST_GeomFromEWKT`
 - {func}`ST_InteriorRingN`
 - {func}`ST_InteriorRings`
 - {func}`ST_Intersection`
@@ -452,6 +454,7 @@
 - {func}`ST_Y`
 - {func}`ST_YMax`
 - {func}`ST_YMin`
+- {func}`ST_Z`
 - {func}`starts_with`
 - {func}`stddev`
 - {func}`stddev_pop`
