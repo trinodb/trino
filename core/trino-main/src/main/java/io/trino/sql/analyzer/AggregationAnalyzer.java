@@ -63,6 +63,7 @@ import io.trino.sql.tree.LocalTime;
 import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.MeasureDefinition;
+import io.trino.sql.tree.MemberPredicate;
 import io.trino.sql.tree.MultisetConstructor;
 import io.trino.sql.tree.MultisetSetOperation;
 import io.trino.sql.tree.Node;
@@ -305,6 +306,12 @@ class AggregationAnalyzer
 
         @Override
         protected Boolean visitSubmultisetPredicate(SubmultisetPredicate node, Void context)
+        {
+            return process(node.getValue(), context) && process(node.getRight(), context);
+        }
+
+        @Override
+        protected Boolean visitMemberPredicate(MemberPredicate node, Void context)
         {
             return process(node.getValue(), context) && process(node.getRight(), context);
         }

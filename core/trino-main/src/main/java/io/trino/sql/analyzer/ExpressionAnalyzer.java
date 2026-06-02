@@ -136,6 +136,7 @@ import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
+import io.trino.sql.tree.MemberPredicate;
 import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.MultisetConstructor;
 import io.trino.sql.tree.MultisetSetOperation;
@@ -1185,6 +1186,27 @@ public class ExpressionAnalyzer
             Type type = coerceToSingleType(context, node, "Both operands of SUBMULTISET must be multisets", node.getValue(), node.getRight());
             if (!(type instanceof MultisetType)) {
                 throw semanticException(TYPE_MISMATCH, node, "SUBMULTISET requires multiset operands, got: %s", type);
+            }
+            return setExpressionType(node, BOOLEAN);
+        }
+
+        @Override
+        protected Type visitMemberPredicate(MemberPredicate node, Context context)
+        {
+            Type valueType = process(node.getValue(), context);
+            Type rightType = process(node.getRight(), context);
+            if (!(rightType instanceof MultisetType multisetType)) {
+                throw semanticException(TYPE_MISMATCH, node, "MEMBER OF requires a multiset on the right, got: %s", rightType);
+            }
+            Type elementType = multisetType.getElementType();
+            Type commonType = typeCoercion.getCommonSuperType(valueType, elementType)
+                    .orElseThrow(() -> semanticException(TYPE_MISMATCH, node, "Cannot check if %s is a member of %s", valueType, rightType));
+            if (!valueType.equals(commonType)) {
+                addOrReplaceExpressionCoercion(node.getValue(), commonType);
+            }
+            if (!elementType.equals(commonType)) {
+                Type coercedMultiset = plannerContext.getTypeManager().getParameterizedType(MULTISET.getName(), ImmutableList.of(TypeParameter.typeParameter(commonType.getTypeSignature())));
+                addOrReplaceExpressionCoercion(node.getRight(), coercedMultiset);
             }
             return setExpressionType(node, BOOLEAN);
         }

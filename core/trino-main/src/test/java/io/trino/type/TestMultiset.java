@@ -317,6 +317,52 @@ public class TestMultiset
     }
 
     @Test
+    public void testMember()
+    {
+        assertThat(assertions.expression("1 MEMBER OF MULTISET[1, 2]"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("3 MEMBER OF MULTISET[1, 2]"))
+                .isEqualTo(false);
+        // OF is optional, and NOT negates
+        assertThat(assertions.expression("3 NOT MEMBER MULTISET[1, 2]"))
+                .isEqualTo(true);
+        // the empty multiset has no members
+        assertThat(assertions.expression("1 MEMBER OF MULTISET[]"))
+                .isEqualTo(false);
+        // the element type is coerced to a common supertype with the value
+        assertThat(assertions.expression("CAST(1 AS bigint) MEMBER OF MULTISET[1, 2]"))
+                .isEqualTo(true);
+        // three-valued like IN: a null value, or no match in the presence of a null element, is unknown
+        assertThat(assertions.expression("(CAST(NULL AS integer) MEMBER OF MULTISET[1]) IS NULL"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("(1 MEMBER OF MULTISET[NULL, 2]) IS NULL"))
+                .isEqualTo(true);
+        // a definite match is true even when a null element is present
+        assertThat(assertions.expression("1 MEMBER OF MULTISET[NULL, 1]"))
+                .isEqualTo(true);
+        // the section 8.16 rules are ordered: the empty multiset decides false before the null
+        // value rule
+        assertThat(assertions.expression("CAST(NULL AS integer) MEMBER OF MULTISET[]"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("CAST(NULL AS integer) NOT MEMBER OF MULTISET[]"))
+                .isEqualTo(true);
+        // membership follows the element = semantics, not IDENTICAL: nan() = nan() is false, so
+        // nan() is not a member even of a multiset containing it (matching nan() IN (nan()))
+        assertThat(assertions.expression("nan() MEMBER OF MULTISET[nan()]"))
+                .isEqualTo(false);
+        // the same answer must come from both paths: the index-backed fast path on a fully
+        // determinate multiset, and the = scan once an indeterminate element forces the fallback
+        assertThat(assertions.expression("ROW(nan(), 1) MEMBER OF MULTISET[ROW(nan(), 1)]"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("ROW(nan(), 1) MEMBER OF MULTISET[ROW(nan(), 1), CAST(ROW(2e0, NULL) AS ROW(double, integer))]"))
+                .isEqualTo(false);
+        // an element whose equality with the value is unknown (a nested null next to matching
+        // fields) makes an unmatched probe unknown
+        assertThat(assertions.expression("(ROW(2e0, 1) MEMBER OF MULTISET[CAST(ROW(2e0, NULL) AS ROW(double, integer))]) IS NULL"))
+                .isEqualTo(true);
+    }
+
+    @Test
     public void testEqualityIsOrderIndependent()
     {
         assertThat(assertions.expression("MULTISET[1, 2, 2] = MULTISET[2, 1, 2]"))

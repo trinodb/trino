@@ -107,6 +107,7 @@ import io.trino.sql.tree.LocalTime;
 import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MemberPredicate;
 import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.MultisetConstructor;
 import io.trino.sql.tree.MultisetSetOperation;
@@ -336,6 +337,7 @@ public class TranslationMap
                 case MultisetConstructor expression -> translate(expression);
                 case MultisetSetOperation expression -> translate(expression);
                 case SubmultisetPredicate expression -> translate(expression);
+                case MemberPredicate expression -> translate(expression);
                 case SetPredicate expression -> translate(expression);
                 case CurrentCatalog expression -> translate(expression);
                 case CurrentSchema expression -> translate(expression);
@@ -810,6 +812,20 @@ public class TranslationMap
                 .setName("$submultiset")
                 .addArgument(value.type(), value)
                 .addArgument(right.type(), right)
+                .build();
+    }
+
+    private io.trino.sql.ir.Expression translate(MemberPredicate expression)
+    {
+        // x MEMBER OF m resolves to the hidden $member, which probes the multiset's hash index for an
+        // O(1) membership test (with a three-valued = fallback when an element or the value is
+        // indeterminate)
+        io.trino.sql.ir.Expression value = translateExpression(expression.getValue());
+        io.trino.sql.ir.Expression multiset = translateExpression(expression.getRight());
+        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                .setName("$member")
+                .addArgument(multiset.type(), multiset)
+                .addArgument(value.type(), value)
                 .build();
     }
 

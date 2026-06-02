@@ -186,6 +186,7 @@ public class TestSqlKeywords
                         "MATCH_RECOGNIZE",
                         "MATERIALIZED",
                         "MEASURES",
+                        "MEMBER",
                         "MERGE",
                         "MINUTE",
                         "MONTH",

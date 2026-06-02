@@ -131,6 +131,7 @@ import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
+import io.trino.sql.tree.MemberPredicate;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
@@ -794,6 +795,19 @@ public class TestSqlParser
                                 location(1, 13),
                                 new MultisetConstructor(location(1, 1), ImmutableList.of(new LongLiteral(location(1, 10), "1"))),
                                 new MultisetConstructor(location(1, 32), ImmutableList.of(new LongLiteral(location(1, 41), "2"))))));
+    }
+
+    @Test
+    public void testMemberPredicate()
+    {
+        Expression member = createExpression("1 MEMBER OF MULTISET[2]");
+        assertThat(member).isInstanceOf(MemberPredicate.class);
+        assertThat(((MemberPredicate) member).getValue()).isInstanceOf(LongLiteral.class);
+        assertThat(((MemberPredicate) member).getRight()).isInstanceOf(MultisetConstructor.class);
+        // OF is optional
+        assertThat(createExpression("1 MEMBER MULTISET[2]")).isInstanceOf(MemberPredicate.class);
+        // NOT wraps the predicate in a NotExpression
+        assertThat(createExpression("1 NOT MEMBER OF MULTISET[2]")).isInstanceOf(NotExpression.class);
     }
 
     @Test

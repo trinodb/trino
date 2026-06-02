@@ -219,6 +219,26 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitMemberPredicate(MemberPredicate node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteMemberPredicate(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression value = rewrite(node.getValue(), context.get());
+            Expression right = rewrite(node.getRight(), context.get());
+
+            if (value != node.getValue() || right != node.getRight()) {
+                return new MemberPredicate(node.getLocation().orElseThrow(), value, right);
+            }
+
+            return node;
+        }
+
+        @Override
         protected Expression visitSetPredicate(SetPredicate node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

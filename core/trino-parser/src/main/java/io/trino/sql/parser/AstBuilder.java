@@ -181,6 +181,7 @@ import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.LoopStatement;
 import io.trino.sql.tree.MeasureDefinition;
+import io.trino.sql.tree.MemberPredicate;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
 import io.trino.sql.tree.MergeDelete;
@@ -2549,6 +2550,21 @@ class AstBuilder
     public Node visitSubmultiset(SqlBaseParser.SubmultisetContext context)
     {
         Expression expression = new SubmultisetPredicate(
+                getLocation(context),
+                (Expression) visit(context.value),
+                (Expression) visit(context.right));
+
+        if (context.NOT() != null) {
+            expression = new NotExpression(getLocation(context), expression);
+        }
+
+        return expression;
+    }
+
+    @Override
+    public Node visitMember(SqlBaseParser.MemberContext context)
+    {
+        Expression expression = new MemberPredicate(
                 getLocation(context),
                 (Expression) visit(context.value),
                 (Expression) visit(context.right));
