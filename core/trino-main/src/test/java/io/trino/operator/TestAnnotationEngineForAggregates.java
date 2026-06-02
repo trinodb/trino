@@ -54,6 +54,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.Name;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.Signature;
@@ -154,6 +155,38 @@ public class TestAnnotationEngineForAggregates
         assertThat(aggregationMetadata.isOrderSensitive()).isFalse();
         assertThat(aggregationMetadata.getIntermediateTypes()).isNotEmpty();
         aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
+    }
+
+    @AggregationFunction("name_without_sqltype_aggregate")
+    @Description("@Name on a non-@SqlType parameter is rejected")
+    public static final class NameWithoutSqlType
+    {
+        @InputFunction
+        public static void input(
+                @Name("state") @AggregationState NullableDoubleState state,
+                @SqlType(DOUBLE) double value)
+        {
+            // noop this is only for annotation testing purposes
+        }
+
+        @CombineFunction
+        public static void combine(@AggregationState NullableDoubleState combine1, @AggregationState NullableDoubleState combine2)
+        {
+            // noop this is only for annotation testing purposes
+        }
+
+        @OutputFunction(DOUBLE)
+        public static void output(@AggregationState NullableDoubleState state, BlockBuilder out)
+        {
+            // noop this is only for annotation testing purposes
+        }
+    }
+
+    @Test
+    public void testNameAnnotationOnNonSqlTypeParameter()
+    {
+        assertThatThrownBy(() -> parseFunctionDefinitions(NameWithoutSqlType.class))
+                .hasMessageMatching("Method .* has @Name on a parameter without @SqlType");
     }
 
     @AggregationFunction("input_parameters_wrong_order")

@@ -21,6 +21,7 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.airlift.units.MinDataSize;
 import io.trino.filesystem.Location;
 import io.trino.plugin.base.configuration.ThreadCountParser;
 import io.trino.plugin.hive.HiveCompressionOption;
@@ -42,6 +43,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.ParquetFooterCacheType.NONE;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -104,6 +106,8 @@ public class IcebergConfig
     private boolean objectStoreLayoutEnabled;
     private int metadataParallelism = 8;
     private boolean bucketExecutionEnabled = true;
+    private ParquetFooterCacheType parquetFooterCacheType = NONE;
+    private DataSize parquetFooterCacheMemoryMaxSize = DataSize.of(10, MEGABYTE);
 
     public CatalogType getCatalogType()
     {
@@ -680,6 +684,34 @@ public class IcebergConfig
     public IcebergConfig setBucketExecutionEnabled(boolean bucketExecutionEnabled)
     {
         this.bucketExecutionEnabled = bucketExecutionEnabled;
+        return this;
+    }
+
+    @NotNull
+    public ParquetFooterCacheType getParquetFooterCacheType()
+    {
+        return parquetFooterCacheType;
+    }
+
+    @Config("iceberg.parquet-footer-cache.type")
+    @ConfigDescription("Type of cache to use for Parquet footer metadata")
+    public IcebergConfig setParquetFooterCacheType(ParquetFooterCacheType parquetFooterCacheType)
+    {
+        this.parquetFooterCacheType = parquetFooterCacheType;
+        return this;
+    }
+
+    @MinDataSize("0B")
+    public DataSize getParquetFooterCacheMemoryMaxSize()
+    {
+        return parquetFooterCacheMemoryMaxSize;
+    }
+
+    @Config("iceberg.parquet-footer-cache.memory.max-size")
+    @ConfigDescription("Maximum size of the in-memory Parquet footer cache")
+    public IcebergConfig setParquetFooterCacheMemoryMaxSize(DataSize parquetFooterCacheMemoryMaxSize)
+    {
+        this.parquetFooterCacheMemoryMaxSize = parquetFooterCacheMemoryMaxSize;
         return this;
     }
 }

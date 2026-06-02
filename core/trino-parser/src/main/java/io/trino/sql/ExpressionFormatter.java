@@ -21,11 +21,13 @@ import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AstVisitor;
+import io.trino.sql.tree.AtLocal;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.AutoGroupBy;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
@@ -189,6 +191,12 @@ public final class ExpressionFormatter
             return process(node.getValue(), context) +
                     " AT TIME ZONE " +
                     process(node.getTimeZone(), context);
+        }
+
+        @Override
+        protected String visitAtLocal(AtLocal node, Void context)
+        {
+            return process(node.getValue(), context) + " AT LOCAL";
         }
 
         @Override
@@ -473,7 +481,9 @@ public final class ExpressionFormatter
                         .append(" ");
             }
 
-            String arguments = joinExpressions(node.getArguments());
+            String arguments = node.getArguments().stream()
+                    .map(argument -> process(argument, context))
+                    .collect(joining(", "));
             if (node.getArguments().isEmpty() && "count".equalsIgnoreCase(node.getName().getSuffix())) {
                 arguments = "*";
             }
@@ -504,6 +514,15 @@ public final class ExpressionFormatter
                 builder.append(" OVER ").append(formatWindow(node.getWindow().get()));
             }
 
+            return builder.toString();
+        }
+
+        @Override
+        protected String visitCallArgument(CallArgument node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+            node.getName().ifPresent(name -> builder.append(formatExpression(name)).append(" => "));
+            builder.append(process(node.getValue(), context));
             return builder.toString();
         }
 
@@ -983,12 +1002,12 @@ public final class ExpressionFormatter
         {
             StringBuilder builder = new StringBuilder();
 
-            List<Expression> arguments = node.getArguments();
-            Expression expression = arguments.get(0);
-            Expression separator = arguments.get(1);
-            BooleanLiteral overflowError = (BooleanLiteral) arguments.get(2);
-            Expression overflowFiller = arguments.get(3);
-            BooleanLiteral showOverflowEntryCount = (BooleanLiteral) arguments.get(4);
+            List<CallArgument> arguments = node.getArguments();
+            Expression expression = arguments.get(0).getValue();
+            Expression separator = arguments.get(1).getValue();
+            BooleanLiteral overflowError = (BooleanLiteral) arguments.get(2).getValue();
+            Expression overflowFiller = arguments.get(3).getValue();
+            BooleanLiteral showOverflowEntryCount = (BooleanLiteral) arguments.get(4).getValue();
 
             String innerArguments = joinExpressions(ImmutableList.of(expression, separator));
             if (node.isDistinct()) {

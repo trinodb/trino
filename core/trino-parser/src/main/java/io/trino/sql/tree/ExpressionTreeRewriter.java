@@ -16,6 +16,7 @@ package io.trino.sql.tree;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -173,6 +174,25 @@ public final class ExpressionTreeRewriter<C>
 
             if (value != node.getValue() || timeZone != node.getTimeZone()) {
                 return new AtTimeZone(node.getLocation().orElseThrow(), value, timeZone);
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitAtLocal(AtLocal node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteAtLocal(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression value = rewrite(node.getValue(), context.get());
+
+            if (value != node.getValue()) {
+                return new AtLocal(node.getLocation().orElseThrow(), value);
             }
 
             return node;
@@ -494,7 +514,13 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
-            List<Expression> arguments = rewrite(node.getArguments(), context);
+            List<CallArgument> arguments = new ArrayList<>(node.getArguments().size());
+            for (CallArgument argument : node.getArguments()) {
+                Expression rewrittenValue = rewrite(argument.getValue(), context.get());
+                arguments.add(rewrittenValue == argument.getValue()
+                        ? argument
+                        : new CallArgument(argument.getLocation().orElse(null), argument.getName(), rewrittenValue));
+            }
 
             Optional<OrderBy> orderBy = node.getOrderBy();
             if (orderBy.isPresent()) {
@@ -504,10 +530,10 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
-            if (!sameElements(node.getArguments(), arguments) || !sameElements(window, node.getWindow())
+            if (!sameElements(arguments, node.getArguments()) || !sameElements(window, node.getWindow())
                     || !sameElements(filter, node.getFilter()) || !sameElements(orderBy, node.getOrderBy())) {
                 return new FunctionCall(
-                        node.getLocation(),
+                        node.getLocation().orElse(null),
                         node.getName(),
                         window,
                         filter,

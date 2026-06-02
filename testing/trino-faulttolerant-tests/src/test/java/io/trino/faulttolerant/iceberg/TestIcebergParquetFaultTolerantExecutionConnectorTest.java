@@ -98,7 +98,7 @@ public class TestIcebergParquetFaultTolerantExecutionConnectorTest
     protected Session withTableChangesRowGroups(Session session)
     {
         return Session.builder(withSmallRowGroups(session))
-                .setCatalogSessionProperty("iceberg", "parquet_writer_block_size", "16kB")
+                .setCatalogSessionProperty("iceberg", "parquet_writer_row_group_size", "16kB")
                 .build();
     }
 

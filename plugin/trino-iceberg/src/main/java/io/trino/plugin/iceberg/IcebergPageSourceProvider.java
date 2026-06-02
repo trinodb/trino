@@ -41,6 +41,8 @@ import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.cache.ParquetFooterCache;
+import io.trino.parquet.cache.ParquetFooterCacheKey;
 import io.trino.parquet.metadata.FileMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
@@ -227,6 +229,7 @@ public class IcebergPageSourceProvider
     private final OrcReaderOptions orcReaderOptions;
     private final ParquetReaderOptions parquetReaderOptions;
     private final TypeManager typeManager;
+    private final ParquetFooterCache parquetFooterCache;
     private final DeleteManager unpartitionedTableDeleteManager;
     private final Map<Integer, Function<PartitionData, PartitionKey>> partitionKeyFactories = new ConcurrentHashMap<>();
     private final Map<PartitionKey, DeleteManager> partitionedDeleteManagers = new ConcurrentHashMap<>();
@@ -237,7 +240,8 @@ public class IcebergPageSourceProvider
             FileFormatDataSourceStats fileFormatDataSourceStats,
             OrcReaderOptions orcReaderOptions,
             ParquetReaderOptions parquetReaderOptions,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            ParquetFooterCache parquetFooterCache)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
@@ -245,6 +249,7 @@ public class IcebergPageSourceProvider
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
         this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.parquetFooterCache = requireNonNull(parquetFooterCache, "parquetFooterCache is null");
         this.unpartitionedTableDeleteManager = new DeleteManager(typeManager);
     }
 
@@ -258,6 +263,7 @@ public class IcebergPageSourceProvider
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
+        verify(connectorTableCredentials.isPresent(), "connectorTableCredentials is empty");
         if (connectorSplit instanceof FilesTableSplit filesTableSplit) {
             return new FilesTablePageSource(
                     typeManager,
@@ -318,7 +324,7 @@ public class IcebergPageSourceProvider
             long fileRecordCount,
             IcebergFileFormat fileFormat,
             Map<String, String> fileIoProperties,
-            long dataSequenceNumber,
+            OptionalLong dataSequenceNumber,
             OptionalLong fileFirstRowId,
             Optional<NameMapping> nameMapping)
     {
@@ -542,7 +548,7 @@ public class IcebergPageSourceProvider
                 Optional.empty(),
                 "",
                 ImmutableMap.of(),
-                0,
+                OptionalLong.empty(),
                 OptionalLong.empty())
                 .pageSource();
     }
@@ -562,7 +568,7 @@ public class IcebergPageSourceProvider
             Optional<NameMapping> nameMapping,
             String partition,
             Map<Integer, Optional<String>> partitionKeys,
-            long dataSequenceNumber,
+            OptionalLong dataSequenceNumber,
             OptionalLong fileFirstRowId)
     {
         return switch (fileFormat) {
@@ -612,6 +618,7 @@ public class IcebergPageSourceProvider
                             .build(),
                     predicate,
                     fileFormatDataSourceStats,
+                    parquetFooterCache,
                     nameMapping,
                     partition,
                     partitionKeys,
@@ -683,7 +690,7 @@ public class IcebergPageSourceProvider
             Optional<NameMapping> nameMapping,
             String partition,
             Map<Integer, Optional<String>> partitionKeys,
-            long dataSequenceNumber,
+            OptionalLong dataSequenceNumber,
             OptionalLong fileFirstRowId)
     {
         OrcDataSource orcDataSource = null;
@@ -774,7 +781,8 @@ public class IcebergPageSourceProvider
                         transforms.transform(new RowIdTransform(fileFirstRowId.getAsLong(), -1));
                     }
                     else if (column.isLastUpdatedSequenceNumberColumn()) {
-                        transforms.constantValue(nativeValueToBlock(column.getType(), dataSequenceNumber));
+                        transforms.constantValue(nativeValueToBlock(column.getType(), dataSequenceNumber.orElseThrow(() ->
+                                new TrinoException(ICEBERG_BAD_DATA, "Cannot read $last_updated_sequence_number metadata column: Iceberg manifest is missing dataSequenceNumber"))));
                     }
                     else {
                         Object initialDefault = getInitialDefault(tableSchema, column.getBaseColumnIdentity().getId());
@@ -802,7 +810,8 @@ public class IcebergPageSourceProvider
                         transforms.transform(new RowIdTransform(fileFirstRowId.getAsLong(), ordinal));
                     }
                     else if (column.isLastUpdatedSequenceNumberColumn()) {
-                        transforms.transform(new DataSequenceNumberTransform(dataSequenceNumber, ordinal));
+                        transforms.transform(new DataSequenceNumberTransform(dataSequenceNumber.orElseThrow(() ->
+                                new TrinoException(ICEBERG_BAD_DATA, "Cannot read $last_updated_sequence_number metadata column: Iceberg manifest is missing dataSequenceNumber")), ordinal));
                     }
                     else if (column.isBaseColumn()) {
                         transforms.column(ordinal);
@@ -1002,10 +1011,11 @@ public class IcebergPageSourceProvider
             ParquetReaderOptions options,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
             FileFormatDataSourceStats fileFormatDataSourceStats,
+            ParquetFooterCache parquetFooterCache,
             Optional<NameMapping> nameMapping,
             String partition,
             Map<Integer, Optional<String>> partitionKeys,
-            long dataSequenceNumber,
+            OptionalLong dataSequenceNumber,
             OptionalLong fileFirstRowId)
     {
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
@@ -1013,7 +1023,7 @@ public class IcebergPageSourceProvider
         ParquetDataSource dataSource = null;
         try {
             dataSource = createDataSource(inputFile, OptionalLong.of(fileSize), options, memoryContext, fileFormatDataSourceStats);
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, options, Optional.empty(), Optional.empty());
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, options, Optional.empty(), Optional.empty(), parquetFooterCache, new ParquetFooterCacheKey(inputFile.location().toString(), fileSize));
             FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
             if (nameMapping.isPresent() && !ParquetSchemaUtil.hasIds(fileSchema)) {
@@ -1098,7 +1108,8 @@ public class IcebergPageSourceProvider
                         transforms.transform(new RowIdTransform(fileFirstRowId.getAsLong(), -1));
                     }
                     else if (column.isLastUpdatedSequenceNumberColumn()) {
-                        transforms.constantValue(nativeValueToBlock(column.getType(), dataSequenceNumber));
+                        transforms.constantValue(nativeValueToBlock(column.getType(), dataSequenceNumber.orElseThrow(() ->
+                                new TrinoException(ICEBERG_BAD_DATA, "Cannot read $last_updated_sequence_number metadata column: Iceberg manifest is missing dataSequenceNumber"))));
                     }
                     else {
                         Object initialDefault = getInitialDefault(tableSchema, column.getBaseColumn().getId());
@@ -1133,7 +1144,8 @@ public class IcebergPageSourceProvider
                         transforms.transform(new RowIdTransform(fileFirstRowId.getAsLong(), ordinal));
                     }
                     else if (column.isLastUpdatedSequenceNumberColumn()) {
-                        transforms.transform(new DataSequenceNumberTransform(dataSequenceNumber, ordinal));
+                        transforms.transform(new DataSequenceNumberTransform(dataSequenceNumber.orElseThrow(() ->
+                                new TrinoException(ICEBERG_BAD_DATA, "Cannot read $last_updated_sequence_number metadata column: Iceberg manifest is missing dataSequenceNumber")), ordinal));
                     }
                     else if (column.isBaseColumn()) {
                         transforms.column(ordinal);
@@ -1259,7 +1271,7 @@ public class IcebergPageSourceProvider
             String partition,
             List<IcebergColumnHandle> columns,
             Map<Integer, Optional<String>> partitionKeys,
-            long dataSequenceNumber,
+            OptionalLong dataSequenceNumber,
             OptionalLong fileFirstRowId)
     {
         InputFile file = new ForwardingInputFile(inputFile);
@@ -1334,7 +1346,8 @@ public class IcebergPageSourceProvider
                         transforms.transform(new RowIdTransform(fileFirstRowId.getAsLong(), -1));
                     }
                     else if (column.isLastUpdatedSequenceNumberColumn()) {
-                        transforms.constantValue(nativeValueToBlock(column.getType(), dataSequenceNumber));
+                        transforms.constantValue(nativeValueToBlock(column.getType(), dataSequenceNumber.orElseThrow(() ->
+                                new TrinoException(ICEBERG_BAD_DATA, "Cannot read $last_updated_sequence_number metadata column: Iceberg manifest is missing dataSequenceNumber"))));
                     }
                     else {
                         Object initialDefault = getInitialDefault(fileSchema, column.getBaseColumn().getId());
@@ -1358,7 +1371,8 @@ public class IcebergPageSourceProvider
                         transforms.transform(new RowIdTransform(fileFirstRowId.getAsLong(), ordinal));
                     }
                     else if (column.isLastUpdatedSequenceNumberColumn()) {
-                        transforms.transform(new DataSequenceNumberTransform(dataSequenceNumber, ordinal));
+                        transforms.transform(new DataSequenceNumberTransform(dataSequenceNumber.orElseThrow(() ->
+                                new TrinoException(ICEBERG_BAD_DATA, "Cannot read $last_updated_sequence_number metadata column: Iceberg manifest is missing dataSequenceNumber")), ordinal));
                     }
                     else if (column.isBaseColumn()) {
                         transforms.column(ordinal);

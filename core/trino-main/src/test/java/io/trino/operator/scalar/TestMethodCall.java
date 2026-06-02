@@ -30,6 +30,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -182,6 +183,17 @@ public class TestMethodCall
                 .matches("BIGINT '5'");
         assertThat(assertions.expression("('hello').Char_Length()"))
                 .matches("BIGINT '5'");
+    }
+
+    @Test
+    public void testNamedArgumentsRejectedOnMethodCall()
+    {
+        // Method-call syntax (receiver.method(...)) does not support named arguments.
+        // The call must not silently bind by position; instance-method resolution declines
+        // it, and ordinary function resolution then rejects the unknown argument name.
+        assertTrinoExceptionThrownBy(() -> assertions.getQueryRunner().execute("SELECT s.repeat(count => 3) FROM (VALUES VARCHAR 'ab') t(s)"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("No argument named count");
     }
 
     @Test

@@ -69,6 +69,14 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitAtLocal(AtLocal node, C context)
+    {
+        process(node.getValue(), context);
+
+        return null;
+    }
+
+    @Override
     protected Void visitArray(Array node, C context)
     {
         for (Expression expression : node.getValues()) {
@@ -204,8 +212,8 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitFunctionCall(FunctionCall node, C context)
     {
-        for (Expression argument : node.getArguments()) {
-            process(argument, context);
+        for (CallArgument argument : node.getArguments()) {
+            process(argument.getValue(), context);
         }
 
         if (node.getOrderBy().isPresent()) {

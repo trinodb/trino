@@ -5497,7 +5497,7 @@ public abstract class BaseIcebergConnectorTest
     private static Session withSplitPruningRowGroups(Session session)
     {
         return Session.builder(withSmallRowGroups(session))
-                .setCatalogSessionProperty("iceberg", "parquet_writer_block_size", "256B")
+                .setCatalogSessionProperty("iceberg", "parquet_writer_row_group_size", "256B")
                 .build();
     }
 

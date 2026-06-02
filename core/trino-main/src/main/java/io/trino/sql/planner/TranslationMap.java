@@ -59,10 +59,12 @@ import io.trino.sql.ir.WhenClause;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
+import io.trino.sql.tree.AtLocal;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
@@ -144,6 +146,7 @@ import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -337,6 +340,7 @@ public class TranslationMap
                 case LocalTimestamp expression -> translate(expression);
                 case Extract expression -> translate(expression);
                 case AtTimeZone expression -> translate(expression);
+                case AtLocal expression -> translate(expression);
                 case Format expression -> translate(expression);
                 case TryExpression expression -> translate(expression);
                 case LikePredicate expression -> translate(expression);
@@ -673,11 +677,21 @@ public class TranslationMap
     private io.trino.sql.ir.Expression translate(FunctionCall expression)
     {
         if (analysis.isPatternNavigationFunction(expression)) {
-            return translate(expression.getArguments().getFirst(), false);
+            return translate(expression.getArguments().getFirst().getValue(), false);
         }
 
         Optional<ResolvedFunction> resolvedFunction = analysis.getResolvedFunction(expression);
         checkArgument(resolvedFunction.isPresent(), "Function has not been analyzed: %s", expression);
+
+        // Emit arguments in resolved signature order: for positional calls the binding
+        // is the identity; for named calls it reorders so values land at their
+        // declared positions.
+        List<CallArgument> arguments = expression.getArguments();
+        List<io.trino.sql.ir.Expression> translated = analysis.getArgumentBinding(expression).stream()
+                .map(arguments::get)
+                .map(CallArgument::getValue)
+                .map(this::translateExpression)
+                .collect(toImmutableList());
 
         Optional<Identifier> methodReceiver = analysis.getMethodCallReceiver(expression);
         if (methodReceiver.isPresent()) {
@@ -685,17 +699,11 @@ public class TranslationMap
                     resolvedFunction.get(),
                     ImmutableList.<io.trino.sql.ir.Expression>builder()
                             .add(translateExpression(methodReceiver.get()))
-                            .addAll(expression.getArguments().stream()
-                                    .map(this::translateExpression)
-                                    .collect(toImmutableList()))
+                            .addAll(translated)
                             .build());
         }
 
-        return new Call(
-                resolvedFunction.get(),
-                expression.getArguments().stream()
-                        .map(this::translateExpression)
-                        .collect(toImmutableList()));
+        return new Call(resolvedFunction.get(), translated);
     }
 
     private io.trino.sql.ir.Expression translate(StaticMethodCall expression)
@@ -903,12 +911,26 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(AtTimeZone node)
     {
-        Type valueType = analysis.getType(node.getValue());
-        io.trino.sql.ir.Expression value = translateExpression(node.getValue());
+        return atTimeZone(
+                analysis.getType(node.getValue()),
+                translateExpression(node.getValue()),
+                analysis.getType(node.getTimeZone()),
+                translateExpression(node.getTimeZone()));
+    }
 
-        Type timeZoneType = analysis.getType(node.getTimeZone());
-        io.trino.sql.ir.Expression timeZone = translateExpression(node.getTimeZone());
+    private io.trino.sql.ir.Expression translate(AtLocal node)
+    {
+        String zoneId = session.getTimeZoneKey().getId();
+        Type timeZoneType = createVarcharType(zoneId.length());
+        return atTimeZone(
+                analysis.getType(node.getValue()),
+                translateExpression(node.getValue()),
+                timeZoneType,
+                new Constant(timeZoneType, utf8Slice(zoneId)));
+    }
 
+    private io.trino.sql.ir.Expression atTimeZone(Type valueType, io.trino.sql.ir.Expression value, Type timeZoneType, io.trino.sql.ir.Expression timeZone)
+    {
         return switch (valueType) {
             case TimeType type -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                     .setName("$at_timezone")

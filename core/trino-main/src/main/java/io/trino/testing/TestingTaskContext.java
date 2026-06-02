@@ -25,8 +25,11 @@ import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.operator.TaskContext;
 import io.trino.spi.QueryId;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spiller.SpillSpaceTracker;
+import io.trino.sql.planner.plan.PlanNodeId;
 
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -43,6 +46,13 @@ public final class TestingTaskContext
     public static TaskContext createTaskContext(Executor notificationExecutor, ScheduledExecutorService scheduledExecutor, Session session)
     {
         return builder(notificationExecutor, scheduledExecutor, session).build();
+    }
+
+    public static TaskContext createTaskContext(Executor notificationExecutor, ScheduledExecutorService scheduledExecutor, Session session, Map<PlanNodeId, ConnectorTableCredentials> tableCredentials)
+    {
+        return builder(notificationExecutor, scheduledExecutor, session)
+                .setTableCredentials(tableCredentials)
+                .build();
     }
 
     public static TaskContext createTaskContext(Executor notificationExecutor, ScheduledExecutorService scheduledExecutor, Session session, DataSize maxMemory)
@@ -66,9 +76,14 @@ public final class TestingTaskContext
 
     private static TaskContext createTaskContext(QueryContext queryContext, Session session, TaskStateMachine taskStateMachine)
     {
+        return createTaskContext(queryContext, session, taskStateMachine, ImmutableMap.of());
+    }
+
+    private static TaskContext createTaskContext(QueryContext queryContext, Session session, TaskStateMachine taskStateMachine, Map<PlanNodeId, ConnectorTableCredentials> tableCredentials)
+    {
         return queryContext.addTaskContext(
                 taskStateMachine,
-                ImmutableMap.of(),
+                tableCredentials,
                 session,
                 () -> {},
                 true,
@@ -91,6 +106,7 @@ public final class TestingTaskContext
         private DataSize memoryPoolSize = DataSize.of(1, GIGABYTE);
         private DataSize maxSpillSize = DataSize.of(1, GIGABYTE);
         private DataSize queryMaxSpillSize = DataSize.of(1, GIGABYTE);
+        private Map<PlanNodeId, ConnectorTableCredentials> tableCredentials = ImmutableMap.of();
 
         private Builder(Executor notificationExecutor, ScheduledExecutorService scheduledExecutor, Session session)
         {
@@ -135,6 +151,12 @@ public final class TestingTaskContext
             return this;
         }
 
+        public Builder setTableCredentials(Map<PlanNodeId, ConnectorTableCredentials> tableCredentials)
+        {
+            this.tableCredentials = tableCredentials;
+            return this;
+        }
+
         public TaskContext build()
         {
             if (taskStateMachine == null) {
@@ -155,7 +177,7 @@ public final class TestingTaskContext
                     queryMaxSpillSize,
                     spillSpaceTracker);
 
-            return createTaskContext(queryContext, session, taskStateMachine);
+            return createTaskContext(queryContext, session, taskStateMachine, tableCredentials);
         }
     }
 }

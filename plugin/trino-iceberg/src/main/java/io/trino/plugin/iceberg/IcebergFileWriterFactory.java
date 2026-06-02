@@ -72,10 +72,11 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterMaxSt
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterMinStripeSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterValidateMode;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterBatchSize;
-import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterDeltaLengthByteArrayEncodingEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterPageSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterPageValueCount;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterRowGroupMaxRowCount;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterRowGroupSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcWriterValidate;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.getHiveCompressionCodec;
@@ -179,7 +180,8 @@ public class IcebergFileWriterFactory
             ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                     .setMaxPageSize(getParquetWriterPageSize(session))
                     .setMaxPageValueCount(getParquetWriterPageValueCount(session))
-                    .setMaxBlockSize(getParquetWriterBlockSize(session))
+                    .setMaxBlockSize(getParquetWriterRowGroupSize(session))
+                    .setMaxRowGroupRowCount(getParquetWriterRowGroupMaxRowCount(session))
                     .setBatchSize(getParquetWriterBatchSize(session))
                     .setBloomFilterColumns(getParquetBloomFilterColumns(storageProperties))
                     .setUseDeltaLengthByteArrayEncoding(getParquetWriterDeltaLengthByteArrayEncodingEnabled(session))
