@@ -173,6 +173,18 @@ public class CastTest
     }
 
     @Test
+    void testBooleanNumericCasts()
+    {
+        // boolean <-> every numeric, plus char -> boolean (cast-only, not implicit).
+        assertThat(LIBRARY.resolveCast(symbol("boolean"), symbol("integer"))).isPresent();
+        assertThat(LIBRARY.resolveCast(symbol("integer"), symbol("boolean"))).isPresent();
+        assertThat(LIBRARY.resolveCast(symbol("boolean"), apply("decimal", literal(10), literal(2)))).isPresent();
+        assertThat(LIBRARY.resolveCast(apply("decimal", literal(10), literal(2)), symbol("boolean"))).isPresent();
+        assertThat(LIBRARY.resolveCast(apply("char", literal(5)), symbol("boolean"))).isPresent();
+        assertThat(LIBRARY.typeSystem().coercionPlan(symbol("boolean"), symbol("integer"))).isEmpty();
+    }
+
+    @Test
     void testNumberCasts()
     {
         // boolean -> number and number -> json are cast-only conversions Trino allows.

@@ -387,7 +387,23 @@ public final class TrinoPreset
                 new PatternCoercion(symbol("number"), apply("varchar", variable("@n")), List.of()),
                 new PatternCoercion(symbol("number"), apply("decimal", variable("@p"), variable("@s")), List.of()),
                 new PrimitiveTypeCoercion("boolean", "number"),
-                new PrimitiveTypeCoercion("number", "json")));
+                new PrimitiveTypeCoercion("number", "json"),
+                // boolean <-> numeric casts (true/false <-> 1/0), and char -> boolean.
+                new PrimitiveTypeCoercion("boolean", "tinyint"),
+                new PrimitiveTypeCoercion("boolean", "smallint"),
+                new PrimitiveTypeCoercion("boolean", "integer"),
+                new PrimitiveTypeCoercion("boolean", "bigint"),
+                new PrimitiveTypeCoercion("boolean", "real"),
+                new PrimitiveTypeCoercion("boolean", "double"),
+                new PatternCoercion(symbol("boolean"), apply("decimal", variable("@p"), variable("@s")), List.of()),
+                new PrimitiveTypeCoercion("tinyint", "boolean"),
+                new PrimitiveTypeCoercion("smallint", "boolean"),
+                new PrimitiveTypeCoercion("integer", "boolean"),
+                new PrimitiveTypeCoercion("bigint", "boolean"),
+                new PrimitiveTypeCoercion("real", "boolean"),
+                new PrimitiveTypeCoercion("double", "boolean"),
+                new PatternCoercion(apply("decimal", variable("@p"), variable("@s")), symbol("boolean"), List.of()),
+                new PatternCoercion(apply("char", variable("@n")), symbol("boolean"), List.of())));
         rules.addAll(unboundedVarcharCasts());
         return List.copyOf(rules);
     }
