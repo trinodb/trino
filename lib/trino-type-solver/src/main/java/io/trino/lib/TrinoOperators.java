@@ -83,7 +83,7 @@ public final class TrinoOperators
         }
 
         // Decimal multiplication:
-        //   naturalPrecision = p1 + p2 + 1
+        //   naturalPrecision = p1 + p2
         //   intDigits = naturalPrecision - (s1 + s2)
         //   precision = min(38, naturalPrecision)
         //   scale = min(s1 + s2, max(6, 38 - intDigits))
@@ -242,10 +242,7 @@ public final class TrinoOperators
     private static TypeScheme decimalMultiplyScheme()
     {
         Expression sumScale = operation(ADD, variable("@s1"), variable("@s2"));
-        Expression naturalPrecision = operation(
-                ADD,
-                operation(ADD, variable("@p1"), variable("@p2")),
-                literal(1));
+        Expression naturalPrecision = operation(ADD, variable("@p1"), variable("@p2"));
         Expression intDigits = operation(SUBTRACT, naturalPrecision, sumScale);
         return new TypeScheme(
                 List.of(variable("@p1"), variable("@s1"), variable("@p2"), variable("@s2")),
