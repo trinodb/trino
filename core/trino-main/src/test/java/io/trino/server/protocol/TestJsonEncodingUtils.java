@@ -13,6 +13,8 @@
  */
 package io.trino.server.protocol;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.client.ClientCapabilities;
@@ -31,12 +33,14 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.type.AbstractIntType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import io.trino.spi.type.TypeSignature;
 import io.trino.spi.variant.Variant;
 import org.junit.jupiter.api.Test;
 
@@ -89,7 +93,7 @@ public class TestJsonEncodingUtils
 
     protected QueryDataEncoder createEncoder(Session session, List<OutputColumn> columns)
     {
-        return new JsonQueryDataEncoder.Factory().create(session, columns);
+        return new JsonQueryDataEncoder.Factory(new JsonMapper()).create(session, columns);
     }
 
     @Test
@@ -725,6 +729,24 @@ public class TestJsonEncodingUtils
                                 .build()));
     }
 
+    @Test
+    public void testTypeObjectSerialization()
+            throws IOException
+    {
+        CustomType customType = new CustomType();
+        BlockBuilder blockBuilder = customType.createBlockBuilder(null, 2);
+        customType.writeInt(blockBuilder, 42);
+        blockBuilder.appendNull();
+        Page page = page(blockBuilder.build());
+
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        QueryDataEncoder encoder = new JsonQueryDataEncoder.Factory(new JsonMapper())
+                .create(TEST_SESSION, ImmutableList.of(new OutputColumn(0, "custom", customType)));
+
+        encoder.encodeTo(output, List.of(page));
+        assertThat(output.toString(UTF_8)).isEqualTo("[[{\"value\":42}],[null]]");
+    }
+
     protected List<List<Object>> roundTrip(List<TypedColumn> columns, Page page, String expectedJson)
             throws IOException
     {
@@ -896,6 +918,32 @@ public class TestJsonEncodingUtils
     {
         // Allow nulls
     }
+
+    private static final class CustomType
+            extends AbstractIntType
+    {
+        private CustomType()
+        {
+            super(new TypeSignature("custom"));
+        }
+
+        @Override
+        public String getDisplayName()
+        {
+            return "custom";
+        }
+
+        @Override
+        public Object getObjectValue(Block block, int position)
+        {
+            if (block.isNull(position)) {
+                return null;
+            }
+            return new Custom(getInt(block, position));
+        }
+    }
+
+    private record Custom(@JsonProperty("value") int value) {}
 
     static <K, V> Entry<K, V> entry(K key, V value)
     {
