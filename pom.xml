@@ -138,6 +138,7 @@
         <module>testing/trino-testing-resources</module>
         <module>testing/trino-testing-services</module>
         <module>testing/trino-tests</module>
+        <module>testing/trino-type-solver-verifier</module>
     </modules>
 
     <scm child.scm.connection.inherit.append.path="false" child.scm.developerConnection.inherit.append.path="false" child.scm.url.inherit.append.path="false">
