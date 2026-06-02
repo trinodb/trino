@@ -29,6 +29,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestSpatialJoins
         extends AbstractTestQueryFramework
 {
+    private static final String SRID_MISMATCH_ERROR = ".*SRID mismatch: (4326 vs 3857|3857 vs 4326).*";
+
     // A set of polygons such that:
     // - a and c intersect;
     // - c covers b;
@@ -320,6 +322,143 @@ public class TestSpatialJoins
                         "(VALUES (0, 1, '0_1'), (1, 1, '1_1'), (3, 1, '3_1'), (10, 1, '10_1')) as b (x, y, name) " +
                         "WHERE ST_Distance(ST_Point(a.x, a.y), ST_Point(b.x, b.y)) <= sqrt(b.x * b.x + b.y * b.y)",
                 "VALUES ('0_0', '0_1'), ('0_0', '1_1'), ('0_0', '3_1'), ('0_0', '10_1'), ('1_0', '1_1'), ('1_0', '3_1'), ('1_0', '10_1'), ('3_0', '3_1'), ('3_0', '10_1'), ('10_0', '10_1')");
+    }
+
+    @Test
+    public void testBroadcastSpatialJoinSridMismatch()
+    {
+        testSpatialJoinSridMismatch(getSession());
+    }
+
+    @Test
+    public void testDistributedSpatialJoinSridMismatch()
+    {
+        assertUpdate(
+                "CREATE TABLE srid_mismatch_partitioning AS " +
+                        "SELECT spatial_partitioning(g) AS v " +
+                        "FROM (VALUES " +
+                        "(ST_SetSRID(ST_GeometryFromText('POLYGON ((0 0, 0 2, 2 2, 2 0, 0 0))'), 4326)), " +
+                        "(ST_SetSRID(ST_Point(1, 1), 4326))) AS a (g)",
+                1);
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SPATIAL_PARTITIONING_TABLE_NAME, "srid_mismatch_partitioning")
+                .build();
+        testSpatialJoinSridMismatch(session);
+    }
+
+    private void testSpatialJoinSridMismatch(Session session)
+    {
+        assertQueryFails(
+                session,
+                "SELECT a.g, b.g " +
+                        "FROM (VALUES (ST_SetSRID(ST_GeometryFromText('POLYGON ((0 0, 0 2, 2 2, 2 0, 0 0))'), 4326))) AS a (g) " +
+                        "JOIN (VALUES (ST_SetSRID(ST_Point(1, 1), 3857))) AS b (g) " +
+                        "ON ST_Contains(a.g, b.g)",
+                SRID_MISMATCH_ERROR);
+
+        assertQueryFails(
+                session,
+                "SELECT a.g, b.g " +
+                        "FROM (VALUES (ST_SetSRID(ST_GeometryFromText('POLYGON ((0 0, 0 2, 2 2, 2 0, 0 0))'), 4326))) AS a (g) " +
+                        "JOIN (VALUES (ST_SetSRID(ST_Point(1, 1), 3857))) AS b (g) " +
+                        "ON ST_Within(b.g, a.g)",
+                SRID_MISMATCH_ERROR);
+
+        assertQueryFails(
+                session,
+                "SELECT a.g, b.g " +
+                        "FROM (VALUES (ST_SetSRID(ST_GeometryFromText('POLYGON ((0 0, 0 2, 2 2, 2 0, 0 0))'), 4326))) AS a (g) " +
+                        "JOIN (VALUES (ST_SetSRID(ST_Point(1, 1), 3857))) AS b (g) " +
+                        "ON ST_Intersects(a.g, b.g)",
+                SRID_MISMATCH_ERROR);
+
+        assertQueryFails(
+                session,
+                "SELECT a.g, b.g " +
+                        "FROM (VALUES (ST_SetSRID(ST_Point(0, 0), 4326))) AS a (g) " +
+                        "JOIN (VALUES (ST_SetSRID(ST_Point(0, 1), 3857))) AS b (g) " +
+                        "ON ST_Distance(a.g, b.g) <= 2",
+                SRID_MISMATCH_ERROR);
+
+        assertQueryFails(
+                session,
+                "SELECT a.g, b.g " +
+                        "FROM (VALUES (ST_SetSRID(ST_GeometryFromText('POLYGON ((0 0, 0 2, 2 2, 2 0, 0 0))'), 4326))) AS a (g) " +
+                        "JOIN (VALUES (ST_SetSRID(ST_Point(100, 100), 3857))) AS b (g) " +
+                        "ON ST_Contains(a.g, b.g)",
+                SRID_MISMATCH_ERROR);
+
+        assertQueryFails(
+                session,
+                "SELECT a.g, b.g " +
+                        "FROM (VALUES (ST_SetSRID(ST_Point(0, 0), 4326))) AS a (g) " +
+                        "JOIN (VALUES (ST_SetSRID(ST_Point(100, 100), 3857))) AS b (g) " +
+                        "ON ST_Distance(a.g, b.g) <= 1",
+                SRID_MISMATCH_ERROR);
+
+        assertQueryReturnsEmptyResult(
+                session,
+                "SELECT a.g, b.g " +
+                        "FROM (VALUES (ST_SetSRID(ST_Point(0, 0), 4326))) AS a (g) " +
+                        "JOIN (VALUES (ST_Point(100, 100))) AS b (g) " +
+                        "ON ST_Distance(a.g, b.g) <= 1");
+    }
+
+    @Test
+    public void testBroadcastSpatialJoinWithZAndSrid()
+    {
+        testSpatialJoinWithZAndSrid(getSession());
+    }
+
+    @Test
+    public void testDistributedSpatialJoinWithZAndSrid()
+    {
+        assertUpdate(
+                "CREATE TABLE z_srid_partitioning AS " +
+                        "SELECT spatial_partitioning(g) AS v " +
+                        "FROM (VALUES " +
+                        "(ST_SetSRID(ST_GeometryFromText('POLYGON Z ((0 0 1, 0 5 2, 5 5 3, 5 0 4, 0 0 1))'), 4326)), " +
+                        "(ST_SetSRID(ST_GeometryFromText('POLYGON Z ((4 4 10, 4 10 20, 10 10 30, 10 4 40, 4 4 10))'), 4326))) AS a (g)",
+                1);
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SPATIAL_PARTITIONING_TABLE_NAME, "z_srid_partitioning")
+                .build();
+        testSpatialJoinWithZAndSrid(session);
+    }
+
+    private void testSpatialJoinWithZAndSrid(Session session)
+    {
+        assertQuery(
+                session,
+                "SELECT point_name, polygon_name " +
+                        "FROM (VALUES " +
+                        "(ST_SetSRID(ST_GeometryFromText('POINT Z (1 1 99)'), 4326), 'x'), " +
+                        "(ST_SetSRID(ST_GeometryFromText('POINT Z (4.5 4.5 -7)'), 4326), 'y'), " +
+                        "(ST_SetSRID(ST_GeometryFromText('POINT Z (6 6 123)'), 4326), 'z'), " +
+                        "(ST_SetSRID(ST_GeometryFromText('POINT Z (20 20 0)'), 4326), 'w')) AS points(g, point_name) " +
+                        "JOIN (VALUES " +
+                        "(ST_SetSRID(ST_GeometryFromText('POLYGON Z ((0 0 1, 0 5 2, 5 5 3, 5 0 4, 0 0 1))'), 4326), 'A'), " +
+                        "(ST_SetSRID(ST_GeometryFromText('POLYGON Z ((4 4 10, 4 10 20, 10 10 30, 10 4 40, 4 4 10))'), 4326), 'B')) AS polygons(g, polygon_name) " +
+                        "ON ST_Contains(polygons.g, points.g)",
+                "VALUES ('x', 'A'), ('y', 'A'), ('y', 'B'), ('z', 'B')");
+
+        assertQuery(
+                session,
+                "SELECT probe_name, build_name " +
+                        "FROM (VALUES " +
+                        "(ST_SetSRID(ST_GeometryFromText('POINT Z (0 1 -100)'), 4326), '0_1'), " +
+                        "(ST_SetSRID(ST_GeometryFromText('POINT Z (1 1 -200)'), 4326), '1_1'), " +
+                        "(ST_SetSRID(ST_GeometryFromText('POINT Z (3 1 -300)'), 4326), '3_1'), " +
+                        "(ST_SetSRID(ST_GeometryFromText('POINT Z (10 1 -400)'), 4326), '10_1')) AS probe(g, probe_name) " +
+                        "JOIN (VALUES " +
+                        "(ST_SetSRID(ST_GeometryFromText('POINT Z (0 0 100)'), 4326), '0_0'), " +
+                        "(ST_SetSRID(ST_GeometryFromText('POINT Z (1 0 200)'), 4326), '1_0'), " +
+                        "(ST_SetSRID(ST_GeometryFromText('POINT Z (3 0 300)'), 4326), '3_0'), " +
+                        "(ST_SetSRID(ST_GeometryFromText('POINT Z (10 0 400)'), 4326), '10_0')) AS build(g, build_name) " +
+                        "ON ST_Distance(probe.g, build.g) <= 1.5",
+                "VALUES ('0_1', '0_0'), ('0_1', '1_0'), ('1_1', '0_0'), ('1_1', '1_0'), ('3_1', '3_0'), ('10_1', '10_0')");
     }
 
     @Test
