@@ -1,0 +1,132 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.weakref.solver;
+
+import io.trino.lib.TrinoPreset;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.weakref.solver.Expression.BinaryOperator.GREATER_THAN_OR_EQUAL;
+import static org.weakref.solver.Expression.BinaryOperator.SUBTRACT;
+import static org.weakref.solver.Expression.apply;
+import static org.weakref.solver.Expression.literal;
+import static org.weakref.solver.Expression.operation;
+import static org.weakref.solver.Expression.symbol;
+import static org.weakref.solver.Expression.variable;
+import static org.weakref.solver.Kind.TYPE;
+
+public class TypeSystemTest
+{
+    @Test
+    void testCoercionPlanCarriesInstantiatedPatternConditions()
+    {
+        assertThat(TrinoPreset.typeSystem().coercionPlan(symbol("integer"), apply("decimal", literal(10), literal(0))))
+                .hasValueSatisfying(plan -> {
+                    assertThat(plan.kind()).isEqualTo(CoercionPlan.Kind.DIRECT);
+                    assertThat(plan.steps())
+                            .singleElement()
+                            .isInstanceOfSatisfying(CoercionPlan.DirectRule.class, direct -> {
+                                assertThat(direct.ruleId()).isEqualTo("pattern:integer->decimal(@p, @s)");
+                                assertThat(direct.conditions()).containsExactly(
+                                        new NumericRelation(operation(
+                                                GREATER_THAN_OR_EQUAL,
+                                                operation(SUBTRACT, literal(10), literal(0)),
+                                                literal(10))));
+                            });
+                });
+    }
+
+    @Test
+    void testVariadicConstructorExpandsTemplatePerArgument()
+    {
+        TypeSystem typeSystem = TrinoPreset.typeSystem();
+
+        assertThat(typeSystem.instantiateValidationConstraints(apply("row", variable("@x"), variable("@y"))))
+                .containsExactly(
+                        new RequireKind("@x", TYPE),
+                        new RequireKind("@y", TYPE));
+
+        assertThat(typeSystem.instantiateValidationConstraints(apply("row", symbol("integer"))))
+                .isEmpty();
+
+        assertThat(typeSystem.instantiateValidationConstraints(apply("row")))
+                .isEmpty();
+    }
+
+    @Test
+    void testComparabilityAndOrderabilityOfTrinoTypes()
+    {
+        TypeSystem typeSystem = TrinoPreset.typeSystem();
+
+        // Most scalar types are both comparable and orderable.
+        assertThat(typeSystem.isComparable(symbol("integer"))).isTrue();
+        assertThat(typeSystem.isOrderable(symbol("integer"))).isTrue();
+        assertThat(typeSystem.isComparable(apply("decimal", literal(10), literal(2)))).isTrue();
+        assertThat(typeSystem.isOrderable(apply("decimal", literal(10), literal(2)))).isTrue();
+
+        // JSON supports neither.
+        assertThat(typeSystem.isComparable(symbol("json"))).isFalse();
+        assertThat(typeSystem.isOrderable(symbol("json"))).isFalse();
+
+        // Function types support neither.
+        assertThat(typeSystem.isComparable(Expression.function(List.of(symbol("integer")), symbol("integer")))).isFalse();
+        assertThat(typeSystem.isOrderable(Expression.function(List.of(symbol("integer")), symbol("integer")))).isFalse();
+
+        // Maps are comparable iff key and value are, but never orderable.
+        assertThat(typeSystem.isComparable(apply("map", symbol("integer"), symbol("integer")))).isTrue();
+        assertThat(typeSystem.isComparable(apply("map", symbol("integer"), symbol("json")))).isFalse();
+        assertThat(typeSystem.isOrderable(apply("map", symbol("integer"), symbol("integer")))).isFalse();
+    }
+
+    @Test
+    void testStructuralTraitsRecurseThroughContainers()
+    {
+        TypeSystem typeSystem = TrinoPreset.typeSystem();
+
+        // Arrays and rows inherit the trait from their element/field types.
+        assertThat(typeSystem.isComparable(apply("array", symbol("integer")))).isTrue();
+        assertThat(typeSystem.isOrderable(apply("array", symbol("integer")))).isTrue();
+        assertThat(typeSystem.isComparable(apply("array", symbol("json")))).isFalse();
+        assertThat(typeSystem.isComparable(apply("array", apply("array", symbol("json"))))).isFalse();
+        assertThat(typeSystem.isComparable(apply("array", apply("map", symbol("integer"), symbol("integer"))))).isTrue();
+        // An array of maps is comparable (maps are) but not orderable (maps aren't).
+        assertThat(typeSystem.isOrderable(apply("array", apply("map", symbol("integer"), symbol("integer"))))).isFalse();
+    }
+
+    @Test
+    void testUnresolvedVariablesAreNotRefuted()
+    {
+        TypeSystem typeSystem = TrinoPreset.typeSystem();
+
+        // A free variable hasn't been forced to a concrete type, so neither trait can be refuted yet.
+        assertThat(typeSystem.isComparable(variable("@T"))).isTrue();
+        assertThat(typeSystem.isOrderable(variable("@T"))).isTrue();
+        assertThat(typeSystem.isComparable(apply("array", variable("@T")))).isTrue();
+    }
+
+    @Test
+    void testFrameworkSolvesConstraintsWithNoRegisteredTypes()
+    {
+        TypeSystem typeSystem = new TypeSystem(List.of(), List.of());
+        assertThat(typeSystem.types()).isEmpty();
+        assertThat(typeSystem.coercions()).isEmpty();
+
+        Solver solver = new Solver(typeSystem);
+        Solver.SolveOutcome outcome = solver.solveOutcome(List.of(
+                new Subtype(variable("@X"), variable("@Y"))));
+        assertThat(outcome).isNotNull();
+    }
+}
