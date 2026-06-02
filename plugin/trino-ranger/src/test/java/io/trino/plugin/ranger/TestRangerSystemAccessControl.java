@@ -79,13 +79,13 @@ final class TestRangerSystemAccessControl
     @Test
     void testCanSetUserOperations()
     {
-        accessControlManager.checkCanSetUser(ADMIN.getPrincipal(), BOB.getUser());
+        accessControlManager.checkCanSetUser(ADMIN.getPrincipal(), BOB.getUser()); // ignored
         accessControlManager.checkCanImpersonateUser(ADMIN, BOB.getUser());
         accessControlManager.checkCanViewQueryOwnedBy(ADMIN, BOB);
         accessControlManager.checkCanKillQueryOwnedBy(ADMIN, BOB);
         assertThat(accessControlManager.filterViewQueryOwnedBy(ALICE, QUERY_OWNERS)).isEmpty();
 
-        assertThatThrownBy(() -> accessControlManager.checkCanSetUser(ALICE.getPrincipal(), BOB.getUser())).isInstanceOf(AccessDeniedException.class);
+        accessControlManager.checkCanSetUser(ALICE.getPrincipal(), BOB.getUser()); // ignored
         assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(ALICE, BOB.getUser())).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanViewQueryOwnedBy(ALICE, BOB)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(ALICE, BOB)).isInstanceOf(AccessDeniedException.class);
