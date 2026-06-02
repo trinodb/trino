@@ -41,6 +41,7 @@ import io.trino.lib.type.UuidType;
 import io.trino.lib.type.VarbinaryType;
 import io.trino.lib.type.VarcharType;
 import org.weakref.solver.CoercionRule;
+import org.weakref.solver.Expression;
 import org.weakref.solver.NumericRelation;
 import org.weakref.solver.ParametricTypeCovariantCoercion;
 import org.weakref.solver.PatternCoercion;
@@ -53,6 +54,7 @@ import org.weakref.solver.TypeLibrary;
 import org.weakref.solver.TypeSystem;
 import org.weakref.solver.type.TypeConstructor;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.weakref.solver.Expression.BinaryOperator.GREATER_THAN_OR_EQUAL;
@@ -252,7 +254,7 @@ public final class TrinoPreset
     {
         // Cast-only rules — valid as explicit CAST but NOT as implicit coercion.
         // (Rules already in coercionRules() automatically work as casts too via TypeSystem.castPlan.)
-        return List.of(
+        List<CoercionRule> rules = new ArrayList<>(List.of(
                 // Numeric / boolean parse casts: varchar -> ...
                 new PatternCoercion(apply("varchar", variable("@n")), symbol("tinyint"), List.of()),
                 new PatternCoercion(apply("varchar", variable("@n")), symbol("smallint"), List.of()),
@@ -381,7 +383,42 @@ public final class TrinoPreset
                 new PatternCoercion(symbol("number"), apply("varchar", variable("@n")), List.of()),
                 new PatternCoercion(symbol("number"), apply("decimal", variable("@p"), variable("@s")), List.of()),
                 new PrimitiveTypeCoercion("boolean", "number"),
-                new PrimitiveTypeCoercion("number", "json"));
+                new PrimitiveTypeCoercion("number", "json")));
+        rules.addAll(unboundedVarcharCasts());
+        return List.copyOf(rules);
+    }
+
+    /**
+     * Unbounded varchar (the {@code symbol("varchar")} form) casts wherever bounded
+     * {@code varchar(n)} does. Trino models unbounded varchar as {@code varchar(2^31-1)}, so the
+     * same cast surface applies; the preset keeps the two forms distinct, so the bounded cast rules
+     * are mirrored here for the symbol form.
+     */
+    private static List<CoercionRule> unboundedVarcharCasts()
+    {
+        Expression varchar = symbol("varchar");
+        List<Expression> targets = List.of(
+                symbol("tinyint"),
+                symbol("smallint"),
+                symbol("integer"),
+                symbol("bigint"),
+                symbol("real"),
+                symbol("double"),
+                symbol("boolean"),
+                symbol("number"),
+                symbol("date"),
+                symbol("json"),
+                symbol("uuid"),
+                symbol("ipaddress"),
+                apply("decimal", variable("@p"), variable("@s")),
+                apply("time", variable("@p")),
+                apply("timestamp", variable("@p")));
+        List<CoercionRule> rules = new ArrayList<>();
+        for (Expression target : targets) {
+            rules.add(new PatternCoercion(varchar, target, List.of()));
+            rules.add(new PatternCoercion(target, varchar, List.of()));
+        }
+        return rules;
     }
 
     public static TypeLibrary.Builder install(TypeLibrary.Builder builder)

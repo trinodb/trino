@@ -140,6 +140,19 @@ public class CastTest
     }
 
     @Test
+    void testUnboundedVarcharCastsLikeBounded()
+    {
+        // Unbounded varchar casts wherever bounded varchar(n) does (parse + format directions).
+        assertThat(LIBRARY.resolveCast(symbol("varchar"), symbol("integer"))).isPresent();
+        assertThat(LIBRARY.resolveCast(symbol("integer"), symbol("varchar"))).isPresent();
+        assertThat(LIBRARY.resolveCast(symbol("varchar"), apply("decimal", literal(10), literal(2)))).isPresent();
+        assertThat(LIBRARY.resolveCast(symbol("varchar"), apply("timestamp", literal(3)))).isPresent();
+        assertThat(LIBRARY.resolveCast(symbol("varchar"), symbol("uuid"))).isPresent();
+        // Still cast-only, not an implicit coercion.
+        assertThat(LIBRARY.typeSystem().coercionPlan(symbol("varchar"), symbol("integer"))).isEmpty();
+    }
+
+    @Test
     void testNumberCasts()
     {
         // boolean -> number and number -> json are cast-only conversions Trino allows.
