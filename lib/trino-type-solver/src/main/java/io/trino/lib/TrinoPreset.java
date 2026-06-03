@@ -373,6 +373,7 @@ public final class TrinoPreset
                                 new RequireCastableFrom(variable("@K"), symbol("varchar")),
                                 new RequireCastableFrom(variable("@V"), symbol("json")))),
                 new JsonToRowCastRule(),
+                new RowToJsonCastRule(),
 
                 // Unbounded varchar → bounded varchar: cast with truncation.
                 new PatternCoercion(symbol("varchar"), apply("varchar", variable("@n")), List.of()),

@@ -22,9 +22,11 @@ import org.weakref.solver.TypeScheme;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.weakref.solver.Expression.anonymousField;
 import static org.weakref.solver.Expression.apply;
 import static org.weakref.solver.Expression.function;
 import static org.weakref.solver.Expression.literal;
+import static org.weakref.solver.Expression.row;
 import static org.weakref.solver.Expression.symbol;
 import static org.weakref.solver.Expression.variable;
 
@@ -251,6 +253,15 @@ public class CastTest
                 apply("map", symbol("integer"), apply("varchar", literal(5))))).isPresent();
         // array(date) -> array(uuid): no date -> uuid cast, so the container cast is rejected.
         assertThat(LIBRARY.resolveCast(apply("array", symbol("date")), apply("array", symbol("uuid")))).isEmpty();
+    }
+
+    @Test
+    void testRowToJsonCast()
+    {
+        // row(integer, varchar(3)) -> json: every field casts to json.
+        assertThat(LIBRARY.resolveCast(row(anonymousField(symbol("integer")), anonymousField(apply("varchar", literal(3)))), symbol("json"))).isPresent();
+        // row(uuid) -> json: uuid has no cast to json, so the row cast is rejected.
+        assertThat(LIBRARY.resolveCast(row(anonymousField(symbol("uuid"))), symbol("json"))).isEmpty();
     }
 
     @Test
