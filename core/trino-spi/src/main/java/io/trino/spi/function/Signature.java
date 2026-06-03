@@ -14,8 +14,11 @@
 package io.trino.spi.function;
 
 import io.trino.spi.type.NumericExpression;
+import io.trino.spi.type.TemplateParameter;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplate;
+import io.trino.spi.type.TypeTemplates;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -24,6 +27,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Comparator.comparing;
@@ -34,27 +38,27 @@ import static java.util.stream.Stream.concat;
 
 public class Signature
 {
-    public record Argument(TypeSignature type, Optional<String> name)
+    public record Argument(TypeTemplate type, Optional<String> name)
     {
-        public static Argument of(TypeSignature type)
+        public static Argument of(TypeTemplate type)
         {
             return new Argument(type, Optional.empty());
         }
 
-        public static Argument of(TypeSignature type, String name)
+        public static Argument of(TypeTemplate type, String name)
         {
             return new Argument(type, Optional.of(name));
         }
     }
 
     private final Set<VariableDeclaration> variables;
-    private final TypeSignature returnType;
+    private final TypeTemplate returnType;
     private final List<Argument> arguments;
     private final boolean variableArity;
 
     private Signature(
             List<VariableDeclaration> variables,
-            TypeSignature returnType,
+            TypeTemplate returnType,
             List<Argument> arguments,
             boolean variableArity)
     {
@@ -64,7 +68,7 @@ public class Signature
         this.variableArity = variableArity;
     }
 
-    public TypeSignature getReturnType()
+    public TypeTemplate getReturnType()
     {
         return returnType;
     }
@@ -74,7 +78,7 @@ public class Signature
         return arguments;
     }
 
-    public List<TypeSignature> getArgumentTypes()
+    public List<TypeTemplate> getArgumentTypes()
     {
         return arguments.stream()
                 .map(Argument::type)
@@ -106,15 +110,6 @@ public class Signature
         return variables.stream()
                 .filter(VariableDeclaration.TypeVariable.class::isInstance)
                 .map(variable -> ((VariableDeclaration.TypeVariable) variable).constraint())
-                .collect(toUnmodifiableList());
-    }
-
-    /// The numeric-variable constraints, as a view over [#getVariables()].
-    public List<NumericVariableConstraint> getNumericVariableConstraints()
-    {
-        return variables.stream()
-                .filter(VariableDeclaration.NumericVariable.class::isInstance)
-                .map(variable -> ((VariableDeclaration.NumericVariable) variable).constraint())
                 .collect(toUnmodifiableList());
     }
 
@@ -150,8 +145,8 @@ public class Signature
                 .collect(joining(",", "<", ">"));
 
         return (variables.isEmpty() ? "" : constraints) +
-                arguments.stream().map(Argument::type).map(Objects::toString).collect(joining(",", "(", ")")) +
-                ":" + returnType;
+                arguments.stream().map(Argument::type).map(TypeTemplate::render).collect(joining(",", "(", ")")) +
+                ":" + returnType.render();
     }
 
     public static Builder builder()
@@ -174,7 +169,7 @@ public class Signature
     public static final class Builder
     {
         private final List<VariableDeclaration> variables = new ArrayList<>();
-        private TypeSignature returnType;
+        private TypeTemplate returnType;
         private final List<Argument> arguments = new ArrayList<>();
         private boolean variableArity;
 
@@ -199,18 +194,28 @@ public class Signature
                     .build());
         }
 
-        public Builder castableToTypeParameter(String name, TypeSignature toType)
+        public Builder castableToTypeParameter(String name, TypeTemplate toType)
         {
             return typeVariableConstraint(TypeVariableConstraint.builder(name)
                     .castableTo(toType)
                     .build());
         }
 
-        public Builder castableFromTypeParameter(String name, TypeSignature fromType)
+        public Builder castableToTypeParameter(String name, TypeSignature toType)
+        {
+            return castableToTypeParameter(name, TypeTemplates.fromTypeSignature(toType));
+        }
+
+        public Builder castableFromTypeParameter(String name, TypeTemplate fromType)
         {
             return typeVariableConstraint(TypeVariableConstraint.builder(name)
                     .castableFrom(fromType)
                     .build());
+        }
+
+        public Builder castableFromTypeParameter(String name, TypeSignature fromType)
+        {
+            return castableFromTypeParameter(name, TypeTemplates.fromTypeSignature(fromType));
         }
 
         public Builder rowTypeParameter(String name)
@@ -237,10 +242,15 @@ public class Signature
             return returnType(returnType.getTypeSignature());
         }
 
-        public Builder returnType(TypeSignature returnType)
+        public Builder returnType(TypeTemplate returnType)
         {
             this.returnType = requireNonNull(returnType, "returnType is null");
             return this;
+        }
+
+        public Builder returnType(TypeSignature returnType)
+        {
+            return returnType(TypeTemplates.fromTypeSignature(returnType));
         }
 
         public Builder numericVariable(String name, NumericExpression expression)
@@ -277,16 +287,42 @@ public class Signature
             return argumentType(type.getTypeSignature());
         }
 
-        public Builder argumentType(TypeSignature type)
+        public Builder argumentType(TypeTemplate type)
         {
             arguments.add(Argument.of(type));
             return this;
         }
 
-        public Builder argumentType(TypeSignature type, String name)
+        public Builder argumentType(TypeTemplate type, String name)
         {
             arguments.add(Argument.of(type, name));
             return this;
+        }
+
+        public Builder argumentTypes(TypeTemplate... argumentTypes)
+        {
+            for (TypeTemplate argumentType : argumentTypes) {
+                argumentType(argumentType);
+            }
+            return this;
+        }
+
+        public Builder argumentTypes(Collection<TypeTemplate> argumentTypes)
+        {
+            for (TypeTemplate argumentType : argumentTypes) {
+                argumentType(argumentType);
+            }
+            return this;
+        }
+
+        public Builder argumentType(TypeSignature type)
+        {
+            return argumentType(TypeTemplates.fromTypeSignature(type));
+        }
+
+        public Builder argumentType(TypeSignature type, String name)
+        {
+            return argumentType(TypeTemplates.fromTypeSignature(type), name);
         }
 
         public Builder argumentType(Type type, String name)
@@ -334,7 +370,35 @@ public class Signature
                     variables.stream().filter(VariableDeclaration.NumericVariable.class::isInstance).sorted(comparing(VariableDeclaration::name)))
                     .collect(toUnmodifiableList());
 
+            // A declared type variable must be referenced as a TypeVariable node. A parameterless
+            // application with the variable's name would bind by base name but compare unequal to the
+            // canonical form and survive variable substitution unresolved -- a construction-site bug
+            // this catches at registration rather than deep in query processing.
+            Set<String> typeVariableNames = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+            orderedVariables.stream()
+                    .filter(VariableDeclaration.TypeVariable.class::isInstance)
+                    .map(VariableDeclaration::name)
+                    .forEach(typeVariableNames::add);
+            for (Argument argument : arguments) {
+                verifyVariablesAreStructural(argument.type(), typeVariableNames);
+            }
+            verifyVariablesAreStructural(returnType, typeVariableNames);
+
             return new Signature(orderedVariables, returnType, arguments, variableArity);
+        }
+
+        private static void verifyVariablesAreStructural(TypeTemplate template, Set<String> typeVariableNames)
+        {
+            if (template instanceof TypeTemplate.TypeApplication(String base, List<TemplateParameter> parameters)) {
+                if (parameters.isEmpty() && typeVariableNames.contains(base)) {
+                    throw new IllegalArgumentException("Type variable '%s' must be referenced as a type variable, not as a parameterless type".formatted(base));
+                }
+                for (TemplateParameter parameter : parameters) {
+                    if (parameter instanceof TemplateParameter.TypeArgument(Optional<String> _, TypeTemplate type)) {
+                        verifyVariablesAreStructural(type, typeVariableNames);
+                    }
+                }
+            }
         }
     }
 }

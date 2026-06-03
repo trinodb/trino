@@ -31,8 +31,8 @@ import static io.trino.spi.type.Int128Math.subtract;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.TypeParameter.numericVariable;
-import static io.trino.spi.type.TypeSignature.type;
+import static io.trino.spi.type.TypeTemplates.numericVariable;
+import static io.trino.spi.type.TypeTemplates.type;
 import static java.lang.Math.toIntExact;
 
 public final class DecimalSaturatedFloorCasts

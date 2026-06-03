@@ -177,7 +177,6 @@ public final class ProtocolUtil
                 yield ClientTypeSignatureParameter.ofType(toClientTypeSignature(type, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary));
             }
             case TypeParameter.Numeric number -> ClientTypeSignatureParameter.ofLong(number.value());
-            case TypeParameter.Variable _ -> throw new IllegalArgumentException("Unsupported parameter kind: " + parameter);
         };
     }
 

@@ -22,8 +22,7 @@ import static java.lang.String.format;
 @Immutable
 public sealed interface TypeParameter
         permits TypeParameter.Numeric,
-                TypeParameter.Type,
-                TypeParameter.Variable
+                TypeParameter.Type
 {
     static TypeParameter typeParameter(TypeSignature typeSignature)
     {
@@ -48,11 +47,6 @@ public sealed interface TypeParameter
     static TypeParameter anonymousField(TypeSignature type)
     {
         return new Type(Optional.empty(), type);
-    }
-
-    static TypeParameter numericVariable(String variable)
-    {
-        return new Variable(variable);
     }
 
     String jsonValue();
@@ -109,28 +103,6 @@ public sealed interface TypeParameter
         public boolean isCalculated()
         {
             return false;
-        }
-    }
-
-    record Variable(String name)
-            implements TypeParameter
-    {
-        @Override
-        public String toString()
-        {
-            return name;
-        }
-
-        @Override
-        public String jsonValue()
-        {
-            return "@" + name;
-        }
-
-        @Override
-        public boolean isCalculated()
-        {
-            return true;
         }
     }
 }
