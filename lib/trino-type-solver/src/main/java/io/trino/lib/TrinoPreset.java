@@ -376,6 +376,10 @@ public final class TrinoPreset
 
                 // Unbounded varchar → bounded varchar: cast with truncation.
                 new PatternCoercion(symbol("varchar"), apply("varchar", variable("@n")), List.of()),
+                // varchar narrowing casts (implicit rules only widen): varchar -> char(n) and varchar(n1) -> varchar(n2).
+                new PatternCoercion(apply("varchar", variable("@n1")), apply("varchar", variable("@n2")), List.of()),
+                new PatternCoercion(apply("varchar", variable("@n1")), apply("char", variable("@n2")), List.of()),
+                new PatternCoercion(symbol("varchar"), apply("char", variable("@n")), List.of()),
 
                 // UUID casts.
                 new PatternCoercion(apply("varchar", variable("@n")), symbol("uuid"), List.of()),
