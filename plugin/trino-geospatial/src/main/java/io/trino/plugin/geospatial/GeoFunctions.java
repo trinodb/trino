@@ -20,6 +20,8 @@ import io.airlift.slice.Slice;
 import io.trino.geospatial.GeometryType;
 import io.trino.geospatial.KdbTree;
 import io.trino.geospatial.Rectangle;
+import io.trino.geospatial.epsg.EpsgCoordinateTransforms;
+import io.trino.geospatial.epsg.EpsgException;
 import io.trino.geospatial.serde.EsriShapeReader;
 import io.trino.geospatial.serde.JtsGeometrySerde;
 import io.trino.spi.TrinoException;
@@ -66,6 +68,9 @@ import org.locationtech.jts.operation.valid.IsValidOp;
 import org.locationtech.jts.operation.valid.TopologyValidationError;
 import org.locationtech.jts.precision.GeometryPrecisionReducer;
 import org.locationtech.jts.triangulate.VoronoiDiagramBuilder;
+import org.opengis.referencing.operation.MathTransform;
+import org.opengis.referencing.operation.TransformException;
+import org.opengis.util.FactoryException;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -88,10 +93,12 @@ import static io.trino.geospatial.GeometryType.POINT;
 import static io.trino.geospatial.GeometryType.POLYGON;
 import static io.trino.geospatial.GeometryUtils.jsonFromJtsGeometry;
 import static io.trino.geospatial.GeometryUtils.jtsGeometryFromJson;
+import static io.trino.geospatial.serde.JtsGeometrySerde.hasZ;
 import static io.trino.geospatial.serde.JtsGeometrySerde.serializeWithoutSrid;
 import static io.trino.geospatial.serde.JtsGeometrySerde.validateAndGetSrid;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.StandardTypes.BIGINT;
 import static io.trino.spi.type.StandardTypes.BOOLEAN;
@@ -498,6 +505,82 @@ public final class GeoFunctions
     {
         geometry.setSRID(toIntExact(srid));
         return geometry;
+    }
+
+    @Description("Transforms a geometry from its source SRID to the target SRID")
+    @ScalarFunction("ST_Transform")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stTransform(@SqlType(StandardTypes.GEOMETRY) Geometry geometry, @SqlType(INTEGER) long targetSrid)
+    {
+        return transformGeometry(geometry, targetSrid, false);
+    }
+
+    @Description("Transforms the X and Y coordinates of a geometry while preserving Z unchanged")
+    @ScalarFunction("ST_TransformXY")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stTransformXy(@SqlType(StandardTypes.GEOMETRY) Geometry geometry, @SqlType(INTEGER) long targetSrid)
+    {
+        return transformGeometry(geometry, targetSrid, true);
+    }
+
+    private static Geometry transformGeometry(Geometry geometry, long targetSrid, boolean preserveZ)
+    {
+        int sourceSrid = geometry.getSRID();
+        if (sourceSrid == 0) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot transform geometry with SRID 0; use ST_SetSRID to set the source SRID");
+        }
+
+        int target = toIntExact(targetSrid);
+        if (target == 0) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "targetSrid must be non-zero");
+        }
+
+        Geometry result = geometry.copy();
+        if (sourceSrid == target || geometry.isEmpty()) {
+            result.setSRID(target);
+            return result;
+        }
+
+        MathTransform transform = transform(sourceSrid, target);
+        if (!preserveZ && hasZ(geometry)) {
+            throw new TrinoException(
+                    NOT_SUPPORTED,
+                    "ST_Transform cannot transform Z coordinates using a two-dimensional CRS; use ST_TransformXY to transform X and Y while preserving Z unchanged");
+        }
+        result.apply(new CoordinateSequenceFilter()
+        {
+            private final double[] source = new double[2];
+            private final double[] transformed = new double[2];
+
+            @Override
+            public void filter(CoordinateSequence sequence, int index)
+            {
+                source[0] = sequence.getX(index);
+                source[1] = sequence.getY(index);
+                try {
+                    transform.transform(source, 0, transformed, 0, 1);
+                }
+                catch (TransformException e) {
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Cannot transform coordinate from SRID %s to %s", sourceSrid, target), e);
+                }
+                sequence.setOrdinate(index, 0, transformed[0]);
+                sequence.setOrdinate(index, 1, transformed[1]);
+            }
+
+            @Override
+            public boolean isDone()
+            {
+                return false;
+            }
+
+            @Override
+            public boolean isGeometryChanged()
+            {
+                return true;
+            }
+        });
+        result.setSRID(target);
+        return result;
     }
 
     @Description("Returns the Extended Well-Known Binary (EWKB) representation of the geometry")
@@ -1715,6 +1798,16 @@ public final class GeoFunctions
     {
         geometry.setSRID(srid);
         return geometry;
+    }
+
+    private static MathTransform transform(int sourceSrid, int targetSrid)
+    {
+        try {
+            return EpsgCoordinateTransforms.transform(sourceSrid, targetSrid);
+        }
+        catch (FactoryException | EpsgException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Cannot transform geometry from SRID %s to %s: %s", sourceSrid, targetSrid, e.getMessage()), e);
+        }
     }
 
     public static Geometry stCollectGeometries(Iterable<Geometry> inputGeometries)
