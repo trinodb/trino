@@ -1488,20 +1488,20 @@ public class MySqlClient
         private Optional<Long> getDistinctValuesCount()
         {
             if (histogramType.isPresent() && buckets.isPresent()) {
-                switch (histogramType.get()) {
-                    case "singleton":
-                        return Optional.of((long) buckets.get().size());
-
-                    case "equi-height":
+                return switch (histogramType.get()) {
+                    case "singleton" -> Optional.of((long) buckets.get().size());
+                    case "equi-height" -> {
                         long distinctValues = 0;
                         for (List<?> bucket : buckets.get()) {
                             distinctValues += ((Number) bucket.get(3)).longValue();
                         }
-                        return Optional.of(distinctValues);
-
-                    default:
+                        yield Optional.of(distinctValues);
+                    }
+                    default -> {
                         log.debug("Unsupported histogram type: %s", histogramType.get());
-                }
+                        yield Optional.empty();
+                    }
+                };
             }
             else {
                 log.debug("Unsupported histogram: type: %s, bucket count: %s", histogramType, buckets.map(List::size));

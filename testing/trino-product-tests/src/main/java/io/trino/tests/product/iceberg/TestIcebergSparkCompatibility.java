@@ -247,7 +247,7 @@ public class TestIcebergSparkCompatibility
                 """;
 
         switch (createMode) {
-            case CREATE_TABLE_AND_INSERT:
+            case CREATE_TABLE_AND_INSERT -> {
                 onTrino().executeQuery(
                         """
                         CREATE TABLE %s (
@@ -267,19 +267,13 @@ public class TestIcebergSparkCompatibility
                         ) WITH (format = '%s')""".formatted(trinoTableName, storageFormat));
 
                 onTrino().executeQuery(format("INSERT INTO %s %s", trinoTableName, namedValues));
-                break;
-
-            case CREATE_TABLE_AS_SELECT:
-                onTrino().executeQuery(format("CREATE TABLE %s AS %s", trinoTableName, namedValues));
-                break;
-
-            case CREATE_TABLE_WITH_NO_DATA_AND_INSERT:
+            }
+            case CREATE_TABLE_AS_SELECT -> onTrino().executeQuery(format("CREATE TABLE %s AS %s", trinoTableName, namedValues));
+            case CREATE_TABLE_WITH_NO_DATA_AND_INSERT -> {
                 onTrino().executeQuery(format("CREATE TABLE %s AS %s WITH NO DATA", trinoTableName, namedValues));
                 onTrino().executeQuery(format("INSERT INTO %s %s", trinoTableName, namedValues));
-                break;
-
-            default:
-                throw new UnsupportedOperationException("Unsupported create mode: " + createMode);
+            }
+            default -> throw new UnsupportedOperationException("Unsupported create mode: " + createMode);
         }
 
         Row row = row(
@@ -378,7 +372,7 @@ public class TestIcebergSparkCompatibility
                 "";
 
         switch (createMode) {
-            case CREATE_TABLE_AND_INSERT:
+            case CREATE_TABLE_AND_INSERT -> {
                 onTrino().executeQuery(format(
                         "CREATE TABLE %s (" +
                                 "  _string VARCHAR" +
@@ -401,19 +395,13 @@ public class TestIcebergSparkCompatibility
                         specVersion));
 
                 onTrino().executeQuery(format("INSERT INTO %s %s", trinoTableName, namedValues));
-                break;
-
-            case CREATE_TABLE_AS_SELECT:
-                onTrino().executeQuery(format("CREATE TABLE %s WITH (format_version = %d) AS %s", trinoTableName, specVersion, namedValues));
-                break;
-
-            case CREATE_TABLE_WITH_NO_DATA_AND_INSERT:
+            }
+            case CREATE_TABLE_AS_SELECT -> onTrino().executeQuery(format("CREATE TABLE %s WITH (format_version = %d) AS %s", trinoTableName, specVersion, namedValues));
+            case CREATE_TABLE_WITH_NO_DATA_AND_INSERT -> {
                 onTrino().executeQuery(format("CREATE TABLE %s WITH (format_version = %d) AS %s WITH NO DATA", trinoTableName, specVersion, namedValues));
                 onTrino().executeQuery(format("INSERT INTO %s %s", trinoTableName, namedValues));
-                break;
-
-            default:
-                throw new UnsupportedOperationException("Unsupported create mode: " + createMode);
+            }
+            default -> throw new UnsupportedOperationException("Unsupported create mode: " + createMode);
         }
 
         Row row = row(
@@ -1679,7 +1667,7 @@ public class TestIcebergSparkCompatibility
                                             String engineName = engine.name().toLowerCase(ENGLISH);
                                             long value = i;
                                             switch (engine) {
-                                                case TRINO:
+                                                case TRINO -> {
                                                     try {
                                                         onTrino.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", trinoTableName, engineName, value));
                                                     }
@@ -1687,12 +1675,9 @@ public class TestIcebergSparkCompatibility
                                                         // failed to insert
                                                         continue; // next loop iteration
                                                     }
-                                                    break;
-                                                case SPARK:
-                                                    onSpark.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", sparkTableName, engineName, value));
-                                                    break;
-                                                default:
-                                                    throw new UnsupportedOperationException("Unexpected engine: " + engine);
+                                                }
+                                                case SPARK -> onSpark.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", sparkTableName, engineName, value));
+                                                default -> throw new UnsupportedOperationException("Unexpected engine: " + engine);
                                             }
 
                                             inserted.add(row(engineName, value));
