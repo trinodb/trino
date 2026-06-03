@@ -6008,6 +6008,37 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testDeleteOnIdentityPartitionedTableProducesOneDeleteEntryPerDataFile()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(TASK_MIN_WRITER_COUNT, "4")
+                .setSystemProperty(TASK_MAX_WRITER_COUNT, "4")
+                .build();
+
+        try (TestTable table = newTrinoTable(
+                "test_identity_partitioned_deletes_",
+                """
+                WITH (partitioning = ARRAY['regionkey']) AS
+                SELECT id, id % 5 regionkey
+                FROM UNNEST(sequence(0, 499)) t(id)""")) {
+            assertQuery(
+                    "SELECT content, count(*) FROM \"" + table.getName() + "$files\" GROUP BY content",
+                    "VALUES (0, 5)");
+
+            assertUpdate(session, "DELETE FROM " + table.getName() + " WHERE id % 2 = 0", 250);
+
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES BIGINT '5'");
+            assertQuery(
+                    "SELECT count(*) FROM " + table.getName(),
+                    "VALUES 250");
+            assertQuery(
+                    "SELECT count(*) FROM " + table.getName() + " WHERE id % 2 = 0",
+                    "VALUES 0");
+        }
+    }
+
+    @Test
     public void testOptimizeFilesDoNotInheritSequenceNumber()
             throws IOException
     {
