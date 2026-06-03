@@ -122,6 +122,27 @@ public class TrinoScalarFunctionsTest
     }
 
     @Test
+    void testModResolvesAcrossNumericTypesLikeTheOperator()
+    {
+        // mod() is the named form of %, registered for every numeric primitive...
+        for (String type : List.of("tinyint", "smallint", "integer", "bigint", "real", "double", "number")) {
+            assertThat(LIBRARY.resolveFunction("mod", List.of(symbol(type), symbol(type))))
+                    .isInstanceOfSatisfying(FunctionResolver.Resolved.class, r ->
+                            assertThat(r.resolution().returnType()).isEqualTo(symbol(type)));
+        }
+        // ...and for decimal: scale = max(s1, s2); precision = min(p1 - s1, p2 - s2) + scale, so
+        // mod(decimal(10, 2), decimal(8, 4)) -> decimal(min(8, 4) + 4, 4) = decimal(8, 4).
+        assertThat(LIBRARY.resolveFunction("mod", List.of(apply("decimal", literal(10), literal(2)), apply("decimal", literal(8), literal(4)))))
+                .isInstanceOfSatisfying(FunctionResolver.Resolved.class, r ->
+                        assertThat(r.resolution().returnType()).isEqualTo(apply("decimal", literal(8), literal(4))));
+        // Mixed decimal/integer coerces the integer into the decimal and resolves to decimal,
+        // matching Trino (previously dropped to ambiguous for want of a decimal overload).
+        assertThat(LIBRARY.resolveFunction("mod", List.of(apply("decimal", literal(10), literal(2)), symbol("integer"))))
+                .isInstanceOfSatisfying(FunctionResolver.Resolved.class, r ->
+                        assertThat(r.resolution().returnType()).isEqualTo(apply("decimal", literal(10), literal(2))));
+    }
+
+    @Test
     void testPiIsZeroArg()
     {
         assertThat(LIBRARY.resolveFunction("pi", List.of()))

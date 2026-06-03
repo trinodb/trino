@@ -228,10 +228,14 @@ public final class TrinoScalarFunctions
                 List.of(variable("@p"), variable("@s")),
                 List.of(),
                 function(List.of(apply("decimal", variable("@p"), variable("@s"))), apply("decimal", literal(1), literal(0)))));
-        builder.registerFunction("mod", function(List.of(symbol("bigint"), symbol("bigint")), symbol("bigint")));
-        builder.registerFunction("mod", function(List.of(symbol("integer"), symbol("integer")), symbol("integer")));
-        builder.registerFunction("mod", function(List.of(symbol("double"), symbol("double")), symbol("double")));
-        builder.registerFunction("mod", function(List.of(symbol("number"), symbol("number")), symbol("number")));
+        // mod() is the named form of the % operator: Trino registers it for every numeric
+        // primitive plus decimal (MathFunctions.modTinyint..mod, DECIMAL_MOD_FUNCTION). Mirror
+        // that full set so mixed-type and decimal mod resolve exactly like %; the decimal scheme
+        // is shared with the operator so the result formulas can't drift.
+        for (String numericType : List.of("tinyint", "smallint", "integer", "bigint", "real", "double", "number")) {
+            builder.registerFunction("mod", function(List.of(symbol(numericType), symbol(numericType)), symbol(numericType)));
+        }
+        builder.registerFunction("mod", TrinoOperators.decimalModuloScheme());
         builder.registerFunction("random", function(List.of(), symbol("double")));
         builder.registerFunction("random", function(List.of(symbol("bigint")), symbol("bigint")));
         builder.registerFunction("random", function(List.of(symbol("bigint"), symbol("bigint")), symbol("bigint")));

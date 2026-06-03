@@ -288,7 +288,9 @@ public final class TrinoOperators
                                         operation(MAX, literal(6), operation(SUBTRACT, literal(38), integerDigits))))));
     }
 
-    private static TypeScheme decimalModuloScheme()
+    // Package-private: the mod() scalar function is the named form of the % operator and reuses
+    // this exact scheme so the two decimal-modulo result formulas can't drift apart.
+    static TypeScheme decimalModuloScheme()
     {
         // scale = max(s1, s2)
         // precision = min(p1 - s1, p2 - s2) + scale
