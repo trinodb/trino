@@ -477,7 +477,7 @@ public class Solver
             return;
         }
 
-        List<CoercionRule.Match> matches = typeSystem.coercions().stream()
+        List<CoercionRule.Match> matches = typeSystem.candidateCoercions(subtype, supertype).stream()
                 .map(coercion -> coercion.matches(allocator, subtype, supertype))
                 .flatMap(Optional::stream)
                 .toList();

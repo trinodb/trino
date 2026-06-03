@@ -49,6 +49,7 @@ public class TypeSystem
     private final List<TypeConstructor> types;
     private final List<CoercionRule> coercions;
     private final List<CoercionRule> castRules;
+    private final List<IndexedRule> indexedCoercions;
 
     public TypeSystem(List<TypeConstructor> types, List<CoercionRule> coercions)
     {
@@ -60,6 +61,70 @@ public class TypeSystem
         this.types = List.copyOf(types);
         this.coercions = List.copyOf(coercions);
         this.castRules = List.copyOf(castRules);
+        this.indexedCoercions = this.coercions.stream()
+                .map(rule -> new IndexedRule(rule, fromBaseOf(rule), toBaseOf(rule)))
+                .toList();
+    }
+
+    /**
+     * A coercion rule tagged with the base type names of its source and target patterns ({@code empty}
+     * when a side is a variable or otherwise unconstrained — i.e. matches any base). Used to prune the
+     * rule scan: a rule whose concrete source/target base differs from the query's cannot unify, so it
+     * is skipped without the cost of instantiating and unifying its patterns.
+     */
+    private record IndexedRule(CoercionRule rule, Optional<String> fromBase, Optional<String> toBase) {}
+
+    /**
+     * The coercion rules that could conceivably match {@code from <: to}, in registration order: every
+     * rule except those whose concrete source base differs from a concrete {@code from} base, or whose
+     * concrete target base differs from a concrete {@code to} base. Filtering by base is sound because
+     * unification of a concrete head can only succeed against the same head (or a variable).
+     */
+    List<CoercionRule> candidateCoercions(Expression from, Expression to)
+    {
+        Optional<String> fromBase = baseOf(from);
+        Optional<String> toBase = baseOf(to);
+        if (fromBase.isEmpty() && toBase.isEmpty()) {
+            return coercions;
+        }
+        List<CoercionRule> candidates = new ArrayList<>();
+        for (IndexedRule indexed : indexedCoercions) {
+            boolean fromMatches = fromBase.isEmpty() || indexed.fromBase().isEmpty() || indexed.fromBase().equals(fromBase);
+            boolean toMatches = toBase.isEmpty() || indexed.toBase().isEmpty() || indexed.toBase().equals(toBase);
+            if (fromMatches && toMatches) {
+                candidates.add(indexed.rule());
+            }
+        }
+        return candidates;
+    }
+
+    private static Optional<String> fromBaseOf(CoercionRule rule)
+    {
+        return switch (rule) {
+            case PrimitiveTypeCoercion primitive -> Optional.of(primitive.fromType());
+            case ParametricTypeCovariantCoercion covariant -> Optional.of(covariant.type());
+            case PatternCoercion pattern -> baseOf(pattern.fromPattern());
+            default -> Optional.empty();
+        };
+    }
+
+    private static Optional<String> toBaseOf(CoercionRule rule)
+    {
+        return switch (rule) {
+            case PrimitiveTypeCoercion primitive -> Optional.of(primitive.toType());
+            case ParametricTypeCovariantCoercion covariant -> Optional.of(covariant.type());
+            case PatternCoercion pattern -> baseOf(pattern.toPattern());
+            default -> Optional.empty();
+        };
+    }
+
+    private static Optional<String> baseOf(Expression expression)
+    {
+        return switch (expression) {
+            case Expression.Symbol(String name) -> Optional.of(name);
+            case Expression.Application(Expression head, List<Expression> _) when head instanceof Expression.Symbol(String name) -> Optional.of(name);
+            default -> Optional.empty();
+        };
     }
 
     public List<CoercionRule> castRules()
@@ -384,7 +449,7 @@ public class TypeSystem
     private List<CoercionResult> collectCoercionResults(Expression from, Expression to, VariableAllocator allocator)
     {
         Variable variable = new Variable("@x");
-        List<CoercionRule.Match> matches = coercions.stream()
+        List<CoercionRule.Match> matches = candidateCoercions(from, to).stream()
                 .map(coercion -> coercion.matches(allocator, from, to))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
