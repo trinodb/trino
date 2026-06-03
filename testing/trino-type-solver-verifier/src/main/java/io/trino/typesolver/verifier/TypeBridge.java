@@ -44,7 +44,7 @@ import static org.weakref.solver.Expression.symbol;
  * support; an unsupported type surfaces as an {@link IllegalArgumentException}
  * rather than a silent skip, so coverage gaps are visible.
  */
-final class TypeBridge
+public final class TypeBridge
 {
     private TypeBridge() {}
 
