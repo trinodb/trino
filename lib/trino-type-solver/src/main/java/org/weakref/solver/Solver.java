@@ -75,6 +75,11 @@ public class Solver
     public Result solve(List<Constraint> constraints)
     {
         VariableAllocator allocator = new VariableAllocator();
+        // The incoming constraints carry variables minted by the caller's allocator, which
+        // also started at @v1. Seed ours past them so the fresh names we mint while solving
+        // (e.g. instantiating coercion rules) can't collide with an input variable and get
+        // conflated with it during unification.
+        allocator.reserveThrough(maxVariableId(constraints));
         SolverState state = new SolverState();
 
         state.workList().addAll(constraints);
@@ -355,6 +360,50 @@ public class Solver
                 state.workList().addAll(typeSystem.instantiateValidationConstraints(application));
             }
         }
+    }
+
+    private static int maxVariableId(List<Constraint> constraints)
+    {
+        int max = 0;
+        for (Constraint constraint : constraints) {
+            max = Math.max(max, maxVariableId(constraint));
+        }
+        return max;
+    }
+
+    private static int maxVariableId(Constraint constraint)
+    {
+        return switch (constraint) {
+            case ExactType(String variable, Expression type) -> Math.max(VariableAllocator.variableId(variable), maxVariableId(type));
+            case NumericRelation(BinaryOperation operation) -> maxVariableId(operation);
+            case Subtype(Expression subtype, Expression supertype) -> Math.max(maxVariableId(subtype), maxVariableId(supertype));
+            case RequireKind(String variable, Kind _) -> VariableAllocator.variableId(variable);
+            case RequireComparable(String variable) -> VariableAllocator.variableId(variable);
+            case RequireOrderable(String variable) -> VariableAllocator.variableId(variable);
+            case RequireCastableTo(Expression source, Expression target) -> Math.max(maxVariableId(source), maxVariableId(target));
+            case RequireCastableFrom(Expression target, Expression source) -> Math.max(maxVariableId(target), maxVariableId(source));
+            case Choice(List<Alternative> alternatives) -> {
+                int max = 0;
+                for (Alternative alternative : alternatives) {
+                    max = Math.max(max, maxVariableId(alternative.witness()));
+                    for (Constraint guard : alternative.guards()) {
+                        max = Math.max(max, maxVariableId(guard));
+                    }
+                }
+                yield max;
+            }
+        };
+    }
+
+    private static int maxVariableId(Expression expression)
+    {
+        int[] max = {0};
+        walkExpression(expression, visited -> {
+            if (visited instanceof Variable(String name)) {
+                max[0] = Math.max(max[0], VariableAllocator.variableId(name));
+            }
+        });
+        return max[0];
     }
 
     private static void walkConstraint(Constraint constraint, java.util.function.Consumer<Expression> visitor)

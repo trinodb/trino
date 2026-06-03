@@ -673,4 +673,45 @@ public class SolverTest
                 .containsEntry("@p", 10)
                 .containsEntry("@s", 0);
     }
+
+    @Test
+    void testFreshCoercionVariablesDoNotCollideWithInputVariables()
+    {
+        // The input names the target's two decimal parameters @v3 and @v4 — variables a
+        // different allocator would have minted. While solving, the engine instantiates the
+        // guarded tinyint -> decimal(@p, @s) coercion (guard @p - @s >= 3) with its own fresh
+        // variables. Those must stay disjoint from @v3/@v4: if the fresh names overlap, the
+        // two parameters alias to a single variable and the guard degenerates to the
+        // unsatisfiable @v3 - @v3 >= 3, sinking the coercion. The guard must survive as a
+        // relation between the two distinct parameters.
+        TypeSystem typeSystem = TrinoPreset.typeSystem();
+        Solver solver = new Solver(typeSystem);
+
+        Solver.Result result = solver.solve(List.of(
+                new Subtype(symbol("tinyint"), apply("decimal", variable("@v3"), variable("@v4")))));
+
+        assertThat(result.nextBatch())
+                .contains(new NumericRelation(operation(
+                        GREATER_THAN_OR_EQUAL,
+                        operation(SUBTRACT, variable("@v3"), variable("@v4")),
+                        literal(3))));
+    }
+
+    @Test
+    void testGuardedDecimalCoercionResolvesMixedDecimalIntegerArithmetic()
+    {
+        // End-to-end symptom of the variable collision: resolving `decimal(10,2) + tinyint`
+        // instantiates the additive overload with scheme variables @v1..@v4 and coerces
+        // tinyint into its second parameter decimal(@v3, @v4). When the coercion's fresh
+        // guard variables collided with @v3/@v4 the decimal overload was dropped, leaving the
+        // call spuriously ambiguous between the real/double/number overloads. Trino resolves
+        // it to decimal(11, 2).
+        TypeLibrary library = TrinoPreset.library();
+
+        for (String integerType : List.of("tinyint", "smallint")) {
+            assertThat(library.resolveFunction("+", List.of(apply("decimal", literal(10), literal(2)), symbol(integerType))))
+                    .isInstanceOfSatisfying(FunctionResolver.Resolved.class, resolved ->
+                            assertThat(resolved.resolution().returnType()).isEqualTo(apply("decimal", literal(11), literal(2))));
+        }
+    }
 }
