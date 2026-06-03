@@ -167,6 +167,15 @@ public class TestingFunctionResolution
         return metadata.resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), name, parameterTypes);
     }
 
+    /**
+     * Resolve a builtin function bypassing the resolution cache, for benchmarking the cost of a
+     * cache miss (full candidate binding through SignatureBinder plus dependency wiring).
+     */
+    public ResolvedFunction resolveBuiltinFunctionUncached(String name, List<TypeDescriptorProvider> parameterTypes)
+    {
+        return ((MetadataManager) metadata).resolveBuiltinFunctionUncached(getCharVarcharCoercion(TEST_SESSION), name, parameterTypes);
+    }
+
     public TestingAggregationFunction getAggregateFunction(String name, List<TypeDescriptorProvider> parameterTypes)
     {
         return inTransaction(session -> {
