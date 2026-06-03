@@ -26,6 +26,8 @@ public final class UnsatisfiableException
 {
     public UnsatisfiableException(String message)
     {
-        super(message);
+        // Used for control flow inside the solver (an unsatisfiable branch), not to report a bug, and
+        // thrown often on the resolution hot path — so skip the cost of capturing a stack trace.
+        super(message, null, false, false);
     }
 }
