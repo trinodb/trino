@@ -3231,7 +3231,11 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorPartitioningHandle> getUpdateLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getInsertLayout(session, tableHandle)
+        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
+        int specId = table.getSpecId().orElseThrow(() -> new VerifyException("Partition spec missing in the table handle"));
+        PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, table.getPartitionSpecJsons().get(specId));
+        return getWriteLayout(schema, partitionSpec, true)
                 .flatMap(ConnectorTableLayout::getPartitioning)
                 .map(IcebergPartitioningHandle.class::cast)
                 .map(IcebergPartitioningHandle::forUpdate);
