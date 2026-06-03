@@ -63,7 +63,7 @@ public abstract class BaseIcebergJdbcCatalogConnectorSmokeTest
 {
     private final SchemaVersion schemaVersion;
 
-    private JdbcCatalog jdbcCatalog;
+    protected JdbcCatalog jdbcCatalog;
     private File warehouseLocation;
 
     public BaseIcebergJdbcCatalogConnectorSmokeTest(SchemaVersion schemaVersion)
@@ -230,7 +230,7 @@ public abstract class BaseIcebergJdbcCatalogConnectorSmokeTest
         return Files.exists(Path.of(location));
     }
 
-    private TableIdentifier toIdentifier(String tableName)
+    protected TableIdentifier toIdentifier(String tableName)
     {
         return TableIdentifier.of(getSession().getSchema().orElseThrow(), tableName);
     }

@@ -3439,8 +3439,7 @@ public class IcebergMetadata
     @Override
     public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
-        checkArgument(viewProperties.isEmpty(), "This connector does not support creating views with properties");
-        catalog.createView(session, viewName, definition, replace);
+        catalog.createView(session, viewName, definition, viewProperties, replace);
     }
 
     @Override
@@ -3503,6 +3502,12 @@ public class IcebergMetadata
         }
 
         return catalog.getView(session, viewName);
+    }
+
+    @Override
+    public Map<String, Object> getViewProperties(ConnectorSession session, SchemaTableName viewName)
+    {
+        return catalog.getViewProperties(session, viewName);
     }
 
     @Override
