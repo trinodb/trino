@@ -143,6 +143,27 @@ public class TrinoScalarFunctionsTest
     }
 
     @Test
+    void testCatalogBreadthFunctionsResolve()
+    {
+        // array_first(array(T)) -> T: the element accessor returns the element type.
+        assertThat(LIBRARY.resolveFunction("array_first", List.of(apply("array", symbol("bigint")))))
+                .isInstanceOfSatisfying(FunctionResolver.Resolved.class, r ->
+                        assertThat(r.resolution().returnType()).isEqualTo(symbol("bigint")));
+        // date(timestamp(p)) -> date: overload selection among varchar/timestamp/timestamp-with-tz.
+        assertThat(LIBRARY.resolveFunction("date", List.of(apply("timestamp", literal(3)))))
+                .isInstanceOfSatisfying(FunctionResolver.Resolved.class, r ->
+                        assertThat(r.resolution().returnType()).isEqualTo(symbol("date")));
+        // value_at_quantile(qdigest(T), double) -> T: parametric digest value type flows to the result.
+        assertThat(LIBRARY.resolveFunction("value_at_quantile", List.of(apply("qdigest", symbol("bigint")), symbol("double"))))
+                .isInstanceOfSatisfying(FunctionResolver.Resolved.class, r ->
+                        assertThat(r.resolution().returnType()).isEqualTo(symbol("bigint")));
+        // hmac_sha256(varbinary, varbinary) -> varbinary.
+        assertThat(LIBRARY.resolveFunction("hmac_sha256", List.of(symbol("varbinary"), symbol("varbinary"))))
+                .isInstanceOfSatisfying(FunctionResolver.Resolved.class, r ->
+                        assertThat(r.resolution().returnType()).isEqualTo(symbol("varbinary")));
+    }
+
+    @Test
     void testPiIsZeroArg()
     {
         assertThat(LIBRARY.resolveFunction("pi", List.of()))

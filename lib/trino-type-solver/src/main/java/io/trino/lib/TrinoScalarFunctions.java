@@ -133,6 +133,15 @@ public final class TrinoScalarFunctions
         builder.registerFunction("normalize", function(List.of(symbol("varchar")), symbol("varchar")));
         builder.registerFunction("normalize", function(List.of(symbol("varchar"), symbol("varchar")), symbol("varchar")));
         builder.registerFunction("hamming_distance", function(List.of(symbol("varchar"), symbol("varchar")), symbol("bigint")));
+        builder.registerFunction("translate", function(List.of(symbol("varchar"), symbol("varchar"), symbol("varchar")), symbol("varchar")));
+        builder.registerFunction("luhn_check", function(List.of(symbol("varchar")), symbol("boolean")));
+        // split_to_multimap(string, entryDelimiter, keyValueDelimiter) -> map(varchar, array(varchar)).
+        builder.registerFunction("split_to_multimap", function(List.of(symbol("varchar"), symbol("varchar"), symbol("varchar")), apply("map", symbol("varchar"), apply("array", symbol("varchar")))));
+        // word_stem(varchar(x)) -> varchar(x); the optional second arg is the language code.
+        builder.registerFunction("word_stem", function(List.of(symbol("varchar")), symbol("varchar")));
+        builder.registerFunction("word_stem", function(List.of(symbol("varchar"), symbol("varchar")), symbol("varchar")));
+        builder.registerFunction("word_stem", varcharLengthPreserving(List.of(apply("varchar", variable("@x"))), variable("@x")));
+        builder.registerFunction("word_stem", varcharLengthPreserving(List.of(apply("varchar", variable("@x")), symbol("varchar")), variable("@x")));
     }
 
     private static TypeScheme varcharLengthPreserving(List<Expression> parameterTypes, Expression length)
@@ -249,6 +258,42 @@ public final class TrinoScalarFunctions
         builder.registerFunction("bitwise_left_shift", function(List.of(symbol("bigint"), symbol("integer")), symbol("bigint")));
         builder.registerFunction("bitwise_right_shift", function(List.of(symbol("bigint"), symbol("integer")), symbol("bigint")));
         builder.registerFunction("bit_count", function(List.of(symbol("bigint"), symbol("bigint")), symbol("bigint")));
+        // bitwise_right_shift_arithmetic preserves the operand's integer width.
+        for (String t : List.of("tinyint", "smallint", "integer", "bigint")) {
+            builder.registerFunction("bitwise_right_shift_arithmetic", function(List.of(symbol(t), symbol("integer")), symbol(t)));
+        }
+
+        // Radix conversion and human-facing formatting.
+        builder.registerFunction("from_base", function(List.of(symbol("varchar"), symbol("bigint")), symbol("bigint")));
+        builder.registerFunction("to_base", function(List.of(symbol("bigint"), symbol("bigint")), apply("varchar", literal(64))));
+        builder.registerFunction("format_number", function(List.of(symbol("double")), symbol("varchar")));
+        builder.registerFunction("format_number", function(List.of(symbol("bigint")), symbol("varchar")));
+        builder.registerFunction("human_readable_seconds", function(List.of(symbol("double")), symbol("varchar")));
+        builder.registerFunction("width_bucket", function(List.of(symbol("double"), symbol("double"), symbol("double"), symbol("bigint")), symbol("bigint")));
+        builder.registerFunction("width_bucket", function(List.of(symbol("double"), apply("array", symbol("double"))), symbol("bigint")));
+        for (String name : List.of("parse_data_size", "parse_presto_data_size")) {
+            builder.registerFunction(name, function(List.of(symbol("varchar")), apply("decimal", literal(38), literal(0))));
+        }
+
+        // Vector similarity/distance over array(double) (cosine also over map(varchar, double)).
+        for (String name : List.of("cosine_distance", "cosine_similarity")) {
+            builder.registerFunction(name, function(List.of(apply("map", symbol("varchar"), symbol("double")), apply("map", symbol("varchar"), symbol("double"))), symbol("double")));
+            builder.registerFunction(name, function(List.of(apply("array", symbol("double")), apply("array", symbol("double"))), symbol("double")));
+        }
+        for (String name : List.of("dot_product", "euclidean_distance")) {
+            builder.registerFunction(name, function(List.of(apply("array", symbol("double")), apply("array", symbol("double"))), symbol("double")));
+        }
+
+        // Statistical distribution functions: all double-valued.
+        for (String name : List.of("beta_cdf", "inverse_beta_cdf", "normal_cdf", "inverse_normal_cdf")) {
+            builder.registerFunction(name, function(List.of(symbol("double"), symbol("double"), symbol("double")), symbol("double")));
+        }
+        for (String name : List.of("t_cdf", "t_pdf")) {
+            builder.registerFunction(name, function(List.of(symbol("double"), symbol("double")), symbol("double")));
+        }
+        for (String name : List.of("wilson_interval_lower", "wilson_interval_upper")) {
+            builder.registerFunction(name, function(List.of(symbol("bigint"), symbol("bigint"), symbol("double")), symbol("double")));
+        }
     }
 
     private static void registerTemporalFunctions(TypeLibrary.Builder builder)
@@ -309,6 +354,33 @@ public final class TrinoScalarFunctions
                 function(List.of(apply("timestamp", variable("@p"))), symbol("double"))));
         builder.registerFunction("from_unixtime", function(List.of(symbol("double")), apply("timestamp_with_time_zone", org.weakref.solver.Expression.literal(3))));
         builder.registerFunction("from_unixtime", function(List.of(symbol("double"), symbol("varchar")), apply("timestamp_with_time_zone", org.weakref.solver.Expression.literal(3))));
+        builder.registerFunction("from_unixtime_nanos", function(List.of(symbol("bigint")), apply("timestamp_with_time_zone", literal(9))));
+        builder.registerFunction("from_unixtime_nanos", new TypeScheme(
+                List.of(variable("@p"), variable("@s")),
+                List.of(),
+                function(List.of(apply("decimal", variable("@p"), variable("@s"))), apply("timestamp_with_time_zone", literal(9)))));
+        builder.registerFunction("from_iso8601_timestamp_nanos", function(List.of(symbol("varchar")), apply("timestamp_with_time_zone", literal(9))));
+        builder.registerFunction("parse_duration", function(List.of(symbol("varchar")), symbol("interval_day_to_second")));
+        builder.registerFunction("to_milliseconds", function(List.of(symbol("interval_day_to_second")), symbol("bigint")));
+        // date(x): varchar/timestamp/timestamp-with-tz -> date.
+        builder.registerFunction("date", function(List.of(symbol("varchar")), symbol("date")));
+        builder.registerFunction("date", new TypeScheme(
+                List.of(variable("@p")),
+                List.of(),
+                function(List.of(apply("timestamp", variable("@p"))), symbol("date"))));
+        builder.registerFunction("date", new TypeScheme(
+                List.of(variable("@p")),
+                List.of(),
+                function(List.of(apply("timestamp_with_time_zone", variable("@p"))), symbol("date"))));
+        // timezone(x): the zone name of a zoned timestamp/time.
+        builder.registerFunction("timezone", new TypeScheme(
+                List.of(variable("@p")),
+                List.of(),
+                function(List.of(apply("timestamp_with_time_zone", variable("@p"))), symbol("varchar"))));
+        builder.registerFunction("timezone", new TypeScheme(
+                List.of(variable("@p")),
+                List.of(),
+                function(List.of(apply("time_with_time_zone", variable("@p"))), symbol("varchar"))));
 
         // at_timezone.
         builder.registerFunction("at_timezone", new TypeScheme(
@@ -321,7 +393,7 @@ public final class TrinoScalarFunctions
                 function(List.of(apply("timestamp", variable("@p")), symbol("varchar")), apply("timestamp_with_time_zone", variable("@p")))));
 
         // Extract parts.
-        for (String part : List.of("year", "month", "day", "hour", "minute", "second", "millisecond", "day_of_week", "day_of_month", "day_of_year", "week", "week_of_year", "quarter", "yow", "year_of_week")) {
+        for (String part : List.of("year", "month", "day", "hour", "minute", "second", "millisecond", "day_of_week", "dow", "day_of_month", "day_of_year", "doy", "week", "week_of_year", "quarter", "yow", "year_of_week")) {
             builder.registerFunction(part, new TypeScheme(
                     List.of(variable("@p")),
                     List.of(),
@@ -525,6 +597,42 @@ public final class TrinoScalarFunctions
                 List.of(variable("@T")),
                 List.of(),
                 function(List.of(apply("array", variable("@T")), function(List.of(variable("@T")), symbol("boolean"))), symbol("boolean"))));
+
+        // Element accessors and structural transforms over the element type T.
+        builder.registerFunction("array_first", new TypeScheme(
+                List.of(variable("@T")),
+                List.of(),
+                function(List.of(apply("array", variable("@T"))), variable("@T"))));
+        builder.registerFunction("array_first", new TypeScheme(
+                List.of(variable("@T")),
+                List.of(),
+                function(List.of(apply("array", variable("@T")), function(List.of(variable("@T")), symbol("boolean"))), variable("@T"))));
+        builder.registerFunction("array_last", new TypeScheme(
+                List.of(variable("@T")),
+                List.of(),
+                function(List.of(apply("array", variable("@T"))), variable("@T"))));
+        builder.registerFunction("array_remove", new TypeScheme(
+                List.of(variable("@T")),
+                List.of(new RequireComparable("@T")),
+                function(List.of(apply("array", variable("@T")), variable("@T")), apply("array", variable("@T")))));
+        builder.registerFunction("trim_array", new TypeScheme(
+                List.of(variable("@T")),
+                List.of(),
+                function(List.of(apply("array", variable("@T")), symbol("bigint")), apply("array", variable("@T")))));
+        // ngrams(array(T), integer) -> array(array(T)).
+        builder.registerFunction("ngrams", new TypeScheme(
+                List.of(variable("@T")),
+                List.of(),
+                function(List.of(apply("array", variable("@T")), symbol("integer")), apply("array", apply("array", variable("@T"))))));
+        builder.registerFunction("contains_sequence", new TypeScheme(
+                List.of(variable("@T")),
+                List.of(new RequireComparable("@T")),
+                function(List.of(apply("array", variable("@T")), apply("array", variable("@T"))), symbol("boolean"))));
+        // array_histogram(array(T)) -> map(T, bigint).
+        builder.registerFunction("array_histogram", new TypeScheme(
+                List.of(variable("@T")),
+                List.of(new RequireComparable("@T")),
+                function(List.of(apply("array", variable("@T"))), apply("map", variable("@T"), symbol("bigint")))));
     }
 
     private static void registerMapFunctions(TypeLibrary.Builder builder)
@@ -619,6 +727,9 @@ public final class TrinoScalarFunctions
             builder.registerFunction(name, function(List.of(symbol("varbinary")), symbol("varbinary")));
         }
         builder.registerFunction("crc32", function(List.of(symbol("varbinary")), symbol("bigint")));
+        for (String name : List.of("hmac_md5", "hmac_sha1", "hmac_sha256", "hmac_sha512")) {
+            builder.registerFunction(name, function(List.of(symbol("varbinary"), symbol("varbinary")), symbol("varbinary")));
+        }
     }
 
     private static void registerEncodingFunctions(TypeLibrary.Builder builder)
@@ -698,5 +809,28 @@ public final class TrinoScalarFunctions
         builder.registerFunction("hash_counter", function(List.of(symbol("bigint"), symbol("integer"), symbol("integer")), symbol("bigint")));
         builder.registerFunction("fail", function(List.of(symbol("varchar")), symbol("unknown")));
         builder.registerFunction("fail", function(List.of(symbol("bigint"), symbol("varchar")), symbol("unknown")));
+        builder.registerFunction("variant_is_null", function(List.of(symbol("variant")), symbol("boolean")));
+
+        // Approximate-set / quantile-digest accessors over the sketch types.
+        builder.registerFunction("empty_approx_set", function(List.of(), symbol("HyperLogLog")));
+        builder.registerFunction("hash_counts", function(List.of(symbol("SetDigest")), apply("map", symbol("bigint"), symbol("smallint"))));
+        builder.registerFunction("intersection_cardinality", function(List.of(symbol("SetDigest"), symbol("SetDigest")), symbol("bigint")));
+        builder.registerFunction("jaccard_index", function(List.of(symbol("SetDigest"), symbol("SetDigest")), symbol("double")));
+        // value_at_quantile(qdigest(T), quantile) -> T; tdigest is always double-valued.
+        builder.registerFunction("value_at_quantile", new TypeScheme(
+                List.of(variable("@T")),
+                List.of(),
+                function(List.of(apply("qdigest", variable("@T")), symbol("double")), variable("@T"))));
+        builder.registerFunction("value_at_quantile", function(List.of(symbol("tdigest"), symbol("double")), symbol("double")));
+        builder.registerFunction("values_at_quantiles", new TypeScheme(
+                List.of(variable("@T")),
+                List.of(),
+                function(List.of(apply("qdigest", variable("@T")), apply("array", symbol("double"))), apply("array", variable("@T")))));
+        builder.registerFunction("values_at_quantiles", function(List.of(symbol("tdigest"), apply("array", symbol("double"))), apply("array", symbol("double"))));
+        // quantile_at_value(qdigest(T), value of type T) -> double.
+        builder.registerFunction("quantile_at_value", new TypeScheme(
+                List.of(variable("@T")),
+                List.of(),
+                function(List.of(apply("qdigest", variable("@T")), variable("@T")), symbol("double"))));
     }
 }
