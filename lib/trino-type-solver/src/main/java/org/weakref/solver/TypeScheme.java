@@ -137,23 +137,45 @@ public record TypeScheme(List<Variable> parameters, List<Constraint> constraints
             }
         }
 
-        List<CoercionPlan> coercionPlans = new ArrayList<>();
-        for (int index = 0; index < arguments.size(); index++) {
-            Expression actual = arguments.get(index);
-            Expression template = parameterTemplates.get(index);
-            Expression formal = resolvedParameterTypes.get(index);
-            coercionPlans.add(coercionPlan(actual, template, formal, result)
-                    .or(() -> typeSystem.coercionPlan(actual, formal))
-                    .orElseThrow(() -> new IllegalStateException("Expected coercion plan for " + actual + " <: " + formal)));
-        }
-
+        // Per-argument coercion plans are NOT built here: they are only needed for the candidate that
+        // ultimately wins overload resolution, and building them for every satisfied candidate (then
+        // discarding the losers') was a large fraction of resolution cost. The parameter templates and
+        // resolved types are carried so the resolver can build plans for the winner via
+        // {@link #coercionPlanFor}.
         return new Satisfied(new MatchResult(
                 Expression.evaluate(Expression.substitute(functionType.returnType(), substitutions)),
                 List.copyOf(resolvedParameterTypes),
-                List.copyOf(coercionPlans),
+                List.copyOf(parameterTemplates),
                 translateTypeBindings(parameters, instantiation.substitutions(), result.materializedTypeVariables()),
                 translateNumericBindings(parameters, instantiation.substitutions(), result.materializedNumericValues()),
                 result));
+    }
+
+    /**
+     * Build the coercion plan converting {@code actual} into {@code formal} at one argument position,
+     * reusing the solver result where the parameter {@code template} pins a structural shape and
+     * falling back to the type system's plan otherwise. Static so the resolver can defer this to the
+     * winning candidate.
+     */
+    public static CoercionPlan coercionPlanFor(Expression actual, Expression template, Expression formal, Solver.Result result, TypeSystem typeSystem)
+    {
+        return coercionPlan(actual, template, formal, result)
+                .or(() -> typeSystem.coercionPlan(actual, formal))
+                .orElseThrow(() -> new IllegalStateException("Expected coercion plan for " + actual + " <: " + formal));
+    }
+
+    /**
+     * Whether an actual argument needs a non-trivial conversion to match the formal parameter —
+     * i.e. whether {@link #coercionPlanFor} would yield a non-exact plan — computed without building
+     * the (potentially expensive) plan, so overload specificity can rank candidates before plans are
+     * built. The structural/selection-aware result plan settles it when present; otherwise an
+     * unstructured coercion is needed exactly when the types differ (a same-type match is exact).
+     */
+    public static boolean coercionNeeded(Expression actual, Expression template, Expression formal, Solver.Result result)
+    {
+        return coercionPlan(actual, template, formal, result)
+                .map(plan -> !plan.isExact())
+                .orElseGet(() -> !actual.equals(formal));
     }
 
     private static void addBindingConstraints(Expression actual, Expression formal, TypeSystem typeSystem, List<Constraint> constraints)
@@ -377,7 +399,7 @@ public record TypeScheme(List<Variable> parameters, List<Constraint> constraints
     public record MatchResult(
             Expression returnType,
             List<Expression> parameterTypes,
-            List<CoercionPlan> coercionPlans,
+            List<Expression> parameterTemplates,
             Map<String, Expression> typeBindings,
             Map<String, Integer> numericBindings,
             Solver.Result solverResult) {}

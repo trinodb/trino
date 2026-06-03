@@ -93,20 +93,27 @@ public final class FunctionResolver
         }
 
         if (undominated.size() == 1) {
-            return new Resolved(undominated.getFirst());
+            return new Resolved(withCoercionPlans(undominated.getFirst()));
         }
-        return new Ambiguous(List.copyOf(undominated));
+        return new Ambiguous(undominated.stream().map(this::withCoercionPlans).toList());
     }
 
     private Resolution toResolution(TypeScheme scheme, List<Expression> arguments, TypeScheme.MatchResult match)
     {
+        // Coercion plans are left null here and filled in by {@link #withCoercionPlans} only for the
+        // candidates that survive dominance — specificity compares on types alone.
         List<ArgumentCoercion> coercions = new ArrayList<>();
         for (int index = 0; index < arguments.size(); index++) {
+            Expression actual = arguments.get(index);
+            Expression template = match.parameterTemplates().get(index);
+            Expression formal = match.parameterTypes().get(index);
             coercions.add(new ArgumentCoercion(
                     index,
-                    arguments.get(index),
-                    match.parameterTypes().get(index),
-                    match.coercionPlans().get(index)));
+                    actual,
+                    formal,
+                    template,
+                    TypeScheme.coercionNeeded(actual, template, formal, match.solverResult()),
+                    null));
         }
         return new Resolution(
                 scheme,
@@ -115,6 +122,26 @@ public final class FunctionResolver
                 match.typeBindings(),
                 match.numericBindings(),
                 match.solverResult());
+    }
+
+    private Resolution withCoercionPlans(Resolution resolution)
+    {
+        List<ArgumentCoercion> coercions = resolution.argumentCoercions().stream()
+                .map(coercion -> new ArgumentCoercion(
+                        coercion.index(),
+                        coercion.actualType(),
+                        coercion.formalType(),
+                        coercion.template(),
+                        coercion.coercionNeeded(),
+                        TypeScheme.coercionPlanFor(coercion.actualType(), coercion.template(), coercion.formalType(), resolution.solverResult(), typeSystem)))
+                .toList();
+        return new Resolution(
+                resolution.scheme(),
+                resolution.returnType(),
+                coercions,
+                resolution.typeBindings(),
+                resolution.numericBindings(),
+                resolution.solverResult());
     }
 
     /**
@@ -182,11 +209,7 @@ public final class FunctionResolver
             int index,
             Expression actualType,
             Expression formalType,
-            CoercionPlan coercionPlan)
-    {
-        public boolean coercionNeeded()
-        {
-            return !coercionPlan.isExact();
-        }
-    }
+            Expression template,
+            boolean coercionNeeded,
+            CoercionPlan coercionPlan) {}
 }
