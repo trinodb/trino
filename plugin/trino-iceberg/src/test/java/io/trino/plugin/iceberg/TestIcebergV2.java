@@ -643,6 +643,14 @@ public class TestIcebergV2
             // verify that the equality delete is effective also when not specifying the corresponding column in the projection list
             assertThat(query("SELECT id FROM " + tableName))
                     .matches("VALUES BIGINT '1'");
+
+            // verify equality deletes work with nested field in projection and WHERE clause
+            assertThat(query("SELECT root.nested FROM " + tableName))
+                    .matches("VALUES BIGINT '10'");
+            assertThat(query("SELECT id FROM " + tableName + " WHERE root.nested = 10"))
+                    .matches("VALUES BIGINT '1'");
+            assertThat(query("SELECT id FROM " + tableName + " WHERE root.nested = 20"))
+                    .returnsEmptyResult();
         }
     }
 

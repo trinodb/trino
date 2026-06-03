@@ -93,6 +93,7 @@ import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -498,8 +499,18 @@ public final class IcebergUtil
 
     public static StructType structTypeFromHandles(List<IcebergColumnHandle> columns)
     {
-        List<NestedField> icebergColumns = columns.stream()
-                .map(column -> NestedField.optional(column.getId(), column.getName(), toIcebergType(column.getType(), column.getColumnIdentity())))
+        // Deduplicate by base column ID to handle nested field projections where multiple
+        // nested fields from the same base struct appear (e.g., root.a, root.b both reference base column "root")
+        Map<Integer, IcebergColumnHandle> columnsByBaseId = new LinkedHashMap<>();
+        for (IcebergColumnHandle column : columns) {
+            columnsByBaseId.putIfAbsent(column.getBaseColumnIdentity().getId(), column);
+        }
+
+        List<NestedField> icebergColumns = columnsByBaseId.values().stream()
+                .map(column -> NestedField.optional(
+                        column.getBaseColumnIdentity().getId(),
+                        column.getBaseColumnIdentity().getName(),
+                        toIcebergType(column.getBaseType(), column.getBaseColumnIdentity())))
                 .collect(toImmutableList());
         return StructType.of(icebergColumns);
     }
