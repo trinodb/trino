@@ -20,7 +20,6 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.utility.DockerImageName;
 
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestPostgreSqlGeometryType
@@ -36,12 +35,6 @@ final class TestPostgreSqlGeometryType
                 DockerImageName.parse("postgis/postgis:17-3.4-alpine").asCompatibleSubstituteFor("postgres"),
                 false));
         return PostgreSqlQueryRunner.builder(postgreSqlServer).build();
-    }
-
-    @Override
-    protected String canonicalize(String value)
-    {
-        return value.toLowerCase(ENGLISH);
     }
 
     @Test
