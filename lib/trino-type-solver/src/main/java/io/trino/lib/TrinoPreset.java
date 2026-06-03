@@ -391,6 +391,18 @@ public final class TrinoPreset
                         apply("decimal", variable("@p1"), variable("@s1")),
                         apply("decimal", variable("@p2"), variable("@s2")),
                         List.of()),
+                // Numeric <-> decimal explicit casts (unguarded; the implicit int->decimal rules are
+                // precision-guarded, decimal narrows to the integer types, and real/double widen to decimal).
+                new PatternCoercion(symbol("tinyint"), apply("decimal", variable("@p"), variable("@s")), List.of()),
+                new PatternCoercion(symbol("smallint"), apply("decimal", variable("@p"), variable("@s")), List.of()),
+                new PatternCoercion(symbol("integer"), apply("decimal", variable("@p"), variable("@s")), List.of()),
+                new PatternCoercion(symbol("bigint"), apply("decimal", variable("@p"), variable("@s")), List.of()),
+                new PatternCoercion(symbol("real"), apply("decimal", variable("@p"), variable("@s")), List.of()),
+                new PatternCoercion(symbol("double"), apply("decimal", variable("@p"), variable("@s")), List.of()),
+                new PatternCoercion(apply("decimal", variable("@p"), variable("@s")), symbol("tinyint"), List.of()),
+                new PatternCoercion(apply("decimal", variable("@p"), variable("@s")), symbol("smallint"), List.of()),
+                new PatternCoercion(apply("decimal", variable("@p"), variable("@s")), symbol("integer"), List.of()),
+                new PatternCoercion(apply("decimal", variable("@p"), variable("@s")), symbol("bigint"), List.of()),
 
                 // Number casts: cast-only directions (implicit directions are in coercionRules).
                 new PrimitiveTypeCoercion("real", "number"),

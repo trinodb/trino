@@ -208,6 +208,18 @@ public class CastTest
     }
 
     @Test
+    void testNumericDecimalCastsAreUnguardedButImplicitIsNot()
+    {
+        // CAST(integer AS decimal(1,0)) is allowed (runtime range check) even though the value
+        // may not fit — but the *implicit* coercion stays guarded and rejects it.
+        assertThat(LIBRARY.resolveCast(symbol("integer"), apply("decimal", literal(1), literal(0)))).isPresent();
+        assertThat(LIBRARY.typeSystem().coercionPlan(symbol("integer"), apply("decimal", literal(1), literal(0)))).isEmpty();
+        // decimal narrows to the integer types; real/double widen to decimal.
+        assertThat(LIBRARY.resolveCast(apply("decimal", literal(10), literal(2)), symbol("tinyint"))).isPresent();
+        assertThat(LIBRARY.resolveCast(symbol("real"), apply("decimal", literal(10), literal(2)))).isPresent();
+    }
+
+    @Test
     void testNumberCasts()
     {
         // boolean -> number and number -> json are cast-only conversions Trino allows.
