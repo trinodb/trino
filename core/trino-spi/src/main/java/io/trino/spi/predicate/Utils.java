@@ -13,11 +13,7 @@
  */
 package io.trino.spi.predicate;
 
-import io.trino.spi.block.Block;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-
-import static io.trino.spi.type.TypeUtils.readNativeValue;
 
 public final class Utils
 {
@@ -27,14 +23,6 @@ public final class Utils
     // are too numerous to inject a type operator cache. Instead, we use a static cache
     // just for this use case.
     static final TypeOperators TUPLE_DOMAIN_TYPE_OPERATORS = new TypeOperators();
-
-    public static Object blockToNativeValue(Type type, Block block)
-    {
-        if (block.getPositionCount() != 1) {
-            throw new IllegalArgumentException("Block should have exactly one position, but has: " + block.getPositionCount());
-        }
-        return readNativeValue(type, block, 0);
-    }
 
     static RuntimeException handleThrowable(Throwable throwable)
     {

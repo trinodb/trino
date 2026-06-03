@@ -24,7 +24,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.trino.spi.predicate.Utils.blockToNativeValue;
+import static io.trino.spi.type.TypeUtils.blockToNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.util.Objects.requireNonNull;
 

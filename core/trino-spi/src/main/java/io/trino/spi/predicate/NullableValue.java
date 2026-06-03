@@ -29,6 +29,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
+import static io.trino.spi.type.TypeUtils.blockToNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -80,7 +81,7 @@ public final class NullableValue
     {
         Type type = serializable.getType();
         Block block = serializable.getBlock();
-        return new NullableValue(type, block == null ? null : Utils.blockToNativeValue(type, block));
+        return new NullableValue(type, block == null ? null : blockToNativeValue(type, block));
     }
 
     // Jackson serialization only
