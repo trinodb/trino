@@ -3116,6 +3116,118 @@ public class TestGeoFunctions
     }
 
     @Test
+    public void testGeometryDimensionalEditors()
+    {
+        assertThat(assertions.function("ST_AsEWKT", "ST_Force2D(ST_SetSRID(ST_GeometryFromText('POINT Z (1 2 3)'), 4326))"))
+                .hasType(VARCHAR)
+                .isEqualTo("SRID=4326;POINT (1 2)");
+
+        assertThat(assertions.function("ST_CoordDim", "ST_Force2D(ST_GeometryFromText('LINESTRING Z (0 0 1, 1 1 2)'))"))
+                .hasType(TINYINT)
+                .isEqualTo((byte) 2);
+
+        assertThat(assertions.function("ST_AsEWKT", "ST_Force3D(ST_SetSRID(ST_Point(1, 2), 4326))"))
+                .hasType(VARCHAR)
+                .isEqualTo("SRID=4326;POINT Z (1 2 0)");
+
+        assertThat(assertions.function("ST_AsEWKT", "ST_Force3D(ST_GeometryFromText('LINESTRING (0 0, 1 1)'), 7.0)"))
+                .hasType(VARCHAR)
+                .isEqualTo("LINESTRING Z (0 0 7, 1 1 7)");
+
+        assertThat(assertions.function("ST_AsEWKT", "ST_Force3D(ST_GeometryFromText('POINT Z (1 2 3)'), 7.0)"))
+                .hasType(VARCHAR)
+                .isEqualTo("POINT Z (1 2 3)");
+
+        assertTrinoExceptionThrownBy(assertions.function("ST_Force3D", "ST_Point(1, 2)", "nan()")::evaluate)
+                .hasMessage("z is NaN");
+
+        assertTrinoExceptionThrownBy(assertions.function("ST_Force3D", "ST_Point(1, 2)", "infinity()")::evaluate)
+                .hasMessage("z is infinite");
+    }
+
+    @Test
+    public void testGeometryConstructorsAndCollectionHelpers()
+    {
+        assertThat(assertions.function("ST_AsEWKT", "ST_Collect(ARRAY[ST_SetSRID(ST_GeometryFromText('POINT Z (1 2 3)'), 4326), ST_SetSRID(ST_GeometryFromText('POINT Z (4 5 6)'), 4326)])"))
+                .hasType(VARCHAR)
+                .isEqualTo("SRID=4326;MULTIPOINT Z ((1 2 3), (4 5 6))");
+
+        assertThat(assertions.function("ST_GeometryType", "ST_Collect(ARRAY[ST_Point(1, 2), ST_GeometryFromText('LINESTRING (3 4, 5 6)')])"))
+                .hasType(VARCHAR)
+                .isEqualTo("ST_GeomCollection");
+
+        assertThat(assertions.function("ST_AsEWKT", "ST_MakeLine(ARRAY[ST_SetSRID(ST_GeometryFromText('POINT Z (0 0 1)'), 4326), ST_SetSRID(ST_GeometryFromText('LINESTRING Z (0 0 1, 1 1 2)'), 4326), ST_SetSRID(ST_GeometryFromText('POINT Z (2 2 3)'), 4326)])"))
+                .hasType(VARCHAR)
+                .isEqualTo("SRID=4326;LINESTRING Z (0 0 1, 1 1 2, 2 2 3)");
+
+        assertThat(assertions.function("ST_AsEWKT", "ST_MakePolygon(ST_SetSRID(ST_GeometryFromText('LINESTRING Z (0 0 1, 0 4 2, 4 4 3, 4 0 4, 0 0 1)'), 4326), ARRAY[ST_SetSRID(ST_GeometryFromText('LINESTRING Z (1 1 5, 2 1 6, 2 2 7, 1 1 5)'), 4326)])"))
+                .hasType(VARCHAR)
+                .isEqualTo("SRID=4326;POLYGON Z ((0 0 1, 0 4 2, 4 4 3, 4 0 4, 0 0 1), (1 1 5, 2 1 6, 2 2 7, 1 1 5))");
+
+        assertThat(assertions.function("ST_AsEWKT", "ST_Multi(ST_SetSRID(ST_GeometryFromText('POLYGON Z ((0 0 1, 0 1 2, 1 0 3, 0 0 1))'), 4326))"))
+                .hasType(VARCHAR)
+                .isEqualTo("SRID=4326;MULTIPOLYGON Z (((0 0 1, 0 1 2, 1 0 3, 0 0 1)))");
+
+        assertThat(assertions.function("ST_AsEWKT", "ST_LineMerge(ST_SetSRID(ST_GeometryFromText('MULTILINESTRING Z ((0 0 1, 1 1 2), (1 1 2, 2 2 3))'), 4326))"))
+                .hasType(VARCHAR)
+                .isEqualTo("SRID=4326;LINESTRING Z (0 0 1, 1 1 2, 2 2 3)");
+
+        assertTrinoExceptionThrownBy(assertions.function("ST_Collect", "ARRAY[ST_SetSRID(ST_Point(1, 2), 4326), ST_SetSRID(ST_Point(3, 4), 3857)]")::evaluate)
+                .hasMessage("SRID mismatch: 4326 vs 3857");
+
+        assertTrinoExceptionThrownBy(assertions.function("ST_MakeLine", "ARRAY[ST_Point(1, 2), null]")::evaluate)
+                .hasMessage("Invalid input to ST_MakeLine: null at index 2");
+
+        assertTrinoExceptionThrownBy(assertions.function("ST_MakePolygon", "ST_GeometryFromText('LINESTRING (0 0, 1 1, 2 2)')")::evaluate)
+                .hasMessage("ST_MakePolygon shell must be closed");
+    }
+
+    @Test
+    public void testJtsBackedProcessingHelpers()
+    {
+        assertThat(assertions.function("ST_AsEWKT", "ST_PointOnSurface(ST_SetSRID(ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0, 0 0))'), 4326))"))
+                .hasType(VARCHAR)
+                .isEqualTo("SRID=4326;POINT (2 2)");
+
+        assertThat(assertions.function("ST_AsText", "ST_Normalize(ST_GeometryFromText('POLYGON ((0 0, 1 0, 0 1, 0 0))'))"))
+                .hasType(VARCHAR)
+                .isEqualTo("POLYGON ((0 0, 0 1, 1 0, 0 0))");
+
+        assertThat(assertions.function("ST_AsEWKT", "ST_ReducePrecision(ST_SetSRID(ST_GeometryFromText('LINESTRING Z (1.2 2.7 5, 3.3 3.8 6)'), 4326), 1.0)"))
+                .hasType(VARCHAR)
+                .isEqualTo("SRID=4326;LINESTRING Z (1 3 5, 3 4 6)");
+
+        assertThat(assertions.function("ST_GeometryType", "ST_MinimumBoundingCircle(ST_SetSRID(ST_GeometryFromText('MULTIPOINT ((0 0), (2 0), (1 2))'), 4326))"))
+                .hasType(VARCHAR)
+                .isEqualTo("ST_Polygon");
+
+        assertThat(assertions.function("ST_SRID", "ST_MinimumBoundingCircle(ST_SetSRID(ST_GeometryFromText('MULTIPOINT ((0 0), (2 0), (1 2))'), 4326))"))
+                .hasType(INTEGER)
+                .isEqualTo(4326);
+
+        assertThat(assertions.function("ST_Area", "ST_OrientedEnvelope(ST_GeometryFromText('MULTIPOINT ((0 0), (2 0), (2 1), (0 1))'))"))
+                .hasType(DOUBLE)
+                .isEqualTo(2.0);
+
+        assertThat(assertions.function("ST_Area", "ST_Polygonize(ARRAY[ST_GeometryFromText('LINESTRING (0 0, 1 0)'), ST_GeometryFromText('LINESTRING (1 0, 1 1)'), ST_GeometryFromText('LINESTRING (1 1, 0 1)'), ST_GeometryFromText('LINESTRING (0 1, 0 0)')])"))
+                .hasType(DOUBLE)
+                .isEqualTo(1.0);
+
+        assertThat(assertions.function("ST_NumGeometries", "ST_VoronoiPolygons(ST_SetSRID(ST_GeometryFromText('MULTIPOINT ((0 0), (2 0), (1 2))'), 4326))"))
+                .isEqualTo(3);
+
+        assertThat(assertions.function("ST_SRID", "ST_VoronoiPolygons(ST_SetSRID(ST_GeometryFromText('MULTIPOINT ((0 0), (2 0), (1 2))'), 4326), 0.01)"))
+                .hasType(INTEGER)
+                .isEqualTo(4326);
+
+        assertTrinoExceptionThrownBy(assertions.function("ST_ReducePrecision", "ST_Point(1, 2)", "0.0")::evaluate)
+                .hasMessage("gridSize must be positive");
+
+        assertTrinoExceptionThrownBy(assertions.function("ST_VoronoiPolygons", "ST_Point(1, 2)", "-1.0")::evaluate)
+                .hasMessage("tolerance is negative");
+    }
+
+    @Test
     public void testAccessorSridAndZPropagation()
     {
         assertThat(assertions.function("ST_AsEWKT", "ST_GeometryN(ST_SetSRID(ST_GeometryFromText('MULTIPOINT Z ((1 2 3), (4 5 6))'), 4326), 2)"))

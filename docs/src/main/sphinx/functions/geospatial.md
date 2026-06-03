@@ -114,12 +114,47 @@ Z coordinates and uses the non-zero SRID from the input points. Inputs with
 different non-zero SRIDs fail.
 :::
 
+:::{function} ST_Collect(array(Geometry)) -> Geometry
+Returns a multi-geometry or geometry collection containing the input geometries.
+`NULL` array elements are ignored. The returned geometry preserves input Z
+coordinates and uses the non-zero SRID from the input geometries. Inputs with
+different non-zero SRIDs fail.
+:::
+
+:::{function} ST_MakeLine(array(Geometry)) -> LineString
+Returns a LineString formed from an array of points or linestrings. Empty
+geometries are ignored, and a repeated coordinate at the boundary of two inputs
+is included only once. Array elements must not be `NULL`. The returned geometry
+preserves input Z coordinates and uses the non-zero SRID from the input
+geometries. Inputs with different non-zero SRIDs fail.
+:::
+
+:::{function} ST_MakePolygon(LineString) -> Polygon
+Returns a polygon formed from a closed LineString shell. The returned geometry
+preserves the input Z coordinates and SRID.
+:::
+
+:::{function} ST_MakePolygon(LineString, array(LineString)) -> Polygon
+:noindex: true
+
+Returns a polygon formed from a closed LineString shell and an array of closed
+LineString holes. Empty holes are ignored. The returned geometry preserves input
+Z coordinates and uses the non-zero SRID from the shell and holes. Inputs with
+different non-zero SRIDs fail.
+:::
+
 :::{function} ST_MultiPoint(array(Point)) -> MultiPoint
 Returns a MultiPoint geometry object formed from the specified points. Returns `NULL` if input array is empty.
 Array elements must not be `NULL` or empty.
 The returned geometry may not be simple and may contain duplicate points if input array has duplicates.
 The returned geometry preserves input Z coordinates and uses the non-zero SRID
 from the input points. Inputs with different non-zero SRIDs fail.
+:::
+
+:::{function} ST_Multi(Geometry) -> Geometry
+Returns a multi-geometry for a Point, LineString, or Polygon input. Multi-geometry
+and geometry collection inputs are returned unchanged. The returned geometry
+preserves the input Z coordinates and SRID.
 :::
 
 :::{function} ST_MakePoint(x: double, y: double) -> Point
@@ -232,6 +267,24 @@ is less than or equal to the specified distance. If the points of the geometry a
 close together (``delta < 1e-8``), this might return an empty geometry.
 :::
 
+:::{function} ST_Force2D(Geometry) -> Geometry
+Returns the input geometry with Z coordinates removed. The returned geometry
+preserves the input SRID.
+:::
+
+:::{function} ST_Force3D(Geometry) -> Geometry
+Returns the input geometry with missing Z coordinates set to `0.0`. Existing Z
+coordinates are preserved, and the returned geometry preserves the input SRID.
+:::
+
+:::{function} ST_Force3D(Geometry, z) -> Geometry
+:noindex: true
+
+Returns the input geometry with missing Z coordinates set to the specified value.
+Existing Z coordinates are preserved, and the returned geometry preserves the
+input SRID. The specified Z value must be finite.
+:::
+
 :::{function} ST_Difference(first: Geometry, second: Geometry) -> Geometry
 Returns the geometry value that represents the point set difference of the given geometries.
 :::
@@ -257,6 +310,29 @@ Returns a line string representing the exterior ring of the input polygon.
 Returns the geometry value that represents the point set intersection of two geometries.
 :::
 
+:::{function} ST_LineMerge(Geometry) -> Geometry
+Returns a LineString or MultiLineString formed by merging connected linework.
+The returned geometry preserves the input SRID and any Z coordinates provided by
+JTS for retained vertices.
+:::
+
+:::{function} ST_Normalize(Geometry) -> Geometry
+Returns the canonical normalized representation of the input geometry. The
+returned geometry preserves the input SRID and Z coordinates.
+:::
+
+:::{function} ST_Polygonize(array(Geometry)) -> Geometry
+Returns polygons formed from the input linework. `NULL` array elements are
+ignored. The returned geometry uses the non-zero SRID from the input geometries.
+Inputs with different non-zero SRIDs fail.
+:::
+
+:::{function} ST_ReducePrecision(Geometry, gridSize) -> Geometry
+Returns the input geometry with coordinates rounded to the specified grid size.
+The grid size must be finite and positive. The returned geometry preserves the
+input SRID and any Z coordinates provided by JTS for retained vertices.
+:::
+
 :::{function} ST_SymDifference(first: Geometry, second: Geometry) -> Geometry
 Returns the geometry value that represents the point set symmetric difference of two geometries.
 :::
@@ -265,6 +341,19 @@ Returns the geometry value that represents the point set symmetric difference of
 Returns a geometry that represents the point set union of the input geometries.
 
 See also:  {func}`geometry_union`, {func}`geometry_union_agg`
+:::
+
+:::{function} ST_VoronoiPolygons(Geometry) -> Geometry
+Returns Voronoi polygons from the vertices of the input geometry. The returned
+geometry preserves the input SRID.
+:::
+
+:::{function} ST_VoronoiPolygons(Geometry, tolerance) -> Geometry
+:noindex: true
+
+Returns Voronoi polygons from the vertices of the input geometry using the
+specified tolerance. The tolerance must be finite and non-negative. The returned
+geometry preserves the input SRID.
 :::
 
 ## Accessors
@@ -289,6 +378,16 @@ Returns the point value that is the mathematical centroid of a geometry.
 
 :::{function} ST_ConvexHull(Geometry) -> Geometry
 Returns the minimum convex geometry that encloses all input geometries.
+:::
+
+:::{function} ST_MinimumBoundingCircle(Geometry) -> Geometry
+Returns the minimum bounding circle enclosing the geometry. The returned geometry
+preserves the input SRID.
+:::
+
+:::{function} ST_OrientedEnvelope(Geometry) -> Geometry
+Returns the minimum-area rotated rectangle enclosing the geometry. The returned
+geometry preserves the input SRID.
 :::
 
 :::{function} ST_CoordDim(Geometry) -> tinyint
@@ -380,6 +479,12 @@ Use {func}`ST_NumPoints` to find out the total number of elements.
 
 :::{function} ST_Points(Geometry) -> array(Point)
 Returns an array of points in a linestring.
+:::
+
+:::{function} ST_PointOnSurface(Geometry) -> Geometry
+Returns a point guaranteed to lie on the surface of the input geometry, or
+`NULL` if the input geometry is empty. The returned point preserves the input
+SRID.
 :::
 
 :::{function} ST_XMax(Geometry) -> double
@@ -524,6 +629,12 @@ Feature and FeatureCollection are not supported.
 
 :::{function} convex_hull_agg(Geometry) -> Geometry
 Returns the minimum convex geometry that encloses all input geometries.
+:::
+
+:::{function} geometry_collect_agg(Geometry) -> Geometry
+Returns a multi-geometry or geometry collection containing all input geometries.
+The returned geometry preserves input Z coordinates and uses the non-zero SRID
+from the input geometries. Inputs with different non-zero SRIDs fail.
 :::
 
 :::{function} geometry_union_agg(Geometry) -> Geometry
