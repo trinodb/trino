@@ -64,6 +64,7 @@ final class TypeBridge
             case TimeType time -> apply("time", literal(time.getPrecision()));
             case TimeWithTimeZoneType time -> apply("time_with_time_zone", literal(time.getPrecision()));
             case ArrayType array -> apply("array", toExpression(array.getElementType()));
+            case io.trino.spi.type.QuantileDigestType qdigest -> apply("qdigest", toExpression(qdigest.getValueType()));
             case MapType map -> apply("map", toExpression(map.getKeyType()), toExpression(map.getValueType()));
             case RowType rowType -> row(rowType.getFields().stream()
                     .map(rowField -> rowField.getName()

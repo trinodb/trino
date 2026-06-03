@@ -20,6 +20,7 @@ import io.trino.lib.type.CharType;
 import io.trino.lib.type.DateType;
 import io.trino.lib.type.DecimalType;
 import io.trino.lib.type.DoubleType;
+import io.trino.lib.type.HyperLogLogType;
 import io.trino.lib.type.IntegerType;
 import io.trino.lib.type.IntervalDayToSecondType;
 import io.trino.lib.type.IntervalYearToMonthType;
@@ -27,9 +28,13 @@ import io.trino.lib.type.IpAddressType;
 import io.trino.lib.type.JsonType;
 import io.trino.lib.type.MapType;
 import io.trino.lib.type.NumberType;
+import io.trino.lib.type.P4HyperLogLogType;
+import io.trino.lib.type.QuantileDigestType;
 import io.trino.lib.type.RealType;
 import io.trino.lib.type.RowType;
+import io.trino.lib.type.SetDigestType;
 import io.trino.lib.type.SmallintType;
+import io.trino.lib.type.TDigestType;
 import io.trino.lib.type.TimeType;
 import io.trino.lib.type.TimeWithTimeZoneType;
 import io.trino.lib.type.TimestampType;
@@ -99,6 +104,11 @@ public final class TrinoPreset
                 UuidType.CONSTRUCTOR,
                 IpAddressType.CONSTRUCTOR,
                 VariantType.CONSTRUCTOR,
+                HyperLogLogType.CONSTRUCTOR,
+                P4HyperLogLogType.CONSTRUCTOR,
+                TDigestType.CONSTRUCTOR,
+                QuantileDigestType.CONSTRUCTOR,
+                SetDigestType.CONSTRUCTOR,
                 MapType.CONSTRUCTOR,
                 ArrayType.CONSTRUCTOR,
                 RowType.CONSTRUCTOR);
@@ -124,6 +134,7 @@ public final class TrinoPreset
                 new PrimitiveTypeCoercion("bigint", "real"),
                 new PrimitiveTypeCoercion("bigint", "double"),
                 new PrimitiveTypeCoercion("real", "double"),
+                new PrimitiveTypeCoercion("P4HyperLogLog", "HyperLogLog"),
                 new PrimitiveTypeCoercion("tinyint", "number"),
                 new PrimitiveTypeCoercion("smallint", "number"),
                 new PrimitiveTypeCoercion("integer", "number"),
@@ -474,7 +485,18 @@ public final class TrinoPreset
                 new PrimitiveTypeCoercion("real", "boolean"),
                 new PrimitiveTypeCoercion("double", "boolean"),
                 new PatternCoercion(apply("decimal", variable("@p"), variable("@s")), symbol("boolean"), List.of()),
-                new PatternCoercion(apply("char", variable("@n")), symbol("boolean"), List.of())));
+                new PatternCoercion(apply("char", variable("@n")), symbol("boolean"), List.of()),
+                // Sketch types cast to/from varbinary.
+                new PrimitiveTypeCoercion("HyperLogLog", "varbinary"),
+                new PrimitiveTypeCoercion("varbinary", "HyperLogLog"),
+                new PrimitiveTypeCoercion("tdigest", "varbinary"),
+                new PrimitiveTypeCoercion("varbinary", "tdigest"),
+                new PrimitiveTypeCoercion("SetDigest", "varbinary"),
+                new PrimitiveTypeCoercion("varbinary", "SetDigest"),
+                new PrimitiveTypeCoercion("SetDigest", "HyperLogLog"),
+                new PrimitiveTypeCoercion("HyperLogLog", "P4HyperLogLog"),
+                new PatternCoercion(apply("qdigest", variable("@T")), symbol("varbinary"), List.of()),
+                new PatternCoercion(symbol("varbinary"), apply("qdigest", variable("@T")), List.of())));
         rules.addAll(unboundedVarcharCasts());
         rules.addAll(variantCasts());
         return List.copyOf(rules);

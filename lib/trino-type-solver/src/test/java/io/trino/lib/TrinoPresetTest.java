@@ -52,6 +52,11 @@ public class TrinoPresetTest
                         "uuid",
                         "ipaddress",
                         "variant",
+                        "HyperLogLog",
+                        "P4HyperLogLog",
+                        "tdigest",
+                        "qdigest",
+                        "SetDigest",
                         "map",
                         "array",
                         "row");
