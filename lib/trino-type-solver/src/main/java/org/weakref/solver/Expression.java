@@ -13,6 +13,7 @@
  */
 package org.weakref.solver;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -317,20 +318,39 @@ public sealed interface Expression
 
     static Expression substitute(Expression expression, Map<String, Expression> substitutions)
     {
+        if (substitutions.isEmpty()) {
+            return expression;
+        }
         return substitute(expression, substitutions, new HashSet<>());
     }
 
     private static Expression substitute(Expression expression, Map<String, Expression> substitutions, Set<String> activeVariables)
     {
+        // Each arm returns the original expression unchanged when no nested substitution applied, so
+        // unaffected subtrees (the common case — most variables in the map aren't in a given subtree)
+        // are not needlessly reallocated.
         return switch (expression) {
-            case Application application -> new Application(
-                    substitute(application.head(), substitutions, activeVariables),
-                    application.arguments().stream()
-                            .map(argument -> substitute(argument, substitutions, activeVariables))
-                            .toList());
-            case Row row -> new Row(row.fields().stream()
-                    .map(field -> new RowField(field.name(), substitute(field.type(), substitutions, activeVariables)))
-                    .toList());
+            case Application application -> {
+                Expression head = substitute(application.head(), substitutions, activeVariables);
+                List<Expression> arguments = substituteAll(application.arguments(), substitutions, activeVariables);
+                yield head == application.head() && arguments == application.arguments()
+                        ? application
+                        : new Application(head, arguments);
+            }
+            case Row row -> {
+                List<RowField> fields = null;
+                for (int i = 0; i < row.fields().size(); i++) {
+                    RowField field = row.fields().get(i);
+                    Expression type = substitute(field.type(), substitutions, activeVariables);
+                    if (type != field.type() && fields == null) {
+                        fields = new ArrayList<>(row.fields().subList(0, i));
+                    }
+                    if (fields != null) {
+                        fields.add(type == field.type() ? field : new RowField(field.name(), type));
+                    }
+                }
+                yield fields == null ? row : new Row(fields);
+            }
             case AnyRow anyRow -> anyRow;
             case Literal literal -> literal;
             case Symbol symbol -> symbol;
@@ -349,15 +369,38 @@ public sealed interface Expression
                 activeVariables.remove(variable.name());
                 yield substituted;
             }
-            case BinaryOperation binary -> operation(binary.operator(), substitute(binary.left(), substitutions, activeVariables), substitute(binary.right(), substitutions, activeVariables));
-            case FunctionType functionType -> new FunctionType(
-                    functionType.parameterTypes().stream()
-                            .map(parameter -> substitute(parameter, substitutions, activeVariables))
-                            .toList(),
-                    functionType.isVariadic(),
-                    functionType.variadicParameterType().map(parameter -> substitute(parameter, substitutions, activeVariables)),
-                    substitute(functionType.returnType(), substitutions, activeVariables));
+            case BinaryOperation binary -> {
+                Expression left = substitute(binary.left(), substitutions, activeVariables);
+                Expression right = substitute(binary.right(), substitutions, activeVariables);
+                yield left == binary.left() && right == binary.right() ? binary : operation(binary.operator(), left, right);
+            }
+            case FunctionType functionType -> {
+                List<Expression> parameters = substituteAll(functionType.parameterTypes(), substitutions, activeVariables);
+                Optional<Expression> variadic = functionType.variadicParameterType().map(parameter -> substitute(parameter, substitutions, activeVariables));
+                Expression returnType = substitute(functionType.returnType(), substitutions, activeVariables);
+                yield parameters == functionType.parameterTypes()
+                        && variadic.equals(functionType.variadicParameterType())
+                        && returnType == functionType.returnType()
+                        ? functionType
+                        : new FunctionType(parameters, functionType.isVariadic(), variadic, returnType);
+            }
         };
+    }
+
+    private static List<Expression> substituteAll(List<Expression> expressions, Map<String, Expression> substitutions, Set<String> activeVariables)
+    {
+        List<Expression> result = null;
+        for (int i = 0; i < expressions.size(); i++) {
+            Expression original = expressions.get(i);
+            Expression substituted = substitute(original, substitutions, activeVariables);
+            if (substituted != original && result == null) {
+                result = new ArrayList<>(expressions.subList(0, i));
+            }
+            if (result != null) {
+                result.add(substituted);
+            }
+        }
+        return result == null ? expressions : result;
     }
 
     static Variable variable(String name)
