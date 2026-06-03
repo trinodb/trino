@@ -25,7 +25,7 @@ import java.lang.invoke.MethodHandle;
 
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.TypeSignature.typeVariable;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static java.util.Objects.requireNonNull;
 
 public class GenericHashCodeOperator

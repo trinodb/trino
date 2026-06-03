@@ -63,7 +63,7 @@ import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.TypeSignature.typeVariable;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 

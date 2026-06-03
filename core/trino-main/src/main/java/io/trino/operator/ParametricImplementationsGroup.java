@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.Signature.Argument;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 
 import java.util.List;
 import java.util.Map;
@@ -138,8 +138,8 @@ public class ParametricImplementationsGroup<T extends ParametricImplementation>
         public void addImplementation(T implementation)
         {
             if (!implementation.getSignature().isGeneric()
-                    && implementation.getSignature().getArgumentTypes().stream().noneMatch(TypeSignature::isCalculated)
-                    && !implementation.getSignature().getReturnType().isCalculated()) {
+                    && implementation.getSignature().getArgumentTypes().stream().noneMatch(TypeTemplates::isCalculated)
+                    && !TypeTemplates.isCalculated(implementation.getSignature().getReturnType())) {
                 // Lookup is by `BoundSignature.toSignature()`, which has no argument
                 // names; strip names from the key so the match is structural only.
                 exactImplementations.put(withoutArgumentNames(implementation.getSignature()), implementation);

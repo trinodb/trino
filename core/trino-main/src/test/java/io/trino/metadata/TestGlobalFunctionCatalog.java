@@ -21,6 +21,7 @@ import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionBundle;
+import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.OperatorType;
@@ -30,10 +31,14 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.NumericExpression;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TemplateParameter;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplate;
+import io.trino.spi.type.TypeTemplates;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.UnknownType;
 import org.junit.jupiter.api.Test;
@@ -42,6 +47,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -56,7 +62,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeTemplate;
 import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
@@ -94,10 +100,11 @@ public class TestGlobalFunctionCatalog
             if (function.getSignature().isGeneric()) {
                 continue;
             }
-            if (function.getSignature().getArgumentTypes().stream().anyMatch(TypeSignature::isCalculated)) {
+            if (function.getSignature().getArgumentTypes().stream().anyMatch(TypeTemplates::isCalculated)) {
                 continue;
             }
             List<Type> argumentTypes = function.getSignature().getArgumentTypes().stream()
+                    .map(TypeTemplates::toTypeSignature)
                     .map(functionResolution.getPlannerContext().getTypeManager()::getType)
                     .collect(toImmutableList());
             BoundSignature exactOperator = functionResolution.resolveOperator(operatorType, argumentTypes).signature();
@@ -105,6 +112,38 @@ public class TestGlobalFunctionCatalog
             foundOperator = true;
         }
         assertThat(foundOperator).isTrue();
+    }
+
+    @Test
+    public void testSignatureRenderingMatchesGroundForm()
+    {
+        TypeOperators typeOperators = new TypeOperators();
+        FunctionBundle functions = SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), NodeVersion.UNKNOWN);
+        for (FunctionMetadata function : functions.getFunctions()) {
+            Signature signature = function.getSignature();
+
+            // FunctionId derives from the rendered signature, so re-deriving it must reproduce the registered id
+            assertThat(FunctionId.toFunctionId(function.getCanonicalName(), signature, function.getReceiverType()))
+                    .isEqualTo(function.getFunctionId());
+
+            // A ground template must render exactly as the ground signature it lowers to: FunctionId and
+            // error messages use the template rendering, while resolved types print the ground form
+            Stream.concat(signature.getArgumentTypes().stream(), Stream.of(signature.getReturnType()))
+                    .filter(TestGlobalFunctionCatalog::isGround)
+                    .forEach(template -> assertThat(template.render())
+                            .isEqualTo(TypeTemplates.toTypeSignature(template).toString()));
+        }
+    }
+
+    private static boolean isGround(TypeTemplate template)
+    {
+        return switch (template) {
+            case TypeTemplate.TypeVariable _ -> false;
+            case TypeTemplate.TypeApplication(_, List<TemplateParameter> parameters) -> parameters.stream().allMatch(parameter -> switch (parameter) {
+                case TemplateParameter.TypeArgument(_, TypeTemplate type) -> isGround(type);
+                case TemplateParameter.NumericArgument(NumericExpression value) -> value instanceof NumericExpression.Literal;
+            });
+        };
     }
 
     @Test
@@ -319,13 +358,14 @@ public class TestGlobalFunctionCatalog
     private static Signature.Builder functionSignature(List<String> arguments, String returnType, List<TypeVariableConstraint> typeVariableConstraints)
     {
         Set<String> literalParameters = ImmutableSet.of("p", "s", "p1", "s1", "p2", "s2", "p3", "s3");
-        List<TypeSignature> argumentSignatures = arguments.stream()
-                .map(signature -> parseTypeSignature(signature, literalParameters))
-                .collect(toImmutableList());
-        return Signature.builder()
-                .returnType(parseTypeSignature(returnType, literalParameters))
-                .argumentTypes(argumentSignatures)
+        Set<String> typeVariables = typeVariableConstraints.stream()
+                .map(TypeVariableConstraint::getName)
+                .collect(toImmutableSet());
+        Signature.Builder builder = Signature.builder()
+                .returnType(parseTypeTemplate(returnType, typeVariables, literalParameters))
                 .typeVariableConstraints(typeVariableConstraints);
+        arguments.forEach(argument -> builder.argumentType(parseTypeTemplate(argument, typeVariables, literalParameters)));
+        return builder;
     }
 
     private static ResolveFunctionAssertion assertThatResolveFunction()

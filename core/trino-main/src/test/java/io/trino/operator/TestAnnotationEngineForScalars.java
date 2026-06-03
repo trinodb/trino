@@ -38,10 +38,10 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -55,6 +55,9 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeTemplates.numericVariable;
+import static io.trino.spi.type.TypeTemplates.type;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -312,14 +315,14 @@ public class TestAnnotationEngineForScalars
     public static final class ParametricScalarFunction
     {
         @SqlType("T")
-        @io.trino.spi.function.TypeParameter("T")
+        @TypeParameter("T")
         public static double fun(@SqlType("T") double v)
         {
             return v;
         }
 
         @SqlType("T")
-        @io.trino.spi.function.TypeParameter("T")
+        @TypeParameter("T")
         public static long fun(@SqlType("T") long v)
         {
             return v;
@@ -331,8 +334,8 @@ public class TestAnnotationEngineForScalars
     {
         Signature expectedSignature = Signature.builder()
                 .typeVariable("T")
-                .returnType(new TypeSignature("T"))
-                .argumentType(new TypeSignature("T"))
+                .returnType(typeVariable("T"))
+                .argumentType(typeVariable("T"))
                 .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(ParametricScalarFunction.class);
@@ -369,7 +372,7 @@ public class TestAnnotationEngineForScalars
     {
         Signature expectedSignature = Signature.builder()
                 .returnType(BOOLEAN)
-                .argumentType(arrayType(new TypeSignature("varchar", TypeParameter.numericVariable("x"))))
+                .argumentType(TypeTemplates.arrayType(type("varchar", numericVariable("x"))))
                 .build();
 
         Signature exactSignature = Signature.builder()
@@ -408,7 +411,7 @@ public class TestAnnotationEngineForScalars
     {
         Signature expectedSignature = Signature.builder()
                 .returnType(BIGINT)
-                .argumentType(new TypeSignature("varchar", TypeParameter.numericVariable("x")))
+                .argumentType(type("varchar", numericVariable("x")))
                 .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(SimpleInjectionScalarFunction.class);
@@ -429,11 +432,11 @@ public class TestAnnotationEngineForScalars
     @Description("Parametric scalar with type injected though constructor")
     public static class ConstructorInjectionScalarFunction
     {
-        @io.trino.spi.function.TypeParameter("T")
-        public ConstructorInjectionScalarFunction(@io.trino.spi.function.TypeParameter("T") Type type) {}
+        @TypeParameter("T")
+        public ConstructorInjectionScalarFunction(@TypeParameter("T") Type type) {}
 
         @SqlType(StandardTypes.BIGINT)
-        @io.trino.spi.function.TypeParameter("T")
+        @TypeParameter("T")
         public long fun(@SqlType("array(T)") Block val)
         {
             return 17L;
@@ -458,7 +461,7 @@ public class TestAnnotationEngineForScalars
         Signature expectedSignature = Signature.builder()
                 .typeVariable("T")
                 .returnType(BIGINT)
-                .argumentType(arrayType(new TypeSignature("T")))
+                .argumentType(TypeTemplates.arrayType(typeVariable("T")))
                 .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(ConstructorInjectionScalarFunction.class);
@@ -483,7 +486,7 @@ public class TestAnnotationEngineForScalars
     {
         @SqlType(StandardTypes.BIGINT)
         public static long fun(
-                @io.trino.spi.function.TypeParameter("ROW(ARRAY(BIGINT),ROW(ROW(CHAR)),BIGINT,MAP(BIGINT,CHAR))") Type type,
+                @TypeParameter("ROW(ARRAY(BIGINT),ROW(ROW(CHAR)),BIGINT,MAP(BIGINT,CHAR))") Type type,
                 @SqlType(StandardTypes.BIGINT) long value)
         {
             return value;
@@ -514,10 +517,10 @@ public class TestAnnotationEngineForScalars
     public static final class PartiallyFixedTypeParameterScalarFunction
     {
         @SqlType(StandardTypes.BIGINT)
-        @io.trino.spi.function.TypeParameter("T1")
-        @io.trino.spi.function.TypeParameter("T2")
+        @TypeParameter("T1")
+        @TypeParameter("T2")
         public static long fun(
-                @io.trino.spi.function.TypeParameter("ROW(ARRAY(T1),ROW(ROW(T2)),CHAR)") Type type,
+                @TypeParameter("ROW(ARRAY(T1),ROW(ROW(T2)),CHAR)") Type type,
                 @SqlType(StandardTypes.BIGINT) long value)
         {
             return value;

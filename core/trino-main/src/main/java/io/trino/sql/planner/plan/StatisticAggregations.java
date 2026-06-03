@@ -18,8 +18,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.metadata.ResolvedAggregationFunctionMetadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
@@ -69,8 +69,8 @@ public class StatisticAggregations
         for (Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
             Aggregation originalAggregation = entry.getValue();
             ResolvedFunction resolvedFunction = originalAggregation.getResolvedFunction();
-            AggregationFunctionMetadata functionMetadata = plannerContext.getMetadata().getAggregationFunctionMetadata(session, resolvedFunction);
-            List<Type> intermediateTypes = functionMetadata.getIntermediateTypes().stream()
+            ResolvedAggregationFunctionMetadata functionMetadata = plannerContext.getMetadata().getAggregationFunctionMetadata(session, resolvedFunction);
+            List<Type> intermediateTypes = functionMetadata.intermediateTypes().stream()
                     .map(plannerContext.getTypeManager()::getType)
                     .collect(toImmutableList());
             Type intermediateType = intermediateTypes.size() == 1 ? intermediateTypes.get(0) : RowType.anonymous(intermediateTypes);

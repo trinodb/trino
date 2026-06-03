@@ -19,9 +19,9 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 
 import static io.trino.operator.scalar.JsonToRowCast.JSON_TO_ROW;
-import static io.trino.spi.type.TypeParameter.numericVariable;
-import static io.trino.spi.type.TypeSignature.type;
-import static io.trino.spi.type.TypeSignature.typeVariable;
+import static io.trino.spi.type.TypeTemplates.numericVariable;
+import static io.trino.spi.type.TypeTemplates.type;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 
 public final class JsonStringToRowCast
         extends SqlScalarFunction

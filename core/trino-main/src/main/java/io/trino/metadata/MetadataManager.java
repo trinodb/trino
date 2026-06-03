@@ -96,7 +96,6 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.AggregationFunctionMetadata;
-import io.trino.spi.function.AggregationFunctionMetadata.AggregationFunctionMetadataBuilder;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionDependencyDeclaration;
@@ -123,6 +122,7 @@ import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
+import io.trino.spi.type.TypeSignature;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.transaction.TransactionManager;
@@ -2767,7 +2767,7 @@ public final class MetadataManager
     }
 
     @Override
-    public AggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
+    public ResolvedAggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
         Signature functionSignature;
         AggregationFunctionMetadata aggregationFunctionMetadata;
@@ -2782,19 +2782,15 @@ public final class MetadataManager
             aggregationFunctionMetadata = metadata.getAggregationFunctionMetadata(connectorSession, resolvedFunction.functionId());
         }
 
-        AggregationFunctionMetadataBuilder builder = AggregationFunctionMetadata.builder();
-        if (aggregationFunctionMetadata.isOrderSensitive()) {
-            builder.orderSensitive();
-        }
-
+        List<TypeSignature> intermediateTypes = List.of();
         if (!aggregationFunctionMetadata.getIntermediateTypes().isEmpty()) {
             FunctionBinding functionBinding = toFunctionBinding(resolvedFunction.functionId(), resolvedFunction.signature(), functionSignature);
-            aggregationFunctionMetadata.getIntermediateTypes().stream()
-                    .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding.variables()))
-                    .forEach(builder::intermediateType);
+            intermediateTypes = aggregationFunctionMetadata.getIntermediateTypes().stream()
+                    .map(type -> applyBoundVariables(type, functionBinding.variables()))
+                    .collect(toImmutableList());
         }
 
-        return builder.build();
+        return new ResolvedAggregationFunctionMetadata(aggregationFunctionMetadata.isOrderSensitive(), intermediateTypes);
     }
 
     @Override

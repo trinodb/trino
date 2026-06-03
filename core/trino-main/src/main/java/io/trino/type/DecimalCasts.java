@@ -34,6 +34,7 @@ import io.trino.spi.type.Int128;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplate;
 import io.trino.spi.type.VarcharType;
 import io.trino.spi.variant.Variant;
 import io.trino.util.JsonCastException;
@@ -62,8 +63,9 @@ import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.TypeParameter.numericVariable;
-import static io.trino.spi.type.TypeSignature.type;
+import static io.trino.spi.type.TypeTemplates.fromTypeSignature;
+import static io.trino.spi.type.TypeTemplates.numericVariable;
+import static io.trino.spi.type.TypeTemplates.type;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.type.JsonType.JSON;
@@ -105,9 +107,9 @@ public final class DecimalCasts
     // Despite decimalToJson having a catch inside that suggests that function can fail, IOException comes from the Jackson writing to an OutputStream
     // that never happens for SliceOutput.
     public static final SqlScalarFunction DECIMAL_TO_JSON_CAST = castFunctionFromDecimalTo(JSON.getTypeSignature(), true, "shortDecimalToJson", "longDecimalToJson");
-    public static final SqlScalarFunction JSON_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(JSON.getTypeSignature(), true, false, "jsonToShortDecimal", "jsonToLongDecimal");
+    public static final SqlScalarFunction JSON_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(fromTypeSignature(JSON.getTypeSignature()), true, false, "jsonToShortDecimal", "jsonToLongDecimal");
     public static final SqlScalarFunction DECIMAL_TO_VARIANT_CAST = castFunctionFromDecimalTo(VARIANT.getTypeSignature(), true, "shortDecimalToVariant", "longDecimalToVariant");
-    public static final SqlScalarFunction VARIANT_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(VARIANT.getTypeSignature(), true, false, "variantToShortDecimal", "variantToLongDecimal");
+    public static final SqlScalarFunction VARIANT_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(fromTypeSignature(VARIANT.getTypeSignature()), true, false, "variantToShortDecimal", "variantToLongDecimal");
 
     private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
 
@@ -141,10 +143,15 @@ public final class DecimalCasts
 
     private static SqlScalarFunction castFunctionToDecimalFrom(TypeSignature from, boolean neverFails, String... methodNames)
     {
+        return castFunctionToDecimalFromBuilder(fromTypeSignature(from), false, neverFails, methodNames);
+    }
+
+    private static SqlScalarFunction castFunctionToDecimalFrom(TypeTemplate from, boolean neverFails, String... methodNames)
+    {
         return castFunctionToDecimalFromBuilder(from, false, neverFails, methodNames);
     }
 
-    private static SqlScalarFunction castFunctionToDecimalFromBuilder(TypeSignature from, boolean nullableResult, boolean neverFails, String... methodNames)
+    private static SqlScalarFunction castFunctionToDecimalFromBuilder(TypeTemplate from, boolean nullableResult, boolean neverFails, String... methodNames)
     {
         Signature signature = Signature.builder()
                 .argumentType(from)

@@ -30,7 +30,31 @@ result, without knowing the native encoding.
 
 ## Type signature
 
-The signature of a type defines its identity, and also encodes some general
-information about the type, such as its type parameters (if it's parametric),
+The signature of a type (`TypeSignature`) defines its identity, and also encodes some
+general information about the type, such as its type parameters (if it's parametric)
 and its literal parameters. The literal parameters are used in types like
-`VARCHAR(10)`.
+`VARCHAR(10)`. A signature is always *ground*: it denotes one concrete type, such as
+`varchar(10)` or `array(bigint)`.
+
+## Type template
+
+Where a `TypeSignature` denotes one concrete type, a `TypeTemplate` denotes a
+*family* of types parameterized by variables — it is the open counterpart of the
+ground signature. Function signatures (`Signature`) carry their argument and return
+types as templates: `array(E)` has a type variable `E`, and `decimal(p, s)` has
+numeric variables `p` and `s`.
+
+Binding a template's variables against a call site — see `SignatureBinder` —
+substitutes the bound types and evaluates any calculated numeric expressions (for
+example the `x + y` in `char(x + y)`), producing a ground `TypeSignature`. The
+reverse, lifting a variable-free `TypeSignature` into a `TypeTemplate`, is also
+supported. A `Signature` therefore declares its type and numeric variables once and
+expresses every argument and return position as a template over them.
+
+## Type id
+
+A `TypeId` is the opaque identifier under which a type is persisted, for example in
+the catalog properties of a materialized view. It wraps the rendered form of the
+type's signature but guarantees nothing about its structure: where a `TypeSignature`
+is structural identity that can be inspected and compared piecewise, a `TypeId` is
+only ever compared for equality and resolved back to a type through `TypeManager`.

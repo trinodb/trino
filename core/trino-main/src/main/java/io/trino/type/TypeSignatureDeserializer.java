@@ -15,7 +15,6 @@ package io.trino.type;
 
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
-import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.spi.type.TypeSignature;
 
@@ -33,6 +32,6 @@ public final class TypeSignatureDeserializer
     @Override
     protected TypeSignature _deserialize(String value, DeserializationContext context)
     {
-        return parseTypeSignature(value, ImmutableSet.of());
+        return parseTypeSignature(value);
     }
 }

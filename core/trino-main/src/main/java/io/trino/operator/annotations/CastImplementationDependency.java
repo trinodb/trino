@@ -19,6 +19,7 @@ import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDec
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplate;
 
 import java.util.Objects;
 
@@ -28,22 +29,22 @@ import static java.util.Objects.requireNonNull;
 public final class CastImplementationDependency
         extends ScalarImplementationDependency
 {
-    private final TypeSignature fromType;
-    private final TypeSignature toType;
+    private final TypeTemplate fromType;
+    private final TypeTemplate toType;
 
-    public CastImplementationDependency(TypeSignature fromType, TypeSignature toType, InvocationConvention invocationConvention, Class<?> type)
+    public CastImplementationDependency(TypeTemplate fromType, TypeTemplate toType, InvocationConvention invocationConvention, Class<?> type)
     {
         super(invocationConvention, type);
         this.fromType = requireNonNull(fromType, "fromType is null");
         this.toType = requireNonNull(toType, "toType is null");
     }
 
-    public TypeSignature getFromType()
+    public TypeTemplate getFromType()
     {
         return fromType;
     }
 
-    public TypeSignature getToType()
+    public TypeTemplate getToType()
     {
         return toType;
     }

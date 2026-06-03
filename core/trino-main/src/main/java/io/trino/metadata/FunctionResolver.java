@@ -37,6 +37,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplate;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.QualifiedName;
 
@@ -148,7 +149,7 @@ public class FunctionResolver
                         metadata.getFunctions(session, catalogSchemaFunctionName),
                         candidate -> !candidate.functionMetadata().isInstanceMethod()
                                 && candidate.functionMetadata().getReceiverType()
-                                .map(TypeSignature::getBase).equals(Optional.of(receiver))),
+                                .map(TypeTemplate::baseName).equals(Optional.of(receiver))),
                 accessControl);
 
         FunctionMetadata functionMetadata = catalogFunctionBinding.boundFunctionMetadata();
@@ -175,7 +176,7 @@ public class FunctionResolver
                         metadata.getFunctions(session, catalogSchemaFunctionName),
                         candidate -> candidate.functionMetadata().isInstanceMethod()
                                 && candidate.functionMetadata().getReceiverType()
-                                .map(TypeSignature::getBase).equals(Optional.of(receiver))),
+                                .map(TypeTemplate::baseName).equals(Optional.of(receiver))),
                 accessControl);
 
         FunctionMetadata functionMetadata = catalogFunctionBinding.boundFunctionMetadata();
@@ -275,7 +276,7 @@ public class FunctionResolver
             Function<CatalogFunctionBinding, ResolvedFunction> resolver)
     {
         Map<TypeSignature, Type> dependentTypes = dependencies.getTypeDependencies().stream()
-                .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding.variables()))
+                .map(type -> applyBoundVariables(type, functionBinding.variables()))
                 .collect(toImmutableMap(Function.identity(), typeManager::getType, (left, _) -> left));
 
         ImmutableSet.Builder<ResolvedFunction> functions = ImmutableSet.builder();
