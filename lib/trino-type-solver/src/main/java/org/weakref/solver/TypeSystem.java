@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.weakref.solver.Expression.FunctionType;
 import static org.weakref.solver.Expression.Variable;
@@ -50,6 +51,7 @@ public class TypeSystem
     private final List<CoercionRule> coercions;
     private final List<CoercionRule> castRules;
     private final List<IndexedRule> indexedCoercions;
+    private final Map<String, List<CoercionRule>> candidateCoercionCache = new ConcurrentHashMap<>();
 
     public TypeSystem(List<TypeConstructor> types, List<CoercionRule> coercions)
     {
@@ -87,6 +89,15 @@ public class TypeSystem
         if (fromBase.isEmpty() && toBase.isEmpty()) {
             return coercions;
         }
+        // The candidate set depends only on the source/target base names over the immutable rule set,
+        // and the same (base, base) pairs recur constantly across resolutions, so memoize the scan.
+        return candidateCoercionCache.computeIfAbsent(
+                fromBase.orElse("") + ' ' + toBase.orElse(""),
+                _ -> filterCoercions(fromBase, toBase));
+    }
+
+    private List<CoercionRule> filterCoercions(Optional<String> fromBase, Optional<String> toBase)
+    {
         List<CoercionRule> candidates = new ArrayList<>();
         for (IndexedRule indexed : indexedCoercions) {
             boolean fromMatches = fromBase.isEmpty() || indexed.fromBase().isEmpty() || indexed.fromBase().equals(fromBase);
@@ -95,7 +106,7 @@ public class TypeSystem
                 candidates.add(indexed.rule());
             }
         }
-        return candidates;
+        return List.copyOf(candidates);
     }
 
     private static Optional<String> fromBaseOf(CoercionRule rule)
