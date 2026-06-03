@@ -51,6 +51,7 @@ public class TrinoPresetTest
                         "json",
                         "uuid",
                         "ipaddress",
+                        "variant",
                         "map",
                         "array",
                         "row");

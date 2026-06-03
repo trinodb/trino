@@ -265,6 +265,20 @@ public class CastTest
     }
 
     @Test
+    void testVariantCasts()
+    {
+        assertThat(LIBRARY.resolveCast(apply("varchar", literal(5)), symbol("variant"))).isPresent();
+        assertThat(LIBRARY.resolveCast(symbol("variant"), symbol("integer"))).isPresent();
+        // Containers cast element-wise to/from variant; map requires a varchar key.
+        assertThat(LIBRARY.resolveCast(apply("array", symbol("integer")), symbol("variant"))).isPresent();
+        assertThat(LIBRARY.resolveCast(apply("map", apply("varchar", literal(5)), symbol("bigint")), symbol("variant"))).isPresent();
+        assertThat(LIBRARY.resolveCast(apply("map", symbol("integer"), symbol("bigint")), symbol("variant"))).isEmpty();
+        // variant -> varchar is unbounded only.
+        assertThat(LIBRARY.resolveCast(symbol("variant"), symbol("varchar"))).isPresent();
+        assertThat(LIBRARY.resolveCast(symbol("variant"), apply("varchar", literal(5)))).isEmpty();
+    }
+
+    @Test
     void testNumberCasts()
     {
         // boolean -> number and number -> json are cast-only conversions Trino allows.

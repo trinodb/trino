@@ -40,6 +40,7 @@ import io.trino.lib.type.UnknownType;
 import io.trino.lib.type.UuidType;
 import io.trino.lib.type.VarbinaryType;
 import io.trino.lib.type.VarcharType;
+import io.trino.lib.type.VariantType;
 import org.weakref.solver.CoercionRule;
 import org.weakref.solver.Expression;
 import org.weakref.solver.NumericRelation;
@@ -97,6 +98,7 @@ public final class TrinoPreset
                 JsonType.CONSTRUCTOR,
                 UuidType.CONSTRUCTOR,
                 IpAddressType.CONSTRUCTOR,
+                VariantType.CONSTRUCTOR,
                 MapType.CONSTRUCTOR,
                 ArrayType.CONSTRUCTOR,
                 RowType.CONSTRUCTOR);
@@ -474,7 +476,48 @@ public final class TrinoPreset
                 new PatternCoercion(apply("decimal", variable("@p"), variable("@s")), symbol("boolean"), List.of()),
                 new PatternCoercion(apply("char", variable("@n")), symbol("boolean"), List.of())));
         rules.addAll(unboundedVarcharCasts());
+        rules.addAll(variantCasts());
         return List.copyOf(rules);
+    }
+
+    /**
+     * Variant casts: variant converts to and from the scalar and temporal types Trino supports,
+     * plus {@code varchar -> variant} for any length and {@code variant -> varchar} unbounded only.
+     */
+    private static List<CoercionRule> variantCasts()
+    {
+        Expression variant = symbol("variant");
+        List<CoercionRule> rules = new ArrayList<>();
+        for (String scalar : List.of("boolean", "tinyint", "smallint", "integer", "bigint", "real", "double", "date", "varbinary", "json", "uuid")) {
+            rules.add(new PrimitiveTypeCoercion("variant", scalar));
+            rules.add(new PrimitiveTypeCoercion(scalar, "variant"));
+        }
+        for (String temporal : List.of("time", "timestamp", "timestamp_with_time_zone")) {
+            rules.add(new PatternCoercion(variant, apply(temporal, variable("@p")), List.of()));
+            rules.add(new PatternCoercion(apply(temporal, variable("@p")), variant, List.of()));
+        }
+        rules.add(new PatternCoercion(apply("decimal", variable("@p"), variable("@s")), variant, List.of()));
+        rules.add(new PatternCoercion(variant, apply("decimal", variable("@p"), variable("@s")), List.of()));
+        rules.add(new PatternCoercion(apply("varchar", variable("@n")), variant, List.of()));
+        rules.add(new PatternCoercion(symbol("varchar"), variant, List.of()));
+        rules.add(new PatternCoercion(variant, symbol("varchar"), List.of()));
+        // Containers cast to/from variant element-wise (like json).
+        rules.add(new PatternCoercion(apply("array", variable("@T")), variant, List.of(new RequireCastableTo(variable("@T"), variant))));
+        rules.add(new PatternCoercion(variant, apply("array", variable("@T")), List.of(new RequireCastableFrom(variable("@T"), variant))));
+        // Map <-> variant requires a varchar key (variant objects are keyed by strings, like json).
+        for (Expression key : List.of(apply("varchar", variable("@n")), symbol("varchar"))) {
+            rules.add(new PatternCoercion(
+                    apply("map", key, variable("@V")),
+                    variant,
+                    List.of(new RequireCastableTo(variable("@V"), variant))));
+            rules.add(new PatternCoercion(
+                    variant,
+                    apply("map", key, variable("@V")),
+                    List.of(new RequireCastableFrom(variable("@V"), variant))));
+        }
+        rules.add(new RowToVariantCastRule());
+        rules.add(new VariantToRowCastRule());
+        return rules;
     }
 
     /**
