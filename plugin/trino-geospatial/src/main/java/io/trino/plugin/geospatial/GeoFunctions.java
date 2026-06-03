@@ -33,7 +33,11 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
+import org.locationtech.jts.algorithm.MinimumBoundingCircle;
+import org.locationtech.jts.algorithm.MinimumDiameter;
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.CoordinateSequence;
+import org.locationtech.jts.geom.CoordinateSequenceFilter;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryCollection;
@@ -45,6 +49,7 @@ import org.locationtech.jts.geom.MultiPoint;
 import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
 import org.locationtech.jts.io.WKTWriter;
@@ -54,10 +59,13 @@ import org.locationtech.jts.operation.distance.DistanceOp;
 import org.locationtech.jts.operation.linemerge.LineMerger;
 import org.locationtech.jts.operation.overlayng.OverlayNG;
 import org.locationtech.jts.operation.overlayng.OverlayNGRobust;
+import org.locationtech.jts.operation.polygonize.Polygonizer;
 import org.locationtech.jts.operation.relateng.RelateNG;
 import org.locationtech.jts.operation.union.UnaryUnionOp;
 import org.locationtech.jts.operation.valid.IsValidOp;
 import org.locationtech.jts.operation.valid.TopologyValidationError;
+import org.locationtech.jts.precision.GeometryPrecisionReducer;
+import org.locationtech.jts.triangulate.VoronoiDiagramBuilder;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -211,6 +219,189 @@ public final class GeoFunctions
     public static Geometry stPoint(@SqlType(DOUBLE) double x, @SqlType(DOUBLE) double y, @SqlType(DOUBLE) double z, @SqlType(INTEGER) long srid)
     {
         return withSrid(stPoint(x, y, z), toIntExact(srid));
+    }
+
+    @Description("Returns a Geometry with Z coordinates removed")
+    @ScalarFunction("ST_Force2D")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stForce2D(@SqlType(StandardTypes.GEOMETRY) Geometry geometry)
+    {
+        Geometry result = geometry.copy();
+        result.apply(new CoordinateSequenceFilter()
+        {
+            @Override
+            public void filter(CoordinateSequence sequence, int index)
+            {
+                if (sequence.getDimension() > CoordinateSequence.Z) {
+                    sequence.setOrdinate(index, CoordinateSequence.Z, Double.NaN);
+                }
+            }
+
+            @Override
+            public boolean isDone()
+            {
+                return false;
+            }
+
+            @Override
+            public boolean isGeometryChanged()
+            {
+                return true;
+            }
+        });
+        result.setSRID(geometry.getSRID());
+        return result;
+    }
+
+    @Description("Returns a Geometry with missing Z coordinates set to zero")
+    @ScalarFunction("ST_Force3D")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stForce3D(@SqlType(StandardTypes.GEOMETRY) Geometry geometry)
+    {
+        return stForce3D(geometry, 0.0);
+    }
+
+    @Description("Returns a Geometry with missing Z coordinates set to the specified value")
+    @ScalarFunction("ST_Force3D")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stForce3D(@SqlType(StandardTypes.GEOMETRY) Geometry geometry, @SqlType(DOUBLE) double z)
+    {
+        validateFiniteZ(z);
+
+        Geometry result = geometry.copy();
+        result.apply(new CoordinateSequenceFilter()
+        {
+            @Override
+            public void filter(CoordinateSequence sequence, int index)
+            {
+                if (isNaN(sequence.getZ(index))) {
+                    sequence.setOrdinate(index, CoordinateSequence.Z, z);
+                }
+            }
+
+            @Override
+            public boolean isDone()
+            {
+                return false;
+            }
+
+            @Override
+            public boolean isGeometryChanged()
+            {
+                return true;
+            }
+        });
+        result.setSRID(geometry.getSRID());
+        return result;
+    }
+
+    @Description("Returns a Geometry collection from an array of geometries")
+    @ScalarFunction("ST_Collect")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stCollect(@SqlType("array(" + StandardTypes.GEOMETRY + ")") Block input)
+    {
+        return stCollectGeometries(getGeometriesFromBlock(input));
+    }
+
+    @Description("Returns a LineString formed from an array of points or linestrings")
+    @ScalarFunction("ST_MakeLine")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stMakeLine(@SqlType("array(" + StandardTypes.GEOMETRY + ")") Block input)
+    {
+        List<Coordinate> coordinates = new ArrayList<>();
+        int srid = 0;
+        for (int i = 0; i < input.getPositionCount(); i++) {
+            if (input.isNull(i)) {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_MakeLine: null at index %s", i + 1));
+            }
+
+            Geometry geometry = (Geometry) GEOMETRY.getObject(input, i);
+            srid = accumulateSrid(srid, geometry.getSRID());
+            if (geometry.isEmpty()) {
+                continue;
+            }
+            if (geometry instanceof Point point) {
+                addCoordinate(coordinates, point.getCoordinate());
+            }
+            else if (geometry instanceof LineString lineString) {
+                for (Coordinate coordinate : lineString.getCoordinates()) {
+                    addCoordinate(coordinates, coordinate);
+                }
+            }
+            else {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("ST_MakeLine only applies to POINT or LINE_STRING inputs. Input type at index %s is: %s", i + 1, GeometryType.getForJtsGeometryType(geometry.getGeometryType())));
+            }
+        }
+
+        if (coordinates.size() < 2) {
+            return withSrid(GEOMETRY_FACTORY.createLineString(), srid);
+        }
+        return withSrid(GEOMETRY_FACTORY.createLineString(coordinates.toArray(new Coordinate[0])), srid);
+    }
+
+    @Description("Returns a Polygon formed from a shell LineString")
+    @ScalarFunction("ST_MakePolygon")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stMakePolygon(@SqlType(StandardTypes.GEOMETRY) Geometry shell)
+    {
+        return stMakePolygon(shell, null);
+    }
+
+    @Description("Returns a Polygon formed from a shell LineString and an array of hole LineStrings")
+    @ScalarFunction("ST_MakePolygon")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stMakePolygon(@SqlType(StandardTypes.GEOMETRY) Geometry shell, @SqlType("array(" + StandardTypes.GEOMETRY + ")") Block holes)
+    {
+        validateType("ST_MakePolygon", shell, EnumSet.of(LINE_STRING));
+        if (shell.isEmpty()) {
+            return withSrid(GEOMETRY_FACTORY.createPolygon(), shell.getSRID());
+        }
+
+        LinearRing shellRing = makeLinearRing("shell", (LineString) shell);
+        int srid = shell.getSRID();
+        List<LinearRing> holeRings = new ArrayList<>();
+        if (holes != null) {
+            for (int i = 0; i < holes.getPositionCount(); i++) {
+                if (holes.isNull(i)) {
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_MakePolygon: null hole at index %s", i + 1));
+                }
+                Geometry hole = (Geometry) GEOMETRY.getObject(holes, i);
+                validateType("ST_MakePolygon", hole, EnumSet.of(LINE_STRING));
+                srid = accumulateSrid(srid, hole.getSRID());
+                if (hole.isEmpty()) {
+                    continue;
+                }
+                holeRings.add(makeLinearRing("hole at index " + (i + 1), (LineString) hole));
+            }
+        }
+
+        return withSrid(GEOMETRY_FACTORY.createPolygon(shellRing, holeRings.toArray(new LinearRing[0])), srid);
+    }
+
+    @Description("Returns a multi-geometry for Point, LineString, or Polygon inputs")
+    @ScalarFunction("ST_Multi")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stMulti(@SqlType(StandardTypes.GEOMETRY) Geometry geometry)
+    {
+        if (geometry instanceof Point point) {
+            if (point.isEmpty()) {
+                return withSrid(GEOMETRY_FACTORY.createMultiPoint(), geometry.getSRID());
+            }
+            return withSrid(GEOMETRY_FACTORY.createMultiPoint(new Point[] {point}), geometry.getSRID());
+        }
+        if (geometry instanceof LineString lineString) {
+            if (lineString.isEmpty()) {
+                return withSrid(GEOMETRY_FACTORY.createMultiLineString(), geometry.getSRID());
+            }
+            return withSrid(GEOMETRY_FACTORY.createMultiLineString(new LineString[] {lineString}), geometry.getSRID());
+        }
+        if (geometry instanceof Polygon polygon) {
+            if (polygon.isEmpty()) {
+                return withSrid(GEOMETRY_FACTORY.createMultiPolygon(), geometry.getSRID());
+            }
+            return withSrid(GEOMETRY_FACTORY.createMultiPolygon(new Polygon[] {polygon}), geometry.getSRID());
+        }
+        return geometry;
     }
 
     @SqlNullable
@@ -1146,6 +1337,37 @@ public final class GeoFunctions
         return result;
     }
 
+    @Description("Returns the normalized form of the input geometry")
+    @ScalarFunction("ST_Normalize")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stNormalize(@SqlType(StandardTypes.GEOMETRY) Geometry geometry)
+    {
+        Geometry result = geometry.copy();
+        result.normalize();
+        result.setSRID(geometry.getSRID());
+        return result;
+    }
+
+    @Description("Returns a geometry with coordinates rounded to the specified grid size")
+    @ScalarFunction("ST_ReducePrecision")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stReducePrecision(@SqlType(StandardTypes.GEOMETRY) Geometry geometry, @SqlType(DOUBLE) double gridSize)
+    {
+        if (isNaN(gridSize)) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "gridSize is NaN");
+        }
+        if (isInfinite(gridSize)) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "gridSize is infinite");
+        }
+        if (gridSize <= 0) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "gridSize must be positive");
+        }
+
+        Geometry result = GeometryPrecisionReducer.reduce(geometry, new PrecisionModel(1.0 / gridSize));
+        result.setSRID(geometry.getSRID());
+        return result;
+    }
+
     @SqlNullable
     @Description("Returns the last point of a LINESTRING geometry as a Point")
     @ScalarFunction("ST_EndPoint")
@@ -1258,6 +1480,18 @@ public final class GeoFunctions
         return result;
     }
 
+    @SqlNullable
+    @Description("Returns a point guaranteed to lie on the surface of the geometry")
+    @ScalarFunction("ST_PointOnSurface")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stPointOnSurface(@SqlType(StandardTypes.GEOMETRY) Geometry geometry)
+    {
+        if (geometry.isEmpty()) {
+            return null;
+        }
+        return withSrid(geometry.getInteriorPoint(), geometry.getSRID());
+    }
+
     @Description("Returns the bounding rectangular polygon of a Geometry")
     @ScalarFunction("ST_Envelope")
     @SqlType(StandardTypes.GEOMETRY)
@@ -1288,6 +1522,80 @@ public final class GeoFunctions
         GEOMETRY.writeObject(blockBuilder, withSrid(lowerLeftCorner, geometry.getSRID()));
         GEOMETRY.writeObject(blockBuilder, withSrid(upperRightCorner, geometry.getSRID()));
         return blockBuilder.build();
+    }
+
+    @Description("Returns the minimum-area rotated rectangle enclosing the geometry")
+    @ScalarFunction("ST_OrientedEnvelope")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stOrientedEnvelope(@SqlType(StandardTypes.GEOMETRY) Geometry geometry)
+    {
+        Geometry result = MinimumDiameter.getMinimumRectangle(geometry);
+        result.setSRID(geometry.getSRID());
+        return result;
+    }
+
+    @Description("Returns the minimum bounding circle enclosing the geometry")
+    @ScalarFunction("ST_MinimumBoundingCircle")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stMinimumBoundingCircle(@SqlType(StandardTypes.GEOMETRY) Geometry geometry)
+    {
+        Geometry result = new MinimumBoundingCircle(geometry).getCircle();
+        result.setSRID(geometry.getSRID());
+        return result;
+    }
+
+    @Description("Returns polygons formed from the input linework")
+    @ScalarFunction("ST_Polygonize")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stPolygonize(@SqlType("array(" + StandardTypes.GEOMETRY + ")") Block input)
+    {
+        Polygonizer polygonizer = new Polygonizer();
+        int srid = 0;
+        for (Geometry geometry : getGeometriesFromBlock(input)) {
+            if (geometry == null) {
+                continue;
+            }
+            srid = accumulateSrid(srid, geometry.getSRID());
+            polygonizer.add(geometry);
+        }
+
+        Geometry result = polygonizer.getGeometry();
+        result.setSRID(srid);
+        return result;
+    }
+
+    @Description("Returns Voronoi polygons from the vertices of the input geometry")
+    @ScalarFunction("ST_VoronoiPolygons")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stVoronoiPolygons(@SqlType(StandardTypes.GEOMETRY) Geometry geometry)
+    {
+        return stVoronoiPolygons(geometry, 0.0);
+    }
+
+    @Description("Returns Voronoi polygons from the vertices of the input geometry using the specified tolerance")
+    @ScalarFunction("ST_VoronoiPolygons")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stVoronoiPolygons(@SqlType(StandardTypes.GEOMETRY) Geometry geometry, @SqlType(DOUBLE) double tolerance)
+    {
+        if (isNaN(tolerance)) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "tolerance is NaN");
+        }
+        if (isInfinite(tolerance)) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "tolerance is infinite");
+        }
+        if (tolerance < 0) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "tolerance is negative");
+        }
+        if (geometry.isEmpty()) {
+            return withSrid(GEOMETRY_FACTORY.createGeometryCollection(), geometry.getSRID());
+        }
+
+        VoronoiDiagramBuilder builder = new VoronoiDiagramBuilder();
+        builder.setSites(geometry);
+        builder.setTolerance(tolerance);
+        Geometry result = builder.getDiagram(geometry.getFactory());
+        result.setSRID(geometry.getSRID());
+        return result;
     }
 
     @Description("Returns the Geometry value that represents the point set difference of two geometries")
@@ -1370,6 +1678,27 @@ public final class GeoFunctions
         return result;
     }
 
+    @Description("Returns merged LineStrings from the input geometry")
+    @ScalarFunction("ST_LineMerge")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Geometry stLineMerge(@SqlType(StandardTypes.GEOMETRY) Geometry geometry)
+    {
+        if (!(geometry instanceof LineString) && !(geometry instanceof MultiLineString)) {
+            return withSrid(GEOMETRY_FACTORY.createGeometryCollection(), geometry.getSRID());
+        }
+        LineMerger lineMerger = new LineMerger();
+        lineMerger.add(geometry);
+        @SuppressWarnings("unchecked")
+        Collection<LineString> merged = lineMerger.getMergedLineStrings();
+        if (merged.isEmpty()) {
+            return withSrid(GEOMETRY_FACTORY.createGeometryCollection(), geometry.getSRID());
+        }
+        if (merged.size() == 1) {
+            return withSrid(merged.iterator().next(), geometry.getSRID());
+        }
+        return withSrid(GEOMETRY_FACTORY.createMultiLineString(merged.toArray(new LineString[0])), geometry.getSRID());
+    }
+
     /**
      * Convert LinearRing to LineString.
      * WKB format has no LinearRing type, so rings are always serialized as LineString.
@@ -1386,6 +1715,45 @@ public final class GeoFunctions
     {
         geometry.setSRID(srid);
         return geometry;
+    }
+
+    public static Geometry stCollectGeometries(Iterable<Geometry> inputGeometries)
+    {
+        List<Geometry> geometries = new ArrayList<>();
+        int srid = 0;
+        for (Geometry geometry : inputGeometries) {
+            if (geometry == null) {
+                continue;
+            }
+            srid = accumulateSrid(srid, geometry.getSRID());
+            geometries.add(geometry);
+        }
+
+        if (geometries.isEmpty()) {
+            return withSrid(GEOMETRY_FACTORY.createGeometryCollection(), srid);
+        }
+
+        Geometry result = GEOMETRY_FACTORY.buildGeometry(geometries);
+        result.setSRID(srid);
+        return result;
+    }
+
+    private static void addCoordinate(List<Coordinate> coordinates, Coordinate coordinate)
+    {
+        if (coordinates.isEmpty() || !coordinate.equals3D(coordinates.getLast())) {
+            coordinates.add(coordinate);
+        }
+    }
+
+    private static LinearRing makeLinearRing(String component, LineString lineString)
+    {
+        if (!lineString.isClosed()) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "ST_MakePolygon " + component + " must be closed");
+        }
+        if (lineString.getNumPoints() < 4) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "ST_MakePolygon " + component + " must have at least four points");
+        }
+        return GEOMETRY_FACTORY.createLinearRing(lineString.getCoordinateSequence());
     }
 
     private static int accumulateSrid(int currentSrid, int geometrySrid)

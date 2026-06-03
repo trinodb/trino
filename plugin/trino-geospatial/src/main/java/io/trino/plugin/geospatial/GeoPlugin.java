@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.geospatial.BingTileFunctions.BingTileCoordinatesFunction;
 import io.trino.plugin.geospatial.aggregation.ConvexHullAggregation;
+import io.trino.plugin.geospatial.aggregation.GeometryCollectAgg;
 import io.trino.plugin.geospatial.aggregation.GeometryUnionAgg;
 import io.trino.spi.Plugin;
 import io.trino.spi.type.Type;
@@ -45,6 +46,7 @@ public class GeoPlugin
                 .add(BingTileFunctions.class)
                 .add(BingTileCoordinatesFunction.class)
                 .add(ConvexHullAggregation.class)
+                .add(GeometryCollectAgg.class)
                 .add(GeometryUnionAgg.class)
                 .add(KdbTreeCasts.class)
                 .add(EncodedPolylineFunctions.class)
