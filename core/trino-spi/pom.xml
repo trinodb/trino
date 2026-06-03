@@ -346,6 +346,20 @@
                                     <annotationType>com.fasterxml.jackson.annotation.JsonProperty</annotationType>
                                     <justification>getArgumentTypes() is now a derived view; JsonProperty moved to getArguments()</justification>
                                 </item>
+                                <!-- Remove dead JSON serialization from Signature and FunctionMetadata (never serialized at runtime). -->
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java.annotation.removed</code>
+                                    <old>method .* io\.trino\.spi\.function\.(Signature|FunctionMetadata)::.*</old>
+                                    <annotationType>com\.fasterxml\.jackson\.annotation\.Json.*</annotationType>
+                                    <justification>Signature and FunctionMetadata are never JSON-serialized at runtime; removing the dead serialization.</justification>
+                                </item>
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java.method.removed</code>
+                                    <old>method .* io\.trino\.spi\.function\.(Signature|FunctionMetadata)::fromJson\(.*</old>
+                                    <justification>Remove the dead @JsonCreator; Signature/FunctionMetadata are never deserialized.</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
