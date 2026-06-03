@@ -355,8 +355,9 @@ public class Solver
     private void enqueueValidationConstraints(Expression expression, SolverState state)
     {
         if (expression instanceof Expression.Application application) {
-            String key = application.toString();
-            if (state.validatedExpressions().add(key)) {
+            // Dedup on the expression itself (records compare by value) rather than its rendered
+            // string, which avoids building a String for every application on the hot path.
+            if (state.validatedExpressions().add(application)) {
                 state.workList().addAll(typeSystem.instantiateValidationConstraints(application));
             }
         }
@@ -784,7 +785,7 @@ public class Solver
         private final Deque<Constraint> workList = new ArrayDeque<>();
         private final Map<String, VariableState> variableStates = new HashMap<>();
         private final List<Constraint> pendingConstraints = new ArrayList<>();
-        private final Set<String> validatedExpressions = new HashSet<>();
+        private final Set<Expression> validatedExpressions = new HashSet<>();
 
         public Deque<Constraint> workList()
         {
@@ -801,7 +802,7 @@ public class Solver
             return pendingConstraints;
         }
 
-        public Set<String> validatedExpressions()
+        public Set<Expression> validatedExpressions()
         {
             return validatedExpressions;
         }
