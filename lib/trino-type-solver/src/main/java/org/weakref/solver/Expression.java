@@ -431,10 +431,14 @@ public sealed interface Expression
                 Expression leftEvaluated = evaluate(left);
                 Expression rightEvaluated = evaluate(right);
                 if (leftEvaluated instanceof Literal(int l) && rightEvaluated instanceof Literal(int r)) {
+                    // Fold in 64-bit and saturate to the int range, mirroring Trino's TypeCalculation:
+                    // calculated type literals (e.g. varchar lengths) are computed as longs and the growth
+                    // formulas clamp with min(2147483647, ...), so a saturated 32-bit fold reaches the same
+                    // bound instead of wrapping to a bogus negative length.
                     Expression reduced = switch (operator) {
-                        case ADD -> literal(l + r);
-                        case SUBTRACT -> literal(l - r);
-                        case MULTIPLY -> literal(l * r);
+                        case ADD -> literal(saturateToInt((long) l + r));
+                        case SUBTRACT -> literal(saturateToInt((long) l - r));
+                        case MULTIPLY -> literal(saturateToInt((long) l * r));
                         case DIVIDE -> r == 0 ? null : literal(l / r);
                         case MIN -> literal(Math.min(l, r));
                         case MAX -> literal(Math.max(l, r));
@@ -459,6 +463,11 @@ public sealed interface Expression
                     evaluate(functionType.returnType()));
             case AnyRow _, Literal _, Symbol _, Variable _ -> expression;
         };
+    }
+
+    private static int saturateToInt(long value)
+    {
+        return (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, value));
     }
 
     static FunctionType function(List<Expression> parameterTypes, Expression returnType)

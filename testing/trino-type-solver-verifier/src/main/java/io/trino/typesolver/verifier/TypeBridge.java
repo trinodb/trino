@@ -93,6 +93,10 @@ final class TypeBridge
         return switch (expression) {
             case Expression.Symbol symbol -> symbol.name();
             case Expression.Literal value -> Integer.toString(value.value());
+            // varchar(2147483647) is Trino's unbounded varchar (length == Integer.MAX_VALUE); a calculated
+            // length that saturates to the max denotes the same unbounded type, so canonicalize it.
+            case Expression.Application(Expression.Symbol(String name), List<Expression> arguments)
+            when name.equals("varchar") && arguments.equals(List.of(literal(Integer.MAX_VALUE))) -> "varchar";
             case Expression.Application(Expression head, List<Expression> arguments) -> render(head) + "(" + arguments.stream().map(TypeBridge::render).collect(joining(", ")) + ")";
             case Expression.Row(List<Expression.RowField> fields) -> "row(" + fields.stream()
                     .map(rowField -> rowField.name().map(name -> name + " ").orElse("") + render(rowField.type()))

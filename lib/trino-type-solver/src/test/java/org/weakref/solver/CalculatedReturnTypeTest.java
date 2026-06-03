@@ -22,6 +22,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.weakref.solver.Expression.BinaryOperator.ADD;
 import static org.weakref.solver.Expression.BinaryOperator.GREATER_THAN_OR_EQUAL;
 import static org.weakref.solver.Expression.BinaryOperator.LESS_THAN_OR_EQUAL;
+import static org.weakref.solver.Expression.BinaryOperator.MIN;
+import static org.weakref.solver.Expression.BinaryOperator.MULTIPLY;
 import static org.weakref.solver.Expression.BinaryOperator.SUBTRACT;
 import static org.weakref.solver.Expression.apply;
 import static org.weakref.solver.Expression.function;
@@ -143,5 +145,29 @@ public class CalculatedReturnTypeTest
 
         assertThat(outcome).isInstanceOfSatisfying(TypeScheme.Satisfied.class, satisfied ->
                 assertThat(satisfied.result().returnType()).isEqualTo(apply("varchar", literal(15))));
+    }
+
+    /**
+     * A calculated varchar length that overflows 32-bit arithmetic saturates to
+     * {@link Integer#MAX_VALUE} rather than wrapping to a negative length, mirroring Trino's
+     * 64-bit {@code TypeCalculation}. Trino's growth formulas clamp with {@code min(2147483647, ...)},
+     * so the saturated fold reaches the same (unbounded) length.
+     */
+    @Test
+    void testCalculatedLengthSaturatesOnOverflow()
+    {
+        TypeScheme grow = new TypeScheme(
+                List.of(variable("@n1"), variable("@n2")),
+                List.of(),
+                function(
+                        List.of(apply("varchar", variable("@n1")), apply("varchar", variable("@n2"))),
+                        apply("varchar", operation(MIN, literal(Integer.MAX_VALUE), operation(MULTIPLY, variable("@n1"), variable("@n2"))))));
+
+        TypeScheme.MatchOutcome outcome = grow.matchFunctionCallOutcome(
+                List.of(apply("varchar", literal(100000)), apply("varchar", literal(100000))),
+                TrinoPreset.typeSystem());
+
+        assertThat(outcome).isInstanceOfSatisfying(TypeScheme.Satisfied.class, satisfied ->
+                assertThat(satisfied.result().returnType()).isEqualTo(apply("varchar", literal(Integer.MAX_VALUE))));
     }
 }

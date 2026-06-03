@@ -22,6 +22,8 @@ import org.weakref.solver.TypeScheme;
 import java.util.List;
 
 import static org.weakref.solver.Expression.BinaryOperator.ADD;
+import static org.weakref.solver.Expression.BinaryOperator.DIVIDE;
+import static org.weakref.solver.Expression.BinaryOperator.MAX;
 import static org.weakref.solver.Expression.BinaryOperator.MIN;
 import static org.weakref.solver.Expression.BinaryOperator.MULTIPLY;
 import static org.weakref.solver.Expression.BinaryOperator.SUBTRACT;
@@ -195,9 +197,23 @@ public final class TrinoScalarFunctions
         for (String name : List.of("ceil", "ceiling", "floor", "round")) {
             builder.registerFunction(name, decimalRoundToInteger);
         }
+        // round(decimal(p, s), integer) -> decimal(min(38, p + 1), s): rounding to N places keeps the scale.
+        builder.registerFunction("round", new TypeScheme(
+                List.of(variable("@p"), variable("@s")),
+                List.of(),
+                function(
+                        List.of(apply("decimal", variable("@p"), variable("@s")), symbol("integer")),
+                        apply("decimal", operation(MIN, literal(38), operation(ADD, variable("@p"), literal(1))), variable("@s")))));
         builder.registerFunction("truncate", function(List.of(symbol("double")), symbol("double")));
         builder.registerFunction("truncate", function(List.of(symbol("double"), symbol("integer")), symbol("double")));
         builder.registerFunction("truncate", function(List.of(symbol("number")), symbol("number")));
+        // truncate(decimal(p, s)) -> decimal(max(1, p - s), 0).
+        builder.registerFunction("truncate", new TypeScheme(
+                List.of(variable("@p"), variable("@s")),
+                List.of(),
+                function(
+                        List.of(apply("decimal", variable("@p"), variable("@s"))),
+                        apply("decimal", operation(MAX, literal(1), operation(SUBTRACT, variable("@p"), variable("@s"))), literal(0)))));
 
         // Transcendentals (double-based).
         for (String name : List.of("sqrt", "cbrt", "exp", "ln", "log2", "log10", "sin", "cos", "tan", "asin", "acos", "atan", "sinh", "cosh", "tanh", "degrees", "radians")) {
@@ -415,11 +431,20 @@ public final class TrinoScalarFunctions
                 List.of(),
                 function(List.of(apply("timestamp_with_time_zone", variable("@p"))), symbol("bigint"))));
         builder.registerFunction("last_day_of_month", function(List.of(symbol("date")), symbol("date")));
+        // to_iso8601(timestamp(p)) -> varchar(1 + 6 + 15 + min(p, 1) + p); the zoned form adds 6.
         builder.registerFunction("to_iso8601", new TypeScheme(
                 List.of(variable("@p")),
                 List.of(),
-                function(List.of(apply("timestamp", variable("@p"))), symbol("varchar"))));
-        builder.registerFunction("to_iso8601", function(List.of(symbol("date")), symbol("varchar")));
+                function(
+                        List.of(apply("timestamp", variable("@p"))),
+                        apply("varchar", operation(ADD, operation(ADD, literal(22), operation(MIN, variable("@p"), literal(1))), variable("@p"))))));
+        builder.registerFunction("to_iso8601", new TypeScheme(
+                List.of(variable("@p")),
+                List.of(),
+                function(
+                        List.of(apply("timestamp_with_time_zone", variable("@p"))),
+                        apply("varchar", operation(ADD, operation(ADD, literal(28), operation(MIN, variable("@p"), literal(1))), variable("@p"))))));
+        builder.registerFunction("to_iso8601", function(List.of(symbol("date")), apply("varchar", literal(16))));
         builder.registerFunction("from_iso8601_timestamp", function(List.of(symbol("varchar")), apply("timestamp_with_time_zone", org.weakref.solver.Expression.literal(3))));
         builder.registerFunction("from_iso8601_date", function(List.of(symbol("varchar")), symbol("date")));
     }
@@ -714,8 +739,26 @@ public final class TrinoScalarFunctions
         builder.registerFunction("regexp_extract", function(List.of(symbol("varchar"), symbol("varchar"), symbol("bigint")), symbol("varchar")));
         builder.registerFunction("regexp_extract_all", function(List.of(symbol("varchar"), symbol("varchar")), apply("array", symbol("varchar"))));
         builder.registerFunction("regexp_extract_all", function(List.of(symbol("varchar"), symbol("varchar"), symbol("bigint")), apply("array", symbol("varchar"))));
+        // regexp_replace(varchar(x), pattern) deletes matches, so the result cannot grow: varchar(x).
         builder.registerFunction("regexp_replace", function(List.of(symbol("varchar"), symbol("varchar")), symbol("varchar")));
+        builder.registerFunction("regexp_replace", varcharLengthPreserving(List.of(apply("varchar", variable("@x")), symbol("varchar")), variable("@x")));
+        // regexp_replace(varchar(x), pattern, varchar(y)) -> varchar(min(2147483647, x + max(x * y / 2, y) * (x + 1))).
         builder.registerFunction("regexp_replace", function(List.of(symbol("varchar"), symbol("varchar"), symbol("varchar")), symbol("varchar")));
+        builder.registerFunction("regexp_replace", new TypeScheme(
+                List.of(variable("@x"), variable("@y")),
+                List.of(),
+                function(
+                        List.of(apply("varchar", variable("@x")), symbol("varchar"), apply("varchar", variable("@y"))),
+                        apply("varchar", operation(
+                                MIN,
+                                literal(2147483647),
+                                operation(
+                                        ADD,
+                                        variable("@x"),
+                                        operation(
+                                                MULTIPLY,
+                                                operation(MAX, operation(DIVIDE, operation(MULTIPLY, variable("@x"), variable("@y")), literal(2)), variable("@y")),
+                                                operation(ADD, variable("@x"), literal(1)))))))));
         builder.registerFunction("regexp_split", function(List.of(symbol("varchar"), symbol("varchar")), apply("array", symbol("varchar"))));
         builder.registerFunction("regexp_position", function(List.of(symbol("varchar"), symbol("varchar")), symbol("bigint")));
         builder.registerFunction("regexp_count", function(List.of(symbol("varchar"), symbol("varchar")), symbol("bigint")));
@@ -757,7 +800,14 @@ public final class TrinoScalarFunctions
 
     private static void registerUrlFunctions(TypeLibrary.Builder builder)
     {
+        // url_encode(varchar(x)) -> varchar(min(2147483647, x * 12)); each char can expand to %XX-style escapes.
         builder.registerFunction("url_encode", function(List.of(symbol("varchar")), symbol("varchar")));
+        builder.registerFunction("url_encode", new TypeScheme(
+                List.of(variable("@x")),
+                List.of(),
+                function(
+                        List.of(apply("varchar", variable("@x"))),
+                        apply("varchar", operation(MIN, literal(2147483647), operation(MULTIPLY, variable("@x"), literal(12)))))));
         builder.registerFunction("url_decode", function(List.of(symbol("varchar")), symbol("varchar")));
         builder.registerFunction("url_extract_fragment", function(List.of(symbol("varchar")), symbol("varchar")));
         builder.registerFunction("url_extract_host", function(List.of(symbol("varchar")), symbol("varchar")));
