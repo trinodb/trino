@@ -15,7 +15,7 @@ package io.trino.spi.predicate;
 
 import io.trino.spi.type.TypeOperators;
 
-public final class Utils
+final class Utils
 {
     private Utils() {}
 
