@@ -166,6 +166,11 @@ public class TypeSystem
         if (implicit.isPresent()) {
             return implicit;
         }
+        // Covariant containers and rows cast element-wise when each element casts.
+        Optional<CoercionPlan> structural = structuralCastPlan(from, to);
+        if (structural.isPresent()) {
+            return structural;
+        }
         // Otherwise consult cast-specific rules — filter out matches whose ground guards fail.
         List<CoercionPlan> directPlans = castRules.stream()
                 .map(rule -> rule.matches(new VariableAllocator(), from, to))
@@ -180,6 +185,52 @@ public class TypeSystem
             return Optional.empty();
         }
         return Optional.of(directPlans.getFirst());
+    }
+
+    private Optional<CoercionPlan> structuralCastPlan(Expression from, Expression to)
+    {
+        if (from instanceof Expression.Row(List<Expression.RowField> leftFields) &&
+                to instanceof Expression.Row(List<Expression.RowField> rightFields) &&
+                leftFields.size() == rightFields.size()) {
+            return structuralCast(
+                    from,
+                    to,
+                    "row",
+                    leftFields.stream().map(Expression.RowField::type).toList(),
+                    rightFields.stream().map(Expression.RowField::type).toList());
+        }
+        if (from instanceof Expression.Application(Expression.Symbol(String leftName), List<Expression> leftArguments) &&
+                to instanceof Expression.Application(Expression.Symbol(String rightName), List<Expression> rightArguments) &&
+                leftName.equals(rightName) &&
+                leftArguments.size() == rightArguments.size() &&
+                isCovariantType(leftName)) {
+            return structuralCast(from, to, leftName, leftArguments, rightArguments);
+        }
+        return Optional.empty();
+    }
+
+    private Optional<CoercionPlan> structuralCast(Expression from, Expression to, String constructor, List<Expression> fromTypes, List<Expression> toTypes)
+    {
+        if (fromTypes.size() != toTypes.size()) {
+            return Optional.empty();
+        }
+        List<CoercionPlan> children = new ArrayList<>();
+        for (int index = 0; index < fromTypes.size(); index++) {
+            Optional<CoercionPlan> child = castPlan(fromTypes.get(index), toTypes.get(index));
+            if (child.isEmpty()) {
+                return Optional.empty();
+            }
+            if (!child.orElseThrow().isExact()) {
+                children.add(child.orElseThrow());
+            }
+        }
+        if (children.isEmpty()) {
+            return Optional.of(CoercionPlan.exact(from, to));
+        }
+        return Optional.of(CoercionPlan.derived(
+                from,
+                to,
+                List.of(new CoercionPlan.Structural(constructor, List.copyOf(children)))));
     }
 
     private boolean isGuardSatisfiable(Constraint constraint)

@@ -241,6 +241,19 @@ public class CastTest
     }
 
     @Test
+    void testStructuralElementWiseCasts()
+    {
+        // array(varchar(5)) -> array(integer): element cast varchar -> integer exists.
+        assertThat(LIBRARY.resolveCast(apply("array", apply("varchar", literal(5))), apply("array", symbol("integer")))).isPresent();
+        // map(varchar(5), bigint) -> map(integer, varchar(5)): key and value both cast.
+        assertThat(LIBRARY.resolveCast(
+                apply("map", apply("varchar", literal(5)), symbol("bigint")),
+                apply("map", symbol("integer"), apply("varchar", literal(5))))).isPresent();
+        // array(date) -> array(uuid): no date -> uuid cast, so the container cast is rejected.
+        assertThat(LIBRARY.resolveCast(apply("array", symbol("date")), apply("array", symbol("uuid")))).isEmpty();
+    }
+
+    @Test
     void testNumberCasts()
     {
         // boolean -> number and number -> json are cast-only conversions Trino allows.
