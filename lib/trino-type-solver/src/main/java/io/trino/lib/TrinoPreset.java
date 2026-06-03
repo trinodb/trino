@@ -286,6 +286,14 @@ public final class TrinoPreset
                 new PatternCoercion(symbol("date"), apply("varchar", variable("@n")), List.of()),
                 new PatternCoercion(apply("time", variable("@p")), apply("varchar", variable("@n")), List.of()),
                 new PatternCoercion(apply("timestamp", variable("@p")), apply("varchar", variable("@n")), List.of()),
+                new PatternCoercion(apply("time_with_time_zone", variable("@p")), apply("varchar", variable("@n")), List.of()),
+                new PatternCoercion(apply("time_with_time_zone", variable("@p")), symbol("varchar"), List.of()),
+                new PatternCoercion(apply("timestamp_with_time_zone", variable("@p")), apply("varchar", variable("@n")), List.of()),
+                new PatternCoercion(apply("timestamp_with_time_zone", variable("@p")), symbol("varchar"), List.of()),
+                new PatternCoercion(symbol("interval_year_to_month"), apply("varchar", variable("@n")), List.of()),
+                new PatternCoercion(symbol("interval_year_to_month"), symbol("varchar"), List.of()),
+                new PatternCoercion(symbol("interval_day_to_second"), apply("varchar", variable("@n")), List.of()),
+                new PatternCoercion(symbol("interval_day_to_second"), symbol("varchar"), List.of()),
 
                 // Numeric narrowing (cast-only): bigint -> integer, etc.
                 new PrimitiveTypeCoercion("bigint", "integer"),
