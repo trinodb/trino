@@ -198,6 +198,16 @@ public class CastTest
     }
 
     @Test
+    void testIpAddressVarcharCastDirections()
+    {
+        // ipaddress -> varchar is unbounded only; ipaddress -> varchar(n) is rejected (as in Trino).
+        assertThat(LIBRARY.resolveCast(symbol("ipaddress"), symbol("varchar"))).isPresent();
+        assertThat(LIBRARY.resolveCast(symbol("ipaddress"), apply("varchar", literal(5)))).isEmpty();
+        // varchar(n) -> ipaddress accepts any length.
+        assertThat(LIBRARY.resolveCast(apply("varchar", literal(5)), symbol("ipaddress"))).isPresent();
+    }
+
+    @Test
     void testNumberCasts()
     {
         // boolean -> number and number -> json are cast-only conversions Trino allows.

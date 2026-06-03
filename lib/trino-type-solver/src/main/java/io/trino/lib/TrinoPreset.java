@@ -359,9 +359,9 @@ public final class TrinoPreset
                 new PatternCoercion(apply("varchar", variable("@n")), symbol("uuid"), List.of()),
                 new PatternCoercion(symbol("uuid"), apply("varchar", variable("@n")), List.of()),
 
-                // IPAddress casts.
+                // IPAddress casts. ipaddress -> varchar is unbounded-only (added in unboundedVarcharCasts);
+                // varchar(n) -> ipaddress accepts any length.
                 new PatternCoercion(apply("varchar", variable("@n")), symbol("ipaddress"), List.of()),
-                new PatternCoercion(symbol("ipaddress"), apply("varchar", variable("@n")), List.of()),
 
                 // Temporal narrowing casts.
                 new PatternCoercion(apply("timestamp", variable("@p")), symbol("date"), List.of()),

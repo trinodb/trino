@@ -36,7 +36,8 @@ public class SpecializedTypeCastTest
     void testVarcharToIpAddressAndBack()
     {
         assertThat(LIBRARY.resolveCast(apply("varchar", literal(45)), symbol("ipaddress"))).isPresent();
-        assertThat(LIBRARY.resolveCast(symbol("ipaddress"), apply("varchar", literal(45)))).isPresent();
+        // ipaddress casts to unbounded varchar only (Trino), not varchar(n).
+        assertThat(LIBRARY.resolveCast(symbol("ipaddress"), symbol("varchar"))).isPresent();
     }
 
     @Test
