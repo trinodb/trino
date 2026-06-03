@@ -28,10 +28,12 @@ public class ArrayBlockEncoding
     public static final String NAME = "ARRAY";
 
     private final boolean vectorizeNullBitPacking;
+    private final boolean useVectorMaskFromLong;
 
-    public ArrayBlockEncoding(boolean vectorizeNullBitPacking)
+    public ArrayBlockEncoding(boolean vectorizeNullBitPacking, boolean useVectorMaskFromLong)
     {
         this.vectorizeNullBitPacking = vectorizeNullBitPacking;
+        this.useVectorMaskFromLong = useVectorMaskFromLong;
     }
 
     @Override
@@ -84,7 +86,7 @@ public class ArrayBlockEncoding
         sliceInput.readInts(offsets);
         boolean[] valueIsNull;
         if (vectorizeNullBitPacking) {
-            valueIsNull = decodeNullBitsVectorized(sliceInput, positionCount).orElse(null);
+            valueIsNull = decodeNullBitsVectorized(sliceInput, positionCount, useVectorMaskFromLong).orElse(null);
         }
         else {
             valueIsNull = decodeNullBitsScalar(sliceInput, positionCount).orElse(null);

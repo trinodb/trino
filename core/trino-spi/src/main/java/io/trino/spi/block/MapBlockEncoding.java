@@ -35,10 +35,12 @@ public class MapBlockEncoding
     public static final String NAME = "MAP";
 
     private final boolean vectorizeNullBitPacking;
+    private final boolean useVectorMaskFromLong;
 
-    public MapBlockEncoding(boolean vectorizeNullBitPacking)
+    public MapBlockEncoding(boolean vectorizeNullBitPacking, boolean useVectorMaskFromLong)
     {
         this.vectorizeNullBitPacking = vectorizeNullBitPacking;
+        this.useVectorMaskFromLong = useVectorMaskFromLong;
     }
 
     @Override
@@ -129,7 +131,7 @@ public class MapBlockEncoding
         sliceInput.readInts(offsets);
         Optional<boolean[]> mapIsNull;
         if (vectorizeNullBitPacking) {
-            mapIsNull = decodeNullBitsVectorized(sliceInput, positionCount);
+            mapIsNull = decodeNullBitsVectorized(sliceInput, positionCount, useVectorMaskFromLong);
         }
         else {
             mapIsNull = decodeNullBitsScalar(sliceInput, positionCount);

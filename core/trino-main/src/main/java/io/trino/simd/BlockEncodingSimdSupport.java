@@ -56,10 +56,11 @@ public final class BlockEncodingSimdSupport
             boolean compressInt,
             boolean expandInt,
             boolean compressLong,
-            boolean expandLong)
+            boolean expandLong,
+            boolean useVectorMaskFromLong)
     {
-        public static final SimdSupport NONE = new SimdSupport(false, false, false, false, false, false, false, false, false);
-        public static final SimdSupport ALL = new SimdSupport(true, true, true, true, true, true, true, true, true);
+        public static final SimdSupport NONE = new SimdSupport(false, false, false, false, false, false, false, false, false, false);
+        public static final SimdSupport ALL = new SimdSupport(true, true, true, true, true, true, true, true, true, true);
     }
 
     private static final SimdSupport AUTO_DETECTED_SUPPORT = detectSimd();
@@ -152,6 +153,7 @@ public final class BlockEncodingSimdSupport
         boolean expandAndCompressShort = x86Flags.contains(X86SimdInstructionSet.avx512vbmi2);
         boolean expandAndCompressInt = x86Flags.contains(X86SimdInstructionSet.avx512f);
         boolean expandAndCompressLong = x86Flags.contains(X86SimdInstructionSet.avx512f);
+        boolean useVectorMaskFromLong = true; // no known x86_64 platforms regress with this approach
         return new SimdSupport(
                 packIsNullBits,
                 expandAndCompressByte,
@@ -161,7 +163,8 @@ public final class BlockEncodingSimdSupport
                 expandAndCompressInt,
                 expandAndCompressInt,
                 expandAndCompressLong,
-                expandAndCompressLong);
+                expandAndCompressLong,
+                useVectorMaskFromLong);
     }
 
     private static SimdSupport detectArmSimdSupport(int preferredVectorBitWidth, Set<String> flags)
@@ -199,6 +202,7 @@ public final class BlockEncodingSimdSupport
         boolean expandInt = armFlags.contains(ArmSimdInstructionSet.sve2);
         boolean expandLong = armFlags.contains(ArmSimdInstructionSet.sve2) && preferredVectorBitWidth > 128; // ensure minimum register width for long
         boolean expandByteAndShort = false; // no intrinsics in JDK 25
+        boolean useVectorMaskFromLong = armFlags.contains(ArmSimdInstructionSet.sve2); // intrinsics only available in SVE2
         return new SimdSupport(
                 packIsNullBits,
                 compressAll,
@@ -208,7 +212,8 @@ public final class BlockEncodingSimdSupport
                 compressAll,
                 expandInt,
                 compressLong,
-                expandLong);
+                expandLong,
+                useVectorMaskFromLong);
     }
 
     public SimdSupport getSimdSupport()

@@ -32,10 +32,12 @@ public class VariableWidthBlockEncoding
     public static final String NAME = "VARIABLE_WIDTH";
 
     private final boolean vectorizeNullBitPacking;
+    private final boolean useVectorMaskFromLong;
 
-    public VariableWidthBlockEncoding(boolean vectorizeNullBitPacking)
+    public VariableWidthBlockEncoding(boolean vectorizeNullBitPacking, boolean useVectorMaskFromLong)
     {
         this.vectorizeNullBitPacking = vectorizeNullBitPacking;
+        this.useVectorMaskFromLong = useVectorMaskFromLong;
     }
 
     @Override
@@ -85,7 +87,7 @@ public class VariableWidthBlockEncoding
 
         boolean[] valueIsNull;
         if (vectorizeNullBitPacking) {
-            valueIsNull = decodeNullBitsVectorized(sliceInput, positionCount).orElse(null);
+            valueIsNull = decodeNullBitsVectorized(sliceInput, positionCount, useVectorMaskFromLong).orElse(null);
         }
         else {
             valueIsNull = decodeNullBitsScalar(sliceInput, positionCount).orElse(null);

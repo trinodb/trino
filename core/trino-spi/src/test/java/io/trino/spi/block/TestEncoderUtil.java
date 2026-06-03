@@ -55,7 +55,7 @@ final class TestEncoderUtil
                     Slice vectorSlice = vectorOutput.slice();
                     assertThat(scalarSlice).as("scalar and vector encode results differ").isEqualTo(vectorSlice);
                     boolean[] scalarDecode = EncoderUtil.decodeNullBitsScalar(scalarSlice.getInput(), length).orElseThrow();
-                    boolean[] vectorDecode = EncoderUtil.decodeNullBitsVectorized(scalarSlice.getInput(), length).orElseThrow();
+                    boolean[] vectorDecode = EncoderUtil.decodeNullBitsVectorized(scalarSlice.getInput(), length, true).orElseThrow();
                     assertThat(scalarDecode).as("scalar and vector decode results differ").isEqualTo(vectorDecode);
                     assertThat(scalarDecode).as("decode boolean[] differs from input value").isEqualTo(Arrays.copyOfRange(isNull, offset, offset + length));
                 }

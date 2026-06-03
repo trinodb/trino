@@ -17,6 +17,7 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import jakarta.annotation.Nullable;
 import jdk.incubator.vector.ByteVector;
+import jdk.incubator.vector.VectorMask;
 import jdk.incubator.vector.VectorOperators;
 
 import java.io.IOException;
@@ -86,7 +87,18 @@ final class EncoderUtil
         byte[] packedIsNull = new byte[(length + 7) / 8];
         int currentByte = 0;
         int position = 0;
-        while (position < ByteVector.SPECIES_64.loopBound(length)) {
+
+        // process 16 nulls at a time
+        while (position < ByteVector.SPECIES_128.loopBound(length)) {
+            VectorMask<Byte> mask = VectorMask.fromArray(ByteVector.SPECIES_128, isNull, position + offset);
+            int intMask = Integer.reverse((int) mask.toLong());
+            packedIsNull[currentByte++] = (byte) (intMask >>> 24);
+            packedIsNull[currentByte++] = (byte) (intMask >>> 16);
+            position += ByteVector.SPECIES_128.length();
+        }
+
+        // process 8 nulls at a time
+        if (position < ByteVector.SPECIES_64.loopBound(length)) {
             packedIsNull[currentByte++] = ByteVector.fromBooleanArray(ByteVector.SPECIES_64, isNull, position + offset)
                     .lanewise(VectorOperators.LSHL, NULL_BIT_SHIFTS)
                     .reduceLanes(VectorOperators.OR);
@@ -149,18 +161,30 @@ final class EncoderUtil
     /**
      * Implementation of {@link EncoderUtil#decodeNullBitsScalar(SliceInput, int)} that uses the vector API
      */
-    public static Optional<boolean[]> decodeNullBitsVectorized(SliceInput sliceInput, int positionCount)
+    public static Optional<boolean[]> decodeNullBitsVectorized(SliceInput sliceInput, int positionCount, boolean useVectorMaskFromLong)
     {
         return Optional.ofNullable(retrieveNullBits(sliceInput, positionCount))
-                .map(packedIsNull -> decodeNullBitsVectorized(packedIsNull, positionCount));
+                .map(packedIsNull -> decodeNullBitsVectorized(packedIsNull, positionCount, useVectorMaskFromLong));
     }
 
-    public static boolean[] decodeNullBitsVectorized(byte[] packedIsNull, int positionCount)
+    public static boolean[] decodeNullBitsVectorized(byte[] packedIsNull, int positionCount, boolean useVectorMaskFromLong)
     {
-        // read null bits 8 at a time
         boolean[] valueIsNull = new boolean[positionCount];
         int currentByte = 0;
         int position = 0;
+
+        // read null bits 16 at a time, if required API can be used
+        if (useVectorMaskFromLong) {
+            while (position < ByteVector.SPECIES_128.loopBound(positionCount)) {
+                int shiftedByte1 = (packedIsNull[currentByte++] & 0xFF) << 24;
+                int shiftedByte2 = (packedIsNull[currentByte++] & 0xFF) << 16;
+                VectorMask.fromLong(ByteVector.SPECIES_128, Integer.reverse(shiftedByte1 | shiftedByte2))
+                        .intoArray(valueIsNull, position);
+                position += ByteVector.SPECIES_128.length();
+            }
+        }
+
+        // read null bits 8 at a time
         while (position < ByteVector.SPECIES_64.loopBound(positionCount)) {
             // equivalent of ((value >>> shift) & 1) != 0
             ByteVector.broadcast(ByteVector.SPECIES_64, packedIsNull[currentByte++])

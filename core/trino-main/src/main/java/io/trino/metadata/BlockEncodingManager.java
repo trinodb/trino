@@ -50,18 +50,18 @@ public final class BlockEncodingManager
     {
         // add the built-in BlockEncodings
         SimdSupport simdSupport = blockEncodingSimdSupport.getSimdSupport();
-        addBlockEncoding(new VariableWidthBlockEncoding(simdSupport.vectorizeNullBitPacking()));
-        addBlockEncoding(new ByteArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.compressByte(), simdSupport.expandByte()));
-        addBlockEncoding(new ShortArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.compressShort(), simdSupport.expandShort()));
-        addBlockEncoding(new IntArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.compressInt(), simdSupport.expandInt()));
-        addBlockEncoding(new LongArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.compressLong(), simdSupport.expandLong()));
-        addBlockEncoding(new Fixed12BlockEncoding(simdSupport.vectorizeNullBitPacking()));
-        addBlockEncoding(new Int128ArrayBlockEncoding(simdSupport.vectorizeNullBitPacking()));
-        addBlockEncoding(new VariantBlockEncoding(simdSupport.vectorizeNullBitPacking()));
+        addBlockEncoding(new VariableWidthBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.useVectorMaskFromLong()));
+        addBlockEncoding(new ByteArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.compressByte(), simdSupport.expandByte(), simdSupport.useVectorMaskFromLong()));
+        addBlockEncoding(new ShortArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.compressShort(), simdSupport.expandShort(), simdSupport.useVectorMaskFromLong()));
+        addBlockEncoding(new IntArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.compressInt(), simdSupport.expandInt(), simdSupport.useVectorMaskFromLong()));
+        addBlockEncoding(new LongArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.compressLong(), simdSupport.expandLong(), simdSupport.useVectorMaskFromLong()));
+        addBlockEncoding(new Fixed12BlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.useVectorMaskFromLong()));
+        addBlockEncoding(new Int128ArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.useVectorMaskFromLong()));
+        addBlockEncoding(new VariantBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.useVectorMaskFromLong()));
         addBlockEncoding(new DictionaryBlockEncoding());
-        addBlockEncoding(new ArrayBlockEncoding(simdSupport.vectorizeNullBitPacking()));
-        addBlockEncoding(new MapBlockEncoding(simdSupport.vectorizeNullBitPacking()));
-        addBlockEncoding(new RowBlockEncoding(simdSupport.vectorizeNullBitPacking()));
+        addBlockEncoding(new ArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.useVectorMaskFromLong()));
+        addBlockEncoding(new MapBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.useVectorMaskFromLong()));
+        addBlockEncoding(new RowBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.useVectorMaskFromLong()));
         addBlockEncoding(new RunLengthBlockEncoding());
     }
 

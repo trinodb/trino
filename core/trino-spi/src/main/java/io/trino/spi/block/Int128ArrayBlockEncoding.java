@@ -29,10 +29,12 @@ public class Int128ArrayBlockEncoding
     public static final String NAME = "INT128_ARRAY";
 
     private final boolean vectorizeNullBitPacking;
+    private final boolean useVectorMaskFromLong;
 
-    public Int128ArrayBlockEncoding(boolean vectorizeNullBitPacking)
+    public Int128ArrayBlockEncoding(boolean vectorizeNullBitPacking, boolean useVectorMaskFromLong)
     {
         this.vectorizeNullBitPacking = vectorizeNullBitPacking;
+        this.useVectorMaskFromLong = useVectorMaskFromLong;
     }
 
     @Override
@@ -92,7 +94,7 @@ public class Int128ArrayBlockEncoding
 
         boolean[] valueIsNull;
         if (vectorizeNullBitPacking) {
-            valueIsNull = decodeNullBitsVectorized(sliceInput, positionCount).orElse(null);
+            valueIsNull = decodeNullBitsVectorized(sliceInput, positionCount, useVectorMaskFromLong).orElse(null);
         }
         else {
             valueIsNull = decodeNullBitsScalar(sliceInput, positionCount).orElse(null);

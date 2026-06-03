@@ -307,6 +307,83 @@
                                     <justification>Add hasNonDeterministicFunctions parameter to detect stale materialized views</justification>
                                 </item>
                                 <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.block.ArrayBlockEncoding::&lt;init&gt;(boolean)</old>
+                                    <new>method void io.trino.spi.block.ArrayBlockEncoding::&lt;init&gt;(boolean, boolean)</new>
+                                    <justification>Added parameter to ArrayBlockEncoding constructor to enable SIMD support</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.block.ByteArrayBlockEncoding::&lt;init&gt;(boolean, boolean, boolean)</old>
+                                    <new>method void io.trino.spi.block.ByteArrayBlockEncoding::&lt;init&gt;(boolean, boolean, boolean, boolean)</new>
+                                    <justification>Added parameter to ByteArrayBlockEncoding constructor to enable SIMD support</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.block.Fixed12BlockEncoding::&lt;init&gt;(boolean)</old>
+                                    <new>method void io.trino.spi.block.Fixed12BlockEncoding::&lt;init&gt;(boolean, boolean)</new>
+                                    <justification>Added parameter to Fixed12BlockEncoding constructor to enable SIMD support</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.block.Int128ArrayBlockEncoding::&lt;init&gt;(boolean)</old>
+                                    <new>method void io.trino.spi.block.Int128ArrayBlockEncoding::&lt;init&gt;(boolean, boolean)</new>
+                                    <justification>Added parameter to Int128ArrayBlockEncoding constructor to enable SIMD support</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.block.IntArrayBlockEncoding::&lt;init&gt;(boolean, boolean, boolean)</old>
+                                    <new>method void io.trino.spi.block.IntArrayBlockEncoding::&lt;init&gt;(boolean, boolean, boolean, boolean)</new>
+                                    <justification>Added parameter to IntArrayBlockEncoding constructor to enable SIMD support</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.block.LongArrayBlockEncoding::&lt;init&gt;(boolean, boolean, boolean)</old>
+                                    <new>method void io.trino.spi.block.LongArrayBlockEncoding::&lt;init&gt;(boolean, boolean, boolean, boolean)</new>
+                                    <justification>Added parameter to LongArrayBlockEncoding constructor to enable SIMD support</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.block.MapBlockEncoding::&lt;init&gt;(boolean)</old>
+                                    <new>method void io.trino.spi.block.MapBlockEncoding::&lt;init&gt;(boolean, boolean)</new>
+                                    <justification>Added parameter to MapBlockEncoding constructor to enable SIMD support</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.block.RowBlockEncoding::&lt;init&gt;(boolean)</old>
+                                    <new>method void io.trino.spi.block.RowBlockEncoding::&lt;init&gt;(boolean, boolean)</new>
+                                    <justification>Added parameter to RowBlockEncoding constructor to enable SIMD support</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.block.ShortArrayBlockEncoding::&lt;init&gt;(boolean, boolean, boolean)</old>
+                                    <new>method void io.trino.spi.block.ShortArrayBlockEncoding::&lt;init&gt;(boolean, boolean, boolean, boolean)</new>
+                                    <justification>Added parameter to ShortArrayBlockEncoding constructor to enable SIMD support</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.block.VariableWidthBlockEncoding::&lt;init&gt;(boolean)</old>
+                                    <new>method void io.trino.spi.block.VariableWidthBlockEncoding::&lt;init&gt;(boolean, boolean)</new>
+                                    <justification>Added parameter to VariableWidthBlockEncoding constructor to enable SIMD support</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.block.VariantBlockEncoding::&lt;init&gt;(boolean)</old>
+                                    <new>method void io.trino.spi.block.VariantBlockEncoding::&lt;init&gt;(boolean, boolean)</new>
+                                    <justification>Added parameter to VariantBlockEncoding constructor to enable SIMD support</justification>
+                                </item>
+                                <item>
                                     <code>java.field.removed</code>
                                     <old>field io.trino.spi.function.OperatorType.MODULUS</old>
                                     <justification>Renamed to MODULO</justification>

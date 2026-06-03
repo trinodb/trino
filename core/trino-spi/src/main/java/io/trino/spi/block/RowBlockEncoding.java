@@ -31,10 +31,12 @@ public class RowBlockEncoding
     public static final String NAME = "ROW";
 
     private final boolean vectorizeNullBitPacking;
+    private final boolean useVectorMaskFromLong;
 
-    public RowBlockEncoding(boolean vectorizeNullBitPacking)
+    public RowBlockEncoding(boolean vectorizeNullBitPacking, boolean useVectorMaskFromLong)
     {
         this.vectorizeNullBitPacking = vectorizeNullBitPacking;
+        this.useVectorMaskFromLong = useVectorMaskFromLong;
     }
 
     @Override
@@ -83,7 +85,7 @@ public class RowBlockEncoding
 
         Optional<boolean[]> rowIsNull;
         if (vectorizeNullBitPacking) {
-            rowIsNull = decodeNullBitsVectorized(sliceInput, positionCount);
+            rowIsNull = decodeNullBitsVectorized(sliceInput, positionCount, useVectorMaskFromLong);
         }
         else {
             rowIsNull = decodeNullBitsScalar(sliceInput, positionCount);

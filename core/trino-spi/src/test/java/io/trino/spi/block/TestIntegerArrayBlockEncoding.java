@@ -64,7 +64,7 @@ final class TestIntegerArrayBlockEncoding
                     byte[] vector = compressIntsVectorized(values, isNull, offset, length);
                     assertThat(vector).as("ints: scalar and vector outputs differ").isEqualTo(scalar);
                     byte[] packedIsNullBits = getEncodedNullsAsBits(isNull, offset, length);
-                    boolean[] decodedIsNull = decodeNullBitsVectorized(packedIsNullBits, length);
+                    boolean[] decodedIsNull = decodeNullBitsVectorized(packedIsNullBits, length, false);
                     assertThat(decodedIsNull).as("decodedIsNull must match input isNull").isEqualTo(Arrays.copyOfRange(isNull, offset, offset + length));
                     IntArrayBlock scalarBlock = expandIntsWithNullsScalar(Slices.wrappedBuffer(scalar).getInput(), length, packedIsNullBits, decodedIsNull);
                     IntArrayBlock vectorBlock = expandIntsWithNullsVectorized(Slices.wrappedBuffer(vector).getInput(), length, decodedIsNull);
