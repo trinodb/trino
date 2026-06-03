@@ -531,8 +531,11 @@ public class TrinoHiveCatalog
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
+        if (!viewProperties.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Hive catalog does not support creating views with properties");
+        }
         trinoViewHiveMetastore.createView(session, schemaViewName, definition, replace);
     }
 
