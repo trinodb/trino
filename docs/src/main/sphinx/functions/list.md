@@ -386,8 +386,8 @@
 - {func}`slice`
 - [SOME](quantified-comparison-predicates)
 - {func}`soundex`
-- `spatial_partitioning`
-- `spatial_partitions`
+- {func}`spatial_partitioning`
+- {func}`spatial_partitions`
 - {func}`split`
 - {func}`split_part`
 - {func}`split_to_map`
@@ -397,6 +397,7 @@
 - {func}`sqrt`
 - {func}`ST_Area`
 - {func}`ST_AsBinary`
+- {func}`ST_AsEWKB`
 - {func}`ST_AsEWKT`
 - {func}`ST_AsText`
 - {func}`ST_Boundary`
@@ -421,6 +422,7 @@
 - {func}`ST_GeometryType`
 - {func}`ST_GeomFromBinary`
 - {func}`ST_GeomFromEWKT`
+- {func}`ST_GeomFromKML`
 - {func}`ST_InteriorRingN`
 - {func}`ST_InteriorRings`
 - {func}`ST_Intersection`
@@ -435,7 +437,7 @@
 - {func}`ST_LineString`
 - {func}`ST_MultiPoint`
 - {func}`ST_NumGeometries`
-- `ST_NumInteriorRing`
+- {func}`ST_NumInteriorRing`
 - {func}`ST_NumPoints`
 - {func}`ST_Overlaps`
 - {func}`ST_Point`
