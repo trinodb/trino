@@ -526,6 +526,17 @@ Returns the input geometry with updated SRID metadata. This function does not
 transform coordinates.
 :::
 
+:::{function} ST_Transform(Geometry, srid) -> Geometry
+Transforms the X and Y coordinates of the input geometry from its source SRID to
+the target EPSG SRID. The input geometry must have a non-zero SRID; use
+`ST_SetSRID` first if the geometry's source SRID is known but unspecified in the
+value.
+
+The target SRID must be non-zero, and only two-dimensional CRS definitions are
+supported. Z coordinates, when present, are preserved unchanged. The returned
+geometry has the target SRID.
+:::
+
 :::{function} simplify_geometry(Geometry, double) -> Geometry
 Returns a "simplified" version of the input geometry using the Douglas-Peucker algorithm.
 Will avoid creating derived geometries (polygons in particular) that are invalid.

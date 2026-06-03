@@ -3037,6 +3037,43 @@ public class TestGeoFunctions
     }
 
     @Test
+    public void testSTTransform()
+    {
+        assertThat((Double) assertions.function("ST_X", "ST_Transform(ST_SetSRID(ST_Point(-71.0882, 42.3607), 4326), 3857)").evaluate().value())
+                .isCloseTo(-7913502.22541039, within(1e-6));
+
+        assertThat((Double) assertions.function("ST_Y", "ST_Transform(ST_SetSRID(ST_Point(-71.0882, 42.3607), 4326), 3857)").evaluate().value())
+                .isCloseTo(5215164.63048419, within(1e-6));
+
+        assertThat((Double) assertions.function("ST_X", "ST_Transform(ST_SetSRID(ST_Point(-7913502.22541039, 5215164.63048419), 3857), 4326)").evaluate().value())
+                .isCloseTo(-71.0882, within(1e-9));
+
+        assertThat((Double) assertions.function("ST_Y", "ST_Transform(ST_SetSRID(ST_Point(-7913502.22541039, 5215164.63048419), 3857), 4326)").evaluate().value())
+                .isCloseTo(42.3607, within(1e-9));
+
+        assertThat(assertions.function("ST_SRID", "ST_Transform(ST_SetSRID(ST_PointZ(-71.0882, 42.3607, 9), 4326), 3857)"))
+                .hasType(INTEGER)
+                .isEqualTo(3857);
+
+        assertThat(assertions.function("ST_Z", "ST_Transform(ST_SetSRID(ST_PointZ(-71.0882, 42.3607, 9), 4326), 3857)"))
+                .hasType(DOUBLE)
+                .isEqualTo(9.0);
+
+        assertThat(assertions.function("ST_AsEWKT", "ST_Transform(ST_SetSRID(ST_GeometryFromText('POINT EMPTY'), 4326), 3857)"))
+                .hasType(VARCHAR)
+                .isEqualTo("SRID=3857;POINT EMPTY");
+
+        assertTrinoExceptionThrownBy(assertions.function("ST_Transform", "ST_Point(1, 2)", "3857")::evaluate)
+                .hasMessage("Cannot transform geometry with SRID 0; use ST_SetSRID to set the source SRID");
+
+        assertTrinoExceptionThrownBy(assertions.function("ST_Transform", "ST_SetSRID(ST_Point(1, 2), 4326)", "0")::evaluate)
+                .hasMessage("targetSrid must be non-zero");
+
+        assertTrinoExceptionThrownBy(assertions.function("ST_Transform", "ST_SetSRID(ST_Point(1, 2), 4326)", "999999")::evaluate)
+                .hasMessageContaining("No EPSG CoordinateReferenceSystem for code 999999");
+    }
+
+    @Test
     public void testSridMismatchValidation()
     {
         // Binary operations with mismatched SRIDs should throw

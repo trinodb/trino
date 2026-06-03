@@ -464,6 +464,7 @@
 - {func}`ST_StartPoint`
 - {func}`ST_SymDifference`
 - {func}`ST_Touches`
+- {func}`ST_Transform`
 - {func}`ST_Union`
 - {func}`ST_VoronoiPolygons`
 - {func}`ST_Within`
