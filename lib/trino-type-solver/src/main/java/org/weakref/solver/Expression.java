@@ -262,26 +262,39 @@ public sealed interface Expression
 
     private static Expression instantiate(Expression expression, VariableAllocator allocator, Map<String, String> mappings)
     {
+        // Hot path (coercion-rule instantiation): build child lists with a plain loop rather than a
+        // stream, to avoid the per-node stream-pipeline allocation.
         return switch (expression) {
-            case Application application -> new Application(instantiate(application.head(), allocator, mappings), application.arguments().stream()
-                    .map(argument -> instantiate(argument, allocator, mappings))
-                    .toList());
-            case Row row -> new Row(row.fields().stream()
-                    .map(field -> new RowField(field.name(), instantiate(field.type(), allocator, mappings)))
-                    .toList());
+            case Application application -> new Application(
+                    instantiate(application.head(), allocator, mappings),
+                    instantiateAll(application.arguments(), allocator, mappings));
+            case Row row -> {
+                List<RowField> fields = new ArrayList<>(row.fields().size());
+                for (RowField field : row.fields()) {
+                    fields.add(new RowField(field.name(), instantiate(field.type(), allocator, mappings)));
+                }
+                yield new Row(fields);
+            }
             case AnyRow anyRow -> anyRow;
             case BinaryOperation(BinaryOperator operator, Expression left, Expression right) -> operation(operator, instantiate(left, allocator, mappings), instantiate(right, allocator, mappings));
             case Literal literal -> literal;
             case Symbol symbol -> symbol;
             case Variable variable -> new Variable(mappings.computeIfAbsent(variable.name(), _ -> allocator.newVariable()));
             case FunctionType functionType -> new FunctionType(
-                    functionType.parameterTypes().stream()
-                            .map(parameter -> instantiate(parameter, allocator, mappings))
-                            .toList(),
+                    instantiateAll(functionType.parameterTypes(), allocator, mappings),
                     functionType.isVariadic(),
                     functionType.variadicParameterType().map(parameter -> instantiate(parameter, allocator, mappings)),
                     instantiate(functionType.returnType(), allocator, mappings));
         };
+    }
+
+    private static List<Expression> instantiateAll(List<Expression> expressions, VariableAllocator allocator, Map<String, String> mappings)
+    {
+        Expression[] instantiated = new Expression[expressions.size()];
+        for (int i = 0; i < expressions.size(); i++) {
+            instantiated[i] = instantiate(expressions.get(i), allocator, mappings);
+        }
+        return List.of(instantiated);
     }
 
     static Expression rewrite(Expression expression, Map<String, Expression> mappings)
@@ -321,7 +334,7 @@ public sealed interface Expression
         if (substitutions.isEmpty()) {
             return expression;
         }
-        return substitute(expression, substitutions, new HashSet<>());
+        return substitute(expression, substitutions, null);
     }
 
     private static Expression substitute(Expression expression, Map<String, Expression> substitutions, Set<String> activeVariables)
@@ -356,17 +369,22 @@ public sealed interface Expression
             case Symbol symbol -> symbol;
             case Variable variable -> {
                 Expression replacement = substitutions.get(variable.name());
-                if (replacement == null) {
+                if (replacement == null || replacement.equals(variable)) {
                     yield variable;
                 }
-                if (replacement.equals(variable)) {
-                    yield variable;
+                // A ground replacement contains no variables, so applying the map to it is a no-op and
+                // no cycle is possible — skip the recursion and the cycle-guard set entirely. This is
+                // the overwhelmingly common case (a variable resolved to a concrete type or literal),
+                // so the guard set is allocated lazily only for chained, variable-bearing replacements.
+                if (isGround(replacement)) {
+                    yield replacement;
                 }
-                if (!activeVariables.add(variable.name())) {
+                Set<String> active = activeVariables == null ? new HashSet<>() : activeVariables;
+                if (!active.add(variable.name())) {
                     throw new IllegalArgumentException("Cyclic substitution involving " + variable.name());
                 }
-                Expression substituted = substitute(replacement, substitutions, activeVariables);
-                activeVariables.remove(variable.name());
+                Expression substituted = substitute(replacement, substitutions, active);
+                active.remove(variable.name());
                 yield substituted;
             }
             case BinaryOperation binary -> {
