@@ -223,6 +223,11 @@
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
                                     <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.predicate.Utils::nativeValueToBlock(io.trino.spi.type.Type, java.lang.Object)</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
                                     <code>java.method.noLongerDefault</code>
                                     <old>method io.trino.spi.connector.ConnectorPageSink io.trino.spi.connector.ConnectorPageSinkProvider::createPageSink(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorInsertTableHandle, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableCredentials&gt;, io.trino.spi.connector.ConnectorPageSinkId)</old>
                                     <justification>Removed deprecated method without ConnectorTableCredentials parameter</justification>

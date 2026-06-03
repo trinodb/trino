@@ -108,9 +108,9 @@ import static io.trino.plugin.hive.orc.OrcTypeTranslator.createCoercer;
 import static io.trino.plugin.hive.util.HiveUtil.splitError;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.RowBlock.fromFieldBlocks;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
@@ -122,7 +122,7 @@ import static java.util.stream.Collectors.toList;
 public class OrcPageSourceFactory
         implements HivePageSourceFactory
 {
-    private static final Block ORIGINAL_FILE_TRANSACTION_ID_BLOCK = nativeValueToBlock(BIGINT, 0L);
+    private static final Block ORIGINAL_FILE_TRANSACTION_ID_BLOCK = writeNativeValue(BIGINT, 0L);
     private static final Pattern DEFAULT_HIVE_COLUMN_NAME_PATTERN = Pattern.compile("_col\\d+");
     private final OrcReaderOptions orcReaderOptions;
     private final TrinoFileSystemFactory fileSystemFactory;
@@ -601,7 +601,7 @@ public class OrcPageSourceFactory
         public MergedRowAdaptationWithOriginalFiles(long startingRowId, int bucketId)
         {
             this.startingRowId = startingRowId;
-            this.bucketBlock = nativeValueToBlock(INTEGER, (long) computeBucketValue(bucketId, 0));
+            this.bucketBlock = writeNativeValue(INTEGER, (long) computeBucketValue(bucketId, 0));
         }
 
         @Override

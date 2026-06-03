@@ -13,7 +13,6 @@
  */
 package io.trino.spi.block;
 
-import io.trino.spi.predicate.Utils;
 import io.trino.spi.type.Type;
 
 import java.util.function.ObjLongConsumer;
@@ -23,6 +22,7 @@ import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -33,7 +33,7 @@ public final class RunLengthEncodedBlock
 
     public static Block create(Type type, Object value, int positionCount)
     {
-        Block block = Utils.nativeValueToBlock(type, value);
+        Block block = writeNativeValue(type, value);
         if (block instanceof RunLengthEncodedBlock) {
             block = ((RunLengthEncodedBlock) block).getValue();
         }

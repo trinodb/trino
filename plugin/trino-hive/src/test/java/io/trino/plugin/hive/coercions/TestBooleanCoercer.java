@@ -28,8 +28,8 @@ import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.predicate.Utils.blockToNativeValue;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -115,7 +115,7 @@ public class TestBooleanCoercer
     private void assertBooleanToVarcharCoercion(Type toType, boolean valueToBeCoerced, Slice expectedValue)
     {
         Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(BOOLEAN), toHiveType(toType), new CoercionContext(DEFAULT_PRECISION, PARQUET)).orElseThrow()
-                .apply(nativeValueToBlock(BOOLEAN, valueToBeCoerced));
+                .apply(writeNativeValue(BOOLEAN, valueToBeCoerced));
         assertThat(blockToNativeValue(toType, coercedValue))
                 .isEqualTo(expectedValue);
     }
@@ -128,7 +128,7 @@ public class TestBooleanCoercer
     private void assertVarcharToBooleanCoercion(String valueToBeCoerced, HiveStorageFormat storageFormat, Boolean expectedValue)
     {
         Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(createUnboundedVarcharType()), toHiveType(BOOLEAN), new CoercionContext(DEFAULT_PRECISION, storageFormat)).orElseThrow()
-                .apply(nativeValueToBlock(createUnboundedVarcharType(), utf8Slice(valueToBeCoerced)));
+                .apply(writeNativeValue(createUnboundedVarcharType(), utf8Slice(valueToBeCoerced)));
         assertThat(blockToNativeValue(BOOLEAN, coercedValue))
                 .isEqualTo(expectedValue);
     }
