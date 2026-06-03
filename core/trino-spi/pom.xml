@@ -233,6 +233,11 @@
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.predicate.Utils</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
                                     <code>java.method.noLongerDefault</code>
                                     <old>method io.trino.spi.connector.ConnectorPageSink io.trino.spi.connector.ConnectorPageSinkProvider::createPageSink(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorInsertTableHandle, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableCredentials&gt;, io.trino.spi.connector.ConnectorPageSinkId)</old>
                                     <justification>Removed deprecated method without ConnectorTableCredentials parameter</justification>
