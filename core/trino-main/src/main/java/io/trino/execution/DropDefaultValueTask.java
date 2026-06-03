@@ -97,7 +97,7 @@ public class DropDefaultValueTask
             throw semanticException(NOT_SUPPORTED, statement, "Cannot modify nested fields");
         }
         Identifier identifier = field.getOriginalParts().getFirst();
-        Resolver resolver = plannerContext.getResolver(session, tableName.catalogName());
+        Resolver resolver = plannerContext.getResolverManager().getResolver(session, tableName.catalogName());
         String columnName = resolver.canonicalize(identifier);
         ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(columnName);
 

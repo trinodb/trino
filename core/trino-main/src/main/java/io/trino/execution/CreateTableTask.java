@@ -137,7 +137,7 @@ public class CreateTableTask
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName(), plannerContext);
         String catalogName = tableName.catalogName();
-        Resolver resolver = plannerContext.getResolver(session, catalogName);
+        Resolver resolver = plannerContext.getResolverManager().getResolver(session, catalogName);
 
         Optional<TableHandle> tableHandle;
         try {

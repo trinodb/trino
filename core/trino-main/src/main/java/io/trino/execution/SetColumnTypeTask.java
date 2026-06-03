@@ -92,7 +92,7 @@ public class SetColumnTypeTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName qualifiedObjectName = createQualifiedObjectName(session, statement, statement.getTableName(), plannerContext);
-        Resolver resolver = plannerContext.getResolver(session, qualifiedObjectName.catalogName());
+        Resolver resolver = plannerContext.getResolverManager().getResolver(session, qualifiedObjectName.catalogName());
 
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, qualifiedObjectName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {

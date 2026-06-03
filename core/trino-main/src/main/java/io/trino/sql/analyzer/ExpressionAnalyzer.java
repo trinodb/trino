@@ -281,7 +281,6 @@ import static io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationAnchor.
 import static io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationAnchor.LAST;
 import static io.trino.sql.analyzer.SemanticExceptions.invalidReferenceException;
 import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException;
-import static io.trino.sql.analyzer.SemanticExceptions.requireDelimiterException;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
@@ -837,7 +836,8 @@ public class ExpressionAnalyzer
             }
 
             // FIXME: query resolver will be used to resolve DereferenceExpression
-            Resolver resolver = plannerContext.getQueryResolver(session, Optional.of(context.getScope()));
+            Scope scope = context.getScope();
+            Resolver resolver = plannerContext.getResolverManager().getQueryResolver(session, Optional.of(scope));
             QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(resolver.getCanonicalizer(), node);
 
             // If this Dereference looks like column reference, try match it to column first.
@@ -872,15 +872,11 @@ public class ExpressionAnalyzer
                     throw missingAttributeException(node, qualifiedName);
                 }
 
-                Scope scope = context.getScope();
                 Optional<ResolvedField> resolvedField = scope.tryResolveField(node, qualifiedName);
                 if (resolvedField.isPresent()) {
                     return handleResolvedField(node, resolvedField.get(), context);
                 }
                 if (!scope.isColumnReference(qualifiedName)) {
-                    if (scope.requireDelimiter() && !qualifiedName.isDelimited()) {
-                        throw requireDelimiterException(node, qualifiedName);
-                    }
                     throw missingAttributeException(node, qualifiedName);
                 }
             }
@@ -1896,7 +1892,10 @@ public class ExpressionAnalyzer
                     if (frame.getStart().getType() != CURRENT_ROW || frame.getEnd().isEmpty()) {
                         throw semanticException(INVALID_WINDOW_FRAME, frame, "Pattern recognition requires frame specified as BETWEEN CURRENT ROW AND ...");
                     }
+                    Resolver resolver = plannerContext.getResolverManager().getQueryResolver(session, Optional.of(context.getScope()));
+                    System.out.println("ExpressionAnalyzer.analyzeWindow() resolver: " + resolver.getCanonicalizerKind().name());
                     PatternRecognitionAnalysis analysis = PatternRecognitionAnalyzer.analyze(
+                            resolver,
                             frame.getSubsets(),
                             frame.getVariableDefinitions(),
                             frame.getMeasures(),
@@ -2838,7 +2837,7 @@ public class ExpressionAnalyzer
                         .ifPresent(function -> {
                             throw semanticException(NOT_SUPPORTED, function, "IN-PREDICATE with %s function is not yet supported", function.getName().getSuffix());
                         });
-                Function<Identifier, String> canonicalizer = plannerContext.getQueryResolver(session, Optional.of(context.getScope())).getCanonicalizer();
+                Function<Identifier, String> canonicalizer = plannerContext.getResolverManager().getQueryResolver(session, Optional.of(context.getScope())).getCanonicalizer();
                 extractExpressions(ImmutableList.of(value), DereferenceExpression.class)
                         .forEach(dereference -> {
                             QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(canonicalizer, dereference);

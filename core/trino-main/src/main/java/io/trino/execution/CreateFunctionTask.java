@@ -190,13 +190,13 @@ public class CreateFunctionTask
                 CatalogSchemaName catalogSchema = functionSchema.orElseThrow(() ->
                         semanticException(NOT_SUPPORTED, node, "Catalog and schema must be specified when function schema is not configured"));
                 catalog = catalogSchema.getCatalogName();
-                resolver = plannerContext.getResolver(session, catalog);
+                resolver = plannerContext.getResolverManager().getResolver(session, catalog);
                 schema = catalogSchema.getSchemaName();
             }
             case 2 -> throw semanticException(NOT_SUPPORTED, node, "Function name must be unqualified or fully qualified with catalog and schema");
             case 3 -> {
                 catalog = parts.getFirst().getValue();
-                resolver = plannerContext.getResolver(session, catalog);
+                resolver = plannerContext.getResolverManager().getResolver(session, catalog);
                 schema = resolver.canonicalize(parts.get(1));
             }
             default -> throw semanticException(SYNTAX_ERROR, node, "Too many dots in function name: %s", name);

@@ -103,7 +103,7 @@ public class RenameTableTask
 
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
         QualifiedObjectName source = redirectionAwareTableHandle.redirectedTableName().orElse(tableName);
-        Resolver resolver = plannerContext.getResolver(session, source.catalogName());
+        Resolver resolver = plannerContext.getResolverManager().getResolver(session, source.catalogName());
 
         QualifiedObjectName target = createTargetQualifiedObjectName(source, statement.getTarget(), resolver);
         if (metadata.getCatalogHandle(session, target.catalogName()).isEmpty()) {

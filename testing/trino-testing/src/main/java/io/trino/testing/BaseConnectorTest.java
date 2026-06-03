@@ -262,6 +262,8 @@ public abstract class BaseConnectorTest
     @Test
     public void testIssue17()
     {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
         String tableName = "test_issue_17_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (id VARCHAR)");
 

@@ -653,7 +653,7 @@ public final class ShowQueriesRewrite
 
             Collection<PropertyMetadata<?>> allColumnProperties = columnPropertyManager.getAllProperties(tableHandle.catalogHandle());
 
-            Resolver resolver = plannerContext.getResolver(session, targetTableName.catalogName());
+            Resolver resolver = plannerContext.getResolverManager().getResolver(session, targetTableName.catalogName());
             List<TableElement> columns = connectorTableMetadata.getColumns().stream()
                     .filter(column -> !column.isHidden())
                     .map(column -> {

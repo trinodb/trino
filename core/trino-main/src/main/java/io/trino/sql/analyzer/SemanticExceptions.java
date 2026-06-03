@@ -53,11 +53,6 @@ public final class SemanticExceptions
         throw semanticException(AMBIGUOUS_NAME, node, "Column '%s' is ambiguous", name);
     }
 
-    public static TrinoException requireDelimiterException(Expression node, QualifiedName name)
-    {
-        throw semanticException(REQUIRE_DELIMITED_IDENTIFIER, node, "Column '%s' require delimiter", name);
-    }
-
     @SuppressWarnings("FormatStringAnnotation")
     @FormatMethod
     public static TrinoException semanticException(ErrorCodeSupplier code, Node node, String format, Object... args)

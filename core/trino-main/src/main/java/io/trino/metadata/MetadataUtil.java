@@ -164,7 +164,7 @@ public final class MetadataUtil
     public static CatalogSchemaName createCatalogSchemaName(Session session, PlannerContext plannerContext, List<Identifier> identifiers)
     {
         String catalog = identifiers.getFirst().getValue();
-        Resolver resolver = plannerContext.getResolver(session, catalog);
+        Resolver resolver = plannerContext.getResolverManager().getResolver(session, catalog);
         return new CatalogSchemaName(catalog, resolver.canonicalize(identifiers.getLast()));
     }
 
@@ -264,7 +264,7 @@ public final class MetadataUtil
 
     public static Resolver getResolver(Session session, PlannerContext plannerContext, String catalog)
     {
-        return plannerContext.getResolver(session, catalog);
+        return plannerContext.getResolverManager().getResolver(session, catalog);
     }
 
     private static Identifier getSessionSchemaIdentifier(Session session, Node node, Resolver resolver)

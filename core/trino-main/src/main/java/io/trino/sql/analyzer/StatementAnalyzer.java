@@ -318,6 +318,7 @@ import static io.trino.SystemSessionProperties.getMaxGroupingSets;
 import static io.trino.metadata.FunctionResolver.toPath;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.trino.metadata.MetadataUtil.getQualifiedObjectIdentifiers;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.metadata.TableVersion.toTableVersion;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
@@ -608,7 +609,7 @@ class StatementAnalyzer
         protected Scope visitInsert(Insert insert, Optional<Scope> scope)
         {
             QualifiedObjectName targetTable = createQualifiedObjectName(session, insert, insert.getTarget(), plannerContext);
-            Resolver resolver = plannerContext.getResolver(session, targetTable.catalogName());
+            Resolver resolver = plannerContext.getResolverManager().getResolver(session, targetTable.catalogName());
             plannerContext.getResolverManager().setQueryResolver(session, resolver);
 
             if (metadata.isMaterializedView(session, targetTable)) {
@@ -750,6 +751,8 @@ class StatementAnalyzer
         @Override
         protected Scope visitRefreshMaterializedView(RefreshMaterializedView refreshMaterializedView, Optional<Scope> scope)
         {
+            // System.out.println("StatementAnalyzer.visitRefreshMaterializedView() 1");
+
             QualifiedObjectName name = createQualifiedObjectName(session, refreshMaterializedView, refreshMaterializedView.getName(), plannerContext);
             MaterializedViewDefinition view = metadata.getMaterializedView(session, name)
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Materialized view '%s' does not exist", name));
@@ -943,6 +946,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitAnalyze(Analyze node, Optional<Scope> scope)
         {
+            // System.out.println("StatementAnalyzer.visitAnalyze() 1");
             QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName(), plannerContext);
             if (metadata.isView(session, tableName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Analyzing views is not supported");
@@ -993,7 +997,7 @@ class StatementAnalyzer
             // turn this into a query that has a new table writer node on top.
             QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName(), plannerContext);
             String catalogName = targetTable.catalogName();
-            Resolver resolver = plannerContext.getResolver(session, catalogName);
+            Resolver resolver = plannerContext.getResolverManager().getResolver(session, catalogName);
             plannerContext.getResolverManager().setQueryResolver(session, resolver);
 
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
@@ -1111,8 +1115,9 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateView(CreateView node, Optional<Scope> scope)
         {
+            // System.out.println("StatementAnalyzer.visitCreateView() 1 scope resolver: " + getScopeInfo(scope));
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName(), plannerContext);
-            Resolver resolver = plannerContext.getResolver(session, viewName.catalogName());
+            Resolver resolver = plannerContext.getResolverManager().getResolver(session, viewName.catalogName());
             plannerContext.getResolverManager().setQueryResolver(session, resolver);
 
             node.getQuery().getFunctions().stream().findFirst().ifPresent(function -> {
@@ -1253,6 +1258,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateTable(CreateTable node, Optional<Scope> scope)
         {
+            // System.out.println("StatementAnalyzer.visitCreateTable() 1 scope resolver: " + getScopeInfo(scope));
             validateProperties(node.getProperties(), scope);
             return createAndAssignScope(node, scope);
         }
@@ -1829,19 +1835,23 @@ class StatementAnalyzer
         @Override
         protected Scope visitTableFunctionInvocation(TableFunctionInvocation node, Optional<Scope> scope)
         {
+            // System.out.println("StatementAnalyzer.visitTableFunctionInvocation() scope resolver: " + getScopeInfo(scope) + " - table function: " + node.getName());
             TableFunctionMetadata tableFunctionMetadata = resolveTableFunction(node)
                     .orElseThrow(() -> semanticException(FUNCTION_NOT_FOUND, node, "Table function '%s' not registered", node.getName()));
 
             ConnectorTableFunction function = tableFunctionMetadata.function();
             CatalogHandle catalogHandle = tableFunctionMetadata.catalogHandle();
             String catalog = catalogHandle.getCatalogName().toString();
+            Resolver resolver = plannerContext.getResolverManager().getResolver(session, catalog);
+            plannerContext.getResolverManager().setQueryResolver(session, resolver);
+            // System.out.println("StatementAnalyzer.visitTableFunctionInvocation() catalog: " + catalog + " - resolver: " + resolver.getCanonicalizerKind().name());
 
             Node errorLocation = node;
             if (!node.getArguments().isEmpty()) {
                 errorLocation = node.getArguments().getFirst();
             }
 
-            ArgumentsAnalysis argumentsAnalysis = analyzeArguments(function.getArguments(), node.getArguments(), scope, errorLocation);
+            ArgumentsAnalysis argumentsAnalysis = analyzeArguments(resolver, function.getArguments(), node.getArguments(), scope, errorLocation);
 
             ConnectorTransactionHandle transactionHandle = transactionManager.getConnectorTransaction(session.getRequiredTransactionId(), catalogHandle);
             TableFunctionAnalysis functionAnalysis = function.analyze(
@@ -1850,7 +1860,7 @@ class StatementAnalyzer
                     argumentsAnalysis.getPassedArguments(),
                     new InjectedConnectorAccessControl(accessControl, session.toSecurityContext(), catalog));
 
-            List<List<String>> copartitioningLists = analyzeCopartitioning(node.getCopartitioning(), argumentsAnalysis.getTableArgumentAnalyses());
+            List<List<String>> copartitioningLists = analyzeCopartitioning(resolver, node.getCopartitioning(), argumentsAnalysis.getTableArgumentAnalyses());
 
             // determine the result relation type per SQL standard ISO/IEC 9075-2, 4.33 SQL-invoked routines, p. 123, 413, 414
             ReturnTypeSpecification returnTypeSpecification = function.getReturnTypeSpecification();
@@ -2006,8 +2016,9 @@ class StatementAnalyzer
             return Optional.empty();
         }
 
-        private ArgumentsAnalysis analyzeArguments(List<ArgumentSpecification> argumentSpecifications, List<TableFunctionArgument> arguments, Optional<Scope> scope, Node errorLocation)
+        private ArgumentsAnalysis analyzeArguments(Resolver resolver, List<ArgumentSpecification> argumentSpecifications, List<TableFunctionArgument> arguments, Optional<Scope> scope, Node errorLocation)
         {
+            // System.out.println("StatementAnalyzer.analyzeArguments() 1 scope resolver: " + getScopeInfo(scope));
             if (argumentSpecifications.size() < arguments.size()) {
                 throw semanticException(INVALID_ARGUMENTS, errorLocation, "Too many arguments. Expected at most %s arguments, got %s arguments", argumentSpecifications.size(), arguments.size());
             }
@@ -2034,6 +2045,7 @@ class StatementAnalyzer
                 }
                 Set<String> uniqueArgumentNames = new HashSet<>();
                 for (TableFunctionArgument argument : arguments) {
+                    // System.out.println("StatementAnalyzer.analyzeArguments() 2 name: " + argument.getName());
                     String argumentName = argument.getName().orElseThrow().getCanonicalValue();
                     if (!uniqueArgumentNames.add(argumentName)) {
                         throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Duplicate argument name: %s", argumentName);
@@ -2042,7 +2054,8 @@ class StatementAnalyzer
                     if (argumentSpecification == null) {
                         throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected argument name: %s", argumentName);
                     }
-                    ArgumentAnalysis argumentAnalysis = analyzeArgument(argumentSpecification, argument, scope);
+                    ArgumentAnalysis argumentAnalysis = analyzeArgument(resolver, argumentSpecification, argument, scope);
+                    // System.out.println("StatementAnalyzer.analyzeArguments() 3 scope resolver: " + getScopeInfo(scope));
                     passedArguments.put(argumentSpecification.getName(), argumentAnalysis.getArgument());
                     argumentAnalysis.getTableArgumentAnalysis().ifPresent(tableArgumentAnalyses::add);
                 }
@@ -2056,7 +2069,7 @@ class StatementAnalyzer
                 for (int i = 0; i < arguments.size(); i++) {
                     TableFunctionArgument argument = arguments.get(i);
                     ArgumentSpecification argumentSpecification = argumentSpecifications.get(i); // TODO args passed positionally - can one only pass some prefix of args?
-                    ArgumentAnalysis argumentAnalysis = analyzeArgument(argumentSpecification, argument, scope);
+                    ArgumentAnalysis argumentAnalysis = analyzeArgument(resolver, argumentSpecification, argument, scope);
                     passedArguments.put(argumentSpecification.getName(), argumentAnalysis.getArgument());
                     argumentAnalysis.getTableArgumentAnalysis().ifPresent(tableArgumentAnalyses::add);
                 }
@@ -2070,7 +2083,7 @@ class StatementAnalyzer
             return new ArgumentsAnalysis(passedArguments.buildOrThrow(), tableArgumentAnalyses.build());
         }
 
-        private ArgumentAnalysis analyzeArgument(ArgumentSpecification argumentSpecification, TableFunctionArgument argument, Optional<Scope> scope)
+        private ArgumentAnalysis analyzeArgument(Resolver resolver, ArgumentSpecification argumentSpecification, TableFunctionArgument argument, Optional<Scope> scope)
         {
             String actualType = switch (argument.getValue()) {
                 case TableFunctionTableArgument _ -> "table";
@@ -2087,7 +2100,7 @@ class StatementAnalyzer
                     }
                     throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Expected table, got %s", argumentSpecification.getName(), actualType);
                 }
-                return analyzeTableArgument(argument, tableArgumentSpecification, scope);
+                return analyzeTableArgument(resolver, argument, tableArgumentSpecification, scope);
             }
             if (argumentSpecification instanceof DescriptorArgumentSpecification) {
                 if (!(argument.getValue() instanceof TableFunctionDescriptorArgument tableFunctionDescriptorArgument)) {
@@ -2097,7 +2110,7 @@ class StatementAnalyzer
                     }
                     throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Expected descriptor, got %s", argumentSpecification.getName(), actualType);
                 }
-                return analyzeDescriptorArgument(tableFunctionDescriptorArgument);
+                return analyzeDescriptorArgument(resolver, tableFunctionDescriptorArgument);
             }
             if (argumentSpecification instanceof ScalarArgumentSpecification scalarArgumentSpecification) {
                 if (!(argument.getValue() instanceof Expression expression)) {
@@ -2113,8 +2126,10 @@ class StatementAnalyzer
             throw new IllegalStateException("Unexpected argument specification: " + argumentSpecification.getClass().getSimpleName());
         }
 
-        private ArgumentAnalysis analyzeTableArgument(TableFunctionArgument argument, TableArgumentSpecification argumentSpecification, Optional<Scope> scope)
+        private ArgumentAnalysis analyzeTableArgument(Resolver resolver, TableFunctionArgument argument, TableArgumentSpecification argumentSpecification, Optional<Scope> scope)
         {
+            // System.out.println("StatementAnalyzer.analyzeTableArgument() 1 scope resolver: " + getScopeInfo(scope));
+
             TableFunctionTableArgument tableArgument = (TableFunctionTableArgument) argument.getValue();
 
             TableArgument.Builder argumentBuilder = TableArgument.builder();
@@ -2125,9 +2140,12 @@ class StatementAnalyzer
             Relation relation = tableArgument.getTable();
             analysisBuilder.withRelation(relation);
             Scope argumentScope = process(relation, scope);
+            // System.out.println("StatementAnalyzer.analyzeTableArgument() 2 argumentScope resolver: " + getScopeInfo(Optional.of(argumentScope)));
+
             QualifiedName relationName = analysis.getRelationName(relation);
+            // System.out.println("StatementAnalyzer.analyzeTableArgument() 3 relationName: " + relationName);
             if (relationName != null) {
-                analysisBuilder.withName(relationName);
+                analysisBuilder.withName(QualifiedName.of(resolver.getCanonicalizer(), relationName));
             }
 
             argumentBuilder.rowType(RowType.from(argumentScope.getRelationType().getVisibleFields().stream()
@@ -2150,7 +2168,7 @@ class StatementAnalyzer
                 });
                 argumentBuilder.partitionBy(partitionBy.stream()
                         .map(expression -> switch (expression) {
-                            case Identifier identifier -> identifier.getValue();
+                            case Identifier identifier -> resolver.canonicalize(identifier);
                             case DereferenceExpression dereferenceExpression -> dereferenceExpression.toString();
                             default -> throw new IllegalStateException("Unexpected partitionBy expression: " + expression);
                         })
@@ -2197,17 +2215,18 @@ class StatementAnalyzer
             analysisBuilder.withRowSemantics(argumentSpecification.isRowSemantics());
             analysisBuilder.withPassThroughColumns(argumentSpecification.isPassThroughColumns());
 
+            // System.out.println("StatementAnalyzer.analyzeTableArgument() 4 argumentBuilder: " + String.join(", ", argumentBuilder.getPartitionBy()));
             return new ArgumentAnalysis(argumentBuilder.build(), Optional.of(analysisBuilder.build()));
         }
 
-        private ArgumentAnalysis analyzeDescriptorArgument(TableFunctionDescriptorArgument argument)
+        private ArgumentAnalysis analyzeDescriptorArgument(Resolver resolver, TableFunctionDescriptorArgument argument)
         {
             return new ArgumentAnalysis(
                     argument.getDescriptor()
                             .map(descriptor -> DescriptorArgument.builder()
                                     .descriptor(new Descriptor(descriptor.getFields().stream()
                                             .map(field -> new Descriptor.Field(
-                                                    field.getName().getCanonicalValue(),
+                                                    resolver.canonicalize(field.getName()),
                                                     field.getType().map(type -> {
                                                         try {
                                                             return plannerContext.getTypeManager().getType(toTypeSignature(type));
@@ -2273,15 +2292,17 @@ class StatementAnalyzer
             throw new IllegalStateException("Unexpected argument specification: " + argumentSpecification.getClass().getSimpleName());
         }
 
-        private List<List<String>> analyzeCopartitioning(List<List<QualifiedName>> copartitioning, List<TableArgumentAnalysis> tableArgumentAnalyses)
+        private List<List<String>> analyzeCopartitioning(Resolver resolver, List<List<QualifiedName>> copartitioning, List<TableArgumentAnalysis> tableArgumentAnalyses)
         {
+            // System.out.println("StatementAnalyzer.analyzeCopartitioning() 1 resolver: " + resolver.getCanonicalizerKind().name());
             // map table arguments by relation names. usa a multimap, because multiple arguments can have the same value, e.g. input_1 => tpch.tiny.orders, input_2 => tpch.tiny.orders
             ImmutableMultimap.Builder<QualifiedName, TableArgumentAnalysis> unqualifiedInputsBuilder = ImmutableMultimap.builder();
             ImmutableMultimap.Builder<QualifiedName, TableArgumentAnalysis> qualifiedInputsBuilder = ImmutableMultimap.builder();
             tableArgumentAnalyses.stream()
                     .filter(argument -> argument.getName().isPresent())
                     .forEach(argument -> {
-                        QualifiedName name = argument.getName().get();
+                        QualifiedName name = QualifiedName.of(resolver.getCanonicalizer(), argument.getName().get());
+                        // System.out.println("StatementAnalyzer.analyzeCopartitioning() 2 name: " + name);
                         if (name.getParts().size() == 1) {
                             unqualifiedInputsBuilder.put(name, argument);
                         }
@@ -2294,6 +2315,8 @@ class StatementAnalyzer
                     });
             Multimap<QualifiedName, TableArgumentAnalysis> unqualifiedInputs = unqualifiedInputsBuilder.build();
             Multimap<QualifiedName, TableArgumentAnalysis> qualifiedInputs = qualifiedInputsBuilder.build();
+            // System.out.println("StatementAnalyzer.analyzeCopartitioning() 3 unqualifiedInputs: " + String.join(", ", unqualifiedInputs.keySet().stream().map(QualifiedName::toString).toList()));
+            // System.out.println("StatementAnalyzer.analyzeCopartitioning() 4 qualifiedInputs: " + String.join(", ", qualifiedInputs.keySet().stream().map(QualifiedName::toString).toList()));
 
             ImmutableList.Builder<List<String>> copartitionBuilder = ImmutableList.builder();
             Set<String> referencedArguments = new HashSet<>();
@@ -2302,6 +2325,9 @@ class StatementAnalyzer
 
                 // resolve copartition tables as references to table arguments
                 for (QualifiedName name : nameList) {
+                    // System.out.println("StatementAnalyzer.analyzeCopartitioning() 5 name: " + name);
+                    name = QualifiedName.of(resolver.getCanonicalizer(), name);
+                    // System.out.println("StatementAnalyzer.analyzeCopartitioning() 6 name: " + name);
                     Collection<TableArgumentAnalysis> candidates = emptyList();
                     if (name.getParts().size() == 1) {
                         // try to match unqualified name. it might be a reference to a CTE or an aliased relation
@@ -2309,8 +2335,12 @@ class StatementAnalyzer
                     }
                     if (candidates.isEmpty()) {
                         // qualify the name using current schema and catalog
+                        List<Identifier> identifiers = getQualifiedObjectIdentifiers(session, name.getOriginalParts().get(0), name, plannerContext);
                         QualifiedObjectName fullyQualifiedName = createQualifiedObjectName(session, name.getOriginalParts().get(0), name, plannerContext);
-                        candidates = qualifiedInputs.get(QualifiedName.of(fullyQualifiedName.catalogName(), fullyQualifiedName.schemaName(), fullyQualifiedName.objectName()));
+                        QualifiedName qualifiedName = QualifiedName.of(fullyQualifiedName.catalogName(), fullyQualifiedName.schemaName(), fullyQualifiedName.objectName());
+                        // System.out.println("StatementAnalyzer.analyzeCopartitioning() 7 name: " + qualifiedName);
+                        // System.out.println("StatementAnalyzer.analyzeCopartitioning() 8 qualifiedInputs: " + String.join(", ", qualifiedInputs.keySet().stream().map(QualifiedName::toString).toList()));
+                        candidates = qualifiedInputs.get(qualifiedName);
                     }
                     if (candidates.isEmpty()) {
                         throw semanticException(INVALID_COPARTITIONING, name.getOriginalParts().get(0), "No table argument found for name: %s", name);
@@ -2402,9 +2432,10 @@ class StatementAnalyzer
         @Override
         protected Scope visitTable(Table table, Optional<Scope> scope)
         {
+            // System.out.println("StatementAnalyzer.visitTable() 1 table: " + table.getName() + " - scope resolver: " + getScopeInfo(scope));
             // is this a reference to a WITH query?
             if (table.getName().getPrefix().isEmpty()) {
-                Resolver resolver = plannerContext.getResolverManager().getWithResolver();
+                Resolver resolver = plannerContext.getResolverManager().getQueryResolver(session, scope);
                 QualifiedName tableName = QualifiedName.of(resolver.getCanonicalizer(), table.getName());
                 Optional<WithQuery> withQuery = createScope(scope).getNamedQuery(tableName.getSuffix());
                 if (withQuery.isPresent()) {
@@ -2427,7 +2458,8 @@ class StatementAnalyzer
             }
 
             QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName(), plannerContext);
-            Resolver resolver = plannerContext.getResolver(session, name.catalogName());
+            Resolver resolver = plannerContext.getResolverManager().getResolver(session, name.catalogName());
+            // System.out.println("StatementAnalyzer.visitTable() 2 table: " + name + " - resolver: " + resolver.getCanonicalizerKind().name());
 
             // FIXME: Need to canonicalize table.getName() to have testDuplicateOutputsInAnchorAndStepRelation() working
             QualifiedName tableName = QualifiedName.of(resolver.getCanonicalizer(), table.getName());
@@ -2442,7 +2474,8 @@ class StatementAnalyzer
                     QualifiedName storageName = getMaterializedViewStorageTableName(materializedViewDefinition)
                             .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Materialized view '%s' is fresh but does not have storage table name", name));
                     QualifiedObjectName storageTableName = createQualifiedObjectName(session, table, storageName, plannerContext);
-                    Resolver materializedViewResolver = plannerContext.getResolver(session, storageTableName.catalogName());
+                    // System.out.println("StatementAnalyzer.visitTable() storageTableName: " + storageTableName);
+                    Resolver materializedViewResolver = plannerContext.getResolverManager().getResolver(session, storageTableName.catalogName());
                     checkStorageTableNotRedirected(storageTableName);
                     TableHandle tableHandle = metadata.getTableHandle(session, storageTableName)
                             .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Storage table '%s' does not exist", storageTableName));
@@ -2523,6 +2556,7 @@ class StatementAnalyzer
                 analysis.setRowIdField(table, reference);
             }
 
+            // System.out.println("StatementAnalyzer.visitTable() 3 tableScope: " + getScopeInfo(Optional.of(tableScope)));
             return tableScope;
         }
 
@@ -2966,7 +3000,10 @@ class StatementAnalyzer
             }
 
             // analyze pattern recognition clauses
+            Resolver resolver = plannerContext.getResolverManager().getQueryResolver(session, Optional.of(inputScope));
+            // System.out.println("StatementAnalyzer.visitPatternRecognitionRelation() resolver: " + resolver.getCanonicalizerKind().name());
             PatternRecognitionAnalysis patternRecognitionAnalysis = PatternRecognitionAnalyzer.analyze(
+                    resolver,
                     relation.getSubsets(),
                     relation.getVariableDefinitions(),
                     relation.getMeasures(),
@@ -2975,14 +3012,14 @@ class StatementAnalyzer
 
             relation.getAfterMatchSkipTo()
                     .flatMap(SkipTo::getIdentifier)
-                    .ifPresent(label -> analysis.addResolvedLabel(label, label.getCanonicalValue()));
+                    .ifPresent(label -> analysis.addResolvedLabel(label, resolver.canonicalize(label)));
 
             for (SubsetDefinition subset : relation.getSubsets()) {
-                analysis.addResolvedLabel(subset.getName(), subset.getName().getCanonicalValue());
+                analysis.addResolvedLabel(subset.getName(), resolver.canonicalize(subset.getName()));
                 analysis.addSubsetLabels(
                         subset,
                         subset.getIdentifiers().stream()
-                                .map(Identifier::getCanonicalValue)
+                                .map(identifier -> resolver.canonicalize(identifier))
                                 .collect(Collectors.toSet()));
             }
 
@@ -3006,7 +3043,7 @@ class StatementAnalyzer
                 Expression expression = variableDefinition.getExpression();
                 ExpressionAnalysis expressionAnalysis = analyzePatternRecognitionExpression(expression, inputScope, patternRecognitionAnalysis.allLabels());
                 analysis.recordSubqueries(relation, expressionAnalysis);
-                analysis.addResolvedLabel(variableDefinition.getName(), variableDefinition.getName().getCanonicalValue());
+                analysis.addResolvedLabel(variableDefinition.getName(), resolver.canonicalize(variableDefinition.getName()));
                 Type type = expressionAnalysis.getType(expression);
                 if (!type.equals(BOOLEAN)) {
                     throw semanticException(TYPE_MISMATCH, expression, "Expression defining a label must be boolean (actual type: %s)", type);
@@ -3017,7 +3054,7 @@ class StatementAnalyzer
                 Expression expression = measureDefinition.getExpression();
                 ExpressionAnalysis expressionAnalysis = analyzePatternRecognitionExpression(expression, inputScope, patternRecognitionAnalysis.allLabels());
                 analysis.recordSubqueries(relation, expressionAnalysis);
-                analysis.addResolvedLabel(measureDefinition.getName(), measureDefinition.getName().getCanonicalValue());
+                analysis.addResolvedLabel(measureDefinition.getName(), resolver.canonicalize(measureDefinition.getName()));
                 measureTypesBuilder.put(NodeRef.of(expression), expressionAnalysis.getType(expression));
             }
             Map<NodeRef<Node>, Type> measureTypes = measureTypesBuilder.buildOrThrow();
@@ -3072,10 +3109,12 @@ class StatementAnalyzer
             QualifiedName qualifiedName;
             if (expression instanceof Identifier identifier) {
                 qualifiedName = QualifiedName.of(identifier);
+                // System.out.println("StatementAnalyzer.validateAndGetInputField() 1 qualifiedName: " + qualifiedName);
             }
             else if (expression instanceof DereferenceExpression dereferenceExpression) {
                 // TODO: patch QualifiedName
                 qualifiedName = getQualifiedName(dereferenceExpression);
+                // System.out.println("StatementAnalyzer.validateAndGetInputField() 2 qualifiedName: " + qualifiedName);
             }
             else {
                 throw semanticException(INVALID_COLUMN_REFERENCE, expression, "Expected column reference. Actual: %s", expression);
@@ -3128,13 +3167,13 @@ class StatementAnalyzer
             // FIXME: AliasedRelation are now canonicalized
             analysis.addAliased(relation.getRelation());
             Scope relationScope = process(relation.getRelation(), scope);
-            Resolver resolver = plannerContext.getQueryResolver(session, Optional.of(relationScope));
+            Resolver resolver = plannerContext.getResolverManager().getQueryResolver(session, Optional.of(relationScope));
             analysis.setRelationName(relation, QualifiedName.of(resolver.getCanonicalizer(), relation.getAlias()));
             RelationType relationType = relationScope.getRelationType();
 
             // special-handle table function invocation
             if (relation.getRelation() instanceof TableFunctionInvocation function) {
-                return createAndAssignScope(relationScope.getResolver(), relation, scope, aliasTableFunctionInvocation(relation, relationType, function));
+                return createAndAssignScope(relationScope.getResolver(), relation, scope, aliasTableFunctionInvocation(resolver, relation, relationType, function));
             }
 
             // todo this check should be inside of TupleDescriptor.withAlias, but the exception needs the node object
@@ -3170,17 +3209,26 @@ class StatementAnalyzer
         }
 
         // As described by the SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409
-        private RelationType aliasTableFunctionInvocation(AliasedRelation relation, RelationType relationType, TableFunctionInvocation function)
+        private RelationType aliasTableFunctionInvocation(Resolver resolver, AliasedRelation relation, RelationType relationType, TableFunctionInvocation function)
         {
+            // System.out.println("StatementAnalyzer.aliasTableFunctionInvocation() 1 relation alias: " + relation.getAlias());
             TableFunctionInvocationAnalysis tableFunctionAnalysis = analysis.getTableFunctionAnalysis(function);
             int properColumnsCount = tableFunctionAnalysis.getProperColumnsCount();
+
+            List<String> qualifiedNames = tableFunctionAnalysis.getTableArgumentAnalyses().stream()
+                    .map(TableArgumentAnalysis::getName)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .map(QualifiedName::toString)
+                    .toList();
+            // System.out.println("StatementAnalyzer.aliasTableFunctionInvocation() 2 names: " + String.join(", ", qualifiedNames));
 
             // check that relation alias is different from range variables of all table arguments
             tableFunctionAnalysis.getTableArgumentAnalyses().stream()
                     .map(TableArgumentAnalysis::getName)
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    .filter(name -> name.hasSuffix(QualifiedName.of(relation.getAlias())))
+                    .filter(name -> name.hasSuffix(QualifiedName.of(resolver.getCanonicalizer(), relation.getAlias())))
                     .findFirst()
                     .ifPresent(name -> {
                         throw semanticException(DUPLICATE_RANGE_VARIABLE, relation.getAlias(), "Relation alias: %s is a duplicate of input table name: %s", relation.getAlias(), name);
@@ -3200,8 +3248,8 @@ class StatementAnalyzer
                     Field field = relationType.getFieldByIndex(i);
                     Identifier column = relation.getColumnNames().get(i);
                     fieldsBuilder.add(Field.newQualified(
-                            QualifiedName.of(field.getResolver().map(Resolver::getCanonicalizer), relation.getAlias()),
-                            Optional.of(field.canonicalize(column)), // although the canonical name is recorded, fields are resolved case-insensitive
+                            QualifiedName.of(resolver.getCanonicalizer(), relation.getAlias()),
+                            Optional.of(resolver.canonicalize(column)), // although the canonical name is recorded, fields are resolved case-insensitive
                             field.getType(),
                             field.isHidden(),
                             field.getResolver(),
@@ -3215,7 +3263,7 @@ class StatementAnalyzer
                 for (int i = 0; i < properColumnsCount; i++) {
                     Field field = relationType.getFieldByIndex(i);
                     fieldsBuilder.add(Field.newQualified(
-                            QualifiedName.of(relation.getAlias()),
+                            QualifiedName.of(resolver.getCanonicalizer(), relation.getAlias()),
                             field.getName(),
                             field.getType(),
                             field.isHidden(),
@@ -3687,7 +3735,7 @@ class StatementAnalyzer
         {
             Table table = update.getTable();
             QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName(), plannerContext);
-            Resolver resolver = plannerContext.getResolver(session, originalName.catalogName());
+            Resolver resolver = plannerContext.getResolverManager().getResolver(session, originalName.catalogName());
             plannerContext.getResolverManager().setQueryResolver(session, resolver);
 
             if (metadata.isMaterializedView(session, originalName)) {
@@ -3844,7 +3892,7 @@ class StatementAnalyzer
             Relation relation = merge.getTarget();
             Table table = getMergeTargetTable(relation);
             QualifiedObjectName originalTableName = createQualifiedObjectName(session, table, table.getName(), plannerContext);
-            Resolver resolver = plannerContext.getResolver(session, originalTableName.catalogName());
+            Resolver resolver = plannerContext.getResolverManager().getResolver(session, originalTableName.catalogName());
 
             if (metadata.isMaterializedView(session, originalTableName)) {
                 throw semanticException(NOT_SUPPORTED, merge, "Merging into materialized views is not supported");
@@ -4392,7 +4440,7 @@ class StatementAnalyzer
             }
 
             // FIXME: In order to be correctly resolved, the Field must hold the correct canonicalizer
-            Optional<Resolver> resolver = Optional.of(plannerContext.getQueryResolver(session, scope));
+            Optional<Resolver> resolver = Optional.of(plannerContext.getResolverManager().getQueryResolver(session, scope));
             List<Field> fields = commonSuperType.getFields().stream()
                     .map(field -> Field.newUnqualified(field.getName(), field.getType(), resolver))
                     .collect(toImmutableList());
@@ -4402,7 +4450,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitJsonTable(JsonTable node, Optional<Scope> scope)
         {
-            Scope enclosingScope = createScope(scope);
+            Scope enclosingScope = createScope(scope, scope.flatMap(Scope::getResolver));
 
             // analyze the context item, the root JSON path, and the path parameters
             RowType parametersType = analyzeJsonPathInvocation(node, enclosingScope);
@@ -4414,17 +4462,18 @@ class StatementAnalyzer
             // all column and path names must be unique
             Set<String> uniqueNames = new HashSet<>();
             JsonPathInvocation rootPath = node.getJsonPathInvocation();
-            rootPath.getPathName().ifPresent(name -> uniqueNames.add(name.getCanonicalValue()));
+            Resolver resolver = plannerContext.getResolverManager().getQueryResolver(session, scope);
+            rootPath.getPathName().ifPresent(name -> uniqueNames.add(resolver.canonicalize(name)));
 
             ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
             ImmutableList.Builder<NodeRef<JsonTableColumnDefinition>> orderedOutputColumns = ImmutableList.builder();
-            analyzeJsonTableColumns(node.getColumns(), uniqueNames, outputFields, orderedOutputColumns, enclosingScope, node);
+            analyzeJsonTableColumns(resolver, node.getColumns(), uniqueNames, outputFields, orderedOutputColumns, enclosingScope, node);
 
             analysis.addJsonTableAnalysis(node, new JsonTableAnalysis(catalogHandle, transactionHandle, parametersType, orderedOutputColumns.build()));
 
             node.getPlan().ifPresent(plan -> {
                 if (plan instanceof JsonTableSpecificPlan specificPlan) {
-                    validateJsonTableSpecificPlan(rootPath, specificPlan, node.getColumns());
+                    validateJsonTableSpecificPlan(resolver, rootPath, specificPlan, node.getColumns());
                 }
                 else {
                     // if PLAN DEFAULT is specified, all nested paths should be named
@@ -4458,6 +4507,7 @@ class StatementAnalyzer
         }
 
         private void analyzeJsonTableColumns(
+                Resolver resolver,
                 List<JsonTableColumnDefinition> columns,
                 Set<String> uniqueNames,
                 ImmutableList.Builder<Field> outputFields,
@@ -4468,7 +4518,7 @@ class StatementAnalyzer
             for (JsonTableColumnDefinition column : columns) {
                 switch (column) {
                     case OrdinalityColumn ordinalityColumn -> {
-                        String name = ordinalityColumn.getName().getCanonicalValue();
+                        String name = resolver.canonicalize(ordinalityColumn.getName());
                         if (!uniqueNames.add(name)) {
                             throw semanticException(DUPLICATE_COLUMN_OR_PATH_NAME, ordinalityColumn.getName(), "All column and path names in JSON_TABLE invocation must be unique");
                         }
@@ -4476,7 +4526,7 @@ class StatementAnalyzer
                         orderedOutputColumns.add(NodeRef.of(ordinalityColumn));
                     }
                     case ValueColumn valueColumn -> {
-                        String name = valueColumn.getName().getCanonicalValue();
+                        String name = resolver.canonicalize(valueColumn.getName());
                         if (!uniqueNames.add(name)) {
                             throw semanticException(DUPLICATE_COLUMN_OR_PATH_NAME, valueColumn.getName(), "All column and path names in JSON_TABLE invocation must be unique");
                         }
@@ -4502,7 +4552,7 @@ class StatementAnalyzer
                         orderedOutputColumns.add(NodeRef.of(valueColumn));
                     }
                     case QueryColumn queryColumn -> {
-                        String name = queryColumn.getName().getCanonicalValue();
+                        String name = resolver.canonicalize(queryColumn.getName());
                         if (!uniqueNames.add(name)) {
                             throw semanticException(DUPLICATE_COLUMN_OR_PATH_NAME, queryColumn.getName(), "All column and path names in JSON_TABLE invocation must be unique");
                         }
@@ -4516,13 +4566,13 @@ class StatementAnalyzer
                     }
                     case NestedColumns nestedColumns -> {
                         nestedColumns.getPathName().ifPresent(name -> {
-                            if (!uniqueNames.add(name.getCanonicalValue())) {
+                            if (!uniqueNames.add(resolver.canonicalize(name))) {
                                 throw semanticException(DUPLICATE_COLUMN_OR_PATH_NAME, name, "All column and path names in JSON_TABLE invocation must be unique");
                             }
                         });
                         JsonPathAnalysis pathAnalysis = analyzeJsonPath(nestedColumns.getJsonPath());
                         analysis.setJsonPathAnalysis(nestedColumns, pathAnalysis);
-                        analyzeJsonTableColumns(nestedColumns.getColumns(), uniqueNames, outputFields, orderedOutputColumns, enclosingScope, jsonTable);
+                        analyzeJsonTableColumns(resolver, nestedColumns.getColumns(), uniqueNames, outputFields, orderedOutputColumns, enclosingScope, jsonTable);
                     }
                     default -> throw new IllegalArgumentException("unexpected type of JSON_TABLE column: " + column.getClass().getSimpleName());
                 }
@@ -4551,25 +4601,25 @@ class StatementAnalyzer
                     .analyzeImplicitJsonPath(path, columnLocation.orElseThrow(() -> new IllegalStateException("missing NodeLocation for JSON_TABLE column")));
         }
 
-        private void validateJsonTableSpecificPlan(JsonPathInvocation rootPath, JsonTableSpecificPlan rootPlan, List<JsonTableColumnDefinition> rootColumns)
+        private void validateJsonTableSpecificPlan(Resolver resolver, JsonPathInvocation rootPath, JsonTableSpecificPlan rootPlan, List<JsonTableColumnDefinition> rootColumns)
         {
-            String rootPathName = rootPath.getPathName()
-                    .orElseThrow(() -> semanticException(MISSING_PATH_NAME, rootPath, "All JSON paths must be named when specific plan is given"))
-                    .getCanonicalValue();
+            Identifier rootPathIdentifier = rootPath.getPathName()
+                    .orElseThrow(() -> semanticException(MISSING_PATH_NAME, rootPath, "All JSON paths must be named when specific plan is given"));
+            String rootPathName = resolver.canonicalize(rootPathIdentifier);
             String rootPlanName;
             if (rootPlan instanceof PlanLeaf planLeaf) {
-                rootPlanName = planLeaf.getName().getCanonicalValue();
+                rootPlanName = resolver.canonicalize(planLeaf.getName());
             }
             else if (rootPlan instanceof PlanParentChild planParentChild) {
-                rootPlanName = planParentChild.getParent().getName().getCanonicalValue();
+                rootPlanName = resolver.canonicalize(planParentChild.getParent().getName());
             }
             else {
                 throw semanticException(INVALID_PLAN, rootPlan, "JSON_TABLE plan must either be a single path name or it must be rooted in parent-child relationship (OUTER or INNER)");
             }
-            validateJsonTablePlan(ImmutableMap.of(rootPathName, rootColumns), ImmutableMap.of(rootPlanName, rootPlan), rootPlan);
+            validateJsonTablePlan(resolver, ImmutableMap.of(rootPathName, rootColumns), ImmutableMap.of(rootPlanName, rootPlan), rootPlan);
         }
 
-        private void validateJsonTablePlan(Map<String, List<JsonTableColumnDefinition>> actualNodes, Map<String, JsonTableSpecificPlan> planNodes, JsonTableSpecificPlan rootPlan)
+        private void validateJsonTablePlan(Resolver resolver, Map<String, List<JsonTableColumnDefinition>> actualNodes, Map<String, JsonTableSpecificPlan> planNodes, JsonTableSpecificPlan rootPlan)
         {
             Set<String> unhandledActualNodes = Sets.difference(actualNodes.keySet(), planNodes.keySet());
             if (!unhandledActualNodes.isEmpty()) {
@@ -4588,9 +4638,8 @@ class StatementAnalyzer
                         .filter(NestedColumns.class::isInstance)
                         .map(NestedColumns.class::cast)
                         .collect(toImmutableMap(
-                                child -> child.getPathName()
-                                        .orElseThrow(() -> semanticException(MISSING_PATH_NAME, child.getJsonPath(), "All JSON paths must be named when specific plan is given"))
-                                        .getCanonicalValue(),
+                                child -> resolver.canonicalize(child.getPathName()
+                                        .orElseThrow(() -> semanticException(MISSING_PATH_NAME, child.getJsonPath(), "All JSON paths must be named when specific plan is given"))),
                                 NestedColumns::getColumns));
 
                 Map<String, JsonTableSpecificPlan> planChildren;
@@ -4599,31 +4648,31 @@ class StatementAnalyzer
                 }
                 else if (plan instanceof PlanParentChild planParentChild) {
                     planChildren = new HashMap<>();
-                    getPlanSiblings(planParentChild.getChild(), planChildren);
+                    getPlanSiblings(resolver, planParentChild.getChild(), planChildren);
                 }
                 else {
                     throw new IllegalStateException("unexpected JSON_TABLE plan node: " + plan.getClass().getSimpleName());
                 }
 
-                validateJsonTablePlan(actualChildren, planChildren, rootPlan);
+                validateJsonTablePlan(resolver, actualChildren, planChildren, rootPlan);
             });
         }
 
-        private void getPlanSiblings(JsonTableSpecificPlan plan, Map<String, JsonTableSpecificPlan> plansByName)
+        private void getPlanSiblings(Resolver resolver, JsonTableSpecificPlan plan, Map<String, JsonTableSpecificPlan> plansByName)
         {
             if (plan instanceof PlanLeaf planLeaf) {
-                if (plansByName.put(planLeaf.getName().getCanonicalValue(), planLeaf) != null) {
-                    throw semanticException(INVALID_PLAN, planLeaf, "Duplicate reference to JSON path name in sibling plan: %s", planLeaf.getName().getCanonicalValue());
+                if (plansByName.put(resolver.canonicalize(planLeaf.getName()), planLeaf) != null) {
+                    throw semanticException(INVALID_PLAN, planLeaf, "Duplicate reference to JSON path name in sibling plan: %s", resolver.canonicalize(planLeaf.getName()));
                 }
             }
             else if (plan instanceof PlanParentChild planParentChild) {
-                if (plansByName.put(planParentChild.getParent().getName().getCanonicalValue(), planParentChild) != null) {
-                    throw semanticException(INVALID_PLAN, planParentChild.getParent(), "Duplicate reference to JSON path name in sibling plan: %s", planParentChild.getParent().getName().getCanonicalValue());
+                if (plansByName.put(resolver.canonicalize(planParentChild.getParent().getName()), planParentChild) != null) {
+                    throw semanticException(INVALID_PLAN, planParentChild.getParent(), "Duplicate reference to JSON path name in sibling plan: %s", resolver.canonicalize(planParentChild.getParent().getName()));
                 }
             }
             else if (plan instanceof PlanSiblings planSiblings) {
                 for (JsonTableSpecificPlan sibling : planSiblings.getSiblings()) {
-                    getPlanSiblings(sibling, plansByName);
+                    getPlanSiblings(resolver, sibling, plansByName);
                 }
             }
         }
@@ -5038,7 +5087,7 @@ class StatementAnalyzer
         {
             ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
 
-            Resolver resolver = plannerContext.getQueryResolver(session, Optional.of(sourceScope));
+            Resolver resolver = plannerContext.getResolverManager().getQueryResolver(session, Optional.of(sourceScope));
             for (SelectItem item : node.getSelect().getSelectItems()) {
                 if (item instanceof AllColumns allColumns) {
                     List<Field> fields = analysis.getSelectAllResultFields(allColumns);
@@ -5150,7 +5199,7 @@ class StatementAnalyzer
                 ImmutableList.Builder<SelectExpression> selectExpressionBuilder)
         {
             // expand * and expression.*
-            Resolver resolver = plannerContext.getQueryResolver(session, Optional.of(scope));
+            Resolver resolver = plannerContext.getResolverManager().getQueryResolver(session, Optional.of(scope));
             if (allColumns.getTarget().isPresent()) {
                 // analyze AllColumns with target expression (expression.*)
                 Expression expression = allColumns.getTarget().get();
@@ -6347,6 +6396,11 @@ class StatementAnalyzer
         private Scope createScope(Optional<Scope> parentScope)
         {
             return scopeBuilder(parentScope, Optional.empty()).build();
+        }
+
+        private Scope createScope(Optional<Scope> parentScope, Optional<Resolver> resolver)
+        {
+            return scopeBuilder(parentScope, resolver).build();
         }
 
         private Scope.Builder scopeBuilder(Optional<Scope> parentScope)

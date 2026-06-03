@@ -85,6 +85,17 @@ public class QualifiedName
         return of(Lists.asList(first, rest).stream().map(Identifier::new).collect(toImmutableList()));
     }
 
+    public static QualifiedName ofDelimited(String name)
+    {
+        requireNonNull(name, "name is null");
+        return of(ImmutableList.of(new Identifier(name, true)));
+    }
+
+    public static QualifiedName ofDelimited(String first, String... rest)
+    {
+        return of(true, first, rest);
+    }
+
     public static QualifiedName of(String name)
     {
         requireNonNull(name, "name is null");

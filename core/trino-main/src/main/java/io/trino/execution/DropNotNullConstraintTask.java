@@ -69,7 +69,7 @@ public class DropNotNullConstraintTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable(), plannerContext);
-        Resolver resolver = plannerContext.getResolver(session, tableName.catalogName());
+        Resolver resolver = plannerContext.getResolverManager().getResolver(session, tableName.catalogName());
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             String exceptionMessage = "Table '%s' does not exist".formatted(tableName);

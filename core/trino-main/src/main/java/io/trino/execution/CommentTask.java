@@ -167,7 +167,7 @@ public class CommentTask
             TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
 
             Identifier identifier = statement.getName().getOriginalParts().getLast();
-            Resolver resolver = plannerContext.getResolver(session, originalObjectName.catalogName());
+            Resolver resolver = plannerContext.getResolverManager().getResolver(session, originalObjectName.catalogName());
             String columnName = resolver.canonicalize(identifier);
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
             if (!columnHandles.containsKey(columnName)) {

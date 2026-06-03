@@ -16,7 +16,6 @@ package io.trino.sql;
 import com.google.common.base.Suppliers;
 import com.google.inject.Inject;
 import io.opentelemetry.api.trace.Tracer;
-import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.FunctionResolver;
@@ -26,12 +25,11 @@ import io.trino.metadata.ResolverManager;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.analyzer.Scope;
 import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.tree.Resolver;
 
-import java.util.Optional;
+import java.util.Map;
 import java.util.function.Supplier;
 
 import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
@@ -78,7 +76,7 @@ public class PlannerContext
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.languageFunctionManager = requireNonNull(languageFunctionManager, "languageFunctionManager is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
-        this.resolverManager = new ResolverManager();
+        this.resolverManager = new ResolverManager(metadata::getResolver);
     }
 
     public Metadata getMetadata()
@@ -139,19 +137,6 @@ public class PlannerContext
     public Tracer getTracer()
     {
         return tracer;
-    }
-
-    public Resolver getResolver(Session session, String catalog)
-    {
-        return resolverManager.getResolver(session, catalog, metadata::getResolver);
-    }
-
-    public Resolver getQueryResolver(Session session, Optional<Scope> scope)
-    {
-        if (scope.isPresent() && scope.get().getResolver().isPresent()) {
-            return scope.get().getResolver().get();
-        }
-        return resolverManager.getQueryResolver(session.getQueryId().id()).orElse(resolverManager.getDefaultResolver());
     }
 
     public ResolverManager getResolverManager()

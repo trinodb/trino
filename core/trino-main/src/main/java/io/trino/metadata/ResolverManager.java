@@ -14,6 +14,7 @@
 package io.trino.metadata;
 
 import io.trino.Session;
+import io.trino.sql.analyzer.Scope;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Resolver;
 
@@ -23,27 +24,53 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class ResolverManager
 {
-    private final Resolver DEFAULT_RESOLVER = new Resolver(
-            "DEFAULT_RESOLVER",
-            (value, delimited) -> delimited ? value : value.toUpperCase(ENGLISH),
-            (value, _) -> value,
-            value -> !Identifier.isValidIdentifier(value));
+    public static BiFunction<String, Boolean, String> getIdentityCanonicalizer()
+    {
+        return (value, _) -> value;
+    }
 
-    private final Resolver WITH_RESOLVER = new Resolver(
-            "WITH_RESOLVER",
-            (value, delimited) -> delimited ? value : value.toUpperCase(ENGLISH),
-            (value, _) -> value,
-            value -> !Identifier.isValidIdentifier(value));
+    public static BiFunction<String, Boolean, String> getLowerCaseCanonicalizer()
+    {
+        return (value, delimited) -> delimited ? value : value.toLowerCase(ENGLISH);
+    }
+
+    public static BiFunction<String, Boolean, String> getUpperCaseCanonicalizer()
+    {
+        return (value, delimited) -> delimited ? value : value.toUpperCase(ENGLISH);
+    }
+
+    public static Resolver getResolver(String catalog, BiFunction<String, Boolean, String> canonicalizer)
+    {
+        return new Resolver(
+                catalog,
+                canonicalizer,
+                (value, _) -> value,
+                value -> !Identifier.isValidIdentifier(value));
+    }
+
+    private final Resolver DEFAULT_RESOLVER = getResolver("DEFAULT_RESOLVER", getUpperCaseCanonicalizer());
+    private final Resolver WITH_RESOLVER = getResolver("WITH_RESOLVER", getUpperCaseCanonicalizer());
+    private final Resolver PARTITION_RESOLVER = getResolver("PARTITION_RESOLVER", getIdentityCanonicalizer());
 
     private final Map<String, Resolver> resolvers = new ConcurrentHashMap<>();
     private final Map<String, String> queries = new ConcurrentHashMap<>();
+    private final BiFunction<Session, String, Resolver> factory;
 
-    public ResolverManager() {}
+    public ResolverManager(BiFunction<Session, String, Resolver> factory)
+    {
+        this.factory = requireNonNull(factory, "factory is null");
+    }
 
-    public Resolver getResolver(Session session, String catalog, BiFunction<Session, String, Resolver> factory)
+    public void setResolver(String catalog, BiFunction<String, Boolean, String> canonicalizer)
+    {
+        this.resolvers.put(catalog, getResolver(catalog, canonicalizer));
+    }
+
+    public Resolver getResolver(Session session, String catalog)
     {
         if (!hasResolver(catalog)) {
             resolvers.put(catalog, factory.apply(session, catalog));
@@ -59,12 +86,17 @@ public class ResolverManager
         queries.put(session.getQueryId().id(), resolver.getCatalog());
     }
 
-    public Optional<Resolver> getQueryResolver(String queryId)
+    public Resolver getQueryResolver(Session session, Optional<Scope> scope)
     {
-        if (queries.containsKey(queryId) && hasResolver(queries.get(queryId))) {
-            return Optional.of(resolvers.get(queries.get(queryId)));
+        if (scope.isPresent() && scope.get().getResolver().isPresent()) {
+            return scope.get().getResolver().get();
         }
-        return Optional.empty();
+        return getQueryResolver(session.getQueryId().id());
+    }
+
+    public Resolver getPartitionResolver()
+    {
+        return PARTITION_RESOLVER;
     }
 
     public Resolver getWithResolver()
@@ -72,8 +104,11 @@ public class ResolverManager
         return WITH_RESOLVER;
     }
 
-    public Resolver getDefaultResolver()
+    private Resolver getQueryResolver(String queryId)
     {
+        if (queries.containsKey(queryId) && hasResolver(queries.get(queryId))) {
+            return resolvers.get(queries.get(queryId));
+        }
         return DEFAULT_RESOLVER;
     }
 

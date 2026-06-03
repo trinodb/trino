@@ -90,7 +90,7 @@ public class RenameColumnTask
         }
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
 
-        Resolver resolver = plannerContext.getResolver(session, originalTableName.catalogName());
+        Resolver resolver = plannerContext.getResolverManager().getResolver(session, originalTableName.catalogName());
         String source = resolver.canonicalize(statement.getSource().getOriginalParts().getFirst());
         String target = resolver.canonicalize(statement.getTarget());
 

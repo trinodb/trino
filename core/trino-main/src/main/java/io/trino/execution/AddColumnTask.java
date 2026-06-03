@@ -100,7 +100,7 @@ public class AddColumnTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getName(), plannerContext);
-        Resolver resolver = plannerContext.getResolver(session, originalTableName.catalogName());
+        Resolver resolver = plannerContext.getResolverManager().getResolver(session, originalTableName.catalogName());
 
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
         RedirectionAwareTableHandle redirectionAwareTableHandle = plannerContext.getMetadata().getRedirectionAwareTableHandle(session, originalTableName);
