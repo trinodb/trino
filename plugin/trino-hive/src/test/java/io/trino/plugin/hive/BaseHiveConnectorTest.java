@@ -8520,15 +8520,12 @@ public abstract class BaseHiveConnectorTest
     @Override
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
     {
-        switch (columnName) {
-            case " aleadingspace":
-                return "Hive column names must not start with a space: ' aleadingspace'".equals(exception.getMessage());
-            case "atrailingspace ":
-                return "Hive column names must not end with a space: 'atrailingspace '".equals(exception.getMessage());
-            case "a,comma":
-                return "Hive column names must not contain commas: 'a,comma'".equals(exception.getMessage());
-        }
-        return false;
+        return switch (columnName) {
+            case " aleadingspace" -> "Hive column names must not start with a space: ' aleadingspace'".equals(exception.getMessage());
+            case "atrailingspace " -> "Hive column names must not end with a space: 'atrailingspace '".equals(exception.getMessage());
+            case "a,comma" -> "Hive column names must not contain commas: 'a,comma'".equals(exception.getMessage());
+            default -> false;
+        };
     }
 
     private void testColumnPruning(Session session, HiveStorageFormat storageFormat)
