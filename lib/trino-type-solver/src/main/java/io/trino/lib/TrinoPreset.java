@@ -430,6 +430,18 @@ public final class TrinoPreset
                 new PatternCoercion(apply("decimal", variable("@p"), variable("@s")), symbol("integer"), List.of()),
                 new PatternCoercion(apply("decimal", variable("@p"), variable("@s")), symbol("bigint"), List.of()),
 
+                // Remaining scalar casts Trino supports.
+                new PrimitiveTypeCoercion("real", "tinyint"),
+                new PrimitiveTypeCoercion("real", "smallint"),
+                new PrimitiveTypeCoercion("double", "tinyint"),
+                new PrimitiveTypeCoercion("double", "smallint"),
+                new PrimitiveTypeCoercion("varbinary", "uuid"),
+                new PrimitiveTypeCoercion("uuid", "varbinary"),
+                new PrimitiveTypeCoercion("varbinary", "ipaddress"),
+                new PrimitiveTypeCoercion("ipaddress", "varbinary"),
+                new PrimitiveTypeCoercion("date", "json"),
+                new PrimitiveTypeCoercion("json", "number"),
+                new PatternCoercion(apply("timestamp", variable("@p")), symbol("json"), List.of()),
                 // Number casts: cast-only directions (implicit directions are in coercionRules).
                 new PrimitiveTypeCoercion("real", "number"),
                 new PrimitiveTypeCoercion("double", "number"),

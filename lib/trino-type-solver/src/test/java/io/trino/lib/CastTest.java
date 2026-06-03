@@ -98,8 +98,8 @@ public class CastTest
     @Test
     void testArrayOfNonCastableElementsRejectsJsonCast()
     {
-        // array(date) -> json: date has no cast to json → compositional constraint fails.
-        assertThat(LIBRARY.resolveCast(apply("array", symbol("date")), symbol("json"))).isEmpty();
+        // array(uuid) -> json: uuid has no cast to json → compositional constraint fails.
+        assertThat(LIBRARY.resolveCast(apply("array", symbol("uuid")), symbol("json"))).isEmpty();
     }
 
     @Test
@@ -228,6 +228,16 @@ public class CastTest
         // Trino has no char->decimal / char->time / char->uuid casts.
         assertThat(LIBRARY.resolveCast(apply("char", literal(3)), apply("decimal", literal(10), literal(2)))).isEmpty();
         assertThat(LIBRARY.resolveCast(apply("char", literal(3)), symbol("uuid"))).isEmpty();
+    }
+
+    @Test
+    void testRemainingScalarCasts()
+    {
+        assertThat(LIBRARY.resolveCast(symbol("real"), symbol("tinyint"))).isPresent();
+        assertThat(LIBRARY.resolveCast(symbol("varbinary"), symbol("uuid"))).isPresent();
+        assertThat(LIBRARY.resolveCast(symbol("ipaddress"), symbol("varbinary"))).isPresent();
+        assertThat(LIBRARY.resolveCast(apply("timestamp", literal(3)), symbol("json"))).isPresent();
+        assertThat(LIBRARY.resolveCast(symbol("json"), symbol("number"))).isPresent();
     }
 
     @Test
