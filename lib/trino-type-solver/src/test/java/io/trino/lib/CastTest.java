@@ -220,6 +220,17 @@ public class CastTest
     }
 
     @Test
+    void testCharCasts()
+    {
+        assertThat(LIBRARY.resolveCast(apply("char", literal(3)), symbol("integer"))).isPresent();
+        assertThat(LIBRARY.resolveCast(apply("char", literal(3)), apply("timestamp", literal(3)))).isPresent();
+        assertThat(LIBRARY.resolveCast(apply("char", literal(3)), apply("char", literal(1)))).isPresent();
+        // Trino has no char->decimal / char->time / char->uuid casts.
+        assertThat(LIBRARY.resolveCast(apply("char", literal(3)), apply("decimal", literal(10), literal(2)))).isEmpty();
+        assertThat(LIBRARY.resolveCast(apply("char", literal(3)), symbol("uuid"))).isEmpty();
+    }
+
+    @Test
     void testNumberCasts()
     {
         // boolean -> number and number -> json are cast-only conversions Trino allows.

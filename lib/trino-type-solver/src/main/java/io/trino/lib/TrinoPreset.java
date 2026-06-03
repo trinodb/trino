@@ -306,6 +306,20 @@ public final class TrinoPreset
                         apply("varchar", variable("@n2")),
                         List.of()),
                 new PatternCoercion(apply("char", variable("@n")), symbol("varchar"), List.of()),
+                // char parse casts (char is trimmed then parsed). Trino supports these targets but
+                // not char->decimal/time/uuid/ipaddress, so those are intentionally omitted.
+                new PatternCoercion(apply("char", variable("@n")), symbol("tinyint"), List.of()),
+                new PatternCoercion(apply("char", variable("@n")), symbol("smallint"), List.of()),
+                new PatternCoercion(apply("char", variable("@n")), symbol("integer"), List.of()),
+                new PatternCoercion(apply("char", variable("@n")), symbol("bigint"), List.of()),
+                new PatternCoercion(apply("char", variable("@n")), symbol("real"), List.of()),
+                new PatternCoercion(apply("char", variable("@n")), symbol("double"), List.of()),
+                new PatternCoercion(apply("char", variable("@n")), symbol("number"), List.of()),
+                new PatternCoercion(apply("char", variable("@n")), symbol("varbinary"), List.of()),
+                new PatternCoercion(apply("char", variable("@n")), symbol("date"), List.of()),
+                new PatternCoercion(apply("char", variable("@n1")), apply("timestamp", variable("@p")), List.of()),
+                new PatternCoercion(apply("char", variable("@n1")), apply("timestamp_with_time_zone", variable("@p")), List.of()),
+                new PatternCoercion(apply("char", variable("@n1")), apply("char", variable("@n2")), List.of()),
 
                 // JSON conversions. Scalar types ↔ JSON are direct casts.
                 new PrimitiveTypeCoercion("boolean", "json"),
