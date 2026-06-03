@@ -41,6 +41,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -450,7 +451,7 @@ public class EquatableValueSet
 
         public static ValueEntry create(Type type, Object value)
         {
-            return new ValueEntry(type, Utils.nativeValueToBlock(type, value));
+            return new ValueEntry(type, writeNativeValue(type, value));
         }
 
         @JsonProperty

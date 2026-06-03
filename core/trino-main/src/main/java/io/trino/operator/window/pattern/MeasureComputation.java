@@ -28,8 +28,8 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.project.SelectedPositions.positionsRange;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.CLASSIFIER;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.MATCH_NUMBER;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -81,10 +81,10 @@ public class MeasureComputation
             PhysicalValueAccessor accessor = expectedLayout.get(i);
             if (accessor instanceof PhysicalValuePointer pointer) {
                 if (pointer.getSourceChannel() == MATCH_NUMBER) {
-                    blocks[i] = nativeValueToBlock(BIGINT, matchNumber);
+                    blocks[i] = writeNativeValue(BIGINT, matchNumber);
                 }
                 else {
-                    blocks[i] = nativeValueToBlock(pointer.getType(), null);
+                    blocks[i] = writeNativeValue(pointer.getType(), null);
                 }
             }
             else {
@@ -125,7 +125,7 @@ public class MeasureComputation
             if (accessor instanceof PhysicalValuePointer pointer) {
                 int channel = pointer.getSourceChannel();
                 if (channel == MATCH_NUMBER) {
-                    blocks[i] = nativeValueToBlock(BIGINT, matchNumber);
+                    blocks[i] = writeNativeValue(BIGINT, matchNumber);
                 }
                 else {
                     int position = pointer.getLogicalIndexNavigation().resolvePosition(currentRow, matchedLabels, searchStart, searchEnd, patternStart);
@@ -134,12 +134,12 @@ public class MeasureComputation
                             Type type = VARCHAR;
                             if (position < patternStart || position >= patternStart + matchedLabels.length()) {
                                 // position out of match. classifier() function returns null.
-                                blocks[i] = nativeValueToBlock(type, null);
+                                blocks[i] = writeNativeValue(type, null);
                             }
                             else {
                                 // position within match. get the assigned label from matchedLabels.
                                 // note: when computing measures, all labels of the match can be accessed (even those exceeding the current running position), both in RUNNING and FINAL semantics
-                                blocks[i] = nativeValueToBlock(type, utf8Slice(labelNames.get(matchedLabels.get(position - patternStart))));
+                                blocks[i] = writeNativeValue(type, utf8Slice(labelNames.get(matchedLabels.get(position - patternStart))));
                             }
                         }
                         else {
@@ -171,7 +171,7 @@ public class MeasureComputation
         for (int i = 0; i < expectedLayout.size(); i++) {
             PhysicalValueAccessor accessor = expectedLayout.get(i);
             if (accessor instanceof PhysicalValuePointer physicalValuePointer) {
-                nulls[i] = nativeValueToBlock(physicalValuePointer.getType(), null);
+                nulls[i] = writeNativeValue(physicalValuePointer.getType(), null);
             }
         }
         return nulls;

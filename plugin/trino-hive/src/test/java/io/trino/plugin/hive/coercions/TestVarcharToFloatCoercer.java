@@ -24,8 +24,8 @@ import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.MAX_VALUE;
@@ -83,7 +83,7 @@ public class TestVarcharToFloatCoercer
     private static void assertVarcharToFloatCoercion(String actualValue, HiveStorageFormat storageFormat, Float expectedValue)
     {
         Block coercedBlock = createCoercer(TESTING_TYPE_MANAGER, toHiveType(createUnboundedVarcharType()), toHiveType(REAL), new CoercionContext(DEFAULT_PRECISION, storageFormat)).orElseThrow()
-                .apply(nativeValueToBlock(createUnboundedVarcharType(), utf8Slice(actualValue)));
+                .apply(writeNativeValue(createUnboundedVarcharType(), utf8Slice(actualValue)));
         Float coercedValue = coercedBlock.isNull(0) ? null : REAL.getFloat(coercedBlock, 0);
         assertThat(coercedValue).isEqualTo(expectedValue);
     }

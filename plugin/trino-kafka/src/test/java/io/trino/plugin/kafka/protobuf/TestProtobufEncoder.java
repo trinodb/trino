@@ -49,7 +49,6 @@ import static io.trino.decoder.protobuf.ProtobufUtils.getProtoFile;
 import static io.trino.plugin.kafka.encoder.KafkaFieldType.MESSAGE;
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
 import static io.trino.spi.block.RowBlock.fromFieldBlocks;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -147,15 +146,15 @@ public class TestProtobufEncoder
                         createEncoderColumnHandle("timestampColumn", createTimestampType(6), "timestampColumn"),
                         createEncoderColumnHandle("bytesColumn", VARBINARY, "bytesColumn")));
 
-        rowEncoder.appendColumnValue(nativeValueToBlock(createVarcharType(5), utf8Slice(stringData)), 0);
-        rowEncoder.appendColumnValue(nativeValueToBlock(INTEGER, integerData.longValue()), 0);
-        rowEncoder.appendColumnValue(nativeValueToBlock(BIGINT, longData), 0);
-        rowEncoder.appendColumnValue(nativeValueToBlock(DOUBLE, doubleData), 0);
-        rowEncoder.appendColumnValue(nativeValueToBlock(REAL, (long) floatToIntBits(floatData)), 0);
-        rowEncoder.appendColumnValue(nativeValueToBlock(BOOLEAN, booleanData), 0);
-        rowEncoder.appendColumnValue(nativeValueToBlock(createVarcharType(4), utf8Slice(enumData)), 0);
-        rowEncoder.appendColumnValue(nativeValueToBlock(createTimestampType(6), sqlTimestamp.getEpochMicros()), 0);
-        rowEncoder.appendColumnValue(nativeValueToBlock(VARBINARY, wrappedBuffer(bytesData)), 0);
+        rowEncoder.appendColumnValue(writeNativeValue(createVarcharType(5), utf8Slice(stringData)), 0);
+        rowEncoder.appendColumnValue(writeNativeValue(INTEGER, integerData.longValue()), 0);
+        rowEncoder.appendColumnValue(writeNativeValue(BIGINT, longData), 0);
+        rowEncoder.appendColumnValue(writeNativeValue(DOUBLE, doubleData), 0);
+        rowEncoder.appendColumnValue(writeNativeValue(REAL, (long) floatToIntBits(floatData)), 0);
+        rowEncoder.appendColumnValue(writeNativeValue(BOOLEAN, booleanData), 0);
+        rowEncoder.appendColumnValue(writeNativeValue(createVarcharType(4), utf8Slice(enumData)), 0);
+        rowEncoder.appendColumnValue(writeNativeValue(createTimestampType(6), sqlTimestamp.getEpochMicros()), 0);
+        rowEncoder.appendColumnValue(writeNativeValue(VARBINARY, wrappedBuffer(bytesData)), 0);
 
         assertThat(messageBuilder.build().toByteArray()).isEqualTo(rowEncoder.toByteArray());
     }
@@ -396,7 +395,7 @@ public class TestProtobufEncoder
         Block mapBlock = mapType.createBlockFromKeyValue(
                 Optional.empty(),
                 new int[] {0, 1},
-                nativeValueToBlock(VARCHAR, utf8Slice("Key")),
+                writeNativeValue(VARCHAR, utf8Slice("Key")),
                 rowBlockBuilder.build());
         mapBlockBuilder.append(mapBlock.getUnderlyingValueBlock(), mapBlock.getUnderlyingValuePosition(0));
 
@@ -492,15 +491,15 @@ public class TestProtobufEncoder
                         createEncoderColumnHandle("timestampColumn", createTimestampType(4), "row/timestamp_column"),
                         createEncoderColumnHandle("bytesColumn", VARBINARY, "row/bytes_column")));
 
-        rowEncoder.appendColumnValue(nativeValueToBlock(createVarcharType(5), utf8Slice(stringData)), 0);
-        rowEncoder.appendColumnValue(nativeValueToBlock(INTEGER, integerData.longValue()), 0);
-        rowEncoder.appendColumnValue(nativeValueToBlock(BIGINT, longData), 0);
-        rowEncoder.appendColumnValue(nativeValueToBlock(DOUBLE, doubleData), 0);
-        rowEncoder.appendColumnValue(nativeValueToBlock(REAL, (long) floatToIntBits(floatData)), 0);
-        rowEncoder.appendColumnValue(nativeValueToBlock(BOOLEAN, booleanData), 0);
-        rowEncoder.appendColumnValue(nativeValueToBlock(createVarcharType(4), utf8Slice(enumData)), 0);
-        rowEncoder.appendColumnValue(nativeValueToBlock(createTimestampType(6), sqlTimestamp.getEpochMicros()), 0);
-        rowEncoder.appendColumnValue(nativeValueToBlock(VARBINARY, wrappedBuffer(bytesData)), 0);
+        rowEncoder.appendColumnValue(writeNativeValue(createVarcharType(5), utf8Slice(stringData)), 0);
+        rowEncoder.appendColumnValue(writeNativeValue(INTEGER, integerData.longValue()), 0);
+        rowEncoder.appendColumnValue(writeNativeValue(BIGINT, longData), 0);
+        rowEncoder.appendColumnValue(writeNativeValue(DOUBLE, doubleData), 0);
+        rowEncoder.appendColumnValue(writeNativeValue(REAL, (long) floatToIntBits(floatData)), 0);
+        rowEncoder.appendColumnValue(writeNativeValue(BOOLEAN, booleanData), 0);
+        rowEncoder.appendColumnValue(writeNativeValue(createVarcharType(4), utf8Slice(enumData)), 0);
+        rowEncoder.appendColumnValue(writeNativeValue(createTimestampType(6), sqlTimestamp.getEpochMicros()), 0);
+        rowEncoder.appendColumnValue(writeNativeValue(VARBINARY, wrappedBuffer(bytesData)), 0);
 
         assertThat(messageBuilder.build().toByteArray()).isEqualTo(rowEncoder.toByteArray());
     }

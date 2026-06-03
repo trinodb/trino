@@ -40,8 +40,8 @@ import static io.trino.plugin.hive.HivePageSourceProvider.createHivePageSource;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -98,8 +98,8 @@ public class TestHivePageSource
                 regularAndInterimColumnMappings);
 
         Block[] blocks = {
-                nativeValueToBlock(VARCHAR, utf8Slice("a")),
-                nativeValueToBlock(BIGINT, 1L),
+                writeNativeValue(VARCHAR, utf8Slice("a")),
+                writeNativeValue(BIGINT, 1L),
         };
         SourcePage page = SourcePage.create(new Page(1, blocks));
 

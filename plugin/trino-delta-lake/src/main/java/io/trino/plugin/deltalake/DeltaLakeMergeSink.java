@@ -90,9 +90,9 @@ import static io.trino.plugin.deltalake.delete.DeletionVectors.writeDeletionVect
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
 import static io.trino.plugin.hive.HiveCompressionCodecs.toCompressionCodec;
 import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
@@ -235,7 +235,7 @@ public class DeltaLakeMergeSink
                 cdfPostUpdateBlocks[i] = updateInsertionsPage.getBlock(i);
             }
             cdfPostUpdateBlocks[nonSynthesizedColumns.size()] = RunLengthEncodedBlock.create(
-                    nativeValueToBlock(VARCHAR, utf8Slice(cdfOperation)), updateInsertionsPage.getPositionCount());
+                    writeNativeValue(VARCHAR, utf8Slice(cdfOperation)), updateInsertionsPage.getPositionCount());
             cdfPageSink.appendPage(new Page(updateInsertionsPage.getPositionCount(), cdfPostUpdateBlocks));
         }
     }
@@ -675,7 +675,7 @@ public class DeltaLakeMergeSink
                     cdfPageIndex++;
                 }
                 else {
-                    outputBlocks[i] = RunLengthEncodedBlock.create(nativeValueToBlock(
+                    outputBlocks[i] = RunLengthEncodedBlock.create(writeNativeValue(
                                     nonSynthesizedColumns.get(i).baseType(),
                                     deserializePartitionValue(
                                             nonSynthesizedColumns.get(i),
@@ -685,7 +685,7 @@ public class DeltaLakeMergeSink
                 }
             }
             Block cdfOperationBlock = RunLengthEncodedBlock.create(
-                    nativeValueToBlock(VARCHAR, utf8Slice(operation)), page.getPositionCount());
+                    writeNativeValue(VARCHAR, utf8Slice(operation)), page.getPositionCount());
             outputBlocks[nonSynthesizedColumns.size()] = cdfOperationBlock;
             cdfPageSink.appendPage(new Page(page.getPositionCount(), outputBlocks));
         }

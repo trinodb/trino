@@ -25,8 +25,8 @@ import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.predicate.Utils.blockToNativeValue;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -68,7 +68,7 @@ public class TestVarcharToDoubleCoercer
     private static void assertVarcharToDoubleCoercion(String actualValue, HiveStorageFormat storageFormat, Double expectedValue)
     {
         Block coercedBlock = createCoercer(TESTING_TYPE_MANAGER, toHiveType(createUnboundedVarcharType()), toHiveType(DOUBLE), new CoercionContext(DEFAULT_PRECISION, storageFormat)).orElseThrow()
-                .apply(nativeValueToBlock(createUnboundedVarcharType(), utf8Slice(actualValue)));
+                .apply(writeNativeValue(createUnboundedVarcharType(), utf8Slice(actualValue)));
         assertThat(blockToNativeValue(DOUBLE, coercedBlock))
                 .isEqualTo(expectedValue);
     }
