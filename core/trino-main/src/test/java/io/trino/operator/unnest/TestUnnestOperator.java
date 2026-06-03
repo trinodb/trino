@@ -315,6 +315,21 @@ public class TestUnnestOperator
     }
 
     @Test
+    public void testZeroChannelOuterUnnest()
+    {
+        Operator unnestOperator = new UnnestOperator.UnnestOperatorFactory(
+                0, new PlanNodeId("test"), ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), false, true)
+                .createOperator(createDriverContext());
+
+        unnestOperator.addInput(new Page(3));
+
+        Page output = unnestOperator.getOutput();
+        assertThat(output.getChannelCount()).isEqualTo(0);
+        assertThat(output.getPositionCount()).isEqualTo(3);
+        assertThat(unnestOperator.getOutput()).isNull();
+    }
+
+    @Test
     public void testUnnestSingleArray()
     {
         testUnnest(

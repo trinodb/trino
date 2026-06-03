@@ -234,7 +234,7 @@ public class UnnestOperator
         int batchSize = calculateNextBatchSize();
         Block[] outputBlocks = buildOutputBlocks(batchSize);
 
-        return new Page(outputBlocks);
+        return new Page(currentBatchOutputRowCount, outputBlocks);
     }
 
     private int calculateNextBatchSize()
