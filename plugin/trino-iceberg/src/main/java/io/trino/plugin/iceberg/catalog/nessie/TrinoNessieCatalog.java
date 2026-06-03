@@ -346,7 +346,7 @@ public class TrinoNessieCatalog
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
         throw new TrinoException(NOT_SUPPORTED, "createView is not supported for Iceberg Nessie catalogs");
     }

@@ -438,7 +438,7 @@ public abstract class BaseTrinoCatalogTest
 
         try {
             catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
-            catalog.createView(SESSION, schemaTableName, viewDefinition, false);
+            catalog.createView(SESSION, schemaTableName, viewDefinition, ImmutableMap.of(), false);
 
             assertThat(catalog.listTables(SESSION, Optional.of(namespace)).stream()).contains(new TableInfo(schemaTableName, getViewType()));
 
@@ -535,6 +535,7 @@ public abstract class BaseTrinoCatalogTest
                                 Optional.of(SESSION.getUser()),
                                 false,
                                 ImmutableList.of()),
+                        ImmutableMap.of(),
                         false);
                 closer.register(() -> catalog.dropView(SESSION, view));
                 allTables.add(new TableInfo(view, getViewType()));
