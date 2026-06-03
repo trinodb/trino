@@ -43,6 +43,8 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.decoder.FieldValueProviders.booleanValueProvider;
 import static io.trino.decoder.FieldValueProviders.bytesValueProvider;
 import static io.trino.decoder.FieldValueProviders.longValueProvider;
@@ -281,10 +283,10 @@ public class KafkaRecordSet
                 headerMap.size(),
                 (keyBuilder, valueBuilder) -> {
                     for (String headerKey : headerMap.keySet()) {
-                        writeNativeValue(keyType, keyBuilder, headerKey);
+                        writeNativeValue(keyType, keyBuilder, utf8Slice(headerKey));
                         ((ArrayBlockBuilder) valueBuilder).buildEntry(elementBuilder -> {
                             for (byte[] value : headerMap.get(headerKey)) {
-                                writeNativeValue(valueType, elementBuilder, value);
+                                writeNativeValue(valueType, elementBuilder, value == null ? null : wrappedBuffer(value));
                             }
                         });
                     }

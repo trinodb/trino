@@ -51,6 +51,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.connector.informationschema.InformationSchemaMetadata.defaultPrefixes;
 import static io.trino.connector.informationschema.InformationSchemaMetadata.isTablesEnumeratingTable;
 import static io.trino.metadata.MetadataListing.getRelationTypes;
@@ -380,7 +381,7 @@ public class InformationSchemaPageSource
     {
         pageBuilder.declarePosition();
         for (int i = 0; i < types.size(); i++) {
-            writeNativeValue(types.get(i), pageBuilder.getBlockBuilder(i), values[i]);
+            writeNativeValue(types.get(i), pageBuilder.getBlockBuilder(i), values[i] instanceof String string ? utf8Slice(string) : values[i]);
         }
         if (pageBuilder.isFull()) {
             flushPageBuilder();
