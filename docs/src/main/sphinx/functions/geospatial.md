@@ -7,7 +7,9 @@ geometries that are operated on are both simple and valid. For example, it does 
 make sense to calculate the area of a polygon that has a hole defined outside the
 polygon, or to construct a polygon from a non-simple boundary line.
 
-Trino Geospatial functions support the Well-Known Text (WKT) and Well-Known Binary (WKB) form of spatial objects:
+Trino Geospatial functions support Well-Known Text (WKT), Extended Well-Known
+Text (EWKT), Well-Known Binary (WKB), and Extended Well-Known Binary (EWKB)
+forms of spatial objects:
 
 - `POINT (0 0)`
 - `LINESTRING (0 0, 1 1, 1 2)`
@@ -27,9 +29,11 @@ Geographic coordinates are spherical coordinates expressed in angular units (deg
 The basis for the `Geometry` type is a plane. The shortest path between two points on the plane is a
 straight line. That means calculations on geometries (areas, distances, lengths, intersections, etc.)
 can be calculated using cartesian mathematics and straight line vectors.
-Geometry values can include Z coordinates. Trino preserves Z coordinates in
-geometry values and format round trips, but geometry calculations are planar and
-use the X and Y coordinates.
+Geometry values can include Z coordinates and SRID metadata. Trino preserves Z
+coordinates and SRIDs in geometry values and supported format round trips, but
+geometry calculations are planar and use the X and Y coordinates.
+Functions that compare two `Geometry` values require matching SRIDs when both
+values have non-zero SRIDs. An SRID of `0` means the SRID is unspecified.
 
 The basis for the `SphericalGeography` type is a sphere. The shortest path between two points on the
 sphere is a great circle arc. That means that calculations on geographies (areas, distances,
@@ -37,8 +41,10 @@ lengths, intersections, etc.) must be calculated on the sphere, using more compl
 More accurate measurements that take the actual spheroidal shape of the world into account are not
 supported.
 
-Values returned by the measurement functions {func}`ST_Distance` and {func}`ST_Length` are in the unit of meters;
-values returned by {func}`ST_Area` are in square meters.
+For `Geometry`, values returned by measurement functions such as
+{func}`ST_Distance`, {func}`ST_Length`, and {func}`ST_Area` are in the units of
+the input coordinates. For `SphericalGeography`, distance and length are in
+meters and area is in square meters.
 
 Use {func}`to_spherical_geography()` function to convert a geometry object to geography object.
 
@@ -50,7 +56,15 @@ returns `312822.179` in meters.
 ## Constructors
 
 :::{function} ST_AsBinary(Geometry) -> varbinary
-Returns the WKB representation of the geometry.
+Returns the WKB representation of the geometry. WKB output does not carry SRID
+metadata, so reading this value back with {func}`ST_GeomFromBinary` produces a
+geometry with SRID `0`. Z coordinates are preserved when present. Use
+{func}`ST_AsEWKB` when SRID metadata must be preserved.
+:::
+
+:::{function} ST_AsEWKB(Geometry) -> varbinary
+Returns the EWKB representation of the geometry, including the SRID when it is
+non-zero.
 :::
 
 :::{function} ST_AsText(Geometry) -> varchar
@@ -69,7 +83,8 @@ Returns a geometry type object from WKT representation.
 :::
 
 :::{function} ST_GeomFromBinary(varbinary) -> Geometry
-Returns a geometry type object from WKB or EWKB representation.
+Returns a geometry type object from a WKB or EWKB representation. WKB inputs
+produce geometries with SRID `0`; EWKB inputs preserve the encoded SRID.
 :::
 
 :::{function} ST_GeomFromEWKT(varchar) -> Geometry
@@ -94,13 +109,17 @@ Returns a LineString formed from an array of points. If there are fewer than
 two non-empty points in the input array, an empty LineString will be returned.
 Array elements must not be `NULL` or the same as the previous element.
 The returned geometry may not be simple, e.g. may self-intersect or may contain
-duplicate vertexes depending on the input.
+duplicate vertexes depending on the input. The returned geometry preserves input
+Z coordinates and uses the non-zero SRID from the input points. Inputs with
+different non-zero SRIDs fail.
 :::
 
 :::{function} ST_MultiPoint(array(Point)) -> MultiPoint
 Returns a MultiPoint geometry object formed from the specified points. Returns `NULL` if input array is empty.
 Array elements must not be `NULL` or empty.
 The returned geometry may not be simple and may contain duplicate points if input array has duplicates.
+The returned geometry preserves input Z coordinates and uses the non-zero SRID
+from the input points. Inputs with different non-zero SRIDs fail.
 :::
 
 :::{function} ST_MakePoint(x: double, y: double) -> Point
@@ -133,7 +152,8 @@ function is only applicable to `POINT`, `MULTIPOINT`, `LINESTRING`, `MULTILINEST
 `POLYGON`, `MULTIPOLYGON` geometries defined in 2D space, or `GEOMETRYCOLLECTION` of such
 geometries. For each point of the input geometry, it verifies that `point.x` is within
 `[-180.0, 180.0]` and `point.y` is within `[-90.0, 90.0]`, and uses them as (longitude, latitude)
-degrees to construct the shape of the `SphericalGeography` result.
+degrees to construct the shape of the `SphericalGeography` result. SRID and Z
+metadata are not part of the `SphericalGeography` value.
 :::
 
 :::{function} to_geometry(SphericalGeography) -> Geometry
@@ -192,7 +212,8 @@ is empty, return `NULL`.  Otherwise, return a row of two Points that have
 the minimum distance of any two points on the geometries.  The first Point
 will be from the first Geometry argument, the second from the second Geometry
 argument.  If there are multiple pairs with the minimum distance, one pair
-is chosen arbitrarily.
+is chosen arbitrarily. The calculation is planar and uses the X and Y
+coordinates.
 :::
 
 :::{function} geometry_union(array(Geometry)) -> Geometry
@@ -216,12 +237,16 @@ Returns the geometry value that represents the point set difference of the given
 :::
 
 :::{function} ST_Envelope(Geometry) -> Geometry
-Returns the bounding rectangular polygon of a geometry.
+Returns the bounding rectangular polygon of a geometry. The envelope is
+computed from X and Y coordinates, preserves the input SRID, and returns a
+two-dimensional geometry.
 :::
 
 :::{function} ST_EnvelopeAsPts(Geometry) -> array(Geometry)
 Returns an array of two points: the lower left and upper right corners of the bounding
-rectangular polygon of a geometry. Returns `NULL` if input geometry is empty.
+rectangular polygon of a geometry. The points are computed from X and Y
+coordinates and preserve the input SRID, but do not include Z values. Returns
+`NULL` if input geometry is empty.
 :::
 
 :::{function} ST_ExteriorRing(Geometry) -> Geometry
@@ -266,11 +291,11 @@ Returns the point value that is the mathematical centroid of a geometry.
 Returns the minimum convex geometry that encloses all input geometries.
 :::
 
-:::{function} ST_CoordDim(Geometry) -> bigint
+:::{function} ST_CoordDim(Geometry) -> tinyint
 Returns the coordinate dimension of the geometry.
 :::
 
-:::{function} ST_Dimension(Geometry) -> bigint
+:::{function} ST_Dimension(Geometry) -> tinyint
 Returns the inherent dimension of this geometry object, which must be
 less than or equal to the coordinate dimension.
 :::
@@ -309,7 +334,8 @@ Returns the type of the geometry.
 :::
 
 :::{function} ST_IsClosed(Geometry) -> boolean
-Returns `true` if the linestring's start and end points are coincident.
+Returns `true` if the linestring's start and end points are coincident in the X
+and Y coordinates.
 :::
 
 :::{function} ST_IsEmpty(Geometry) -> boolean
@@ -317,16 +343,20 @@ Returns `true` if this Geometry is an empty geometrycollection, polygon, point e
 :::
 
 :::{function} ST_IsSimple(Geometry) -> boolean
-Returns `true` if this Geometry has no anomalous geometric points, such as self intersection or self tangency.
+Returns `true` if this Geometry has no anomalous geometric points, such as self
+intersection or self tangency. The simplicity check is planar and uses the X and
+Y coordinates.
 :::
 
 :::{function} ST_IsRing(Geometry) -> boolean
-Returns `true` if and only if the line is closed and simple.
+Returns `true` if and only if the line is closed and simple in the X and Y
+coordinates.
 :::
 
 :::{function} ST_IsValid(Geometry) -> boolean
 Returns `true` if and only if the input geometry is well-formed.
 Use {func}`geometry_invalid_reason` to determine why the geometry is not well-formed.
+The validity check is planar and uses the X and Y coordinates.
 :::
 
 :::{function} ST_Length(Geometry) -> double
@@ -353,24 +383,42 @@ Returns an array of points in a linestring.
 :::
 
 :::{function} ST_XMax(Geometry) -> double
-Returns X maxima of a bounding box of a geometry.
+Returns the maximum X coordinate of the bounding box of a geometry. The
+bounding box is computed from X and Y coordinates; SRID and Z metadata do not
+affect the result.
 :::
 
 :::{function} ST_YMax(Geometry) -> double
-Returns Y maxima of a bounding box of a geometry.
+Returns the maximum Y coordinate of the bounding box of a geometry. The
+bounding box is computed from X and Y coordinates; SRID and Z metadata do not
+affect the result.
 :::
 
 :::{function} ST_XMin(Geometry) -> double
-Returns X minima of a bounding box of a geometry.
+Returns the minimum X coordinate of the bounding box of a geometry. The
+bounding box is computed from X and Y coordinates; SRID and Z metadata do not
+affect the result.
 :::
 
 :::{function} ST_YMin(Geometry) -> double
-Returns Y minima of a bounding box of a geometry.
+Returns the minimum Y coordinate of the bounding box of a geometry. The
+bounding box is computed from X and Y coordinates; SRID and Z metadata do not
+affect the result.
 :::
 
 :::{function} ST_StartPoint(Geometry) -> point
 Returns the first point of a LineString geometry as a Point.
 This is a shortcut for `ST_PointN(geometry, 1)`.
+:::
+
+:::{function} ST_SRID(Geometry) -> integer
+Returns the spatial reference identifier of the geometry. SRID `0` means the
+SRID is unspecified.
+:::
+
+:::{function} ST_SetSRID(Geometry, srid) -> Geometry
+Returns the input geometry with updated SRID metadata. This function does not
+transform coordinates.
 :::
 
 :::{function} simplify_geometry(Geometry, double) -> Geometry
@@ -384,11 +432,11 @@ This is a shortcut for `ST_PointN(geometry, ST_NumPoints(geometry))`.
 :::
 
 :::{function} ST_X(Point) -> double
-Returns the X coordinate of the point.
+Returns the X coordinate of the point, or `NULL` if the point is empty.
 :::
 
 :::{function} ST_Y(Point) -> double
-Returns the Y coordinate of the point.
+Returns the Y coordinate of the point, or `NULL` if the point is empty.
 :::
 
 :::{function} ST_Z(Point) -> double
@@ -399,7 +447,8 @@ not have a Z coordinate.
 :::{function} ST_InteriorRings(Geometry) -> array(Geometry)
 Returns an array of all interior rings found in the input geometry, or an empty
 array if the polygon has no interior rings. Returns `NULL` if the input geometry
-is empty. The input geometry must be a polygon.
+is empty. The input geometry must be a polygon. Returned rings preserve the
+input geometry's SRID and Z coordinates.
 :::
 
 :::{function} ST_NumGeometries(Geometry) -> bigint
@@ -413,6 +462,7 @@ for empty geometries returns 0.
 :::{function} ST_Geometries(Geometry) -> array(Geometry)
 Returns an array of geometries in the specified collection. Returns a one-element array
 if the input geometry is not a multi-geometry. Returns `NULL` if input geometry is empty.
+Returned geometries preserve the input geometry's SRID and Z coordinates.
 :::
 
 :::{function} ST_NumPoints(Geometry) -> bigint
@@ -426,17 +476,20 @@ Returns the cardinality of the collection of interior rings of a polygon.
 
 :::{function} line_interpolate_point(LineString, double) -> Geometry
 Returns a Point interpolated along a LineString at the fraction given. The fraction
-must be between 0 and 1, inclusive.
+must be between 0 and 1, inclusive. The returned point preserves the input
+geometry's SRID and uses the Z coordinate provided by JTS when available.
 :::
 
 :::{function} line_interpolate_points(LineString, double, repeated) -> array(Geometry)
 Returns an array of Points interpolated along a LineString. The fraction must be
-between 0 and 1, inclusive.
+between 0 and 1, inclusive. Returned points preserve the input geometry's SRID
+and use the Z coordinates provided by JTS when available.
 :::
 
 :::{function} line_locate_point(LineString, Point) -> double
 Returns a float between 0 and 1 representing the location of the closest point on
 the LineString to the given Point, as a fraction of total 2d line length.
+Inputs with different non-zero SRIDs fail.
 
 Returns `NULL` if a LineString or a Point is empty or `NULL`.
 :::
@@ -451,7 +504,15 @@ Returns the great-circle distance between two points on Earth's surface in kilom
 :::
 
 :::{function} to_geojson_geometry(SphericalGeography) -> varchar
-Returns the GeoJSON encoded defined by the input spherical geography.
+Returns the GeoJSON encoding defined by the input spherical geography.
+:::
+
+:::{function} to_geojson_geometry(Geometry) -> varchar
+:noindex: true
+
+Returns the GeoJSON encoding defined by the input geometry. GeoJSON output
+preserves coordinates, including Z coordinates, but does not include Trino SRID
+metadata.
 :::
 
 :::{function} from_geojson_geometry(varchar) -> SphericalGeography
@@ -467,6 +528,39 @@ Returns the minimum convex geometry that encloses all input geometries.
 
 :::{function} geometry_union_agg(Geometry) -> Geometry
 Returns a geometry that represents the point set union of all input geometries.
+:::
+
+## Spatial partitioning
+
+These functions build and apply a KDB tree for spatial joins. They use the
+two-dimensional envelope of each geometry, based on X and Y coordinates. SRID
+and Z metadata do not affect partitioning.
+
+:::{function} spatial_partitioning(Geometry) -> varchar
+Returns a serialized KDB tree partitioning for the input geometries. The
+one-argument form is rewritten internally to
+`spatial_partitioning(geometry, 100)`.
+:::
+
+:::{function} spatial_partitioning(Geometry, partition_count) -> varchar
+:noindex: true
+
+Returns a serialized KDB tree partitioning for the input geometries using the
+specified partition count.
+:::
+
+:::{function} spatial_partitions(KdbTree, Geometry) -> array(integer)
+Returns the IDs of spatial partitions whose extents intersect the
+two-dimensional envelope of the input geometry. Returns `NULL` if the input
+geometry is empty.
+:::
+
+:::{function} spatial_partitions(KdbTree, Geometry, distance) -> array(integer)
+:noindex: true
+
+Returns the IDs of spatial partitions whose extents intersect the
+two-dimensional envelope of the input geometry expanded by `distance`. Returns
+`NULL` if the input geometry is empty.
 :::
 
 ## Bing tiles
@@ -508,7 +602,8 @@ Returns the XY coordinates of a given Bing tile.
 :::
 
 :::{function} bing_tile_polygon(tile) -> Geometry
-Returns the polygon representation of a given Bing tile.
+Returns the polygon representation of a given Bing tile as a 2D geometry with
+SRID `0`.
 :::
 
 :::{function} bing_tile_quadkey(tile) -> varchar
@@ -521,7 +616,8 @@ Returns the zoom level of a given Bing tile.
 
 :::{function} geometry_to_bing_tiles(geometry, zoom_level) -> array(BingTile)
 Returns the minimum set of Bing tiles that fully covers a given geometry at
-a given zoom level. Zoom levels from 1 to 23 are supported.
+a given zoom level. Zoom levels from 1 to 23 are supported. The calculation
+uses the X and Y coordinates as longitude and latitude.
 :::
 
 ## Encoded polylines
@@ -530,9 +626,10 @@ These functions convert between geometries and
 [encoded polylines](https://developers.google.com/maps/documentation/utilities/polylinealgorithm).
 
 :::{function} to_encoded_polyline(Geometry) -> varchar
-Encodes a linestring or multipoint to a polyline.
+Encodes a linestring or multipoint to a polyline. Encoded polylines are a 2D
+format and only use the X and Y coordinates.
 :::
 
 :::{function} from_encoded_polyline(varchar) -> Geometry
-Decodes a polyline to a linestring.
+Decodes a polyline to a 2D linestring with SRID `0`.
 :::

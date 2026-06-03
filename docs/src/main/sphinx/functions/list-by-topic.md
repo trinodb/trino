@@ -237,10 +237,14 @@ For more details, see {doc}`geospatial`
 - {func}`geometry_union_agg`
 - {func}`great_circle_distance`
 - {func}`line_interpolate_point`
+- {func}`line_interpolate_points`
 - {func}`line_locate_point`
 - {func}`simplify_geometry`
+- {func}`spatial_partitioning`
+- {func}`spatial_partitions`
 - {func}`ST_Area`
 - {func}`ST_AsBinary`
+- {func}`ST_AsEWKB`
 - {func}`ST_AsEWKT`
 - {func}`ST_AsText`
 - {func}`ST_Boundary`
@@ -256,6 +260,7 @@ For more details, see {doc}`geospatial`
 - {func}`ST_Distance`
 - {func}`ST_EndPoint`
 - {func}`ST_Envelope`
+- {func}`ST_EnvelopeAsPts`
 - {func}`ST_Equals`
 - {func}`ST_ExteriorRing`
 - {func}`ST_Geometries`
@@ -264,6 +269,7 @@ For more details, see {doc}`geospatial`
 - {func}`ST_GeometryType`
 - {func}`ST_GeomFromBinary`
 - {func}`ST_GeomFromEWKT`
+- {func}`ST_GeomFromKML`
 - {func}`ST_InteriorRings`
 - {func}`ST_InteriorRingN`
 - {func}`ST_Intersects`

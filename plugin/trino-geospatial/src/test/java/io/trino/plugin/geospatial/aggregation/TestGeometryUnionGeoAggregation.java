@@ -352,6 +352,20 @@ public class TestGeometryUnionGeoAggregation
     }
 
     @Test
+    public void testSridAndZMetadata()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT ST_AsEWKT(geometry_union_agg(geometry))
+                FROM (VALUES
+                    ST_SetSRID(ST_GeometryFromText('POINT Z (0 0 1)'), 4326),
+                    ST_SetSRID(ST_GeometryFromText('POINT Z (1 1 2)'), 4326)
+                ) t(geometry)
+                """))
+                .matches("VALUES VARCHAR 'SRID=4326;MULTIPOINT Z ((0 0 1), (1 1 2))'");
+    }
+
+    @Test
     public void testSridMismatchWithEmptyGeometryInput()
             throws ParseException
     {
