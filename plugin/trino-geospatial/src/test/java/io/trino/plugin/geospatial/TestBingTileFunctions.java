@@ -38,6 +38,7 @@ import static io.trino.plugin.geospatial.BingTileType.BING_TILE;
 import static io.trino.plugin.geospatial.GeoTestUtils.assertSpatialEquals;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -646,6 +647,24 @@ public class TestBingTileFunctions
         assertThat(assertions.function("ST_AsText", "apply(bing_tile_polygon(bing_tile(0, 0, 5)), g -> ST_Point(ST_XMin(g), ST_YMax(g)))"))
                 .hasType(VARCHAR)
                 .isEqualTo("POINT (-180 85.05112877980659)");
+    }
+
+    @Test
+    public void testBingTileGeometryMetadata()
+    {
+        assertThat(assertions.function("ST_SRID", "bing_tile_polygon(bing_tile('123030123010121'))"))
+                .hasType(INTEGER)
+                .isEqualTo(0);
+
+        assertThat(assertions.function("ST_CoordDim", "bing_tile_polygon(bing_tile('123030123010121'))"))
+                .hasType(TINYINT)
+                .isEqualTo((byte) 2);
+
+        assertThat(assertions.expression("transform(geometry_to_bing_tiles(geometry, zoom), x -> bing_tile_quadkey(x))")
+                .binding("geometry", "ST_SetSRID(ST_Point(60, 30.12, DOUBLE '99'), 4326)")
+                .binding("zoom", Integer.toString(10)))
+                .hasType(new ArrayType(VARCHAR))
+                .isEqualTo(ImmutableList.of("1230301230"));
     }
 
     @Test
