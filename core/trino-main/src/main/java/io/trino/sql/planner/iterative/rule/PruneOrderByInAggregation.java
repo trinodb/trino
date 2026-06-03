@@ -59,7 +59,7 @@ public class PruneOrderByInAggregation
 
             // getAggregateFunctionImplementation can be expensive, so check it last.
             if (aggregation.getOrderingScheme().isPresent() &&
-                    !metadata.getAggregationFunctionMetadata(context.getSession(), aggregation.getResolvedFunction()).isOrderSensitive()) {
+                    !metadata.getAggregationFunctionMetadata(context.getSession(), aggregation.getResolvedFunction()).orderSensitive()) {
                 aggregation = new Aggregation(
                         aggregation.getResolvedFunction(),
                         aggregation.getArguments(),

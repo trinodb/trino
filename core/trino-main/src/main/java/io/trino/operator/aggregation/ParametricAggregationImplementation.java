@@ -33,7 +33,7 @@ import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.function.WindowAccumulator;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplate;
 import io.trino.util.Reflection;
 
 import java.lang.annotation.Annotation;
@@ -64,7 +64,7 @@ import static io.trino.operator.annotations.ImplementationDependency.Factory.cre
 import static io.trino.operator.annotations.ImplementationDependency.getImplementationDependencyAnnotation;
 import static io.trino.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
 import static io.trino.operator.annotations.ImplementationDependency.validateImplementationDependencyAnnotation;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeTemplate;
 import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
@@ -224,6 +224,7 @@ public class ParametricAggregationImplementation
 
         private final Set<String> literalParameters;
         private final List<TypeParameter> typeParameters;
+        private final Set<String> typeParameterNames;
 
         private Parser(
                 Class<?> aggregationDefinition,
@@ -240,6 +241,9 @@ public class ParametricAggregationImplementation
             // it is required to declare all literal and type parameters in input function
             literalParameters = parseLiteralParameters(inputFunction);
             typeParameters = Arrays.asList(inputFunction.getAnnotationsByType(TypeParameter.class));
+            typeParameterNames = typeParameters.stream()
+                    .map(TypeParameter::value)
+                    .collect(toImmutableSet());
 
             // parse dependencies
             inputDependencies = parseImplementationDependencies(inputFunction);
@@ -268,7 +272,7 @@ public class ParametricAggregationImplementation
 
             // determine TypeSignatures of function declaration
             addInputTypeSignatures(signatureBuilder, inputFunction);
-            signatureBuilder.returnType(parseTypeSignature(outputFunction.getAnnotation(OutputFunction.class).value(), literalParameters));
+            signatureBuilder.returnType(parseTypeTemplate(outputFunction.getAnnotation(OutputFunction.class).value(), typeParameterNames, literalParameters));
 
             inputHandle = methodHandle(inputFunction);
             combineHandle = combineFunction.map(Reflection::methodHandle);
@@ -427,11 +431,9 @@ public class ParametricAggregationImplementation
                     validateImplementationDependencyAnnotation(
                             inputFunction,
                             annotation,
-                            typeParameters.stream()
-                                    .map(TypeParameter::value)
-                                    .collect(toImmutableSet()),
+                            typeParameterNames,
                             literalParameters);
-                    builder.add(createDependency(annotation, literalParameters, parameter.getType()));
+                    builder.add(createDependency(annotation, typeParameterNames, literalParameters, parameter.getType()));
                 });
             }
             return builder.build();
@@ -471,12 +473,12 @@ public class ParametricAggregationImplementation
                     checkArgument(declaredName == null, "Method [%s] has @Name on a parameter without @SqlType", inputFunction);
                     continue;
                 }
-                TypeSignature typeSignature = parseTypeSignature(sqlType.value(), literalParameters);
+                TypeTemplate typeTemplate = parseTypeTemplate(sqlType.value(), typeParameterNames, literalParameters);
                 if (declaredName != null) {
-                    signatureBuilder.argumentType(typeSignature, declaredName);
+                    signatureBuilder.argumentType(typeTemplate, declaredName);
                 }
                 else {
-                    signatureBuilder.argumentType(typeSignature);
+                    signatureBuilder.argumentType(typeTemplate);
                 }
             }
         }

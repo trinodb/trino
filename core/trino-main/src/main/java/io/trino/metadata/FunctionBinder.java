@@ -27,6 +27,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplate;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 
 import java.util.ArrayList;
@@ -134,10 +135,10 @@ class FunctionBinder
         if (declaredSignature.isGeneric()) {
             return false;
         }
-        if (!declaredSignature.getReturnType().getBase().equalsIgnoreCase(signature.returnType().getBase())) {
+        if (!declaredSignature.getReturnType().baseName().equalsIgnoreCase(signature.returnType().getBase())) {
             return false;
         }
-        return declaredSignature.getArgumentTypes().get(0).getBase().equalsIgnoreCase(signature.argumentTypes().get(0).getBase());
+        return declaredSignature.getArgumentTypes().getFirst().baseName().equalsIgnoreCase(signature.argumentTypes().getFirst().getBase());
     }
 
     private Optional<CatalogFunctionBinding> matchFunctionExact(List<CatalogFunctionMetadata> candidates, List<TypeSignatureProvider> actualParameters)
@@ -407,7 +408,9 @@ class FunctionBinder
 
         Set<String> expectedParameters = new TreeSet<>();
         for (CatalogFunctionMetadata function : candidates) {
-            String arguments = Joiner.on(", ").join(function.functionMetadata().getSignature().getArgumentTypes());
+            String arguments = function.functionMetadata().getSignature().getArgumentTypes().stream()
+                    .map(TypeTemplate::render)
+                    .collect(Collectors.joining(", "));
             String constraints = Joiner.on(", ").join(function.functionMetadata().getSignature().getTypeVariableConstraints());
             expectedParameters.add(format("%s(%s) %s", name, arguments, constraints).stripTrailing());
         }

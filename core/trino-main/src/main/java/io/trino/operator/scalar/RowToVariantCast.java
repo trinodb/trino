@@ -31,7 +31,7 @@ import java.lang.invoke.MethodHandles;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.CAST;
-import static io.trino.spi.type.TypeSignature.typeVariable;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static java.lang.invoke.MethodType.methodType;
 

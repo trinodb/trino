@@ -15,7 +15,6 @@ package io.trino.type;
 
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.KeyDeserializer;
-import com.google.common.collect.ImmutableSet;
 
 import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 
@@ -25,6 +24,6 @@ public final class TypeSignatureKeyDeserializer
     @Override
     public Object deserializeKey(String key, DeserializationContext context)
     {
-        return parseTypeSignature(key, ImmutableSet.of());
+        return parseTypeSignature(key);
     }
 }

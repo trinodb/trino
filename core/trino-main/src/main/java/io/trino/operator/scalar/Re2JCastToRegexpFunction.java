@@ -14,7 +14,6 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.SqlScalarFunction;
@@ -28,13 +27,14 @@ import io.trino.spi.type.VarcharType;
 import io.trino.type.Re2JRegexp;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.Chars.padSpaces;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeTemplate;
 import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.insertArguments;
@@ -63,7 +63,7 @@ public class Re2JCastToRegexpFunction
         super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
                         .returnType(RE2J_REGEXP_SIGNATURE)
-                        .argumentType(parseTypeSignature(sourceType, ImmutableSet.of("x")))
+                        .argumentType(parseTypeTemplate(sourceType, Set.of(), Set.of("x")))
                         .build())
                 .build());
         this.dfaStatesLimit = dfaStatesLimit;

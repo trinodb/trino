@@ -236,6 +236,18 @@
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <new>method io.trino.spi.function.Signature.Builder io.trino.spi.function.Signature.Builder::argumentTypes(io.trino.spi.type.TypeSignature[])</new>
+                                    <justification>argumentTypes deliberately overloads on TypeSignature... and TypeTemplate... so call sites keep a stable shape across the ground/open split.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <new>method io.trino.spi.function.Signature.Builder io.trino.spi.function.Signature.Builder::argumentTypes(io.trino.spi.type.TypeTemplate[])</new>
+                                    <justification>argumentTypes deliberately overloads on TypeSignature... and TypeTemplate... so call sites keep a stable shape across the ground/open split.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
                                     <code>java.method.removed</code>
                                     <old>method io.trino.spi.type.TypeParameter io.trino.spi.type.TypeParameter::typeVariable(java.lang.String)</old>
                                     <justification>Renamed to numericVariable; the factory builds a numeric parameter variable, not a type variable.</justification>
@@ -440,6 +452,45 @@
                                     <code>java.method.removed</code>
                                     <old>method .* io\.trino\.spi\.function\.(Signature|FunctionMetadata)::fromJson\(.*</old>
                                     <justification>Remove the dead @JsonCreator; Signature/FunctionMetadata are never deserialized.</justification>
+                                </item>
+                                <!-- A function signature's argument/return types are now TypeTemplate (the open, variable-bearing form). -->
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method io.trino.spi.type.TypeSignature io.trino.spi.function.Signature::getReturnType()</old>
+                                    <new>method io.trino.spi.type.TypeTemplate io.trino.spi.function.Signature::getReturnType()</new>
+                                    <justification>Signature now represents its return type as a TypeTemplate.</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.List&lt;io.trino.spi.type.TypeSignature&gt; io.trino.spi.function.Signature::getArgumentTypes()</old>
+                                    <new>method java.util.List&lt;io.trino.spi.type.TypeTemplate&gt; io.trino.spi.function.Signature::getArgumentTypes()</new>
+                                    <justification>Signature now represents its argument types as TypeTemplates.</justification>
+                                </item>
+                                <!-- Function dependencies are now carried as TypeTemplate (the open, variable-bearing form) rather than TypeSignature. -->
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java\.method\..*</code>
+                                    <old>.*io\.trino\.spi\.function\.FunctionDependencyDeclaration.*</old>
+                                    <justification>Function dependency declarations now carry their type, argument, and cast types as TypeTemplate, the open variable-bearing form, instead of TypeSignature.</justification>
+                                </item>
+                                <!-- A type variable's castable-to/from constraints are now carried as TypeTemplate rather than TypeSignature. -->
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java\.method\..*</code>
+                                    <old>.*io\.trino\.spi\.function\.TypeVariableConstraint.*</old>
+                                    <justification>A type variable's castable-to and castable-from constraints are now carried as TypeTemplate instead of TypeSignature.</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.List&lt;io.trino.spi.type.TypeSignature&gt; io.trino.spi.function.AggregationFunctionMetadata::getIntermediateTypes()</old>
+                                    <new>method java.util.List&lt;io.trino.spi.type.TypeTemplate&gt; io.trino.spi.function.AggregationFunctionMetadata::getIntermediateTypes()</new>
+                                    <justification>An aggregation's intermediate types are now carried as TypeTemplate, the open variable-bearing form, instead of TypeSignature.</justification>
+                                </item>
+                                <!-- TypeSignature is now strictly ground: a numeric variable is no longer a TypeParameter.Variable but a NumericExpression carried by TypeTemplate. -->
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.type.TypeParameter.Variable</old>
+                                    <justification>A TypeSignature is now always ground; variables live only in TypeTemplate, so the Variable type parameter is removed.</justification>
                                 </item>
                             </differences>
                         </revapi.differences>

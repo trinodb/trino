@@ -24,8 +24,9 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.TemplateParameter;
+import io.trino.spi.type.TypeTemplate;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
@@ -41,7 +42,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.annotations.FunctionsParserHelper.containsImplementationDependencyAnnotation;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeTemplate;
 
 public interface ImplementationDependency
 {
@@ -51,7 +52,7 @@ public interface ImplementationDependency
 
     static boolean isImplementationDependencyAnnotation(Annotation annotation)
     {
-        return annotation instanceof io.trino.spi.function.TypeParameter ||
+        return annotation instanceof TypeParameter ||
                 annotation instanceof LiteralParameter ||
                 annotation instanceof FunctionDependency ||
                 annotation instanceof OperatorDependency ||
@@ -70,25 +71,28 @@ public interface ImplementationDependency
 
     static void validateImplementationDependencyAnnotation(AnnotatedElement element, Annotation annotation, Set<String> typeParametersNames, Collection<String> literalParameters)
     {
-        if (annotation instanceof io.trino.spi.function.TypeParameter typeParameter) {
-            checkTypeParameters(parseTypeSignature(typeParameter.value(), ImmutableSet.of()), typeParametersNames, element);
+        if (annotation instanceof TypeParameter typeParameter) {
+            checkTypeParameters(parseTypeTemplate(typeParameter.value(), typeParametersNames, ImmutableSet.copyOf(literalParameters)), typeParametersNames, element);
         }
         if (annotation instanceof LiteralParameter literalParameter) {
             checkArgument(literalParameters.contains(literalParameter.value()), "Parameter injected by @LiteralParameter must be declared with @LiteralParameters on the method [%s]", element);
         }
     }
 
-    static void checkTypeParameters(TypeSignature typeSignature, Set<String> typeParameterNames, AnnotatedElement element)
+    static void checkTypeParameters(TypeTemplate template, Set<String> typeParameterNames, AnnotatedElement element)
     {
-        // Check recursively if `typeSignature` contains something like `T(bigint)`
-        if (typeParameterNames.contains(typeSignature.getBase())) {
-            checkArgument(typeSignature.getParameters().isEmpty(), "Expected type parameter not to take parameters, but got '%s' on method [%s]", typeSignature.getBase(), element);
-            return;
-        }
-
-        for (TypeParameter parameter : typeSignature.getParameters()) {
-            if (parameter instanceof TypeParameter.Type(_, TypeSignature type)) {
-                checkTypeParameters(type, typeParameterNames, element);
+        // Check recursively if the template contains something like `T(bigint)`: a bare reference to a
+        // declared type parameter parses as a type variable, so an application whose base names one means
+        // the type parameter was given parameters.
+        switch (template) {
+            case TypeTemplate.TypeVariable _ -> {}
+            case TypeTemplate.TypeApplication(String base, List<TemplateParameter> parameters) -> {
+                checkArgument(!typeParameterNames.contains(base), "Expected type parameter not to take parameters, but got '%s' on method [%s]", base, element);
+                for (TemplateParameter parameter : parameters) {
+                    if (parameter instanceof TemplateParameter.TypeArgument(_, TypeTemplate type)) {
+                        checkTypeParameters(type, typeParameterNames, element);
+                    }
+                }
             }
         }
     }
@@ -97,10 +101,10 @@ public interface ImplementationDependency
     {
         private Factory() {}
 
-        public static ImplementationDependency createDependency(Annotation annotation, Set<String> literalParameters, Class<?> type)
+        public static ImplementationDependency createDependency(Annotation annotation, Set<String> typeParameters, Set<String> literalParameters, Class<?> type)
         {
-            if (annotation instanceof io.trino.spi.function.TypeParameter typeParameter) {
-                return new TypeImplementationDependency(parseTypeSignature(typeParameter.value(), literalParameters));
+            if (annotation instanceof TypeParameter typeParameter) {
+                return new TypeImplementationDependency(parseTypeTemplate(typeParameter.value(), typeParameters, literalParameters));
             }
             if (annotation instanceof LiteralParameter literalParameter) {
                 return new LiteralImplementationDependency(literalParameter.value());
@@ -110,7 +114,7 @@ public interface ImplementationDependency
                 return new FunctionImplementationDependency(
                         builtinFunctionName(functionDependency.name()),
                         Arrays.stream(functionDependency.argumentTypes())
-                                .map(signature -> parseTypeSignature(signature, literalParameters))
+                                .map(signature -> parseTypeTemplate(signature, typeParameters, literalParameters))
                                 .collect(toImmutableList()),
                         toInvocationConvention(functionDependency.convention()),
                         type);
@@ -121,15 +125,15 @@ public interface ImplementationDependency
                 return new OperatorImplementationDependency(
                         operator,
                         Arrays.stream(operatorDependency.argumentTypes())
-                                .map(signature -> parseTypeSignature(signature, literalParameters))
+                                .map(signature -> parseTypeTemplate(signature, typeParameters, literalParameters))
                                 .collect(toImmutableList()),
                         toInvocationConvention(operatorDependency.convention()),
                         type);
             }
             if (annotation instanceof CastDependency castDependency) {
                 return new CastImplementationDependency(
-                        parseTypeSignature(castDependency.fromType(), literalParameters),
-                        parseTypeSignature(castDependency.toType(), literalParameters),
+                        parseTypeTemplate(castDependency.fromType(), typeParameters, literalParameters),
+                        parseTypeTemplate(castDependency.toType(), typeParameters, literalParameters),
                         toInvocationConvention(castDependency.convention()),
                         type);
             }

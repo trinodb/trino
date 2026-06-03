@@ -16,6 +16,7 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSignature;
 
 import java.util.Map;
 import java.util.Objects;
@@ -60,6 +61,15 @@ public final class VariableBindings
         return bindings.entrySet().stream()
                 .filter(entry -> entry.getValue() instanceof TypeBinding)
                 .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, Map.Entry::getKey, entry -> ((TypeBinding) entry.getValue()).type()));
+    }
+
+    /// The type variables' bindings in their ground signature form — the shape
+    /// [io.trino.spi.type.TypeTemplates#bind] consumes.
+    public Map<String, TypeSignature> getTypeSignatures()
+    {
+        return bindings.entrySet().stream()
+                .filter(entry -> entry.getValue() instanceof TypeBinding)
+                .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, Map.Entry::getKey, entry -> ((TypeBinding) entry.getValue()).type().getTypeSignature()));
     }
 
     public Map<String, Long> getNumericVariables()

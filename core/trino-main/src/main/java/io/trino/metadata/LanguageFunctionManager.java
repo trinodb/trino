@@ -46,6 +46,7 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlPath;
 import io.trino.sql.analyzer.TypeSignatureTranslator;
@@ -83,6 +84,7 @@ import static io.trino.spi.ErrorType.USER_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.TypeTemplates.toTypeSignature;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -565,9 +567,10 @@ public class LanguageFunctionManager
 
             private LanguageFunctionDefinition engineFunctionDefinition(FunctionContext context)
             {
-                Type returnType = typeManager.getType(functionMetadata.getSignature().getReturnType());
+                Type returnType = typeManager.getType(toTypeSignature(functionMetadata.getSignature().getReturnType()));
 
                 List<Type> argumentTypes = functionMetadata.getSignature().getArgumentTypes().stream()
+                        .map(TypeTemplates::toTypeSignature)
                         .map(typeManager::getType)
                         .collect(toImmutableList());
 
