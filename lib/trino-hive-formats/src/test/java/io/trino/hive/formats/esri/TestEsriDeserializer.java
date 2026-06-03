@@ -26,13 +26,13 @@ import io.trino.spi.type.DecimalType;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
-import org.locationtech.jts.io.WKBReader;
 import org.locationtech.jts.io.WKTReader;
 
 import java.io.IOException;
 import java.util.List;
 
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
+import static io.trino.geospatial.serde.JtsGeometrySerde.deserialize;
 import static io.trino.hive.formats.esri.EsriDeserializer.Format.ESRI;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -648,6 +648,45 @@ public class TestEsriDeserializer
     }
 
     @Test
+    public void testGeometryPointIgnoresZAndMValues()
+            throws IOException
+    {
+        String json =
+                """
+                {
+                    "geometry": {
+                        "x": 10,
+                        "y": 20,
+                        "z": 30,
+                        "m": 40
+                    }
+                }
+                """;
+
+        Page page = parse(json);
+        assertGeometry(page, "POINT (10 20)");
+        assertThat(readGeometry(page).getCoordinate().getZ()).isNaN();
+    }
+
+    @Test
+    public void testGeometryArrayCoordinatesIgnoreZAndMValues()
+            throws IOException
+    {
+        String json =
+                """
+                {
+                    "geometry": {
+                        "points": [[10, 20, 30, 40]]
+                    }
+                }
+                """;
+
+        Page page = parse(json);
+        assertGeometry(page, "MULTIPOINT ((10 20))");
+        assertThat(readGeometry(page).getCoordinate().getZ()).isNaN();
+    }
+
+    @Test
     public void testDeserializePolygonWithCounterClockwiseRings()
             throws IOException
     {
@@ -839,8 +878,7 @@ public class TestEsriDeserializer
         assertThat(page.getBlock(6).isNull(0)).isFalse();
 
         try {
-            byte[] actualWkb = VARBINARY.getSlice(page.getBlock(6), 0).getBytes();
-            Geometry actualGeometry = new WKBReader().read(actualWkb);
+            Geometry actualGeometry = readGeometry(page);
             Geometry expectedGeometry = new WKTReader().read(expectedWkt);
             assertThat(actualGeometry.equalsExact(expectedGeometry)).isTrue();
             assertThat(actualGeometry.getSRID()).isEqualTo(expectedSrid);
@@ -848,5 +886,10 @@ public class TestEsriDeserializer
         catch (ParseException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static Geometry readGeometry(Page page)
+    {
+        return deserialize(VARBINARY.getSlice(page.getBlock(6), 0));
     }
 }

@@ -1748,10 +1748,10 @@ public class TestIcebergV3
                 .matches("VALUES (VARCHAR 'id', VARCHAR 'integer', VARCHAR '', VARCHAR ''), " +
                         "(VARCHAR 'geom', VARCHAR 'Geometry', VARCHAR '', VARCHAR '')");
 
-        assertUpdate("INSERT INTO " + registered + " VALUES (1, ST_SetSRID(ST_Point(1, 2), 3857))", 1);
+        assertUpdate("INSERT INTO " + registered + " VALUES (1, ST_SetSRID(ST_GeometryFromText('POINT Z (1 2 3)'), 3857))", 1);
 
-        assertThat(query("SELECT ST_AsText(geom), ST_SRID(geom) FROM " + registered))
-                .matches("VALUES (VARCHAR 'POINT (1 2)', 3857)");
+        assertThat(query("SELECT ST_AsEWKT(geom) FROM " + registered))
+                .matches("VALUES VARCHAR 'SRID=3857;POINT Z (1 2 3)'");
 
         assertThat(getOnlyParquetDataFileMetadata(registered).getFileMetaData().getSchema().getType("geom").asPrimitiveType().getLogicalTypeAnnotation())
                 .isEqualTo(geometryType("EPSG:3857"));
@@ -1766,16 +1766,13 @@ public class TestIcebergV3
             try (TestTable table = newTrinoTable(
                     "test_geometry_roundtrip_" + format.toLowerCase(Locale.ROOT) + "_",
                     "(id INTEGER, geom geometry) WITH (format = '" + format + "', format_version = 3)")) {
-                assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, ST_Point(1.0, 2.0))", 1);
+                assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, ST_GeometryFromText('POINT Z (1 2 3)'))", 1);
                 assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, ST_GeometryFromText('POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))'))", 1);
 
-                assertThat(query("SELECT id, ST_AsText(geom) FROM " + table.getName() + " ORDER BY id"))
-                        .matches("VALUES (1, VARCHAR 'POINT (1 2)'), (2, VARCHAR 'POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))')");
-
-                assertThat(query("SELECT ST_SRID(geom) FROM " + table.getName() + " WHERE id = 1"))
-                        .matches("VALUES 4326");
-                assertThat(query("SELECT ST_SRID(geom) FROM " + table.getName() + " WHERE id = 2"))
-                        .matches("VALUES 4326");
+                assertThat(query("SELECT id, ST_AsEWKT(geom) FROM " + table.getName() + " ORDER BY id"))
+                        .matches("VALUES " +
+                                "(1, VARCHAR 'SRID=4326;POINT Z (1 2 3)'), " +
+                                "(2, VARCHAR 'SRID=4326;POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))')");
             }
         }
     }
@@ -1792,10 +1789,10 @@ public class TestIcebergV3
                             "(1, " + container.firstValue() + "), " +
                             "(2, " + container.secondValue() + ")", 2);
 
-                    assertThat(query("SELECT id, ST_AsText(" + container.geometryExpression() + "), ST_SRID(" + container.geometryExpression() + ") FROM " + table.getName() + " ORDER BY id"))
+                    assertThat(query("SELECT id, ST_AsEWKT(" + container.geometryExpression() + ") FROM " + table.getName() + " ORDER BY id"))
                             .matches("VALUES " +
-                                    "(1, VARCHAR 'POINT (1 2)', 4326), " +
-                                    "(2, VARCHAR 'POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))', 4326)");
+                                    "(1, VARCHAR 'SRID=4326;POINT Z (1 2 3)'), " +
+                                    "(2, VARCHAR 'SRID=4326;POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))')");
                 }
             }
         }
@@ -1807,19 +1804,19 @@ public class TestIcebergV3
                 new NestedGeometryContainer(
                         "row",
                         "ROW(geom geometry)",
-                        "CAST(ROW(ST_Point(1.0, 2.0)) AS ROW(geom geometry))",
+                        "CAST(ROW(ST_GeometryFromText('POINT Z (1 2 3)')) AS ROW(geom geometry))",
                         "CAST(ROW(ST_GeometryFromText('POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))')) AS ROW(geom geometry))",
                         "payload.geom"),
                 new NestedGeometryContainer(
                         "array",
                         "ARRAY(geometry)",
-                        "ARRAY[ST_Point(1.0, 2.0)]",
+                        "ARRAY[ST_GeometryFromText('POINT Z (1 2 3)')]",
                         "ARRAY[ST_GeometryFromText('POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))')]",
                         "payload[1]"),
                 new NestedGeometryContainer(
                         "map",
                         "MAP(VARCHAR, geometry)",
-                        "map(ARRAY['geom'], ARRAY[ST_Point(1.0, 2.0)])",
+                        "map(ARRAY['geom'], ARRAY[ST_GeometryFromText('POINT Z (1 2 3)')])",
                         "map(ARRAY['geom'], ARRAY[ST_GeometryFromText('POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))')])",
                         "payload['geom']"));
     }
@@ -1928,10 +1925,10 @@ public class TestIcebergV3
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
                 .formatted(registered, hadoopTableLocation));
 
-        assertUpdate("INSERT INTO " + registered + " VALUES (1, ST_SetSRID(ST_Point(1, 2), 3857))", 1);
+        assertUpdate("INSERT INTO " + registered + " VALUES (1, ST_SetSRID(ST_GeometryFromText('POINT Z (1 2 3)'), 3857))", 1);
 
-        assertThat(query("SELECT ST_AsText(geom), ST_SRID(geom) FROM " + registered))
-                .matches("VALUES (VARCHAR 'POINT (1 2)', 3857)");
+        assertThat(query("SELECT ST_AsEWKT(geom) FROM " + registered))
+                .matches("VALUES VARCHAR 'SRID=3857;POINT Z (1 2 3)'");
 
         assertUpdate("DROP TABLE " + registered);
     }
