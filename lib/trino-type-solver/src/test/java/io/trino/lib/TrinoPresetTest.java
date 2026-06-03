@@ -57,6 +57,8 @@ public class TrinoPresetTest
                         "tdigest",
                         "qdigest",
                         "SetDigest",
+                        "color",
+                        "json2016",
                         "map",
                         "array",
                         "row");

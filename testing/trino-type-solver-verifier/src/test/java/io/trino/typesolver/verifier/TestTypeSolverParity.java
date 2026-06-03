@@ -88,6 +88,8 @@ class TestTypeSolverParity
             "tdigest",
             "qdigest(bigint)",
             "SetDigest",
+            "color",
+            "json2016",
             "unknown",
             "decimal(1,0)",
             "decimal(20,10)",

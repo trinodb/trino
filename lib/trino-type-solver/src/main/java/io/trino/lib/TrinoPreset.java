@@ -17,6 +17,7 @@ import io.trino.lib.type.ArrayType;
 import io.trino.lib.type.BigintType;
 import io.trino.lib.type.BooleanType;
 import io.trino.lib.type.CharType;
+import io.trino.lib.type.ColorType;
 import io.trino.lib.type.DateType;
 import io.trino.lib.type.DecimalType;
 import io.trino.lib.type.DoubleType;
@@ -25,6 +26,7 @@ import io.trino.lib.type.IntegerType;
 import io.trino.lib.type.IntervalDayToSecondType;
 import io.trino.lib.type.IntervalYearToMonthType;
 import io.trino.lib.type.IpAddressType;
+import io.trino.lib.type.Json2016Type;
 import io.trino.lib.type.JsonType;
 import io.trino.lib.type.MapType;
 import io.trino.lib.type.NumberType;
@@ -109,6 +111,8 @@ public final class TrinoPreset
                 TDigestType.CONSTRUCTOR,
                 QuantileDigestType.CONSTRUCTOR,
                 SetDigestType.CONSTRUCTOR,
+                ColorType.CONSTRUCTOR,
+                Json2016Type.CONSTRUCTOR,
                 MapType.CONSTRUCTOR,
                 ArrayType.CONSTRUCTOR,
                 RowType.CONSTRUCTOR);
