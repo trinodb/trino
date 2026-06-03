@@ -35,6 +35,14 @@ public final class TypeUtils
 
     private TypeUtils() {}
 
+    public static Object blockToNativeValue(Type type, Block block)
+    {
+        if (block.getPositionCount() != 1) {
+            throw new IllegalArgumentException("Block should have exactly one position, but has: " + block.getPositionCount());
+        }
+        return readNativeValue(type, block, 0);
+    }
+
     /**
      * Get the native value as an object in the value at {@code position} of {@code block}.
      */
