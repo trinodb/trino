@@ -187,6 +187,18 @@ public class TestTrinoRestCatalog
     }
 
     @Test
+    @Override
+    public void testNamespaceFilter()
+    {
+        // TODO TrinoRestCatalog.getViews throws for a non-existent namespace instead of returning an empty
+        //  result like listTables/listViews and the other catalogs. Once that behavior is normalized this
+        //  assertion will fail; remove this override so the base test is inherited directly.
+        assertThatThrownBy(super::testNamespaceFilter)
+                .isInstanceOf(NoSuchNamespaceException.class)
+                .hasMessageContaining("Namespace does not exist: non_existing");
+    }
+
+    @Test
     public void testPrefix()
             throws Exception
     {

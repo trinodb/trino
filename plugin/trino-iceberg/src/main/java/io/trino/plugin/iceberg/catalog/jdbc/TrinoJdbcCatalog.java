@@ -277,7 +277,10 @@ public class TrinoJdbcCatalog
 
     private List<String> listNamespaces(ConnectorSession session, Optional<String> namespace)
     {
-        if (namespace.isPresent() && namespaceExists(session, namespace.get())) {
+        if (namespace.isPresent()) {
+            if (!namespaceExists(session, namespace.get())) {
+                return ImmutableList.of();
+            }
             return ImmutableList.of(namespace.get());
         }
         return listNamespaces(session);
@@ -513,8 +516,8 @@ public class TrinoJdbcCatalog
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> namespace)
     {
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
-        for (Namespace ns : jdbcCatalog.listNamespaces()) {
-            for (TableIdentifier restView : jdbcCatalog.listViews(ns)) {
+        for (String ns : listNamespaces(session, namespace)) {
+            for (TableIdentifier restView : jdbcCatalog.listViews(Namespace.of(ns))) {
                 SchemaTableName schemaTableName = SchemaTableName.schemaTableName(restView.namespace().toString(), restView.name());
                 try {
                     getView(session, schemaTableName).ifPresent(view -> views.put(schemaTableName, view));
