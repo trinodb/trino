@@ -79,8 +79,8 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import org.opensearch.client.ResponseException;
 
@@ -158,7 +158,7 @@ public class OpenSearchMetadata
     @Inject
     public OpenSearchMetadata(TypeManager typeManager, OpenSearchClient client, OpenSearchConfig config)
     {
-        this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
+        this.ipAddressType = typeManager.getType(new TypeDescriptor(StandardTypes.IPADDRESS));
         this.client = requireNonNull(client, "client is null");
         this.schemaName = config.getDefaultSchema();
     }

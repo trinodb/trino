@@ -38,10 +38,10 @@ import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.ExpressionFormatter;
-import io.trino.sql.analyzer.TypeSignatureTranslator;
+import io.trino.sql.analyzer.TypeDescriptorTranslator;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.DateTimeDataType;
 import io.trino.sql.tree.GenericDataType;
@@ -80,9 +80,9 @@ public final class ProtocolUtil
 
     public static Column createColumn(String name, Type type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
     {
-        String formatted = formatType(TypeSignatureTranslator.toSqlType(type), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary);
+        String formatted = formatType(TypeDescriptorTranslator.toSqlType(type), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary);
 
-        return new Column(name, formatted, toClientTypeSignature(type.getTypeSignature(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary));
+        return new Column(name, formatted, toClientTypeSignature(type.getTypeDescriptor(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary));
     }
 
     private static String formatType(DataType type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
@@ -137,7 +137,7 @@ public final class ProtocolUtil
         };
     }
 
-    private static ClientTypeSignature toClientTypeSignature(TypeSignature signature, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
+    private static ClientTypeSignature toClientTypeSignature(TypeDescriptor signature, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
     {
         if (!supportsParametricDateTime) {
             if (signature.getBase().equalsIgnoreCase(TIMESTAMP)) {
@@ -168,7 +168,7 @@ public final class ProtocolUtil
     private static ClientTypeSignatureParameter toClientTypeSignatureParameter(String base, TypeParameter parameter, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
     {
         return switch (parameter) {
-            case TypeParameter.Type(Optional<String> name, TypeSignature type) -> {
+            case TypeParameter.Type(Optional<String> name, TypeDescriptor type) -> {
                 if (base.equalsIgnoreCase(ROW)) { // for backward compatibility with old clients, which expect NAMED_TYPE for row fields
                     yield ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(
                             name.map(RowFieldName::new),

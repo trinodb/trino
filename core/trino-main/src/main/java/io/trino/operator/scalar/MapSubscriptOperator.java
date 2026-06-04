@@ -71,7 +71,7 @@ public class MapSubscriptOperator
     public FunctionDependencyDeclaration getFunctionDependencies()
     {
         return FunctionDependencyDeclaration.builder()
-                .addOptionalCastSignature(typeVariable("K"), TypeTemplates.fromTypeSignature(VARCHAR.getTypeSignature()))
+                .addOptionalCastSignature(typeVariable("K"), TypeTemplates.fromTypeDescriptor(VARCHAR.getTypeDescriptor()))
                 .build();
     }
 

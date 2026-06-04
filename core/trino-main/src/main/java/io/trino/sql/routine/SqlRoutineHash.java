@@ -301,8 +301,8 @@ public final class SqlRoutineHash
             hashString(function.functionId().toString());
 
             hasher.putInt(function.typeDependencies().size());
-            function.typeDependencies().forEach((typeSignature, type) -> {
-                hashString(typeSignature.toString());
+            function.typeDependencies().forEach((typeDescriptor, type) -> {
+                hashString(typeDescriptor.toString());
                 hashType(type);
             });
 

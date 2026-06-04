@@ -178,7 +178,7 @@ public class TypeVariableConstraint
 
         public TypeVariableConstraintBuilder castableTo(Type type)
         {
-            return castableTo(TypeTemplates.fromTypeSignature(type.getTypeSignature()));
+            return castableTo(TypeTemplates.fromTypeDescriptor(type.getTypeDescriptor()));
         }
 
         public TypeVariableConstraintBuilder castableTo(TypeTemplate type)
@@ -189,7 +189,7 @@ public class TypeVariableConstraint
 
         public TypeVariableConstraintBuilder castableFrom(Type type)
         {
-            return castableFrom(TypeTemplates.fromTypeSignature(type.getTypeSignature()));
+            return castableFrom(TypeTemplates.fromTypeDescriptor(type.getTypeDescriptor()));
         }
 
         public TypeVariableConstraintBuilder castableFrom(TypeTemplate type)

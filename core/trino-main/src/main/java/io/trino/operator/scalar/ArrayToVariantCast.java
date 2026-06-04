@@ -57,7 +57,7 @@ public class ArrayToVariantCast
     {
         super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
-                        .castableToTypeParameter("T", VARIANT.getTypeSignature())
+                        .castableToTypeParameter("T", VARIANT.getTypeDescriptor())
                         .returnType(VARIANT)
                         .argumentType(arrayType(typeVariable("T")))
                         .build())

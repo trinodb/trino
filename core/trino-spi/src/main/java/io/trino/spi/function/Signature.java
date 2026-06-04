@@ -16,7 +16,7 @@ package io.trino.spi.function;
 import io.trino.spi.type.NumericExpression;
 import io.trino.spi.type.TemplateParameter;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplate;
 import io.trino.spi.type.TypeTemplates;
 
@@ -201,9 +201,9 @@ public class Signature
                     .build());
         }
 
-        public Builder castableToTypeParameter(String name, TypeSignature toType)
+        public Builder castableToTypeParameter(String name, TypeDescriptor toType)
         {
-            return castableToTypeParameter(name, TypeTemplates.fromTypeSignature(toType));
+            return castableToTypeParameter(name, TypeTemplates.fromTypeDescriptor(toType));
         }
 
         public Builder castableFromTypeParameter(String name, TypeTemplate fromType)
@@ -213,9 +213,9 @@ public class Signature
                     .build());
         }
 
-        public Builder castableFromTypeParameter(String name, TypeSignature fromType)
+        public Builder castableFromTypeParameter(String name, TypeDescriptor fromType)
         {
-            return castableFromTypeParameter(name, TypeTemplates.fromTypeSignature(fromType));
+            return castableFromTypeParameter(name, TypeTemplates.fromTypeDescriptor(fromType));
         }
 
         public Builder rowTypeParameter(String name)
@@ -239,7 +239,7 @@ public class Signature
 
         public Builder returnType(Type returnType)
         {
-            return returnType(returnType.getTypeSignature());
+            return returnType(returnType.getTypeDescriptor());
         }
 
         public Builder returnType(TypeTemplate returnType)
@@ -248,9 +248,9 @@ public class Signature
             return this;
         }
 
-        public Builder returnType(TypeSignature returnType)
+        public Builder returnType(TypeDescriptor returnType)
         {
-            return returnType(TypeTemplates.fromTypeSignature(returnType));
+            return returnType(TypeTemplates.fromTypeDescriptor(returnType));
         }
 
         public Builder numericVariable(String name, NumericExpression expression)
@@ -284,7 +284,7 @@ public class Signature
 
         public Builder argumentType(Type type)
         {
-            return argumentType(type.getTypeSignature());
+            return argumentType(type.getTypeDescriptor());
         }
 
         public Builder argumentType(TypeTemplate type)
@@ -315,32 +315,32 @@ public class Signature
             return this;
         }
 
-        public Builder argumentType(TypeSignature type)
+        public Builder argumentType(TypeDescriptor type)
         {
-            return argumentType(TypeTemplates.fromTypeSignature(type));
+            return argumentType(TypeTemplates.fromTypeDescriptor(type));
         }
 
-        public Builder argumentType(TypeSignature type, String name)
+        public Builder argumentType(TypeDescriptor type, String name)
         {
-            return argumentType(TypeTemplates.fromTypeSignature(type), name);
+            return argumentType(TypeTemplates.fromTypeDescriptor(type), name);
         }
 
         public Builder argumentType(Type type, String name)
         {
-            return argumentType(type.getTypeSignature(), name);
+            return argumentType(type.getTypeDescriptor(), name);
         }
 
-        public Builder argumentTypes(List<TypeSignature> argumentTypes)
+        public Builder argumentTypes(List<TypeDescriptor> argumentTypes)
         {
-            for (TypeSignature argumentType : argumentTypes) {
+            for (TypeDescriptor argumentType : argumentTypes) {
                 argumentType(argumentType);
             }
             return this;
         }
 
-        public Builder argumentTypes(TypeSignature... argumentTypes)
+        public Builder argumentTypes(TypeDescriptor... argumentTypes)
         {
-            for (TypeSignature argumentType : argumentTypes) {
+            for (TypeDescriptor argumentType : argumentTypes) {
                 argumentType(argumentType);
             }
             return this;

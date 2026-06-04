@@ -28,9 +28,9 @@ import io.trino.spi.function.FlatVariableOffset;
 import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.type.AbstractVariableWidthType;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperatorDeclaration;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -55,7 +55,7 @@ public final class KdbTreeType
         // The KDB tree type should be KdbTree but can not be since KdbTree is in
         // both the plugin class loader and the system class loader.  This was done
         // so the plan optimizer can process geospatial joins.
-        super(new TypeSignature(NAME), Object.class);
+        super(new TypeDescriptor(NAME), Object.class);
     }
 
     @Override

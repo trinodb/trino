@@ -24,7 +24,7 @@ import java.util.Set;
 
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.Decimals.longTenToNth;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeTemplate;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 
 public final class DecimalToDecimalCasts
 {

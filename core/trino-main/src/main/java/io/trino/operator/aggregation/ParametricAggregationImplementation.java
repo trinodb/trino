@@ -64,7 +64,7 @@ import static io.trino.operator.annotations.ImplementationDependency.Factory.cre
 import static io.trino.operator.annotations.ImplementationDependency.getImplementationDependencyAnnotation;
 import static io.trino.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
 import static io.trino.operator.annotations.ImplementationDependency.validateImplementationDependencyAnnotation;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeTemplate;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
@@ -270,8 +270,8 @@ public class ParametricAggregationImplementation
             // parse native types of arguments
             argumentNativeContainerTypes = parseSignatureArgumentsTypes(inputFunction);
 
-            // determine TypeSignatures of function declaration
-            addInputTypeSignatures(signatureBuilder, inputFunction);
+            // determine TypeDescriptors of function declaration
+            addInputTypeDescriptors(signatureBuilder, inputFunction);
             signatureBuilder.returnType(parseTypeTemplate(outputFunction.getAnnotation(OutputFunction.class).value(), typeParameterNames, literalParameters));
 
             inputHandle = methodHandle(inputFunction);
@@ -455,7 +455,7 @@ public class ParametricAggregationImplementation
         /// non-`@SqlType` parameter, since the declared name has nothing to attach
         /// to. (`@Name` itself is not `@Repeatable`, so the compiler enforces a
         /// single annotation per parameter.)
-        private void addInputTypeSignatures(Signature.Builder signatureBuilder, Method inputFunction)
+        private void addInputTypeDescriptors(Signature.Builder signatureBuilder, Method inputFunction)
         {
             Annotation[][] parameterAnnotations = inputFunction.getParameterAnnotations();
             for (Annotation[] annotations : parameterAnnotations) {

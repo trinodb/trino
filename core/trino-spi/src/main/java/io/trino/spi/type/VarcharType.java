@@ -76,7 +76,7 @@ public final class VarcharType
     private VarcharType(int length)
     {
         super(
-                new TypeSignature(
+                new TypeDescriptor(
                         NAME,
                         singletonList(TypeParameter.numericParameter(length))),
                 Slice.class);

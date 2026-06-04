@@ -57,7 +57,7 @@ public final class RealType
 
     private RealType()
     {
-        super(new TypeSignature(StandardTypes.REAL));
+        super(new TypeDescriptor(StandardTypes.REAL));
     }
 
     @Override

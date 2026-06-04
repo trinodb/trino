@@ -42,7 +42,7 @@ import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NA
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.PartialTranslator.extractPartialTranslations;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;

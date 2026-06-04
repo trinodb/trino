@@ -60,7 +60,7 @@ public class JsonToArrayCast
     {
         super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
-                        .castableFromTypeParameter("T", JSON.getTypeSignature())
+                        .castableFromTypeParameter("T", JSON.getTypeDescriptor())
                         .returnType(arrayType(typeVariable("T")))
                         .argumentType(JSON)
                         .build())

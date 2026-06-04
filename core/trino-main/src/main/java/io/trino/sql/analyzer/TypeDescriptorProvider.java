@@ -15,7 +15,7 @@ package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 
 import java.util.List;
 import java.util.function.Function;
@@ -24,24 +24,24 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public final class TypeSignatureProvider
+public final class TypeDescriptorProvider
 {
     // hasDependency field exists primarily to make manipulating types without dependencies easy,
     // and to make toString more friendly.
     private final boolean hasDependency;
-    private final Function<List<Type>, TypeSignature> typeSignatureResolver;
+    private final Function<List<Type>, TypeDescriptor> typeDescriptorResolver;
 
-    public TypeSignatureProvider(TypeSignature typeSignature)
+    public TypeDescriptorProvider(TypeDescriptor typeDescriptor)
     {
         this.hasDependency = false;
-        requireNonNull(typeSignature, "typeSignature is null");
-        this.typeSignatureResolver = _ -> typeSignature;
+        requireNonNull(typeDescriptor, "typeDescriptor is null");
+        this.typeDescriptorResolver = _ -> typeDescriptor;
     }
 
-    public TypeSignatureProvider(Function<List<Type>, TypeSignature> typeSignatureResolver)
+    public TypeDescriptorProvider(Function<List<Type>, TypeDescriptor> typeDescriptorResolver)
     {
         this.hasDependency = true;
-        this.typeSignatureResolver = requireNonNull(typeSignatureResolver, "typeSignatureResolver is null");
+        this.typeDescriptorResolver = requireNonNull(typeDescriptorResolver, "typeDescriptorResolver is null");
     }
 
     public boolean hasDependency()
@@ -49,40 +49,40 @@ public final class TypeSignatureProvider
         return hasDependency;
     }
 
-    public TypeSignature getTypeSignature()
+    public TypeDescriptor getTypeDescriptor()
     {
         checkState(!hasDependency);
-        return typeSignatureResolver.apply(ImmutableList.of());
+        return typeDescriptorResolver.apply(ImmutableList.of());
     }
 
-    public TypeSignature getTypeSignature(List<Type> boundTypeParameters)
+    public TypeDescriptor getTypeDescriptor(List<Type> boundTypeParameters)
     {
         checkState(hasDependency);
-        return typeSignatureResolver.apply(boundTypeParameters);
+        return typeDescriptorResolver.apply(boundTypeParameters);
     }
 
-    public static List<TypeSignatureProvider> fromTypes(Type... types)
+    public static List<TypeDescriptorProvider> fromTypes(Type... types)
     {
         return fromTypes(ImmutableList.copyOf(types));
     }
 
-    public static List<TypeSignatureProvider> fromTypes(List<? extends Type> types)
+    public static List<TypeDescriptorProvider> fromTypes(List<? extends Type> types)
     {
         return types.stream()
-                .map(Type::getTypeSignature)
-                .map(TypeSignatureProvider::new)
+                .map(Type::getTypeDescriptor)
+                .map(TypeDescriptorProvider::new)
                 .collect(toImmutableList());
     }
 
-    public static List<TypeSignatureProvider> fromTypeSignatures(TypeSignature... typeSignatures)
+    public static List<TypeDescriptorProvider> fromTypeDescriptors(TypeDescriptor... typeDescriptors)
     {
-        return fromTypeSignatures(ImmutableList.copyOf(typeSignatures));
+        return fromTypeDescriptors(ImmutableList.copyOf(typeDescriptors));
     }
 
-    public static List<TypeSignatureProvider> fromTypeSignatures(List<? extends TypeSignature> typeSignatures)
+    public static List<TypeDescriptorProvider> fromTypeDescriptors(List<? extends TypeDescriptor> typeDescriptors)
     {
-        return typeSignatures.stream()
-                .map(TypeSignatureProvider::new)
+        return typeDescriptors.stream()
+                .map(TypeDescriptorProvider::new)
                 .collect(toImmutableList());
     }
 
@@ -92,6 +92,6 @@ public final class TypeSignatureProvider
         if (hasDependency) {
             return "<function>";
         }
-        return getTypeSignature().toString();
+        return getTypeDescriptor().toString();
     }
 }

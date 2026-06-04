@@ -116,7 +116,7 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.planner.PartitioningHandle;
 
 import java.util.Collection;
@@ -1373,7 +1373,7 @@ public class TracingMetadata
     }
 
     @Override
-    public ResolvedFunction resolveBuiltinFunction(String name, List<TypeSignatureProvider> parameterTypes)
+    public ResolvedFunction resolveBuiltinFunction(String name, List<TypeDescriptorProvider> parameterTypes)
     {
         Span span = startSpan("resolveBuiltinFunction")
                 .setAttribute(TrinoAttributes.FUNCTION, name);

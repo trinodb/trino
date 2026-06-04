@@ -420,8 +420,8 @@ import static io.trino.sql.analyzer.Scope.BasisType.TABLE;
 import static io.trino.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope;
 import static io.trino.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.DereferenceExpression.getQualifiedName;
 import static io.trino.sql.tree.Join.Type.FULL;
@@ -2158,7 +2158,7 @@ class StatementAnalyzer
                                                     field.getName().getCanonicalValue(),
                                                     field.getType().map(type -> {
                                                         try {
-                                                            return plannerContext.getTypeManager().getType(toTypeSignature(type));
+                                                            return plannerContext.getTypeManager().getType(toTypeDescriptor(type));
                                                         }
                                                         catch (TypeNotFoundException e) {
                                                             throw semanticException(TYPE_MISMATCH, type, "Unknown type: %s", type);

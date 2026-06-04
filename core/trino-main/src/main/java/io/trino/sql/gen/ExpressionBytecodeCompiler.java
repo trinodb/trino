@@ -66,7 +66,7 @@ import static io.airlift.bytecode.instruction.Constant.loadDouble;
 import static io.airlift.bytecode.instruction.Constant.loadLong;
 import static io.airlift.bytecode.instruction.Constant.loadString;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.generateLambda;
 import static java.util.Objects.requireNonNull;
@@ -172,7 +172,7 @@ public class ExpressionBytecodeCompiler
             }
 
             // use LDC for primitives (boolean, short, int, long, float, double)
-            block.comment("constant " + node.type().getTypeSignature());
+            block.comment("constant " + node.type().getTypeDescriptor());
             if (javaType == boolean.class) {
                 return block.append(loadBoolean((Boolean) value));
             }

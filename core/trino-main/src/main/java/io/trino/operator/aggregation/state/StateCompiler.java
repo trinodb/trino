@@ -241,7 +241,7 @@ public final class StateCompiler
 
         Type type = getSerializedType(fields);
 
-        body.comment("return %s", type.getTypeSignature())
+        body.comment("return %s", type.getTypeDescriptor())
                 .append(constantType(callSiteBinder, type))
                 .retObject();
     }

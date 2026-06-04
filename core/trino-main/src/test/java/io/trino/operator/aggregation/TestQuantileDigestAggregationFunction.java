@@ -23,7 +23,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.StandardTypes;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -53,7 +53,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static java.lang.Double.NaN;
 import static java.lang.Integer.max;
 import static java.lang.Integer.min;
@@ -332,7 +332,7 @@ public class TestQuantileDigestAggregationFunction
                 inputs);
     }
 
-    private void testAggregationBigints(List<TypeSignatureProvider> parameterTypes, Page page, double maxError, long... inputs)
+    private void testAggregationBigints(List<TypeDescriptorProvider> parameterTypes, Page page, double maxError, long... inputs)
     {
         // aggregate level
         assertAggregation(
@@ -351,7 +351,7 @@ public class TestQuantileDigestAggregationFunction
         assertPercentileWithinError(StandardTypes.BIGINT, returned, maxError, rows, 0.1, 0.5, 0.9, 0.99);
     }
 
-    private void testAggregationDoubles(List<TypeSignatureProvider> parameterTypes, Page page, double maxError, double... inputs)
+    private void testAggregationDoubles(List<TypeDescriptorProvider> parameterTypes, Page page, double maxError, double... inputs)
     {
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -369,7 +369,7 @@ public class TestQuantileDigestAggregationFunction
         assertPercentileWithinError(StandardTypes.DOUBLE, returned, maxError, rows, 0.1, 0.5, 0.9, 0.99);
     }
 
-    private void testAggregationReal(List<TypeSignatureProvider> parameterTypes, Page page, double maxError, float... inputs)
+    private void testAggregationReal(List<TypeDescriptorProvider> parameterTypes, Page page, double maxError, float... inputs)
     {
         assertAggregation(
                 FUNCTION_RESOLUTION,

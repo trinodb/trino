@@ -126,9 +126,9 @@ public class RowType
     private final int flatFixedSize;
     private final boolean flatVariableWidth;
 
-    private RowType(TypeSignature typeSignature, List<Field> originalFields)
+    private RowType(TypeDescriptor typeDescriptor, List<Field> originalFields)
     {
-        super(typeSignature, SqlRow.class, RowBlock.class);
+        super(typeDescriptor, SqlRow.class, RowBlock.class);
 
         this.fields = List.copyOf(originalFields);
         this.fieldTypes = fields.stream()
@@ -182,13 +182,13 @@ public class RowType
         return new Field(Optional.empty(), type);
     }
 
-    private static TypeSignature makeSignature(List<Field> fields)
+    private static TypeDescriptor makeSignature(List<Field> fields)
     {
         List<TypeParameter> parameters = fields.stream()
-                .map(field -> TypeParameter.typeParameter(field.getName(), field.getType().getTypeSignature()))
+                .map(field -> TypeParameter.typeParameter(field.getName(), field.getType().getTypeDescriptor()))
                 .toList();
 
-        return new TypeSignature(NAME, parameters);
+        return new TypeDescriptor(NAME, parameters);
     }
 
     @Override

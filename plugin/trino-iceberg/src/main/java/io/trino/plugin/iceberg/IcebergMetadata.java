@@ -264,7 +264,7 @@ import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveMetadata.TRANSACTIONAL;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.ViewReaderUtil.isSomeKindOfAView;
-import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeDescriptor;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
@@ -1952,7 +1952,7 @@ public class IcebergMetadata
                         return;
                     }
                     ColumnIdentity columnIdentity = createColumnIdentity(targetColumn);
-                    org.apache.iceberg.types.Type sourceColumnType = toIcebergType(typeManager.getType(getTypeSignature(sourceColumn.getType(), DEFAULT_PRECISION)), columnIdentity);
+                    org.apache.iceberg.types.Type sourceColumnType = toIcebergType(typeManager.getType(getTypeDescriptor(sourceColumn.getType(), DEFAULT_PRECISION)), columnIdentity);
                     if (!targetColumn.type().equals(sourceColumnType)) {
                         throw new TrinoException(TYPE_MISMATCH, "Target '%s' column is '%s' type, but got source '%s' type".formatted(targetColumn.name(), targetColumn.type(), sourceColumnType));
                     }

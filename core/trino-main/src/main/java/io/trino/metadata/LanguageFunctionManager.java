@@ -49,7 +49,7 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlPath;
-import io.trino.sql.analyzer.TypeSignatureTranslator;
+import io.trino.sql.analyzer.TypeDescriptorTranslator;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.routine.SqlRoutineAnalysis;
 import io.trino.sql.routine.SqlRoutineAnalyzer;
@@ -84,7 +84,7 @@ import static io.trino.spi.ErrorType.USER_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.type.TypeTemplates.toTypeSignature;
+import static io.trino.spi.type.TypeTemplates.toTypeDescriptor;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -256,7 +256,7 @@ public class LanguageFunctionManager
     {
         return parameters.stream()
                 .map(ParameterDeclaration::getType)
-                .map(TypeSignatureTranslator::toTypeSignature)
+                .map(TypeDescriptorTranslator::toTypeDescriptor)
                 .map(typeManager::getType)
                 .map(Type::getTypeId)
                 .map(TypeId::getId)
@@ -567,10 +567,10 @@ public class LanguageFunctionManager
 
             private LanguageFunctionDefinition engineFunctionDefinition(FunctionContext context)
             {
-                Type returnType = typeManager.getType(toTypeSignature(functionMetadata.getSignature().getReturnType()));
+                Type returnType = typeManager.getType(toTypeDescriptor(functionMetadata.getSignature().getReturnType()));
 
                 List<Type> argumentTypes = functionMetadata.getSignature().getArgumentTypes().stream()
-                        .map(TypeTemplates::toTypeSignature)
+                        .map(TypeTemplates::toTypeDescriptor)
                         .map(typeManager::getType)
                         .collect(toImmutableList());
 

@@ -39,7 +39,7 @@ import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.split.PageSourceManager;
 import io.trino.split.PageSourceProvider;
 import io.trino.split.SplitManager;
@@ -150,8 +150,8 @@ import static java.util.Objects.requireNonNull;
  */
 public class ExtractSpatialJoins
 {
-    private static final TypeSignature GEOMETRY_TYPE_SIGNATURE = new TypeSignature("Geometry");
-    private static final TypeSignature SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE = new TypeSignature("SphericalGeography");
+    private static final TypeDescriptor GEOMETRY_TYPE_SIGNATURE = new TypeDescriptor("Geometry");
+    private static final TypeDescriptor SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE = new TypeDescriptor("SphericalGeography");
     private static final String KDB_TREE_TYPENAME = "KdbTree";
 
     private final PlannerContext plannerContext;
@@ -587,10 +587,10 @@ public class ExtractSpatialJoins
             projections.putIdentity(outputSymbol);
         }
 
-        TypeSignature typeSignature = new TypeSignature(KDB_TREE_TYPENAME);
+        TypeDescriptor typeDescriptor = new TypeDescriptor(KDB_TREE_TYPENAME);
         BuiltinFunctionCallBuilder spatialPartitionsCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                 .setName("spatial_partitions")
-                .addArgument(typeSignature, new Cast(new Constant(VARCHAR, KdbTreeUtils.toJson(kdbTree)), plannerContext.getTypeManager().getType(typeSignature)))
+                .addArgument(typeDescriptor, new Cast(new Constant(VARCHAR, KdbTreeUtils.toJson(kdbTree)), plannerContext.getTypeManager().getType(typeDescriptor)))
                 .addArgument(GEOMETRY_TYPE_SIGNATURE, geometry);
         radius.ifPresent(value -> spatialPartitionsCall.addArgument(DOUBLE, value));
         Call partitioningFunction = spatialPartitionsCall.build();

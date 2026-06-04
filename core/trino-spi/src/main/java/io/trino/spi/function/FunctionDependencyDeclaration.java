@@ -17,7 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.DoNotCall;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplate;
 import io.trino.spi.type.TypeTemplates;
 
@@ -100,9 +100,9 @@ public class FunctionDependencyDeclaration
 
         private FunctionDependencyDeclarationBuilder() {}
 
-        public FunctionDependencyDeclarationBuilder addType(TypeSignature typeSignature)
+        public FunctionDependencyDeclarationBuilder addType(TypeDescriptor typeDescriptor)
         {
-            typeDependencies.add(TypeTemplates.fromTypeSignature(typeSignature));
+            typeDependencies.add(TypeTemplates.fromTypeDescriptor(typeDescriptor));
             return this;
         }
 
@@ -209,7 +209,7 @@ public class FunctionDependencyDeclaration
 
         private static TypeTemplate toTemplate(Type type)
         {
-            return TypeTemplates.fromTypeSignature(type.getTypeSignature());
+            return TypeTemplates.fromTypeDescriptor(type.getTypeDescriptor());
         }
     }
 

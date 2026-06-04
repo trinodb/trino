@@ -62,8 +62,8 @@ public class VariantToMapCast
     {
         super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
-                        .castableFromTypeParameter("K", VARCHAR.getTypeSignature())
-                        .castableFromTypeParameter("V", VARIANT.getTypeSignature())
+                        .castableFromTypeParameter("K", VARCHAR.getTypeDescriptor())
+                        .castableFromTypeParameter("V", VARIANT.getTypeDescriptor())
                         .returnType(mapType(typeVariable("K"), typeVariable("V")))
                         .argumentType(VARIANT)
                         .build())

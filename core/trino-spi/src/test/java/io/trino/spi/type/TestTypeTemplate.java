@@ -103,8 +103,8 @@ class TestTypeTemplate
                         new NumericExpression.Operation(ADD, new NumericExpression.Variable("p"), new NumericExpression.Literal(1)))),
                 new TemplateParameter.NumericArgument(new NumericExpression.Variable("s"))));
 
-        TypeSignature bound = TypeTemplates.bind(template, Map.of(), Map.of("p", 10L, "s", 2L));
-        assertThat(bound).isEqualTo(new TypeSignature("decimal", List.of(numericParameter(11), numericParameter(2))));
+        TypeDescriptor bound = TypeTemplates.bind(template, Map.of(), Map.of("p", 10L, "s", 2L));
+        assertThat(bound).isEqualTo(new TypeDescriptor("decimal", List.of(numericParameter(11), numericParameter(2))));
     }
 
     @Test
@@ -114,18 +114,18 @@ class TestTypeTemplate
         TypeTemplate template = new TypeTemplate.TypeApplication("array", List.of(
                 new TemplateParameter.TypeArgument(Optional.empty(), new TypeTemplate.TypeVariable("E"))));
 
-        TypeSignature bound = TypeTemplates.bind(template, Map.of("E", BigintType.BIGINT.getTypeSignature()), Map.of());
-        assertThat(bound).isEqualTo(new TypeSignature("array", List.of(typeParameter(BigintType.BIGINT.getTypeSignature()))));
+        TypeDescriptor bound = TypeTemplates.bind(template, Map.of("E", BigintType.BIGINT.getTypeDescriptor()), Map.of());
+        assertThat(bound).isEqualTo(new TypeDescriptor("array", List.of(typeParameter(BigintType.BIGINT.getTypeDescriptor()))));
     }
 
     @Test
     void testLiftRoundTrip()
     {
         // array(decimal(10, 2)) lifts to a variable-free template and binds back to itself
-        TypeSignature signature = new TypeSignature("array", List.of(typeParameter(
-                new TypeSignature("decimal", List.of(numericParameter(10), numericParameter(2))))));
+        TypeDescriptor signature = new TypeDescriptor("array", List.of(typeParameter(
+                new TypeDescriptor("decimal", List.of(numericParameter(10), numericParameter(2))))));
 
-        TypeTemplate template = TypeTemplates.fromTypeSignature(signature);
+        TypeTemplate template = TypeTemplates.fromTypeDescriptor(signature);
         assertThat(TypeTemplates.bind(template, Map.of(), Map.of())).isEqualTo(signature);
     }
 

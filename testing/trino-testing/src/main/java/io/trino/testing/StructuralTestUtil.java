@@ -159,13 +159,13 @@ public final class StructuralTestUtil
     public static MapType mapType(Type keyType, Type valueType)
     {
         return (MapType) TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeParameter.typeParameter(keyType.getTypeSignature()),
-                TypeParameter.typeParameter(valueType.getTypeSignature())));
+                TypeParameter.typeParameter(keyType.getTypeDescriptor()),
+                TypeParameter.typeParameter(valueType.getTypeDescriptor())));
     }
 
     public static ArrayType arrayType(Type elementType)
     {
         return (ArrayType) TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(
-                TypeParameter.typeParameter(elementType.getTypeSignature())));
+                TypeParameter.typeParameter(elementType.getTypeDescriptor())));
     }
 }

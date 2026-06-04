@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
@@ -47,7 +47,7 @@ public class TestRemoveRedundantInItems
     private static final Expression RANDOM_BOUND = new Constant(TINYINT, 10L);
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     // random with tinyint bound may fail
-    private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", ImmutableList.of(new TypeSignatureProvider(TINYINT.getTypeSignature())));
+    private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", ImmutableList.of(new TypeDescriptorProvider(TINYINT.getTypeDescriptor())));
     private static final ResolvedFunction IS_INDETERMINATE = FUNCTIONS.resolveOperator(INDETERMINATE, ImmutableList.of(BIGINT));
 
     @Test

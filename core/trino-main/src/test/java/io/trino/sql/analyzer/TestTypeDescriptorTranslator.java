@@ -20,12 +20,12 @@ import org.junit.jupiter.api.Test;
 import java.util.Comparator;
 import java.util.Locale;
 
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toDataType;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toDataType;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static io.trino.sql.parser.ParserAssert.type;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestTypeSignatureTranslator
+public class TestTypeDescriptorTranslator
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
 
@@ -34,7 +34,7 @@ public class TestTypeSignatureTranslator
         assertThat(type(expression))
                 .ignoringLocation()
                 .withComparatorForType(Comparator.comparing(identifier -> identifier.getValue().toLowerCase(Locale.ENGLISH)), Identifier.class)
-                .isEqualTo(toDataType(toTypeSignature(SQL_PARSER.createType(expression))));
+                .isEqualTo(toDataType(toTypeDescriptor(SQL_PARSER.createType(expression))));
     }
 
     @Test

@@ -24,14 +24,14 @@ public sealed interface TypeParameter
         permits TypeParameter.Numeric,
                 TypeParameter.Type
 {
-    static TypeParameter typeParameter(TypeSignature typeSignature)
+    static TypeParameter typeParameter(TypeDescriptor typeDescriptor)
     {
-        return new Type(Optional.empty(), typeSignature);
+        return new Type(Optional.empty(), typeDescriptor);
     }
 
-    static TypeParameter typeParameter(Optional<String> name, TypeSignature typeSignature)
+    static TypeParameter typeParameter(Optional<String> name, TypeDescriptor typeDescriptor)
     {
-        return new Type(name, typeSignature);
+        return new Type(name, typeDescriptor);
     }
 
     static TypeParameter numericParameter(long longLiteral)
@@ -39,12 +39,12 @@ public sealed interface TypeParameter
         return new Numeric(longLiteral);
     }
 
-    static TypeParameter namedField(String name, TypeSignature type)
+    static TypeParameter namedField(String name, TypeDescriptor type)
     {
         return new Type(Optional.of(name), type);
     }
 
-    static TypeParameter anonymousField(TypeSignature type)
+    static TypeParameter anonymousField(TypeDescriptor type)
     {
         return new Type(Optional.empty(), type);
     }
@@ -53,7 +53,7 @@ public sealed interface TypeParameter
 
     boolean isCalculated();
 
-    record Type(Optional<String> name, TypeSignature type)
+    record Type(Optional<String> name, TypeDescriptor type)
             implements TypeParameter
     {
         @Override
