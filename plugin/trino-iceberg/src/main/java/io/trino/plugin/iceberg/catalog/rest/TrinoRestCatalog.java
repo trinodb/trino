@@ -189,7 +189,7 @@ public class TrinoRestCatalog
     public List<String> listNamespaces(ConnectorSession session)
     {
         if (nestedNamespaceEnabled) {
-            return collectNamespaces(session, Namespace.empty());
+            return collectNamespaces(convert(session), Namespace.empty());
         }
         try {
             return restSessionCatalog.listNamespaces(convert(session)).stream()
@@ -201,11 +201,11 @@ public class TrinoRestCatalog
         }
     }
 
-    private List<String> collectNamespaces(ConnectorSession session, Namespace parentNamespace)
+    private List<String> collectNamespaces(SessionContext sessionContext, Namespace parentNamespace)
     {
         try {
-            return restSessionCatalog.listNamespaces(convert(session), parentNamespace).stream()
-                    .flatMap(childNamespace -> collectNamespaceIfExists(session, childNamespace).stream())
+            return restSessionCatalog.listNamespaces(sessionContext, parentNamespace).stream()
+                    .flatMap(childNamespace -> collectNamespaceIfExists(sessionContext, childNamespace).stream())
                     .collect(toImmutableList());
         }
         catch (RESTException e) {
@@ -213,12 +213,12 @@ public class TrinoRestCatalog
         }
     }
 
-    private List<String> collectNamespaceIfExists(ConnectorSession session, Namespace namespace)
+    private List<String> collectNamespaceIfExists(SessionContext sessionContext, Namespace namespace)
     {
         try {
             return Stream.concat(
                             Stream.of(namespace.toString()),
-                            collectNamespaces(session, namespace).stream())
+                            collectNamespaces(sessionContext, namespace).stream())
                     .collect(toImmutableList());
         }
         catch (NoSuchNamespaceException e) {
@@ -1061,24 +1061,29 @@ public class TrinoRestCatalog
 
     private List<Namespace> listNamespaces(ConnectorSession session, Namespace parentNamespace)
     {
-        List<Namespace> childNamespaces;
-        try {
-            childNamespaces = restSessionCatalog.listNamespaces(convert(session), parentNamespace);
-        }
-        catch (RESTException e) {
-            throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to list namespaces", e);
-        }
-        return childNamespaces.stream().flatMap(childNamespace -> listNamespaceIfExists(session, childNamespace).stream()).toList();
+        return listNamespaces(convert(session), parentNamespace);
     }
 
-    private List<Namespace> listNamespaceIfExists(ConnectorSession session, Namespace namespace)
+    private List<Namespace> listNamespaceIfExists(SessionContext sessionContext, Namespace namespace)
     {
         try {
-            return Stream.concat(Stream.of(namespace), listNamespaces(session, namespace).stream()).toList();
+            return Stream.concat(Stream.of(namespace), listNamespaces(sessionContext, namespace).stream()).toList();
         }
         catch (NoSuchNamespaceException e) {
             return ImmutableList.of();
         }
+    }
+
+    private List<Namespace> listNamespaces(SessionContext sessionContext, Namespace parentNamespace)
+    {
+        List<Namespace> childNamespaces;
+        try {
+            childNamespaces = restSessionCatalog.listNamespaces(sessionContext, parentNamespace);
+        }
+        catch (RESTException e) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to list namespaces", e);
+        }
+        return childNamespaces.stream().flatMap(childNamespace -> listNamespaceIfExists(sessionContext, childNamespace).stream()).toList();
     }
 
     private static Namespace toTrinoNamespace(Namespace namespace)
