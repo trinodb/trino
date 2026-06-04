@@ -4,7 +4,6 @@
 const fs = require('node:fs');
 
 const API_URL = 'https://api.github.com';
-const STATUS_CONTEXT = 'verification/cla-signed';
 const LABEL = 'cla-signed';
 const COMMENT_MARKER = '<!-- trino-cla-check -->';
 const CONTRIBUTORS_URL = '/repos/trinodb/cla/contents/contributors';
@@ -79,7 +78,6 @@ async function paginate(path) {
 async function resolveCheckTarget(eventName, event) {
     if (eventName === 'pull_request_target') {
         return {
-            statusSha: event.pull_request.head.sha,
             pullRequests: [event.pull_request],
             updatePullRequests: true,
         };
@@ -96,7 +94,6 @@ async function resolveCheckTarget(eventName, event) {
         }
         const pullRequest = await githubRequest(`/repos/${owner}/${repo}/pulls/${event.issue.number}`);
         return {
-            statusSha: pullRequest.head.sha,
             pullRequests: [pullRequest],
             updatePullRequests: true,
         };
@@ -104,7 +101,6 @@ async function resolveCheckTarget(eventName, event) {
 
     if (eventName === 'merge_group') {
         return {
-            statusSha: event.merge_group.head_sha || process.env.GITHUB_SHA,
             mergeGroup: event.merge_group,
             pullRequests: [],
             updatePullRequests: false,
@@ -120,27 +116,35 @@ function commentRequestsClaCheck(comment) {
     return command === '@cla-bot check' || command === '/cla-check';
 }
 
-async function setStatus(sha, state, description) {
-    const targetUrl = process.env.GITHUB_SERVER_URL && process.env.GITHUB_REPOSITORY && process.env.GITHUB_RUN_ID
-        ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
-        : undefined;
-
-    const status = {
-        state,
-        context: STATUS_CONTEXT,
-        description,
-        ...(targetUrl ? {target_url: targetUrl} : {}),
-    };
-
-    if (dryRun) {
-        console.log('Would set status:', status);
+function addJobErrorAnnotation(title, message) {
+    if (process.env.GITHUB_ACTIONS !== 'true') {
         return;
     }
 
-    await githubRequest(`/repos/${owner}/${repo}/statuses/${sha}`, {
-        method: 'POST',
-        body: status,
-    });
+    console.error(`::error title=${escapeWorkflowCommandProperty(title)}::${escapeWorkflowCommandValue(message)}`);
+}
+
+function addClaFailureAnnotation(result) {
+    const missing = result.unidentified || result.missing;
+    const summary = result.unidentified
+        ? 'Could not identify contributors'
+        : 'CLA is missing for contributors';
+    const message = `${summary}: ${missing.join(', ')}\n${result.message}`;
+
+    addJobErrorAnnotation('Contributor License Agreement', message);
+}
+
+function escapeWorkflowCommandProperty(value) {
+    return escapeWorkflowCommandValue(value)
+        .replace(/:/g, '%3A')
+        .replace(/,/g, '%2C');
+}
+
+function escapeWorkflowCommandValue(value) {
+    return String(value)
+        .replace(/%/g, '%25')
+        .replace(/\r/g, '%0D')
+        .replace(/\n/g, '%0A');
 }
 
 async function getContributors() {
@@ -323,49 +327,28 @@ async function deleteFailureComments(issueNumbers) {
 async function main() {
     const eventName = process.env.GITHUB_EVENT_NAME;
     const event = readEvent();
-    let target;
-    try {
-        target = await resolveCheckTarget(eventName, event);
-        if (!target) {
-            return;
-        }
-        if (!target.statusSha) {
-            throw new Error('Could not determine commit SHA for CLA status');
-        }
-
-        await setStatus(target.statusSha, 'pending', 'Checking Contributor License Agreement');
-
-        const [commits, contributors] = await Promise.all([
-            listTargetCommits(target),
-            getContributors(),
-        ]);
-        const result = findMissingClaContributors(commits, contributors);
-
-        if (result.passed) {
-            await setStatus(target.statusSha, 'success', 'All commit authors have signed the CLA');
-            await bestEffortUpdatePullRequests(() => markTargetPassed(target));
-            console.log(`All commit authors for ${describeTarget(target)} have signed the CLA`);
-            return;
-        }
-
-        await setStatus(target.statusSha, 'failure', 'CLA is missing for one or more commit authors');
-        await bestEffortUpdatePullRequests(() => markTargetFailed(target, result.message));
-        const missing = result.unidentified || result.missing;
-        console.error(`CLA check failed for ${describeTarget(target)}: ${missing.join(', ')}`);
-        process.exitCode = 1;
+    const target = await resolveCheckTarget(eventName, event);
+    if (!target) {
         return;
     }
-    catch (error) {
-        if (target?.statusSha) {
-            try {
-                await setStatus(target.statusSha, 'error', 'CLA check could not complete');
-            }
-            catch (statusError) {
-                console.error('Failed to set CLA error status', statusError);
-            }
-        }
-        throw error;
+
+    const [commits, contributors] = await Promise.all([
+        listTargetCommits(target),
+        getContributors(),
+    ]);
+    const result = findMissingClaContributors(commits, contributors);
+
+    if (result.passed) {
+        await bestEffortUpdatePullRequests(() => markTargetPassed(target));
+        console.log(`All commit authors for ${describeTarget(target)} have signed the CLA`);
+        return;
     }
+
+    await bestEffortUpdatePullRequests(() => markTargetFailed(target, result.message));
+    const missing = result.unidentified || result.missing;
+    addClaFailureAnnotation(result);
+    console.error(`CLA check failed for ${describeTarget(target)}: ${missing.join(', ')}`);
+    process.exitCode = 1;
 }
 
 async function listTargetCommits(target) {
@@ -410,7 +393,7 @@ async function markTargetFailed(target, message) {
 
 function describeTarget(target) {
     if (target.mergeGroup) {
-        return `merge group ${target.mergeGroup.head_ref || target.statusSha}`;
+        return `merge group ${target.mergeGroup.head_ref || target.mergeGroup.head_sha || process.env.GITHUB_SHA}`;
     }
     return target.pullRequests.map(pullRequest => `#${pullRequest.number}`).join(', ');
 }

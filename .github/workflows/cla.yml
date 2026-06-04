@@ -11,10 +11,9 @@ on:
 permissions:
   contents: read
   pull-requests: write
-  statuses: write
 
 jobs:
-  check:
+  cla-signed:
     if: |
       github.repository == 'trinodb/trino' &&
       (
