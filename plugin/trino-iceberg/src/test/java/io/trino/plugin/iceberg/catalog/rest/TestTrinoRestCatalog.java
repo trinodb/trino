@@ -28,11 +28,14 @@ import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.exceptions.RESTException;
@@ -48,6 +51,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -58,8 +62,10 @@ import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.metastore.TableInfo.ExtendedRelationType.OTHER_VIEW;
 import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
 import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType.NONE;
+import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType.USER;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
 import static io.trino.plugin.iceberg.delete.DeletionVectorWriter.UNSUPPORTED_DELETION_VECTOR_WRITER;
+import static io.trino.spi.security.ExtraCredentials.authenticatedExtraCredentialName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -67,6 +73,10 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.iceberg.rest.auth.OAuth2Properties.CREDENTIAL;
+import static org.apache.iceberg.rest.auth.OAuth2Properties.TOKEN;
+import static org.apache.iceberg.rest.auth.OAuth2Properties.TOKEN_EXCHANGE_ENABLED;
+import static org.apache.iceberg.rest.auth.OAuth2Properties.TOKEN_REFRESH_ENABLED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -121,6 +131,7 @@ public class TestTrinoRestCatalog
                 Security.NONE,
                 NONE,
                 ImmutableMap.of(),
+                ImmutableMap.of(),
                 nestedNamespaceEnabled,
                 "test",
                 TESTING_TYPE_MANAGER,
@@ -128,7 +139,35 @@ public class TestTrinoRestCatalog
                 caseInsensitiveNameMatching,
                 EvictableCacheBuilder.newBuilder().expireAfterWrite(1000, MILLISECONDS).shareNothingWhenDisabled().build(),
                 EvictableCacheBuilder.newBuilder().expireAfterWrite(1000, MILLISECONDS).shareNothingWhenDisabled().build(),
-                true);
+                true,
+                new AtomicBoolean(false));
+    }
+
+    private static TrinoRestCatalog createUserSessionTrinoRestCatalog(RESTSessionCatalog restSessionCatalog)
+    {
+        return createUserSessionTrinoRestCatalog(restSessionCatalog, ImmutableMap.of());
+    }
+
+    private static TrinoRestCatalog createUserSessionTrinoRestCatalog(RESTSessionCatalog restSessionCatalog, Map<String, String> sessionProperties)
+    {
+        String catalogName = "iceberg_rest";
+        return new TrinoRestCatalog(
+                new DefaultIcebergFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY),
+                restSessionCatalog,
+                new CatalogName(catalogName),
+                Security.OAUTH2,
+                USER,
+                ImmutableMap.of(),
+                sessionProperties,
+                false,
+                "test",
+                TESTING_TYPE_MANAGER,
+                true,
+                false,
+                EvictableCacheBuilder.newBuilder().expireAfterWrite(1000, MILLISECONDS).shareNothingWhenDisabled().build(),
+                EvictableCacheBuilder.newBuilder().expireAfterWrite(1000, MILLISECONDS).shareNothingWhenDisabled().build(),
+                true,
+                new AtomicBoolean(false));
     }
 
     @Test
@@ -225,6 +264,41 @@ public class TestTrinoRestCatalog
     }
 
     @Test
+    public void testUserSessionPassesOAuth2ExtraCredentialsToRestCatalogRequests()
+    {
+        CapturingListNamespacesCatalog restSessionCatalog = new CapturingListNamespacesCatalog();
+        TrinoCatalog catalog = createUserSessionTrinoRestCatalog(
+                restSessionCatalog,
+                ImmutableMap.of(
+                        TOKEN_REFRESH_ENABLED, "false",
+                        TOKEN_EXCHANGE_ENABLED, "false"));
+
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setIdentity(ConnectorIdentity.forUser("alice")
+                        .withExtraCredentials(ImmutableMap.of(
+                                TOKEN, "client-supplied-token",
+                                authenticatedExtraCredentialName(TOKEN), "alice-token",
+                                CREDENTIAL, "client-supplied-credential",
+                                authenticatedExtraCredentialName(CREDENTIAL), "alice-credential",
+                                "unrelated", "secret"))
+                        .build())
+                .build();
+
+        assertThat(catalog.listNamespaces(session)).isEmpty();
+
+        assertThat(restSessionCatalog.credentials())
+                .containsEntry(TOKEN, "alice-token")
+                .containsEntry(CREDENTIAL, "alice-credential")
+                .doesNotContainKey("unrelated");
+        assertThat(restSessionCatalog.properties())
+                .containsEntry(TOKEN_REFRESH_ENABLED, "false")
+                .containsEntry(TOKEN_EXCHANGE_ENABLED, "false")
+                .containsEntry("user", "alice")
+                .containsEntry("trinoCatalog", "iceberg_rest")
+                .containsEntry("trinoVersion", "test");
+    }
+
+    @Test
     public void testNestedListNamespacesPropagatesRecursiveRestFailures()
     {
         RESTSessionCatalog restSessionCatalog = new RESTSessionCatalog()
@@ -246,6 +320,31 @@ public class TestTrinoRestCatalog
                 .cause()
                 .isInstanceOf(RESTException.class)
                 .hasMessage("catalog failure");
+    }
+
+    private static class CapturingListNamespacesCatalog
+            extends RESTSessionCatalog
+    {
+        private Map<String, String> credentials = ImmutableMap.of();
+        private Map<String, String> properties = ImmutableMap.of();
+
+        @Override
+        public List<Namespace> listNamespaces(SessionContext context, Namespace namespace)
+        {
+            credentials = context.credentials();
+            properties = context.properties();
+            return ImmutableList.of();
+        }
+
+        public Map<String, String> credentials()
+        {
+            return credentials;
+        }
+
+        public Map<String, String> properties()
+        {
+            return properties;
+        }
     }
 
     private static class NamespaceDeletedDuringRecursiveListingCatalog
