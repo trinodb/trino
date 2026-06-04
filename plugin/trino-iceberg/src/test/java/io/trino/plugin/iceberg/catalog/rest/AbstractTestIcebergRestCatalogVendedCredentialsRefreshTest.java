@@ -20,8 +20,6 @@ import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.ServerFeature;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.node.NodeInfo;
-import io.trino.plugin.iceberg.IcebergConnector;
-import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -43,12 +41,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.tpch.TpchTable.REGION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Execution(ExecutionMode.SAME_THREAD)
-abstract class AbstractTestIcebergRestCatalogVendedCredentialsRefresh
+abstract class AbstractTestIcebergRestCatalogVendedCredentialsRefreshTest
         extends AbstractTestQueryFramework
 {
     private static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(REGION);
@@ -126,24 +123,15 @@ abstract class AbstractTestIcebergRestCatalogVendedCredentialsRefresh
         try (TestTable testTable = newTrinoTable("test_ctas", "AS SELECT * FROM region")) {
             // Intentionally set the expiration time to be in the near future to test credential refresh logic
             sessionTokenExpirationTime.set(Instant.now().plusSeconds(60));
-            icebergRestCatalogFileSystemFactory(getQueryRunner()).flushVendedCredentialsCache();
             int refreshCount = servlet.getVendedCredentialsRefreshCount();
             assertQuery("SELECT * FROM " + testTable.getName(), "SELECT * FROM region");
             assertThat(servlet.getVendedCredentialsRefreshCount()).isGreaterThan(refreshCount);
 
             // Providing a session token that expires only in one hour should not trigger token refresh
             sessionTokenExpirationTime.set(Instant.now().plus(1, ChronoUnit.HOURS));
-            icebergRestCatalogFileSystemFactory(getQueryRunner()).flushVendedCredentialsCache();
             refreshCount = servlet.getVendedCredentialsRefreshCount();
             assertQuery("SELECT * FROM " + testTable.getName(), "SELECT * FROM region");
             assertThat(servlet.getVendedCredentialsRefreshCount()).isEqualTo(refreshCount);
         }
-    }
-
-    private static IcebergRestCatalogFileSystemFactory icebergRestCatalogFileSystemFactory(QueryRunner queryRunner)
-    {
-        return (IcebergRestCatalogFileSystemFactory) ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG))
-                .getInjector()
-                .getInstance(IcebergFileSystemFactory.class);
     }
 }
