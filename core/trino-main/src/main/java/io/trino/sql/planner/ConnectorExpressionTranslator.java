@@ -65,6 +65,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -147,6 +148,43 @@ public final class ConnectorExpressionTranslator
         List<Expression> remaining = new ArrayList<>();
         List<ConnectorExpression> converted = new ArrayList<>(conjuncts.size());
         for (Expression conjunct : conjuncts) {
+            Optional<ConnectorExpression> connectorExpression = translator.process(conjunct);
+            if (connectorExpression.isPresent()) {
+                converted.add(connectorExpression.get());
+            }
+            else {
+                remaining.add(conjunct);
+            }
+        }
+        return new ConnectorExpressionTranslation(
+                ConnectorExpressions.and(converted),
+                combineConjuncts(remaining));
+    }
+
+    /**
+     * Like {@link #translateConjuncts(Session, Expression)} but additionally rejects conjuncts
+     * that reference a symbol absent from {@code columnNames} — e.g. correlation variables from
+     * an outer scope that have no {@link io.trino.spi.connector.ColumnHandle} in the inner scan.
+     * Rejected conjuncts are moved to {@code remainingExpression} so the engine handles them.
+     * The check is done on the IR expression before translation so that lambda-argument variables
+     * (which are not column references) are not mistakenly treated as unmapped.
+     */
+    public static ConnectorExpressionTranslation translateConjuncts(
+            Session session,
+            Expression expression,
+            Set<String> columnNames)
+    {
+        SqlToConnectorExpressionTranslator translator = new SqlToConnectorExpressionTranslator(session);
+
+        List<Expression> conjuncts = extractConjuncts(expression);
+        List<Expression> remaining = new ArrayList<>();
+        List<ConnectorExpression> converted = new ArrayList<>(conjuncts.size());
+        for (Expression conjunct : conjuncts) {
+            if (SymbolsExtractor.extractUnique(conjunct).stream()
+                    .anyMatch(symbol -> !columnNames.contains(symbol.name()))) {
+                remaining.add(conjunct);
+                continue;
+            }
             Optional<ConnectorExpression> connectorExpression = translator.process(conjunct);
             if (connectorExpression.isPresent()) {
                 converted.add(connectorExpression.get());
