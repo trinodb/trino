@@ -849,7 +849,7 @@
                                 <exclude>**/TestIcebergGlueCatalogMaterializedView.java</exclude>
                                 <exclude>**/TestIcebergGlueTableOperationsInsertFailure.java</exclude>
                                 <exclude>**/TestIcebergGlueCatalogSkipArchive.java</exclude>
-                                <exclude>**/TestIcebergS3AndGlueMetastoreTest.java</exclude>
+                                <exclude>**/TestIcebergS3AndGlueAws.java</exclude>
                                 <exclude>**/TestIcebergS3TablesConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergGcsConnectorSmokeTest.java</exclude>
@@ -920,7 +920,7 @@
                                 <include>**/TestIcebergGlueCatalogMaterializedView.java</include>
                                 <include>**/TestIcebergGlueTableOperationsInsertFailure.java</include>
                                 <include>**/TestIcebergGlueCatalogSkipArchive.java</include>
-                                <include>**/TestIcebergS3AndGlueMetastoreTest.java</include>
+                                <include>**/TestIcebergS3AndGlueAws.java</include>
                                 <include>**/TestIcebergS3TablesConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergGcsConnectorSmokeTest.java</include>

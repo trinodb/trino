@@ -15,7 +15,8 @@ package io.trino.plugin.iceberg.catalog.glue;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.base.util.UncheckedCloseable;
-import io.trino.plugin.hive.BaseS3AndGlueMetastoreTest;
+import io.trino.plugin.hive.BaseS3AndGlueTest;
+import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.testing.QueryRunner;
@@ -28,34 +29,44 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
-import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestIcebergS3AndGlueMetastoreTest
-        extends BaseS3AndGlueMetastoreTest
+public abstract class BaseIcebergS3AndGlue
+        extends BaseS3AndGlueTest
 {
-    public TestIcebergS3AndGlueMetastoreTest()
+    protected BaseIcebergS3AndGlue(String bucketName)
     {
-        super("partitioning", "location", requireEnv("S3_BUCKET"));
+        super("partitioning", "location", bucketName);
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        metastore = createTestingGlueHiveMetastore(URI.create(schemaPath()), this::closeAfterClass);
+        metastore = createGlueHiveMetastore();
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.catalog.type", "glue")
                         .put("hive.metastore.glue.default-warehouse-dir", schemaPath())
                         .put("fs.s3.enabled", "true")
+                        .putAll(s3AndGlueProperties())
                         .buildOrThrow())
                 .setSchemaInitializer(SchemaInitializer.builder()
                         .withSchemaName(schemaName)
                         .withSchemaProperties(Map.of("location", "'" + schemaPath() + "'"))
                         .build())
                 .build();
+    }
+
+    protected Map<String, String> s3AndGlueProperties()
+    {
+        return Map.of();
+    }
+
+    protected GlueHiveMetastore createGlueHiveMetastore()
+    {
+        return createTestingGlueHiveMetastore(URI.create(schemaPath()), this::closeAfterClass);
     }
 
     @Override

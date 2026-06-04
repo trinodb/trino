@@ -15,41 +15,65 @@ package io.trino.plugin.deltalake.metastore.glue;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.deltalake.DeltaLakeQueryRunner;
-import io.trino.plugin.hive.BaseS3AndGlueMetastoreTest;
+import io.trino.plugin.hive.BaseS3AndGlueTest;
+import io.trino.plugin.hive.FlociS3AndGlue;
+import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.testing.QueryRunner;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
-import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestDeltaS3AndGlueMetastoreTest
-        extends BaseS3AndGlueMetastoreTest
+public abstract class BaseDeltaS3AndGlue
+        extends BaseS3AndGlueTest
 {
-    public TestDeltaS3AndGlueMetastoreTest()
+    private FlociS3AndGlue floci;
+
+    protected BaseDeltaS3AndGlue(String bucketName)
     {
-        super("partitioned_by", "location", requireEnv("S3_BUCKET"));
+        super("partitioned_by", "location", bucketName);
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        metastore = createTestingGlueHiveMetastore(URI.create(schemaPath()), this::closeAfterClass);
+        metastore = createGlueHiveMetastore();
         return DeltaLakeQueryRunner.builder(schemaName)
                 .setDeltaProperties(ImmutableMap.<String, String>builder()
                         .put("hive.metastore", "glue")
                         .put("hive.metastore.glue.default-warehouse-dir", schemaPath())
                         .put("fs.s3.enabled", "true")
                         .put("delta.enable-non-concurrent-writes", "true")
+                        .putAll(s3AndGlueProperties())
                         .buildOrThrow())
                 .setSchemaLocation(schemaPath())
                 .build();
+    }
+
+    protected Map<String, String> s3AndGlueProperties()
+    {
+        return Map.of();
+    }
+
+    protected GlueHiveMetastore createGlueHiveMetastore()
+    {
+        return createTestingGlueHiveMetastore(URI.create(schemaPath()), this::closeAfterClass);
+    }
+
+    protected final FlociS3AndGlue floci()
+    {
+        if (floci == null) {
+            floci = closeAfterClass(new FlociS3AndGlue());
+            floci.createBucket(bucketName);
+        }
+        return floci;
     }
 
     @Override

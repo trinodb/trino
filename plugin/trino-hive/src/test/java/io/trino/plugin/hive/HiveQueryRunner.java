@@ -42,6 +42,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static io.airlift.log.Level.WARN;
@@ -221,6 +222,13 @@ public final class HiveQueryRunner
         public SELF setDecryptionKeyRetriever(DecryptionKeyRetriever decryptionKeyRetriever)
         {
             this.decryptionKeyRetriever = Optional.of(requireNonNull(decryptionKeyRetriever, "decryptionKeyRetriever is null"));
+            return self();
+        }
+
+        @CanIgnoreReturnValue
+        public SELF apply(Consumer<SELF> consumer)
+        {
+            requireNonNull(consumer, "consumer is null").accept(self());
             return self();
         }
 

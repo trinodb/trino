@@ -14,8 +14,14 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
+import io.opentelemetry.api.OpenTelemetry;
+import io.trino.filesystem.s3.S3FileSystemConfig;
+import io.trino.filesystem.s3.S3FileSystemFactory;
+import io.trino.filesystem.s3.S3FileSystemStats;
+import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.testing.containers.FlociContainer;
 import software.amazon.awssdk.services.glue.GlueClient;
+import software.amazon.awssdk.services.s3.S3Client;
 
 import java.util.Map;
 
@@ -32,6 +38,26 @@ public final class FlociS3AndGlue
     public void createBucket(String bucketName)
     {
         floci.createBucket(bucketName);
+    }
+
+    public S3Client createS3Client()
+    {
+        return S3Client.builder()
+                .applyMutation(floci::updateClient)
+                .build();
+    }
+
+    public S3FileSystemFactory createFileSystemFactory()
+    {
+        return new S3FileSystemFactory(
+                OpenTelemetry.noop(),
+                new S3FileSystemConfig()
+                        .setAwsAccessKey(FlociContainer.FLOCI_ACCESS_KEY)
+                        .setAwsSecretKey(FlociContainer.FLOCI_SECRET_KEY)
+                        .setEndpoint(floci.endpoint().toString())
+                        .setRegion(FlociContainer.FLOCI_REGION)
+                        .setPathStyleAccess(true),
+                new S3FileSystemStats());
     }
 
     public GlueClient createGlueClient()
@@ -61,6 +87,14 @@ public final class FlociS3AndGlue
                 .put("s3.aws-secret-key", FlociContainer.FLOCI_SECRET_KEY)
                 .put("s3.path-style-access", "true")
                 .buildOrThrow();
+    }
+
+    public void configureGlueHiveMetastore(GlueHiveMetastoreConfig config)
+    {
+        config.setGlueEndpointUrl(floci.endpoint())
+                .setGlueRegion(FlociContainer.FLOCI_REGION)
+                .setAwsAccessKey(FlociContainer.FLOCI_ACCESS_KEY)
+                .setAwsSecretKey(FlociContainer.FLOCI_SECRET_KEY);
     }
 
     @Override

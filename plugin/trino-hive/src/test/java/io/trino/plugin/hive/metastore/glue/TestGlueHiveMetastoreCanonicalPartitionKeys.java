@@ -51,7 +51,6 @@ import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.metastore.glue.PartitionFilterBuilder.DECIMAL_TYPE_PRECISION;
 import static io.trino.plugin.hive.metastore.glue.PartitionFilterBuilder.DECIMAL_TYPE_SCALE;
-import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.stream.Collectors.joining;
