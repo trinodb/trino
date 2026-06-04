@@ -13,9 +13,21 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableList;
+import io.airlift.json.JsonCodec;
+import io.airlift.slice.Slices;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FunctionName;
+import io.trino.spi.expression.Variable;
+import io.trino.sql.ir.Expression;
+
+import java.util.List;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 /**
  * Utilities for the {@code $engine_expression} synthetic function, which wraps an engine IR
@@ -38,5 +50,24 @@ public final class EngineExpressions
             return true;
         }
         return expression.getChildren().stream().anyMatch(EngineExpressions::containsEngineExpression);
+    }
+
+    /**
+     * Wraps {@code predicate} as a {@code $engine_expression(payload, ...variables)} call.
+     * The payload is the JSON-serialized IR expression; the variable arguments let connectors
+     * discover which columns the expression references.
+     */
+    public static ConnectorExpression buildEngineExpression(Expression predicate, JsonCodec<Expression> serializer)
+    {
+        List<Variable> predicateVariables = SymbolsExtractor.extractUnique(predicate).stream()
+                .map(symbol -> new Variable(symbol.name(), symbol.type()))
+                .collect(toImmutableList());
+        return new Call(
+                BOOLEAN,
+                ENGINE_EXPRESSION_FUNCTION_NAME,
+                ImmutableList.<ConnectorExpression>builder()
+                        .add(new Constant(Slices.utf8Slice(serializer.toJson(predicate)), VARCHAR))
+                        .addAll(predicateVariables)
+                        .build());
     }
 }

@@ -115,6 +115,7 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
+import static io.trino.sql.planner.EngineExpressions.ENGINE_EXPRESSION_FUNCTION_NAME;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
@@ -286,6 +287,10 @@ public final class ConnectorExpressionTranslator
 
         protected Optional<Expression> translateCall(io.trino.spi.expression.Call call, Map<String, Symbol> lambdaArguments)
         {
+            if (call.getFunctionName().equals(ENGINE_EXPRESSION_FUNCTION_NAME)) {
+                throw new IllegalStateException("$engine_expression must be rewritten before translation to IR");
+            }
+
             if (call.getFunctionName().getCatalogSchema().isPresent()) {
                 CatalogSchemaName catalogSchemaName = call.getFunctionName().getCatalogSchema().get();
                 checkArgument(!catalogSchemaName.getCatalogName().equals(GlobalSystemConnector.NAME), "System functions must not be fully qualified");

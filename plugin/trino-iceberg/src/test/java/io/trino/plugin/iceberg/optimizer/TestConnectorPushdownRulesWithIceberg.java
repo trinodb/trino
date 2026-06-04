@@ -240,7 +240,7 @@ public class TestConnectorPushdownRulesWithIceberg
         tester().getPlanTester().executeStatement(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
         long snapshotId = ((IcebergTableHandle) tester().getPlanTester().getTableHandle(TEST_CATALOG_NAME, SCHEMA_NAME, tableName).connectorHandle()).getSnapshotId().orElseThrow();
 
-        PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), false);
+        PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), false, tester().getPlanTester().getExpressionCodec());
 
         IcebergTableHandle icebergTable = new IcebergTableHandle(
                 SCHEMA_NAME,

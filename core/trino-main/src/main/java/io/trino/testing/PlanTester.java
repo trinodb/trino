@@ -453,7 +453,8 @@ public class PlanTester
                 hashStrategyCompiler,
                 nodeSchedulerConfig,
                 optimizerConfig,
-                secretsResolver));
+                secretsResolver,
+                evaluator));
         this.splitManager = new SplitManager(createSplitManagerProvider(catalogManager), tracer, new QueryManagerConfig());
         this.pageSourceManager = new PageSourceManager(createPageSourceProviderFactory(catalogManager));
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));
@@ -952,7 +953,8 @@ public class PlanTester
                 new CostComparator(optimizerConfig),
                 taskCountEstimator,
                 nodePartitioningManager,
-                new RuleStatsRecorder());
+                new RuleStatsRecorder(),
+                expressionCodec);
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)

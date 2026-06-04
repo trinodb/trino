@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
+import io.airlift.json.JsonCodec;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.connector.CatalogHandle;
@@ -149,13 +150,15 @@ public class AddExchanges
     private final StatsCalculator statsCalculator;
     private final TaskCountEstimator taskCountEstimator;
     private final NodePartitioningManager nodePartitioningManager;
+    private final JsonCodec<Expression> expressionCodec;
 
-    public AddExchanges(PlannerContext plannerContext, StatsCalculator statsCalculator, TaskCountEstimator taskCountEstimator, NodePartitioningManager nodePartitioningManager)
+    public AddExchanges(PlannerContext plannerContext, StatsCalculator statsCalculator, TaskCountEstimator taskCountEstimator, NodePartitioningManager nodePartitioningManager, JsonCodec<Expression> expressionCodec)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
+        this.expressionCodec = requireNonNull(expressionCodec, "expressionCodec is null");
     }
 
     @Override
@@ -672,7 +675,8 @@ public class AddExchanges
                         session,
                         plannerContext,
                         statsProvider,
-                        symbolAllocator);
+                        symbolAllocator,
+                        expressionCodec);
                 if (plan.isPresent()) {
                     return new PlanWithProperties(plan.get(), derivePropertiesRecursively(plan.get()));
                 }
