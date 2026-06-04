@@ -29,8 +29,8 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import org.apache.iceberg.MetadataTableType;
 import org.apache.iceberg.MetadataTableUtils;
 import org.apache.iceberg.PartitionField;
@@ -208,7 +208,7 @@ public final class FilesTable
             case KEY_METADATA_COLUMN_NAME -> VARBINARY;
             case SPLIT_OFFSETS_COLUMN_NAME -> new ArrayType(BIGINT);
             case EQUALITY_IDS_COLUMN_NAME -> new ArrayType(INTEGER);
-            case READABLE_METRICS_COLUMN_NAME -> typeManager.getType(new TypeSignature(JSON));
+            case READABLE_METRICS_COLUMN_NAME -> typeManager.getType(new TypeDescriptor(JSON));
             default -> throw new IllegalArgumentException("Unexpected value: " + columnName);
         };
     }

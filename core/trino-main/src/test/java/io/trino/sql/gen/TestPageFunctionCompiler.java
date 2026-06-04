@@ -48,8 +48,8 @@ import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
@@ -86,7 +86,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
@@ -563,7 +563,7 @@ public class TestPageFunctionCompiler
     private static final class HiddenType
             extends AbstractVariableWidthType
     {
-        private static final TypeSignature TYPE_SIGNATURE = new TypeSignature("test_hidden");
+        private static final TypeDescriptor TYPE_SIGNATURE = new TypeDescriptor("test_hidden");
 
         private final Constructor<?> constructor;
         private final Field valueField;

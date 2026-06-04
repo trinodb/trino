@@ -84,7 +84,7 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.planner.PartitioningHandle;
 
 import java.util.Collection;
@@ -781,7 +781,7 @@ public interface Metadata
 
     Collection<CatalogFunctionMetadata> getFunctions(Session session, CatalogSchemaFunctionName catalogSchemaFunctionName);
 
-    ResolvedFunction resolveBuiltinFunction(String name, List<TypeSignatureProvider> parameterTypes);
+    ResolvedFunction resolveBuiltinFunction(String name, List<TypeDescriptorProvider> parameterTypes);
 
     ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException;

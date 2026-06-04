@@ -24,17 +24,17 @@ import java.util.Map;
 import java.util.Optional;
 
 /// Operations over [TypeTemplate] — binding it to ground types, and lifting a ground
-/// [TypeSignature] into one.
+/// [TypeDescriptor] into one.
 public final class TypeTemplates
 {
     private TypeTemplates() {}
 
-    /// Substitutes the given type- and numeric-variable bindings, producing a ground type signature.
-    public static TypeSignature bind(TypeTemplate template, Map<String, TypeSignature> typeBindings, Map<String, Long> numericBindings)
+    /// Substitutes the given type- and numeric-variable bindings, producing a ground type descriptor.
+    public static TypeDescriptor bind(TypeTemplate template, Map<String, TypeDescriptor> typeBindings, Map<String, Long> numericBindings)
     {
         return switch (template) {
             case TypeVariable(String name) -> {
-                TypeSignature binding = typeBindings.get(name);
+                TypeDescriptor binding = typeBindings.get(name);
                 if (binding == null) {
                     throw new IllegalArgumentException("No binding for type variable " + name);
                 }
@@ -45,12 +45,12 @@ public final class TypeTemplates
                 for (TemplateParameter parameter : parameters) {
                     bound.add(bind(parameter, typeBindings, numericBindings));
                 }
-                yield new TypeSignature(base, bound);
+                yield new TypeDescriptor(base, bound);
             }
         };
     }
 
-    private static TypeParameter bind(TemplateParameter parameter, Map<String, TypeSignature> typeBindings, Map<String, Long> numericBindings)
+    private static TypeParameter bind(TemplateParameter parameter, Map<String, TypeDescriptor> typeBindings, Map<String, Long> numericBindings)
     {
         return switch (parameter) {
             case TypeArgument(Optional<String> name, TypeTemplate type) -> TypeParameter.typeParameter(name, bind(type, typeBindings, numericBindings));
@@ -58,17 +58,17 @@ public final class TypeTemplates
         };
     }
 
-    /// Lowers a ground template to a type signature. Fails if the template carries an unbound variable.
-    public static TypeSignature toTypeSignature(TypeTemplate template)
+    /// Lowers a ground template to a type descriptor. Fails if the template carries an unbound variable.
+    public static TypeDescriptor toTypeDescriptor(TypeTemplate template)
     {
         return bind(template, Map.of(), Map.of());
     }
 
-    /// Lowers a list of ground templates to type signatures. Fails if any template carries an unbound variable.
-    public static List<TypeSignature> toTypeSignatures(List<TypeTemplate> types)
+    /// Lowers a list of ground templates to type descriptors. Fails if any template carries an unbound variable.
+    public static List<TypeDescriptor> toTypeDescriptors(List<TypeTemplate> types)
     {
         return types.stream()
-                .map(TypeTemplates::toTypeSignature)
+                .map(TypeTemplates::toTypeDescriptor)
                 .toList();
     }
 
@@ -90,9 +90,9 @@ public final class TypeTemplates
         };
     }
 
-    /// Lifts a ground type signature into a template: every parameter is lifted structurally, with a
+    /// Lifts a ground type descriptor into a template: every parameter is lifted structurally, with a
     /// numeric parameter becoming a literal numeric argument.
-    public static TypeTemplate fromTypeSignature(TypeSignature signature)
+    public static TypeTemplate fromTypeDescriptor(TypeDescriptor signature)
     {
         List<TemplateParameter> parameters = new ArrayList<>(signature.getParameters().size());
         for (TypeParameter parameter : signature.getParameters()) {
@@ -104,7 +104,7 @@ public final class TypeTemplates
     private static TemplateParameter fromTypeParameter(TypeParameter parameter)
     {
         return switch (parameter) {
-            case TypeParameter.Type(Optional<String> name, TypeSignature type) -> new TypeArgument(name, fromTypeSignature(type));
+            case TypeParameter.Type(Optional<String> name, TypeDescriptor type) -> new TypeArgument(name, fromTypeDescriptor(type));
             case TypeParameter.Numeric(long value) -> new NumericArgument(new NumericExpression.Literal(value));
         };
     }

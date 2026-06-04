@@ -120,10 +120,10 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
-import io.trino.spi.type.TypeSignature;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.TypeCoercion;
@@ -2676,7 +2676,7 @@ public final class MetadataManager
     }
 
     @Override
-    public ResolvedFunction resolveBuiltinFunction(String name, List<TypeSignatureProvider> parameterTypes)
+    public ResolvedFunction resolveBuiltinFunction(String name, List<TypeDescriptorProvider> parameterTypes)
     {
         return functionResolver.resolveBuiltinFunction(name, parameterTypes);
     }
@@ -2782,7 +2782,7 @@ public final class MetadataManager
             aggregationFunctionMetadata = metadata.getAggregationFunctionMetadata(connectorSession, resolvedFunction.functionId());
         }
 
-        List<TypeSignature> intermediateTypes = List.of();
+        List<TypeDescriptor> intermediateTypes = List.of();
         if (!aggregationFunctionMetadata.getIntermediateTypes().isEmpty()) {
             FunctionBinding functionBinding = toFunctionBinding(resolvedFunction.functionId(), resolvedFunction.signature(), functionSignature);
             intermediateTypes = aggregationFunctionMetadata.getIntermediateTypes().stream()

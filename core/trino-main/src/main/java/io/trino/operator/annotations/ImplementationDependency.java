@@ -42,7 +42,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.annotations.FunctionsParserHelper.containsImplementationDependencyAnnotation;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeTemplate;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 
 public interface ImplementationDependency
 {

@@ -74,7 +74,7 @@ import static io.trino.operator.annotations.FunctionsParserHelper.parseDescripti
 import static io.trino.operator.annotations.ImplementationDependency.Factory.createDependency;
 import static io.trino.operator.annotations.ImplementationDependency.getImplementationDependencyAnnotation;
 import static io.trino.operator.annotations.ImplementationDependency.validateImplementationDependencyAnnotation;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeTemplate;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 
@@ -404,7 +404,7 @@ public final class AggregationFromAnnotationsParser
     {
         StateMetadata metadata = StateMetadata.create(getMetadataAnnotation(stateClass));
         // Generic state classes have their own type variables, that must be mapped to the aggregation's type variables
-        TypeSignatureMapping typeParameterMapping = getTypeParameterMapping(stateClass, declaredTypeParameters, metadata, typeVariables);
+        TypeDescriptorMapping typeParameterMapping = getTypeParameterMapping(stateClass, declaredTypeParameters, metadata, typeVariables);
 
         if (stateClass.equals(InOut.class)) {
             String typeVariable = typeParameterMapping.mapTypeTemplate(TypeTemplates.typeVariable("T")).render();
@@ -436,7 +436,7 @@ public final class AggregationFromAnnotationsParser
             // type, but this will only work if there are no dependencies
             checkArgument(allDependencies.isEmpty(), "serializedType must be set for state %s with dependencies", stateClass);
             AccumulatorStateSerializer<T> serializer = serializerGenerator.apply(null, null);
-            serializedType = TypeTemplates.fromTypeSignature(serializer.getSerializedType().getTypeSignature());
+            serializedType = TypeTemplates.fromTypeDescriptor(serializer.getSerializedType().getTypeDescriptor());
             // since there are no dependencies, the same serializer can be used for all
             serializerGenerator = (_, _) -> serializer;
         }
@@ -482,11 +482,11 @@ public final class AggregationFromAnnotationsParser
                 ImmutableList.of(new TypeImplementationDependency(TypeTemplates.typeVariable(typeVariable))));
     }
 
-    private static TypeSignatureMapping getTypeParameterMapping(Class<?> stateClass, List<String> declaredTypeParameters, StateMetadata metadata, Set<String> typeVariables)
+    private static TypeDescriptorMapping getTypeParameterMapping(Class<?> stateClass, List<String> declaredTypeParameters, StateMetadata metadata, Set<String> typeVariables)
     {
         List<String> expectedTypeParameters = metadata.typeParameters();
         if (expectedTypeParameters.isEmpty()) {
-            return new TypeSignatureMapping(ImmutableMap.of(), typeVariables);
+            return new TypeDescriptorMapping(ImmutableMap.of(), typeVariables);
         }
         checkArgument(declaredTypeParameters.size() == expectedTypeParameters.size(), "AggregationState %s requires %s type parameters", stateClass, expectedTypeParameters.size());
 
@@ -496,10 +496,10 @@ public final class AggregationFromAnnotationsParser
             String expectedTypeParameter = expectedTypeParameters.get(parameterIndex);
             mapping.put(expectedTypeParameter, declaredTypeParameter);
         }
-        return new TypeSignatureMapping(mapping.buildOrThrow(), typeVariables);
+        return new TypeDescriptorMapping(mapping.buildOrThrow(), typeVariables);
     }
 
-    private static List<ImplementationDependency> parseImplementationDependencies(TypeSignatureMapping typeSignatureMapping, Executable inputFunction)
+    private static List<ImplementationDependency> parseImplementationDependencies(TypeDescriptorMapping typeDescriptorMapping, Executable inputFunction)
     {
         ImmutableList.Builder<ImplementationDependency> builder = ImmutableList.builder();
 
@@ -509,10 +509,10 @@ public final class AggregationFromAnnotationsParser
                 validateImplementationDependencyAnnotation(
                         inputFunction,
                         annotation,
-                        typeSignatureMapping.getTypeParameters(),
+                        typeDescriptorMapping.getTypeParameters(),
                         ImmutableSet.of());
-                ImplementationDependency dependency = createDependency(annotation, typeSignatureMapping.getTypeParameters(), ImmutableSet.of(), parameter.getType());
-                dependency = typeSignatureMapping.mapTypes(dependency);
+                ImplementationDependency dependency = createDependency(annotation, typeDescriptorMapping.getTypeParameters(), ImmutableSet.of(), parameter.getType());
+                dependency = typeDescriptorMapping.mapTypes(dependency);
                 builder.add(dependency);
             });
         }

@@ -35,10 +35,10 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeTemplate;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.tree.QualifiedName;
 
 import java.util.Collection;
@@ -62,7 +62,7 @@ import static io.trino.spi.connector.StandardWarningCode.DEPRECATED_FUNCTION;
 import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.spi.function.FunctionKind.WINDOW;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeDescriptors;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionResolver
@@ -114,7 +114,7 @@ public class FunctionResolver
         return false;
     }
 
-    public ResolvedFunction resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes, AccessControl accessControl)
+    public ResolvedFunction resolveFunction(Session session, QualifiedName name, List<TypeDescriptorProvider> parameterTypes, AccessControl accessControl)
     {
         CatalogFunctionBinding catalogFunctionBinding = bindFunction(
                 session,
@@ -135,9 +135,9 @@ public class FunctionResolver
 
     public ResolvedFunction resolveStaticMethod(
             Session session,
-            TypeSignature receiverType,
+            TypeDescriptor receiverType,
             QualifiedName methodName,
-            List<TypeSignatureProvider> parameterTypes,
+            List<TypeDescriptorProvider> parameterTypes,
             AccessControl accessControl)
     {
         String receiver = receiverType.getBase();
@@ -162,9 +162,9 @@ public class FunctionResolver
 
     public ResolvedFunction resolveInstanceMethod(
             Session session,
-            TypeSignature receiverType,
+            TypeDescriptor receiverType,
             QualifiedName methodName,
-            List<TypeSignatureProvider> parameterTypes,
+            List<TypeDescriptorProvider> parameterTypes,
             AccessControl accessControl)
     {
         String receiver = receiverType.getBase();
@@ -237,7 +237,7 @@ public class FunctionResolver
     private CatalogFunctionBinding bindFunction(
             Session session,
             QualifiedName name,
-            List<TypeSignatureProvider> parameterTypes,
+            List<TypeDescriptorProvider> parameterTypes,
             Function<CatalogSchemaFunctionName, Collection<CatalogFunctionMetadata>> candidateLoader,
             AccessControl accessControl)
     {
@@ -275,7 +275,7 @@ public class FunctionResolver
             Function<CatalogSchemaFunctionName, Collection<CatalogFunctionMetadata>> candidateLoader,
             Function<CatalogFunctionBinding, ResolvedFunction> resolver)
     {
-        Map<TypeSignature, Type> dependentTypes = dependencies.getTypeDependencies().stream()
+        Map<TypeDescriptor, Type> dependentTypes = dependencies.getTypeDependencies().stream()
                 .map(type -> applyBoundVariables(type, functionBinding.variables()))
                 .collect(toImmutableMap(Function.identity(), typeManager::getType, (left, _) -> left));
 
@@ -284,7 +284,7 @@ public class FunctionResolver
             try {
                 CatalogSchemaFunctionName name = functionDependency.getName();
                 CatalogFunctionBinding catalogFunctionBinding = functionBinder.bindFunction(
-                        fromTypeSignatures(applyBoundVariables(functionDependency.getArgumentTypes(), functionBinding.variables())),
+                        fromTypeDescriptors(applyBoundVariables(functionDependency.getArgumentTypes(), functionBinding.variables())),
                         candidateLoader.apply(name),
                         name.toString());
                 functions.add(resolver.apply(catalogFunctionBinding));

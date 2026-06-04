@@ -14,8 +14,8 @@
 package io.trino.type;
 
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -29,14 +29,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestRowParametricType
 {
     @Test
-    public void testTypeSignatureRoundTrip()
+    public void testTypeDescriptorRoundTrip()
     {
-        TypeSignature typeSignature = new TypeSignature(
+        TypeDescriptor typeDescriptor = new TypeDescriptor(
                 ROW,
-                TypeParameter.typeParameter(Optional.of("col1"), BIGINT.getTypeSignature()),
-                TypeParameter.typeParameter(Optional.of("col2"), DOUBLE.getTypeSignature()));
-        Type rowType = RowParametricType.ROW.createType(TESTING_TYPE_MANAGER, typeSignature.getParameters());
+                TypeParameter.typeParameter(Optional.of("col1"), BIGINT.getTypeDescriptor()),
+                TypeParameter.typeParameter(Optional.of("col2"), DOUBLE.getTypeDescriptor()));
+        Type rowType = RowParametricType.ROW.createType(TESTING_TYPE_MANAGER, typeDescriptor.getParameters());
 
-        assertThat(rowType.getTypeSignature()).isEqualTo(typeSignature);
+        assertThat(rowType.getTypeDescriptor()).isEqualTo(typeDescriptor);
     }
 }

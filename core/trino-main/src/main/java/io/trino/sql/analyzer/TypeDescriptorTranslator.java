@@ -22,8 +22,8 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.type.NumericExpression;
 import io.trino.spi.type.TemplateParameter;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeTemplate;
 import io.trino.spi.type.TypeTemplates;
 import io.trino.spi.type.VarcharType;
@@ -66,7 +66,7 @@ import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
-public final class TypeSignatureTranslator
+public final class TypeDescriptorTranslator
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
 
@@ -90,27 +90,27 @@ public final class TypeSignatureTranslator
             .or(CharMatcher.inRange('0', '9'))
             .precomputed();
 
-    private TypeSignatureTranslator() {}
+    private TypeDescriptorTranslator() {}
 
     public static DataType toSqlType(Type type)
     {
-        return toDataType(type.getTypeSignature());
+        return toDataType(type.getTypeDescriptor());
     }
 
-    public static TypeSignature toTypeSignature(DataType type)
+    public static TypeDescriptor toTypeDescriptor(DataType type)
     {
         // A ground type is the degenerate case of a template: parse it with no variables in scope
         // and lower the (variable-free) result, so both forms share one structural translation.
-        return TypeTemplates.toTypeSignature(toTypeTemplate(type, Set.of(), Set.of()));
+        return TypeTemplates.toTypeDescriptor(toTypeTemplate(type, Set.of(), Set.of()));
     }
 
-    /// Parses a ground type signature — one that refers to no signature variables. Function signature
+    /// Parses a ground type descriptor — one that refers to no signature variables. Function signature
     /// argument and return types, which may reference a function's type or numeric variables, are parsed
     /// with [#parseTypeTemplate] instead.
-    public static TypeSignature parseTypeSignature(String signature)
+    public static TypeDescriptor parseTypeDescriptor(String signature)
     {
         try {
-            return toTypeSignature(DATA_TYPE_CACHE.get(signature.toLowerCase(ENGLISH), () -> parseDataType(signature)));
+            return toTypeDescriptor(DATA_TYPE_CACHE.get(signature.toLowerCase(ENGLISH), () -> parseDataType(signature)));
         }
         catch (Exception e) {
             if (e.getCause() != null) {
@@ -122,7 +122,7 @@ public final class TypeSignatureTranslator
     }
 
     /// Parses a type template — the open, variable-bearing form used in function signature argument and
-    /// return positions. Unlike [#parseTypeSignature], a variable's kind is structural in the result,
+    /// return positions. Unlike [#parseTypeDescriptor], a variable's kind is structural in the result,
     /// so the declared type-variable and numeric-variable names are passed separately (the syntax alone
     /// cannot tell `E` in `array(E)` from a numeric `p` in `decimal(p, s)`).
     public static TypeTemplate parseTypeTemplate(String signature, Set<String> typeVariables, Set<String> numericVariables)
@@ -154,7 +154,7 @@ public final class TypeSignatureTranslator
             case RowDataType rowDataType -> toTypeTemplate(rowDataType, typeVariables, numericVariables);
             case DateTimeDataType dateTimeDataType -> toTypeTemplate(dateTimeDataType, numericVariables);
             // Interval types are always ground; lift the ground signature into a (variable-free) template.
-            case IntervalDataType intervalDataType -> TypeTemplates.fromTypeSignature(toTypeSignature(intervalDataType));
+            case IntervalDataType intervalDataType -> TypeTemplates.fromTypeDescriptor(toTypeDescriptor(intervalDataType));
         };
     }
 
@@ -173,8 +173,8 @@ public final class TypeSignatureTranslator
                 name);
 
         if (name.equalsIgnoreCase(VARCHAR) && type.getArguments().isEmpty()) {
-            // Unbounded VARCHAR is modeled as VARCHAR(n) with a magic length, matching toTypeSignature.
-            return TypeTemplates.fromTypeSignature(VarcharType.VARCHAR.getTypeSignature());
+            // Unbounded VARCHAR is modeled as VARCHAR(n) with a magic length, matching toTypeDescriptor.
+            return TypeTemplates.fromTypeDescriptor(VarcharType.VARCHAR.getTypeDescriptor());
         }
 
         List<TemplateParameter> parameters = new ArrayList<>();
@@ -209,7 +209,7 @@ public final class TypeSignatureTranslator
     {
         List<TemplateParameter> parameters = type.getFields().stream()
                 .map(field -> (TemplateParameter) new TemplateParameter.TypeArgument(
-                        field.getName().map(TypeSignatureTranslator::canonicalize),
+                        field.getName().map(TypeDescriptorTranslator::canonicalize),
                         toTypeTemplate(field.getType(), typeVariables, numericVariables)))
                 .collect(toImmutableList());
         return new TypeTemplate.TypeApplication(ROW, parameters);
@@ -242,13 +242,13 @@ public final class TypeSignatureTranslator
         return new TypeTemplate.TypeApplication(base, parameters);
     }
 
-    private static TypeSignature toTypeSignature(IntervalDataType type)
+    private static TypeDescriptor toTypeDescriptor(IntervalDataType type)
     {
         if (type.qualifier() instanceof CompositeIntervalQualifier qualifier &&
                 qualifier.getFrom() instanceof IntervalField.Year() &&
                 qualifier.getTo() instanceof IntervalField.Month &&
                 qualifier.getPrecision().isEmpty()) {
-            return INTERVAL_YEAR_MONTH.getTypeSignature();
+            return INTERVAL_YEAR_MONTH.getTypeDescriptor();
         }
 
         if (type.qualifier() instanceof CompositeIntervalQualifier qualifier &&
@@ -256,7 +256,7 @@ public final class TypeSignatureTranslator
                 qualifier.getTo() instanceof IntervalField.Second(OptionalInt fractionalPrecision) &&
                 qualifier.getPrecision().isEmpty() &&
                 fractionalPrecision.isEmpty()) {
-            return INTERVAL_DAY_TIME.getTypeSignature();
+            return INTERVAL_DAY_TIME.getTypeDescriptor();
         }
 
         throw new TrinoException(NOT_SUPPORTED, format("INTERVAL %s type not supported", type.qualifier()));
@@ -272,9 +272,9 @@ public final class TypeSignatureTranslator
     }
 
     @VisibleForTesting
-    static DataType toDataType(TypeSignature typeSignature)
+    static DataType toDataType(TypeDescriptor typeDescriptor)
     {
-        return switch (typeSignature.getBase()) {
+        return switch (typeDescriptor.getBase()) {
             case INTERVAL_YEAR_TO_MONTH -> new IntervalDataType(
                     Optional.empty(),
                     new CompositeIntervalQualifier(
@@ -293,33 +293,33 @@ public final class TypeSignatureTranslator
                     Optional.empty(),
                     DateTimeDataType.Type.TIMESTAMP,
                     true,
-                    typeSignature.getParameters().stream()
+                    typeDescriptor.getParameters().stream()
                             .findAny()
-                            .map(TypeSignatureTranslator::toTypeParameter));
+                            .map(TypeDescriptorTranslator::toTypeParameter));
             case TIMESTAMP -> new DateTimeDataType(
                     Optional.empty(),
                     DateTimeDataType.Type.TIMESTAMP,
                     false,
-                    typeSignature.getParameters().stream()
+                    typeDescriptor.getParameters().stream()
                             .findAny()
-                            .map(TypeSignatureTranslator::toTypeParameter));
+                            .map(TypeDescriptorTranslator::toTypeParameter));
             case TIME_WITH_TIME_ZONE -> new DateTimeDataType(
                     Optional.empty(),
                     DateTimeDataType.Type.TIME,
                     true,
-                    typeSignature.getParameters().stream()
+                    typeDescriptor.getParameters().stream()
                             .findAny()
-                            .map(TypeSignatureTranslator::toTypeParameter));
+                            .map(TypeDescriptorTranslator::toTypeParameter));
             case TIME -> new DateTimeDataType(
                     Optional.empty(),
                     DateTimeDataType.Type.TIME,
                     false,
-                    typeSignature.getParameters().stream()
+                    typeDescriptor.getParameters().stream()
                             .findAny()
-                            .map(TypeSignatureTranslator::toTypeParameter));
+                            .map(TypeDescriptorTranslator::toTypeParameter));
             case ROW -> new RowDataType(
                     Optional.empty(),
-                    typeSignature.getParameters().stream()
+                    typeDescriptor.getParameters().stream()
                             .map(parameter -> {
                                 TypeParameter.Type typeParameter = (TypeParameter.Type) parameter;
                                 return new RowDataType.Field(
@@ -330,16 +330,16 @@ public final class TypeSignatureTranslator
                             .collect(toImmutableList()));
             case VARCHAR -> new GenericDataType(
                     Optional.empty(),
-                    new Identifier(typeSignature.getBase(), false),
-                    typeSignature.getParameters().stream()
+                    new Identifier(typeDescriptor.getBase(), false),
+                    typeDescriptor.getParameters().stream()
                             .filter(parameter -> ((TypeParameter.Numeric) parameter).value() != UNBOUNDED_LENGTH)
                             .map(parameter -> new NumericParameter(Optional.empty(), parameter.toString()))
                             .collect(toImmutableList()));
             default -> new GenericDataType(
                     Optional.empty(),
-                    new Identifier(typeSignature.getBase(), false),
-                    typeSignature.getParameters().stream()
-                            .map(TypeSignatureTranslator::toTypeParameter)
+                    new Identifier(typeDescriptor.getBase(), false),
+                    typeDescriptor.getParameters().stream()
+                            .map(TypeDescriptorTranslator::toTypeParameter)
                             .collect(toImmutableList()));
         };
     }

@@ -85,7 +85,7 @@ import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
@@ -109,11 +109,11 @@ public class SqlRoutineAnalyzer
 
         String functionName = getFunctionName(function);
         Signature.Builder signatureBuilder = Signature.builder()
-                .returnType(toTypeSignature(function.getReturnsClause().getReturnType()));
+                .returnType(toTypeDescriptor(function.getReturnsClause().getReturnType()));
 
         validateArguments(function);
         for (ParameterDeclaration parameter : function.getParameters()) {
-            signatureBuilder.argumentType(toTypeSignature(parameter.getType()), parameter.getName().orElseThrow().getValue());
+            signatureBuilder.argumentType(toTypeDescriptor(parameter.getType()), parameter.getName().orElseThrow().getValue());
         }
         Signature signature = signatureBuilder.build();
 
@@ -191,7 +191,7 @@ public class SqlRoutineAnalyzer
     private Type getType(Node node, DataType type)
     {
         try {
-            return plannerContext.getTypeManager().getType(toTypeSignature(type));
+            return plannerContext.getTypeManager().getType(toTypeDescriptor(type));
         }
         catch (TypeNotFoundException e) {
             throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", type);

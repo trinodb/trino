@@ -29,7 +29,7 @@ public class P4HyperLogLogType
     @JsonCreator
     public P4HyperLogLogType()
     {
-        super(new TypeSignature(NAME), Slice.class);
+        super(new TypeDescriptor(NAME), Slice.class);
     }
 
     @Override

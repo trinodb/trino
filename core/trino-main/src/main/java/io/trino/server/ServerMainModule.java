@@ -111,9 +111,9 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spiller.FileSingleStreamSpillerFactory;
 import io.trino.spiller.GenericPartitioningSpillerFactory;
 import io.trino.spiller.GenericSpillerFactory;
@@ -150,10 +150,10 @@ import io.trino.tracing.TracingMetadata;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
 import io.trino.type.JsonPath2016Type;
+import io.trino.type.TypeDescriptorDeserializer;
+import io.trino.type.TypeDescriptorKeyDeserializer;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeOperatorsCache;
-import io.trino.type.TypeSignatureDeserializer;
-import io.trino.type.TypeSignatureKeyDeserializer;
 import io.trino.util.EmbedVersion;
 import io.trino.util.FinalizerService;
 
@@ -392,8 +392,8 @@ public class ServerMainModule
         // type
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonBinder(binder).addKeyDeserializerBinding(Symbol.class).to(SymbolKeyDeserializer.class);
-        jsonBinder(binder).addDeserializerBinding(TypeSignature.class).to(TypeSignatureDeserializer.class);
-        jsonBinder(binder).addKeyDeserializerBinding(TypeSignature.class).to(TypeSignatureKeyDeserializer.class);
+        jsonBinder(binder).addDeserializerBinding(TypeDescriptor.class).to(TypeDescriptorDeserializer.class);
+        jsonBinder(binder).addKeyDeserializerBinding(TypeDescriptor.class).to(TypeDescriptorKeyDeserializer.class);
         binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
         binder.bind(TypeManager.class).to(InternalTypeManager.class).in(Scopes.SINGLETON);
         newSetBinder(binder, Type.class);

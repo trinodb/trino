@@ -159,7 +159,7 @@ import static io.trino.sql.QueryUtil.singleValueQuery;
 import static io.trino.sql.QueryUtil.table;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toSqlType;
 import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.CreateView.Security.DEFINER;

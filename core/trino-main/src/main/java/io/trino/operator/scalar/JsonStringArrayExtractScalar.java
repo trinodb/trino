@@ -40,7 +40,7 @@ import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeDescriptor.arrayType;
 import static io.trino.spi.type.TypeTemplates.numericVariable;
 import static io.trino.spi.type.TypeTemplates.type;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -67,7 +67,7 @@ public final class JsonStringArrayExtractScalar
                         .argumentType(type("varchar", numericVariable("N")))
                         .numericVariable("N")
                         .argumentType(type(JsonPathType.NAME))
-                        .returnType(arrayType(VARCHAR.getTypeSignature()))
+                        .returnType(arrayType(VARCHAR.getTypeDescriptor()))
                         .build())
                 .nullable()
                 .hidden()

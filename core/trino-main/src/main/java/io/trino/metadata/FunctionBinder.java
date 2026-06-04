@@ -25,10 +25,10 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeTemplate;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -47,7 +47,7 @@ import static io.trino.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.function.FunctionKind.SCALAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeDescriptors;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
@@ -67,12 +67,12 @@ class FunctionBinder
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
-    CatalogFunctionBinding bindFunction(List<TypeSignatureProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates, String displayName)
+    CatalogFunctionBinding bindFunction(List<TypeDescriptorProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates, String displayName)
     {
         return tryBindFunction(parameterTypes, candidates).orElseThrow(() -> functionNotFound(displayName, parameterTypes, candidates));
     }
 
-    Optional<CatalogFunctionBinding> tryBindFunction(List<TypeSignatureProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates)
+    Optional<CatalogFunctionBinding> tryBindFunction(List<TypeDescriptorProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates)
     {
         if (candidates.isEmpty()) {
             return Optional.empty();
@@ -127,7 +127,7 @@ class FunctionBinder
     private boolean canBindSignature(Signature declaredSignature, GroundSignature actualSignature)
     {
         return new SignatureBinder(metadata, typeManager, declaredSignature, false)
-                .canBind(fromTypeSignatures(actualSignature.argumentTypes()), actualSignature.returnType());
+                .canBind(fromTypeDescriptors(actualSignature.argumentTypes()), actualSignature.returnType());
     }
 
     private static boolean possibleExactCastMatch(GroundSignature signature, Signature declaredSignature)
@@ -141,17 +141,17 @@ class FunctionBinder
         return declaredSignature.getArgumentTypes().getFirst().baseName().equalsIgnoreCase(signature.argumentTypes().getFirst().getBase());
     }
 
-    private Optional<CatalogFunctionBinding> matchFunctionExact(List<CatalogFunctionMetadata> candidates, List<TypeSignatureProvider> actualParameters)
+    private Optional<CatalogFunctionBinding> matchFunctionExact(List<CatalogFunctionMetadata> candidates, List<TypeDescriptorProvider> actualParameters)
     {
         return matchFunction(candidates, actualParameters, false);
     }
 
-    private Optional<CatalogFunctionBinding> matchFunctionWithCoercion(Collection<CatalogFunctionMetadata> candidates, List<TypeSignatureProvider> actualParameters)
+    private Optional<CatalogFunctionBinding> matchFunctionWithCoercion(Collection<CatalogFunctionMetadata> candidates, List<TypeDescriptorProvider> actualParameters)
     {
         return matchFunction(candidates, actualParameters, true);
     }
 
-    private Optional<CatalogFunctionBinding> matchFunction(Collection<CatalogFunctionMetadata> candidates, List<TypeSignatureProvider> parameters, boolean coercionAllowed)
+    private Optional<CatalogFunctionBinding> matchFunction(Collection<CatalogFunctionMetadata> candidates, List<TypeDescriptorProvider> parameters, boolean coercionAllowed)
     {
         List<ApplicableFunction> applicableFunctions = identifyApplicableFunctions(candidates, parameters, coercionAllowed);
         if (applicableFunctions.isEmpty()) {
@@ -182,7 +182,7 @@ class FunctionBinder
         throw new TrinoException(AMBIGUOUS_FUNCTION_CALL, errorMessageBuilder.toString());
     }
 
-    private List<ApplicableFunction> identifyApplicableFunctions(Collection<CatalogFunctionMetadata> candidates, List<TypeSignatureProvider> actualParameters, boolean allowCoercion)
+    private List<ApplicableFunction> identifyApplicableFunctions(Collection<CatalogFunctionMetadata> candidates, List<TypeDescriptorProvider> actualParameters, boolean allowCoercion)
     {
         ImmutableList.Builder<ApplicableFunction> applicableFunctions = ImmutableList.builder();
         for (CatalogFunctionMetadata function : candidates) {
@@ -193,7 +193,7 @@ class FunctionBinder
         return applicableFunctions.build();
     }
 
-    private List<ApplicableFunction> selectMostSpecificFunctions(List<ApplicableFunction> applicableFunctions, List<TypeSignatureProvider> parameters)
+    private List<ApplicableFunction> selectMostSpecificFunctions(List<ApplicableFunction> applicableFunctions, List<TypeDescriptorProvider> parameters)
     {
         checkArgument(!applicableFunctions.isEmpty());
 
@@ -288,7 +288,7 @@ class FunctionBinder
 
     private boolean returnTypeIsTheSame(List<ApplicableFunction> applicableFunctions)
     {
-        Set<TypeSignature> returnTypes = applicableFunctions.stream()
+        Set<TypeDescriptor> returnTypes = applicableFunctions.stream()
                 .map(function -> function.boundSignature().returnType())
                 .collect(Collectors.toSet());
         return returnTypes.size() == 1;
@@ -318,14 +318,14 @@ class FunctionBinder
         return false;
     }
 
-    private Optional<List<Type>> toTypes(List<TypeSignatureProvider> typeSignatureProviders)
+    private Optional<List<Type>> toTypes(List<TypeDescriptorProvider> typeDescriptorProviders)
     {
         ImmutableList.Builder<Type> resultBuilder = ImmutableList.builder();
-        for (TypeSignatureProvider typeSignatureProvider : typeSignatureProviders) {
-            if (typeSignatureProvider.hasDependency()) {
+        for (TypeDescriptorProvider typeDescriptorProvider : typeDescriptorProviders) {
+            if (typeDescriptorProvider.hasDependency()) {
                 return Optional.empty();
             }
-            resultBuilder.add(typeManager.getType(typeSignatureProvider.getTypeSignature()));
+            resultBuilder.add(typeManager.getType(typeDescriptorProvider.getTypeDescriptor()));
         }
         return Optional.of(resultBuilder.build());
     }
@@ -335,7 +335,7 @@ class FunctionBinder
      */
     private boolean isMoreSpecificThan(ApplicableFunction left, ApplicableFunction right)
     {
-        List<TypeSignatureProvider> resolvedTypes = fromTypeSignatures(left.boundSignature().argumentTypes());
+        List<TypeDescriptorProvider> resolvedTypes = fromTypeDescriptors(left.boundSignature().argumentTypes());
         return new SignatureBinder(metadata, typeManager, right.declaredSignature(), true)
                 .canBind(resolvedTypes);
     }
@@ -406,7 +406,7 @@ class FunctionBinder
         return newMetadata.build();
     }
 
-    static TrinoException functionNotFound(String name, List<TypeSignatureProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates)
+    static TrinoException functionNotFound(String name, List<TypeDescriptorProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates)
     {
         if (candidates.isEmpty()) {
             return new TrinoException(FUNCTION_NOT_FOUND, format("Function '%s' not registered", name));

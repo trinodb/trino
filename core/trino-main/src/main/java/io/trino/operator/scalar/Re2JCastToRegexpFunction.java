@@ -34,7 +34,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.Chars.padSpaces;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeTemplate;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.insertArguments;

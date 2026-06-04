@@ -73,7 +73,7 @@ public final class TimeType
 
     private TimeType(int precision)
     {
-        super(new TypeSignature(NAME, TypeParameter.numericParameter(precision)));
+        super(new TypeDescriptor(NAME, TypeParameter.numericParameter(precision)));
         this.precision = precision;
     }
 

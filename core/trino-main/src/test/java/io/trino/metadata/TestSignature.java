@@ -34,10 +34,10 @@ public class TestSignature
     public void testArgumentNames()
     {
         Signature signature = Signature.builder()
-                .returnType(VARCHAR.getTypeSignature())
-                .argumentType(VARCHAR.getTypeSignature(), "string")
-                .argumentType(BIGINT.getTypeSignature(), "from")
-                .argumentType(BIGINT.getTypeSignature())
+                .returnType(VARCHAR.getTypeDescriptor())
+                .argumentType(VARCHAR.getTypeDescriptor(), "string")
+                .argumentType(BIGINT.getTypeDescriptor(), "from")
+                .argumentType(BIGINT.getTypeDescriptor())
                 .build();
 
         assertThat(signature.getArguments())
@@ -108,7 +108,7 @@ public class TestSignature
     {
         Signature withName = Signature.builder()
                 .returnType(BIGINT)
-                .argumentType(BIGINT.getTypeSignature(), "x")
+                .argumentType(BIGINT.getTypeDescriptor(), "x")
                 .build();
         Signature withoutName = Signature.builder()
                 .returnType(BIGINT)

@@ -62,7 +62,7 @@ public final class VariantType
 
     private VariantType()
     {
-        super(new TypeSignature(StandardTypes.VARIANT), Variant.class, VariantBlock.class);
+        super(new TypeDescriptor(StandardTypes.VARIANT), Variant.class, VariantBlock.class);
     }
 
     @Override

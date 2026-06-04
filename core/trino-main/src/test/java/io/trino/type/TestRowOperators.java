@@ -29,7 +29,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -113,7 +113,7 @@ public class TestRowOperators
     @Test
     public void testRowTypeLookup()
     {
-        TypeSignature signature = RowType.from(ImmutableList.of(field("b", BIGINT))).getTypeSignature();
+        TypeDescriptor signature = RowType.from(ImmutableList.of(field("b", BIGINT))).getTypeDescriptor();
         RowType type = (RowType) assertions.getQueryRunner().getPlannerContext().getTypeManager().getType(signature);
         assertThat(type.getFields()).hasSize(1);
         assertThat(type.getFields().get(0).getName().get()).isEqualTo("b");

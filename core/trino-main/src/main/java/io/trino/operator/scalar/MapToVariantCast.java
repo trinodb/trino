@@ -59,7 +59,7 @@ public class MapToVariantCast
         super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
                         .numericVariable("N")
-                        .castableToTypeParameter("V", VARIANT.getTypeSignature())
+                        .castableToTypeParameter("V", VARIANT.getTypeDescriptor())
                         .returnType(VARIANT)
                         .argumentType(mapType(type("varchar", numericVariable("N")), typeVariable("V")))
                         .build())
