@@ -475,6 +475,102 @@ public abstract class BaseTrinoCatalogTest
     }
 
     @Test
+    public void testTableNamespaceFilter()
+            throws Exception
+    {
+        TrinoCatalog catalog = createTrinoCatalog(false);
+        TrinoPrincipal principal = new TrinoPrincipal(PrincipalType.USER, SESSION.getUser());
+
+        try (AutoCloseableCloser closer = AutoCloseableCloser.create()) {
+            String namespace1 = "test_table_namespace1_filter_" + randomNameSuffix();
+            String namespace2 = "test_table_namespace2_filter_" + randomNameSuffix();
+            catalog.createNamespace(SESSION, namespace1, defaultNamespaceProperties(namespace1), principal);
+            closer.register(() -> catalog.dropNamespace(SESSION, namespace1));
+            catalog.createNamespace(SESSION, namespace2, defaultNamespaceProperties(namespace2), principal);
+            closer.register(() -> catalog.dropNamespace(SESSION, namespace2));
+
+            SchemaTableName tableName1 = new SchemaTableName(namespace1, "table1");
+            SchemaTableName tableName2 = new SchemaTableName(namespace2, "table2");
+            createTable(catalog, tableName1, closer);
+            createTable(catalog, tableName2, closer);
+
+            // listTables without a filter returns tables from all namespaces
+            assertThat(catalog.listTables(SESSION, Optional.empty()))
+                    .contains(new TableInfo(tableName1, TABLE), new TableInfo(tableName2, TABLE));
+            // listTables with a filter only returns tables from the requested namespace
+            assertThat(catalog.listTables(SESSION, Optional.of(namespace1)))
+                    .contains(new TableInfo(tableName1, TABLE))
+                    .doesNotContain(new TableInfo(tableName2, TABLE));
+
+            // listIcebergTables without a filter returns tables from all namespaces
+            assertThat(catalog.listIcebergTables(SESSION, ImmutableList.of()))
+                    .contains(tableName1, tableName2);
+            // listIcebergTables with a filter only returns tables from the requested namespace
+            assertThat(catalog.listIcebergTables(SESSION, ImmutableList.of(namespace1)))
+                    .contains(tableName1)
+                    .doesNotContain(tableName2);
+
+            // a non-existent namespace filter yields no tables
+            assertThat(catalog.listTables(SESSION, Optional.of("non_existing"))).isEmpty();
+            assertThat(catalog.listIcebergTables(SESSION, ImmutableList.of("non_existing"))).isEmpty();
+        }
+    }
+
+    @Test
+    public void testViewNamespaceFilter()
+            throws Exception
+    {
+        TrinoCatalog catalog = createTrinoCatalog(false);
+        TrinoPrincipal principal = new TrinoPrincipal(PrincipalType.USER, SESSION.getUser());
+
+        try (AutoCloseableCloser closer = AutoCloseableCloser.create()) {
+            String namespace1 = "test_view_namespace_filter_" + randomNameSuffix();
+            String namespace2 = "test_view_namespace_filter_" + randomNameSuffix();
+            catalog.createNamespace(SESSION, namespace1, defaultNamespaceProperties(namespace1), principal);
+            closer.register(() -> catalog.dropNamespace(SESSION, namespace1));
+            catalog.createNamespace(SESSION, namespace2, defaultNamespaceProperties(namespace2), principal);
+            closer.register(() -> catalog.dropNamespace(SESSION, namespace2));
+
+            SchemaTableName viewName1 = new SchemaTableName(namespace1, "view1");
+            SchemaTableName viewName2 = new SchemaTableName(namespace2, "view2");
+            ConnectorViewDefinition viewDefinition = new ConnectorViewDefinition(
+                    "SELECT name FROM local.tiny.nation",
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableList.of(
+                            new ConnectorViewDefinition.ViewColumn("name", VarcharType.createUnboundedVarcharType().getTypeId(), Optional.empty())),
+                    Optional.empty(),
+                    Optional.of(SESSION.getUser()),
+                    false,
+                    ImmutableList.of());
+            catalog.createView(SESSION, viewName1, viewDefinition, ImmutableMap.of(), false);
+            closer.register(() -> catalog.dropView(SESSION, viewName1));
+            catalog.createView(SESSION, viewName2, viewDefinition, ImmutableMap.of(), false);
+            closer.register(() -> catalog.dropView(SESSION, viewName2));
+
+            // getViews without a filter returns views from all namespaces
+            assertThat(catalog.getViews(SESSION, Optional.empty()))
+                    .containsKeys(viewName1, viewName2);
+            // getViews with a filter only returns views from the requested namespace
+            Map<SchemaTableName, ConnectorViewDefinition> filteredViews = catalog.getViews(SESSION, Optional.of(namespace1));
+            assertThat(filteredViews).containsOnlyKeys(viewName1);
+            assertViewDefinition(filteredViews.get(viewName1), viewDefinition);
+
+            // listViews without a filter returns views from all namespaces
+            assertThat(catalog.listViews(SESSION, Optional.empty()))
+                    .contains(viewName1, viewName2);
+            // listViews with a filter only returns views from the requested namespace
+            assertThat(catalog.listViews(SESSION, Optional.of(namespace1)))
+                    .contains(viewName1)
+                    .doesNotContain(viewName2);
+
+            // a non-existent namespace filter yields no views
+            assertThat(catalog.listViews(SESSION, Optional.of("non_existing"))).isEmpty();
+            assertThat(catalog.getViews(SESSION, Optional.of("non_existing"))).isEmpty();
+        }
+    }
+
+    @Test
     public void testListTables()
             throws Exception
     {
@@ -645,6 +741,21 @@ public abstract class BaseTrinoCatalogTest
         Path tmpDirectory = Files.createTempDirectory("iceberg_catalog_test_arbitrary_location");
         tmpDirectory.toFile().deleteOnExit();
         return tmpDirectory.toString();
+    }
+
+    private void createTable(TrinoCatalog catalog, SchemaTableName tableName, AutoCloseableCloser closer)
+            throws Exception
+    {
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        tableName,
+                        new Schema(Types.NestedField.optional(1, "col1", Types.LongType.get())),
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.of(arbitraryTableLocation(catalog, SESSION, tableName)),
+                        ImmutableMap.of())
+                .commitTransaction();
+        closer.register(() -> catalog.dropTable(SESSION, tableName));
     }
 
     private void assertViewColumnDefinition(ConnectorViewDefinition.ViewColumn actualViewColumn, ConnectorViewDefinition.ViewColumn expectedViewColumn)
