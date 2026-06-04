@@ -750,7 +750,7 @@ public class TrinoRestCatalog
                 restViews = restSessionCatalog.listViews(sessionContext, toRemoteNamespace(session, restNamespace));
             }
             catch (NoSuchNamespaceException e) {
-                return ImmutableMap.of();
+                continue;
             }
             catch (RESTException e) {
                 throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to list views", e);
