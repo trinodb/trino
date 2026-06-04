@@ -49,6 +49,7 @@ import org.apache.iceberg.Transaction;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
+import org.apache.iceberg.exceptions.NoSuchViewException;
 import org.apache.iceberg.jdbc.JdbcCatalog;
 import org.apache.iceberg.jdbc.UncheckedInterruptedException;
 import org.apache.iceberg.jdbc.UncheckedSQLException;
@@ -412,7 +413,7 @@ public class TrinoJdbcCatalog
     @Override
     public void updateViewComment(ConnectorSession session, SchemaTableName schemaViewName, Optional<String> comment)
     {
-        View view = Optional.ofNullable(jdbcCatalog.loadView(toIdentifier(schemaViewName))).orElseThrow(() -> new ViewNotFoundException(schemaViewName));
+        View view = loadIcebergView(schemaViewName);
         UpdateViewProperties updateViewProperties = view.updateProperties();
         comment.ifPresentOrElse(
                 value -> updateViewProperties.set(COMMENT, value),
@@ -423,8 +424,7 @@ public class TrinoJdbcCatalog
     @Override
     public void updateViewColumnComment(ConnectorSession session, SchemaTableName schemaViewName, String columnName, Optional<String> comment)
     {
-        View view = Optional.ofNullable(jdbcCatalog.loadView(toIdentifier(schemaViewName)))
-                .orElseThrow(() -> new ViewNotFoundException(schemaViewName));
+        View view = loadIcebergView(schemaViewName);
 
         ViewVersion current = view.currentVersion();
         Schema updatedSchema = IcebergUtil.updateColumnComment(view.schema(), columnName, comment.orElse(null));
@@ -544,24 +544,33 @@ public class TrinoJdbcCatalog
             return Optional.empty();
         }
 
-        return Optional.of(jdbcCatalog.loadView(toIdentifier(viewIdentifier))).flatMap(view -> {
-            SQLViewRepresentation sqlView = view.sqlFor("trino");
-            if (!sqlView.dialect().equalsIgnoreCase("trino")) {
-                throw new TrinoException(ICEBERG_UNSUPPORTED_VIEW_DIALECT, "Cannot read unsupported dialect '%s' for view '%s'".formatted(sqlView.dialect(), viewIdentifier));
-            }
+        View view = loadIcebergView(viewIdentifier);
+        SQLViewRepresentation sqlView = view.sqlFor("trino");
+        if (!sqlView.dialect().equalsIgnoreCase("trino")) {
+            throw new TrinoException(ICEBERG_UNSUPPORTED_VIEW_DIALECT, "Cannot read unsupported dialect '%s' for view '%s'".formatted(sqlView.dialect(), viewIdentifier));
+        }
 
-            Optional<String> comment = Optional.ofNullable(view.properties().get(COMMENT));
-            List<ConnectorViewDefinition.ViewColumn> viewColumns = IcebergUtil.viewColumnsFromSchema(typeManager, view.schema());
-            ViewVersion currentVersion = view.currentVersion();
-            Optional<String> catalog = Optional.ofNullable(currentVersion.defaultCatalog());
-            Optional<String> schema = Optional.empty();
-            if (catalog.isPresent() && !currentVersion.defaultNamespace().isEmpty()) {
-                schema = Optional.of(currentVersion.defaultNamespace().toString());
-            }
+        Optional<String> comment = Optional.ofNullable(view.properties().get(COMMENT));
+        List<ConnectorViewDefinition.ViewColumn> viewColumns = IcebergUtil.viewColumnsFromSchema(typeManager, view.schema());
+        ViewVersion currentVersion = view.currentVersion();
+        Optional<String> catalog = Optional.ofNullable(currentVersion.defaultCatalog());
+        Optional<String> schema = Optional.empty();
+        if (catalog.isPresent() && !currentVersion.defaultNamespace().isEmpty()) {
+            schema = Optional.of(currentVersion.defaultNamespace().toString());
+        }
 
-            Optional<String> owner = Optional.ofNullable(view.properties().get(ICEBERG_VIEW_RUN_AS_OWNER));
-            return Optional.of(new ConnectorViewDefinition(sqlView.sql(), catalog, schema, viewColumns, comment, owner, owner.isEmpty(), null));
-        });
+        Optional<String> owner = Optional.ofNullable(view.properties().get(ICEBERG_VIEW_RUN_AS_OWNER));
+        return Optional.of(new ConnectorViewDefinition(sqlView.sql(), catalog, schema, viewColumns, comment, owner, owner.isEmpty(), null));
+    }
+
+    private View loadIcebergView(SchemaTableName viewName)
+    {
+        try {
+            return jdbcCatalog.loadView(toIdentifier(viewName));
+        }
+        catch (NoSuchViewException e) {
+            throw new ViewNotFoundException(viewName);
+        }
     }
 
     @Override
