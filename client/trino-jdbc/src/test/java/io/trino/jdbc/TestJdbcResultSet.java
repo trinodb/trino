@@ -23,6 +23,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 /**
  * An integration test for JDBC client interacting with Trino server.
@@ -58,5 +59,11 @@ public class TestJdbcResultSet
     {
         String url = format("jdbc:trino://%s", server.getAddress());
         return DriverManager.getConnection(url, "test", null);
+    }
+
+    @Override
+    protected String legacyCanonicalize(String value)
+    {
+        return value.toUpperCase(ENGLISH);
     }
 }

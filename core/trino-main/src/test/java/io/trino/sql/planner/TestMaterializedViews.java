@@ -187,7 +187,7 @@ public class TestMaterializedViews
         createFreshAndStaleMaterializedViews("fresh_materialized_view_when_stale_fail", planTester, metadata, WhenStaleBehavior.FAIL);
 
         MaterializedViewDefinition materializedViewDefinitionWithCasts = new MaterializedViewDefinition(
-                "SELECT a, b FROM test_table",
+                "SELECT \"a\", \"b\" FROM \"test_table\"",
                 Optional.of(TEST_CATALOG_NAME),
                 Optional.of(SCHEMA),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
@@ -253,7 +253,7 @@ public class TestMaterializedViews
     {
         QualifiedObjectName freshMaterializedView = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, name);
         MaterializedViewDefinition materializedViewDefinition = new MaterializedViewDefinition(
-                "SELECT a, b FROM test_table",
+                "SELECT \"a\", \"b\" FROM \"test_table\"",
                 Optional.of(TEST_CATALOG_NAME),
                 Optional.of(SCHEMA),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
@@ -318,10 +318,10 @@ public class TestMaterializedViews
     @Test
     public void testFreshMaterializedView()
     {
-        assertPlan("SELECT * FROM fresh_materialized_view",
+        assertPlan("SELECT * FROM \"fresh_materialized_view\"",
                 anyTree(
                         tableScan("storage_table")));
-        assertPlan("SELECT * FROM fresh_materialized_view_when_stale_fail",
+        assertPlan("SELECT * FROM \"fresh_materialized_view_when_stale_fail\"",
                 anyTree(
                         tableScan("storage_table")));
     }
@@ -335,24 +335,24 @@ public class TestMaterializedViews
                 .build();
 
         assertPlan(
-                "SELECT * FROM not_fresh_materialized_view",
+                "SELECT * FROM \"not_fresh_materialized_view\"",
                 defaultSession,
                 anyTree(
                         tableScan("storage_table")));
         assertPlan(
-                "SELECT * FROM not_fresh_materialized_view_when_stale_fail",
+                "SELECT * FROM \"not_fresh_materialized_view_when_stale_fail\"",
                 defaultSession,
                 anyTree(
                         tableScan("storage_table")));
 
         assertPlan(
-                "SELECT * FROM not_fresh_materialized_view",
+                "SELECT * FROM \"not_fresh_materialized_view\"",
                 futureSession,
                 anyTree(
                         tableScan("test_table")));
-        assertThatThrownBy(() -> createPlan(futureSession, "SELECT * FROM not_fresh_materialized_view_when_stale_fail"))
+        assertThatThrownBy(() -> createPlan(futureSession, "SELECT * FROM \"not_fresh_materialized_view_when_stale_fail\""))
                 .isInstanceOf(TrinoException.class)
-                .hasMessage("line 1:15: Materialized view 'test_catalog.tiny.not_fresh_materialized_view_when_stale_fail' is stale");
+                .hasMessage("line 1:15: Materialized view 'test_catalog.\"tiny\".\"not_fresh_materialized_view_when_stale_fail\"' is stale");
     }
 
     private void createPlan(Session futureSession, @Language("SQL") String sql)
@@ -373,37 +373,37 @@ public class TestMaterializedViews
     @Test
     public void testRefreshTypes()
     {
-        createMaterializedView("simple_materialized_view", "SELECT a as new_name, b FROM test_table WHERE a is not null and b > 1");
+        createMaterializedView("simple_materialized_view", "SELECT \"a\" as \"new_name\", \"b\" FROM \"test_table\" WHERE \"a\" is not null and \"b\" > 1");
         Optional<RefreshType> refreshType = getRefreshType("simple_materialized_view");
         assertThat(refreshType).isPresent();
         assertThat(refreshType.get()).isEqualTo(INCREMENTAL);
 
-        createMaterializedView("aggregation_materialized_view", "SELECT a, count(*) FROM test_table GROUP BY a");
+        createMaterializedView("aggregation_materialized_view", "SELECT \"a\", count(*) FROM \"test_table\" GROUP BY \"a\"");
         refreshType = getRefreshType("aggregation_materialized_view");
         assertThat(refreshType).isPresent();
         assertThat(refreshType.get()).isEqualTo(FULL);
 
-        createMaterializedView("join_materialized_view", "SELECT a.a, b.b FROM test_table a JOIN test_table b on a.a = b.a");
+        createMaterializedView("join_materialized_view", "SELECT \"a\".\"a\", \"b\".\"b\" FROM \"test_table\" \"a\" JOIN \"test_table\" \"b\" on \"a\".\"a\" = \"b\".\"a\"");
         refreshType = getRefreshType("join_materialized_view");
         assertThat(refreshType).isPresent();
         assertThat(refreshType.get()).isEqualTo(FULL);
 
-        createMaterializedView("distinct_materialized_view", "SELECT distinct a, b FROM test_table");
+        createMaterializedView("distinct_materialized_view", "SELECT distinct \"a\", \"b\" FROM \"test_table\"");
         refreshType = getRefreshType("distinct_materialized_view");
         assertThat(refreshType).isPresent();
         assertThat(refreshType.get()).isEqualTo(FULL);
 
-        createMaterializedView("table_subquery_materialized_view", "SELECT a, b FROM (SELECT a, b FROM (VALUES (1, 2), (3, 4)) t(a, b))");
+        createMaterializedView("table_subquery_materialized_view", "SELECT \"a\", \"b\" FROM (SELECT \"a\", \"b\" FROM (VALUES (1, 2), (3, 4)) t(\"a\", \"b\"))");
         refreshType = getRefreshType("table_subquery_materialized_view");
         assertThat(refreshType).isPresent();
         assertThat(refreshType.get()).isEqualTo(FULL);
 
-        createMaterializedView("where_subquery_materialized_view", "SELECT a, b FROM test_table WHERE b in (SELECT b FROM test_table WHERE a < 0)");
+        createMaterializedView("where_subquery_materialized_view", "SELECT \"a\", \"b\" FROM \"test_table\" WHERE \"b\" in (SELECT \"b\" FROM \"test_table\" WHERE \"a\" < 0)");
         refreshType = getRefreshType("where_subquery_materialized_view");
         assertThat(refreshType).isPresent();
         assertThat(refreshType.get()).isEqualTo(FULL);
 
-        createMaterializedView("union_view", "SELECT a, b FROM test_table a WHERE a.b in (6, 9) UNION ALL SELECT a, b FROM test_table b WHERE b.b in (1, 5)");
+        createMaterializedView("union_view", "SELECT \"a\", \"b\" FROM \"test_table\" \"a\" WHERE \"a\".\"b\" in (6, 9) UNION ALL SELECT \"a\", \"b\" FROM \"test_table\" \"b\" WHERE \"b\".\"b\" in (1, 5)");
         refreshType = getRefreshType("union_view");
         assertThat(refreshType).isPresent();
         assertThat(refreshType.get()).isEqualTo(FULL);
@@ -417,8 +417,8 @@ public class TestMaterializedViews
                 new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "materialized_view_with_casts"),
                 "a",
                 "user",
-                ViewExpression.builder().expression("a + 1").build());
-        assertPlan("SELECT * FROM materialized_view_with_casts",
+                ViewExpression.builder().expression("\"a\" + 1").build());
+        assertPlan("SELECT * FROM \"materialized_view_with_casts\"",
                 anyTree(
                         project(
                                 ImmutableMap.of(
@@ -430,7 +430,7 @@ public class TestMaterializedViews
     @Test
     public void testRefreshMaterializedViewWithCasts()
     {
-        assertPlan("REFRESH MATERIALIZED VIEW stale_materialized_view_with_casts",
+        assertPlan("REFRESH MATERIALIZED VIEW \"stale_materialized_view_with_casts\"",
                 anyTree(
                         tableWriter(List.of("A_CAST", "B_CAST"), List.of("a", "b"),
                                 exchange(LOCAL,
@@ -440,7 +440,7 @@ public class TestMaterializedViews
                                                 tableScan("test_table", Map.of("A", "a", "B", "b")))))));
 
         // No-op REFRESH
-        assertPlan("REFRESH MATERIALIZED VIEW materialized_view_with_casts",
+        assertPlan("REFRESH MATERIALIZED VIEW \"materialized_view_with_casts\"",
                 output(
                         values(List.of("rows"), List.of(List.of(new Constant(BIGINT, 0L))))));
     }
@@ -448,7 +448,7 @@ public class TestMaterializedViews
     @Test
     public void testMaterializedViewWithTimestamp()
     {
-        assertPlan("SELECT * FROM timestamp_mv_test WHERE ts < TIMESTAMP '2024-01-01 00:00:00.000 America/New_York'",
+        assertPlan("SELECT * FROM \"timestamp_mv_test\" WHERE \"ts\" < TIMESTAMP '2024-01-01 00:00:00.000 America/New_York'",
                 anyTree(
                         project(ImmutableMap.of("ts_0", expression(new Cast(new Reference(TIMESTAMP_TZ_MILLIS, "ts"), TIMESTAMP_TZ_MILLIS))),
                                 filter(
@@ -464,7 +464,7 @@ public class TestMaterializedViews
         String queryId = planTester.inTransaction(session, transactionSession -> {
             planTester.createPlan(
                     transactionSession,
-                    "REFRESH MATERIALIZED VIEW " + matViewTable,
+                    "REFRESH MATERIALIZED VIEW \"" + matViewTable + "\"",
                     planTester.getPlanOptimizers(true),
                     OPTIMIZED_AND_VALIDATED,
                     NOOP,

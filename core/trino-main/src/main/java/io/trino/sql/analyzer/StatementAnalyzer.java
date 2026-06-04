@@ -2335,7 +2335,6 @@ class StatementAnalyzer
                     }
                     if (candidates.isEmpty()) {
                         // qualify the name using current schema and catalog
-                        List<Identifier> identifiers = getQualifiedObjectIdentifiers(session, name.getOriginalParts().get(0), name, plannerContext);
                         QualifiedObjectName fullyQualifiedName = createQualifiedObjectName(session, name.getOriginalParts().get(0), name, plannerContext);
                         QualifiedName qualifiedName = QualifiedName.of(fullyQualifiedName.catalogName(), fullyQualifiedName.schemaName(), fullyQualifiedName.objectName());
                         // System.out.println("StatementAnalyzer.analyzeCopartitioning() 7 name: " + qualifiedName);
@@ -3214,14 +3213,6 @@ class StatementAnalyzer
             // System.out.println("StatementAnalyzer.aliasTableFunctionInvocation() 1 relation alias: " + relation.getAlias());
             TableFunctionInvocationAnalysis tableFunctionAnalysis = analysis.getTableFunctionAnalysis(function);
             int properColumnsCount = tableFunctionAnalysis.getProperColumnsCount();
-
-            List<String> qualifiedNames = tableFunctionAnalysis.getTableArgumentAnalyses().stream()
-                    .map(TableArgumentAnalysis::getName)
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .map(QualifiedName::toString)
-                    .toList();
-            // System.out.println("StatementAnalyzer.aliasTableFunctionInvocation() 2 names: " + String.join(", ", qualifiedNames));
 
             // check that relation alias is different from range variables of all table arguments
             tableFunctionAnalysis.getTableArgumentAnalyses().stream()
@@ -5962,7 +5953,7 @@ class StatementAnalyzer
             // process expandable query -- anchor
             Scope anchorScope = process(anchor, parentScope);
             // set aliases in anchor scope as defined for WITH query. Recursion step will refer to anchor fields by aliases.
-            Scope aliasedAnchorScope = setAliases(anchorScope, resolver, withQuery.getName(), withQuery.getColumnNames().get());
+            Scope aliasedAnchorScope = setAliases(anchorScope, withQuery.getName(), withQuery.getColumnNames().get());
             // record expandable query base scope for recursion step analysis
             Node recursiveReference = fromReferences.getFirst();
             analysis.setExpandableBaseScope(recursiveReference, aliasedAnchorScope);
@@ -6051,7 +6042,7 @@ class StatementAnalyzer
                 }
                 return query.getWith().get().getQueries().stream()
                         .map(WithQuery::getName)
-                        .map(identifier -> canonicalizer.apply(identifier))
+                        .map(canonicalizer::apply)
                         .anyMatch(withQueryName -> withQueryName.equals(canonicalizer.apply(name)));
             };
         }
@@ -6108,7 +6099,7 @@ class StatementAnalyzer
                     });
         }
 
-        private Scope setAliases(Scope scope, Resolver resolver, Identifier tableName, List<Identifier> columnNames)
+        private Scope setAliases(Scope scope, Identifier tableName, List<Identifier> columnNames)
         {
             RelationType oldDescriptor = scope.getRelationType();
             validateColumnAliases(columnNames, oldDescriptor.getVisibleFieldCount());

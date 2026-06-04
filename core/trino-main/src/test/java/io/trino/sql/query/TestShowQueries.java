@@ -229,7 +229,7 @@ public class TestShowQueries
     @Test
     public void testShowColumns()
     {
-        assertThat(assertions.query("SHOW COLUMNS FROM mock.mockSchema.mockTable"))
+        assertThat(assertions.query("SHOW COLUMNS FROM mock.mockschema.mockTable"))
                 .matches("VALUES " +
                         "(VARCHAR 'colaa', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')," +
                         "(VARCHAR 'cola_', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')," +
@@ -239,14 +239,14 @@ public class TestShowQueries
     @Test
     public void testShowColumnsLike()
     {
-        assertThat(assertions.query("SHOW COLUMNS FROM mock.mockSchema.mockTable like 'colabc'"))
+        assertThat(assertions.query("SHOW COLUMNS FROM mock.mockschema.mockTable like 'colabc'"))
                 .matches("VALUES (VARCHAR 'colabc', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')");
-        assertThat(assertions.query("SHOW COLUMNS FROM mock.mockSchema.mockTable like 'cola%'"))
+        assertThat(assertions.query("SHOW COLUMNS FROM mock.mockschema.mockTable like 'cola%'"))
                 .matches("VALUES " +
                         "(VARCHAR 'colaa', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')," +
                         "(VARCHAR 'cola_', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')," +
                         "(VARCHAR 'colabc', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')");
-        assertThat(assertions.query("SHOW COLUMNS FROM mock.mockSchema.mockTable like 'cola_'"))
+        assertThat(assertions.query("SHOW COLUMNS FROM mock.mockschema.mockTable like 'cola_'"))
                 .matches("VALUES " +
                         "(VARCHAR 'colaa', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')," +
                         "(VARCHAR 'cola_', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')");
@@ -267,7 +267,7 @@ public class TestShowQueries
                 .failure().hasMessage("Escape string must be a single character");
         assertThat(assertions.query("SHOW COLUMNS FROM system.runtime.nodes LIKE 't$_%' ESCAPE '$$'"))
                 .failure().hasMessage("Escape string must be a single character");
-        assertThat(assertions.query("SHOW COLUMNS FROM mock.mockSchema.mockTable LIKE 'cola$_' ESCAPE '$'"))
+        assertThat(assertions.query("SHOW COLUMNS FROM mock.mockschema.mockTable LIKE 'cola$_' ESCAPE '$'"))
                 .matches("VALUES (VARCHAR 'cola_', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')");
     }
 
@@ -320,7 +320,7 @@ public class TestShowQueries
     @Test
     void testShowBranchesEmptyResult()
     {
-        assertions.assertQueryReturnsEmptyResult("SHOW BRANCHES FROM TABLE mock.mockSchema.mockTable");
+        assertions.assertQueryReturnsEmptyResult("SHOW BRANCHES FROM TABLE mock.mockschema.mockTable");
     }
 
     private static ColumnMetadata columnMetadata(String name, Type type, String value)

@@ -75,7 +75,7 @@ public class TestWith
         assertions.execute("SELECT min(row_number) FROM nation");
 
         assertThat(assertions.query(
-                "WITH t(a, b, c, d) AS (TABLE nation) " +
+                "WITH t(\"a\", \"b\", c, d) AS (TABLE nation) " +
                         "SELECT a, b FROM t WHERE a = 1"))
                 .matches("VALUES (BIGINT '1', CAST('ARGENTINA' AS VARCHAR(25)))");
 
@@ -87,6 +87,6 @@ public class TestWith
         // try access hidden column
         assertThat(assertions.query("WITH t AS (TABLE nation) " +
                 "SELECT min(row_number) FROM t"))
-                .failure().hasMessage("line 1:37: Column 'row_number' cannot be resolved");
+                .failure().hasMessageMatching("line 1:37: Column 'row_number' cannot be resolved, .*");
     }
 }

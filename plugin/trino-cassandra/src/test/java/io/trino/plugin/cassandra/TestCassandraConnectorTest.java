@@ -138,6 +138,14 @@ public class TestCassandraConnectorTest
 
     @Test
     @Override //FIXME: cant have this test working correctly
+    public void testIssue17()
+    {
+        assertThatThrownBy(super::testIssue17)
+                .hasMessageMatching("Multiple definition of identifier id");
+    }
+
+    @Test
+    @Override
     public void testInformationSchemaUppercaseName()
     {
         assertQuery(

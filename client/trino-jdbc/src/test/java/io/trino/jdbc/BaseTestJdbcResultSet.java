@@ -64,10 +64,7 @@ public abstract class BaseTestJdbcResultSet
     protected abstract Connection createConnection()
             throws SQLException;
 
-    protected String legacyCanonicalize(String value)
-    {
-        return value.toUpperCase(ENGLISH);
-    }
+    protected abstract String legacyCanonicalize(String value);
 
     @Test
     public void testDuplicateColumnLabels()
