@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 'use strict';
 
-const fs = require('node:fs');
-
-const API_URL = 'https://api.github.com';
 const LABEL = 'cla-signed';
 const COMMENT_MARKER = '<!-- trino-cla-check -->';
-const CONTRIBUTORS_URL = '/repos/trinodb/cla/contents/contributors';
+const CONTRIBUTORS_OWNER = 'trinodb';
+const CONTRIBUTORS_REPO = 'cla';
+const CONTRIBUTORS_PATH = 'contributors';
 const NO_CLA_MESSAGE = "Thank you for your pull request and welcome to the Trino community. We require contributors to sign our [Contributor License Agreement](https://github.com/trinodb/cla/raw/master/Trino%20Foundation%20Individual%20CLA.pdf), and we don't seem to have you on file. Continue to work with us on the review and improvements in this PR, and submit the signed CLA to cla@trino.io. Photos, scans, or digitally-signed PDF files are all suitable. Processing may take a few days. The CLA needs to be on file before we merge your changes. For more information, see https://github.com/trinodb/cla";
 const MISSING_EMAIL_MESSAGE = `Thank you for your pull request and welcome to our community. We could not parse the GitHub identity of the following contributors: **{{unidentifiedUsers}}**.
 This is most likely caused by a git client misconfiguration; please make sure to:
@@ -15,67 +14,11 @@ This is most likely caused by a git client misconfiguration; please make sure to
 3. Make sure that the git commit email is configured in your GitHub account settings, see https://github.com/settings/emails`;
 const TRUSTED_COMMENT_ASSOCIATIONS = new Set(['COLLABORATOR', 'MEMBER', 'OWNER']);
 
-const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
-const dryRun = process.env.CLA_DRY_RUN === 'true';
-const repository = process.env.GITHUB_REPOSITORY || 'trinodb/trino';
-const [owner, repo] = repository.split('/');
-
-if (!owner || !repo) {
-    throw new Error(`Invalid GITHUB_REPOSITORY: ${repository}`);
-}
-
 function sortedUnique(values) {
     return [...new Set(values.filter(Boolean))].sort((left, right) => String(left).localeCompare(String(right)));
 }
 
-function readEvent() {
-    if (!process.env.GITHUB_EVENT_PATH) {
-        throw new Error('GITHUB_EVENT_PATH is not set');
-    }
-    return JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
-}
-
-async function githubRequest(path, options = {}) {
-    if (!token) {
-        throw new Error('GITHUB_TOKEN is not set');
-    }
-
-    const response = await fetch(`${API_URL}${path}`, {
-        method: options.method || 'GET',
-        headers: {
-            'Accept': 'application/vnd.github+json',
-            'Authorization': `Bearer ${token}`,
-            'User-Agent': 'trinodb-cla-check',
-            'X-GitHub-Api-Version': '2022-11-28',
-            ...options.headers,
-        },
-        body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    });
-
-    if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`${options.method || 'GET'} ${path} failed: ${response.status} ${response.statusText}: ${text}`);
-    }
-
-    if (response.status === 204) {
-        return null;
-    }
-    return response.json();
-}
-
-async function paginate(path) {
-    const results = [];
-    for (let page = 1; ; page++) {
-        const separator = path.includes('?') ? '&' : '?';
-        const pageResults = await githubRequest(`${path}${separator}per_page=100&page=${page}`);
-        results.push(...pageResults);
-        if (pageResults.length < 100) {
-            return results;
-        }
-    }
-}
-
-async function resolveCheckTarget(eventName, event) {
+async function resolveCheckTarget(check, eventName, event) {
     if (eventName === 'pull_request_target') {
         return {
             pullRequests: [event.pull_request],
@@ -92,7 +35,10 @@ async function resolveCheckTarget(eventName, event) {
             console.log(`Ignoring CLA re-check from untrusted association: ${event.comment?.author_association || 'NONE'}`);
             return null;
         }
-        const pullRequest = await githubRequest(`/repos/${owner}/${repo}/pulls/${event.issue.number}`);
+        const {data: pullRequest} = await check.github.rest.pulls.get({
+            ...check.repo,
+            pull_number: event.issue.number,
+        });
         return {
             pullRequests: [pullRequest],
             updatePullRequests: true,
@@ -116,54 +62,41 @@ function commentRequestsClaCheck(comment) {
     return command === '@cla-bot check' || command === '/cla-check';
 }
 
-function addJobErrorAnnotation(title, message) {
-    if (process.env.GITHUB_ACTIONS !== 'true') {
-        return;
-    }
-
-    console.error(`::error title=${escapeWorkflowCommandProperty(title)}::${escapeWorkflowCommandValue(message)}`);
+function addJobErrorAnnotation(check, title, message) {
+    check.core.error(message, {title});
 }
 
-function addClaFailureAnnotation(result) {
+function addClaFailureAnnotation(check, result) {
     const missing = result.unidentified || result.missing;
     const summary = result.unidentified
         ? 'Could not identify contributors'
         : 'CLA is missing for contributors';
     const message = `${summary}: ${missing.join(', ')}\n${result.message}`;
 
-    addJobErrorAnnotation('Contributor License Agreement', message);
+    addJobErrorAnnotation(check, 'Contributor License Agreement', message);
 }
 
-function escapeWorkflowCommandProperty(value) {
-    return escapeWorkflowCommandValue(value)
-        .replace(/:/g, '%3A')
-        .replace(/,/g, '%2C');
-}
-
-function escapeWorkflowCommandValue(value) {
-    return String(value)
-        .replace(/%/g, '%25')
-        .replace(/\r/g, '%0D')
-        .replace(/\n/g, '%0A');
-}
-
-async function getContributors() {
-    const content = await githubRequest(CONTRIBUTORS_URL);
+async function getContributors(check) {
+    const {data: content} = await check.github.rest.repos.getContent({
+        owner: CONTRIBUTORS_OWNER,
+        repo: CONTRIBUTORS_REPO,
+        path: CONTRIBUTORS_PATH,
+    });
     if (content.encoding !== 'base64') {
         throw new Error(`Unsupported contributors encoding: ${content.encoding}`);
     }
     return JSON.parse(Buffer.from(content.content, 'base64').toString('utf8'));
 }
 
-async function listPullRequestCommits(pullRequest) {
-    return listComparisonCommits(pullRequest.base.sha, pullRequest.head.sha);
+async function listPullRequestCommits(check, pullRequest) {
+    return listComparisonCommits(check, pullRequest.base.sha, pullRequest.head.sha);
 }
 
-async function listMergeGroupCommits(mergeGroup) {
-    return listComparisonCommits(mergeGroup.base_sha, mergeGroup.head_sha || process.env.GITHUB_SHA);
+async function listMergeGroupCommits(check, mergeGroup) {
+    return listComparisonCommits(check, mergeGroup.base_sha, mergeGroup.head_sha || check.context.sha);
 }
 
-async function listComparisonCommits(baseSha, headSha) {
+async function listComparisonCommits(check, baseSha, headSha) {
     if (!baseSha || !headSha) {
         throw new Error('Could not determine commit range for CLA check');
     }
@@ -171,7 +104,12 @@ async function listComparisonCommits(baseSha, headSha) {
     const commits = [];
     let totalCommits;
     for (let page = 1; ; page++) {
-        const comparison = await githubRequest(`/repos/${owner}/${repo}/compare/${baseSha}...${headSha}?per_page=100&page=${page}`);
+        const {data: comparison} = await check.github.rest.repos.compareCommitsWithBasehead({
+            ...check.repo,
+            basehead: `${baseSha}...${headSha}`,
+            per_page: 100,
+            page,
+        });
         totalCommits = comparison.total_commits;
         commits.push(...comparison.commits);
 
@@ -241,122 +179,126 @@ function hasSignedCla(contributor, exactEmails, domains, logins) {
     return contributor.login && logins.has(contributor.login.toLowerCase());
 }
 
-async function addLabel(issueNumber) {
-    if (dryRun) {
-        console.log(`Would add label ${LABEL} to #${issueNumber}`);
-        return;
-    }
-    await githubRequest(`/repos/${owner}/${repo}/issues/${issueNumber}/labels`, {
-        method: 'POST',
-        body: {labels: [LABEL]},
+async function addLabel(check, issueNumber) {
+    await check.github.rest.issues.addLabels({
+        ...check.repo,
+        issue_number: issueNumber,
+        labels: [LABEL],
     });
 }
 
-async function addLabels(issueNumbers) {
-    await Promise.all(issueNumbers.map(issueNumber => addLabel(issueNumber)));
+async function addLabels(check, issueNumbers) {
+    await Promise.all(issueNumbers.map(issueNumber => addLabel(check, issueNumber)));
 }
 
-async function removeLabel(issueNumber) {
-    if (dryRun) {
-        console.log(`Would remove label ${LABEL} from #${issueNumber}`);
-        return;
-    }
+async function removeLabel(check, issueNumber) {
     try {
-        await githubRequest(`/repos/${owner}/${repo}/issues/${issueNumber}/labels/${encodeURIComponent(LABEL)}`, {
-            method: 'DELETE',
+        await check.github.rest.issues.removeLabel({
+            ...check.repo,
+            issue_number: issueNumber,
+            name: LABEL,
         });
     }
     catch (error) {
-        if (!error.message.includes('404')) {
+        if (error.status !== 404) {
             throw error;
         }
     }
 }
 
-async function removeLabels(issueNumbers) {
-    await Promise.all(issueNumbers.map(issueNumber => removeLabel(issueNumber)));
+async function removeLabels(check, issueNumbers) {
+    await Promise.all(issueNumbers.map(issueNumber => removeLabel(check, issueNumber)));
 }
 
-async function upsertFailureComment(issueNumber, body) {
+async function upsertFailureComment(check, issueNumber, body) {
     const markedBody = `${body}\n\n${COMMENT_MARKER}`;
-    if (dryRun) {
-        console.log(`Would upsert failure comment on #${issueNumber}:\n${markedBody}`);
-        return;
-    }
 
-    const comments = await paginate(`/repos/${owner}/${repo}/issues/${issueNumber}/comments`);
+    const comments = await check.github.paginate(check.github.rest.issues.listComments, {
+        ...check.repo,
+        issue_number: issueNumber,
+        per_page: 100,
+    });
     const existingComment = comments.find(comment => comment.user?.type === 'Bot' && comment.body?.includes(COMMENT_MARKER));
     if (existingComment) {
-        await githubRequest(`/repos/${owner}/${repo}/issues/comments/${existingComment.id}`, {
-            method: 'PATCH',
-            body: {body: markedBody},
+        await check.github.rest.issues.updateComment({
+            ...check.repo,
+            comment_id: existingComment.id,
+            body: markedBody,
         });
         return;
     }
 
-    await githubRequest(`/repos/${owner}/${repo}/issues/${issueNumber}/comments`, {
-        method: 'POST',
-        body: {body: markedBody},
+    await check.github.rest.issues.createComment({
+        ...check.repo,
+        issue_number: issueNumber,
+        body: markedBody,
     });
 }
 
-async function upsertFailureComments(issueNumbers, body) {
-    await Promise.all(issueNumbers.map(issueNumber => upsertFailureComment(issueNumber, body)));
+async function upsertFailureComments(check, issueNumbers, body) {
+    await Promise.all(issueNumbers.map(issueNumber => upsertFailureComment(check, issueNumber, body)));
 }
 
-async function deleteFailureComment(issueNumber) {
-    if (dryRun) {
-        console.log(`Would delete marked failure comment from #${issueNumber}`);
-        return;
-    }
-
-    const comments = await paginate(`/repos/${owner}/${repo}/issues/${issueNumber}/comments`);
+async function deleteFailureComment(check, issueNumber) {
+    const comments = await check.github.paginate(check.github.rest.issues.listComments, {
+        ...check.repo,
+        issue_number: issueNumber,
+        per_page: 100,
+    });
     const existingComment = comments.find(comment => comment.user?.type === 'Bot' && comment.body?.includes(COMMENT_MARKER));
     if (!existingComment) {
         return;
     }
-    await githubRequest(`/repos/${owner}/${repo}/issues/comments/${existingComment.id}`, {
-        method: 'DELETE',
+    await check.github.rest.issues.deleteComment({
+        ...check.repo,
+        comment_id: existingComment.id,
     });
 }
 
-async function deleteFailureComments(issueNumbers) {
-    await Promise.all(issueNumbers.map(issueNumber => deleteFailureComment(issueNumber)));
+async function deleteFailureComments(check, issueNumbers) {
+    await Promise.all(issueNumbers.map(issueNumber => deleteFailureComment(check, issueNumber)));
 }
 
-async function main() {
-    const eventName = process.env.GITHUB_EVENT_NAME;
-    const event = readEvent();
-    const target = await resolveCheckTarget(eventName, event);
+async function checkCla({github, context, core}) {
+    const check = {
+        github,
+        context,
+        core,
+        repo: context.repo,
+    };
+    const eventName = context.eventName;
+    const event = context.payload;
+    const target = await resolveCheckTarget(check, eventName, event);
     if (!target) {
         return;
     }
 
     const [commits, contributors] = await Promise.all([
-        listTargetCommits(target),
-        getContributors(),
+        listTargetCommits(check, target),
+        getContributors(check),
     ]);
     const result = findMissingClaContributors(commits, contributors);
 
     if (result.passed) {
-        await bestEffortUpdatePullRequests(() => markTargetPassed(target));
-        console.log(`All commit authors for ${describeTarget(target)} have signed the CLA`);
+        await bestEffortUpdatePullRequests(() => markTargetPassed(check, target));
+        console.log(`All commit authors for ${describeTarget(check, target)} have signed the CLA`);
         return;
     }
 
-    await bestEffortUpdatePullRequests(() => markTargetFailed(target, result.message));
+    await bestEffortUpdatePullRequests(() => markTargetFailed(check, target, result.message));
     const missing = result.unidentified || result.missing;
-    addClaFailureAnnotation(result);
-    console.error(`CLA check failed for ${describeTarget(target)}: ${missing.join(', ')}`);
+    const failureMessage = `CLA check failed for ${describeTarget(check, target)}: ${missing.join(', ')}`;
+    addClaFailureAnnotation(check, result);
+    console.error(failureMessage);
     process.exitCode = 1;
 }
 
-async function listTargetCommits(target) {
+async function listTargetCommits(check, target) {
     if (target.mergeGroup) {
-        return listMergeGroupCommits(target.mergeGroup);
+        return listMergeGroupCommits(check, target.mergeGroup);
     }
 
-    const commitsByPullRequest = await Promise.all(target.pullRequests.map(pullRequest => listPullRequestCommits(pullRequest)));
+    const commitsByPullRequest = await Promise.all(target.pullRequests.map(pullRequest => listPullRequestCommits(check, pullRequest)));
     const allCommits = commitsByPullRequest.flat();
     return sortedUnique(allCommits.map(commit => commit.sha))
         .map(sha => allCommits.find(commit => commit.sha === sha));
@@ -371,34 +313,31 @@ async function bestEffortUpdatePullRequests(update) {
     }
 }
 
-async function markTargetPassed(target) {
+async function markTargetPassed(check, target) {
     if (!target.updatePullRequests) {
         return;
     }
 
     const issueNumbers = target.pullRequests.map(pullRequest => pullRequest.number);
-    await addLabels(issueNumbers);
-    await deleteFailureComments(issueNumbers);
+    await addLabels(check, issueNumbers);
+    await deleteFailureComments(check, issueNumbers);
 }
 
-async function markTargetFailed(target, message) {
+async function markTargetFailed(check, target, message) {
     if (!target.updatePullRequests) {
         return;
     }
 
     const issueNumbers = target.pullRequests.map(pullRequest => pullRequest.number);
-    await removeLabels(issueNumbers);
-    await upsertFailureComments(issueNumbers, message);
+    await removeLabels(check, issueNumbers);
+    await upsertFailureComments(check, issueNumbers, message);
 }
 
-function describeTarget(target) {
+function describeTarget(check, target) {
     if (target.mergeGroup) {
-        return `merge group ${target.mergeGroup.head_ref || target.mergeGroup.head_sha || process.env.GITHUB_SHA}`;
+        return `merge group ${target.mergeGroup.head_ref || target.mergeGroup.head_sha || check.context.sha}`;
     }
     return target.pullRequests.map(pullRequest => `#${pullRequest.number}`).join(', ');
 }
 
-main().catch(error => {
-    console.error(error);
-    process.exit(1);
-});
+module.exports = checkCla;
