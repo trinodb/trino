@@ -94,6 +94,8 @@ public abstract class BaseTrinoCatalogTest
                     .getSessionProperties())
             .build();
 
+    protected abstract void createNamespaceWithProperties(TrinoCatalog catalog, String namespace, Map<String, String> properties);
+
     protected abstract TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
             throws IOException;
 
@@ -472,11 +474,6 @@ public abstract class BaseTrinoCatalogTest
         }
     }
 
-    protected ExtendedRelationType getViewType()
-    {
-        return TRINO_VIEW;
-    }
-
     @Test
     public void testListTables()
             throws Exception
@@ -586,7 +583,10 @@ public abstract class BaseTrinoCatalogTest
         }
     }
 
-    protected abstract void createNamespaceWithProperties(TrinoCatalog catalog, String namespace, Map<String, String> properties);
+    protected ExtendedRelationType getViewType()
+    {
+        return TRINO_VIEW;
+    }
 
     protected void createMaterializedView(
             ConnectorSession session,
