@@ -19,26 +19,18 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.DelegatingS3Client;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Request;
-import software.amazon.awssdk.utils.BinaryUtils;
 
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
-
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.util.function.Function;
 
 import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.CUSTOMER;
+import static io.trino.filesystem.s3.SseCustomerKeyUtil.generateCustomerKey;
+import static io.trino.filesystem.s3.SseCustomerKeyUtil.invokeOperationWithCustomerKey;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 
 public class TestS3FileSystemAwsS3WithSseCustomerKey
         extends AbstractTestS3FileSystem
 {
-    private static final String CUSTOMER_KEY = generateCustomerKey();
-
     private String accessKey;
     private String secretKey;
     private String region;
@@ -52,7 +44,7 @@ public class TestS3FileSystemAwsS3WithSseCustomerKey
         secretKey = requireEnv("AWS_SECRET_ACCESS_KEY");
         region = requireEnv("AWS_REGION");
         bucket = requireEnv("EMPTY_S3_BUCKET");
-        s3SseCustomerKey = S3SseCustomerKey.onAes256(CUSTOMER_KEY);
+        s3SseCustomerKey = generateCustomerKey();
     }
 
     @Override
@@ -72,23 +64,9 @@ public class TestS3FileSystemAwsS3WithSseCustomerKey
         return new DelegatingS3Client(s3Client)
         {
             @Override
-            protected <T extends S3Request, ReturnT> ReturnT invokeOperation(T request, Function<T, ReturnT> operation)
+            protected <T extends S3Request, V> V invokeOperation(T request, Function<T, V> operation)
             {
-                if (request instanceof PutObjectRequest putObjectRequest) {
-                    PutObjectRequest.Builder putObjectRequestBuilder = putObjectRequest.toBuilder();
-                    putObjectRequestBuilder.sseCustomerAlgorithm(s3SseCustomerKey.algorithm());
-                    putObjectRequestBuilder.sseCustomerKey(s3SseCustomerKey.key());
-                    putObjectRequestBuilder.sseCustomerKeyMD5(s3SseCustomerKey.md5());
-                    return operation.apply((T) putObjectRequestBuilder.build());
-                }
-                else if (request instanceof GetObjectRequest getObjectRequest) {
-                    GetObjectRequest.Builder getObjectRequestBuilder = getObjectRequest.toBuilder();
-                    getObjectRequestBuilder.sseCustomerAlgorithm(s3SseCustomerKey.algorithm());
-                    getObjectRequestBuilder.sseCustomerKey(s3SseCustomerKey.key());
-                    getObjectRequestBuilder.sseCustomerKeyMD5(s3SseCustomerKey.md5());
-                    return operation.apply((T) getObjectRequestBuilder.build());
-                }
-                return operation.apply(request);
+                return invokeOperationWithCustomerKey(request, operation, s3SseCustomerKey);
             }
         };
     }
@@ -106,18 +84,5 @@ public class TestS3FileSystemAwsS3WithSseCustomerKey
                         .setSseCustomerKey(s3SseCustomerKey.key())
                         .setStreamingPartSize(STREAMING_PART_SIZE),
                 new S3FileSystemStats());
-    }
-
-    private static String generateCustomerKey()
-    {
-        try {
-            KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
-            keyGenerator.init(256, new SecureRandom());
-            SecretKey secretKey = keyGenerator.generateKey();
-            return BinaryUtils.toBase64(secretKey.getEncoded());
-        }
-        catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
     }
 }
