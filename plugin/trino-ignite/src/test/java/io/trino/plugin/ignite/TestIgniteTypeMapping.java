@@ -15,6 +15,7 @@ package io.trino.plugin.ignite;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -30,12 +31,21 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
+import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.STRICT;
+import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_DEFAULT_SCALE;
+import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_MAPPING;
+import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_ROUNDING_MODE;
+import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
+import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -49,7 +59,9 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIgniteTypeMapping
@@ -259,6 +271,65 @@ public class TestIgniteTypeMapping
     }
 
     @Test
+    public void testDecimalExceedingPrecisionMax()
+    {
+        try (TestTable table = new TestTable(
+                igniteServer::execute,
+                "test_decimal_exceeding_precision_max",
+                "(id int primary key, d40 decimal(40, 5), d50 decimal(50, 0))",
+                List.of(
+                        "1, CAST('12345678901234567890123456789012345.12345' AS decimal(40, 5)), CAST('12345678901234567890123456789012345678901234567890' AS decimal(50, 0))",
+                        "2, CAST('-12345678901234567890123456789012345.12345' AS decimal(40, 5)), CAST('-12345678901234567890123456789012345678901234567890' AS decimal(50, 0))",
+                        "3, CAST('123.45' AS decimal(40, 5)), CAST(NULL AS decimal(50, 0))",
+                        "4, CAST(NULL AS decimal(40, 5)), CAST('0' AS decimal(50, 0))"))) {
+            assertThat(query(format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '%s' ORDER BY ordinal_position", table.getName())))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('id', 'integer'), ('d40', 'number'), ('d50', 'number')");
+            assertThat(query(format("SELECT d40, d50 FROM %s ORDER BY id", table.getName())))
+                    .matches("VALUES " +
+                            "(NUMBER '12345678901234567890123456789012345.12345', NUMBER '12345678901234567890123456789012345678901234567890'), " +
+                            "(NUMBER '-12345678901234567890123456789012345.12345', NUMBER '-12345678901234567890123456789012345678901234567890'), " +
+                            "(NUMBER '123.45', CAST(NULL AS NUMBER)), " +
+                            "(CAST(NULL AS NUMBER), NUMBER '0')");
+        }
+    }
+
+    @Test
+    public void testDecimalExceedingPrecisionMaxWithLegacyDecimalMapping()
+    {
+        try (TestTable table = new TestTable(
+                igniteServer::execute,
+                "test_decimal_exceeding_precision_max_allow_overflow",
+                "(id int primary key, d_col decimal(40, 0))",
+                List.of("1, CAST('12345678901234567890123456789012345678' AS decimal(40, 0))"))) {
+            assertThat(query(
+                    sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
+                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '%s' ORDER BY ordinal_position", table.getName())))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('id', 'integer'), ('d_col', 'decimal(38,0)')");
+            assertThat(query(sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0), format("SELECT d_col FROM %s", table.getName())))
+                    .matches("VALUES DECIMAL '12345678901234567890123456789012345678'");
+        }
+
+        try (TestTable table = new TestTable(
+                igniteServer::execute,
+                "test_decimal_exceeding_precision_max_strict",
+                "(id int primary key, d_col decimal(40, 5))",
+                List.of("1, CAST('123.45' AS decimal(40, 5))"))) {
+            String columnInfoSql = format(
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '%s' ORDER BY ordinal_position",
+                    table.getName());
+
+            assertThat(query(sessionWithDecimalMappingStrict(IGNORE), columnInfoSql))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('id', 'integer')");
+            assertThat(query(sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR), columnInfoSql))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('id', 'integer'), ('d_col', 'varchar')");
+        }
+    }
+
+    @Test
     public void testBinary()
     {
         binaryTest("binary")
@@ -429,6 +500,23 @@ public class TestIgniteTypeMapping
     private DataSetup trinoCreateAsSelect(String tableNamePrefix)
     {
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
+    }
+
+    private Session sessionWithDecimalMappingAllowOverflow(RoundingMode roundingMode, int scale)
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty("ignite", DECIMAL_MAPPING, ALLOW_OVERFLOW.name())
+                .setCatalogSessionProperty("ignite", DECIMAL_ROUNDING_MODE, roundingMode.name())
+                .setCatalogSessionProperty("ignite", DECIMAL_DEFAULT_SCALE, Integer.valueOf(scale).toString())
+                .build();
+    }
+
+    private Session sessionWithDecimalMappingStrict(UnsupportedTypeHandling unsupportedTypeHandling)
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty("ignite", DECIMAL_MAPPING, STRICT.name())
+                .setCatalogSessionProperty("ignite", UNSUPPORTED_TYPE_HANDLING, unsupportedTypeHandling.name())
+                .build();
     }
 
     private DataSetup igniteCreateAndInsert(String tableNamePrefix)

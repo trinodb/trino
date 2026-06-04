@@ -18,9 +18,11 @@ import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.IGNITE;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIgnite
@@ -37,6 +39,30 @@ public class TestIgnite
         }
         finally {
             onTrino().executeQuery("DROP TABLE nation");
+        }
+    }
+
+    @Test(groups = {IGNITE, PROFILE_SPECIFIC_TESTS})
+    public void testHighPrecisionDecimalMapsToNumber()
+    {
+        String tableName = "test_decimal_number_" + randomNameSuffix();
+        onTrino().executeQuery(format("CALL system.execute('CREATE TABLE %s (id int primary key, d40 decimal(40, 5), d50 decimal(50, 0))')", tableName));
+        try {
+            onTrino().executeQuery(format(
+                    "CALL system.execute('INSERT INTO %s VALUES (1, CAST(''12345678901234567890123456789012345.12345'' AS decimal(40, 5)), CAST(''12345678901234567890123456789012345678901234567890'' AS decimal(50, 0)))')",
+                    tableName));
+
+            assertThat(onTrino().executeQuery(format(
+                    "SELECT typeof(d40), d40 = NUMBER '12345678901234567890123456789012345.12345', typeof(d50), d50 = NUMBER '12345678901234567890123456789012345678901234567890' FROM %s",
+                    tableName)))
+                    .containsOnly(row(
+                            "number",
+                            true,
+                            "number",
+                            true));
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE " + tableName);
         }
     }
 }
