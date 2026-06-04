@@ -204,6 +204,13 @@ implementation is used:
   - Set to `false` to disable in-memory caching of metadata files on the
     coordinator. This cache is not used when `fs.cache.enabled` is set to true.
   - `true`
+* - `iceberg.parquet-footer-cache.type`
+  - Type of cache to use for Parquet file footers. Set to `memory` to enable a
+    bounded, in-memory cache.
+  - `none`
+* - `iceberg.parquet-footer-cache.memory.max-size`
+  - Maximum size of the in-memory Parquet footer cache.
+  - `10MB`
 * - `iceberg.object-store-layout.enabled`
   - Set to `true` to enable Iceberg's [object store file layout](https://iceberg.apache.org/docs/latest/aws/#object-store-file-layout). 
     Enabling the object store file layout appends a deterministic hash directly 

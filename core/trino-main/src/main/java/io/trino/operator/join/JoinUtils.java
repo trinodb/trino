@@ -77,6 +77,26 @@ public final class JoinUtils
         return OptionalInt.empty();
     }
 
+    public static boolean pageMayHaveNull(Page page)
+    {
+        for (int channel = 0; channel < page.getChannelCount(); channel++) {
+            if (page.getBlock(channel).mayHaveNull()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean rowContainsNull(Page page, int position)
+    {
+        for (int channel = 0; channel < page.getChannelCount(); channel++) {
+            if (page.getBlock(channel).isNull(position)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static boolean isBuildSideReplicated(PlanNode node)
     {
         checkArgument(node instanceof JoinNode || node instanceof SemiJoinNode);

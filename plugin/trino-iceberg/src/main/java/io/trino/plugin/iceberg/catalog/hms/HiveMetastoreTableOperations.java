@@ -80,16 +80,24 @@ public class HiveMetastoreTableOperations
     }
 
     @Override
-    protected final void commitMaterializedViewRefresh(TableMetadata base, TableMetadata metadata)
+    protected final void commitMaterializedView(TableMetadata base, TableMetadata metadata)
     {
         Table materializedView = getTable(database, tableNameFrom(tableName));
-        commitTableUpdate(materializedView, metadata, (table, newMetadataLocation) -> Table.builder(table)
-                .apply(builder -> builder
-                        .setParameter(METADATA_LOCATION_PROP, newMetadataLocation)
-                        .setParameter(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation)
-                        .setParameter(CURRENT_SNAPSHOT_ID, String.valueOf(metadata.currentSnapshot().snapshotId()))
-                        .setParameter(CURRENT_SNAPSHOT_TIMESTAMP, String.valueOf(metadata.currentSnapshot().timestampMillis())))
-                .build());
+        commitTableUpdate(materializedView, metadata, (table, newMetadataLocation) -> {
+            if (materializedViewCommitData.isPresent()) {
+                table = Table.builder(table)
+                        .setParameters(materializedViewCommitData.get().parameters())
+                        .setViewOriginalText(Optional.of(materializedViewCommitData.get().viewOriginalText()))
+                        .build();
+            }
+            return Table.builder(table)
+                    .apply(builder -> builder
+                            .setParameter(METADATA_LOCATION_PROP, newMetadataLocation)
+                            .setParameter(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation)
+                            .setParameter(CURRENT_SNAPSHOT_ID, String.valueOf(metadata.currentSnapshot().snapshotId()))
+                            .setParameter(CURRENT_SNAPSHOT_TIMESTAMP, String.valueOf(metadata.currentSnapshot().timestampMillis())))
+                    .build();
+        });
     }
 
     private void commitTableUpdate(Table table, TableMetadata metadata, BiFunction<Table, String, Table> tableUpdateFunction)

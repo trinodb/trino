@@ -25,6 +25,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.geospatial.serde.JtsGeometrySerde;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
@@ -41,6 +42,8 @@ import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.cache.ParquetFooterCache;
+import io.trino.parquet.cache.ParquetFooterCacheKey;
 import io.trino.parquet.metadata.FileMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
@@ -62,11 +65,17 @@ import io.trino.plugin.iceberg.system.files.FilesTablePageSource;
 import io.trino.plugin.iceberg.system.files.FilesTableSplit;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -145,6 +154,8 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.geospatial.serde.JtsGeometrySerde.OGC_CRS84_SRID;
+import static io.trino.geospatial.serde.JtsGeometrySerde.wkbToEwkb;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.orc.OrcReader.ProjectedLayout;
@@ -155,6 +166,7 @@ import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.getFilteredRowGroups;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.createDataSource;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
+import static io.trino.plugin.iceberg.GeoSpatialUtils.isGeospatialType;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CURSOR_ERROR;
@@ -181,7 +193,6 @@ import static io.trino.plugin.iceberg.IcebergSplitSource.partitionMatchesPredica
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
-import static io.trino.plugin.iceberg.IcebergUtil.getFileIoProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
@@ -193,6 +204,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.addExact;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -227,6 +239,7 @@ public class IcebergPageSourceProvider
     private final OrcReaderOptions orcReaderOptions;
     private final ParquetReaderOptions parquetReaderOptions;
     private final TypeManager typeManager;
+    private final ParquetFooterCache parquetFooterCache;
     private final DeleteManager unpartitionedTableDeleteManager;
     private final Map<Integer, Function<PartitionData, PartitionKey>> partitionKeyFactories = new ConcurrentHashMap<>();
     private final Map<PartitionKey, DeleteManager> partitionedDeleteManagers = new ConcurrentHashMap<>();
@@ -237,7 +250,8 @@ public class IcebergPageSourceProvider
             FileFormatDataSourceStats fileFormatDataSourceStats,
             OrcReaderOptions orcReaderOptions,
             ParquetReaderOptions parquetReaderOptions,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            ParquetFooterCache parquetFooterCache)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
@@ -245,6 +259,7 @@ public class IcebergPageSourceProvider
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
         this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.parquetFooterCache = requireNonNull(parquetFooterCache, "parquetFooterCache is null");
         this.unpartitionedTableDeleteManager = new DeleteManager(typeManager);
     }
 
@@ -259,10 +274,11 @@ public class IcebergPageSourceProvider
             DynamicFilter dynamicFilter)
     {
         verify(connectorTableCredentials.isPresent(), "connectorTableCredentials is empty");
+        IcebergTableCredentials icebergTableCredentials = connectorTableCredentials.map(IcebergTableCredentials.class::cast).get();
         if (connectorSplit instanceof FilesTableSplit filesTableSplit) {
             return new FilesTablePageSource(
                     typeManager,
-                    fileSystemFactory.create(session.getIdentity(), getFileIoProperties(connectorTableCredentials)),
+                    fileSystemFactory.create(session.getIdentity(), icebergTableCredentials),
                     fileIoFactory,
                     columns.stream().map(SystemColumnHandle.class::cast).map(SystemColumnHandle::columnName).collect(toImmutableList()),
                     filesTableSplit);
@@ -296,7 +312,7 @@ public class IcebergPageSourceProvider
                 split.fileSize(),
                 split.fileRecordCount(),
                 split.fileFormat(),
-                getFileIoProperties(connectorTableCredentials),
+                icebergTableCredentials,
                 split.dataSequenceNumber(),
                 split.fileFirstRowId(),
                 tableHandle.getNameMappingJson().map(NameMappingParser::fromJson));
@@ -318,7 +334,7 @@ public class IcebergPageSourceProvider
             long fileSize,
             long fileRecordCount,
             IcebergFileFormat fileFormat,
-            Map<String, String> fileIoProperties,
+            IcebergTableCredentials tableCredentials,
             OptionalLong dataSequenceNumber,
             OptionalLong fileFirstRowId,
             Optional<NameMapping> nameMapping)
@@ -336,7 +352,7 @@ public class IcebergPageSourceProvider
 
         // exit early when only reading partition keys from a simple split
         String partition = partitionSpec.partitionToPath(partitionData);
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), fileIoProperties);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), tableCredentials);
         TrinoInputFile inputFile = isUseFileSizeFromMetadata(session)
                 ? fileSystem.newInputFile(Location.of(path), fileSize)
                 : fileSystem.newInputFile(Location.of(path));
@@ -613,6 +629,7 @@ public class IcebergPageSourceProvider
                             .build(),
                     predicate,
                     fileFormatDataSourceStats,
+                    parquetFooterCache,
                     nameMapping,
                     partition,
                     partitionKeys,
@@ -629,6 +646,7 @@ public class IcebergPageSourceProvider
                     partition,
                     dataColumns,
                     partitionKeys,
+                    typeManager,
                     dataSequenceNumber,
                     fileFirstRowId);
         };
@@ -808,13 +826,15 @@ public class IcebergPageSourceProvider
                                 new TrinoException(ICEBERG_BAD_DATA, "Cannot read $last_updated_sequence_number metadata column: Iceberg manifest is missing dataSequenceNumber")), ordinal));
                     }
                     else if (column.isBaseColumn()) {
-                        transforms.column(ordinal);
+                        transforms.column(ordinal, getSridInjectionTransform(column, tableSchema));
                     }
                     else {
-                        transforms.dereferenceField(ImmutableList.<Integer>builder()
-                                .add(ordinal)
-                                .addAll(applyProjection(column, baseColumn))
-                                .build());
+                        transforms.dereferenceField(
+                                ImmutableList.<Integer>builder()
+                                        .add(ordinal)
+                                        .addAll(applyProjection(column, baseColumn))
+                                        .build(),
+                                getSridInjectionTransform(column, tableSchema));
                     }
                 }
             }
@@ -915,7 +935,34 @@ public class IcebergPageSourceProvider
                     .map(field -> new RowType.Field(field.getName(), getOrcReadType(field.getType(), typeManager)))
                     .collect(toImmutableList()));
         }
+        // Geometry/Geography are stored as binary, read as varbinary then transform
+        if (isGeospatialType(columnType)) {
+            return VARBINARY;
+        }
 
+        return columnType;
+    }
+
+    /**
+     * Get the type to use for reading from file formats.
+     * Geometry/Geography are stored as binary, so we read as varbinary and transform.
+     */
+    private static Type getFileReadType(Type columnType, TypeManager typeManager)
+    {
+        if (columnType instanceof ArrayType arrayType) {
+            return new ArrayType(getFileReadType(arrayType.getElementType(), typeManager));
+        }
+        if (columnType instanceof MapType mapType) {
+            return new MapType(getFileReadType(mapType.getKeyType(), typeManager), getFileReadType(mapType.getValueType(), typeManager), typeManager.getTypeOperators());
+        }
+        if (columnType instanceof RowType rowType) {
+            return RowType.from(rowType.getFields().stream()
+                    .map(field -> new RowType.Field(field.getName(), getFileReadType(field.getType(), typeManager)))
+                    .collect(toImmutableList()));
+        }
+        if (isGeospatialType(columnType)) {
+            return VARBINARY;
+        }
         return columnType;
     }
 
@@ -1005,6 +1052,7 @@ public class IcebergPageSourceProvider
             ParquetReaderOptions options,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
             FileFormatDataSourceStats fileFormatDataSourceStats,
+            ParquetFooterCache parquetFooterCache,
             Optional<NameMapping> nameMapping,
             String partition,
             Map<Integer, Optional<String>> partitionKeys,
@@ -1016,7 +1064,7 @@ public class IcebergPageSourceProvider
         ParquetDataSource dataSource = null;
         try {
             dataSource = createDataSource(inputFile, OptionalLong.of(fileSize), options, memoryContext, fileFormatDataSourceStats);
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, options, Optional.empty(), Optional.empty());
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, options, Optional.empty(), Optional.empty(), parquetFooterCache, new ParquetFooterCacheKey(inputFile.location().toString(), fileSize));
             FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
             if (nameMapping.isPresent() && !ParquetSchemaUtil.hasIds(fileSchema)) {
@@ -1141,13 +1189,15 @@ public class IcebergPageSourceProvider
                                 new TrinoException(ICEBERG_BAD_DATA, "Cannot read $last_updated_sequence_number metadata column: Iceberg manifest is missing dataSequenceNumber")), ordinal));
                     }
                     else if (column.isBaseColumn()) {
-                        transforms.column(ordinal);
+                        transforms.column(ordinal, getSridInjectionTransform(column, tableSchema));
                     }
                     else {
-                        transforms.dereferenceField(ImmutableList.<Integer>builder()
-                                .add(ordinal)
-                                .addAll(applyProjection(column, baseColumn))
-                                .build());
+                        transforms.dereferenceField(
+                                ImmutableList.<Integer>builder()
+                                        .add(ordinal)
+                                        .addAll(applyProjection(column, baseColumn))
+                                        .build(),
+                                getSridInjectionTransform(column, tableSchema));
                     }
                 }
             }
@@ -1264,6 +1314,7 @@ public class IcebergPageSourceProvider
             String partition,
             List<IcebergColumnHandle> columns,
             Map<Integer, Optional<String>> partitionKeys,
+            TypeManager typeManager,
             OptionalLong dataSequenceNumber,
             OptionalLong fileFirstRowId)
     {
@@ -1356,7 +1407,7 @@ public class IcebergPageSourceProvider
                         baseColumnIdToOrdinal.put(baseColumn.getId(), ordinal);
 
                         columnNames.add(getAvroColumnName(baseColumn));
-                        columnTypes.add(baseColumn.getType());
+                        columnTypes.add(getFileReadType(baseColumn.getType(), typeManager));
                     }
 
                     if (column.isRowIdColumn() && fileFirstRowId.isPresent()) {
@@ -1368,13 +1419,15 @@ public class IcebergPageSourceProvider
                                 new TrinoException(ICEBERG_BAD_DATA, "Cannot read $last_updated_sequence_number metadata column: Iceberg manifest is missing dataSequenceNumber")), ordinal));
                     }
                     else if (column.isBaseColumn()) {
-                        transforms.column(ordinal);
+                        transforms.column(ordinal, getSridInjectionTransform(column, fileSchema));
                     }
                     else {
-                        transforms.dereferenceField(ImmutableList.<Integer>builder()
-                                .add(ordinal)
-                                .addAll(applyProjection(column, baseColumn))
-                                .build());
+                        transforms.dereferenceField(
+                                ImmutableList.<Integer>builder()
+                                        .add(ordinal)
+                                        .addAll(applyProjection(column, baseColumn))
+                                        .build(),
+                                getSridInjectionTransform(column, fileSchema));
                     }
                 }
             }
@@ -1662,6 +1715,138 @@ public class IcebergPageSourceProvider
             return new TrinoException(ICEBERG_BAD_DATA, exception);
         }
         return new TrinoException(ICEBERG_CURSOR_ERROR, format("Failed to read Parquet file: %s", dataSourceId), exception);
+    }
+
+    /**
+     * Get a transform to inject SRID into geospatial columns.
+     * For geospatial columns, reads the CRS from the Iceberg schema and converts WKB to EWKB with the SRID.
+     * For non-geospatial columns, returns Optional.empty() (no transform needed).
+     */
+    private static Optional<Function<Block, Block>> getSridInjectionTransform(IcebergColumnHandle column, Schema tableSchema)
+    {
+        if (!containsGeospatial(column.getType())) {
+            return Optional.empty();
+        }
+
+        // Find the field in the schema to get the CRS
+        Types.NestedField field = tableSchema.findField(column.getId());
+        if (field == null || !containsGeospatial(field.type())) {
+            return Optional.empty();
+        }
+
+        return Optional.of(block -> injectSridIntoBlock(column.getType(), field.type(), block));
+    }
+
+    /**
+     * Transform a Block of WKB bytes to a Block of EWKB bytes by injecting the SRID.
+     */
+    private static Block injectSridIntoBlock(Type trinoType, org.apache.iceberg.types.Type icebergType, Block block)
+    {
+        BlockBuilder builder = trinoType.createBlockBuilder(null, block.getPositionCount());
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            appendTransformedGeometryValueForRead(trinoType, icebergType, block, position, builder);
+        }
+        return builder.build();
+    }
+
+    private static boolean containsGeospatial(Type type)
+    {
+        if (isGeospatialType(type)) {
+            return true;
+        }
+        if (type instanceof ArrayType arrayType) {
+            return containsGeospatial(arrayType.getElementType());
+        }
+        if (type instanceof MapType mapType) {
+            return containsGeospatial(mapType.getKeyType()) || containsGeospatial(mapType.getValueType());
+        }
+        if (type instanceof RowType rowType) {
+            return rowType.getFields().stream().anyMatch(field -> containsGeospatial(field.getType()));
+        }
+        return false;
+    }
+
+    private static boolean containsGeospatial(org.apache.iceberg.types.Type type)
+    {
+        return switch (type.typeId()) {
+            case GEOMETRY, GEOGRAPHY -> true;
+            case LIST -> containsGeospatial(type.asListType().elementType());
+            case MAP -> containsGeospatial(type.asMapType().keyType()) || containsGeospatial(type.asMapType().valueType());
+            case STRUCT -> type.asStructType().fields().stream().anyMatch(field -> containsGeospatial(field.type()));
+            default -> false;
+        };
+    }
+
+    private static void appendTransformedGeometryValueForRead(Type trinoType, org.apache.iceberg.types.Type icebergType, Block block, int position, BlockBuilder builder)
+    {
+        if (block.isNull(position)) {
+            builder.appendNull();
+            return;
+        }
+
+        if (isGeospatialType(trinoType) && icebergType instanceof org.apache.iceberg.types.Type.PrimitiveType primitiveType && isIcebergGeospatialType(primitiveType)) {
+            trinoType.writeSlice(builder, wkbToEwkb(VARBINARY.getSlice(block, position), getIcebergGeospatialSrid(primitiveType)));
+            return;
+        }
+
+        if (trinoType instanceof ArrayType arrayType && icebergType instanceof Types.ListType listType) {
+            Block arrayBlock = arrayType.getObject(block, position);
+            ((ArrayBlockBuilder) builder).buildEntry(elementBuilder -> {
+                for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
+                    appendTransformedGeometryValueForRead(arrayType.getElementType(), listType.elementType(), arrayBlock, i, elementBuilder);
+                }
+            });
+            return;
+        }
+
+        if (trinoType instanceof MapType mapType && icebergType instanceof Types.MapType mapIcebergType) {
+            SqlMap sqlMap = mapType.getObject(block, position);
+            int rawOffset = sqlMap.getRawOffset();
+            ((MapBlockBuilder) builder).buildEntry((keyBuilder, valueBuilder) -> {
+                for (int i = 0; i < sqlMap.getSize(); i++) {
+                    int rawPosition = rawOffset + i;
+                    appendTransformedGeometryValueForRead(mapType.getKeyType(), mapIcebergType.keyType(), sqlMap.getRawKeyBlock(), rawPosition, keyBuilder);
+                    appendTransformedGeometryValueForRead(mapType.getValueType(), mapIcebergType.valueType(), sqlMap.getRawValueBlock(), rawPosition, valueBuilder);
+                }
+            });
+            return;
+        }
+
+        if (trinoType instanceof RowType rowType && icebergType instanceof Types.StructType structType) {
+            SqlRow sqlRow = rowType.getObject(block, position);
+            int rawIndex = sqlRow.getRawIndex();
+            ((RowBlockBuilder) builder).buildEntry(fieldBuilders -> {
+                for (int fieldIndex = 0; fieldIndex < rowType.getFields().size(); fieldIndex++) {
+                    appendTransformedGeometryValueForRead(
+                            rowType.getFields().get(fieldIndex).getType(),
+                            structType.fields().get(fieldIndex).type(),
+                            sqlRow.getRawFieldBlock(fieldIndex),
+                            rawIndex,
+                            fieldBuilders.get(fieldIndex));
+                }
+            });
+            return;
+        }
+
+        builder.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
+    }
+
+    private static boolean isIcebergGeospatialType(org.apache.iceberg.types.Type.PrimitiveType type)
+    {
+        return type instanceof Types.GeometryType || type instanceof Types.GeographyType;
+    }
+
+    private static int getIcebergGeospatialSrid(org.apache.iceberg.types.Type.PrimitiveType type)
+    {
+        if (type instanceof Types.GeometryType geometryType) {
+            String crs = geometryType.crs();
+            return (crs == null) ? OGC_CRS84_SRID : JtsGeometrySerde.crsToSrid(crs);
+        }
+        if (type instanceof Types.GeographyType geographyType) {
+            String crs = geographyType.crs();
+            return (crs == null) ? OGC_CRS84_SRID : JtsGeometrySerde.crsToSrid(crs);
+        }
+        throw new IllegalArgumentException("Unsupported geospatial type: " + type);
     }
 
     public record ReaderPageSourceWithRowPositions(

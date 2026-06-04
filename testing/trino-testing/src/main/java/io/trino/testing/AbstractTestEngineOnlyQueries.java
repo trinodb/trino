@@ -27,6 +27,7 @@ import io.airlift.concurrent.MoreFutures;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.client.ClientCapabilities;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.NumberType;
 import io.trino.spi.type.TimeZoneKey;
@@ -56,6 +57,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -1599,6 +1601,34 @@ public abstract class AbstractTestEngineOnlyQueries
         // Test inline query syntax
         MaterializedResult inlineResult = computeActual(session, format("DESCRIBE OUTPUT (%s)", sql));
         assertEqualsIgnoreOrder(inlineResult, expected);
+    }
+
+    @Test
+    public void testDescribeOutputNumberTypeWithCapability()
+    {
+        Session session = Session.builder(getSession())
+                .setClientCapabilities(Stream.of(ClientCapabilities.values())
+                        .map(ClientCapabilities::toString)
+                        .collect(toImmutableSet()))
+                .build();
+        String sql = "SELECT NUMBER '1.5'";
+        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+                .row("_col0", "", "", "", "number", 0, false)
+                .build();
+        assertDescribeOutputWithBothSyntax(session, sql, expected);
+    }
+
+    @Test
+    public void testDescribeOutputNumberTypeWithoutCapability()
+    {
+        Session session = Session.builder(getSession())
+                .setClientCapabilities(ImmutableSet.of())
+                .build();
+        String sql = "SELECT NUMBER '1.5'";
+        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+                .row("_col0", "", "", "", "varchar", 0, false)
+                .build();
+        assertDescribeOutputWithBothSyntax(session, sql, expected);
     }
 
     @Test

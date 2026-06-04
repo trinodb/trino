@@ -117,7 +117,10 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.Point;
 import org.postgresql.core.TypeInfo;
+import org.postgresql.geometric.PGpoint;
 import org.postgresql.jdbc.PgConnection;
 
 import java.io.IOException;
@@ -158,6 +161,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.geospatial.GeometryUtils.createPoint;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.base.util.JsonTypeUtil.toJsonValue;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
@@ -589,6 +593,7 @@ public class PostgreSqlClient
             case "hstore" -> Optional.of(hstoreColumnMapping());
             case "vector" -> Optional.of(vectorColumnMapping());
             case "geometry" -> Optional.of(geometryColumnMapping());
+            case "point" -> Optional.of(pointColumnMapping());
             default -> Optional.empty();
         };
         if (typeNameMapping.isPresent()) {
@@ -859,6 +864,9 @@ public class PostgreSqlClient
         }
         if (type.equals(uuidType)) {
             return WriteMapping.sliceMapping("uuid", uuidWriteFunction());
+        }
+        if (type.equals(geometryType)) {
+            return WriteMapping.objectMapping("geometry", geometryWriteFunction());
         }
         if (type instanceof ArrayType arrayType && getArrayMapping(session) == AS_ARRAY) {
             Type elementType = arrayType.getElementType();
@@ -1929,6 +1937,60 @@ public class PostgreSqlClient
                         return geometryType.getObject(blockBuilder.build(), 0);
                     }
                 },
+                geometryWriteFunction(),
+                DISABLE_PUSHDOWN);
+    }
+
+    private ObjectWriteFunction geometryWriteFunction()
+    {
+        return new ObjectWriteFunction()
+        {
+            @Override
+            public Class<?> getJavaType()
+            {
+                return geometryType.getJavaType();
+            }
+
+            @Override
+            public String getBindExpression()
+            {
+                return "ST_GeomFromEWKB(?)";
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Object value)
+                    throws SQLException
+            {
+                BlockBuilder blockBuilder = geometryType.createBlockBuilder(null, 1);
+                geometryType.writeObject(blockBuilder, value);
+                Slice slice = geometryType.getSlice(blockBuilder.build(), 0);
+                statement.setBytes(index, slice.getBytes());
+            }
+        };
+    }
+
+    private ColumnMapping pointColumnMapping()
+    {
+        return ColumnMapping.objectMapping(
+                geometryType,
+                new ObjectReadFunction()
+                {
+                    @Override
+                    public Class<?> getJavaType()
+                    {
+                        return geometryType.getJavaType();
+                    }
+
+                    @Override
+                    public Object readObject(ResultSet resultSet, int columnIndex)
+                            throws SQLException
+                    {
+                        PGpoint pgPoint = (PGpoint) resultSet.getObject(columnIndex);
+                        BlockBuilder blockBuilder = geometryType.createBlockBuilder(null, 1);
+                        geometryType.writeObject(blockBuilder, createPoint(pgPoint.x, pgPoint.y));
+                        return geometryType.getObject(blockBuilder.build(), 0);
+                    }
+                },
                 new ObjectWriteFunction()
                 {
                     @Override
@@ -1938,19 +2000,18 @@ public class PostgreSqlClient
                     }
 
                     @Override
-                    public String getBindExpression()
-                    {
-                        return "ST_GeomFromEWKB(?)";
-                    }
-
-                    @Override
                     public void set(PreparedStatement statement, int index, Object value)
                             throws SQLException
                     {
-                        BlockBuilder blockBuilder = geometryType.createBlockBuilder(null, 1);
-                        geometryType.writeObject(blockBuilder, value);
-                        Slice slice = geometryType.getSlice(blockBuilder.build(), 0);
-                        statement.setBytes(index, slice.getBytes());
+                        Geometry geometry = (Geometry) value;
+                        if (!(geometry instanceof Point point)) {
+                            throw new TrinoException(JDBC_ERROR, format(
+                                    "Expected Point geometry when writing to PostgreSQL point column, but got %s (%s)",
+                                    geometry.getGeometryType(),
+                                    geometry.getClass().getName()));
+                        }
+                        PGpoint pgPoint = new PGpoint(point.getCoordinate().x, point.getCoordinate().y);
+                        statement.setObject(index, pgPoint);
                     }
                 },
                 DISABLE_PUSHDOWN);

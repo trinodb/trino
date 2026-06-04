@@ -200,43 +200,14 @@ public class QueryAssertions
 
     private void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
     {
-        MaterializedResult actualResults = null;
-        try {
-            actualResults = execute(session, actual);
-        }
-        catch (RuntimeException ex) {
-            fail("Execution of 'actual' query failed: " + actual, ex);
-        }
-
-        MaterializedResult expectedResults = null;
-        try {
-            expectedResults = execute(expected);
-        }
-        catch (RuntimeException ex) {
-            fail("Execution of 'expected' query failed: " + expected, ex);
-        }
-
-        assertThat(actualResults.getTypes())
-                .as("Types mismatch for query: \n " + actual + "\n:")
-                .isEqualTo(expectedResults.getTypes());
-
-        List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
-        List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
-
-        assertThat(actualRows).as("For query: \n " + actual).containsExactlyInAnyOrderElementsOf(expectedRows);
+        assertThat(query(session, actual))
+                .matches(expected);
     }
 
     public void assertQueryReturnsEmptyResult(@Language("SQL") String actual)
     {
-        MaterializedResult actualResults = null;
-        try {
-            actualResults = execute(actual);
-        }
-        catch (RuntimeException ex) {
-            fail("Execution of 'actual' query failed: " + actual, ex);
-        }
-        List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
-        assertThat(actualRows).isEmpty();
+        assertThat(query(actual))
+                .returnsEmptyResult();
     }
 
     public MaterializedResult execute(@Language("SQL") String query)
@@ -355,7 +326,13 @@ public class QueryAssertions
         @CanIgnoreReturnValue
         public QueryAssert matches(@Language("SQL") String query)
         {
-            result().matches(query);
+            return matches(session, query);
+        }
+
+        @CanIgnoreReturnValue
+        public QueryAssert matches(Session session, @Language("SQL") String query)
+        {
+            result().matches(session, query);
             return this;
         }
 
@@ -599,8 +576,7 @@ public class QueryAssertions
             Session withoutPushdown = Session.builder(session)
                     .setSystemProperty("allow_pushdown_into_connectors", "false")
                     .build();
-            result().matches(runner.execute(withoutPushdown, query()));
-            return this;
+            return matches(withoutPushdown, query());
         }
 
         private String query()
@@ -710,6 +686,12 @@ public class QueryAssertions
 
         @CanIgnoreReturnValue
         public ResultAssert matches(@Language("SQL") String query)
+        {
+            return matches(session, query);
+        }
+
+        @CanIgnoreReturnValue
+        public ResultAssert matches(Session session, @Language("SQL") String query)
         {
             MaterializedResult expected = runner.execute(session, query);
             return matches(expected);

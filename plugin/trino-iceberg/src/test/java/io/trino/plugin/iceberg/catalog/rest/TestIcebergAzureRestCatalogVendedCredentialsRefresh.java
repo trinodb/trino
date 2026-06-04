@@ -44,10 +44,10 @@ import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static org.apache.iceberg.CatalogProperties.FILE_IO_IMPL;
 import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 
-final class TestIcebergAzureRestCatalogVendedCredentialsRefreshTest
-        extends AbstractTestIcebergRestCatalogVendedCredentialsRefreshTest
+final class TestIcebergAzureRestCatalogVendedCredentialsRefresh
+        extends AbstractTestIcebergRestCatalogVendedCredentialsRefresh
 {
-    private static final Logger LOG = Logger.get(TestIcebergAzureRestCatalogVendedCredentialsRefreshTest.class);
+    private static final Logger LOG = Logger.get(TestIcebergAzureRestCatalogVendedCredentialsRefresh.class);
 
     private final String container = requiredNonEmptySystemProperty("testing.azure-abfs-container");
     private final String account = requiredNonEmptySystemProperty("testing.azure-abfs-account");

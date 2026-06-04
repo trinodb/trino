@@ -37,10 +37,15 @@ import io.trino.plugin.iceberg.fileio.ForwardingOutputFile;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.VarbinaryType;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.types.Type.TypeID;
 import org.apache.iceberg.types.Types;
 import org.weakref.jmx.Managed;
 
@@ -58,6 +63,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveCompressionCodecs.toCompressionCodec;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_VERSION_NAME;
+import static io.trino.plugin.iceberg.GeoSpatialUtils.isGeospatialType;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITE_VALIDATION_FAILED;
@@ -84,13 +90,13 @@ import static io.trino.plugin.iceberg.IcebergUtil.getOrcBloomFilterColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getOrcBloomFilterFpp;
 import static io.trino.plugin.iceberg.IcebergUtil.getParquetBloomFilterColumns;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
+import static io.trino.plugin.iceberg.util.IcebergParquetSchemaConverter.convert;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.toOrcType;
 import static io.trino.plugin.iceberg.util.PrimitiveTypeMapBuilder.makeTypeMap;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.io.DeleteSchemaUtil.pathPosSchema;
-import static org.apache.iceberg.parquet.ParquetSchemaUtil.convert;
 
 public class IcebergFileWriterFactory
 {
@@ -170,6 +176,7 @@ public class IcebergFileWriterFactory
                 .collect(toImmutableList());
         List<Type> fileColumnTypes = icebergSchema.columns().stream()
                 .map(column -> toTrinoType(column.type(), typeManager))
+                .map(this::toFileTrinoType)
                 .collect(toImmutableList());
 
         try {
@@ -230,6 +237,7 @@ public class IcebergFileWriterFactory
             List<Type> fileColumnTypes = columnFields.stream()
                     .map(Types.NestedField::type)
                     .map(type -> toTrinoType(type, typeManager))
+                    .map(this::toFileTrinoType)
                     .collect(toImmutableList());
 
             Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.empty();
@@ -255,7 +263,7 @@ public class IcebergFileWriterFactory
                     rollbackAction,
                     fileColumnNames,
                     fileColumnTypes,
-                    toOrcType(icebergSchema),
+                    toOrcType(toFileSchema(icebergSchema)),
                     compressionCodec.getOrcCompressionKind(),
                     withBloomFilterOptions(orcWriterOptions, storageProperties)
                             .withStripeMinSize(getOrcWriterMinStripeSize(session))
@@ -307,6 +315,7 @@ public class IcebergFileWriterFactory
 
         List<Type> columnTypes = icebergSchema.columns().stream()
                 .map(column -> toTrinoType(column.type(), typeManager))
+                .map(this::toFileTrinoType)
                 .collect(toImmutableList());
 
         HiveCompressionCodec compressionCodec = getHiveCompressionCodec(AVRO, storageProperties)
@@ -315,8 +324,86 @@ public class IcebergFileWriterFactory
         return new IcebergAvroFileWriter(
                 new ForwardingOutputFile(fileSystem, outputPath),
                 rollbackAction,
-                icebergSchema,
+                toFileSchema(icebergSchema),
                 columnTypes,
                 compressionCodec);
+    }
+
+    /**
+     * Convert an Iceberg schema for file writing by replacing GEOMETRY/GEOGRAPHY types with BINARY.
+     * File formats don't understand these types, but Iceberg table metadata preserves them.
+     */
+    private static Schema toFileSchema(Schema icebergSchema)
+    {
+        List<Types.NestedField> columns = icebergSchema.columns().stream()
+                .map(IcebergFileWriterFactory::toFileType)
+                .collect(toImmutableList());
+        return new Schema(columns);
+    }
+
+    private static Types.NestedField toFileType(Types.NestedField field)
+    {
+        org.apache.iceberg.types.Type type = toFileType(field.type());
+        if (type == field.type()) {
+            return field;
+        }
+        return Types.NestedField.of(field.fieldId(), field.isOptional(), field.name(), type, field.doc());
+    }
+
+    private static org.apache.iceberg.types.Type toFileType(org.apache.iceberg.types.Type type)
+    {
+        if (type.typeId() == TypeID.GEOMETRY || type.typeId() == TypeID.GEOGRAPHY) {
+            // Replace geometry/geography with binary for file writing
+            return Types.BinaryType.get();
+        }
+        if (type instanceof Types.StructType structType) {
+            return Types.StructType.of(structType.fields().stream()
+                    .map(IcebergFileWriterFactory::toFileType)
+                    .collect(toImmutableList()));
+        }
+        if (type instanceof Types.ListType listType) {
+            org.apache.iceberg.types.Type elementType = toFileType(listType.elementType());
+            if (elementType == listType.elementType()) {
+                return type;
+            }
+            if (listType.isElementOptional()) {
+                return Types.ListType.ofOptional(listType.elementId(), elementType);
+            }
+            return Types.ListType.ofRequired(listType.elementId(), elementType);
+        }
+        if (type instanceof Types.MapType mapType) {
+            org.apache.iceberg.types.Type keyType = toFileType(mapType.keyType());
+            org.apache.iceberg.types.Type valueType = toFileType(mapType.valueType());
+            if (keyType == mapType.keyType() && valueType == mapType.valueType()) {
+                return type;
+            }
+            if (mapType.isValueOptional()) {
+                return Types.MapType.ofOptional(mapType.keyId(), mapType.valueId(), keyType, valueType);
+            }
+            return Types.MapType.ofRequired(mapType.keyId(), mapType.valueId(), keyType, valueType);
+        }
+        return type;
+    }
+
+    /**
+     * Convert Trino type for file writing - geometry/geography become varbinary.
+     */
+    private Type toFileTrinoType(Type type)
+    {
+        if (isGeospatialType(type)) {
+            return VarbinaryType.VARBINARY;
+        }
+        if (type instanceof ArrayType arrayType) {
+            return new ArrayType(toFileTrinoType(arrayType.getElementType()));
+        }
+        if (type instanceof MapType mapType) {
+            return new MapType(toFileTrinoType(mapType.getKeyType()), toFileTrinoType(mapType.getValueType()), typeManager.getTypeOperators());
+        }
+        if (type instanceof RowType rowType) {
+            return RowType.from(rowType.getFields().stream()
+                    .map(field -> new RowType.Field(field.getName(), toFileTrinoType(field.getType())))
+                    .collect(toImmutableList()));
+        }
+        return type;
     }
 }

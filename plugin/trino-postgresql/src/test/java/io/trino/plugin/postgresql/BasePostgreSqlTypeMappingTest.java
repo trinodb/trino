@@ -15,6 +15,7 @@ package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.plugin.geospatial.GeometryType;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -1934,6 +1935,22 @@ public abstract class BasePostgreSqlTypeMappingTest
                 .addRoundTrip("money", "10.54", createUnboundedVarcharType(), "CAST('$10.54' AS VARCHAR)")
                 .addRoundTrip("money", "1.000000042E7", createUnboundedVarcharType(), "CAST('$10,000,000.42' AS VARCHAR)")
                 .execute(getQueryRunner(), postgresCreateAndInsert("trino_test_money"));
+    }
+
+    @Test
+    public void testPoint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("point", "NULL", new GeometryType(), "CAST(NULL AS GEOMETRY)")
+                .addRoundTrip("point", "'(1,2)'", new GeometryType(), "ST_POINT(1,2)")
+                .addRoundTrip("point", "'(1.23456789,-0.123456789)'", new GeometryType(), "ST_POINT(1.23456789,-0.123456789)")
+                .execute(getQueryRunner(), postgresCreateAndInsert("trino_test_point"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("point", "CAST(NULL AS GEOMETRY)", new GeometryType(), "CAST(NULL AS GEOMETRY)")
+                .addRoundTrip("point", "ST_Point(1,2)", new GeometryType(), "ST_POINT(1,2)")
+                .addRoundTrip("point", "ST_Point(1.23456789,-0.123456789)", new GeometryType(), "ST_POINT(1.23456789,-0.123456789)")
+                .execute(getQueryRunner(), postgresCreateAndTrinoInsert("trino_test_point"));
     }
 
     private void testUnsupportedDataTypeAsIgnored(Session session, String dataTypeName, String databaseValue)
