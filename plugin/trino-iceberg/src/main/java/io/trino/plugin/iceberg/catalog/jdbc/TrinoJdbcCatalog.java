@@ -480,6 +480,9 @@ public class TrinoJdbcCatalog
         Optional<String> locationProperty = IcebergViewProperties.getLocation(viewProperties);
         String viewLocation = locationProperty.map(LocationUtil::stripTrailingSlash).orElse(defaultTableLocation(session, schemaViewName));
         ViewBuilder viewBuilder = jdbcCatalog.buildView(toIdentifier(schemaViewName));
+        if (replace && jdbcCatalog.viewExists(toIdentifier(schemaViewName))) {
+            viewLocation = loadIcebergView(schemaViewName).location();
+        }
         viewBuilder = viewBuilder.withSchema(schema)
                 .withQuery("trino", definition.getOriginalSql())
                 .withDefaultNamespace(Namespace.of(schemaViewName.getSchemaName()))
