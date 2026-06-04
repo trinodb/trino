@@ -45,7 +45,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
-public abstract class BaseS3AndGlueMetastoreTest
+public abstract class BaseS3AndGlueTest
         extends AbstractTestQueryFramework
 {
     private final String partitionByKeyword;
@@ -57,7 +57,7 @@ public abstract class BaseS3AndGlueMetastoreTest
     protected GlueHiveMetastore metastore;
     protected S3Client s3;
 
-    protected BaseS3AndGlueMetastoreTest(String partitionByKeyword, String locationKeyword, String bucketName)
+    protected BaseS3AndGlueTest(String partitionByKeyword, String locationKeyword, String bucketName)
     {
         this.partitionByKeyword = requireNonNull(partitionByKeyword, "partitionByKeyword is null");
         this.locationKeyword = requireNonNull(locationKeyword, "locationKeyword is null");
@@ -67,7 +67,7 @@ public abstract class BaseS3AndGlueMetastoreTest
     @BeforeAll
     public void setUp()
     {
-        s3 = S3Client.builder().build();
+        s3 = createS3Client();
     }
 
     @AfterAll
@@ -303,6 +303,11 @@ public abstract class BaseS3AndGlueMetastoreTest
     }
 
     protected abstract Set<String> getAllDataFilesFromTableDirectory(String tableLocation);
+
+    protected S3Client createS3Client()
+    {
+        return S3Client.builder().build();
+    }
 
     protected Set<String> getActiveFiles(String tableName)
     {
