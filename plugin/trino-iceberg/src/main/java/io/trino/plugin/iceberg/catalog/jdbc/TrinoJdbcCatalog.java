@@ -63,6 +63,7 @@ import org.apache.iceberg.view.ViewBuilder;
 import org.apache.iceberg.view.ViewRepresentation;
 import org.apache.iceberg.view.ViewVersion;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -70,6 +71,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
@@ -81,6 +85,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.transformValues;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.filesystem.Locations.appendPath;
+import static io.trino.plugin.base.util.ExecutorUtil.processWithAdditionalThreads;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_UNSUPPORTED_VIEW_DIALECT;
@@ -106,6 +111,7 @@ public class TrinoJdbcCatalog
     private final IcebergJdbcClient jdbcClient;
     private final String defaultWarehouseDir;
     private final SchemaVersion schemaVersion;
+    private final Executor metadataFetchingExecutor;
 
     private final Cache<SchemaTableName, TableMetadata> tableMetadataCache = EvictableCacheBuilder.newBuilder()
             .maximumSize(PER_QUERY_CACHE_SIZE)
@@ -121,13 +127,15 @@ public class TrinoJdbcCatalog
             ForwardingFileIoFactory fileIoFactory,
             boolean useUniqueTableLocation,
             String defaultWarehouseDir,
-            SchemaVersion schemaVersion)
+            SchemaVersion schemaVersion,
+            Executor metadataFetchingExecutor)
     {
         super(catalogName, useUniqueTableLocation, typeManager, tableOperationsProvider, fileSystemFactory, fileIoFactory);
         this.jdbcCatalog = requireNonNull(jdbcCatalog, "jdbcCatalog is null");
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.defaultWarehouseDir = requireNonNull(defaultWarehouseDir, "defaultWarehouseDir is null");
         this.schemaVersion = requireNonNull(schemaVersion, "schemaVersion is null");
+        this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
     }
 
     @Override
@@ -524,23 +532,40 @@ public class TrinoJdbcCatalog
     @Override
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> namespace)
     {
-        ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
+        if (schemaVersion == SchemaVersion.V0) {
+            // V0 doesn't support views
+            return ImmutableMap.of();
+        }
+
+        List<Callable<Optional<Map.Entry<SchemaTableName, ConnectorViewDefinition>>>> tasks = new ArrayList<>();
         for (String ns : listNamespaces(session, namespace)) {
-            for (TableIdentifier restView : jdbcCatalog.listViews(Namespace.of(ns))) {
-                SchemaTableName schemaTableName = SchemaTableName.schemaTableName(restView.namespace().toString(), restView.name());
-                try {
-                    getView(session, schemaTableName).ifPresent(view -> views.put(schemaTableName, view));
-                }
-                catch (TrinoException e) {
-                    if (e.getErrorCode().equals(ICEBERG_UNSUPPORTED_VIEW_DIALECT.toErrorCode())) {
-                        LOG.debug(e, "Skip unsupported view dialect: %s", schemaTableName);
-                        continue;
+            for (TableIdentifier view : jdbcCatalog.listViews(Namespace.of(ns))) {
+                SchemaTableName schemaTableName = SchemaTableName.schemaTableName(view.namespace().toString(), view.name());
+                tasks.add(() -> {
+                    try {
+                        return loadViewDefinition(schemaTableName).map(definition -> Map.entry(schemaTableName, definition));
                     }
-                    throw e;
-                }
+                    catch (TrinoException e) {
+                        if (e.getErrorCode().equals(ICEBERG_UNSUPPORTED_VIEW_DIALECT.toErrorCode())) {
+                            LOG.debug(e, "Skip unsupported view dialect: %s", schemaTableName);
+                            return Optional.empty();
+                        }
+                        throw e;
+                    }
+                });
             }
         }
 
+        ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
+        try {
+            for (Optional<Map.Entry<SchemaTableName, ConnectorViewDefinition>> result : processWithAdditionalThreads(tasks, metadataFetchingExecutor)) {
+                result.ifPresent(entry -> views.put(entry.getKey(), entry.getValue()));
+            }
+        }
+        catch (ExecutionException e) {
+            throwIfUnchecked(e.getCause());
+            throw new RuntimeException(e.getCause());
+        }
         return views.buildOrThrow();
     }
 
@@ -556,7 +581,13 @@ public class TrinoJdbcCatalog
             return Optional.empty();
         }
 
+        return loadViewDefinition(viewIdentifier);
+    }
+
+    private Optional<ConnectorViewDefinition> loadViewDefinition(SchemaTableName viewIdentifier)
+    {
         View view = loadIcebergView(viewIdentifier);
+
         SQLViewRepresentation sqlView = view.sqlFor("trino");
         if (!sqlView.dialect().equalsIgnoreCase("trino")) {
             throw new TrinoException(ICEBERG_UNSUPPORTED_VIEW_DIALECT, "Cannot read unsupported dialect '%s' for view '%s'".formatted(sqlView.dialect(), viewIdentifier));
