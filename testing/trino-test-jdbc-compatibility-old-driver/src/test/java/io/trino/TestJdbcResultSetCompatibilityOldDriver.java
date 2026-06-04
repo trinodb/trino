@@ -29,7 +29,6 @@ public class TestJdbcResultSetCompatibilityOldDriver
     private static final int SUPPORT_CANONICALIZER = 482;
     private static final Optional<Integer> VERSION_UNDER_TEST = testedVersion();
 
-    @Override
     protected String legacyCanonicalize(String value)
     {
         if (VERSION_UNDER_TEST.isPresent() && SUPPORT_CANONICALIZER > VERSION_UNDER_TEST.get()) {

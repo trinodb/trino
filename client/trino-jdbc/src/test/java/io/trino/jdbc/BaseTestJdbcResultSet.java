@@ -54,7 +54,6 @@ import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
-import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static org.assertj.core.api.Assertions.assertThat;

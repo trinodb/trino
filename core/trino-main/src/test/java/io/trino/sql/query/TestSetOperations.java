@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -52,6 +53,11 @@ public class TestSetOperations
                         "    EXCEPT ALL" +
                         "    VALUES 1, 2, 2)"))
                 .matches("VALUES 1, 3");
+    }
+
+    private String canonicalize(String value)
+    {
+        return value.toUpperCase(ENGLISH);
     }
 
     @Test
@@ -437,19 +443,19 @@ public class TestSetOperations
     {
         // FIXME: cant have this test working
         assertThat(assertions.query("SELECT 1 AS x, 2 AS y EXCEPT CORRESPONDING SELECT 1 AS x, 2 AS x"))
-                .failure().hasMessage("line 1:23: Duplicate columns found when using CORRESPONDING in set operations: x");
+                .failure().hasMessage("line 1:23: Duplicate columns found when using CORRESPONDING in set operations: %s".formatted(canonicalize("x")));
         assertThat(assertions.query("SELECT 1 AS x, 2 AS x EXCEPT CORRESPONDING SELECT 1 AS y, 2 AS x"))
-                .failure().hasMessage("line 1:23: Duplicate columns found when using CORRESPONDING in set operations: x");
+                .failure().hasMessage("line 1:23: Duplicate columns found when using CORRESPONDING in set operations: %s".formatted(canonicalize("x")));
 
         assertThat(assertions.query("SELECT 1 AS x, 2 AS y UNION CORRESPONDING SELECT 1 AS x, 2 AS x"))
-                .failure().hasMessage("line 1:23: Duplicate columns found when using CORRESPONDING in set operations: x");
+                .failure().hasMessage("line 1:23: Duplicate columns found when using CORRESPONDING in set operations: %s".formatted(canonicalize("x")));
         assertThat(assertions.query("SELECT 1 AS x, 2 AS x UNION CORRESPONDING SELECT 1 AS x, 2 AS y"))
-                .failure().hasMessage("line 1:23: Duplicate columns found when using CORRESPONDING in set operations: x");
+                .failure().hasMessage("line 1:23: Duplicate columns found when using CORRESPONDING in set operations: %s".formatted(canonicalize("x")));
 
         assertThat(assertions.query("SELECT 1 AS x, 2 AS y INTERSECT CORRESPONDING SELECT 1 AS x, 2 AS x"))
-                .failure().hasMessage("line 1:23: Duplicate columns found when using CORRESPONDING in set operations: x");
+                .failure().hasMessage("line 1:23: Duplicate columns found when using CORRESPONDING in set operations: %s".formatted(canonicalize("x")));
         assertThat(assertions.query("SELECT 1 AS x, 2 AS x INTERSECT CORRESPONDING SELECT 1 AS x, 2 AS y"))
-                .failure().hasMessage("line 1:23: Duplicate columns found when using CORRESPONDING in set operations: x");
+                .failure().hasMessage("line 1:23: Duplicate columns found when using CORRESPONDING in set operations: %s".formatted(canonicalize("x")));
     }
 
     @Test

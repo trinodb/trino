@@ -1379,10 +1379,10 @@ public abstract class BaseIcebergConnectorTest
                         "WITH (" +
                         "format_version = 2," +
                         "location = '" + tempDirPath + "', " +
-                        "partitioning = ARRAY['ORDER_STATUS', 'Ship_Priority', 'Bucket(\"order key\",9)']" +
+                        "partitioning = ARRAY['Order_Status', 'Ship_Priority', 'Bucket(\"order key\",9)']" +
                         ") " +
                         "AS " +
-                        "SELECT orderkey AS \"order key\", shippriority AS ship_priority, orderstatus AS order_status " +
+                        "SELECT orderkey AS \"order key\", shippriority AS \"Ship_Priority\", orderstatus AS \"Order_Status\" " +
                         "FROM tpch.tiny.orders",
                 "SELECT count(*) from \"orders\"");
 

@@ -52,7 +52,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 final class TestIcebergRestCatalogCaseInsensitiveMapping
         extends AbstractTestQueryFramework
 {
-    private static final String SCHEMA = "LeVeL1_" + randomNameSuffix();
+    private static final String SCHEMA = "level1_" + randomNameSuffix();
     private static final String LOWERCASE_SCHEMA = SCHEMA.toLowerCase(ENGLISH);
     private static final Namespace NAMESPACE = Namespace.of(SCHEMA);
 
@@ -107,6 +107,12 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
                         ('iceberg', '%s'),
                         ('iceberg', 'tpch')
                         """.formatted(SCHEMA));
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Test
