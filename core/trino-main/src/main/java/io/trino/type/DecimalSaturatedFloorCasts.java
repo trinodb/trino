@@ -112,7 +112,7 @@ public final class DecimalSaturatedFloorCasts
         return new PolymorphicScalarFunctionBuilder(SATURATED_FLOOR_CAST, DecimalSaturatedFloorCasts.class)
                 .signature(Signature.builder()
                         .argumentType(type("decimal", numericVariable("source_precision"), numericVariable("source_scale")))
-                        .returnType(type.getTypeSignature())
+                        .returnType(type.getTypeDescriptor())
                         .build())
                 .deterministic(true)
                 .neverFails(true) // saturated casts never overflow

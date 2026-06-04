@@ -112,8 +112,8 @@ import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
@@ -317,10 +317,10 @@ public class PostgreSqlClient
             RemoteQueryModifier queryModifier)
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
-        this.jsonType = typeManager.getType(new TypeSignature(JSON));
-        this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
+        this.jsonType = typeManager.getType(new TypeDescriptor(JSON));
+        this.uuidType = typeManager.getType(new TypeDescriptor(StandardTypes.UUID));
         this.varcharMapType = new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators());
-        this.geometryType = typeManager.getType(new TypeSignature(StandardTypes.GEOMETRY));
+        this.geometryType = typeManager.getType(new TypeDescriptor(StandardTypes.GEOMETRY));
 
         ImmutableList.Builder<String> tableTypes = ImmutableList.builder();
         tableTypes.add("TABLE", "PARTITIONED TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE");

@@ -86,7 +86,7 @@ public class NumberType
 
     private NumberType()
     {
-        super(new TypeSignature(NAME), TrinoNumber.class);
+        super(new TypeDescriptor(NAME), TrinoNumber.class);
     }
 
     @Override

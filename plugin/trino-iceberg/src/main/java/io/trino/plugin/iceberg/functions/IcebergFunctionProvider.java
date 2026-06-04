@@ -77,7 +77,7 @@ public class IcebergFunctionProvider
                             .typeVariable("T")
                             .returnType(INTEGER)
                             .argumentType(typeVariable("T"))
-                            .argumentType(INTEGER.getTypeSignature())
+                            .argumentType(INTEGER.getTypeDescriptor())
                             .build())
                     .nullable()
                     .build())

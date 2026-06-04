@@ -74,12 +74,12 @@ import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.spi.type.TypeSignature.functionType;
-import static io.trino.spi.type.TypeTemplates.fromTypeSignature;
+import static io.trino.spi.type.TypeDescriptor.arrayType;
+import static io.trino.spi.type.TypeDescriptor.functionType;
+import static io.trino.spi.type.TypeTemplates.fromTypeDescriptor;
 import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.util.Reflection.methodHandle;
@@ -287,7 +287,7 @@ public class BenchmarkArrayFilter
                             .typeVariable("T")
                             .returnType(TypeTemplates.arrayType(typeVariable("T")))
                             .argumentType(TypeTemplates.arrayType(typeVariable("T")))
-                            .argumentType(TypeTemplates.functionType(typeVariable("T"), fromTypeSignature(BOOLEAN.getTypeSignature())))
+                            .argumentType(TypeTemplates.functionType(typeVariable("T"), fromTypeDescriptor(BOOLEAN.getTypeDescriptor())))
                             .build())
                     .nondeterministic()
                     .description("return array containing elements that match the given predicate")
@@ -342,7 +342,7 @@ public class BenchmarkArrayFilter
                             .typeVariable("T")
                             .returnType(TypeTemplates.arrayType(typeVariable("T")))
                             .argumentType(TypeTemplates.arrayType(typeVariable("T")))
-                            .argumentType(TypeTemplates.functionType(typeVariable("T"), fromTypeSignature(BOOLEAN.getTypeSignature())))
+                            .argumentType(TypeTemplates.functionType(typeVariable("T"), fromTypeDescriptor(BOOLEAN.getTypeDescriptor())))
                             .build())
                     .nondeterministic()
                     .description("return array containing elements that match the given predicate")

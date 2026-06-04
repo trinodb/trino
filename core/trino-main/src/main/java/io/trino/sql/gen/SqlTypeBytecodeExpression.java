@@ -42,7 +42,7 @@ public class SqlTypeBytecodeExpression
 
     private static String generateName(Type type)
     {
-        String name = type.getTypeSignature().toString();
+        String name = type.getTypeDescriptor().toString();
         if (name.length() > 20) {
             // Use type base to reduce the identifier size in generated code
             name = type.getBaseName();
@@ -79,7 +79,7 @@ public class SqlTypeBytecodeExpression
     @Override
     protected String formatOneLine()
     {
-        return type.getTypeSignature().toString();
+        return type.getTypeDescriptor().toString();
     }
 
     public BytecodeExpression getValue(BytecodeExpression block, BytecodeExpression position)

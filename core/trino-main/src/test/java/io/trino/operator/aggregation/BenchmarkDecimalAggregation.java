@@ -43,7 +43,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static org.assertj.core.api.Assertions.assertThat;

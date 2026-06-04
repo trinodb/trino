@@ -96,8 +96,8 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import microsoft.sql.DateTimeOffset;
@@ -314,7 +314,7 @@ public class SqlServerClient
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
 
         requireNonNull(typeManager, "typeManager is null");
-        jsonType = typeManager.getType(new TypeSignature(JSON));
+        jsonType = typeManager.getType(new TypeDescriptor(JSON));
         this.statisticsEnabled = statisticsConfig.isEnabled();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()

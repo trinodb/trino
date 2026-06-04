@@ -26,10 +26,10 @@ import static java.util.stream.Collectors.joining;
 /// function [io.trino.spi.function.Signature] — e.g. `array(E)`, `decimal(p, s)`,
 /// `char(x + y)`.
 ///
-/// It is the counterpart to the ground [TypeSignature]: where a `TypeSignature` denotes one
+/// It is the counterpart to the ground [TypeDescriptor]: where a `TypeDescriptor` denotes one
 /// concrete type, a `TypeTemplate` denotes a family parameterized by type and numeric variables.
-/// Binding its variables (see [TypeTemplates#bind]) produces a ground [TypeSignature];
-/// [TypeTemplates#fromTypeSignature] lifts a variable-free signature back into a template.
+/// Binding its variables (see [TypeTemplates#bind]) produces a ground [TypeDescriptor];
+/// [TypeTemplates#fromTypeDescriptor] lifts a variable-free signature back into a template.
 public sealed interface TypeTemplate
         permits TypeTemplate.TypeApplication, TypeTemplate.TypeVariable
 {
@@ -37,7 +37,7 @@ public sealed interface TypeTemplate
     String baseName();
 
     /// Renders this template in type syntax, e.g. `array(E)`, `decimal(p,s)`, `char(x + y)`. Mirrors the
-    /// [TypeSignature] formatting (unbounded varchar, time-zone syntax, quoted row field names) so error
+    /// [TypeDescriptor] formatting (unbounded varchar, time-zone syntax, quoted row field names) so error
     /// messages and round-trips match.
     String render();
 
@@ -82,7 +82,7 @@ public sealed interface TypeTemplate
             return base + parameters.stream().map(TemplateParameter::render).collect(joining(",", "(", ")"));
         }
 
-        // Type names are case-insensitive in Trino, matching the TypeSignature identity.
+        // Type names are case-insensitive in Trino, matching the TypeDescriptor identity.
         @Override
         public boolean equals(Object o)
         {

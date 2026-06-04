@@ -39,8 +39,8 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
@@ -106,7 +106,7 @@ public final class BigQueryTypeManager
     @Inject
     public BigQueryTypeManager(TypeManager typeManager)
     {
-        jsonType = requireNonNull(typeManager, "typeManager is null").getType(new TypeSignature(JSON));
+        jsonType = requireNonNull(typeManager, "typeManager is null").getType(new TypeDescriptor(JSON));
     }
 
     private RowType.Field toRawTypeField(String name, Field field)

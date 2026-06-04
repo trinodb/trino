@@ -41,7 +41,7 @@ import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Row;
@@ -433,7 +433,7 @@ public class PlanBuilder
 
         private AggregationBuilder addAggregation(Symbol output, AggregationFunction aggregation, List<Type> inputTypes, Optional<Symbol> mask)
         {
-            ResolvedFunction resolvedFunction = functionResolver.resolveFunction(session, QualifiedName.of(aggregation.name()), TypeSignatureProvider.fromTypes(inputTypes), new AllowAllAccessControl());
+            ResolvedFunction resolvedFunction = functionResolver.resolveFunction(session, QualifiedName.of(aggregation.name()), TypeDescriptorProvider.fromTypes(inputTypes), new AllowAllAccessControl());
             return addAggregation(output, new Aggregation(
                     resolvedFunction,
                     aggregation.arguments(),
@@ -1280,7 +1280,7 @@ public class PlanBuilder
 
     public Aggregation aggregation(AggregationFunction aggregation, List<Type> inputTypes)
     {
-        ResolvedFunction resolvedFunction = functionResolver.resolveFunction(session, QualifiedName.of(aggregation.name()), TypeSignatureProvider.fromTypes(inputTypes), new AllowAllAccessControl());
+        ResolvedFunction resolvedFunction = functionResolver.resolveFunction(session, QualifiedName.of(aggregation.name()), TypeDescriptorProvider.fromTypes(inputTypes), new AllowAllAccessControl());
         return new Aggregation(
                 resolvedFunction,
                 aggregation.arguments(),

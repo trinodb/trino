@@ -54,7 +54,7 @@ import static io.trino.operator.AnnotationEngineAssertions.assertImplementationC
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeDescriptor.arrayType;
 import static io.trino.spi.type.TypeTemplates.numericVariable;
 import static io.trino.spi.type.TypeTemplates.type;
 import static io.trino.spi.type.TypeTemplates.typeVariable;
@@ -377,7 +377,7 @@ public class TestAnnotationEngineForScalars
 
         Signature exactSignature = Signature.builder()
                 .returnType(BOOLEAN)
-                .argumentType(arrayType(createVarcharType(17).getTypeSignature()))
+                .argumentType(arrayType(createVarcharType(17).getTypeDescriptor()))
                 .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(ComplexParametricScalarFunction.class);

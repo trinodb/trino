@@ -19,7 +19,7 @@ import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplate;
 
 import java.util.List;
@@ -60,7 +60,7 @@ public final class FunctionImplementationDependency
     @Override
     protected ScalarFunctionImplementation getImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
     {
-        List<TypeSignature> types = applyBoundVariables(argumentTypes, functionBinding.variables());
+        List<TypeDescriptor> types = applyBoundVariables(argumentTypes, functionBinding.variables());
         return functionDependencies.getScalarFunctionImplementationSignature(name, types, invocationConvention);
     }
 

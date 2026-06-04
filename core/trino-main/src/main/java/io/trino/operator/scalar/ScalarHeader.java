@@ -20,7 +20,7 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.StaticMethod;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplate;
 import io.trino.spi.type.TypeTemplates;
 
@@ -35,7 +35,7 @@ import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.operator.annotations.FunctionsParserHelper.parseDescription;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeDescriptor;
 import static java.util.Objects.requireNonNull;
 
 public class ScalarHeader
@@ -99,9 +99,9 @@ public class ScalarHeader
             String baseName = scalarFunction.value().isEmpty() ? camelToSnake(annotatedName(annotated)) : scalarFunction.value();
             Optional<TypeTemplate> receiverType = Optional.empty();
             if (staticMethod != null) {
-                TypeSignature parsed = parseTypeSignature(staticMethod.value());
+                TypeDescriptor parsed = parseTypeDescriptor(staticMethod.value());
                 checkArgument(parsed.getParameters().isEmpty(), "@StaticMethod receiver type must not have parameters: %s", staticMethod.value());
-                receiverType = Optional.of(TypeTemplates.fromTypeSignature(parsed));
+                receiverType = Optional.of(TypeTemplates.fromTypeDescriptor(parsed));
             }
             builder.add(new ScalarHeader(baseName, ImmutableSet.copyOf(scalarFunction.alias()), description, scalarFunction.hidden(), scalarFunction.deterministic(), scalarFunction.neverFails(), receiverType, instanceMethod != null));
         }

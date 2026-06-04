@@ -104,7 +104,7 @@ public class ArrayType
 
     public ArrayType(Type elementType)
     {
-        super(new TypeSignature(NAME, TypeParameter.typeParameter(elementType.getTypeSignature())), Block.class, ArrayBlock.class);
+        super(new TypeDescriptor(NAME, TypeParameter.typeParameter(elementType.getTypeDescriptor())), Block.class, ArrayBlock.class);
         this.elementType = requireNonNull(elementType, "elementType is null");
     }
 

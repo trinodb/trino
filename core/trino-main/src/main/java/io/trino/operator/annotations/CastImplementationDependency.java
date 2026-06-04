@@ -18,7 +18,7 @@ import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplate;
 
 import java.util.Objects;
@@ -58,8 +58,8 @@ public final class CastImplementationDependency
     @Override
     protected ScalarFunctionImplementation getImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
     {
-        TypeSignature from = applyBoundVariables(fromType, functionBinding.variables());
-        TypeSignature to = applyBoundVariables(toType, functionBinding.variables());
+        TypeDescriptor from = applyBoundVariables(fromType, functionBinding.variables());
+        TypeDescriptor to = applyBoundVariables(toType, functionBinding.variables());
         return functionDependencies.getCastImplementationSignature(from, to, invocationConvention);
     }
 

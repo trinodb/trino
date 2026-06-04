@@ -55,9 +55,9 @@ import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis.PredicateCoercions;
@@ -280,8 +280,8 @@ import static io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationAnchor.
 import static io.trino.sql.analyzer.SemanticExceptions.invalidReferenceException;
 import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static io.trino.sql.tree.DereferenceExpression.isQualifiedAllFieldsReference;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
@@ -566,7 +566,7 @@ public class ExpressionAnalyzer
     private Type analyzeJsonValueExpression(ValueColumn column, JsonPathAnalysis pathAnalysis, Scope scope, CorrelationSupport correlationSupport)
     {
         Visitor visitor = new Visitor(scope, warningCollector);
-        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(new TypeSignature(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
+        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(new TypeDescriptor(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
         return visitor.analyzeJsonValueExpression(
                 "JSON_TABLE",
                 column,
@@ -583,7 +583,7 @@ public class ExpressionAnalyzer
     private Type analyzeJsonQueryExpression(QueryColumn column, Scope scope)
     {
         Visitor visitor = new Visitor(scope, warningCollector);
-        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(new TypeSignature(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
+        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(new TypeDescriptor(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
         return visitor.analyzeJsonQueryExpression(
                 column,
                 column.getWrapperBehavior(),
@@ -1148,7 +1148,7 @@ public class ExpressionAnalyzer
         protected Type visitArray(Array node, Context context)
         {
             Type type = coerceToSingleType(context, "All ARRAY elements", node.getValues());
-            Type arrayType = plannerContext.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeParameter.typeParameter(type.getTypeSignature())));
+            Type arrayType = plannerContext.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeParameter.typeParameter(type.getTypeDescriptor())));
             return setExpressionType(node, arrayType);
         }
 
@@ -1412,7 +1412,7 @@ public class ExpressionAnalyzer
             }
 
             List<Expression> argumentValues = node.argumentValues();
-            List<TypeSignatureProvider> rawTypes = getCallArgumentTypes(argumentValues, context);
+            List<TypeDescriptorProvider> rawTypes = getCallArgumentTypes(argumentValues, context);
             // rawTypes may be shorter than the AST argument count when a `label.*`
             // entry is consumed by getCallArgumentTypes; bind to rawTypes.size() so
             // identity-binding of positional calls still indexes safely.
@@ -1420,7 +1420,7 @@ public class ExpressionAnalyzer
             List<Integer> argumentBinding = hasNamedArguments
                     ? computeArgumentBinding(node)
                     : identityBinding(rawTypes.size());
-            List<TypeSignatureProvider> argumentTypes = argumentBinding.stream()
+            List<TypeDescriptorProvider> argumentTypes = argumentBinding.stream()
                     .map(rawTypes::get)
                     .collect(toImmutableList());
 
@@ -1485,7 +1485,7 @@ public class ExpressionAnalyzer
                     process(expression, context.expectingLambda(expectedFunctionType.getArgumentTypes()));
                 }
                 else {
-                    Type actualType = plannerContext.getTypeManager().getType(argumentTypes.get(i).getTypeSignature());
+                    Type actualType = plannerContext.getTypeManager().getType(argumentTypes.get(i).getTypeDescriptor());
                     coerceType(expression, actualType, expectedType, format("Function %s argument %d", function, i));
                 }
             }
@@ -1732,13 +1732,13 @@ public class ExpressionAnalyzer
 
         private MethodResolution resolveInstanceMethodCall(Type receiverType, String methodName, List<Expression> arguments, Context context)
         {
-            List<TypeSignatureProvider> argumentTypes = ImmutableList.<TypeSignatureProvider>builder()
-                    .add(new TypeSignatureProvider(receiverType.getTypeSignature()))
+            List<TypeDescriptorProvider> argumentTypes = ImmutableList.<TypeDescriptorProvider>builder()
+                    .add(new TypeDescriptorProvider(receiverType.getTypeDescriptor()))
                     .addAll(getCallArgumentTypes(arguments, context))
                     .build();
             ResolvedFunction function = functionResolver.resolveInstanceMethod(
                     session,
-                    receiverType.getTypeSignature(),
+                    receiverType.getTypeDescriptor(),
                     QualifiedName.of(methodName),
                     argumentTypes,
                     accessControl);
@@ -1770,7 +1770,7 @@ public class ExpressionAnalyzer
                     process(expression, context.expectingLambda(expectedFunctionType.getArgumentTypes()));
                 }
                 else {
-                    Type actualType = plannerContext.getTypeManager().getType(resolution.argumentTypes().get(i + 1).getTypeSignature());
+                    Type actualType = plannerContext.getTypeManager().getType(resolution.argumentTypes().get(i + 1).getTypeDescriptor());
                     coerceType(expression, actualType, expectedType, format("Method .%s argument %d", methodName, i));
                 }
             }
@@ -1778,7 +1778,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, signature.getReturnType());
         }
 
-        private record MethodResolution(ResolvedFunction function, List<TypeSignatureProvider> argumentTypes) {}
+        private record MethodResolution(ResolvedFunction function, List<TypeDescriptorProvider> argumentTypes) {}
 
         @Override
         protected Type visitStaticMethodCall(StaticMethodCall node, Context context)
@@ -1787,9 +1787,9 @@ public class ExpressionAnalyzer
             if (receiver.getParts().size() != 1 || !plannerContext.getTypeManager().isTypeRegistered(receiver.getSuffix())) {
                 throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", receiver);
             }
-            TypeSignature receiverSignature = new TypeSignature(receiver.getSuffix());
+            TypeDescriptor receiverSignature = new TypeDescriptor(receiver.getSuffix());
 
-            List<TypeSignatureProvider> argumentTypes = getCallArgumentTypes(node.getArguments(), context);
+            List<TypeDescriptorProvider> argumentTypes = getCallArgumentTypes(node.getArguments(), context);
 
             ResolvedFunction function;
             try {
@@ -1820,7 +1820,7 @@ public class ExpressionAnalyzer
                     process(expression, context.expectingLambda(expectedFunctionType.getArgumentTypes()));
                 }
                 else {
-                    Type actualType = plannerContext.getTypeManager().getType(argumentTypes.get(i).getTypeSignature());
+                    Type actualType = plannerContext.getTypeManager().getType(argumentTypes.get(i).getTypeDescriptor());
                     coerceType(expression, actualType, expectedType, format("Static method %s::%s argument %d", receiver, node.getMethod().getValue(), i));
                 }
             }
@@ -2124,12 +2124,12 @@ public class ExpressionAnalyzer
             return setExpressionType(node, type);
         }
 
-        public List<TypeSignatureProvider> getCallArgumentTypes(List<Expression> arguments, Context context)
+        public List<TypeDescriptorProvider> getCallArgumentTypes(List<Expression> arguments, Context context)
         {
-            ImmutableList.Builder<TypeSignatureProvider> argumentTypesBuilder = ImmutableList.builder();
+            ImmutableList.Builder<TypeDescriptorProvider> argumentTypesBuilder = ImmutableList.builder();
             for (Expression argument : arguments) {
                 if (argument instanceof LambdaExpression) {
-                    argumentTypesBuilder.add(new TypeSignatureProvider(
+                    argumentTypesBuilder.add(new TypeDescriptorProvider(
                             types -> {
                                 ExpressionAnalyzer innerExpressionAnalyzer = new ExpressionAnalyzer(
                                         plannerContext,
@@ -2146,7 +2146,7 @@ public class ExpressionAnalyzer
                                         innerExpressionAnalyzer.setExpressionType(lambdaArgument, getExpressionType(lambdaArgument));
                                     }
                                 }
-                                return innerExpressionAnalyzer.analyze(argument, baseScope, context.expectingLambda(types)).getTypeSignature();
+                                return innerExpressionAnalyzer.analyze(argument, baseScope, context.expectingLambda(types)).getTypeDescriptor();
                             }));
                 }
                 else {
@@ -2161,7 +2161,7 @@ public class ExpressionAnalyzer
                         labels.put(NodeRef.of(allRowsDereference), Optional.of(label));
                     }
                     else {
-                        argumentTypesBuilder.add(new TypeSignatureProvider(process(argument, context).getTypeSignature()));
+                        argumentTypesBuilder.add(new TypeDescriptorProvider(process(argument, context).getTypeDescriptor()));
                     }
                 }
             }
@@ -2768,7 +2768,7 @@ public class ExpressionAnalyzer
         {
             Type type;
             try {
-                type = plannerContext.getTypeManager().getType(toTypeSignature(node.getType()));
+                type = plannerContext.getTypeManager().getType(toTypeDescriptor(node.getType()));
             }
             catch (TypeNotFoundException e) {
                 throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", node.getType());
@@ -3141,7 +3141,7 @@ public class ExpressionAnalyzer
             Type returnedType = VARCHAR; // default
             if (declaredReturnedType.isPresent()) {
                 try {
-                    returnedType = plannerContext.getTypeManager().getType(toTypeSignature(declaredReturnedType.get()));
+                    returnedType = plannerContext.getTypeManager().getType(toTypeDescriptor(declaredReturnedType.get()));
                 }
                 catch (TypeNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", declaredReturnedType.get());
@@ -3293,7 +3293,7 @@ public class ExpressionAnalyzer
             Type returnedType = VARCHAR; // default
             if (declaredReturnedType.isPresent()) {
                 try {
-                    returnedType = plannerContext.getTypeManager().getType(toTypeSignature(declaredReturnedType.get()));
+                    returnedType = plannerContext.getTypeManager().getType(toTypeDescriptor(declaredReturnedType.get()));
                 }
                 catch (TypeNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", declaredReturnedType.get());
@@ -3440,7 +3440,7 @@ public class ExpressionAnalyzer
 
             return ImmutableList.of(
                     JSON_2016, // input expression
-                    plannerContext.getTypeManager().getType(new TypeSignature(JsonPath2016Type.NAME)), // parsed JSON path representation
+                    plannerContext.getTypeManager().getType(new TypeDescriptor(JsonPath2016Type.NAME)), // parsed JSON path representation
                     parametersRowType); // passed parameters
         }
 
@@ -3609,7 +3609,7 @@ public class ExpressionAnalyzer
             Type returnedType = VARCHAR; // default
             if (node.getReturnedType().isPresent()) {
                 try {
-                    returnedType = plannerContext.getTypeManager().getType(toTypeSignature(node.getReturnedType().get()));
+                    returnedType = plannerContext.getTypeManager().getType(toTypeDescriptor(node.getReturnedType().get()));
                 }
                 catch (TypeNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", node.getReturnedType().get());
@@ -3719,7 +3719,7 @@ public class ExpressionAnalyzer
             Type returnedType = VARCHAR; // default
             if (node.getReturnedType().isPresent()) {
                 try {
-                    returnedType = plannerContext.getTypeManager().getType(toTypeSignature(node.getReturnedType().get()));
+                    returnedType = plannerContext.getTypeManager().getType(toTypeDescriptor(node.getReturnedType().get()));
                 }
                 catch (TypeNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", node.getReturnedType().get());

@@ -56,15 +56,15 @@ import io.trino.spi.metrics.Metrics;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolKeyDeserializer;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.type.TypeDescriptorKeyDeserializer;
 import io.trino.type.TypeDeserializer;
-import io.trino.type.TypeSignatureKeyDeserializer;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -1516,7 +1516,7 @@ public class TestEventListenerBasic
         JsonMapper jsonMapper = new JsonMapperProvider()
                 .withKeyDeserializers(ImmutableMap.of(
                         Symbol.class, new SymbolKeyDeserializer(typeManager),
-                        TypeSignature.class, new TypeSignatureKeyDeserializer()))
+                        TypeDescriptor.class, new TypeDescriptorKeyDeserializer()))
                 .withJsonDeserializers(ImmutableMap.of(
                         Type.class, new TypeDeserializer(typeManager)))
                 .get();

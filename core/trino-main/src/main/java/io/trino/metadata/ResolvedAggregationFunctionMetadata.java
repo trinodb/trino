@@ -13,14 +13,14 @@
  */
 package io.trino.metadata;
 
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 
 import java.util.List;
 
 /// Aggregation-specific metadata of a resolved function: whether it is order sensitive, and its ground
 /// intermediate (serialized state) types. The declared, possibly variable-bearing form is
 /// [io.trino.spi.function.AggregationFunctionMetadata].
-public record ResolvedAggregationFunctionMetadata(boolean orderSensitive, List<TypeSignature> intermediateTypes)
+public record ResolvedAggregationFunctionMetadata(boolean orderSensitive, List<TypeDescriptor> intermediateTypes)
 {
     public ResolvedAggregationFunctionMetadata
     {

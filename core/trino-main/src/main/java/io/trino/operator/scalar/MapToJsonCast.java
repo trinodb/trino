@@ -63,8 +63,8 @@ public class MapToJsonCast
     {
         super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
-                        .castableToTypeParameter("K", VARCHAR.getTypeSignature())
-                        .castableToTypeParameter("V", JSON.getTypeSignature())
+                        .castableToTypeParameter("K", VARCHAR.getTypeDescriptor())
+                        .castableToTypeParameter("V", JSON.getTypeDescriptor())
                         .returnType(JSON)
                         .argumentType(mapType(typeVariable("K"), typeVariable("V")))
                         .build())
