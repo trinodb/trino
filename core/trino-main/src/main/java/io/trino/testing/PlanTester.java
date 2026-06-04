@@ -436,7 +436,7 @@ public class PlanTester
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
 
         FunctionManager functionManager = new FunctionManager(createFunctionProvider(catalogManager), globalFunctionCatalog, languageFunctionManager);
-        this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager, functionManager, languageFunctionManager, tracer);
+        this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager, functionManager, languageFunctionManager, tracer, expressionCodec);
         this.evaluator = new InternalConnectorExpressionEvaluator(plannerContext);
         NodeInfo nodeInfo = new NodeInfo("test");
         catalogFactory.setCatalogFactory(new DefaultCatalogFactory(
@@ -453,7 +453,8 @@ public class PlanTester
                 hashStrategyCompiler,
                 nodeSchedulerConfig,
                 optimizerConfig,
-                secretsResolver));
+                secretsResolver,
+                evaluator));
         this.splitManager = new SplitManager(createSplitManagerProvider(catalogManager), tracer, new QueryManagerConfig());
         this.pageSourceManager = new PageSourceManager(createPageSourceProviderFactory(catalogManager));
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));
@@ -621,11 +622,6 @@ public class PlanTester
     public PlannerContext getPlannerContext()
     {
         return plannerContext;
-    }
-
-    public JsonCodec<Expression> getExpressionCodec()
-    {
-        return expressionCodec;
     }
 
     public ConnectorExpressionEvaluator getExpressionEvaluator()

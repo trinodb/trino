@@ -77,6 +77,7 @@ public class DefaultCatalogFactory
 
     private final ConcurrentMap<ConnectorName, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
     private final SecretsResolver secretsResolver;
+    private final ConnectorExpressionEvaluator evaluator;
 
     @Inject
     public DefaultCatalogFactory(
@@ -93,7 +94,8 @@ public class DefaultCatalogFactory
             FlatHashStrategyCompiler flatHashStrategyCompiler,
             NodeSchedulerConfig nodeSchedulerConfig,
             OptimizerConfig optimizerConfig,
-            SecretsResolver secretsResolver)
+            SecretsResolver secretsResolver,
+            ConnectorExpressionEvaluator evaluator)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -109,6 +111,7 @@ public class DefaultCatalogFactory
         this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
         this.maxPrefetchedInformationSchemaPrefixes = optimizerConfig.getMaxPrefetchedInformationSchemaPrefixes();
         this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
+        this.evaluator = requireNonNull(evaluator, "evaluator is null");
     }
 
     @Override
@@ -161,7 +164,7 @@ public class DefaultCatalogFactory
                         metadata,
                         accessControl,
                         maxPrefetchedInformationSchemaPrefixes,
-                        ConnectorExpressionEvaluator.NO_OP));
+                        evaluator));
 
         SystemTablesProvider systemTablesProvider = new SystemTablesProvider(
                 transactionManager,
@@ -203,7 +206,7 @@ public class DefaultCatalogFactory
                 pageIndexerFactory,
                 new InternalFunctionBundleFactory(),
                 blocksHashFactory,
-                ConnectorExpressionEvaluator.NO_OP);
+                evaluator);
 
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
             // TODO: connector factory should take CatalogName

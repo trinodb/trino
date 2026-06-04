@@ -25,6 +25,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableProperties;
 import io.trino.metadata.TableProperties.TablePartitioning;
+import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
@@ -38,7 +39,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.ConnectorExpressionTranslator.ConnectorExpressionTranslation;
 import io.trino.sql.planner.DomainTranslator;
-import io.trino.sql.planner.LayoutConstraintEvaluator;
+import io.trino.sql.planner.EngineExpressions;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.iterative.Rule;
@@ -83,7 +84,6 @@ public class PushPredicateIntoTableScan
             tableScan().capturedAs(TABLE_SCAN)));
 
     private final PlannerContext plannerContext;
-
     private final boolean pruneWithPredicateExpression;
 
     public PushPredicateIntoTableScan(PlannerContext plannerContext, boolean pruneWithPredicateExpression)
@@ -167,40 +167,40 @@ public class PushPredicateIntoTableScan
                 .transformKeys(node.getAssignments()::get)
                 .intersect(node.getEnforcedConstraint());
 
-        ConnectorExpressionTranslation expressionTranslation = ConnectorExpressionTranslator.translateConjuncts(
-                session,
-                decomposedPredicate.getRemainingExpression());
         Map<String, ColumnHandle> connectorExpressionAssignments = node.getAssignments()
                 .entrySet().stream()
                 .collect(toImmutableMap(entry -> entry.getKey().name(), Entry::getValue));
+        ConnectorExpressionTranslation expressionTranslation = ConnectorExpressionTranslator.translateConjuncts(
+                session,
+                decomposedPredicate.getRemainingExpression(),
+                connectorExpressionAssignments.keySet());
 
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
+        ConnectorExpression connectorExpression = expressionTranslation.connectorExpression();
+
         Constraint constraint;
-        // use evaluator only when there is some predicate which could not be translated into tuple domain
+        // use engine expression only when there is some predicate which could not be translated into tuple domain
         if (pruneWithPredicateExpression && !Booleans.TRUE.equals(decomposedPredicate.getRemainingExpression())) {
-            LayoutConstraintEvaluator evaluator = new LayoutConstraintEvaluator(
-                    plannerContext,
-                    session,
-                    node.getAssignments(),
-                    combineConjuncts(
-                            splitExpression.getDeterministicPredicate(),
-                            // Simplify the tuple domain to avoid creating an expression with too many nodes,
-                            // which would be expensive to evaluate in the call to isCandidate below.
-                            new DomainTranslator(plannerContext.getMetadata()).toPredicate(newDomain.simplify().transformKeys(assignments::get))));
-            constraint = new Constraint(newDomain, expressionTranslation.connectorExpression(), connectorExpressionAssignments, evaluator::isCandidate, evaluator.getArguments());
+            Expression predicate = combineConjuncts(
+                    splitExpression.getDeterministicPredicate(),
+                    // Simplify the tuple domain to avoid creating an expression with too many nodes,
+                    // which would be expensive to evaluate in the call to isCandidate below.
+                    new DomainTranslator(plannerContext.getMetadata()).toPredicate(newDomain.simplify().transformKeys(assignments::get)));
+            ConnectorExpression expression = ConnectorExpressions.and(
+                    connectorExpression,
+                    EngineExpressions.buildEngineExpression(predicate, plannerContext.getExpressionCodec()));
+            constraint = new Constraint(newDomain, expression, connectorExpressionAssignments);
         }
         else {
             // Currently, invoking the expression interpreter is very expensive.
             // TODO invoke the interpreter unconditionally when the interpreter becomes cheap enough.
-            constraint = new Constraint(newDomain, expressionTranslation.connectorExpression(), connectorExpressionAssignments);
+            constraint = new Constraint(newDomain, connectorExpression, connectorExpressionAssignments);
         }
 
         // check if new domain is wider than domain already provided by table scan
-        if (constraint.predicate().isEmpty() &&
-                // TODO do we need to track enforced ConnectorExpression in TableScanNode?
-                Constant.TRUE.equals(expressionTranslation.connectorExpression()) &&
-                newDomain.contains(node.getEnforcedConstraint())) {
+        // TODO do we need to track enforced ConnectorExpression in TableScanNode?
+        if (Constant.TRUE.equals(constraint.getExpression()) && newDomain.contains(node.getEnforcedConstraint())) {
             Expression resultingPredicate = createResultingPredicate(
                     plannerContext,
                     session,
@@ -255,12 +255,14 @@ public class PushPredicateIntoTableScan
                 node.getUseConnectorNodePartitioning());
 
         Expression remainingDecomposedPredicate;
-        if (remainingConnectorExpression.isEmpty() || remainingConnectorExpression.get().equals(expressionTranslation.connectorExpression())) {
+        if (remainingConnectorExpression.isEmpty() || remainingConnectorExpression.get().equals(constraint.getExpression())) {
             remainingDecomposedPredicate = decomposedPredicate.getRemainingExpression();
         }
         else {
             Map<String, Symbol> variableMappings = assignments.values().stream()
                     .collect(toImmutableMap(Symbol::name, Function.identity()));
+            // translate inlines the IR predicate wrapped by any $engine_expression the connector
+            // echoed back, regardless of where it appears in the expression tree
             Expression translatedExpression = ConnectorExpressionTranslator.translate(session, remainingConnectorExpression.get(), plannerContext, variableMappings);
             translatedExpression = LambdaCaptureDesugaringRewriter.rewrite(translatedExpression, symbolAllocator);
             // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
