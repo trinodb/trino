@@ -34,6 +34,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.catalog.jdbc.IcebergJdbcCatalogConfig.SchemaVersion.V1;
@@ -98,7 +99,8 @@ final class TestTrinoJdbcCatalog
                 FILE_IO_FACTORY,
                 useUniqueTableLocations,
                 warehouseLocation.toAbsolutePath().toString(),
-                V1);
+                V1,
+                directExecutor());
     }
 
     private static JdbcCatalog createJdbcCatalog(String jdbcUrl, Path warehouseLocation)
