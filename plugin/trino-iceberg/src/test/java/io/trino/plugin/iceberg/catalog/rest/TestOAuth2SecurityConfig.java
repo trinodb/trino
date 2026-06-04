@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
+import org.apache.iceberg.rest.auth.AuthProperties;
 import org.apache.iceberg.rest.auth.OAuth2Properties;
 import org.junit.jupiter.api.Test;
 
@@ -58,8 +59,23 @@ public class TestOAuth2SecurityConfig
                 .setServerUri(URI.create("http://localhost:8080/realms/iceberg/protocol/openid-connect/token"))
                 .setTokenRefreshEnabled(false)
                 .setTokenExchangeEnabled(false);
-        assertThat(expected.credentialOrTokenPresent()).isTrue();
         assertThat(expected.scopePresentOnlyWithCredential()).isFalse();
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testUserSessionAllowsSessionOAuth2Credentials()
+    {
+        OAuth2SecurityProperties securityProperties = new OAuth2SecurityProperties(
+                new OAuth2SecurityConfig()
+                        .setServerUri(URI.create("https://auth.example.com/oauth2/token"))
+                        .setTokenExchangeEnabled(true));
+
+        assertThat(securityProperties.get())
+                .containsEntry(AuthProperties.AUTH_TYPE, AuthProperties.AUTH_TYPE_OAUTH2)
+                .containsEntry(OAuth2Properties.OAUTH2_SERVER_URI, "https://auth.example.com/oauth2/token")
+                .containsEntry(OAuth2Properties.TOKEN_EXCHANGE_ENABLED, "true")
+                .doesNotContainKey(OAuth2Properties.TOKEN)
+                .doesNotContainKey(OAuth2Properties.CREDENTIAL);
     }
 }

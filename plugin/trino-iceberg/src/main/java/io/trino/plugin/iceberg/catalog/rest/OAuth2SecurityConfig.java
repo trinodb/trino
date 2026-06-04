@@ -111,15 +111,9 @@ public class OAuth2SecurityConfig
         return this;
     }
 
-    @AssertTrue(message = "OAuth2 requires a credential or token")
-    public boolean credentialOrTokenPresent()
-    {
-        return credential != null || token != null;
-    }
-
-    @AssertTrue(message = "Scope is applicable only when using credential")
+    @AssertTrue(message = "iceberg.rest-catalog.oauth2.scope must not be set with token")
     public boolean scopePresentOnlyWithCredential()
     {
-        return !(token != null && scope != null);
+        return scope == null || token == null;
     }
 }

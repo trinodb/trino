@@ -16,6 +16,7 @@ package io.trino.server.security.oauth2;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
+import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -28,6 +29,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -49,6 +51,7 @@ public class TestOAuth2Config
                 .setJwtType(null)
                 .setUserMappingPattern(null)
                 .setUserMappingFile(null)
+                .setAccessTokenExtraCredentialName(null)
                 .setEnableRefreshTokens(false)
                 .setEnableDiscovery(true));
     }
@@ -71,6 +74,7 @@ public class TestOAuth2Config
                 .put("http-server.authentication.oauth2.jwt-type", "at+jwt")
                 .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)@something")
                 .put("http-server.authentication.oauth2.user-mapping.file", userMappingFile.toString())
+                .put("http-server.authentication.oauth2.access-token-extra-credential-name", "token")
                 .put("http-server.authentication.oauth2.refresh-tokens", "true")
                 .put("http-server.authentication.oauth2.oidc.discovery", "false")
                 .buildOrThrow();
@@ -88,9 +92,26 @@ public class TestOAuth2Config
                 .setJwtType("at+jwt")
                 .setUserMappingPattern("(.*)@something")
                 .setUserMappingFile(userMappingFile.toFile())
+                .setAccessTokenExtraCredentialName("token")
                 .setEnableRefreshTokens(true)
                 .setEnableDiscovery(false);
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testInvalidAccessTokenExtraCredentialName()
+    {
+        assertFailsValidation(
+                new OAuth2Config().setAccessTokenExtraCredentialName("internal$token"),
+                "accessTokenExtraCredentialNameNotInternal",
+                "OAuth2 access token extra credential name must not start with internal$",
+                AssertTrue.class);
+
+        assertFailsValidation(
+                new OAuth2Config().setAccessTokenExtraCredentialName("bad token"),
+                "accessTokenExtraCredentialNameValid",
+                "OAuth2 access token extra credential name must not contain whitespace, comma, or equals",
+                AssertTrue.class);
     }
 }

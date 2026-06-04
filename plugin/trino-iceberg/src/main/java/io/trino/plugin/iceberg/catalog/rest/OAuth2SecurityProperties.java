@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import org.apache.iceberg.rest.auth.AuthProperties;
 import org.apache.iceberg.rest.auth.OAuth2Properties;
 
@@ -25,12 +26,19 @@ import static java.util.Objects.requireNonNull;
 public class OAuth2SecurityProperties
         implements SecurityProperties
 {
+    private static final Logger log = Logger.get(OAuth2SecurityProperties.class);
+
     private final Map<String, String> securityProperties;
 
     @Inject
     public OAuth2SecurityProperties(OAuth2SecurityConfig securityConfig)
     {
         requireNonNull(securityConfig, "securityConfig is null");
+
+        if (securityConfig.getCredential().isPresent() && securityConfig.getToken().isPresent()) {
+            log.warn("Both iceberg.rest-catalog.oauth2.credential and iceberg.rest-catalog.oauth2.token are configured; " +
+                    "token takes precedence and credential is ignored");
+        }
 
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
         propertiesBuilder.put(AuthProperties.AUTH_TYPE, AuthProperties.AUTH_TYPE_OAUTH2);

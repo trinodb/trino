@@ -275,6 +275,18 @@ public class TestIcebergPlugin
                 .shutdown())
                 .isInstanceOf(ApplicationConfigurationException.class)
                 .hasMessageContaining("Using the `register_table` procedure with vended credentials is currently not supported");
+
+        assertThatThrownBy(() -> factory.create(
+                        "test",
+                        Map.of(
+                                "iceberg.catalog.type", "rest",
+                                "iceberg.rest-catalog.uri", "https://foo:1234",
+                                "iceberg.rest-catalog.security", "OAUTH2",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
+                .shutdown())
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("OAuth2 REST catalog requires iceberg.rest-catalog.oauth2.credential or iceberg.rest-catalog.oauth2.token when iceberg.rest-catalog.session is not USER");
     }
 
     @Test
