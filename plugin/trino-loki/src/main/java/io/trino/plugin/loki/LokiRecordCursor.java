@@ -19,7 +19,6 @@ import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeUtils;
 
 import java.util.Comparator;
 import java.util.List;
@@ -31,6 +30,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -153,8 +153,8 @@ public class LokiRecordCursor
 
         return buildMapValue(mapType, labels.size(), (keyBuilder, valueBuilder) -> {
             labels.forEach((key, value) -> {
-                TypeUtils.writeNativeValue(keyType, keyBuilder, key);
-                TypeUtils.writeNativeValue(valueType, valueBuilder, value);
+                writeNativeValue(keyType, keyBuilder, key);
+                writeNativeValue(valueType, valueBuilder, value);
             });
         });
     }
