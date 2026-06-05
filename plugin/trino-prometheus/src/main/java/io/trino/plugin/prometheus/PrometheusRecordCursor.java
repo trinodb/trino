@@ -54,6 +54,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -256,7 +257,7 @@ public class PrometheusRecordCursor
                     || BIGINT.equals(type)
                     || DOUBLE.equals(type)
                     || type instanceof VarcharType) {
-                TypeUtils.writeNativeValue(type, builder, obj);
+                writeNativeValue(type, builder, obj);
             }
         }
     }
