@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
 import io.trino.operator.annotations.CastImplementationDependency;
 import io.trino.operator.annotations.FunctionImplementationDependency;
 import io.trino.operator.annotations.ImplementationDependency;
@@ -30,16 +29,20 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 
 class TypeSignatureMapping
 {
-    private final Map<String, String> mapping;
+    private final Map<String, TypeSignature> mapping;
 
     public TypeSignatureMapping(Map<String, String> mapping)
     {
-        this.mapping = ImmutableSortedMap.<String, String>orderedBy(String.CASE_INSENSITIVE_ORDER)
-                .putAll(mapping)
-                .build();
+        this.mapping = mapping.entrySet().stream()
+                .collect(toImmutableSortedMap(
+                        String.CASE_INSENSITIVE_ORDER,
+                        Map.Entry::getKey,
+                        entry -> parseTypeSignature(entry.getValue(), ImmutableSet.of())));
     }
 
     public Set<String> getTypeParameters()
@@ -93,7 +96,7 @@ class TypeSignatureMapping
         }
         if (mapping.containsKey(typeSignature.getBase())) {
             checkArgument(typeSignature.getParameters().isEmpty(), "Type variable can not have type parameters: %s", typeSignature);
-            return new TypeSignature(mapping.get(typeSignature.getBase()));
+            return mapping.get(typeSignature.getBase());
         }
         return new TypeSignature(
                 typeSignature.getBase(),

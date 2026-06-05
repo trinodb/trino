@@ -21,6 +21,7 @@ import io.trino.operator.SimplePagesHashStrategy;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler.PagesHashStrategyFactory;
@@ -42,6 +43,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJoinCompiler
@@ -267,6 +269,49 @@ public class TestJoinCompiler
                     doubleChannel.get(leftBlockIndex),
                     booleanChannel.get(leftBlockIndex),
                     extraChannel.get(leftBlockIndex)));
+        }
+    }
+
+    @Test
+    void testStructuralChannel()
+    {
+        // ARRAY equality has a nullable return; compiling the hash strategy must adapt it to DEFAULT_ON_NULL.
+        Type arrayType = new ArrayType(BIGINT);
+        List<Integer> joinChannels = Ints.asList(0);
+
+        PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(ImmutableList.of(arrayType), joinChannels);
+
+        ObjectArrayList<Block> channel = new ObjectArrayList<>();
+        channel.add(BlockAssertions.createArrayBigintBlock(asList(
+                asList(1L, 2L),
+                asList(1L, null),
+                null,
+                asList(1L, 2L),
+                asList(3L))));
+
+        PagesHashStrategy hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(ImmutableList.of(channel));
+
+        assertThat(hashStrategy.getChannelCount()).isEqualTo(1);
+
+        BlockTypeOperators blockTypeOperators = new BlockTypeOperators();
+        BlockPositionEqual equalOperator = blockTypeOperators.getEqualOperator(arrayType);
+        BlockPositionIsIdentical identicalOperator = blockTypeOperators.getIdenticalOperator(arrayType);
+
+        Block block = channel.get(0);
+        for (int leftPosition = 0; leftPosition < block.getPositionCount(); leftPosition++) {
+            for (int rightPosition = 0; rightPosition < block.getPositionCount(); rightPosition++) {
+                boolean expectedIdentical = identicalOperator.isIdentical(block, leftPosition, block, rightPosition);
+                assertThat(hashStrategy.positionIdenticalToPosition(0, leftPosition, 0, rightPosition)).isEqualTo(expectedIdentical);
+                assertThat(hashStrategy.positionIdenticalToRow(0, leftPosition, rightPosition, new Page(block))).isEqualTo(expectedIdentical);
+                assertThat(hashStrategy.rowIdenticalToRow(leftPosition, new Page(block), rightPosition, new Page(block))).isEqualTo(expectedIdentical);
+
+                // positionEquals*IgnoreNulls callers guarantee non-null inputs; a non-null array with a null element compares as no match.
+                if (!block.isNull(leftPosition) && !block.isNull(rightPosition)) {
+                    boolean expected = equalOperator.equal(block, leftPosition, block, rightPosition);
+                    assertThat(hashStrategy.positionEqualsPositionIgnoreNulls(0, leftPosition, 0, rightPosition)).isEqualTo(expected);
+                    assertThat(hashStrategy.positionEqualsRowIgnoreNulls(0, leftPosition, rightPosition, new Page(block))).isEqualTo(expected);
+                }
+            }
         }
     }
 

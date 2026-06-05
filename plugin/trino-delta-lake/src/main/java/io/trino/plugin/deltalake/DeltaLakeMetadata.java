@@ -3385,6 +3385,10 @@ public class DeltaLakeMetadata
     {
         Location location = Location.of(credentialsHandle.tableLocation());
         List<Location> filesToDelete = dataFiles.stream()
+                // DataFileInfo entries with a deletionVector reference existing source files
+                // (via sourceReferencePath), not newly-written files. Skip them to avoid
+                // deleting active data files that are still referenced in the delta log.
+                .filter(info -> info.deletionVector().isEmpty())
                 .map(DataFileInfo::path)
                 .map(location::appendPath)
                 .collect(toImmutableList());

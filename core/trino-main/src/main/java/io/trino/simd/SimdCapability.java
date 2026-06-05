@@ -11,24 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.geospatial;
+package io.trino.simd;
 
-import io.trino.spi.type.TypeSignature;
-
-public class GeometryType
-        extends AbstractGeometryType
+/**
+ * A single block-encoding operation that can be vectorized when the underlying
+ * hardware advertises native support for it.
+ */
+public enum SimdCapability
 {
-    public static final String NAME = "Geometry";
-    public static final GeometryType GEOMETRY = new GeometryType();
-
-    public GeometryType()
-    {
-        super(new TypeSignature(NAME));
-    }
-
-    @Override
-    public String getDisplayName()
-    {
-        return NAME;
-    }
+    NULL_BIT_PACKING,
+    COMPRESS_BYTE,
+    EXPAND_BYTE,
+    COMPRESS_SHORT,
+    EXPAND_SHORT,
+    COMPRESS_INT,
+    EXPAND_INT,
+    COMPRESS_LONG,
+    EXPAND_LONG,
 }

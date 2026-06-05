@@ -235,6 +235,64 @@ public final class IcebergQueryRunner
         }
     }
 
+    public static final class IcebergMinioRestQueryRunnerMain
+    {
+        private IcebergMinioRestQueryRunnerMain() {}
+
+        static void main()
+                throws Exception
+        {
+            String bucketName = "test-bucket";
+            Network network = Network.newNetwork();
+            @SuppressWarnings("resource")
+            Minio minio = Minio.builder().withNetwork(network).build();
+            minio.start();
+            minio.createBucket(bucketName);
+
+            String warehouseLocation = "s3://%s/default/".formatted(bucketName);
+
+            AwsCredentials credentials = AwsBasicCredentials.create(MINIO_ROOT_USER, MINIO_ROOT_PASSWORD);
+            @SuppressWarnings("resource")
+            StsClient stsClient = StsClient.builder()
+                    .endpointOverride(URI.create(minio.getMinioAddress()))
+                    .credentialsProvider(StaticCredentialsProvider.create(credentials))
+                    .region(Region.of(MINIO_REGION))
+                    .build();
+
+            AssumeRoleResponse assumeRoleResponse = stsClient.assumeRole(AssumeRoleRequest.builder().build());
+            @SuppressWarnings("resource")
+            IcebergS3RestCatalogBackendContainer restCatalogBackendContainer = new IcebergS3RestCatalogBackendContainer(
+                    Optional.of(network),
+                    warehouseLocation,
+                    assumeRoleResponse.credentials().accessKeyId(),
+                    assumeRoleResponse.credentials().secretAccessKey(),
+                    assumeRoleResponse.credentials().sessionToken());
+            restCatalogBackendContainer.start();
+
+            @SuppressWarnings("resource")
+            QueryRunner queryRunner = IcebergQueryRunner.builder()
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .setIcebergProperties(
+                            ImmutableMap.<String, String>builder()
+                                    .put("iceberg.catalog.type", "rest")
+                                    .put("iceberg.rest-catalog.uri", "http://" + restCatalogBackendContainer.getRestCatalogEndpoint())
+                                    .put("iceberg.writer-sort-buffer-size", "1MB")
+                                    .put("fs.s3.enabled", "true")
+                                    .put("s3.aws-access-key", MINIO_ROOT_USER)
+                                    .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
+                                    .put("s3.region", MINIO_REGION)
+                                    .put("s3.endpoint", minio.getMinioAddress())
+                                    .put("s3.path-style-access", "true")
+                                    .buildOrThrow())
+                    .setInitialTables(TpchTable.getTables())
+                    .build();
+
+            Logger log = Logger.get(IcebergMinioRestQueryRunnerMain.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
     public static final class IcebergMinioRestVendingQueryRunnerMain
     {
         private IcebergMinioRestVendingQueryRunnerMain() {}

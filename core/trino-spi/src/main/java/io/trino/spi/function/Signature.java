@@ -13,9 +13,6 @@
  */
 package io.trino.spi.function;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.errorprone.annotations.DoNotCall;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
@@ -32,7 +29,7 @@ import static java.util.stream.Stream.concat;
 
 public class Signature
 {
-    public record Argument(@JsonProperty("type") TypeSignature type, @JsonProperty("name") Optional<String> name)
+    public record Argument(TypeSignature type, Optional<String> name)
     {
         public static Argument of(TypeSignature type)
         {
@@ -65,13 +62,11 @@ public class Signature
         this.variableArity = variableArity;
     }
 
-    @JsonProperty
     public TypeSignature getReturnType()
     {
         return returnType;
     }
 
-    @JsonProperty
     public List<Argument> getArguments()
     {
         return arguments;
@@ -84,7 +79,6 @@ public class Signature
                 .collect(toUnmodifiableList());
     }
 
-    @JsonProperty
     public boolean isVariableArity()
     {
         return variableArity;
@@ -98,13 +92,11 @@ public class Signature
         return !typeVariableConstraints.isEmpty();
     }
 
-    @JsonProperty
     public List<TypeVariableConstraint> getTypeVariableConstraints()
     {
         return typeVariableConstraints;
     }
 
-    @JsonProperty
     public List<LongVariableConstraint> getLongVariableConstraints()
     {
         return longVariableConstraints;
@@ -307,18 +299,5 @@ public class Signature
         {
             return new Signature(typeVariableConstraints, longVariableConstraints, returnType, arguments, variableArity);
         }
-    }
-
-    @JsonCreator
-    @DoNotCall // For JSON deserialization only
-    @Deprecated // Discourage usages in SPI consumers
-    public static Signature fromJson(
-            @JsonProperty("typeVariableConstraints") List<TypeVariableConstraint> typeVariableConstraints,
-            @JsonProperty("longVariableConstraints") List<LongVariableConstraint> longVariableConstraints,
-            @JsonProperty("returnType") TypeSignature returnType,
-            @JsonProperty("arguments") List<Argument> arguments,
-            @JsonProperty("variableArity") boolean variableArity)
-    {
-        return new Signature(typeVariableConstraints, longVariableConstraints, returnType, arguments, variableArity);
     }
 }

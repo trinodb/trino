@@ -61,6 +61,7 @@ import io.trino.sql.ir.optimizer.rule.RemoveRedundantCoalesceArguments;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantInItems;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantLogicalTerms;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantSwitchClauses;
+import io.trino.sql.ir.optimizer.rule.SimplifyCharLength;
 import io.trino.sql.ir.optimizer.rule.SimplifyComplementaryLogicalTerms;
 import io.trino.sql.ir.optimizer.rule.SimplifyContinuousInValues;
 import io.trino.sql.ir.optimizer.rule.SimplifyRedundantCase;
@@ -113,6 +114,7 @@ public class IrExpressionOptimizer
                 new RemoveRedundantInItems(context),
                 new SimplifyContinuousInValues(),
                 new SimplifyRedundantCast(),
+                new SimplifyCharLength(context),
                 new SimplifyStackedNot(),
                 new SimplifyStackedArithmeticNegation(),
                 new FlattenCoalesce(),
@@ -128,8 +130,9 @@ public class IrExpressionOptimizer
     }
 
     /**
-     * Get an optimizer that does partial evaluation only (constant folding). This can be used
-     * for simplifying expressions given known variable bindings.
+     * Get an optimizer that performs partial evaluation only: it reduces an expression from known
+     * constant inputs (literal operands or {@link #process} bindings). It excludes the identity- and
+     * type-driven rewrites of {@link #newOptimizer}, whose result is independent of the bindings.
      */
     public static IrExpressionOptimizer newPartialEvaluator(PlannerContext context)
     {

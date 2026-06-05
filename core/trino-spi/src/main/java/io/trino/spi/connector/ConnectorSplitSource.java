@@ -30,6 +30,24 @@ import static java.util.Objects.requireNonNull;
 public interface ConnectorSplitSource
         extends Closeable
 {
+    /**
+     * Returns the next batch of splits.
+     * <p>
+     * Callers must not invoke this method again until the returned future is done.
+     * In other words, each split source supports at most one outstanding batch request.
+     * Implementations are not required to support concurrent invocations of this method.
+     * <p>
+     * The returned future may complete with an empty batch when no splits are currently
+     * available. This does not necessarily mean the split source is finished unless the
+     * returned batch has {@code noMoreSplits} set.
+     * <p>
+     * The {@link #close()} method may be called concurrently while a batch request is
+     * outstanding.
+     * If this method observes that the split source has already been closed, it should
+     * preferably fail the request, such as by returning an exceptionally completed
+     * future. Since close may race with a batch request, it is also acceptable to return
+     * a normal batch result.
+     */
     default CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
     {
         throw new UnsupportedOperationException();
