@@ -18,28 +18,18 @@ import alluxio.metrics.MetricsSystem;
 import com.google.inject.Binder;
 import com.google.inject.Provider;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.filesystem.cache.CacheSplitAffinityProvider;
-import io.trino.filesystem.cache.SplitAffinityProvider;
 import io.trino.filesystem.cache.TrinoFileSystemCache;
 import io.trino.spi.catalog.CatalogName;
 
 import java.util.Properties;
 
 import static com.google.inject.Scopes.SINGLETON;
-import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class AlluxioFileSystemCacheModule
         extends AbstractConfigurationAwareModule
 {
-    private final boolean isCoordinator;
-
-    public AlluxioFileSystemCacheModule(boolean isCoordinator)
-    {
-        this.isCoordinator = isCoordinator;
-    }
-
     @Override
     protected void setup(Binder binder)
     {
@@ -49,9 +39,6 @@ public class AlluxioFileSystemCacheModule
         newExporter(binder).export(AlluxioCacheStats.class)
                 .as(generator -> generator.generatedNameOf(AlluxioCacheStats.class, catalogName.get().toString()));
 
-        if (isCoordinator) {
-            newOptionalBinder(binder, SplitAffinityProvider.class).setBinding().to(CacheSplitAffinityProvider.class).in(SINGLETON);
-        }
         binder.bind(TrinoFileSystemCache.class).to(AlluxioFileSystemCache.class).in(SINGLETON);
 
         Properties metricProps = new Properties();
