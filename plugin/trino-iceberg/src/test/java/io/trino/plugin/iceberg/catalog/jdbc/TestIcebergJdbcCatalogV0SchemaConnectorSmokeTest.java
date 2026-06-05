@@ -57,4 +57,12 @@ final class TestIcebergJdbcCatalogV0SchemaConnectorSmokeTest
         assertThatThrownBy(super::testUnsupportedViewDialect)
                 .hasMessageContaining("Error processing metadata");
     }
+
+    @Test
+    @Override
+    void testReplaceViewReuseExistingLocation()
+    {
+        assertThatThrownBy(super::testReplaceViewReuseExistingLocation)
+                .hasMessageContaining("Schema version V0 does not support views");
+    }
 }

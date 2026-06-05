@@ -475,13 +475,18 @@ public class TrinoJdbcCatalog
         definition.getOwner().ifPresent(owner -> properties.put(ICEBERG_VIEW_RUN_AS_OWNER, owner));
         definition.getComment().ifPresent(comment -> properties.put(COMMENT, comment));
         Schema schema = IcebergUtil.schemaFromViewColumns(typeManager, definition.getColumns());
-        ViewBuilder viewBuilder = jdbcCatalog.buildView(toIdentifier(schemaViewName));
+        TableIdentifier viewIdentifier = toIdentifier(schemaViewName);
+        ViewBuilder viewBuilder = jdbcCatalog.buildView(viewIdentifier);
+        String viewLocation = defaultTableLocation(session, schemaViewName);
+        if (replace && jdbcCatalog.viewExists(viewIdentifier)) {
+            viewLocation = jdbcCatalog.loadView(viewIdentifier).location();
+        }
         viewBuilder = viewBuilder.withSchema(schema)
                 .withQuery("trino", definition.getOriginalSql())
                 .withDefaultNamespace(Namespace.of(schemaViewName.getSchemaName()))
                 .withDefaultCatalog(definition.getCatalog().orElse(null))
                 .withProperties(properties.buildOrThrow())
-                .withLocation(defaultTableLocation(session, schemaViewName));
+                .withLocation(viewLocation);
 
         if (replace) {
             viewBuilder.createOrReplace();
