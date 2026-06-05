@@ -182,9 +182,6 @@ public final class RunLengthEncodedBlock
     @Override
     public boolean isNull(int position)
     {
-        if (!mayHaveNull()) {
-            return false;
-        }
         checkValidPosition(position, positionCount);
         return value.isNull(0);
     }
