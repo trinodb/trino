@@ -2071,6 +2071,27 @@ CREATE TABLE example_table (
 When trying to insert/update data in the table, the query fails if trying to set
 `NULL` value on a column having the `NOT NULL` constraint.
 
+(iceberg-views)=
+### Views
+
+The Iceberg connector supports {ref}`sql-view-management`.
+
+View properties supply or set metadata for the underlying views. View properties
+are passed to the connector using a `WITH` clause in {doc}`/sql/create-view`
+statements.
+
+:::{list-table} Iceberg view properties
+:width: 100%
+:widths: 40, 60
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `location`
+  - Optionally specifies the file system location URI for the view metadata
+    files.
+:::
+
 (iceberg-materialized-views)=
 ### Materialized views
 
