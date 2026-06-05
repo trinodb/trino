@@ -32,10 +32,7 @@ public final class RunLengthEncodedBlock
 
     public static Block create(Type type, Object value, int positionCount)
     {
-        Block block = writeNativeValue(type, value);
-        if (block instanceof RunLengthEncodedBlock) {
-            block = ((RunLengthEncodedBlock) block).getValue();
-        }
+        ValueBlock block = writeNativeValue(type, value);
         return create(block, positionCount);
     }
 
