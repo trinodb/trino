@@ -76,11 +76,11 @@ license by running `mvn license:format`.
 
 ### Prefer String formatting
 
-Consider using String formatting (printf style formatting using the Java
-`Formatter` class): `format("Session property %s is invalid: %s", name, value)`
-(note that `format()` should always be statically imported).  Sometimes, if you
-only need to append something, consider using the `+` operator.  Please avoid
-`format()` or concatenation in performance critical sections of code.
+Consider using String formatting with the `String.formatted` method:
+`"Session property %s is invalid: %s".formatted(name, value)`.
+Sometimes, if you only need to append something, consider using the `+` operator.
+Please avoid `formatted()` or concatenation in performance critical sections of
+code.
 
 ### Avoid ternary operator
 
