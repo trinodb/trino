@@ -21,7 +21,7 @@ import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.StandardTypes;
 
 import static io.trino.spi.function.OperatorType.CAST;
-import static io.trino.type.DateTimes.MICROSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_DAY;
 import static java.lang.Math.floorDiv;
 
 @ScalarOperator(CAST)
