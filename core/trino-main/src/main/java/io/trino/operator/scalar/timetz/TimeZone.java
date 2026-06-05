@@ -24,7 +24,7 @@ import io.trino.spi.type.StandardTypes;
 import static com.google.common.base.Strings.padStart;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.DateTimeEncoding.unpackOffsetMinutes;
-import static io.trino.type.DateTimes.MINUTES_PER_HOUR;
+import static io.trino.spi.type.Timestamps.MINUTES_PER_HOUR;
 
 @Description("Time zone of the given time")
 @ScalarFunction("timezone")

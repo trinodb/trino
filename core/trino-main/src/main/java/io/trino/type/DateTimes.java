@@ -41,6 +41,19 @@ import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MINUTE;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.round;
+import static io.trino.spi.type.Timestamps.roundDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
@@ -75,55 +88,14 @@ public final class DateTimes
             1000_000_000_000L,
     };
 
-    public static final int MILLISECONDS_PER_SECOND = 1000;
-    public static final long MILLISECONDS_PER_MINUTE = 60 * MILLISECONDS_PER_SECOND;
-    public static final long MILLISECONDS_PER_DAY = 24 * 60 * 60 * MILLISECONDS_PER_SECOND;
-    public static final int MICROSECONDS_PER_SECOND = 1_000_000;
-    public static final int MICROSECONDS_PER_MILLISECOND = 1000;
-    public static final long MICROSECONDS_PER_DAY = MILLISECONDS_PER_DAY * MICROSECONDS_PER_MILLISECOND;
-    public static final long PICOSECONDS_PER_SECOND = 1_000_000_000_000L;
-    public static final long NANOSECONDS_PER_SECOND = 1_000_000_000;
-    public static final long NANOSECONDS_PER_MINUTE = NANOSECONDS_PER_SECOND * 60;
     public static final long NANOSECONDS_PER_HOUR = NANOSECONDS_PER_MINUTE * 60;
-    public static final long NANOSECONDS_PER_DAY = NANOSECONDS_PER_HOUR * 24;
-    public static final int NANOSECONDS_PER_MILLISECOND = 1_000_000;
-    public static final int NANOSECONDS_PER_MICROSECOND = 1_000;
-    public static final int PICOSECONDS_PER_MILLISECOND = 1_000_000_000;
-    public static final int PICOSECONDS_PER_MICROSECOND = 1_000_000;
-    public static final int PICOSECONDS_PER_NANOSECOND = 1000;
-    public static final long SECONDS_PER_MINUTE = 60;
-    public static final long MINUTES_PER_HOUR = 60;
     public static final long HOURS_PER_DAY = 24;
-    public static final long PICOSECONDS_PER_MINUTE = PICOSECONDS_PER_SECOND * SECONDS_PER_MINUTE;
-    public static final long PICOSECONDS_PER_HOUR = PICOSECONDS_PER_MINUTE * MINUTES_PER_HOUR;
-    public static final long PICOSECONDS_PER_DAY = PICOSECONDS_PER_HOUR * HOURS_PER_DAY;
-    public static final long SECONDS_PER_DAY = SECONDS_PER_MINUTE * MINUTES_PER_HOUR * HOURS_PER_DAY;
 
     private DateTimes() {}
-
-    private static long roundDiv(long value, long factor)
-    {
-        checkArgument(factor > 0, "factor must be positive");
-
-        if (factor == 1) {
-            return value;
-        }
-
-        if (value >= 0) {
-            return (value + (factor / 2)) / factor;
-        }
-
-        return (value + 1 - (factor / 2)) / factor;
-    }
 
     public static long scaleEpochMicrosToMillis(long value)
     {
         return Math.floorDiv(value, MICROSECONDS_PER_MILLISECOND);
-    }
-
-    public static long epochMicrosToMillisWithRounding(long epochMicros)
-    {
-        return roundDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
     }
 
     public static long scaleEpochMillisToSeconds(long epochMillis)
@@ -159,11 +131,6 @@ public final class DateTimes
     public static long toEpochMicros(long epochMillis, int picosOfMilli)
     {
         return scaleEpochMillisToMicros(epochMillis) + picosOfMilli / 1_000_000;
-    }
-
-    public static long round(long value, int magnitude)
-    {
-        return roundToNearest(value, POWERS_OF_TEN[magnitude]);
     }
 
     public static long roundToNearest(long value, long bound)

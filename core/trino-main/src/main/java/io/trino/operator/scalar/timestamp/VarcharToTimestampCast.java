@@ -33,10 +33,10 @@ import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.TimestampType.MAX_PRECISION;
 import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
-import static io.trino.type.DateTimes.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.longTimestamp;
 import static io.trino.type.DateTimes.rescale;
-import static io.trino.type.DateTimes.round;
 import static java.time.ZoneOffset.UTC;
 
 @ScalarOperator(CAST)
