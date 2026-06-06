@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.iceberg;
 
-class TestIcebergV2MinioOrcConnectorTest
-        extends BaseIcebergMinioOrcConnectorTest
+class TestIcebergV2FlociOrcConnectorTest
+        extends BaseIcebergFlociOrcConnectorTest
 {
-    TestIcebergV2MinioOrcConnectorTest()
+    TestIcebergV2FlociOrcConnectorTest()
     {
         super(2);
     }
