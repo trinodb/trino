@@ -27,25 +27,12 @@ public interface ConnectorSplitManager
      * read). The per-batch resolved predicate arrives separately via
      * {@link ConnectorSplitSource#getNextBatch(int, DynamicFilterSnapshot)}.
      */
-    default ConnectorSplitSource getSplits(
+    ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle table,
             Set<ColumnHandle> dynamicFilterColumns,
-            Constraint constraint)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    default ConnectorSplitSource getSplits(
-            ConnectorTransactionHandle transaction,
-            ConnectorSession session,
-            ConnectorTableHandle table,
-            DynamicFilter dynamicFilter,
-            Constraint constraint)
-    {
-        throw new UnsupportedOperationException();
-    }
+            Constraint constraint);
 
     default ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,
