@@ -44,6 +44,7 @@ RUN \
       curl-minimal grep `# required by health-check` \
       zlib `#required by java` \
       shadow-utils `# required by useradd` \
+      nss_wrapper `# required by run-trino to fake passwd entry on OpenShift` \
       tar `# required to support kubectl cp` && \
       rm -rf /tmp/overlay/var/cache/*
 
@@ -63,13 +64,15 @@ RUN \
     groupadd trino --gid 1000 && \
     useradd trino --uid 1000 --gid 1000 --create-home && \
     mkdir -p /usr/lib/trino /data/trino && \
-    chown -R "trino:trino" /usr/lib/trino /data/trino
+    chown -R "trino:0" /usr/lib/trino /data/trino
 
-COPY --chown=trino:trino trino-cli.jar /usr/bin/trino
-COPY --chown=trino:trino --exclude=bin/darwin-* --exclude=bin/linux-* trino-server /usr/lib/trino
-COPY --chown=trino:trino trino-server/bin/linux-${ARCH} /usr/lib/trino/bin/linux-${ARCH}
-COPY --chown=trino:trino default/etc /etc/trino
-COPY --chown=trino:trino --from=jvmkill /libjvmkill.so /usr/lib/trino/bin
+COPY --chown=trino:0 trino-cli.jar /usr/bin/trino
+COPY --chown=trino:0 --exclude=bin/darwin-* --exclude=bin/linux-* trino-server /usr/lib/trino
+COPY --chown=trino:0 trino-server/bin/linux-${ARCH} /usr/lib/trino/bin/linux-${ARCH}
+COPY --chown=trino:0 default/etc /etc/trino
+COPY --chown=trino:0 --from=jvmkill /libjvmkill.so /usr/lib/trino/bin
+
+RUN chmod -R g=u /usr/lib/trino /data/trino /usr/bin/trino /etc/trino
 
 EXPOSE 8080
 USER trino:trino

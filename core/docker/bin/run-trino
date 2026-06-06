@@ -2,6 +2,33 @@
 
 set -xeuo pipefail
 
+myuid="$(id -u)"
+mygid="$(id -g)"
+username="${TRINO_USER_NAME:-trino}"
+
+# Force NSS to report $username as the name for our UID, regardless of
+# whether CRI-O has auto-injected a numeric-named entry in /etc/passwd
+# (as happens on OpenShift with random UIDs).
+if [ "$(id -un 2>/dev/null || true)" != "$username" ]; then
+    for wrapper in {/usr,}/lib{64,,/*}/libnss_wrapper.so; do
+        if [ -s "$wrapper" ]; then
+            NSS_WRAPPER_PASSWD="$(mktemp)"
+            NSS_WRAPPER_GROUP="$(mktemp)"
+            # Seed from the container's passwd/group (may include CRI-O's
+            # numeric-named entry), drop any line matching our UID/GID, then
+            # add the $username entry so NSS lookups resolve to it.
+            grep -v "^[^:]*:x:${myuid}:" /etc/passwd > "$NSS_WRAPPER_PASSWD" || true
+            printf '%s:x:%s:%s:Trino:/home/trino:/bin/false\n' \
+                "$username" "$myuid" "$mygid" >> "$NSS_WRAPPER_PASSWD"
+            grep -v "^[^:]*:x:${mygid}:" /etc/group > "$NSS_WRAPPER_GROUP" || true
+            printf '%s:x:%s:\n' "$username" "$mygid" >> "$NSS_WRAPPER_GROUP"
+            export NSS_WRAPPER_PASSWD NSS_WRAPPER_GROUP
+            export LD_PRELOAD="${wrapper}${LD_PRELOAD:+:$LD_PRELOAD}"
+            break
+        fi
+    done
+fi
+
 launcher_opts=(--etc-dir /etc/trino)
 if ! grep -s -q 'node.id' /etc/trino/node.properties; then
     launcher_opts+=("-Dnode.id=${HOSTNAME}")
