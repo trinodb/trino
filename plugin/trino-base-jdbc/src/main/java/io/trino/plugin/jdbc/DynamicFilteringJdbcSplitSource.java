@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
@@ -24,6 +25,7 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilterSnapshot;
+import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
@@ -128,10 +130,16 @@ public class DynamicFilteringJdbcSplitSource
             return delegateSplitSource.get();
         }
 
+        JdbcTableHandle intersected = table.intersectedWithConstraint(dynamicFilterSnapshot.currentPredicate());
+        if (intersected.getConstraint().isNone()) {
+            delegateSplitSource = Optional.of(new FixedSplitSource(ImmutableList.of()));
+            return delegateSplitSource.get();
+        }
+
         delegateSplitSource = Optional.of(delegateSplitManager.getSplits(
                 transaction,
                 session,
-                table.intersectedWithConstraint(dynamicFilterSnapshot.currentPredicate()),
+                intersected,
                 dynamicFilterColumns,
                 constraint));
         return delegateSplitSource.get();

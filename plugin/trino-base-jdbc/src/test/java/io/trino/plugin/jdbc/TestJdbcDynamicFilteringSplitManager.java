@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -33,6 +34,7 @@ import io.trino.testing.TestingSplitManager;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -107,6 +109,35 @@ public class TestJdbcDynamicFilteringSplitManager
 
         assertThat(((JdbcTableHandle) capturedTableHandle.get()).getConstraint())
                 .isEqualTo(predicate);
+        splitSource.close();
+    }
+
+    @Test
+    public void testGetNextBatchShortCircuitsOnNonePredicate()
+            throws Exception
+    {
+        AtomicReference<ConnectorTableHandle> capturedTableHandle = new AtomicReference<>();
+        JdbcDynamicFilteringSplitManager manager = new JdbcDynamicFilteringSplitManager(
+                new ConnectorSplitManager()
+                {
+                    @Override
+                    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table, Set<ColumnHandle> dynamicFilterColumns, Constraint constraint)
+                    {
+                        capturedTableHandle.set(table);
+                        return new FixedSplitSource(ImmutableList.of(new JdbcSplit(Optional.empty())));
+                    }
+                });
+        Set<ColumnHandle> dynamicFilterColumns = ImmutableSet.of(new TestColumnHandle());
+        ConnectorSplitSource splitSource = manager.getSplits(
+                TRANSACTION_HANDLE,
+                SESSION,
+                TABLE_HANDLE,
+                dynamicFilterColumns,
+                alwaysTrue());
+
+        List<ConnectorSplit> batch = splitSource.getNextBatch(100, new DynamicFilterSnapshot(TupleDomain.none(), true)).get();
+        assertThat(batch).isEmpty();
+        assertThat(capturedTableHandle.get()).isNull();
         splitSource.close();
     }
 }
