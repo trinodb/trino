@@ -2769,4 +2769,74 @@ abstract class BaseTestHiveOnDataLake
                 testTable,
                 "Overwriting existing partition in transactional tables doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
     }
+
+    @Test
+    public void testShowCreateTableForManagedTable()
+    {
+        String tableName = "test_hive_managed_" + randomNameSuffix();
+        String qualifiedTableName = getFullyQualifiedTestTableName(tableName);
+
+        assertUpdate("CREATE TABLE " + qualifiedTableName + " (id bigint, name varchar)");
+        try {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + qualifiedTableName))
+                    .doesNotContain("external_location")
+                    .contains("format = 'ORC'");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + qualifiedTableName);
+        }
+    }
+
+    @Test
+    public void testShowCreateTableForExternalTable()
+    {
+        String tableName = "test_explicit_external_" + randomNameSuffix();
+        String qualifiedTableName = getFullyQualifiedTestTableName(tableName);
+        String tableLocation = format("s3a://%s/%s/%s", bucketName, HIVE_TEST_SCHEMA, tableName);
+
+        assertUpdate("CREATE TABLE " + qualifiedTableName + " (id bigint, name varchar) WITH (external_location = '" + tableLocation + "')");
+        try {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + qualifiedTableName))
+                    .contains("external_location = '" + tableLocation + "'")
+                    .contains("format = 'ORC'");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + qualifiedTableName);
+        }
+    }
+
+    @Test
+    public void testShowCreateTableForManagedTableViaHiveClient()
+    {
+        String tableName = "test_hive_translated_managed_" + randomNameSuffix();
+        String qualifiedTrino = getFullyQualifiedTestTableName(tableName);
+        String qualifiedHive = getHiveTestTableName(tableName);
+
+        try {
+            hiveMinioDataLake.runOnHive("CREATE TABLE " + qualifiedHive + " (id int, name string) STORED AS ORC");
+
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + qualifiedTrino))
+                    .doesNotContain("external_location");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + qualifiedTrino);
+        }
+    }
+
+    @Test
+    public void testShowCreateTableForExternalTableViaHiveClient()
+    {
+        String tableName = "test_hive_external_show_create_" + randomNameSuffix();
+        String qualifiedTrino = getFullyQualifiedTestTableName(tableName);
+        String qualifiedHive = getHiveTestTableName(tableName);
+        String location = format("s3a://%s/%s/%s/", bucketName, HIVE_TEST_SCHEMA, tableName);
+        try {
+            hiveMinioDataLake.runOnHive("CREATE EXTERNAL TABLE " + qualifiedHive + " (id int, name string) STORED AS ORC LOCATION '" + location + "'");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + qualifiedTrino))
+                    .contains("external_location");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + qualifiedTrino);
+        }
+    }
 }
