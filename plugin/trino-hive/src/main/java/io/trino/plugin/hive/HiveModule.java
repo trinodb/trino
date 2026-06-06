@@ -27,6 +27,8 @@ import io.trino.plugin.hive.esri.EsriPageSourceFactory;
 import io.trino.plugin.hive.fs.CachingDirectoryLister;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryListerFactory;
+import io.trino.plugin.hive.functions.HiveFunctionProvider;
+import io.trino.plugin.hive.functions.unload.UnloadFunctionProvider;
 import io.trino.plugin.hive.line.CsvFileWriterFactory;
 import io.trino.plugin.hive.line.CsvPageSourceFactory;
 import io.trino.plugin.hive.line.JsonFileWriterFactory;
@@ -54,6 +56,8 @@ import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.function.FunctionProvider;
+import io.trino.spi.function.table.ConnectorTableFunction;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -138,6 +142,9 @@ public class HiveModule
 
         binder.install(new HiveExecutorModule());
         install(new ParquetEncryptionModule());
+
+        binder.bind(FunctionProvider.class).to(HiveFunctionProvider.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(UnloadFunctionProvider.class).in(Scopes.SINGLETON);
     }
 
     @Provides

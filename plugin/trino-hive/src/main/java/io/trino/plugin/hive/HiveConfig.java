@@ -153,6 +153,7 @@ public class HiveConfig
     private int hiveTransactionHeartbeatThreads = 5;
 
     private boolean allowRegisterPartition;
+    private boolean unloadEnabled;
     private boolean queryPartitionFilterRequired;
     private Set<String> queryPartitionFilterRequiredSchemas = ImmutableSet.of();
 
@@ -1099,6 +1100,19 @@ public class HiveConfig
     public HiveConfig setAllowRegisterPartition(boolean allowRegisterPartition)
     {
         this.allowRegisterPartition = allowRegisterPartition;
+        return this;
+    }
+
+    public boolean isUnloadEnabled()
+    {
+        return unloadEnabled;
+    }
+
+    @Config("hive.unload-enabled")
+    @ConfigDescription("Enable the unload table function for exporting query results to files")
+    public HiveConfig setUnloadEnabled(boolean unloadEnabled)
+    {
+        this.unloadEnabled = unloadEnabled;
         return this;
     }
 

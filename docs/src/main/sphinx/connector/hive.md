@@ -583,6 +583,8 @@ configured object storage system and metadata stores:
 
 - {ref}`Read operations <sql-read-operations>`
 
+- {ref}`Table functions <hive-table-functions>`
+
 - {ref}`sql-write-operations`:
 
   - {ref}`sql-data-management`; see also
@@ -804,6 +806,51 @@ The following procedures are available:
 
   Flush Hive metadata cache entries connected with selected partition.
   Procedure requires named parameters to be passed.
+
+(hive-table-functions)=
+### Table functions
+
+The connector provides the following table functions.
+
+#### unload
+
+Exports query results to files at a specified location in a supported file
+format. The function returns metadata about the written files.
+
+```sql
+SELECT
+  *
+FROM
+  TABLE(
+    system.unload(
+      input => TABLE(SELECT * FROM nation),
+      location => 's3://bucket/path/to/output',
+      format => 'PARQUET'
+    )
+  );
+```
+
+The function takes the following arguments:
+
+- `input`
+  : The input data to export, specified as a `TABLE` argument with row
+    semantics.
+- `location`
+  : The target directory path where files are written. Supports any file
+    system configured for the connector such as S3, HDFS, or local paths.
+- `format`
+  : Optional. The file format for the exported data. Defaults to `PARQUET`.
+    Supported formats: `ORC`, `PARQUET`, `AVRO`, `CSV`, `JSON`,
+    `OPENX_JSON`, `TEXTFILE`.
+
+The function returns a table with the following columns:
+
+- `path`
+  : The full path of the written file.
+- `rows_written`
+  : The number of rows written to the file.
+- `bytes_written`
+  : The number of bytes written to the file.
 
 (hive-data-management)=
 ### Data management

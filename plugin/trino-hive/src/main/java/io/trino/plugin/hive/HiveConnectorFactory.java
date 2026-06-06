@@ -47,6 +47,8 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.TableProcedureMetadata;
+import io.trino.spi.function.FunctionProvider;
+import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -123,6 +125,8 @@ public class HiveConnectorFactory
             HiveAnalyzeProperties hiveAnalyzeProperties = injector.getInstance(HiveAnalyzeProperties.class);
             Set<Procedure> procedures = injector.getInstance(new Key<>() {});
             Set<TableProcedureMetadata> tableProcedures = injector.getInstance(new Key<>() {});
+            Set<ConnectorTableFunction> tableFunctions = injector.getInstance(new Key<>() {});
+            FunctionProvider functionProvider = injector.getInstance(FunctionProvider.class);
             Set<SystemTableProvider> systemTableProviders = injector.getInstance(new Key<>() {});
             Optional<ConnectorAccessControl> hiveAccessControl = injector.getInstance(new Key<Optional<ConnectorAccessControl>>() {})
                     .map(accessControl -> new SystemTableAwareAccessControl(accessControl, systemTableProviders))
@@ -138,6 +142,8 @@ public class HiveConnectorFactory
                     new ClassLoaderSafeNodePartitioningProvider(connectorDistributionProvider, classLoader),
                     procedures,
                     tableProcedures,
+                    tableFunctions,
+                    functionProvider,
                     sessionPropertiesProviders,
                     HiveSchemaProperties.SCHEMA_PROPERTIES,
                     hiveTableProperties.getTableProperties(),
