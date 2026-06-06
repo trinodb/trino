@@ -156,14 +156,15 @@ public class RegisterTableProcedure
                 throw new SchemaNotFoundException(schemaTableName.getSchemaName());
             }
 
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableLocation);
+            TrinoFileSystem fileSystem;
             try {
+                fileSystem = fileSystemFactory.create(session, tableLocation);
                 Location transactionLogDir = Location.of(getTransactionLogDir(tableLocation));
                 if (!fileSystem.listFiles(transactionLogDir).hasNext()) {
                     throw new TrinoException(GENERIC_USER_ERROR, format("No transaction log found in location %s", transactionLogDir));
                 }
             }
-            catch (IOException e) {
+            catch (IOException | IllegalArgumentException e) {
                 throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Failed checking table location %s", tableLocation), e);
             }
 

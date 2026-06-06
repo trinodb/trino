@@ -14,13 +14,10 @@
 package io.trino.plugin.deltalake.metastore.glue;
 
 import io.trino.plugin.hive.FlociS3AndGlue;
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import software.amazon.awssdk.services.s3.S3Client;
 
-import java.net.URI;
 import java.util.Map;
 
-import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 
 public class TestDeltaLakeS3AndGlueFloci
@@ -37,17 +34,6 @@ public class TestDeltaLakeS3AndGlueFloci
     protected Map<String, String> s3AndGlueProperties()
     {
         return floci().s3AndGlueProperties();
-    }
-
-    @Override
-    protected GlueHiveMetastore createGlueHiveMetastore()
-    {
-        return createTestingGlueHiveMetastore(
-                URI.create(schemaPath()),
-                this::closeAfterClass,
-                false,
-                floci()::configureGlueHiveMetastore,
-                floci().createFileSystemFactory());
     }
 
     @Override
