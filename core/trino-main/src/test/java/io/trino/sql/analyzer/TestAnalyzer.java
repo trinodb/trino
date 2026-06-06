@@ -8146,6 +8146,36 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testSelectColumnsLineageInfoRecursiveAliases()
+    {
+        String sql =
+                """
+                WITH RECURSIVE t(x, y) AS (
+                    SELECT a, b FROM t1
+                    UNION ALL
+                    SELECT x + 1, y + 1 FROM t WHERE x < 5
+                )
+                SELECT * FROM t""";
+
+        Analysis analysis = analyze(sql);
+
+        Optional<List<ColumnLineageInfo>> optionalLineageInfo = analysis.getSelectColumnsLineageInfo();
+        assertThat(optionalLineageInfo).isPresent();
+        List<ColumnLineageInfo> lineageInfo = optionalLineageInfo.get();
+        assertThat(lineageInfo.size()).isEqualTo(2);
+
+        ColumnLineageInfo colX = lineageInfo.getFirst();
+        assertThat(colX.name()).isEqualTo("x");
+        assertThat(colX.sourceColumns()).containsExactlyInAnyOrder(
+                new ColumnDetail("tpch", "s1", "t1", "a"));
+
+        ColumnLineageInfo colY = lineageInfo.get(1);
+        assertThat(colY.name()).isEqualTo("y");
+        assertThat(colY.sourceColumns()).containsExactlyInAnyOrder(
+                new ColumnDetail("tpch", "s1", "t1", "b"));
+    }
+
+    @Test
     public void testSelectColumnsLineageInfoRowFromJoin()
     {
         String sql = "SELECT ROW(t1.a, t2.b) AS row_field FROM t1 JOIN t2 ON t1.a = t2.a";

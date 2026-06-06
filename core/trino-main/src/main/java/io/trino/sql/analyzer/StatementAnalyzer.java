@@ -6111,8 +6111,8 @@ class StatementAnalyzer
             RelationType newDescriptor = oldDescriptor.withAlias(tableName, columnNames);
 
             Streams.forEachPair(
-                    oldDescriptor.getAllFields().stream(),
                     newDescriptor.getAllFields().stream(),
+                    oldDescriptor.getAllFields().stream(),
                     (newField, field) -> analysis.addSourceColumns(newField, analysis.getSourceColumns(field)));
             return scope.withRelationType(newDescriptor);
         }
