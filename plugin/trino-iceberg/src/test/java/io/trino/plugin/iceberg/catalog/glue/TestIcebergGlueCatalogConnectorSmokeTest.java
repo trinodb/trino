@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
+import io.trino.plugin.hive.FlociS3AndGlue;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
@@ -40,7 +40,6 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.getTableTypeNullable;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
-import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -48,40 +47,37 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-/*
- * TestIcebergGlueCatalogConnectorSmokeTest currently uses AWS Default Credential Provider Chain,
- * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
- * on ways to set your AWS credentials which will be needed to run this test.
- */
 @TestInstance(PER_CLASS)
 public class TestIcebergGlueCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
     private final String bucketName;
     private final String schemaName;
-    private final GlueClient glueClient;
+    private FlociS3AndGlue floci;
+    private GlueClient glueClient;
 
     public TestIcebergGlueCatalogConnectorSmokeTest()
     {
         super(FileFormat.PARQUET);
-        this.bucketName = requireEnv("S3_BUCKET");
+        this.bucketName = "test-iceberg-glue-smoke-" + randomNameSuffix();
         this.schemaName = "test_iceberg_smoke_" + randomNameSuffix();
-        glueClient = GlueClient.create();
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        floci = closeAfterClass(new FlociS3AndGlue());
+        floci.createBucket(bucketName);
+        glueClient = closeAfterClass(floci.createGlueClient());
         return IcebergQueryRunner.builder()
-                .setIcebergProperties(
-                        ImmutableMap.of(
-                                "iceberg.file-format", format.name(),
-                                "iceberg.catalog.type", "glue",
-                                "hive.metastore.glue.default-warehouse-dir", schemaPath(),
-                                "fs.s3.enabled", "true",
-                                "iceberg.register-table-procedure.enabled", "true",
-                                "iceberg.writer-sort-buffer-size", "1MB"))
+                .addIcebergProperty("iceberg.file-format", format.name())
+                .addIcebergProperty("iceberg.catalog.type", "glue")
+                .addIcebergProperty("hive.metastore.glue.default-warehouse-dir", schemaPath())
+                .addIcebergProperty("fs.s3.enabled", "true")
+                .addIcebergProperty("iceberg.register-table-procedure.enabled", "true")
+                .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")
+                .addIcebergProperties(floci.s3AndGlueProperties())
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
                                 .withClonedTpchTables(REQUIRED_TPCH_TABLES)
@@ -201,7 +197,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     @Override
     protected void deleteDirectory(String location)
     {
-        try (S3Client s3 = S3Client.create()) {
+        try (S3Client s3 = floci.createS3Client()) {
             ListObjectsV2Request listObjectsRequest = ListObjectsV2Request.builder()
                     .bucket(bucketName)
                     .prefix(location)
@@ -239,7 +235,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     @Override
     protected boolean locationExists(String location)
     {
-        try (S3Client s3 = S3Client.create()) {
+        try (S3Client s3 = floci.createS3Client()) {
             ListObjectsV2Request request = ListObjectsV2Request.builder()
                     .bucket(bucketName)
                     .prefix(location)
