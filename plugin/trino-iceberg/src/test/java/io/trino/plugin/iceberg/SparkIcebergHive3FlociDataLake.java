@@ -15,26 +15,26 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.base.util.AutoCloseableCloser;
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.plugin.hive.containers.HiveHadoop;
-import io.trino.testing.containers.Minio;
+import io.trino.testing.containers.FlociContainer;
 
 import static io.trino.testing.containers.TestContainers.getPathFromClassPathResource;
 
-public final class SparkIcebergHive3MinioDataLake
+public final class SparkIcebergHive3FlociDataLake
         implements AutoCloseable
 {
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
-    private final Hive3MinioDataLake hiveMinio;
+    private final Hive3FlociDataLake hiveFloci;
     private final SparkIceberg spark;
 
-    public SparkIcebergHive3MinioDataLake(String bucketName)
+    public SparkIcebergHive3FlociDataLake(String bucketName)
     {
-        hiveMinio = closer.register(new Hive3MinioDataLake(bucketName));
-        hiveMinio.start();
+        hiveFloci = closer.register(new Hive3FlociDataLake(bucketName));
+        hiveFloci.start();
 
         SparkIceberg.Builder sparkIcebergBuilder = SparkIceberg.builder()
-                .withNetwork(hiveMinio.getNetwork())
+                .withNetwork(hiveFloci.getNetwork())
                 .withFilesToMount(ImmutableMap.of(
                         "/spark/conf/spark-defaults.conf", getPathFromClassPathResource("spark/spark-defaults.conf"),
                         "/spark/conf/log4j2.properties", getPathFromClassPathResource("spark/log4j2.properties")));
@@ -44,12 +44,12 @@ public final class SparkIcebergHive3MinioDataLake
 
     public HiveHadoop hiveHadoop()
     {
-        return hiveMinio.getHiveHadoop();
+        return hiveFloci.getHiveHadoop();
     }
 
-    public Minio minio()
+    public FlociContainer floci()
     {
-        return hiveMinio.getMinio();
+        return hiveFloci.floci();
     }
 
     @Override

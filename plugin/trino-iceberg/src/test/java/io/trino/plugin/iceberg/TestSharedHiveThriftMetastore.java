@@ -89,7 +89,7 @@ public class TestSharedHiveThriftMetastore
                         .put("s3.aws-access-key", FLOCI_ACCESS_KEY)
                         .put("s3.aws-secret-key", FLOCI_SECRET_KEY)
                         .put("s3.region", FLOCI_REGION)
-                        .put("s3.endpoint", hiveFlociDataLake.getFloci().getEndpoint().toString())
+                        .put("s3.endpoint", hiveFlociDataLake.floci().endpoint().toString())
                         .put("s3.path-style-access", "true")
                         .put("s3.streaming.part-size", "5MB") // minimize memory usage
                         .put("s3.max-connections", "2") // verify no leaks
@@ -107,7 +107,7 @@ public class TestSharedHiveThriftMetastore
                         .put("s3.aws-access-key", FLOCI_ACCESS_KEY)
                         .put("s3.aws-secret-key", FLOCI_SECRET_KEY)
                         .put("s3.region", FLOCI_REGION)
-                        .put("s3.endpoint", hiveFlociDataLake.getFloci().getEndpoint().toString())
+                        .put("s3.endpoint", hiveFlociDataLake.floci().endpoint().toString())
                         .put("s3.path-style-access", "true")
                         .put("s3.streaming.part-size", "5MB") // minimize memory usage
                         .put("s3.max-connections", "2") // verify no leaks
@@ -124,7 +124,7 @@ public class TestSharedHiveThriftMetastore
                 .put("s3.aws-access-key", FLOCI_ACCESS_KEY)
                 .put("s3.aws-secret-key", FLOCI_SECRET_KEY)
                 .put("s3.region", FLOCI_REGION)
-                .put("s3.endpoint", hiveFlociDataLake.getFloci().getEndpoint().toString())
+                .put("s3.endpoint", hiveFlociDataLake.floci().endpoint().toString())
                 .put("s3.path-style-access", "true")
                 .put("s3.streaming.part-size", "5MB")
                 .put("hive.max-partitions-per-scan", "1000")

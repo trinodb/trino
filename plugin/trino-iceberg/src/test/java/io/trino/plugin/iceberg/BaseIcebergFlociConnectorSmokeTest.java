@@ -84,7 +84,7 @@ public abstract class BaseIcebergFlociConnectorSmokeTest
                                 .put("s3.aws-access-key", FLOCI_ACCESS_KEY)
                                 .put("s3.aws-secret-key", FLOCI_SECRET_KEY)
                                 .put("s3.region", FLOCI_REGION)
-                                .put("s3.endpoint", hiveFlociDataLake.getFloci().endpoint().toString())
+                                .put("s3.endpoint", hiveFlociDataLake.floci().endpoint().toString())
                                 .put("s3.path-style-access", "true")
                                 .put("s3.streaming.part-size", "5MB") // minimize memory usage
                                 .put("s3.max-connections", "2") // verify no leaks
@@ -131,10 +131,10 @@ public abstract class BaseIcebergFlociConnectorSmokeTest
         assertThat(location).doesNotContain("#");
 
         assertUpdate("CREATE TABLE " + tableName + " WITH (location='" + location + "') AS SELECT 1 col", 1);
-        List<String> dataFiles = hiveFlociDataLake.getFloci().listObjects(bucketName, "%s/%s/data".formatted(schemaName, tableName));
+        List<String> dataFiles = hiveFlociDataLake.floci().listObjects(bucketName, "%s/%s/data".formatted(schemaName, tableName));
         assertThat(dataFiles).isNotEmpty().filteredOn(filePath -> filePath.contains("#")).isEmpty();
 
-        List<String> metadataFiles = hiveFlociDataLake.getFloci().listObjects(bucketName, "%s/%s/metadata".formatted(schemaName, tableName));
+        List<String> metadataFiles = hiveFlociDataLake.floci().listObjects(bucketName, "%s/%s/metadata".formatted(schemaName, tableName));
         assertThat(metadataFiles).isNotEmpty().filteredOn(filePath -> filePath.contains("#")).isEmpty();
 
         // Verify ALTER TABLE succeeds https://github.com/trinodb/trino/issues/14552
@@ -223,7 +223,7 @@ public abstract class BaseIcebergFlociConnectorSmokeTest
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
         assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (VARCHAR 'one', 1), (VARCHAR 'two', 2)");
 
-        List<String> initialMetadataFiles = hiveFlociDataLake.getFloci().listObjects(bucketName, "%s/%s/metadata".formatted(schemaName, tableName));
+        List<String> initialMetadataFiles = hiveFlociDataLake.floci().listObjects(bucketName, "%s/%s/metadata".formatted(schemaName, tableName));
         assertThat(initialMetadataFiles).isNotEmpty();
 
         List<Long> initialSnapshots = getSnapshotIds(tableName);
@@ -231,7 +231,7 @@ public abstract class BaseIcebergFlociConnectorSmokeTest
 
         assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
 
-        List<String> updatedMetadataFiles = hiveFlociDataLake.getFloci().listObjects(bucketName, "%s/%s/metadata".formatted(schemaName, tableName));
+        List<String> updatedMetadataFiles = hiveFlociDataLake.floci().listObjects(bucketName, "%s/%s/metadata".formatted(schemaName, tableName));
         assertThat(updatedMetadataFiles).isNotEmpty().hasSizeLessThan(initialMetadataFiles.size());
 
         List<Long> updatedSnapshots = getSnapshotIds(tableName);
@@ -353,7 +353,7 @@ public abstract class BaseIcebergFlociConnectorSmokeTest
     protected boolean locationExists(String location)
     {
         String prefix = "s3://" + bucketName + "/";
-        return !hiveFlociDataLake.listFiles(location.substring(prefix.length())).isEmpty();
+        return !hiveFlociDataLake.floci().listObjects(bucketName, location.substring(prefix.length())).isEmpty();
     }
 
     @Override
@@ -362,7 +362,7 @@ public abstract class BaseIcebergFlociConnectorSmokeTest
         String prefix = "s3://" + bucketName + "/";
         String key = location.substring(prefix.length());
 
-        hiveFlociDataLake.getFloci().deleteObjects(bucketName, key);
-        assertThat(hiveFlociDataLake.getFloci().listObjects(bucketName, key)).isEmpty();
+        hiveFlociDataLake.floci().deleteObjects(bucketName, key);
+        assertThat(hiveFlociDataLake.floci().listObjects(bucketName, key)).isEmpty();
     }
 }

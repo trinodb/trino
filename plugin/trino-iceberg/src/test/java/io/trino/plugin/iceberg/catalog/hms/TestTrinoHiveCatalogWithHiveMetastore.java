@@ -141,7 +141,7 @@ public class TestTrinoHiveCatalogWithHiveMetastore
         TrinoFileSystemFactory fileSystemFactory = new S3FileSystemFactory(
                 OpenTelemetry.noop(),
                 new S3FileSystemConfig()
-                        .setEndpoint(dataLake.getFloci().getEndpoint().toString())
+                        .setEndpoint(dataLake.floci().endpoint().toString())
                         .setAwsAccessKey(FLOCI_ACCESS_KEY)
                         .setAwsSecretKey(FLOCI_SECRET_KEY)
                         .setRegion(FLOCI_REGION)
