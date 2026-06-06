@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.s3;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
@@ -28,21 +28,21 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestHiveS3MinioQueries
+public class TestHiveS3FlociQueries
         extends AbstractTestQueryFramework
 {
-    private Hive3MinioDataLake hiveMinioDataLake;
+    private Hive3FlociDataLake hiveFlociDataLake;
     private String bucketName;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.bucketName = "test-hive-minio-queries-" + randomNameSuffix();
-        this.hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
-        this.hiveMinioDataLake.start();
+        this.bucketName = "test-hive-floci-queries-" + randomNameSuffix();
+        this.hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake(bucketName));
+        this.hiveFlociDataLake.start();
 
-        return S3HiveQueryRunner.builder(hiveMinioDataLake)
+        return S3HiveQueryRunner.builder(hiveFlociDataLake)
                 .setHiveProperties(ImmutableMap.<String, String>builder()
                         .put("hive.non-managed-table-writes-enabled", "true")
                         .buildOrThrow())
@@ -53,8 +53,8 @@ public class TestHiveS3MinioQueries
     public void testTableLocationTopOfTheBucket()
     {
         String bucketName = "test-bucket-" + randomNameSuffix();
-        hiveMinioDataLake.getMinio().createBucket(bucketName);
-        hiveMinioDataLake.getMinio().writeFile("We are\nawesome at\nmultiple slashes.".getBytes(UTF_8), bucketName, "a_file");
+        hiveFlociDataLake.floci().createBucket(bucketName);
+        hiveFlociDataLake.floci().putObject(bucketName, "We are\nawesome at\nmultiple slashes.".getBytes(UTF_8), "a_file");
 
         // without trailing slash
         assertQueryFails(
