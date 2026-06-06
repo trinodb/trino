@@ -66,7 +66,7 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
 
             schema = queryRunner.getDefaultSession().getSchema().orElseThrow();
             queryRunner.execute("CREATE TABLE hive." + schema + ".hive_table (a_integer integer)");
-            hiveMinioDataLake.runOnHive("CREATE VIEW " + schema + ".hive_view AS SELECT *  FROM " + schema + ".hive_table");
+            runOnHiveWithRetry("CREATE VIEW " + schema + ".hive_view AS SELECT *  FROM " + schema + ".hive_table");
             queryRunner.execute("CREATE TABLE delta." + schema + ".delta_table (a_varchar varchar)");
 
             return queryRunner;
@@ -119,5 +119,30 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
                 .failure().hasMessageContaining("not a Delta Lake table");
         assertThat(query("DESCRIBE hive." + schema + ".delta_table"))
                 .failure().hasMessageContaining("Cannot query Delta Lake table");
+    }
+
+    private void runOnHiveWithRetry(String sql)
+    {
+        int maxRetries = 5;
+        RuntimeException lastException = null;
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                hiveMinioDataLake.runOnHive(sql);
+                return;
+            }
+            catch (RuntimeException e) {
+                lastException = e;
+                if (attempt < maxRetries) {
+                    try {
+                        Thread.sleep(5000L);
+                    }
+                    catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException("Interrupted while waiting for Hive", ie);
+                    }
+                }
+            }
+        }
+        throw lastException;
     }
 }

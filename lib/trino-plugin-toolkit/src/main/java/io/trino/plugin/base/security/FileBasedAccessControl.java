@@ -218,7 +218,7 @@ public class FileBasedAccessControl
     @Override
     public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
+        if (!checkTablePermission(context, tableName, SELECT)) {
             denyShowCreateTable(tableName.toString());
         }
     }
