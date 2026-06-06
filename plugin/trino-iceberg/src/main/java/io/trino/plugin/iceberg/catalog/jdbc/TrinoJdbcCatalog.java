@@ -51,6 +51,7 @@ import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.exceptions.NoSuchViewException;
+import org.apache.iceberg.exceptions.NotFoundException;
 import org.apache.iceberg.jdbc.JdbcCatalog;
 import org.apache.iceberg.jdbc.UncheckedInterruptedException;
 import org.apache.iceberg.jdbc.UncheckedSQLException;
@@ -60,6 +61,8 @@ import org.apache.iceberg.view.SQLViewRepresentation;
 import org.apache.iceberg.view.UpdateViewProperties;
 import org.apache.iceberg.view.View;
 import org.apache.iceberg.view.ViewBuilder;
+import org.apache.iceberg.view.ViewMetadata;
+import org.apache.iceberg.view.ViewMetadataParser;
 import org.apache.iceberg.view.ViewRepresentation;
 import org.apache.iceberg.view.ViewVersion;
 
@@ -90,6 +93,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_UNSUPPORTED_VIEW_DIALECT;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -539,11 +543,11 @@ public class TrinoJdbcCatalog
 
         List<Callable<Optional<Map.Entry<SchemaTableName, ConnectorViewDefinition>>>> tasks = new ArrayList<>();
         for (String ns : listNamespaces(session, namespace)) {
-            for (TableIdentifier view : jdbcCatalog.listViews(Namespace.of(ns))) {
-                SchemaTableName schemaTableName = SchemaTableName.schemaTableName(view.namespace().toString(), view.name());
+            jdbcClient.getViewMetadataLocations(ns).forEach((viewName, metadataLocation) -> {
+                SchemaTableName schemaTableName = SchemaTableName.schemaTableName(ns, viewName);
                 tasks.add(() -> {
                     try {
-                        return loadViewDefinition(schemaTableName).map(definition -> Map.entry(schemaTableName, definition));
+                        return loadViewDefinition(session, schemaTableName, metadataLocation).map(definition -> Map.entry(schemaTableName, definition));
                     }
                     catch (TrinoException e) {
                         if (e.getErrorCode().equals(ICEBERG_UNSUPPORTED_VIEW_DIALECT.toErrorCode())) {
@@ -553,7 +557,7 @@ public class TrinoJdbcCatalog
                         throw e;
                     }
                 });
-            }
+            });
         }
 
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
@@ -592,17 +596,45 @@ public class TrinoJdbcCatalog
         if (!sqlView.dialect().equalsIgnoreCase("trino")) {
             throw new TrinoException(ICEBERG_UNSUPPORTED_VIEW_DIALECT, "Cannot read unsupported dialect '%s' for view '%s'".formatted(sqlView.dialect(), viewIdentifier));
         }
+        return createViewDefinition(viewIdentifier, view.currentVersion(), view.schema(), view.properties());
+    }
 
-        Optional<String> comment = Optional.ofNullable(view.properties().get(COMMENT));
-        List<ConnectorViewDefinition.ViewColumn> viewColumns = IcebergUtil.viewColumnsFromSchema(typeManager, view.schema());
-        ViewVersion currentVersion = view.currentVersion();
+    private Optional<ConnectorViewDefinition> loadViewDefinition(ConnectorSession session, SchemaTableName viewIdentifier, String metadataLocation)
+    {
+        ViewMetadata viewMetadata;
+        try {
+            viewMetadata = ViewMetadataParser.read(fileIoFactory.create(fileSystemFactory.create(session), isUseFileSizeFromMetadata(session)), metadataLocation);
+        }
+        catch (NotFoundException e) {
+            // View may have been dropped concurrently with listing
+            return Optional.empty();
+        }
+        return createViewDefinition(viewIdentifier, viewMetadata.currentVersion(), viewMetadata.schema(), viewMetadata.properties());
+    }
+
+    private Optional<ConnectorViewDefinition> createViewDefinition(SchemaTableName viewIdentifier, ViewVersion currentVersion, Schema viewSchema, Map<String, String> properties)
+    {
+        List<SQLViewRepresentation> sqlRepresentations = currentVersion.representations().stream()
+                .filter(SQLViewRepresentation.class::isInstance)
+                .map(SQLViewRepresentation.class::cast)
+                .collect(toImmutableList());
+        SQLViewRepresentation sqlView = sqlRepresentations.stream()
+                .filter(representation -> representation.dialect().equalsIgnoreCase("trino"))
+                .findFirst()
+                .orElseThrow(() -> {
+                    String dialect = sqlRepresentations.stream().findFirst().map(SQLViewRepresentation::dialect).orElse("unknown");
+                    return new TrinoException(ICEBERG_UNSUPPORTED_VIEW_DIALECT, "Cannot read unsupported dialect '%s' for view '%s'".formatted(dialect, viewIdentifier));
+                });
+
+        Optional<String> comment = Optional.ofNullable(properties.get(COMMENT));
+        List<ConnectorViewDefinition.ViewColumn> viewColumns = IcebergUtil.viewColumnsFromSchema(typeManager, viewSchema);
         Optional<String> catalog = Optional.ofNullable(currentVersion.defaultCatalog());
         Optional<String> schema = Optional.empty();
         if (catalog.isPresent() && !currentVersion.defaultNamespace().isEmpty()) {
             schema = Optional.of(currentVersion.defaultNamespace().toString());
         }
 
-        Optional<String> owner = Optional.ofNullable(view.properties().get(ICEBERG_VIEW_RUN_AS_OWNER));
+        Optional<String> owner = Optional.ofNullable(properties.get(ICEBERG_VIEW_RUN_AS_OWNER));
         return Optional.of(new ConnectorViewDefinition(sqlView.sql(), catalog, schema, viewColumns, comment, owner, owner.isEmpty(), null));
     }
 
