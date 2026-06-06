@@ -19,6 +19,7 @@ import com.google.inject.multibindings.ProvidesIntoSet;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.Session;
 import io.trino.metastore.Database;
+import io.trino.plugin.hive.FlociS3AndGlue;
 import io.trino.plugin.hive.metastore.glue.ForGlueHiveMetastore;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.plugin.iceberg.TestingIcebergPlugin;
@@ -38,7 +39,7 @@ import software.amazon.awssdk.services.glue.model.GetTablesRequest;
 import java.nio.file.Path;
 import java.util.Optional;
 
-import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getConnectorService;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
@@ -51,6 +52,7 @@ final class TestIcebergGlueAccessDeniedException
 
     @Override
     protected QueryRunner createQueryRunner()
+            throws Exception
     {
         Session session = testSessionBuilder()
                 .setCatalog("iceberg")
@@ -59,21 +61,25 @@ final class TestIcebergGlueAccessDeniedException
         QueryRunner queryRunner = new StandaloneQueryRunner(session);
 
         Path dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
-        dataDirectory.toFile().deleteOnExit();
+        FlociS3AndGlue floci = closeAfterClass(new FlociS3AndGlue());
+        String bucketName = "test-iceberg-glue-access-denied-" + randomNameSuffix();
+        floci.createBucket(bucketName);
 
         queryRunner.installPlugin(new TestingIcebergPlugin(dataDirectory, () -> Optional.of(new TestingGlueCatalogModule())));
         queryRunner.createCatalog("iceberg", "iceberg", ImmutableMap.<String, String>builder()
                 .put("iceberg.catalog.type", "glue")
-                .put("fs.hadoop.enabled", "true")
+                .put("hive.metastore.glue.default-warehouse-dir", "s3://%s/".formatted(bucketName))
+                .put("fs.s3.enabled", "true")
+                .putAll(floci.s3AndGlueProperties())
                 .buildOrThrow());
 
-        glueHiveMetastore = createTestingGlueHiveMetastore(dataDirectory, this::closeAfterClass);
+        glueHiveMetastore = getConnectorService(queryRunner, GlueHiveMetastore.class);
 
         Database database = Database.builder()
                 .setDatabaseName(schemaName)
                 .setOwnerName(Optional.of("public"))
                 .setOwnerType(Optional.of(PrincipalType.ROLE))
-                .setLocation(Optional.of(dataDirectory.toString()))
+                .setLocation(Optional.of("s3://%s/%s".formatted(bucketName, schemaName)))
                 .build();
         glueHiveMetastore.createDatabase(database);
 
@@ -84,9 +90,7 @@ final class TestIcebergGlueAccessDeniedException
     void cleanup()
     {
         if (glueHiveMetastore != null) {
-            // Data is on the local disk and will be deleted by the deleteOnExit hook
             glueHiveMetastore.dropDatabase(schemaName, false);
-            glueHiveMetastore.shutdown();
         }
     }
 
