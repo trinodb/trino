@@ -841,7 +841,7 @@
                         <configuration>
                             <excludes>
                                 <exclude>**/Test*Avro*.java</exclude>
-                                <exclude>**/Test*Minio*.java</exclude>
+                                <exclude>**/Test*Floci*.java</exclude>
                                 <exclude>**/TestIcebergS3AndGlueAws.java</exclude>
                                 <exclude>**/TestIcebergS3TablesConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</exclude>
@@ -880,7 +880,7 @@
         </profile>
 
         <profile>
-            <id>minio-and-avro</id>
+            <id>floci-and-avro</id>
             <build>
                 <plugins>
                     <plugin>
@@ -889,7 +889,7 @@
                         <configuration>
                             <includes>
                                 <include>**/Test*Avro*.java</include>
-                                <include>**/Test*Minio*.java</include>
+                                <include>**/Test*Floci*.java</include>
                             </includes>
                         </configuration>
                     </plugin>

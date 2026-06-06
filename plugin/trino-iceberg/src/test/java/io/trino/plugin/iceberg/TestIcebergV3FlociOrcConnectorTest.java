@@ -13,22 +13,11 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.trino.filesystem.Location;
-
-import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
-import static org.apache.iceberg.FileFormat.PARQUET;
-
-public class TestIcebergMinioParquetConnectorSmokeTest
-        extends BaseIcebergMinioConnectorSmokeTest
+class TestIcebergV3FlociOrcConnectorTest
+        extends BaseIcebergFlociOrcConnectorTest
 {
-    public TestIcebergMinioParquetConnectorSmokeTest()
+    TestIcebergV3FlociOrcConnectorTest()
     {
-        super(PARQUET);
-    }
-
-    @Override
-    protected boolean isFileSorted(Location path, String sortColumnName)
-    {
-        return checkParquetFileSorting(fileSystem.newInputFile(path), sortColumnName);
+        super(3);
     }
 }

@@ -16,13 +16,13 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.containers.Minio;
+import io.trino.testing.containers.Floci;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
+import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.Floci.FLOCI_REGION;
+import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -38,15 +38,15 @@ public class TestIcebergInvalidCompressionCodecs
     private static final String PARQUET_TABLE_NAME = "none_parquet";
     private static final String ORC_TABLE_NAME = "orc_gzip";
 
-    private Minio minio;
+    private Floci floci;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        minio = closeAfterClass(Minio.builder().build());
-        minio.start();
-        minio.createBucket(BUCKET_NAME);
+        floci = closeAfterClass(new Floci());
+        floci.start();
+        floci.createBucket(BUCKET_NAME);
 
         QueryRunner queryRunner = IcebergQueryRunner.builder(SCHEMA)
                 .setSchemaInitializer(SchemaInitializer.builder()
@@ -55,18 +55,18 @@ public class TestIcebergInvalidCompressionCodecs
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()
                                 .put("fs.s3.enabled", "true")
-                                .put("s3.aws-access-key", MINIO_ROOT_USER)
-                                .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
-                                .put("s3.region", MINIO_REGION)
-                                .put("s3.endpoint", minio.getMinioAddress())
+                                .put("s3.aws-access-key", FLOCI_ACCESS_KEY)
+                                .put("s3.aws-secret-key", FLOCI_SECRET_KEY)
+                                .put("s3.endpoint", floci.endpoint().toString())
+                                .put("s3.region", FLOCI_REGION)
                                 .put("s3.path-style-access", "true")
                                 .put("iceberg.register-table-procedure.enabled", "true")
                                 .buildOrThrow())
                 .build();
 
-        minio.copyResources("iceberg/invalid_compression_codec/%s".formatted(AVRO_TABLE_NAME), BUCKET_NAME, AVRO_TABLE_NAME);
-        minio.copyResources("iceberg/invalid_compression_codec/%s".formatted(PARQUET_TABLE_NAME), BUCKET_NAME, PARQUET_TABLE_NAME);
-        minio.copyResources("iceberg/invalid_compression_codec/%s".formatted(ORC_TABLE_NAME), BUCKET_NAME, ORC_TABLE_NAME);
+        floci.copyResources("iceberg/invalid_compression_codec/%s".formatted(AVRO_TABLE_NAME), BUCKET_NAME, AVRO_TABLE_NAME);
+        floci.copyResources("iceberg/invalid_compression_codec/%s".formatted(PARQUET_TABLE_NAME), BUCKET_NAME, PARQUET_TABLE_NAME);
+        floci.copyResources("iceberg/invalid_compression_codec/%s".formatted(ORC_TABLE_NAME), BUCKET_NAME, ORC_TABLE_NAME);
         return queryRunner;
     }
 
@@ -74,7 +74,7 @@ public class TestIcebergInvalidCompressionCodecs
     public void destroy()
             throws Exception
     {
-        minio = null; // closed by closeAfterClass
+        floci = null; // closed by closeAfterClass
     }
 
     @Test
