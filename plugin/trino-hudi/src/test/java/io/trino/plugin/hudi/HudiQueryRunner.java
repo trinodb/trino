@@ -21,7 +21,7 @@ import io.trino.filesystem.Location;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.base.util.Closables;
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.plugin.hudi.testing.HudiTablesInitializer;
 import io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer;
 import io.trino.plugin.hudi.testing.TpchHudiTablesInitializer;
@@ -35,9 +35,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
+import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.Floci.FLOCI_REGION;
+import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
 import static java.util.Objects.requireNonNull;
 
 public final class HudiQueryRunner
@@ -56,14 +56,14 @@ public final class HudiQueryRunner
         return new Builder("local:///");
     }
 
-    public static Builder builder(Hive3MinioDataLake hiveMinioDataLake)
+    public static Builder builder(Hive3FlociDataLake hiveFlociDataLake)
     {
-        return new Builder("s3://" + hiveMinioDataLake.getBucketName() + "/")
+        return new Builder("s3://" + hiveFlociDataLake.getBucketName() + "/")
                 .addConnectorProperty("fs.s3.enabled", "true")
-                .addConnectorProperty("s3.aws-access-key", MINIO_ROOT_USER)
-                .addConnectorProperty("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
-                .addConnectorProperty("s3.region", MINIO_REGION)
-                .addConnectorProperty("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
+                .addConnectorProperty("s3.aws-access-key", FLOCI_ACCESS_KEY)
+                .addConnectorProperty("s3.aws-secret-key", FLOCI_SECRET_KEY)
+                .addConnectorProperty("s3.region", FLOCI_REGION)
+                .addConnectorProperty("s3.endpoint", hiveFlociDataLake.floci().endpoint().toString())
                 .addConnectorProperty("s3.path-style-access", "true");
     }
 
@@ -146,19 +146,19 @@ public final class HudiQueryRunner
         }
     }
 
-    public static final class HudiMinioQueryRunnerMain
+    public static final class HudiFlociQueryRunnerMain
     {
-        private HudiMinioQueryRunnerMain() {}
+        private HudiFlociQueryRunnerMain() {}
 
         static void main()
                 throws Exception
         {
             Logging.initialize();
-            Logger log = Logger.get(HudiMinioQueryRunnerMain.class);
+            Logger log = Logger.get(HudiFlociQueryRunnerMain.class);
 
-            Hive3MinioDataLake hiveMinioDataLake = new Hive3MinioDataLake("test-bucket");
-            hiveMinioDataLake.start();
-            QueryRunner queryRunner = builder(hiveMinioDataLake)
+            Hive3FlociDataLake hiveFlociDataLake = new Hive3FlociDataLake("test-bucket");
+            hiveFlociDataLake.start();
+            QueryRunner queryRunner = builder(hiveFlociDataLake)
                     .addCoordinatorProperty("http-server.http.port", "8080")
                     .setDataLoader(new TpchHudiTablesInitializer(TpchTable.getTables()))
                     .build();

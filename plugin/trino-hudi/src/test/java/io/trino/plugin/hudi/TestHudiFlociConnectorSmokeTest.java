@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hudi;
 
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.plugin.hudi.testing.TpchHudiTablesInitializer;
 import io.trino.testing.QueryRunner;
 
@@ -21,7 +21,7 @@ import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
 import static io.trino.plugin.hudi.testing.HudiTestUtils.COLUMNS_TO_HIDE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 
-public class TestHudiMinioConnectorSmokeTest
+public class TestHudiFlociConnectorSmokeTest
         extends BaseHudiConnectorSmokeTest
 {
     @Override
@@ -29,11 +29,10 @@ public class TestHudiMinioConnectorSmokeTest
             throws Exception
     {
         String bucketName = "test-hudi-connector-" + randomNameSuffix();
-        Hive3MinioDataLake hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName, HIVE3_IMAGE));
-        hiveMinioDataLake.start();
-        hiveMinioDataLake.getMinioClient().ensureBucketExists(bucketName);
+        Hive3FlociDataLake hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake(bucketName, HIVE3_IMAGE));
+        hiveFlociDataLake.start();
 
-        return HudiQueryRunner.builder(hiveMinioDataLake)
+        return HudiQueryRunner.builder(hiveFlociDataLake)
                 .addConnectorProperty("hudi.columns-to-hide", COLUMNS_TO_HIDE)
                 .setDataLoader(new TpchHudiTablesInitializer(REQUIRED_TPCH_TABLES))
                 .build();
