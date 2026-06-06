@@ -21,6 +21,7 @@ import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.execution.Failure;
 import io.trino.metastore.Database;
+import io.trino.plugin.hive.FlociS3AndGlue;
 import io.trino.plugin.hive.metastore.glue.ForGlueHiveMetastore;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.plugin.iceberg.TestingIcebergPlugin;
@@ -42,7 +43,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
-import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getConnectorService;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -50,11 +51,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-/*
- * The test currently uses AWS Default Credential Provider Chain,
- * See https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/credentials-chain.html#credentials-default
- * on ways to set your AWS credentials which will be needed to run this test.
- */
 @TestInstance(PER_CLASS)
 public class TestIcebergGlueTableOperationsInsertFailure
         extends AbstractTestQueryFramework
@@ -79,20 +75,25 @@ public class TestIcebergGlueTableOperationsInsertFailure
 
         Path dataDirectory = Files.createTempDirectory("iceberg_data");
         dataDirectory.toFile().deleteOnExit();
+        FlociS3AndGlue floci = closeAfterClass(new FlociS3AndGlue());
+        String bucketName = "test-iceberg-glue-insert-failure-" + randomNameSuffix();
+        floci.createBucket(bucketName);
 
         queryRunner.installPlugin(new TestingIcebergPlugin(dataDirectory, () -> Optional.of(new TestingGlueCatalogModule())));
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.<String, String>builder()
                 .put("iceberg.catalog.type", "glue")
-                .put("fs.hadoop.enabled", "true")
+                .put("hive.metastore.glue.default-warehouse-dir", "s3://%s/".formatted(bucketName))
+                .put("fs.s3.enabled", "true")
+                .putAll(floci.s3AndGlueProperties())
                 .buildOrThrow());
 
-        glueHiveMetastore = createTestingGlueHiveMetastore(dataDirectory, this::closeAfterClass);
+        glueHiveMetastore = getConnectorService(queryRunner, GlueHiveMetastore.class);
 
         Database database = Database.builder()
                 .setDatabaseName(schemaName)
                 .setOwnerName(Optional.of("public"))
                 .setOwnerType(Optional.of(PrincipalType.ROLE))
-                .setLocation(Optional.of(dataDirectory.toString()))
+                .setLocation(Optional.of("s3://%s/%s".formatted(bucketName, schemaName)))
                 .build();
         glueHiveMetastore.createDatabase(database);
 
@@ -104,9 +105,7 @@ public class TestIcebergGlueTableOperationsInsertFailure
     {
         try {
             if (glueHiveMetastore != null) {
-                // Data is on the local disk and will be deleted by the deleteOnExit hook
                 glueHiveMetastore.dropDatabase(schemaName, false);
-                glueHiveMetastore.shutdown();
             }
         }
         catch (Exception e) {

@@ -130,6 +130,12 @@ public final class IcebergQueryRunner
             return self();
         }
 
+        public Builder addIcebergProperties(Map<String, String> icebergProperties)
+        {
+            this.icebergProperties.putAll(requireNonNull(icebergProperties, "icebergProperties is null"));
+            return self();
+        }
+
         public Builder setInitialTables(TpchTable<?>... initialTables)
         {
             return setInitialTables(ImmutableList.copyOf(initialTables));

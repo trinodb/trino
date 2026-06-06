@@ -842,13 +842,6 @@
                             <excludes>
                                 <exclude>**/Test*Avro*.java</exclude>
                                 <exclude>**/Test*Minio*.java</exclude>
-                                <exclude>**/TestIcebergGlueCatalogConnectorSmokeTest.java</exclude>
-                                <exclude>**/TestTrinoGlueCatalog.java</exclude>
-                                <exclude>**/TestSharedGlueMetastore.java</exclude>
-                                <exclude>**/TestIcebergGlueCatalogAccessOperations.java</exclude>
-                                <exclude>**/TestIcebergGlueCatalogMaterializedView.java</exclude>
-                                <exclude>**/TestIcebergGlueTableOperationsInsertFailure.java</exclude>
-                                <exclude>**/TestIcebergGlueCatalogSkipArchive.java</exclude>
                                 <exclude>**/TestIcebergS3AndGlueAws.java</exclude>
                                 <exclude>**/TestIcebergS3TablesConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</exclude>
@@ -913,14 +906,6 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestIcebergGlueCatalogConnectorSmokeTest.java</include>
-                                <include>**/TestTrinoGlueCatalog.java</include>
-                                <include>**/TestSharedGlueMetastore.java</include>
-                                <include>**/TestIcebergGlueCatalogAccessOperations.java</include>
-                                <include>**/TestIcebergGlueCatalogMaterializedView.java</include>
-                                <include>**/TestIcebergGlueTableOperationsInsertFailure.java</include>
-                                <include>**/TestIcebergGlueCatalogSkipArchive.java</include>
-                                <include>**/TestIcebergS3AndGlueAws.java</include>
                                 <include>**/TestIcebergS3TablesConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergGcsConnectorSmokeTest.java</include>
