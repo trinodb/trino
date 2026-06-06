@@ -25,6 +25,46 @@ stages of a query. You can use the following execution policies:
   dependencies typically prevent full processing and cause longer queue times
   which increases the query wall time overall.
 
+## `query-manager.required-workers`
+
+- **Type:** {ref}`prop-type-integer`
+- **Default value:** `1`
+- **Session property:** `required_workers_count`
+
+Sets the minimum number of active worker nodes that must be available before
+the coordinator starts executing queries. Until this threshold is met, or
+the maximum wait time configured by
+`query-manager.required-workers-max-wait` expires, incoming queries enter a
+`WAITING_FOR_RESOURCES` state.
+
+This property is particularly useful for Kubernetes deployments with
+autoscaling (for example, [KEDA](https://keda.sh)) where workers may scale to
+zero during idle periods. Setting this value higher than `1` ensures queries
+are not scheduled on an undersized cluster while workers are starting up.
+
+:::{note}
+Coordinator-only queries, such as queries against system tables and
+`EXPLAIN` queries, are also gated by this requirement. See
+[issue #4130](https://github.com/trinodb/trino/issues/4130) and
+[issue #4131](https://github.com/trinodb/trino/issues/4131) for details
+on this known limitation.
+:::
+
+## `query-manager.required-workers-max-wait`
+
+- **Type:** {ref}`prop-type-duration`
+- **Default value:** `5m`
+- **Session property:** `required_workers_max_wait_time`
+
+Sets the maximum time the coordinator waits for the number of active worker
+nodes to reach the threshold defined by `query-manager.required-workers`.
+If the timeout expires before enough workers are available, the query fails
+with an ``Insufficient active worker nodes`` error.
+
+For autoscaling environments, set this value high enough to cover the time
+required for worker pods or instances to start and register with the
+coordinator.
+
 ## `query.determine-partition-count-for-write-enabled`
 
 - **Type:** {ref}`prop-type-boolean`
@@ -185,6 +225,18 @@ to get killed with `REMOTE_TASK_ERROR` and the message
 `Max requests queued per destination exceeded for HttpDestination ...`
 :::
 
+## `query.stage-count-warning-threshold`
+
+- **Type:** {ref}`prop-type-integer`
+- **Default value:** `50`
+- **Minimum value:** `1`
+
+The number of stages a query can generate before the coordinator emits a
+`TOO_MANY_STAGES` warning. Unlike `query.max-stage-count`, exceeding this
+threshold does not cause the query to fail. The warning includes a
+suggestion to use `distinct_aggregations_strategy = 'single_step'` or
+create temporary tables for re-used CTEs.
+
 ## `query.max-history`
 
 - **Type:** {ref}`prop-type-integer`
@@ -209,6 +261,28 @@ is removed from the query history buffer and no longer available in the
 
 To store query events and therefore information about more queries in an
 external system you must use [an event listener](admin-event-listeners).
+
+## `query.schedule-split-batch-size`
+
+- **Type:** {ref}`prop-type-integer`
+- **Default value:** `1000`
+- **Minimum value:** `1`
+
+The maximum number of splits fetched from a connector in a single
+`getNextBatch()` call during query scheduling. This applies to both
+pipelined and fault-tolerant execution modes.
+
+## `query.min-schedule-split-batch-size`
+
+- **Type:** {ref}`prop-type-integer`
+- **Default value:** `100`
+- **Minimum value:** `1`
+
+The minimum number of splits that must be buffered from a connector before
+the scheduler processes them. When set to a value greater than `1`, split
+sources are wrapped in a buffering layer that accumulates splits
+asynchronously until this threshold is reached or the connector has no more
+splits to provide. Setting this to `1` disables the buffering layer.
 
 ## `query.remote-task.enable-adaptive-request-size`
 
@@ -259,6 +333,31 @@ Determines the amount of headroom that should be allocated beyond the size of
 the request data. Requires `query.remote-task.enable-adaptive-request-size` to
 be enabled.
 
+## `query.remote-task.max-callback-threads`
+
+- **Type:** {ref}`prop-type-integer`
+- **Default value:** `1000`
+- **Minimum value:** `1`
+
+The maximum number of threads used concurrently to handle responses from
+worker nodes. This thread pool processes task status updates, task info
+fetches, dynamic filter updates, and split assignment confirmations across
+all tasks for all queries. Reducing this value on clusters running queries
+with many concurrent tasks may delay detection of task completion and slow
+the delivery of new splits to workers.
+
+## `query.max-split-manager-callback-threads`
+
+- **Type:** {ref}`prop-type-integer`
+- **Default value:** `100`
+- **Minimum value:** `1`
+
+The maximum number of threads used concurrently to process split generation
+callbacks from connectors. All connectors share this thread pool. Reducing
+this value may slow query startup on coordinators that schedule many stages
+concurrently, particularly when split generation involves high-latency
+operations such as listing remote partitions.
+
 ## `query.info-url-template`
 
 - **Type:** {ref}`prop-type-string`
@@ -270,6 +369,97 @@ information. The URL must contain a query id placeholder `${QUERY_ID}`.
 For example `https://example.com/query/${QUERY_ID}`.
 
 The `${QUERY_ID}` gets replaced with the actual query's id.
+
+## `query.manager-executor-pool-size`
+
+- **Type:** {ref}`prop-type-integer`
+- **Default value:** `5`
+- **Minimum value:** `1`
+
+The size of the thread pool used for periodic coordinator housekeeping
+tasks, including enforcing memory, CPU, scan, and write limits on running
+queries, expiring completed queries from the history buffer, and failing
+queries that have lost contact with their client. A separate pool of the
+same size is also created for query dispatch operations such as
+minimum-worker-count wait callbacks.
+
+## `query.executor-pool-size`
+
+- **Type:** {ref}`prop-type-integer`
+- **Default value:** `1000`
+- **Minimum value:** `1`
+
+The size of the thread pool used for query scheduling work on the
+coordinator. This includes stage scheduling, split assignment, and
+state machine callbacks for both pipelined and fault-tolerant execution
+modes. Each fault-tolerant query occupies one thread in this pool for
+the duration of its scheduling lifecycle. Reducing this value significantly
+on coordinators with high query concurrency may cause scheduling delays.
+
+## `query.max-state-machine-callback-threads`
+
+- **Type:** {ref}`prop-type-integer`
+- **Default value:** `5`
+- **Minimum value:** `1`
+
+The maximum number of threads allowed to run query and stage state machine
+listener callbacks concurrently for each query. This limit is applied
+per query, not globally. State machine callbacks include query completion
+event delivery and propagation of terminal states to child stages and tasks.
+
+## `query.dispatcher-query-pool-size`
+
+- **Type:** {ref}`prop-type-integer`
+- **Default value:** `(max(50, available_processors * 10))`
+- **Minimum value:** `1`
+
+The maximum number of queries that can be simultaneously in the dispatch
+phase on the coordinator. The dispatch phase includes SQL parsing, session
+creation, access control checks, and resource group selection. Resource
+group admission callbacks also run in this pool.
+
+## `query.reported-rule-stats-limit`
+
+- **Type:** {ref}`prop-type-integer`
+- **Default value:** `10`
+- **Minimum value:** `1`
+
+The maximum number of optimizer rule statistics entries included in each
+query completion event. Rules are ranked by total CPU time consumed during
+planning, and only the top entries up to this limit are reported. The
+resulting statistics are available through the query info API and delivered
+to {doc}`event listeners </develop/event-listener>`.
+
+## `max-tasks-waiting-for-execution-per-query`
+
+- **Type:** {ref}`prop-type-integer`
+- **Default value:** `10`
+- **Minimum value:** `1`
+- **Session property:** `max_tasks_waiting_for_execution_per_query`
+
+The maximum number of tasks that can be waiting in the scheduling queue
+before the coordinator pauses split enumeration for the query. When the
+number of pending tasks reaches this threshold, no new task descriptors are
+loaded for non-eager stages until the backlog drains. This prevents a single
+query from building up an excessive number of pending tasks.
+
+:::{note}
+Only applies when {doc}`fault-tolerant execution </admin/fault-tolerant-execution>`
+is enabled (`retry-policy=TASK`).
+:::
+
+## `source-pages-validation-enabled`
+
+- **Type:** {ref}`prop-type-boolean`
+- **Default value:** `true`
+- **Session property:** `output_pages_validation_enabled`
+
+Enables runtime validation of data pages produced by source operators,
+including table scans and exchanges. When enabled, each page is checked
+to verify that the number of channels and the block types match the
+expected output types. Validation failures result in a
+`GENERIC_INTERNAL_ERROR`. This check applies to all queries regardless
+of the retry policy.
 
 ## `retry-policy`
 
