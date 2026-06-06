@@ -102,11 +102,6 @@ public record QualifiedObjectName(String catalogName, String schemaName, String 
     @Override
     public String toString()
     {
-        return catalogName + '.' + schemaName + '.' + objectName;
-    }
-
-    public String toSqlString()
-    {
         return quoteIfNeeded(catalogName, Optional.empty()) + '.' + quoteIfNeeded(schemaName, predicate) + '.' + quoteIfNeeded(objectName, predicate);
     }
 
