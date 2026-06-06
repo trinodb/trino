@@ -19,6 +19,7 @@ import io.trino.spi.connector.ColumnHandle;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
@@ -30,6 +31,7 @@ public final class TableStatistics
 
     private final Estimate rowCount;
     private final Map<ColumnHandle, ColumnStatistics> columnStatistics;
+    private final Map<Set<ColumnHandle>, ColumnGroupStatistics> columnGroupStatistics;
 
     public static TableStatistics empty()
     {
@@ -38,11 +40,17 @@ public final class TableStatistics
 
     public TableStatistics(Estimate rowCount, Map<ColumnHandle, ColumnStatistics> columnStatistics)
     {
+        this(rowCount, columnStatistics, Map.of());
+    }
+
+    public TableStatistics(Estimate rowCount, Map<ColumnHandle, ColumnStatistics> columnStatistics, Map<Set<ColumnHandle>, ColumnGroupStatistics> columnGroupStatistics)
+    {
         this.rowCount = requireNonNull(rowCount, "rowCount cannot be null");
         if (!rowCount.isUnknown() && rowCount.getValue() < 0) {
             throw new IllegalArgumentException(format("rowCount must be greater than or equal to 0: %s", rowCount.getValue()));
         }
         this.columnStatistics = unmodifiableMap(requireNonNull(columnStatistics, "columnStatistics cannot be null"));
+        this.columnGroupStatistics = unmodifiableMap(requireNonNull(columnGroupStatistics, "columnGroupStatistics cannot be null"));
     }
 
     public Estimate getRowCount()
@@ -53,6 +61,16 @@ public final class TableStatistics
     public Map<ColumnHandle, ColumnStatistics> getColumnStatistics()
     {
         return columnStatistics;
+    }
+
+    /**
+     * Returns joint statistics for groups of columns. The key is an unordered set of column
+     * handles; the value holds the joint number of distinct value combinations for that group.
+     * Connectors that do not collect joint statistics may return an empty map.
+     */
+    public Map<Set<ColumnHandle>, ColumnGroupStatistics> getColumnGroupStatistics()
+    {
+        return columnGroupStatistics;
     }
 
     public boolean isEmpty()
@@ -71,13 +89,14 @@ public final class TableStatistics
         }
         TableStatistics that = (TableStatistics) o;
         return Objects.equals(rowCount, that.rowCount) &&
-                Objects.equals(columnStatistics, that.columnStatistics);
+                Objects.equals(columnStatistics, that.columnStatistics) &&
+                Objects.equals(columnGroupStatistics, that.columnGroupStatistics);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(rowCount, columnStatistics);
+        return Objects.hash(rowCount, columnStatistics, columnGroupStatistics);
     }
 
     @Override
@@ -86,6 +105,7 @@ public final class TableStatistics
         return "TableStatistics{" +
                 "rowCount=" + rowCount +
                 ", columnStatistics=" + columnStatistics +
+                ", columnGroupStatistics=" + columnGroupStatistics +
                 '}';
     }
 
@@ -97,6 +117,7 @@ public final class TableStatistics
     public static final class Builder
     {
         private final Map<ColumnHandle, ColumnStatistics> columnStatisticsMap = new LinkedHashMap<>();
+        private final Map<Set<ColumnHandle>, ColumnGroupStatistics> columnGroupStatisticsMap = new LinkedHashMap<>();
         private Estimate rowCount = Estimate.unknown();
 
         public Builder setRowCount(Estimate rowCount)
@@ -113,9 +134,20 @@ public final class TableStatistics
             return this;
         }
 
+        public Builder setColumnGroupStatistics(Set<ColumnHandle> columnGroup, ColumnGroupStatistics columnGroupStatistics)
+        {
+            requireNonNull(columnGroup, "columnGroup cannot be null");
+            requireNonNull(columnGroupStatistics, "columnGroupStatistics cannot be null");
+            if (columnGroup.isEmpty()) {
+                throw new IllegalArgumentException("columnGroup cannot be empty");
+            }
+            this.columnGroupStatisticsMap.put(columnGroup, columnGroupStatistics);
+            return this;
+        }
+
         public TableStatistics build()
         {
-            return new TableStatistics(rowCount, columnStatisticsMap);
+            return new TableStatistics(rowCount, columnStatisticsMap, columnGroupStatisticsMap);
         }
     }
 }

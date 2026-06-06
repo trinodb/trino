@@ -14,6 +14,7 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
@@ -24,6 +25,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 
 import static io.trino.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -92,6 +94,13 @@ public class AggregationStatsRule
 
     public static double getRowsCount(PlanNodeStatsEstimate sourceStats, Collection<Symbol> groupBySymbols)
     {
+        // Use joint NDV from connector statistics when available — avoids the independence assumption.
+        Set<Symbol> groupBySet = ImmutableSet.copyOf(groupBySymbols);
+        double jointNdv = sourceStats.getColumnGroupNdv(groupBySet);
+        if (!Double.isNaN(jointNdv)) {
+            return jointNdv;
+        }
+
         double rowsCount = 1;
         for (Symbol groupBySymbol : groupBySymbols) {
             SymbolStatsEstimate symbolStatistics = sourceStats.getSymbolStatistics(groupBySymbol);

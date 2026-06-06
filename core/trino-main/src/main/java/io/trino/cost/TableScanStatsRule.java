@@ -16,6 +16,7 @@ package io.trino.cost;
 import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.statistics.ColumnGroupStatistics;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
@@ -28,6 +29,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static io.trino.SystemSessionProperties.isStatisticsPrecalculationForPushdownEnabled;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
@@ -61,6 +64,7 @@ public class TableScanStatsRule
         TableStatistics tableStatistics = context.tableStatsProvider().getTableStatistics(node.getTable());
 
         Map<Symbol, SymbolStatsEstimate> outputSymbolStats = new HashMap<>();
+        Map<ColumnHandle, Symbol> reverseAssignments = new HashMap<>();
 
         for (Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
             Symbol symbol = entry.getKey();
@@ -69,12 +73,26 @@ public class TableScanStatsRule
                     .map(statistics -> toSymbolStatistics(tableStatistics, statistics, symbol.type()))
                     .orElse(SymbolStatsEstimate.unknown());
             outputSymbolStats.put(symbol, symbolStatistics);
+            reverseAssignments.put(entry.getValue(), symbol);
         }
 
-        return Optional.of(PlanNodeStatsEstimate.builder()
+        PlanNodeStatsEstimate.Builder builder = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(tableStatistics.getRowCount().getValue())
-                .addSymbolStatistics(outputSymbolStats)
-                .build());
+                .addSymbolStatistics(outputSymbolStats);
+
+        for (Entry<Set<ColumnHandle>, ColumnGroupStatistics> entry : tableStatistics.getColumnGroupStatistics().entrySet()) {
+            if (entry.getValue().getDistinctValuesCount().isUnknown()) {
+                continue;
+            }
+            Set<Symbol> symbolGroup = entry.getKey().stream()
+                    .map(reverseAssignments::get)
+                    .collect(Collectors.toSet());
+            if (!symbolGroup.contains(null)) {
+                builder.addColumnGroupNdv(symbolGroup, entry.getValue().getDistinctValuesCount().getValue());
+            }
+        }
+
+        return Optional.of(builder.build());
     }
 
     private static SymbolStatsEstimate toSymbolStatistics(TableStatistics tableStatistics, ColumnStatistics columnStatistics, Type type)
