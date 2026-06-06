@@ -154,6 +154,13 @@ public final class HiveQueryRunner
         }
 
         @CanIgnoreReturnValue
+        public SELF addHiveProperties(Map<String, String> hiveProperties)
+        {
+            this.hiveProperties.putAll(requireNonNull(hiveProperties, "hiveProperties is null"));
+            return self();
+        }
+
+        @CanIgnoreReturnValue
         public SELF setInitialTables(Iterable<TpchTable<?>> initialTables)
         {
             this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));

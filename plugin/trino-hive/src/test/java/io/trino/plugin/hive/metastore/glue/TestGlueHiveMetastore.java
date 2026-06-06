@@ -15,36 +15,34 @@ package io.trino.plugin.hive.metastore.glue;
 
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.base.util.AutoCloseableCloser;
+import io.trino.plugin.hive.FlociS3AndGlue;
 import io.trino.plugin.hive.metastore.AbstractTestHiveMetastore;
 import org.junit.jupiter.api.AfterAll;
 
-import java.io.IOException;
-import java.nio.file.Path;
+import java.net.URI;
 
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static java.nio.file.Files.createTempDirectory;
+import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 
 final class TestGlueHiveMetastore
         extends AbstractTestHiveMetastore
 {
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
-    private final Path tempDir;
     private final GlueHiveMetastore metastore;
 
     TestGlueHiveMetastore()
-            throws IOException
+            throws Exception
     {
-        tempDir = createTempDirectory("test");
-        metastore = createTestingGlueHiveMetastore(tempDir, closer::register);
+        FlociS3AndGlue floci = closer.register(new FlociS3AndGlue());
+        String bucketName = "test-glue-hive-metastore-" + randomNameSuffix();
+        floci.createBucket(bucketName);
+        metastore = createTestingGlueHiveMetastore(URI.create("s3://%s/".formatted(bucketName)), closer::register, floci, false);
     }
 
     @AfterAll
     void tearDown()
             throws Exception
     {
-        metastore.shutdown();
-        deleteRecursively(tempDir, ALLOW_INSECURE);
         closer.close();
     }
 

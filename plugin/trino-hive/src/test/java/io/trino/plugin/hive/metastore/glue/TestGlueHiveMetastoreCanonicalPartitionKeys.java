@@ -22,6 +22,7 @@ import io.trino.metastore.PartitionStatistics;
 import io.trino.metastore.PartitionWithStatistics;
 import io.trino.metastore.Table;
 import io.trino.plugin.base.util.AutoCloseableCloser;
+import io.trino.plugin.hive.FlociS3AndGlue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.DateType;
@@ -32,8 +33,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.io.IOException;
-import java.nio.file.Path;
+import java.net.URI;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -41,8 +41,6 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.metastore.HiveType.HIVE_DATE;
 import static io.trino.metastore.HiveType.HIVE_INT;
 import static io.trino.metastore.HiveType.HIVE_STRING;
@@ -51,8 +49,8 @@ import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.metastore.glue.PartitionFilterBuilder.DECIMAL_TYPE_PRECISION;
 import static io.trino.plugin.hive.metastore.glue.PartitionFilterBuilder.DECIMAL_TYPE_SCALE;
+import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.nio.file.Files.createTempDirectory;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -65,14 +63,15 @@ final class TestGlueHiveMetastoreCanonicalPartitionKeys
     private static final String DATABASE_NAME = "test_database_" + randomNameSuffix();
 
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
-    private final Path tempDir;
     private final GlueHiveMetastore metastore;
 
     TestGlueHiveMetastoreCanonicalPartitionKeys()
-            throws IOException
+            throws Exception
     {
-        tempDir = createTempDirectory("test");
-        metastore = createTestingGlueHiveMetastore(tempDir, closer::register, true);
+        FlociS3AndGlue floci = closer.register(new FlociS3AndGlue());
+        String bucketName = "test-glue-hive-canonical-partitions-" + randomNameSuffix();
+        floci.createBucket(bucketName);
+        metastore = createTestingGlueHiveMetastore(URI.create("s3://%s/".formatted(bucketName)), closer::register, floci, true);
     }
 
     @BeforeAll
@@ -90,9 +89,6 @@ final class TestGlueHiveMetastoreCanonicalPartitionKeys
             throws Exception
     {
         metastore.dropDatabase(DATABASE_NAME, false);
-
-        metastore.shutdown();
-        deleteRecursively(tempDir, ALLOW_INSECURE);
         closer.close();
     }
 
