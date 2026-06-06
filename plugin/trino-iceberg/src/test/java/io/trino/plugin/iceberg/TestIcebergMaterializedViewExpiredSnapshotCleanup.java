@@ -27,7 +27,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TypeId;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.containers.Minio;
+import io.trino.testing.containers.FlociContainer;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.Snapshot;
 import org.junit.jupiter.api.AfterAll;
@@ -57,9 +57,9 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getTrinoCatalog;
 import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.TRINO_CREATED_BY_VALUE;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
+import static io.trino.testing.containers.FlociContainer.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.FlociContainer.FLOCI_REGION;
+import static io.trino.testing.containers.FlociContainer.FLOCI_SECRET_KEY;
 import static java.lang.String.format;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -74,24 +74,24 @@ public class TestIcebergMaterializedViewExpiredSnapshotCleanup
     private static final String RESOURCE_DIRECTORY = "materialized_view_expired_snapshots";
     private static final String S3_LOCATION_PREFIX = format("s3://%s/%s", BUCKET_NAME, RESOURCE_DIRECTORY);
 
-    private Minio minio;
+    private FlociContainer floci;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        minio = closeAfterClass(Minio.builder().build());
-        minio.start();
-        minio.createBucket(BUCKET_NAME);
+        floci = closeAfterClass(new FlociContainer());
+        floci.start();
+        floci.createBucket(BUCKET_NAME);
 
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.of(
                         "iceberg.materialized-views.refresh-max-snapshots-to-expire", "5",
                         "fs.s3.enabled", "true",
-                        "s3.aws-access-key", MINIO_ROOT_USER,
-                        "s3.aws-secret-key", MINIO_ROOT_PASSWORD,
-                        "s3.region", MINIO_REGION,
-                        "s3.endpoint", minio.getMinioAddress(),
+                        "s3.aws-access-key", FLOCI_ACCESS_KEY,
+                        "s3.aws-secret-key", FLOCI_SECRET_KEY,
+                        "s3.region", FLOCI_REGION,
+                        "s3.endpoint", floci.endpoint().toString(),
                         "iceberg.register-table-procedure.enabled", "true",
                         "s3.path-style-access", "true"))
                 .build();
@@ -107,7 +107,7 @@ public class TestIcebergMaterializedViewExpiredSnapshotCleanup
         String sourceTableName = "source_table";
         String materializedViewName = "materialized_view";
 
-        minio.copyResources(format("iceberg/%s", RESOURCE_DIRECTORY), BUCKET_NAME, RESOURCE_DIRECTORY);
+        floci.copyResources(format("iceberg/%s", RESOURCE_DIRECTORY), BUCKET_NAME, RESOURCE_DIRECTORY);
         getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", sourceTableName, format("%s/source_table", S3_LOCATION_PREFIX)));
         assertQuery(format("SELECT * FROM %s", sourceTableName), "VALUES 4");
 
@@ -207,6 +207,6 @@ public class TestIcebergMaterializedViewExpiredSnapshotCleanup
     public void destroy()
             throws Exception
     {
-        minio = null;
+        floci = null; // closed by closeAfterClass
     }
 }

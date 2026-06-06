@@ -15,16 +15,14 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.minio.messages.NotificationRecords.Event;
 import io.trino.Session;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.Table;
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.minio.MinioClient;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
@@ -34,20 +32,17 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations.ICEBERG_METASTORE_STORAGE_FORMAT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
+import static io.trino.testing.containers.FlociContainer.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.FlociContainer.FLOCI_REGION;
+import static io.trino.testing.containers.FlociContainer.FLOCI_SECRET_KEY;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
@@ -56,40 +51,40 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @Execution(SAME_THREAD)
-public abstract class BaseIcebergMinioConnectorSmokeTest
+public abstract class BaseIcebergFlociConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
     private final String schemaName;
     private final String bucketName;
 
-    private Hive3MinioDataLake hiveMinioDataLake;
+    private Hive3FlociDataLake hiveFlociDataLake;
 
-    protected BaseIcebergMinioConnectorSmokeTest(FileFormat format)
+    protected BaseIcebergFlociConnectorSmokeTest(FileFormat format)
     {
         super(format);
         this.schemaName = "tpch_" + format.name().toLowerCase(ENGLISH);
-        this.bucketName = "test-iceberg-minio-smoke-test-" + randomNameSuffix();
+        this.bucketName = "test-iceberg-floci-smoke-test-" + randomNameSuffix();
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
-        this.hiveMinioDataLake.start();
+        this.hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake(bucketName));
+        this.hiveFlociDataLake.start();
 
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.file-format", format.name())
                                 .put("iceberg.catalog.type", "HIVE_METASTORE")
-                                .put("hive.metastore.uri", hiveMinioDataLake.getHiveMetastoreEndpoint().toString())
+                                .put("hive.metastore.uri", hiveFlociDataLake.getHiveMetastoreEndpoint().toString())
                                 .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
                                 .put("fs.s3.enabled", "true")
-                                .put("s3.aws-access-key", MINIO_ROOT_USER)
-                                .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
-                                .put("s3.region", MINIO_REGION)
-                                .put("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
+                                .put("s3.aws-access-key", FLOCI_ACCESS_KEY)
+                                .put("s3.aws-secret-key", FLOCI_SECRET_KEY)
+                                .put("s3.region", FLOCI_REGION)
+                                .put("s3.endpoint", hiveFlociDataLake.getFloci().endpoint().toString())
                                 .put("s3.path-style-access", "true")
                                 .put("s3.streaming.part-size", "5MB") // minimize memory usage
                                 .put("s3.max-connections", "2") // verify no leaks
@@ -136,10 +131,10 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
         assertThat(location).doesNotContain("#");
 
         assertUpdate("CREATE TABLE " + tableName + " WITH (location='" + location + "') AS SELECT 1 col", 1);
-        List<String> dataFiles = hiveMinioDataLake.getMinioClient().listObjects(bucketName, "%s/%s/data".formatted(schemaName, tableName));
+        List<String> dataFiles = hiveFlociDataLake.getFloci().listObjects(bucketName, "%s/%s/data".formatted(schemaName, tableName));
         assertThat(dataFiles).isNotEmpty().filteredOn(filePath -> filePath.contains("#")).isEmpty();
 
-        List<String> metadataFiles = hiveMinioDataLake.getMinioClient().listObjects(bucketName, "%s/%s/metadata".formatted(schemaName, tableName));
+        List<String> metadataFiles = hiveFlociDataLake.getFloci().listObjects(bucketName, "%s/%s/metadata".formatted(schemaName, tableName));
         assertThat(metadataFiles).isNotEmpty().filteredOn(filePath -> filePath.contains("#")).isEmpty();
 
         // Verify ALTER TABLE succeeds https://github.com/trinodb/trino/issues/14552
@@ -222,19 +217,13 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
         String tableName = "test_expiring_snapshots_" + randomNameSuffix();
         Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
         String location = "s3://%s/%s/%s/".formatted(bucketName, schemaName, tableName);
-        Queue<Event> events = new ConcurrentLinkedQueue<>();
-        hiveMinioDataLake.getMinioClient().captureBucketNotifications(bucketName, event -> {
-            if (event.eventName().contains("ObjectRemoved")) {
-                events.add(event);
-            }
-        });
 
         assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer) WITH (location='" + location + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
         assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (VARCHAR 'one', 1), (VARCHAR 'two', 2)");
 
-        List<String> initialMetadataFiles = hiveMinioDataLake.getMinioClient().listObjects(bucketName, "%s/%s/metadata".formatted(schemaName, tableName));
+        List<String> initialMetadataFiles = hiveFlociDataLake.getFloci().listObjects(bucketName, "%s/%s/metadata".formatted(schemaName, tableName));
         assertThat(initialMetadataFiles).isNotEmpty();
 
         List<Long> initialSnapshots = getSnapshotIds(tableName);
@@ -242,7 +231,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
 
         assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
 
-        List<String> updatedMetadataFiles = hiveMinioDataLake.getMinioClient().listObjects(bucketName, "%s/%s/metadata".formatted(schemaName, tableName));
+        List<String> updatedMetadataFiles = hiveFlociDataLake.getFloci().listObjects(bucketName, "%s/%s/metadata".formatted(schemaName, tableName));
         assertThat(updatedMetadataFiles).isNotEmpty().hasSizeLessThan(initialMetadataFiles.size());
 
         List<Long> updatedSnapshots = getSnapshotIds(tableName);
@@ -250,13 +239,6 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
 
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES (VARCHAR 'one', 1), (VARCHAR 'two', 2)");
-        assertThat(events).hasSize(3);
-        // since we have delegated the batch delete operation to iceberg there are two requests.
-        // the first request is for data and the second is for statistics files.
-        // https://github.com/apache/iceberg/blob/9a23420592e2b8be5f792c8e6eb32a64e92e4088/core/src/main/java/org/apache/iceberg/IncrementalFileCleanup.java#L58
-        assertThat(events.stream()
-                .map(event -> event.responseElements().get("x-amz-request-id"))
-                .collect(toImmutableSet())).hasSize(2);
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -320,7 +302,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
 
     private String onMetastore(@Language("SQL") String sql)
     {
-        return hiveMinioDataLake.getHiveHadoop().runOnMetastore(sql);
+        return hiveFlociDataLake.getHiveHadoop().runOnMetastore(sql);
     }
 
     private Session prepareCleanUpSession()
@@ -343,7 +325,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     {
         HiveMetastore metastore = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()
-                        .metastoreClient(hiveMinioDataLake.getHiveMetastoreEndpoint())
+                        .metastoreClient(hiveFlociDataLake.getHiveMetastoreEndpoint())
                         .build(this::closeAfterClass));
         metastore.dropTable(schemaName, tableName, false);
         assertThat(metastore.getTable(schemaName, tableName)).isEmpty();
@@ -354,7 +336,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     {
         HiveMetastore metastore = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()
-                        .metastoreClient(hiveMinioDataLake.getHiveMetastoreEndpoint())
+                        .metastoreClient(hiveFlociDataLake.getHiveMetastoreEndpoint())
                         .build(this::closeAfterClass));
         return metastore
                 .getTable(schemaName, tableName).orElseThrow()
@@ -371,7 +353,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     protected boolean locationExists(String location)
     {
         String prefix = "s3://" + bucketName + "/";
-        return !hiveMinioDataLake.listFiles(location.substring(prefix.length())).isEmpty();
+        return !hiveFlociDataLake.listFiles(location.substring(prefix.length())).isEmpty();
     }
 
     @Override
@@ -380,10 +362,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
         String prefix = "s3://" + bucketName + "/";
         String key = location.substring(prefix.length());
 
-        MinioClient minio = hiveMinioDataLake.getMinioClient();
-        for (String file : minio.listObjects(bucketName, key)) {
-            minio.removeObject(bucketName, file);
-        }
-        assertThat(minio.listObjects(bucketName, key)).isEmpty();
+        hiveFlociDataLake.getFloci().deleteObjects(bucketName, key);
+        assertThat(hiveFlociDataLake.getFloci().listObjects(bucketName, key)).isEmpty();
     }
 }

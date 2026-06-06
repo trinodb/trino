@@ -28,13 +28,13 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 
-public class TestIcebergMinioParquetCachingConnectorSmokeTest
-        extends BaseIcebergMinioConnectorSmokeTest
+public class TestIcebergFlociParquetCachingConnectorSmokeTest
+        extends BaseIcebergFlociConnectorSmokeTest
 {
     private final Path cacheDirectory;
     private final Closer closer = Closer.create();
 
-    TestIcebergMinioParquetCachingConnectorSmokeTest()
+    TestIcebergFlociParquetCachingConnectorSmokeTest()
             throws IOException
     {
         super(FileFormat.PARQUET);

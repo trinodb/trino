@@ -16,16 +16,16 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.containers.Minio;
+import io.trino.testing.containers.FlociContainer;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
+import static io.trino.testing.containers.FlociContainer.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.FlociContainer.FLOCI_REGION;
+import static io.trino.testing.containers.FlociContainer.FLOCI_SECRET_KEY;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -35,24 +35,24 @@ public class TestIcebergPartitionEvolutionOnSameColumn
 {
     private static final String BUCKET_NAME = "test-partition-evolution";
 
-    private Minio minio;
+    private FlociContainer floci;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        minio = closeAfterClass(Minio.builder().build());
-        minio.start();
-        minio.createBucket(BUCKET_NAME);
+        floci = closeAfterClass(new FlociContainer());
+        floci.start();
+        floci.createBucket(BUCKET_NAME);
 
         QueryRunner queryRunner = IcebergQueryRunner.builder()
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()
                                 .put("fs.s3.enabled", "true")
-                                .put("s3.aws-access-key", MINIO_ROOT_USER)
-                                .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
-                                .put("s3.region", MINIO_REGION)
-                                .put("s3.endpoint", minio.getMinioAddress())
+                                .put("s3.aws-access-key", FLOCI_ACCESS_KEY)
+                                .put("s3.aws-secret-key", FLOCI_SECRET_KEY)
+                                .put("s3.region", FLOCI_REGION)
+                                .put("s3.endpoint", floci.endpoint().toString())
                                 .put("s3.path-style-access", "true")
                                 .put("iceberg.register-table-procedure.enabled", "true")
                                 .buildOrThrow())
@@ -66,7 +66,7 @@ public class TestIcebergPartitionEvolutionOnSameColumn
     public void destroy()
             throws Exception
     {
-        minio = null; // closed by closeAfterClass
+        floci = null; // closed by closeAfterClass
     }
 
     @Test
@@ -133,7 +133,7 @@ public class TestIcebergPartitionEvolutionOnSameColumn
     {
         String tableName = "test_iceberg_partition_evolution_" + randomNameSuffix();
 
-        minio.copyResources("iceberg/conflict_truncate", BUCKET_NAME, "conflict_truncate");
+        floci.copyResources("iceberg/conflict_truncate", BUCKET_NAME, "conflict_truncate");
         assertUpdate(format(
                 "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')",
                 tableName,

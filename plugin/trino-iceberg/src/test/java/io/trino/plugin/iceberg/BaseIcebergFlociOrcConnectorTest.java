@@ -18,7 +18,7 @@ import com.google.common.io.Resources;
 import io.trino.Session;
 import io.trino.filesystem.Location;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.containers.Minio;
+import io.trino.testing.containers.FlociContainer;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -32,9 +32,9 @@ import static com.google.common.io.Resources.getResource;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
+import static io.trino.testing.containers.FlociContainer.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.FlociContainer.FLOCI_REGION;
+import static io.trino.testing.containers.FlociContainer.FLOCI_SECRET_KEY;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -43,12 +43,12 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
  * Iceberg connector test ORC and with S3-compatible storage (but without real metastore).
  */
 @Execution(SAME_THREAD)
-public abstract class BaseIcebergMinioOrcConnectorTest
+public abstract class BaseIcebergFlociOrcConnectorTest
         extends BaseIcebergConnectorTest
 {
     private final String bucketName = "test-iceberg-orc-" + randomNameSuffix();
 
-    public BaseIcebergMinioOrcConnectorTest(int formatVersion)
+    public BaseIcebergFlociOrcConnectorTest(int formatVersion)
     {
         super(ORC, formatVersion);
     }
@@ -57,9 +57,9 @@ public abstract class BaseIcebergMinioOrcConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Minio minio = closeAfterClass(Minio.builder().build());
-        minio.start();
-        minio.createBucket(bucketName);
+        FlociContainer floci = closeAfterClass(new FlociContainer());
+        floci.start();
+        floci.createBucket(bucketName);
 
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(
@@ -68,10 +68,10 @@ public abstract class BaseIcebergMinioOrcConnectorTest
                                 .put("iceberg.format-version", String.valueOf(formatVersion))
                                 .put("fs.hadoop.enabled", "true")
                                 .put("fs.s3.enabled", "true")
-                                .put("s3.aws-access-key", MINIO_ROOT_USER)
-                                .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
-                                .put("s3.region", MINIO_REGION)
-                                .put("s3.endpoint", minio.getMinioAddress())
+                                .put("s3.aws-access-key", FLOCI_ACCESS_KEY)
+                                .put("s3.aws-secret-key", FLOCI_SECRET_KEY)
+                                .put("s3.region", FLOCI_REGION)
+                                .put("s3.endpoint", floci.endpoint().toString())
                                 .put("s3.path-style-access", "true")
                                 .put("s3.streaming.part-size", "5MB") // minimize memory usage
                                 .put("s3.max-connections", "8") // verify no leaks

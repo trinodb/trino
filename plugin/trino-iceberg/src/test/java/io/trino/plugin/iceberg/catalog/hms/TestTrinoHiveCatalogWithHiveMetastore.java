@@ -30,8 +30,8 @@ import io.trino.metastore.TableInfo;
 import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
+import io.trino.plugin.hive.containers.HiveFlociDataLake;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
@@ -75,9 +75,9 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROP
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
+import static io.trino.testing.containers.FlociContainer.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.FlociContainer.FLOCI_REGION;
+import static io.trino.testing.containers.FlociContainer.FLOCI_SECRET_KEY;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -95,22 +95,21 @@ public class TestTrinoHiveCatalogWithHiveMetastore
     private static final Logger LOG = Logger.get(TestTrinoHiveCatalogWithHiveMetastore.class);
 
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
-    // Use MinIO for storage, since HDFS is hard to get working in a unit test
-    private HiveMinioDataLake dataLake;
+    private HiveFlociDataLake dataLake;
     private TrinoFileSystem fileSystem;
     private CachingHiveMetastore metastore;
     protected String bucketName;
 
-    HiveMinioDataLake hiveMinioDataLake()
+    HiveFlociDataLake hiveFlociDataLake()
     {
-        return new Hive3MinioDataLake(bucketName, HIVE3_IMAGE);
+        return new Hive3FlociDataLake(bucketName, HIVE3_IMAGE);
     }
 
     @BeforeAll
     public void setUp()
     {
         bucketName = "test-hive-catalog-with-hms-" + randomNameSuffix();
-        dataLake = closer.register(hiveMinioDataLake());
+        dataLake = closer.register(hiveFlociDataLake());
         dataLake.start();
     }
 
@@ -142,10 +141,10 @@ public class TestTrinoHiveCatalogWithHiveMetastore
         TrinoFileSystemFactory fileSystemFactory = new S3FileSystemFactory(
                 OpenTelemetry.noop(),
                 new S3FileSystemConfig()
-                        .setEndpoint(dataLake.getMinio().getMinioAddress())
-                        .setAwsAccessKey(MINIO_ROOT_USER)
-                        .setAwsSecretKey(MINIO_ROOT_PASSWORD)
-                        .setRegion(MINIO_REGION)
+                        .setEndpoint(dataLake.getFloci().getEndpoint().toString())
+                        .setAwsAccessKey(FLOCI_ACCESS_KEY)
+                        .setAwsSecretKey(FLOCI_SECRET_KEY)
+                        .setRegion(FLOCI_REGION)
                         .setPathStyleAccess(true),
                 new S3FileSystemStats());
         ThriftMetastore thriftMetastore = testingThriftHiveMetastoreBuilder()

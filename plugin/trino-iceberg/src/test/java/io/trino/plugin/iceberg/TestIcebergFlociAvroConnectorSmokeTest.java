@@ -19,10 +19,10 @@ import org.junit.jupiter.api.Test;
 import static org.apache.iceberg.FileFormat.AVRO;
 import static org.junit.jupiter.api.Assumptions.abort;
 
-public class TestIcebergMinioAvroConnectorSmokeTest
-        extends BaseIcebergMinioConnectorSmokeTest
+public class TestIcebergFlociAvroConnectorSmokeTest
+        extends BaseIcebergFlociConnectorSmokeTest
 {
-    public TestIcebergMinioAvroConnectorSmokeTest()
+    public TestIcebergFlociAvroConnectorSmokeTest()
     {
         super(AVRO);
     }
