@@ -11,14 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.elasticsearch.decoders;
+package io.trino.plugin.elasticsearch.client;
 
-import io.trino.plugin.elasticsearch.client.SearchDocument;
-import io.trino.spi.block.BlockBuilder;
+import java.util.List;
+import java.util.Optional;
 
-import java.util.function.Supplier;
+import static java.util.Objects.requireNonNull;
 
-public interface Decoder
+public record SearchResult(
+        Optional<String> scrollId,
+        List<SearchDocument> hits)
 {
-    void decode(SearchDocument document, Supplier<Object> getter, BlockBuilder output);
+    public SearchResult
+    {
+        requireNonNull(scrollId, "scrollId is null");
+        requireNonNull(hits, "hits is null");
+    }
 }

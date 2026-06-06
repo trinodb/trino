@@ -15,7 +15,7 @@
     <description>Trino - Elasticsearch connector</description>
 
     <properties>
-        <dep.elasticsearch.version>7.17.29</dep.elasticsearch.version>
+        <dep.elasticsearch.version>9.3.2</dep.elasticsearch.version>
     </properties>
 
     <dependencies>
@@ -131,44 +131,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.elasticsearch</groupId>
-            <artifactId>elasticsearch</artifactId>
-            <version>${dep.elasticsearch.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.logging.log4j</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-                <!-- trino-main brings in 9.7.0 (vs 8.11.1) -->
-                <exclusion>
-                    <groupId>org.apache.lucene</groupId>
-                    <artifactId>lucene-analyzers-common</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.elasticsearch</groupId>
-                    <artifactId>elasticsearch-lz4</artifactId>
-                </exclusion>
-                <!-- Exclude old lz4 version and lz4 module, use newer one from dependencyManagement -->
-                <exclusion>
-                    <groupId>org.lz4</groupId>
-                    <artifactId>lz4-java</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>org.elasticsearch</groupId>
-            <artifactId>elasticsearch-core</artifactId>
-            <version>${dep.elasticsearch.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.elasticsearch</groupId>
-            <artifactId>elasticsearch-x-content</artifactId>
-            <version>${dep.elasticsearch.version}</version>
-        </dependency>
-
-        <dependency>
             <groupId>org.elasticsearch.client</groupId>
             <artifactId>elasticsearch-rest-client</artifactId>
             <version>${dep.elasticsearch.version}</version>
@@ -179,12 +141,6 @@
                     <artifactId>commons-logging</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>org.elasticsearch.client</groupId>
-            <artifactId>elasticsearch-rest-high-level-client</artifactId>
-            <version>${dep.elasticsearch.version}</version>
         </dependency>
 
         <dependency>
@@ -255,13 +211,6 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
             <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <!-- Add new LZ4 dependency to replace excluded elasticsearch-lz4 -->
-            <groupId>at.yawk.lz4</groupId>
-            <artifactId>lz4-java</artifactId>
-            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -423,21 +372,4 @@
         </dependency>
     </dependencies>
 
-    <build>
-        <pluginManagement>
-            <plugins>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-dependency-plugin</artifactId>
-                    <configuration>
-                        <ignoredNonTestScopedDependencies>
-                            <!-- TODO: https://issues.apache.org/jira/browse/MDEP-791 -->
-                            <!-- elasticsearch-x-content is required in compile scope by org.elasticsearch:elasticsearch -->
-                            <ignoredNonTestScopedDependency>org.elasticsearch:elasticsearch-x-content</ignoredNonTestScopedDependency>
-                        </ignoredNonTestScopedDependencies>
-                    </configuration>
-                </plugin>
-            </plugins>
-        </pluginManagement>
-    </build>
 </project>
