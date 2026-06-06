@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.metastore.glue;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.hive.FlociS3AndGlue;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
@@ -36,31 +37,35 @@ public class TestHiveConcurrentModificationGlueMetastore
     @Test
     public void testGlueClientShouldRetryConcurrentModificationException()
     {
-        try (GlueClient glueClient = createGlueClient(new GlueHiveMetastoreConfig(), ImmutableSet.of())) {
-            ClientOverrideConfiguration clientOverrideConfiguration = glueClient.serviceClientConfiguration().overrideConfiguration();
-            RetryStrategy retryStrategy = clientOverrideConfiguration.retryStrategy().orElseThrow();
+        try (FlociS3AndGlue floci = new FlociS3AndGlue()) {
+            GlueHiveMetastoreConfig config = new GlueHiveMetastoreConfig();
+            floci.configureGlueHiveMetastore(config);
+            try (GlueClient glueClient = createGlueClient(config, ImmutableSet.of())) {
+                ClientOverrideConfiguration clientOverrideConfiguration = glueClient.serviceClientConfiguration().overrideConfiguration();
+                RetryStrategy retryStrategy = clientOverrideConfiguration.retryStrategy().orElseThrow();
 
-            assertThatThrownBy(() -> retryStrategy.refreshRetryToken(
-                    RefreshRetryTokenRequest.builder()
-                            .token(DefaultRetryToken.builder().scope("test").build())
-                            .failure(new RuntimeException("This is not retryable exception so it should fail"))
-                            .build()))
-                    .hasMessage("Request attempt 1 encountered non-retryable failure");
+                assertThatThrownBy(() -> retryStrategy.refreshRetryToken(
+                        RefreshRetryTokenRequest.builder()
+                                .token(DefaultRetryToken.builder().scope("test").build())
+                                .failure(new RuntimeException("This is not retryable exception so it should fail"))
+                                .build()))
+                        .hasMessage("Request attempt 1 encountered non-retryable failure");
 
-            RefreshRetryTokenResponse refreshRetryTokenResponse = retryStrategy.refreshRetryToken(
-                    RefreshRetryTokenRequest.builder()
-                            .token(DefaultRetryToken.builder().scope("test").build())
-                            .failure(
-                                    ConcurrentModificationException.builder()
-                                            .awsErrorDetails(AwsErrorDetails.builder()
-                                                    // taken from software.amazon.awssdk.services.glue.DefaultGlueClient and
-                                                    // software.amazon.awssdk.services.glue.DefaultGlueAsyncClient
-                                                    .errorCode("ConcurrentModificationException")
-                                                    .build())
-                                            .message("Test-simulated metastore concurrent modification exception that should be allowed to retry")
-                                            .build())
-                            .build());
-            assertThat(refreshRetryTokenResponse).isNotNull();
+                RefreshRetryTokenResponse refreshRetryTokenResponse = retryStrategy.refreshRetryToken(
+                        RefreshRetryTokenRequest.builder()
+                                .token(DefaultRetryToken.builder().scope("test").build())
+                                .failure(
+                                        ConcurrentModificationException.builder()
+                                                .awsErrorDetails(AwsErrorDetails.builder()
+                                                        // taken from software.amazon.awssdk.services.glue.DefaultGlueClient and
+                                                        // software.amazon.awssdk.services.glue.DefaultGlueAsyncClient
+                                                        .errorCode("ConcurrentModificationException")
+                                                        .build())
+                                                .message("Test-simulated metastore concurrent modification exception that should be allowed to retry")
+                                                .build())
+                                .build());
+                assertThat(refreshRetryTokenResponse).isNotNull();
+            }
         }
     }
 }
