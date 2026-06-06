@@ -13,19 +13,19 @@
  */
 package io.trino.plugin.deltalake.metastore.glue;
 
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
+import io.trino.plugin.hive.FlociS3AndGlue;
 import software.amazon.awssdk.services.s3.S3Client;
 
-import java.net.URI;
 import java.util.Map;
 
-import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 
-public class TestDeltaS3AndGlueFloci
-        extends BaseDeltaS3AndGlue
+public class TestDeltaLakeS3AndGlueFloci
+        extends BaseDeltaLakeS3AndGlue
 {
-    public TestDeltaS3AndGlueFloci()
+    private FlociS3AndGlue floci;
+
+    public TestDeltaLakeS3AndGlueFloci()
     {
         super("test-delta-s3-glue-" + randomNameSuffix());
     }
@@ -36,20 +36,17 @@ public class TestDeltaS3AndGlueFloci
         return floci().s3AndGlueProperties();
     }
 
-    @Override
-    protected GlueHiveMetastore createGlueHiveMetastore()
-    {
-        return createTestingGlueHiveMetastore(
-                URI.create(schemaPath()),
-                this::closeAfterClass,
-                false,
-                floci()::configureGlueHiveMetastore,
-                floci().createFileSystemFactory());
-    }
-
-    @Override
     protected S3Client createS3Client()
     {
         return floci().createS3Client();
+    }
+
+    private FlociS3AndGlue floci()
+    {
+        if (floci == null) {
+            floci = closeAfterClass(new FlociS3AndGlue());
+            floci.createBucket(bucketName);
+        }
+        return floci;
     }
 }

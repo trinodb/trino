@@ -60,21 +60,21 @@ public abstract class BaseDeltaLakeTableWithCustomLocation
         assertThat(table.getTableType()).isEqualTo(MANAGED_TABLE.name());
 
         Location tableLocation = Location.of(table.getStorage().getLocation());
-        TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(getSession().toConnectorSession());
+        TrinoFileSystem fileSystem = createFileSystem();
         assertThat(fileSystem.listFiles(tableLocation).hasNext())
                 .describedAs("The directory corresponding to the table storage location should exist")
                 .isTrue();
         List<MaterializedRow> materializedRows = computeActual("SELECT \"$path\" FROM " + tableName).getMaterializedRows();
         assertThat(materializedRows).hasSize(1);
         Location filePath = Location.of((String) materializedRows.get(0).getField(0));
-        assertThat(fileSystem.listFiles(filePath).hasNext())
+        assertThat(fileSystem.newInputFile(filePath).exists())
                 .describedAs("The data file should exist")
                 .isTrue();
         assertQuerySucceeds(format("DROP TABLE %s", tableName));
         assertThat(metastore().getTable(schema, tableName).isPresent())
                 .describedAs("Table should be dropped")
                 .isFalse();
-        assertThat(fileSystem.listFiles(filePath).hasNext())
+        assertThat(fileSystem.newInputFile(filePath).exists())
                 .describedAs("The data file should have been removed")
                 .isFalse();
         assertThat(fileSystem.listFiles(tableLocation).hasNext())
@@ -86,5 +86,10 @@ public abstract class BaseDeltaLakeTableWithCustomLocation
     {
         return TestingDeltaLakeUtils.getConnectorService(getQueryRunner(), HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
+    }
+
+    protected TrinoFileSystem createFileSystem()
+    {
+        return HDFS_FILE_SYSTEM_FACTORY.create(getSession().toConnectorSession());
     }
 }

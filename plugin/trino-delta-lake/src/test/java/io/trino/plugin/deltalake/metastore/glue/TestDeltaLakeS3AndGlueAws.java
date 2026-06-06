@@ -15,10 +15,10 @@ package io.trino.plugin.deltalake.metastore.glue;
 
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 
-public class TestDeltaS3AndGlueAws
-        extends BaseDeltaS3AndGlue
+public class TestDeltaLakeS3AndGlueAws
+        extends BaseDeltaLakeS3AndGlue
 {
-    public TestDeltaS3AndGlueAws()
+    public TestDeltaLakeS3AndGlueAws()
     {
         super(requireEnv("S3_BUCKET"));
     }

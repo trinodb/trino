@@ -224,7 +224,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
     public void testRegisterTableWithNonExistingTableLocation()
     {
         String tableName = "test_register_table_with_non_existing_table_location_" + randomNameSuffix();
-        String tableLocation = "/test/delta-lake/hive/warehouse/orders_5-581fad8517934af6be1857a903559d44";
+        String tableLocation = nonExistingTableLocation();
         assertQueryFails(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, tableLocation),
                 ".*No transaction log found in location (.*).*");
     }
@@ -258,7 +258,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         String tableName = "test_register_table_with_invalid_uri_scheme_" + randomNameSuffix();
         String tableLocation = "invalid://hadoop-master:9000/test/delta-lake/hive/orders_5-581fad8517934af6be1857a903559d44";
         assertQueryFails(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, tableLocation),
-                ".*Failed checking table location (.*)");
+                invalidUriSchemeError());
     }
 
     @Test
@@ -324,5 +324,15 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
     {
         return TestingDeltaLakeUtils.getConnectorService(getQueryRunner(), HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
+    }
+
+    protected String nonExistingTableLocation()
+    {
+        return "/test/delta-lake/hive/warehouse/orders_5-581fad8517934af6be1857a903559d44";
+    }
+
+    protected String invalidUriSchemeError()
+    {
+        return ".*Failed checking table location (.*)";
     }
 }

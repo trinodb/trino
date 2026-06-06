@@ -14,21 +14,17 @@
 package io.trino.plugin.deltalake;
 
 import io.trino.metastore.HiveMetastore;
+import io.trino.plugin.hive.FlociS3AndGlue;
 
 import java.nio.file.Path;
 
-import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
-
-/**
- * Requires AWS credentials, which can be provided any way supported by the DefaultProviderChain
- * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
- */
 public class TestDeltaLakeSharedGlueMetastoreViews
         extends BaseDeltaLakeSharedMetastoreViewsTest
 {
     @Override
     protected HiveMetastore createTestMetastore(Path dataDirectory)
     {
-        return createTestingGlueHiveMetastore(dataDirectory, this::closeAfterClass);
+        FlociS3AndGlue floci = closeAfterClass(new FlociS3AndGlue());
+        return floci.createGlueHiveMetastore(dataDirectory.toUri(), this::closeAfterClass, false);
     }
 }
