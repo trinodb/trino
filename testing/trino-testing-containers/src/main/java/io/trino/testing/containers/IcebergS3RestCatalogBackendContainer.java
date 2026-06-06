@@ -19,21 +19,9 @@ import org.testcontainers.containers.Network;
 
 import java.util.Optional;
 
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-
 public class IcebergS3RestCatalogBackendContainer
         extends BaseTestContainer
 {
-    public IcebergS3RestCatalogBackendContainer(
-            Optional<Network> network,
-            String warehouseLocation,
-            String minioAccessKey,
-            String minioSecretKey,
-            String minioSessionToken)
-    {
-        this(network, warehouseLocation, minioAccessKey, minioSecretKey, minioSessionToken, "http://minio:4566", MINIO_REGION);
-    }
-
     public IcebergS3RestCatalogBackendContainer(
             Optional<Network> network,
             String warehouseLocation,

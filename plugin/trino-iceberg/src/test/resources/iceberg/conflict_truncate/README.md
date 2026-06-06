@@ -1,5 +1,5 @@
 The table is created in a way that produces a corrupted metadata file by applying multiple truncate levels on the same column.
-It is created in Trino `476` using `IcebergMinioHiveMetastoreQueryRunnerMain`, with an initial `truncate(a, 1)` partitioning,
+It is created in Trino `476` using `IcebergFlociHiveMetastoreQueryRunnerMain`, with an initial `truncate(a, 1)` partitioning,
 followed by an update to `truncate(a, 10)` on the same column, which introduces the conflicting partition transforms.
 
 Here is the relevant partition spec of the corrupted metadata file. `a_trunc` is created twice with different truncate widths and field ids.
