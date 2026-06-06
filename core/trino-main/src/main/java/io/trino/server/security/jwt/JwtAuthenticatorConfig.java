@@ -13,12 +13,15 @@
  */
 package io.trino.server.security.jwt;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
+import java.util.List;
 import java.util.Optional;
 
 public class JwtAuthenticatorConfig
@@ -29,8 +32,8 @@ public class JwtAuthenticatorConfig
     private String principalField = "sub";
     private Optional<String> userMappingPattern = Optional.empty();
     private Optional<File> userMappingFile = Optional.empty();
+    private List<File> configFiles = ImmutableList.of();
 
-    @NotNull
     public String getKeyFile()
     {
         return keyFile;
@@ -104,6 +107,19 @@ public class JwtAuthenticatorConfig
     public JwtAuthenticatorConfig setUserMappingFile(File userMappingFile)
     {
         this.userMappingFile = Optional.ofNullable(userMappingFile);
+        return this;
+    }
+
+    public List<@FileExists File> getConfigFiles()
+    {
+        return configFiles;
+    }
+
+    @Config("http-server.authentication.jwt.config-files")
+    @ConfigDescription("Comma-separated list of configuration files for JWT issuers")
+    public JwtAuthenticatorConfig setConfigFiles(List<File> configFiles)
+    {
+        this.configFiles = ImmutableList.copyOf(configFiles);
         return this;
     }
 }
