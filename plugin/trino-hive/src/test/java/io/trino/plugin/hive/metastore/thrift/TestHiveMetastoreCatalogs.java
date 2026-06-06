@@ -19,7 +19,7 @@ import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.HiveQueryRunner;
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -32,9 +32,9 @@ import java.util.Optional;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
+import static io.trino.testing.containers.FlociContainer.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.FlociContainer.FLOCI_REGION;
+import static io.trino.testing.containers.FlociContainer.FLOCI_SECRET_KEY;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -52,40 +52,40 @@ public class TestHiveMetastoreCatalogs
             throws Exception
     {
         this.bucketName = "test-hive-metastore-catalogs-" + randomNameSuffix();
-        Hive3MinioDataLake hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName, HiveHadoop.HIVE3_IMAGE));
-        hiveMinioDataLake.start();
+        Hive3FlociDataLake hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake(bucketName, HiveHadoop.HIVE3_IMAGE));
+        hiveFlociDataLake.start();
 
         QueryRunner queryRunner = HiveQueryRunner.builder()
-                .setHiveProperties(buildHiveProperties(hiveMinioDataLake))
+                .setHiveProperties(buildHiveProperties(hiveFlociDataLake))
                 .setCreateTpchSchemas(false)
                 .build();
 
-        hiveMinioDataLake.getHiveHadoop().runOnMetastore("INSERT INTO CTLGS VALUES (2, '%s', 'Custom catalog', 's3://%s/custom')".formatted(HIVE_CUSTOM_CATALOG, bucketName));
+        hiveFlociDataLake.getHiveHadoop().runOnMetastore("INSERT INTO CTLGS VALUES (2, '%s', 'Custom catalog', 's3://%s/custom')".formatted(HIVE_CUSTOM_CATALOG, bucketName));
 
         queryRunner.createCatalog(TRINO_HIVE_CUSTOM_CATALOG, "hive", ImmutableMap.<String, String>builder()
                 .put("hive.metastore.thrift.catalog-name", HIVE_CUSTOM_CATALOG)
-                .putAll(buildHiveProperties(hiveMinioDataLake))
+                .putAll(buildHiveProperties(hiveFlociDataLake))
                 .buildOrThrow());
 
         queryRunner.createCatalog(TRINO_HIVE_CATALOG, "hive", ImmutableMap.<String, String>builder()
                 .put("hive.metastore.thrift.catalog-name", "hive") // HiveMetastore uses "hive" as the default catalog name
-                .putAll(buildHiveProperties(hiveMinioDataLake))
+                .putAll(buildHiveProperties(hiveFlociDataLake))
                 .buildOrThrow());
 
         return queryRunner;
     }
 
-    private static Map<String, String> buildHiveProperties(Hive3MinioDataLake hiveMinioDataLake)
+    private static Map<String, String> buildHiveProperties(Hive3FlociDataLake hiveFlociDataLake)
     {
         return ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "thrift")
-                .put("hive.metastore.uri", hiveMinioDataLake.getHiveMetastoreEndpoint().toString())
+                .put("hive.metastore.uri", hiveFlociDataLake.getHiveMetastoreEndpoint().toString())
                 .put("fs.s3.enabled", "true")
                 .put("s3.path-style-access", "true")
-                .put("s3.region", MINIO_REGION)
-                .put("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
-                .put("s3.aws-access-key", MINIO_ROOT_USER)
-                .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
+                .put("s3.region", FLOCI_REGION)
+                .put("s3.endpoint", hiveFlociDataLake.floci().endpoint().toString())
+                .put("s3.aws-access-key", FLOCI_ACCESS_KEY)
+                .put("s3.aws-secret-key", FLOCI_SECRET_KEY)
                 .buildOrThrow();
     }
 

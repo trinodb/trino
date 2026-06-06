@@ -14,7 +14,7 @@
 package io.trino.plugin.hive;
 
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -28,16 +28,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestHiveAnalyzeCorruptStatistics
         extends AbstractTestQueryFramework
 {
-    private Hive3MinioDataLake hiveMinioDataLake;
+    private Hive3FlociDataLake hiveFlociDataLake;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake("test-analyze"));
-        hiveMinioDataLake.start();
+        hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake("test-analyze"));
+        hiveFlociDataLake.start();
 
-        return S3HiveQueryRunner.builder(hiveMinioDataLake)
+        return S3HiveQueryRunner.builder(hiveFlociDataLake)
                 // Increase timeout because drop_stats doesn't finish with in the default timeout
                 .setThriftMetastoreTimeout(new Duration(5, MINUTES))
                 .build();
@@ -162,6 +162,6 @@ public class TestHiveAnalyzeCorruptStatistics
 
     private String onMetastore(@Language("SQL") String sql)
     {
-        return hiveMinioDataLake.getHiveHadoop().runOnMetastore(sql);
+        return hiveFlociDataLake.getHiveHadoop().runOnMetastore(sql);
     }
 }
