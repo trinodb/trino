@@ -25,9 +25,8 @@ import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.containers.FlociContainer;
 import io.trino.testing.containers.IcebergS3RestCatalogBackendContainer;
-import io.trino.testing.containers.Minio;
-import io.trino.testing.minio.MinioClient;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.catalog.SessionCatalog;
@@ -36,27 +35,27 @@ import org.apache.iceberg.rest.RESTSessionCatalog;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Network;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.AwsCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
+import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 import software.amazon.awssdk.services.sts.model.AssumeRoleResponse;
 
 import java.io.IOException;
-import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
+import static io.trino.testing.containers.FlociContainer.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.FlociContainer.FLOCI_REGION;
+import static io.trino.testing.containers.FlociContainer.FLOCI_SECRET_KEY;
 import static java.lang.String.format;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -68,7 +67,7 @@ public class TestIcebergS3VendingRestCatalogConnectorSmokeTest
     private final String bucketName;
     private String warehouseLocation;
     private IcebergS3RestCatalogBackendContainer restCatalogBackendContainer;
-    private Minio minio;
+    private FlociContainer floci;
 
     public TestIcebergS3VendingRestCatalogConnectorSmokeTest()
     {
@@ -91,27 +90,30 @@ public class TestIcebergS3VendingRestCatalogConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Network network = Network.newNetwork();
-        minio = closeAfterClass(Minio.builder().withNetwork(network).build());
-        minio.start();
-        minio.createBucket(bucketName);
+        Network network = closeAfterClass(Network.newNetwork());
+        floci = closeAfterClass(new FlociContainer()
+                .withNetwork(network)
+                .withNetworkAliases("floci"));
+        floci.start();
+        floci.createBucket(bucketName);
 
         this.warehouseLocation = "s3://%s/default/".formatted(bucketName);
 
-        AwsCredentials credentials = AwsBasicCredentials.create(MINIO_ROOT_USER, MINIO_ROOT_PASSWORD);
-        StsClient stsClient = StsClient.builder()
-                .endpointOverride(URI.create(minio.getMinioAddress()))
-                .credentialsProvider(StaticCredentialsProvider.create(credentials))
-                .region(Region.of(MINIO_REGION))
-                .build();
-
-        AssumeRoleResponse assumeRoleResponse = stsClient.assumeRole(AssumeRoleRequest.builder().build());
+        AssumeRoleResponse assumeRoleResponse;
+        try (StsClient stsClient = StsClient.builder().applyMutation(floci::updateClient).build()) {
+            assumeRoleResponse = stsClient.assumeRole(AssumeRoleRequest.builder()
+                    .roleArn("arn:aws:iam::000000000000:role/test")
+                    .roleSessionName("test")
+                    .build());
+        }
         restCatalogBackendContainer = closeAfterClass(new IcebergS3RestCatalogBackendContainer(
                 Optional.of(network),
                 warehouseLocation,
                 assumeRoleResponse.credentials().accessKeyId(),
                 assumeRoleResponse.credentials().secretAccessKey(),
-                assumeRoleResponse.credentials().sessionToken()));
+                assumeRoleResponse.credentials().sessionToken(),
+                "http://floci:4566",
+                FLOCI_REGION));
         restCatalogBackendContainer.start();
 
         return IcebergQueryRunner.builder()
@@ -123,8 +125,8 @@ public class TestIcebergS3VendingRestCatalogConnectorSmokeTest
                                 .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
                                 .put("fs.s3.enabled", "true")
-                                .put("s3.region", MINIO_REGION)
-                                .put("s3.endpoint", minio.getMinioAddress())
+                                .put("s3.region", FLOCI_REGION)
+                                .put("s3.endpoint", floci.endpoint().toString())
                                 .put("s3.path-style-access", "true")
                                 .buildOrThrow())
                 .setInitialTables(REQUIRED_TPCH_TABLES)
@@ -138,11 +140,11 @@ public class TestIcebergS3VendingRestCatalogConnectorSmokeTest
         this.fileSystem = new S3FileSystemFactory(
                 OpenTelemetry.noop(),
                 new S3FileSystemConfig()
-                        .setRegion(MINIO_REGION)
-                        .setEndpoint(minio.getMinioAddress())
+                        .setRegion(FLOCI_REGION)
+                        .setEndpoint(floci.endpoint().toString())
                         .setPathStyleAccess(true)
-                        .setAwsAccessKey(MINIO_ROOT_USER)
-                        .setAwsSecretKey(MINIO_ROOT_PASSWORD),
+                        .setAwsAccessKey(FLOCI_ACCESS_KEY)
+                        .setAwsSecretKey(FLOCI_SECRET_KEY),
                 new S3FileSystemStats()).create(SESSION);
     }
 
@@ -195,7 +197,14 @@ public class TestIcebergS3VendingRestCatalogConnectorSmokeTest
     @Override
     protected boolean locationExists(String location)
     {
-        return Files.exists(Path.of(location));
+        try (S3Client s3 = S3Client.builder().applyMutation(floci::updateClient).build()) {
+            ListObjectsV2Request request = ListObjectsV2Request.builder()
+                    .bucket(bucketName)
+                    .prefix(location.substring(("s3://" + bucketName + "/").length()))
+                    .maxKeys(1)
+                    .build();
+            return !s3.listObjectsV2(request).contents().isEmpty();
+        }
     }
 
     @Test
@@ -325,14 +334,31 @@ public class TestIcebergS3VendingRestCatalogConnectorSmokeTest
     @Override
     protected void deleteDirectory(String location)
     {
-        try (MinioClient minioClient = minio.createMinioClient()) {
-            String prefix = "s3://" + bucketName + "/";
-            String key = location.substring(prefix.length());
-
-            for (String file : minioClient.listObjects(bucketName, key)) {
-                minioClient.removeObject(bucketName, file);
-            }
-            assertThat(minioClient.listObjects(bucketName, key)).isEmpty();
+        try (S3Client s3 = S3Client.builder().applyMutation(floci::updateClient).build()) {
+            String key = location.substring(("s3://" + bucketName + "/").length());
+            var listObjectsRequest = ListObjectsV2Request.builder()
+                    .bucket(bucketName)
+                    .prefix(key)
+                    .build();
+            s3.listObjectsV2Paginator(listObjectsRequest).stream()
+                    .forEach(listObjectsResponse -> {
+                        List<ObjectIdentifier> objects = listObjectsResponse.contents().stream()
+                                .map(S3Object::key)
+                                .map(file -> ObjectIdentifier.builder().key(file).build())
+                                .toList();
+                        if (!objects.isEmpty()) {
+                            var deleteObjectsRequest = DeleteObjectsRequest.builder()
+                                    .bucket(bucketName)
+                                    .delete(builder -> builder.objects(objects).quiet(true))
+                                    .build();
+                            s3.deleteObjects(deleteObjectsRequest);
+                        }
+                    });
+            var remainingObjectsRequest = ListObjectsRequest.builder()
+                    .bucket(bucketName)
+                    .prefix(key)
+                    .build();
+            assertThat(s3.listObjects(remainingObjectsRequest).contents()).isEmpty();
         }
     }
 

@@ -14,7 +14,7 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.testing.containers.Minio;
+import io.trino.testing.containers.FlociContainer;
 import org.apache.iceberg.aws.AwsClientProperties;
 import org.apache.iceberg.aws.s3.S3FileIO;
 import org.apache.iceberg.aws.s3.S3FileIOProperties;
@@ -25,37 +25,32 @@ import org.apache.iceberg.rest.RESTResponse;
 import org.apache.iceberg.rest.credentials.ImmutableCredential;
 import org.apache.iceberg.rest.responses.ErrorResponse;
 import org.apache.iceberg.rest.responses.LoadTableResponse;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.AwsCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 import software.amazon.awssdk.services.sts.model.AssumeRoleResponse;
 import software.amazon.awssdk.services.sts.model.Credentials;
 
-import java.net.URI;
 import java.util.Map;
 import java.util.function.Consumer;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
+import static io.trino.testing.containers.FlociContainer.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.FlociContainer.FLOCI_REGION;
+import static io.trino.testing.containers.FlociContainer.FLOCI_SECRET_KEY;
 import static org.apache.iceberg.CatalogProperties.FILE_IO_IMPL;
 
 final class TestIcebergS3RestCatalogStorageCredentialsRefresh
         extends AbstractTestIcebergRestCatalogVendedCredentialsRefresh
 {
     private final String bucketName = "test-iceberg-storage-creds-rest-" + randomNameSuffix();
-    private Minio minio;
+    private FlociContainer floci;
 
     @Override
     protected String setupStorageAndGetWarehouseLocation()
     {
-        minio = closeAfterClass(Minio.builder().build());
-        minio.start();
-        minio.createBucket(bucketName);
+        floci = closeAfterClass(new FlociContainer());
+        floci.start();
+        floci.createBucket(bucketName);
         return "s3://%s/default/".formatted(bucketName);
     }
 
@@ -65,10 +60,10 @@ final class TestIcebergS3RestCatalogStorageCredentialsRefresh
         return ImmutableMap.<String, String>builder()
                 .put(FILE_IO_IMPL, S3FileIO.class.getName())
                 .put(S3FileIOProperties.PATH_STYLE_ACCESS, "true")
-                .put(AwsClientProperties.CLIENT_REGION, MINIO_REGION)
-                .put(S3FileIOProperties.ACCESS_KEY_ID, MINIO_ROOT_USER)
-                .put(S3FileIOProperties.SECRET_ACCESS_KEY, MINIO_ROOT_PASSWORD)
-                .put(S3FileIOProperties.ENDPOINT, minio.getMinioAddress())
+                .put(AwsClientProperties.CLIENT_REGION, FLOCI_REGION)
+                .put(S3FileIOProperties.ACCESS_KEY_ID, FLOCI_ACCESS_KEY)
+                .put(S3FileIOProperties.SECRET_ACCESS_KEY, FLOCI_SECRET_KEY)
+                .put(S3FileIOProperties.ENDPOINT, floci.endpoint().toString())
                 .buildOrThrow();
     }
 
@@ -98,7 +93,7 @@ final class TestIcebergS3RestCatalogStorageCredentialsRefresh
                             .addCredential(ImmutableCredential.builder()
                                     .prefix("s3://" + bucketName + "/")
                                     .putAllConfig(ImmutableMap.<String, String>builder()
-                                            .put(AwsClientProperties.CLIENT_REGION, MINIO_REGION)
+                                            .put(AwsClientProperties.CLIENT_REGION, FLOCI_REGION)
                                             .put(S3FileIOProperties.ACCESS_KEY_ID, sessionCredentials.accessKeyId())
                                             .put(S3FileIOProperties.SECRET_ACCESS_KEY, sessionCredentials.secretAccessKey())
                                             .put(S3FileIOProperties.SESSION_TOKEN, sessionCredentials.sessionToken())
@@ -125,7 +120,7 @@ final class TestIcebergS3RestCatalogStorageCredentialsRefresh
             {
                 Credentials sessionCredentials = getSessionCredentials();
                 return ImmutableMap.<String, String>builder()
-                        .put(AwsClientProperties.CLIENT_REGION, MINIO_REGION)
+                        .put(AwsClientProperties.CLIENT_REGION, FLOCI_REGION)
                         .put(S3FileIOProperties.ACCESS_KEY_ID, sessionCredentials.accessKeyId())
                         .put(S3FileIOProperties.SECRET_ACCESS_KEY, sessionCredentials.secretAccessKey())
                         .put(S3FileIOProperties.SESSION_TOKEN, sessionCredentials.sessionToken())
@@ -141,21 +136,19 @@ final class TestIcebergS3RestCatalogStorageCredentialsRefresh
     {
         return ImmutableMap.<String, String>builder()
                 .put("fs.s3.enabled", "true")
-                .put("s3.region", MINIO_REGION)
-                .put("s3.endpoint", minio.getMinioAddress())
+                .put("s3.region", FLOCI_REGION)
+                .put("s3.endpoint", floci.endpoint().toString())
                 .put("s3.path-style-access", "true")
                 .buildOrThrow();
     }
 
     public Credentials getSessionCredentials()
     {
-        AwsCredentials rootCredentials = AwsBasicCredentials.create(MINIO_ROOT_USER, MINIO_ROOT_PASSWORD);
-        try (StsClient stsClient = StsClient.builder()
-                .endpointOverride(URI.create(minio.getMinioAddress()))
-                .credentialsProvider(StaticCredentialsProvider.create(rootCredentials))
-                .region(Region.of(MINIO_REGION))
-                .build()) {
-            AssumeRoleResponse assumeRoleResponse = stsClient.assumeRole(AssumeRoleRequest.builder().build());
+        try (StsClient stsClient = StsClient.builder().applyMutation(floci::updateClient).build()) {
+            AssumeRoleResponse assumeRoleResponse = stsClient.assumeRole(AssumeRoleRequest.builder()
+                    .roleArn("arn:aws:iam::000000000000:role/test")
+                    .roleSessionName("test")
+                    .build());
             return assumeRoleResponse.credentials();
         }
     }
