@@ -37,7 +37,6 @@ import io.trino.sql.tree.Call;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.transaction.TransactionManager;
@@ -50,8 +49,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -68,7 +65,6 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Arrays.asList;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class CallTask
@@ -106,9 +102,8 @@ public class CallTask
             throw new TrinoException(NOT_SUPPORTED, "Procedures cannot be called within a transaction (use autocommit mode)");
         }
 
-        // FIXME: procedureName will be converted to lower case
-        Function<Identifier, String> canonicalizer = identifier -> identifier.getValue().toLowerCase(ENGLISH);
-        QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName(), plannerContext, Optional.of(canonicalizer));
+        // FIXME: procedureName will be canonicalized
+        QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName(), plannerContext);
         CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, call, procedureName.catalogName());
         Procedure procedure = procedureRegistry.resolve(catalogHandle, procedureName.asSchemaTableName());
 

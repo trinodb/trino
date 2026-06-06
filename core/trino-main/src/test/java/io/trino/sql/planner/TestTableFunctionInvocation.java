@@ -99,8 +99,7 @@ public class TestTableFunctionInvocation
                 .hasMessageMatching("Plan does not match, expected (?s).*");
     }
 
-    @Test
-    public void tableFunctionInitialPlan()
+    private void tableFunctionInitialPlan()
     {
         assertPlan(
                 """

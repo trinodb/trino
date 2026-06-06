@@ -53,9 +53,14 @@ public class QualifiedName
 
     public static QualifiedName of(Function<Identifier, String> canonicalizer, QualifiedName name)
     {
+        return of(canonicalizer, name, name.originalParts.size() > 2);
+    }
+
+    public static QualifiedName of(Function<Identifier, String> canonicalizer, QualifiedName name, boolean withCatalog)
+    {
         requireNonNull(canonicalizer, "canonicalizer is null");
         requireNonNull(name, "name is null");
-        return new QualifiedName(canonicalizer, name.originalParts, name.originalParts.size() > 2);
+        return new QualifiedName(canonicalizer, name.originalParts, withCatalog);
     }
 
     public static QualifiedName of(Function<Identifier, String> canonicalizer, Identifier identifier)

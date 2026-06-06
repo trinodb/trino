@@ -827,12 +827,17 @@ public abstract class AbstractTestQueryFramework
         return canonicalize(value);
     }
 
+    protected String memoryCanonicalize(String value)
+    {
+        return canonicalize(value);
+    }
+
     protected String withCanonicalize(String value)
     {
         return canonicalize(value);
     }
 
-    protected boolean requiesDelimiters(String value)
+    protected boolean requiresDelimiters(String value)
     {
         return !value.equals(canonicalize(value));
     }

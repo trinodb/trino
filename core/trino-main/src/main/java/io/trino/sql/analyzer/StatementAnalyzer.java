@@ -318,7 +318,6 @@ import static io.trino.SystemSessionProperties.getMaxGroupingSets;
 import static io.trino.metadata.FunctionResolver.toPath;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.trino.metadata.MetadataUtil.getQualifiedObjectIdentifiers;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.metadata.TableVersion.toTableVersion;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
@@ -1252,6 +1251,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitSetAuthorization(SetAuthorizationStatement node, Optional<Scope> scope)
         {
+            // System.out.println("StatementAnalyzer.visitSetAuthorization() scope resolver: " + getScopeInfo(scope));
             return createAndAssignScope(node, scope);
         }
 
@@ -1663,6 +1663,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitQuery(Query node, Optional<Scope> scope)
         {
+            // System.out.println("StatementAnalyzer.visitQuery() 1 scope resolver: " + getScopeInfo(scope));
             for (FunctionSpecification function : node.getFunctions()) {
                 if (function.getName().getPrefix().isPresent()) {
                     throw semanticException(SYNTAX_ERROR, function, "Inline function names cannot be qualified: %s", function.getName());
@@ -1677,7 +1678,9 @@ class StatementAnalyzer
             }
             // FIXME: if no WITH clause then we propagate the inner canonicalizer to the body process if any
             Scope withScope = analyzeWith(node, scope);
+            // System.out.println("StatementAnalyzer.visitQuery() 3");
             Scope queryBodyScope = process(node.getQueryBody(), withScope);
+            // System.out.println("StatementAnalyzer.visitQuery() 4");
 
             List<Expression> orderByExpressions = emptyList();
             if (node.getOrderBy().isPresent()) {
@@ -3369,12 +3372,13 @@ class StatementAnalyzer
 
         private String getScopeInfo(Optional<Scope> scope)
        {
-           return scope.flatMap(Scope::getResolver).map(r -> r.getCanonicalizerKind().name()).orElse("No Resolver");
+           return scope.map(s -> s.getResolver().map(r -> r.getCanonicalizerKind().name()).orElse("No Resolver")).orElse("No scope");
        }
 
         @Override
         protected Scope visitQuerySpecification(QuerySpecification node, Optional<Scope> scope)
         {
+            // System.out.println("StatementAnalyzer.visitQuerySpecification() 1 scope resolver: " + getScopeInfo(scope));
             // TODO: extract candidate names from SELECT, WHERE, HAVING, GROUP BY and ORDER BY expressions
             //       to pass down to analyzeFrom
 

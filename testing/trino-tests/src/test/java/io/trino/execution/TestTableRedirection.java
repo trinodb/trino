@@ -233,7 +233,7 @@ public class TestTableRedirection
     public void testTableListing()
     {
         assertQuery(
-                format("SHOW TABLES FROM %s", SCHEMA_ONE),
+                format("SHOW TABLES FROM \"%s\"", SCHEMA_ONE),
                 format("VALUES %s",
                         SCHEMA_TABLE_MAPPING.get(SCHEMA_ONE).stream()
                                 .map(table -> "('" + table + "')")
@@ -287,11 +287,21 @@ public class TestTableRedirection
                         BAD_REDIRECTION_SRC),
                 format("VALUES ('%s', '%s')", SCHEMA_ONE, BAD_REDIRECTION_SRC));
 
-        assertQuery(format(
-                "SELECT \"table_schema\", \"table_name\""
-                        + " FROM information_schema.tables"
-                        + " WHERE table_catalog='%s' AND \"table_schema\" = '' AND \"table_name\" = ''",
-                CATALOG_NAME));
+        assertQuery(
+                format("SELECT \"table_schema\", \"table_name\""
+                                + " FROM \"information_schema\".\"tables\""
+                                + " WHERE \"table_catalog\"='%s' AND \"table_schema\" = '%s' AND \"table_name\"='%s'",
+                        CATALOG_NAME,
+                        SCHEMA_ONE,
+                        BAD_REDIRECTION_SRC),
+                format("VALUES ('%s', '%s')", SCHEMA_ONE, BAD_REDIRECTION_SRC));
+
+        assertQuery(
+                format("SELECT \"table_schema\", \"table_name\""
+                                + " FROM \"information_schema\".\"tables\""
+                                + " WHERE \"table_catalog\"='%s' AND \"table_schema\" = '' AND \"table_name\" = ''",
+                        CATALOG_NAME),
+                "SELECT 1 WHERE false");
     }
 
     @Test

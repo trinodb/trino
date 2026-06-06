@@ -2098,8 +2098,8 @@ public abstract class BaseElasticsearchConnectorTest
                                         schema => 'tpch',
                                         index => 'orders',
                                         query => '%s')))
-                SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value
-                FROM "data"
+                SELECT r."aggregations"."max_orderkey"."value", r."aggregations"."sum_orderkey"."value"
+                FROM data\
                 """.formatted(catalogName, query)))
                 .matches("VALUES (BIGINT '60000', BIGINT '449872500')");
 

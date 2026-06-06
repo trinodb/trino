@@ -1334,18 +1334,19 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitFunctionCall(FunctionCall node, Context context)
         {
+            QualifiedName functionName = resolveFunctionName(session, node, node.getName(), plannerContext, context.getScope());
             // SQL:2023 6.3 Syntax Rule 2: a non-parenthesized value expression primary
             // of the form A.B(args) is treated as a method invocation if it satisfies
             // the rules for one; otherwise it is a routine invocation.
-            Optional<Type> asMethod = tryResolveAsInstanceMethod(node, context);
+            Optional<Type> asMethod = tryResolveAsInstanceMethod(node, context, functionName);
             if (asMethod.isPresent()) {
                 return asMethod.get();
             }
 
-            boolean isAggregation = functionResolver.isAggregationFunction(session, node.getName(), accessControl);
+            boolean isAggregation = functionResolver.isAggregationFunction(session, functionName, accessControl);
             boolean isRowPatternCount = context.isPatternRecognition() &&
                     isAggregation &&
-                    node.getName().getSuffix().equalsIgnoreCase("count");
+                    functionName.getSuffix().equalsIgnoreCase("count");
             // argument of the form `label.*` is only allowed for row pattern count function
             node.argumentValues().stream()
                     .filter(DereferenceExpression::isQualifiedAllFieldsReference)
@@ -1364,7 +1365,7 @@ public class ExpressionAnalyzer
                 if (isPatternRecognitionFunction(node)) {
                     validatePatternRecognitionFunction(node);
 
-                    String name = node.getName().getSuffix().toUpperCase(ENGLISH);
+                    String name = functionName.getSuffix().toUpperCase(ENGLISH);
                     return setExpressionType(node, switch (name) {
                         case "MATCH_NUMBER" -> analyzeMatchNumber(node, context);
                         case "CLASSIFIER" -> analyzeClassifier(node, context);
@@ -1425,7 +1426,7 @@ public class ExpressionAnalyzer
             // identity-binding of positional calls still indexes safely.
             boolean hasNamedArguments = node.hasNamedArguments();
             List<Integer> argumentBinding = hasNamedArguments
-                    ? computeArgumentBinding(node)
+                    ? computeArgumentBinding(node, functionName)
                     : identityBinding(rawTypes.size());
             List<TypeSignatureProvider> argumentTypes = argumentBinding.stream()
                     .map(rawTypes::get)
@@ -1444,7 +1445,7 @@ public class ExpressionAnalyzer
 
             ResolvedFunction function;
             try {
-                function = functionResolver.resolveFunction(session, node.getName(), argumentTypes, accessControl);
+                function = functionResolver.resolveFunction(session, functionName, argumentTypes, accessControl);
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {
@@ -1509,6 +1510,25 @@ public class ExpressionAnalyzer
             return setExpressionType(node, type);
         }
 
+        private static QualifiedName resolveFunctionName(Session session, Node node, QualifiedName name, PlannerContext plannerContext, Scope scope)
+        {
+            Optional<String> catalog;
+            List<Identifier> parts = name.getOriginalParts();
+            switch (parts.size()) {
+                case 1 -> {
+                    catalog = session.getCatalog();
+                }
+                case 2 -> throw semanticException(NOT_SUPPORTED, node, "Function name must be unqualified or fully qualified with catalog and schema");
+                case 3 -> {
+                    catalog = Optional.of(parts.getFirst().getValue());
+                }
+                default -> throw semanticException(SYNTAX_ERROR, node, "Too many dots in function name: %s", name);
+            }
+            Resolver resolver = catalog.map(value -> plannerContext.getResolverManager().getResolver(session, value))
+                    .orElse(plannerContext.getResolverManager().getQueryResolver(session, Optional.of(scope)));
+            return QualifiedName.of(resolver.getCanonicalizer(), name);
+        }
+
         /// Computes the binding from signature-position to AST argument index. Returns the
         /// identity binding for a call without named arguments; otherwise pairs each named
         /// argument with the position where its name appears in the function's declared
@@ -1518,7 +1538,7 @@ public class ExpressionAnalyzer
         //  inference engine. Doing it here means we walk the function search path twice —
         //  once for the binding, once for the type-based resolution. Lifting it into the
         //  binder is a much bigger change.
-        private List<Integer> computeArgumentBinding(FunctionCall node)
+        private List<Integer> computeArgumentBinding(FunctionCall node, QualifiedName functionName)
         {
             List<CallArgument> arguments = node.getArguments();
             int arity = arguments.size();
@@ -1571,7 +1591,7 @@ public class ExpressionAnalyzer
                                     name,
                                     "Named argument %s for function %s refers to parameter position %s, which is already supplied positionally",
                                     name.getValue(),
-                                    node.getName(),
+                                    functionName,
                                     declaredPosition.getAsInt());
                         }
                     }
@@ -1664,9 +1684,8 @@ public class ExpressionAnalyzer
             return result.build();
         }
 
-        private Optional<Type> tryResolveAsInstanceMethod(FunctionCall node, Context context)
+        private Optional<Type> tryResolveAsInstanceMethod(FunctionCall node, Context context, QualifiedName name)
         {
-            QualifiedName name = node.getName();
             if (name.getParts().size() != 2) {
                 return Optional.empty();
             }
@@ -1893,7 +1912,6 @@ public class ExpressionAnalyzer
                         throw semanticException(INVALID_WINDOW_FRAME, frame, "Pattern recognition requires frame specified as BETWEEN CURRENT ROW AND ...");
                     }
                     Resolver resolver = plannerContext.getResolverManager().getQueryResolver(session, Optional.of(context.getScope()));
-                    System.out.println("ExpressionAnalyzer.analyzeWindow() resolver: " + resolver.getCanonicalizerKind().name());
                     PatternRecognitionAnalysis analysis = PatternRecognitionAnalyzer.analyze(
                             resolver,
                             frame.getSubsets(),

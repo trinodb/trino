@@ -749,8 +749,8 @@ public final class ShowQueriesRewrite
         {
             Collection<FunctionMetadata> functions;
             if (node.getSchema().isPresent()) {
-                // FIXME: To support UPPERCASE_CANONICALIZER the schema function need to bee in lowercase
-                CatalogSchemaName schema = createCatalogSchemaName(session, node, node.getSchema(), plannerContext).toLowerCase();
+                // FIXME: To support UPPERCASE_CANONICALIZER the schema function need to bee in lowercase?
+                CatalogSchemaName schema = createCatalogSchemaName(session, node, node.getSchema(), plannerContext);
                 accessControl.checkCanShowFunctions(session.toSecurityContext(), schema);
                 functions = listFunctions(schema);
             }

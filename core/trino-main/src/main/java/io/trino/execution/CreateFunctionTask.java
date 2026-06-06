@@ -201,7 +201,7 @@ public class CreateFunctionTask
             }
             default -> throw semanticException(SYNTAX_ERROR, node, "Too many dots in function name: %s", name);
         }
-        String function = parts.getLast().getValue();
+        String function = resolver.canonicalize(parts.getLast());
         return new QualifiedObjectName(catalog, schema, function, Optional.of(resolver::predicate));
     }
 

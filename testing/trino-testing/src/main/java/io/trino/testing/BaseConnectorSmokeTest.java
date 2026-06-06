@@ -567,9 +567,9 @@ public abstract class BaseConnectorSmokeTest
                                 "\\)",
                         Pattern.quote(getSession().getCatalog().orElseThrow()),
                         Pattern.quote(getSession().getSchema().orElseThrow()),
-                        requiesDelimiters("regionkey") ? "\"regionkey\"" : "regionkey",
-                        requiesDelimiters("name") ? "\"name\"" : "name",
-                        requiesDelimiters("comment") ? "\"comment\"" : "comment"));
+                        requiresDelimiters("regionkey") ? "\"regionkey\"" : "regionkey",
+                        requiresDelimiters("name") ? "\"name\"" : "name",
+                        requiresDelimiters("comment") ? "\"comment\"" : "comment"));
     }
 
     @Test

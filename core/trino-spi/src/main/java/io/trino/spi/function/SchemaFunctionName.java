@@ -13,17 +13,16 @@
  */
 package io.trino.spi.function;
 
-import static java.util.Locale.ROOT;
-
 public record SchemaFunctionName(String schemaName, String functionName)
 {
     public SchemaFunctionName
     {
-        schemaName = schemaName.toLowerCase(ROOT);
+        // FIXME: Now, in order to ensure the uniqueness of schemas within a catalogue,
+        //        schemas are no longer converted to lowercase.
         if (schemaName.isEmpty()) {
             throw new IllegalArgumentException("schemaName is empty");
         }
-        functionName = functionName.toLowerCase(ROOT);
+        // FIXME: The function name is no longer converted to lowercase and is now treated as a table name.
         if (functionName.isEmpty()) {
             throw new IllegalArgumentException("functionName is empty");
         }
