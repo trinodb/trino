@@ -19,9 +19,9 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveQueryRunner;
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
-import io.trino.plugin.hive.containers.Hive4MinioDataLake;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
+import io.trino.plugin.hive.containers.Hive4FlociDataLake;
+import io.trino.plugin.hive.containers.HiveFlociDataLake;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.TestingTokenAwareMetastoreClientFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
@@ -35,9 +35,9 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
+import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.Floci.FLOCI_REGION;
+import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
 import static java.util.Objects.requireNonNull;
 
 public final class S3HiveQueryRunner
@@ -49,24 +49,24 @@ public final class S3HiveQueryRunner
     private S3HiveQueryRunner() {}
 
     public static QueryRunner create(
-            Hive3MinioDataLake hiveMinioDataLake,
+            Hive3FlociDataLake hiveFlociDataLake,
             Map<String, String> additionalHiveProperties)
             throws Exception
     {
-        return builder(hiveMinioDataLake)
+        return builder(hiveFlociDataLake)
                 .setHiveProperties(additionalHiveProperties)
                 .build();
     }
 
-    public static Builder builder(HiveMinioDataLake hiveMinioDataLake)
+    public static Builder builder(HiveFlociDataLake hiveFlociDataLake)
     {
         return builder()
-                .setHiveMetastoreEndpoint(hiveMinioDataLake.getHiveMetastoreEndpoint())
-                .setS3Endpoint("http://" + hiveMinioDataLake.getMinio().getMinioApiEndpoint())
-                .setS3Region(MINIO_REGION)
-                .setS3AccessKey(MINIO_ROOT_USER)
-                .setS3SecretKey(MINIO_ROOT_PASSWORD)
-                .setBucketName(hiveMinioDataLake.getBucketName());
+                .setHiveMetastoreEndpoint(hiveFlociDataLake.getHiveMetastoreEndpoint())
+                .setS3Endpoint(hiveFlociDataLake.floci().endpoint().toString())
+                .setS3Region(FLOCI_REGION)
+                .setS3AccessKey(FLOCI_ACCESS_KEY)
+                .setS3SecretKey(FLOCI_SECRET_KEY)
+                .setBucketName(hiveFlociDataLake.getBucketName());
     }
 
     public static Builder builder()
@@ -174,10 +174,10 @@ public final class S3HiveQueryRunner
     static void main()
             throws Exception
     {
-        Hive3MinioDataLake hiveMinioDataLake = new Hive3MinioDataLake("tpch");
-        hiveMinioDataLake.start();
+        Hive3FlociDataLake hiveFlociDataLake = new Hive3FlociDataLake("tpch");
+        hiveFlociDataLake.start();
 
-        QueryRunner queryRunner = S3HiveQueryRunner.builder(hiveMinioDataLake)
+        QueryRunner queryRunner = S3HiveQueryRunner.builder(hiveFlociDataLake)
                 .addCoordinatorProperty("http-server.http.port", "8080")
                 .setHiveProperties(ImmutableMap.of("hive.security", "allow-all"))
                 .setSkipTimezoneSetup(true)
@@ -193,10 +193,10 @@ public final class S3HiveQueryRunner
         static void main()
                 throws Exception
         {
-            Hive4MinioDataLake hiveMinioDataLake = new Hive4MinioDataLake("tpch");
-            hiveMinioDataLake.start();
+            Hive4FlociDataLake hiveFlociDataLake = new Hive4FlociDataLake("tpch");
+            hiveFlociDataLake.start();
 
-            QueryRunner queryRunner = S3HiveQueryRunner.builder(hiveMinioDataLake)
+            QueryRunner queryRunner = S3HiveQueryRunner.builder(hiveFlociDataLake)
                     .addCoordinatorProperty("http-server.http.port", "8080")
                     .setHiveProperties(ImmutableMap.of("hive.security", "allow-all"))
                     .setSkipTimezoneSetup(true)

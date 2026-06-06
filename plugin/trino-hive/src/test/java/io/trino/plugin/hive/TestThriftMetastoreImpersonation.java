@@ -15,8 +15,8 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
+import io.trino.plugin.hive.containers.HiveFlociDataLake;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
 import io.trino.spi.security.Identity;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -40,9 +40,9 @@ final class TestThriftMetastoreImpersonation
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake("test-thrift-impersonation-" + randomNameSuffix(), HIVE3_IMAGE));
-        hiveMinioDataLake.start();
-        return S3HiveQueryRunner.builder(hiveMinioDataLake)
+        HiveFlociDataLake hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake("test-thrift-impersonation-" + randomNameSuffix(), HIVE3_IMAGE));
+        hiveFlociDataLake.start();
+        return S3HiveQueryRunner.builder(hiveFlociDataLake)
                 .setMetastoreImpersonationEnabled(true)
                 .setHiveProperties(ImmutableMap.<String, String>builder()
                         .put("hive.security", "allow-all")
