@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -35,14 +36,17 @@ import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
 import java.net.URI;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -61,7 +65,6 @@ public class DirectExchangeClient
     private final String selfAddress;
     private final DataIntegrityVerification dataIntegrityVerification;
     private final DataSize maxResponseSize;
-    private final int concurrentRequestMultiplier;
     private final Duration maxErrorDuration;
     private final boolean acknowledgePages;
     private final HttpClient httpClient;
@@ -70,14 +73,7 @@ public class DirectExchangeClient
     @GuardedBy("this")
     private boolean noMoreLocations;
 
-    private final Map<URI, HttpPageBufferClient> allClients = new ConcurrentHashMap<>();
-
-    @GuardedBy("this")
-    private final Set<HttpPageBufferClient> queuedClients = new LinkedHashSet<>();
-    @GuardedBy("this")
-    private final Set<HttpPageBufferClient> runningClients = new LinkedHashSet<>();
-
-    private final Set<HttpPageBufferClient> completedClients = newConcurrentHashSet();
+    private final ExchangeClients exchangeClients;
     private final DirectExchangeBuffer buffer;
 
     @GuardedBy("this")
@@ -86,8 +82,6 @@ public class DirectExchangeClient
     private long averageBytesPerRequest;
     @GuardedBy("this")
     private boolean closed;
-    @GuardedBy("this")
-    private final TDigest requestDuration = new TDigest();
 
     @GuardedBy("memoryContextLock")
     @Nullable
@@ -118,7 +112,6 @@ public class DirectExchangeClient
         this.dataIntegrityVerification = requireNonNull(dataIntegrityVerification, "dataIntegrityVerification is null");
         this.buffer = requireNonNull(buffer, "buffer is null");
         this.maxResponseSize = maxResponseSize;
-        this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         this.maxErrorDuration = maxErrorDuration;
         this.acknowledgePages = acknowledgePages;
         this.httpClient = httpClient;
@@ -126,6 +119,7 @@ public class DirectExchangeClient
         this.memoryContext = memoryContext;
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
         this.taskFailureListener = requireNonNull(taskFailureListener, "taskFailureListener is null");
+        this.exchangeClients = new ExchangeClients(concurrentRequestMultiplier);
     }
 
     public DirectExchangeClientStatus getStatus()
@@ -134,7 +128,7 @@ public class DirectExchangeClient
         // It does not guarantee a consistent view between different exchange clients.
         // Guaranteeing a consistent view introduces significant lock contention.
         ImmutableList.Builder<PageBufferClientStatus> pageBufferClientStatusBuilder = ImmutableList.builder();
-        for (HttpPageBufferClient client : allClients.values()) {
+        for (HttpPageBufferClient client : getAllClients().values()) {
             pageBufferClientStatusBuilder.add(client.getStatus());
         }
         List<PageBufferClientStatus> pageBufferClientStatus = pageBufferClientStatusBuilder.build();
@@ -149,7 +143,7 @@ public class DirectExchangeClient
                     buffer.getSpilledBytes(),
                     noMoreLocations,
                     pageBufferClientStatus,
-                    new TDigestHistogram(TDigest.copyOf(requestDuration)));
+                    exchangeClients.getRequestDurationHistogram());
         }
     }
 
@@ -162,8 +156,6 @@ public class DirectExchangeClient
         if (closed) {
             return;
         }
-
-        checkArgument(!allClients.containsKey(location), "location already exist: %s", location);
 
         checkState(!noMoreLocations, "No more locations already set");
         buffer.addTask(taskId);
@@ -179,9 +171,8 @@ public class DirectExchangeClient
                 new ExchangeClientCallback(),
                 scheduledExecutor,
                 pageBufferClientCallbackExecutor);
-        allClients.put(location, client);
-        queuedClients.add(client);
 
+        exchangeClients.newClient(location, client);
         scheduleRequestIfNecessary();
     }
 
@@ -242,7 +233,7 @@ public class DirectExchangeClient
 
     public boolean isFinished()
     {
-        return buffer.isFinished() && completedClients.size() == allClients.size();
+        return exchangeClients.isAllCompleted() && buffer.isFinished();
     }
 
     @Override
@@ -253,7 +244,7 @@ public class DirectExchangeClient
         }
         closed = true;
 
-        for (HttpPageBufferClient client : allClients.values()) {
+        for (HttpPageBufferClient client : getAllClients().values()) {
             closeQuietly(client);
         }
         try {
@@ -268,37 +259,15 @@ public class DirectExchangeClient
     }
 
     @VisibleForTesting
-    synchronized int scheduleRequestIfNecessary()
+    int scheduleRequestIfNecessary()
     {
-        if ((buffer.isFinished() || buffer.isFailed()) && completedClients.size() == allClients.size()) {
-            return 0;
-        }
-
-        long neededBytes = buffer.getRemainingCapacityInBytes();
-        if (neededBytes <= 0) {
-            return 0;
-        }
-
-        long reservedBytesForScheduledClients = runningClients.stream()
-                .mapToLong(HttpPageBufferClient::getAverageRequestSizeInBytes)
-                .sum();
-        long projectedBytesToBeRequested = 0;
         int clientCount = 0;
-
-        Iterator<HttpPageBufferClient> clientIterator = queuedClients.iterator();
-        while (clientIterator.hasNext()) {
-            HttpPageBufferClient client = clientIterator.next();
-            if (projectedBytesToBeRequested >= neededBytes * concurrentRequestMultiplier - reservedBytesForScheduledClients) {
+        while (true) {
+            Optional<HttpPageBufferClient> client = exchangeClients.dequeueClientToSchedule(buffer);
+            if (client.isEmpty()) {
                 break;
             }
-            projectedBytesToBeRequested += client.getAverageRequestSizeInBytes();
-
-            client.scheduleRequest();
-
-            // Remove the client from the queuedClient's set.
-            clientIterator.remove();
-            runningClients.add(client);
-
+            client.get().scheduleRequest();
             clientCount++;
         }
 
@@ -313,25 +282,31 @@ public class DirectExchangeClient
     @VisibleForTesting
     Set<HttpPageBufferClient> getQueuedClients()
     {
-        return queuedClients;
+        return exchangeClients.getQueuedClients();
     }
 
     @VisibleForTesting
     Set<HttpPageBufferClient> getRunningClients()
     {
-        return runningClients;
+        return exchangeClients.getRunningClients();
+    }
+
+    @VisibleForTesting
+    void addRunningClient(HttpPageBufferClient client)
+    {
+        exchangeClients.addToRunning(client);
     }
 
     @VisibleForTesting
     Map<URI, HttpPageBufferClient> getAllClients()
     {
-        return allClients;
+        return exchangeClients.getAllClients();
     }
 
     private boolean addPages(HttpPageBufferClient client, List<Slice> pages)
     {
         // If client is already completed, addPages is a no-op
-        if (completedClients.contains(client)) {
+        if (exchangeClients.isCompletedUnsynchronized(client)) {
             return false;
         }
 
@@ -388,31 +363,25 @@ public class DirectExchangeClient
         }
     }
 
-    private synchronized void requestComplete(HttpPageBufferClient client)
+    private void requestComplete(HttpPageBufferClient client)
     {
-        requestDuration.add(client.getLastRequestDurationMillis());
-        if (!completedClients.contains(client) && !queuedClients.contains(client)) {
-            queuedClients.add(client);
-            runningClients.remove(client);
-        }
+        exchangeClients.requestComplete(client);
         scheduleRequestIfNecessary();
     }
 
-    private synchronized void clientFinished(HttpPageBufferClient client)
+    private void clientFinished(HttpPageBufferClient client)
     {
         requireNonNull(client, "client is null");
-        if (completedClients.add(client)) {
-            runningClients.remove(client);
+        if (exchangeClients.clientFinished(client)) {
             buffer.taskFinished(client.getRemoteTaskId());
         }
         scheduleRequestIfNecessary();
     }
 
-    private synchronized void clientFailed(HttpPageBufferClient client, Throwable cause)
+    private void clientFailed(HttpPageBufferClient client, Throwable cause)
     {
         requireNonNull(client, "client is null");
-        if (completedClients.add(client)) {
-            runningClients.remove(client);
+        if (exchangeClients.clientFailed(client)) {
             buffer.taskFailed(client.getRemoteTaskId(), cause);
             scheduledExecutor.execute(() -> taskFailureListener.onTaskFailed(client.getRemoteTaskId(), cause));
             closeQuietly(client);
@@ -460,6 +429,137 @@ public class DirectExchangeClient
         }
         catch (RuntimeException e) {
             // ignored
+        }
+    }
+
+    @ThreadSafe
+    static class ExchangeClients
+    {
+        private final int concurrentRequestMultiplier;
+        private final Map<URI, HttpPageBufferClient> allClients = new ConcurrentHashMap<>();
+        private final Set<HttpPageBufferClient> completedClients = newConcurrentHashSet();
+        private final AtomicInteger activeClientCount = new AtomicInteger();
+
+        @GuardedBy("this")
+        private final Set<HttpPageBufferClient> queuedClients = new LinkedHashSet<>();
+        @GuardedBy("this")
+        private final Map<HttpPageBufferClient, Long> runningClients = new HashMap<>();
+        @GuardedBy("this")
+        private final TDigest requestDuration = new TDigest();
+        @GuardedBy("this")
+        private long reservedBytes;
+
+        public ExchangeClients(int concurrentRequestMultiplier)
+        {
+            this.concurrentRequestMultiplier = concurrentRequestMultiplier;
+        }
+
+        synchronized void newClient(URI location, HttpPageBufferClient client)
+        {
+            HttpPageBufferClient existing = allClients.putIfAbsent(location, client);
+            checkArgument(existing == null, "location already exist: %s", location);
+            queuedClients.add(client);
+            activeClientCount.incrementAndGet();
+        }
+
+        boolean isCompletedUnsynchronized(HttpPageBufferClient client)
+        {
+            return completedClients.contains(client);
+        }
+
+        synchronized void requestComplete(HttpPageBufferClient client)
+        {
+            requestDuration.add(client.getLastRequestDurationMillis());
+            checkState(!queuedClients.contains(client), "client %s should not be queued", client);
+            if (!completedClients.contains(client)) {
+                queuedClients.add(client);
+                removeFromRunning(client);
+            }
+        }
+
+        synchronized boolean clientFinished(HttpPageBufferClient client)
+        {
+            checkState(!queuedClients.contains(client), "client %s should not be queued", client);
+            if (completedClients.add(client)) {
+                activeClientCount.decrementAndGet();
+                removeFromRunning(client);
+                return true;
+            }
+            return false;
+        }
+
+        synchronized boolean clientFailed(HttpPageBufferClient client)
+        {
+            checkState(!queuedClients.contains(client), "client %s should not be queued", client);
+            if (completedClients.add(client)) {
+                activeClientCount.decrementAndGet();
+                removeFromRunning(client);
+                return true;
+            }
+            return false;
+        }
+
+        synchronized Optional<HttpPageBufferClient> dequeueClientToSchedule(DirectExchangeBuffer buffer)
+        {
+            if (isAllCompleted() && (buffer.isFailed() || buffer.isFinished())) {
+                return Optional.empty();
+            }
+            long neededBytes = buffer.getRemainingCapacityInBytes();
+            if (neededBytes <= 0) {
+                return Optional.empty();
+            }
+
+            Iterator<HttpPageBufferClient> iterator = queuedClients.iterator();
+            if (iterator.hasNext() && reservedBytes < neededBytes * concurrentRequestMultiplier) {
+                HttpPageBufferClient client = iterator.next();
+                iterator.remove();
+                addToRunning(client);
+                return Optional.of(client);
+            }
+
+            return Optional.empty();
+        }
+
+        synchronized void addToRunning(HttpPageBufferClient client)
+        {
+            long clientAverageRequestSizeInBytes = client.getAverageRequestSizeInBytes();
+            reservedBytes += clientAverageRequestSizeInBytes;
+            runningClients.put(client, clientAverageRequestSizeInBytes);
+        }
+
+        synchronized void removeFromRunning(HttpPageBufferClient client)
+        {
+            if (runningClients.containsKey(client)) {
+                reservedBytes -= runningClients.remove(client);
+            }
+        }
+
+        boolean isAllCompleted()
+        {
+            return activeClientCount.get() == 0;
+        }
+
+        @VisibleForTesting
+        synchronized Set<HttpPageBufferClient> getQueuedClients()
+        {
+            return queuedClients;
+        }
+
+        @VisibleForTesting
+        synchronized Set<HttpPageBufferClient> getRunningClients()
+        {
+            return ImmutableSet.copyOf(runningClients.keySet());
+        }
+
+        @VisibleForTesting
+        Map<URI, HttpPageBufferClient> getAllClients()
+        {
+            return allClients;
+        }
+
+        synchronized TDigestHistogram getRequestDurationHistogram()
+        {
+            return new TDigestHistogram(TDigest.copyOf(requestDuration));
         }
     }
 }
