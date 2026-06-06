@@ -28,8 +28,8 @@ import java.util.stream.Stream;
 /**
  * Delta Lake connector smoke test exercising Hive metastore and MinIO storage with Alluxio caching.
  */
-public class TestDeltaLakeAlluxioCacheMinioAndHmsConnectorSmokeTest
-        extends TestDeltaLakeMinioAndHmsConnectorSmokeTest
+public class TestDeltaLakeAlluxioCacheFlociAndHmsConnectorSmokeTest
+        extends TestDeltaLakeFlociAndHmsConnectorSmokeTest
 {
     private Path cacheDirectory;
 

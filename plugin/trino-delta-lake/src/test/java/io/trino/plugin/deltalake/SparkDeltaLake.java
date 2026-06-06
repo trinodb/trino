@@ -14,9 +14,9 @@
 package io.trino.plugin.deltalake;
 
 import io.trino.plugin.base.util.AutoCloseableCloser;
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.plugin.hive.containers.HiveHadoop;
-import io.trino.testing.containers.Minio;
+import io.trino.testing.containers.FlociContainer;
 import org.testcontainers.containers.GenericContainer;
 
 import static io.trino.testing.TestingProperties.getDockerImagesVersion;
@@ -26,27 +26,27 @@ public final class SparkDeltaLake
         implements AutoCloseable
 {
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
-    private final Hive3MinioDataLake hiveMinio;
+    private final Hive3FlociDataLake hiveFloci;
 
     public SparkDeltaLake(String bucketName)
     {
-        hiveMinio = closer.register(new Hive3MinioDataLake(bucketName));
-        hiveMinio.start();
+        hiveFloci = closer.register(new Hive3FlociDataLake(bucketName));
+        hiveFloci.start();
 
         closer.register(new GenericContainer<>("ghcr.io/trinodb/testing/spark4-delta:" + getDockerImagesVersion()))
                 .withCopyFileToContainer(forClasspathResource("spark-defaults.conf"), "/spark/conf/spark-defaults.conf")
-                .withNetwork(hiveMinio.getNetwork())
+                .withNetwork(hiveFloci.getNetwork())
                 .start();
     }
 
     public HiveHadoop hiveHadoop()
     {
-        return hiveMinio.getHiveHadoop();
+        return hiveFloci.getHiveHadoop();
     }
 
-    public Minio minio()
+    public FlociContainer floci()
     {
-        return hiveMinio.getMinio();
+        return hiveFloci.floci();
     }
 
     @Override
