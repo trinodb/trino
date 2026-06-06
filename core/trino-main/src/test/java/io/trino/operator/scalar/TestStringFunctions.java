@@ -2075,6 +2075,78 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testInitcap()
+    {
+        assertThat(assertions.function("initcap", "''"))
+                .hasType(createVarcharType(0))
+                .isEqualTo("");
+
+        assertThat(assertions.function("initcap", "'hello'"))
+                .hasType(createVarcharType(5))
+                .isEqualTo("Hello");
+
+        assertThat(assertions.function("initcap", "'hello world'"))
+                .hasType(createVarcharType(11))
+                .isEqualTo("Hello World");
+
+        assertThat(assertions.function("initcap", "'HELLO WORLD'"))
+                .hasType(createVarcharType(11))
+                .isEqualTo("Hello World");
+
+        assertThat(assertions.function("initcap", "'hElLo WoRLd'"))
+                .hasType(createVarcharType(11))
+                .isEqualTo("Hello World");
+
+        assertThat(assertions.function("initcap", "'what!!'"))
+                .hasType(createVarcharType(6))
+                .isEqualTo("What!!");
+
+        assertThat(assertions.function("initcap", "'hello-world'"))
+                .hasType(createVarcharType(11))
+                .isEqualTo("Hello-World");
+
+        assertThat(assertions.function("initcap", "'hello   world'"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("Hello   World");
+
+        assertThat(assertions.function("initcap", "'hello world 123'"))
+                .hasType(createVarcharType(15))
+                .isEqualTo("Hello World 123");
+
+        assertThat(assertions.function("initcap", "'123hello'"))
+                .hasType(createVarcharType(8))
+                .isEqualTo("123hello");
+
+        assertThat(assertions.function("initcap", "'österreich'"))
+                .hasType(createVarcharType(10))
+                .isEqualTo("Österreich");
+    }
+
+    @Test
+    public void testCharInitcap()
+    {
+        assertThat(assertions.function("initcap", "CAST('' AS CHAR(10))"))
+                .hasType(createCharType(10))
+                .isEqualTo(padRight("", 10));
+
+        assertThat(assertions.function("initcap", "CAST('hello world' AS CHAR(11))"))
+                .hasType(createCharType(11))
+                .isEqualTo(padRight("Hello World", 11));
+
+        assertThat(assertions.function("initcap", "CAST('HELLO WORLD' AS CHAR(11))"))
+                .hasType(createCharType(11))
+                .isEqualTo(padRight("Hello World", 11));
+
+        assertThat(assertions.function("initcap", "CAST('what!!' AS CHAR(6))"))
+                .hasType(createCharType(6))
+                .isEqualTo(padRight("What!!", 6));
+
+        assertThat(assertions.function("initcap", "CAST('österreich' AS CHAR(10))"))
+                .hasType(createCharType(10))
+                .isEqualTo(padRight("Österreich", 10));
+    }
+
+    @Test
     public void testLeftPad()
     {
         assertThat(assertions.function("lpad", "'text'", "5", "'x'"))
