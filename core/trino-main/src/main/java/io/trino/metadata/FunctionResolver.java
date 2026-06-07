@@ -38,6 +38,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
 
 import java.util.Collection;
@@ -101,7 +102,7 @@ public class FunctionResolver
 
     private boolean isFunctionKind(Session session, QualifiedName name, FunctionKind functionKind, AccessControl accessControl)
     {
-        for (CatalogSchemaFunctionName catalogSchemaFunctionName : toPath(session, name, accessControl)) {
+        for (CatalogSchemaFunctionName catalogSchemaFunctionName : toPath(session, metadata.getResolverManager().getCanonicalizers(), name, accessControl)) {
             Collection<CatalogFunctionMetadata> candidates = metadata.getFunctions(session, catalogSchemaFunctionName);
             if (!candidates.isEmpty()) {
                 return candidates.stream()
@@ -115,6 +116,7 @@ public class FunctionResolver
 
     public ResolvedFunction resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes, AccessControl accessControl)
     {
+        System.out.println("FunctionResolver.resolveFunction() 1");
         CatalogFunctionBinding catalogFunctionBinding = bindFunction(
                 session,
                 name,
@@ -124,12 +126,16 @@ public class FunctionResolver
                         candidate -> candidate.functionMetadata().getReceiverType().isEmpty()),
                 accessControl);
 
+        System.out.println("FunctionResolver.resolveFunction() 2");
         FunctionMetadata functionMetadata = catalogFunctionBinding.boundFunctionMetadata();
         if (functionMetadata.isDeprecated()) {
             warningCollector.add(new TrinoWarning(DEPRECATED_FUNCTION, "Use of deprecated function: %s: %s".formatted(name, functionMetadata.getDescription())));
         }
 
-        return resolve(session, catalogFunctionBinding, accessControl);
+        System.out.println("FunctionResolver.resolveFunction() 3");
+        ResolvedFunction resolvedFunction = resolve(session, catalogFunctionBinding, accessControl);
+        System.out.println("FunctionResolver.resolveFunction() 4");
+        return resolvedFunction;
     }
 
     public ResolvedFunction resolveStaticMethod(
@@ -240,8 +246,12 @@ public class FunctionResolver
             Function<CatalogSchemaFunctionName, Collection<CatalogFunctionMetadata>> candidateLoader,
             AccessControl accessControl)
     {
+        System.out.println("FunctionResolver.bindFunction() 1 name: " + name);
         ImmutableList.Builder<CatalogFunctionMetadata> allCandidates = ImmutableList.builder();
-        List<CatalogSchemaFunctionName> fullPath = toPath(session, name, accessControl);
+        Map<String, Function<Identifier, String>> canonicalizers = metadata.getResolverManager().getCanonicalizers();
+        System.out.println("FunctionResolver.bindFunction() 2 canonicalizers: " + String.join(", ", canonicalizers.keySet()));
+        List<CatalogSchemaFunctionName> fullPath = toPath(session, canonicalizers, name, accessControl);
+        System.out.println("FunctionResolver.bindFunction() 3 fullPath: " + String.join(", ", fullPath.stream().map(CatalogSchemaFunctionName::toString).toList()));
         List<CatalogSchemaFunctionName> authorizedPath = fullPath.stream()
                 .filter(catalogSchemaFunctionName -> canExecuteFunction(session, accessControl, catalogSchemaFunctionName))
                 .collect(toImmutableList());
@@ -334,6 +344,11 @@ public class FunctionResolver
 
     // this is visible for the table function resolution, which should be merged into this class
     public static List<CatalogSchemaFunctionName> toPath(Session session, QualifiedName name, AccessControl accessControl)
+    {
+        return toPath(session, ImmutableMap.of(), name, accessControl);
+    }
+
+    public static List<CatalogSchemaFunctionName> toPath(Session session, Map<String, Function<Identifier, String>> canonicalizers, QualifiedName name, AccessControl accessControl)
     {
         List<String> parts = name.getParts();
         if (parts.size() > 3) {

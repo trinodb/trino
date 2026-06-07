@@ -27,7 +27,6 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.RenameColumn;
@@ -54,15 +53,13 @@ import static java.util.Objects.requireNonNull;
 public class RenameColumnTask
         implements DataDefinitionTask<RenameColumn>
 {
-    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public RenameColumnTask(PlannerContext plannerContext, AccessControl accessControl)
+    public RenameColumnTask(Metadata metadata, AccessControl accessControl)
     {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.metadata = plannerContext.getMetadata();
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -80,7 +77,7 @@ public class RenameColumnTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getTable(), plannerContext);
+        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getTable(), metadata);
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, originalTableName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             if (!statement.isTableExists()) {
@@ -90,7 +87,7 @@ public class RenameColumnTask
         }
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
 
-        Resolver resolver = plannerContext.getResolverManager().getResolver(session, originalTableName.catalogName());
+        Resolver resolver = metadata.getResolverManager().getResolver(session, originalTableName.catalogName());
         String source = resolver.canonicalize(statement.getSource().getOriginalParts().getFirst());
         String target = resolver.canonicalize(statement.getTarget());
 

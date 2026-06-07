@@ -309,7 +309,7 @@ public class TestEventListenerBasic
             }
         });
         queryRunner.createCatalog("mock", "mock", ImmutableMap.of());
-        queryRunner.getPlannerContext().getResolverManager().setResolver("mock", ResolverManager.getIdentityCanonicalizer());
+        queryRunner.getPlannerContext().getMetadata().getResolverManager().addResolver("mock", ResolverManager.getIdentityCanonicalizer());
         queryRunner.getCoordinator().getResourceGroupManager().get()
                 .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
 

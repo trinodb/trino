@@ -25,7 +25,6 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.security.Privilege;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Grant;
 import io.trino.sql.tree.Identifier;
@@ -50,15 +49,13 @@ import static java.util.Objects.requireNonNull;
 public class GrantTask
         implements DataDefinitionTask<Grant>
 {
-    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public GrantTask(PlannerContext plannerContext, AccessControl accessControl)
+    public GrantTask(Metadata metadata, AccessControl accessControl)
     {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.metadata = plannerContext.getMetadata();
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -94,7 +91,7 @@ public class GrantTask
             throw semanticException(NOT_SUPPORTED, statement, "Granting on branch is not supported");
         }
 
-        CatalogSchemaName schemaName = createCatalogSchemaName(session, statement, Optional.of(statement.getGrantObject().getName()), plannerContext);
+        CatalogSchemaName schemaName = createCatalogSchemaName(session, statement, Optional.of(statement.getGrantObject().getName()), metadata);
 
         if (!metadata.schemaExists(session, schemaName)) {
             throw semanticException(SCHEMA_NOT_FOUND, statement, "Schema '%s' does not exist", schemaName);
@@ -110,7 +107,7 @@ public class GrantTask
 
     private void executeGrantOnTable(Session session, Grant statement)
     {
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getGrantObject().getName(), plannerContext);
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getGrantObject().getName(), metadata);
         Optional<Identifier> branch = statement.getGrantObject().getBranch();
 
         if (!metadata.isMaterializedView(session, tableName) && !metadata.isView(session, tableName)) {

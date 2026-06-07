@@ -103,7 +103,7 @@ public class CallTask
         }
 
         // FIXME: procedureName will be canonicalized
-        QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName(), plannerContext);
+        QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName(), plannerContext.getMetadata());
         CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, call, procedureName.catalogName());
         Procedure procedure = procedureRegistry.resolve(catalogHandle, procedureName.asSchemaTableName());
 

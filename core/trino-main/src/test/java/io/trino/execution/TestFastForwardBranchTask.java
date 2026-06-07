@@ -98,7 +98,7 @@ final class TestFastForwardBranchTask
 
     private ListenableFuture<Void> executeFastForwardBranch(QualifiedName tableName, String fromBranch, String toBranch)
     {
-        return new FastForwardBranchTask(plannerContext, new AllowAllAccessControl())
+        return new FastForwardBranchTask(metadata, new AllowAllAccessControl())
                 .execute(new FastForwardBranch(new NodeLocation(1, 1), tableName, new Identifier(fromBranch), new Identifier(toBranch)), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 

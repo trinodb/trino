@@ -28,7 +28,6 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
@@ -55,15 +54,13 @@ import static java.util.Objects.requireNonNull;
 public class DropColumnTask
         implements DataDefinitionTask<DropColumn>
 {
-    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public DropColumnTask(PlannerContext plannerContext, AccessControl accessControl)
+    public DropColumnTask(Metadata metadata, AccessControl accessControl)
     {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.metadata = plannerContext.getMetadata();
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -81,8 +78,8 @@ public class DropColumnTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable(), plannerContext);
-        Resolver resolver = plannerContext.getResolverManager().getResolver(session, tableName.catalogName());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable(), metadata);
+        Resolver resolver = metadata.getResolverManager().getResolver(session, tableName.catalogName());
 
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {

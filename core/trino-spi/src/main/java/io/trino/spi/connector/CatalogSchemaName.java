@@ -74,6 +74,6 @@ public final class CatalogSchemaName
 
     public CatalogSchemaName toLowerCase()
     {
-        return new CatalogSchemaName(catalogName, schemaName.toLowerCase(ENGLISH));
+        return new CatalogSchemaName(catalogName, schemaName);
     }
 }

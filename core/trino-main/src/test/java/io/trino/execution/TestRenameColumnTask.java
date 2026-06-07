@@ -223,7 +223,7 @@ public class TestRenameColumnTask
 
     private ListenableFuture<Void> executeRenameColumn(QualifiedName table, QualifiedName source, Identifier target, boolean tableExists, boolean columnExists)
     {
-        return new RenameColumnTask(plannerContext, new AllowAllAccessControl())
+        return new RenameColumnTask(metadata, new AllowAllAccessControl())
                 .execute(new RenameColumn(new NodeLocation(1, 1), table, source, target, tableExists, columnExists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 

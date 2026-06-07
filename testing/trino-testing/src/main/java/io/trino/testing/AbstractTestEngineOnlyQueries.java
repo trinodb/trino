@@ -1691,7 +1691,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         assertQueryFails(
                 "SELECT length(1)",
-                "\\Qline 1:8: Unexpected parameters (integer) for function length. Expected:\\E.*");
+                "\\Qline 1:8: Unexpected parameters (integer) for function %s. Expected:\\E.*".formatted(sqlCanonicalize("length")));
     }
 
     @Test
@@ -1699,7 +1699,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         assertQueryFails(
                 "SELECT greatest(rgb(255, 0, 0))",
-                "\\Qline 1:8: Unexpected parameters (color) for function greatest. Expected: greatest(E) E:orderable\\E.*");
+                "\\Qline 1:8: Unexpected parameters (color) for function %1$s. Expected: %1$s(E) E:orderable\\E.*".formatted(sqlCanonicalize("greatest")));
     }
 
     @Test

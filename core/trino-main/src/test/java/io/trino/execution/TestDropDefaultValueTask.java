@@ -157,7 +157,7 @@ final class TestDropDefaultValueTask
 
     private ListenableFuture<Void> executeDropDefaultValue(QualifiedName table, QualifiedName column, boolean tableExists)
     {
-        return new DropDefaultValueTask(plannerContext, new AllowAllAccessControl())
+        return new DropDefaultValueTask(metadata, new AllowAllAccessControl())
                 .execute(new DropDefaultValue(
                         new NodeLocation(1, 1),
                         table,

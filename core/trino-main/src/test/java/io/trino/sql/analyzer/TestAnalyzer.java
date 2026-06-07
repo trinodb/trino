@@ -114,7 +114,6 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -8407,7 +8406,7 @@ public class TestAnalyzer
         TestingMetadata testingConnectorMetadata = new TestingMetadata();
         TestingConnector connector = new TestingConnector(testingConnectorMetadata);
         planTester.createCatalog(TPCH_CATALOG, new StaticConnectorFactory("main", connector), ImmutableMap.of());
-        plannerContext.getResolverManager().setResolver(TPCH_CATALOG, ResolverManager.getLowerCaseCanonicalizer());
+        metadata.getResolverManager().addResolver(TPCH_CATALOG, ResolverManager.getLowerCaseCanonicalizer());
 
         tablePropertyManager = planTester.getTablePropertyManager();
         analyzePropertyManager = planTester.getAnalyzePropertyManager();
@@ -8565,7 +8564,7 @@ public class TestAnalyzer
 
         // for identifier chain resolving tests
         planTester.createCatalog(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS, new StaticConnectorFactory("chain", new TestingConnector(new TestingMetadata())), ImmutableMap.of());
-        plannerContext.getResolverManager().setResolver(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS, ResolverManager.getLowerCaseCanonicalizer());
+        metadata.getResolverManager().addResolver(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS, ResolverManager.getLowerCaseCanonicalizer());
         Type singleFieldRowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 bigint)");
         Type rowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 bigint, f2 bigint)");
         Type nestedRowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 row(f11 bigint, f12 bigint), f2 boolean)");
@@ -8855,7 +8854,7 @@ public class TestAnalyzer
     {
         StatementRewrite statementRewrite = new StatementRewrite(ImmutableSet.of(new ShowQueriesRewrite(
                 new SqlEnvironmentConfig(),
-                plannerContext,
+                plannerContext.getMetadata(),
                 SQL_PARSER,
                 accessControl,
                 new SessionPropertyManager(),

@@ -20,7 +20,6 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AccessControl;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RenameView;
 
@@ -39,15 +38,13 @@ import static java.util.Objects.requireNonNull;
 public class RenameViewTask
         implements DataDefinitionTask<RenameView>
 {
-    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public RenameViewTask(PlannerContext plannerContext, AccessControl accessControl)
+    public RenameViewTask(Metadata metadata, AccessControl accessControl)
     {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.metadata = plannerContext.getMetadata();
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -65,7 +62,7 @@ public class RenameViewTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource(), plannerContext);
+        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource(), metadata);
         if (metadata.isMaterializedView(session, viewName)) {
             throw semanticException(
                     TABLE_NOT_FOUND,
@@ -88,7 +85,7 @@ public class RenameViewTask
             throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName);
         }
 
-        QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget(), plannerContext);
+        QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget(), metadata);
         if (metadata.getCatalogHandle(session, target.catalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' not found", target.catalogName());
         }

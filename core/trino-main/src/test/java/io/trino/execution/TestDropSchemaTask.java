@@ -144,6 +144,6 @@ public class TestDropSchemaTask
 
     private DropSchemaTask getDropSchemaTask()
     {
-        return new DropSchemaTask(plannerContext, new AllowAllAccessControl());
+        return new DropSchemaTask(metadata, new AllowAllAccessControl());
     }
 }

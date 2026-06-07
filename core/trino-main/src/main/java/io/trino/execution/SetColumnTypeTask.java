@@ -32,7 +32,6 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Resolver;
 import io.trino.sql.tree.SetColumnType;
@@ -63,16 +62,14 @@ import static java.util.Objects.requireNonNull;
 public class SetColumnTypeTask
         implements DataDefinitionTask<SetColumnType>
 {
-    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final TypeManager typeManager;
     private final AccessControl accessControl;
 
     @Inject
-    public SetColumnTypeTask(PlannerContext plannerContext, TypeManager typeManager, AccessControl accessControl)
+    public SetColumnTypeTask(Metadata metadata, TypeManager typeManager, AccessControl accessControl)
     {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.metadata = plannerContext.getMetadata();
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
@@ -91,8 +88,8 @@ public class SetColumnTypeTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName qualifiedObjectName = createQualifiedObjectName(session, statement, statement.getTableName(), plannerContext);
-        Resolver resolver = plannerContext.getResolverManager().getResolver(session, qualifiedObjectName.catalogName());
+        QualifiedObjectName qualifiedObjectName = createQualifiedObjectName(session, statement, statement.getTableName(), metadata);
+        Resolver resolver = metadata.getResolverManager().getResolver(session, qualifiedObjectName.catalogName());
 
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, qualifiedObjectName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {

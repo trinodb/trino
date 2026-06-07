@@ -14,7 +14,11 @@
 package io.trino.plugin.iceberg.functions;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.connector.system.GlobalSystemConnector;
+import io.trino.metadata.GlobalFunctionCatalog;
+import io.trino.metadata.LanguageFunctionManager;
 import io.trino.plugin.iceberg.IcebergPlugin;
+import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.sql.SqlPath;
 import io.trino.sql.query.QueryAssertions;
 import org.intellij.lang.annotations.Language;
@@ -42,7 +46,10 @@ final class TestBucketFunctions
     void init()
     {
         assertions = new QueryAssertions(testSessionBuilder()
-                .setPath(SqlPath.buildPath("iceberg.system", Optional.empty()))
+                .setRawPath(Optional.of("iceberg.system"))
+                .setCatalogSchemaPaths(
+                        new CatalogSchemaName(GlobalSystemConnector.NAME, LanguageFunctionManager.QUERY_LOCAL_SCHEMA),
+                        new CatalogSchemaName(GlobalSystemConnector.NAME, GlobalFunctionCatalog.BUILTIN_SCHEMA))
                 .build());
         assertions.addPlugin(new IcebergPlugin());
         assertions.getQueryRunner().createCatalog("iceberg", "iceberg", ImmutableMap.of("hive.metastore.uri", "thrift://example.net:9083"));

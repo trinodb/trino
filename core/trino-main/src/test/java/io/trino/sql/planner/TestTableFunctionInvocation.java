@@ -88,7 +88,7 @@ public class TestTableFunctionInvocation
                 })
                 .build()));
         getPlanTester().createCatalog(TESTING_CATALOG, "mock", ImmutableMap.of());
-        getPlanTester().getPlannerContext().getResolverManager().setResolver(TESTING_CATALOG, ResolverManager.getIdentityCanonicalizer());
+        getPlanTester().getPlannerContext().getMetadata().getResolverManager().addResolver(TESTING_CATALOG, ResolverManager.getIdentityCanonicalizer());
     }
 
     @Test

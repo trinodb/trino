@@ -20,6 +20,10 @@ import io.opentelemetry.sdk.testing.assertj.AttributesAssert;
 import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions;
 import io.specto.hoverfly.junit.core.Hoverfly;
 import io.specto.hoverfly.junit5.TrinoHoverflyExtension;
+import io.trino.connector.system.GlobalSystemConnector;
+import io.trino.metadata.GlobalFunctionCatalog;
+import io.trino.metadata.LanguageFunctionManager;
+import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.sql.SqlPath;
 import io.trino.sql.query.QueryAssertions;
 import org.assertj.core.api.InstanceOfAssertFactory;
@@ -56,7 +60,10 @@ public abstract class AbstractTestAiFunctions
     public void init(Hoverfly hoverfly)
     {
         assertions = new QueryAssertions(testSessionBuilder()
-                .setPath(SqlPath.buildPath("ai.ai", Optional.empty()))
+                .setRawPath(Optional.of("ai.ai"))
+                .setCatalogSchemaPaths(
+                        new CatalogSchemaName(GlobalSystemConnector.NAME, LanguageFunctionManager.QUERY_LOCAL_SCHEMA),
+                        new CatalogSchemaName(GlobalSystemConnector.NAME, GlobalFunctionCatalog.BUILTIN_SCHEMA))
                 .build());
         assertions.addPlugin(new AiPlugin());
         assertions.getQueryRunner().createCatalog("ai", "ai", getProperties(

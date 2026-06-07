@@ -26,10 +26,14 @@ import io.airlift.json.JsonModule;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.execution.QueryIdGenerator;
 import io.trino.execution.QueryManagerConfig;
+import io.trino.metadata.GlobalFunctionCatalog;
+import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.spi.Plugin;
+import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
 import io.trino.spi.security.Identity;
 import io.trino.spi.session.SessionPropertyConfigurationManager;
@@ -187,7 +191,10 @@ public class TestDbSessionPropertyManagerIntegration
                 .setSource("test")
                 .setCatalog("catalog")
                 .setSchema("schema")
-                .setPath(SqlPath.buildPath("path", Optional.empty()))
+                .setRawPath(Optional.of("path"))
+                .setCatalogSchemaPaths(
+                        new CatalogSchemaName(GlobalSystemConnector.NAME, LanguageFunctionManager.QUERY_LOCAL_SCHEMA),
+                        new CatalogSchemaName(GlobalSystemConnector.NAME, GlobalFunctionCatalog.BUILTIN_SCHEMA))
                 .setTimeZoneKey(DEFAULT_TIME_ZONE_KEY)
                 .setLocale(ENGLISH)
                 .setRemoteUserAddress("address")

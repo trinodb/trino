@@ -24,7 +24,6 @@ import io.trino.security.SecurityContext;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.security.AccessDeniedException;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Use;
 
@@ -42,15 +41,13 @@ import static java.util.Objects.requireNonNull;
 public class UseTask
         implements DataDefinitionTask<Use>
 {
-    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public UseTask(PlannerContext plannerContext, AccessControl accessControl)
+    public UseTask(Metadata metadata, AccessControl accessControl)
     {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.metadata = plannerContext.getMetadata();
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "metadata is null");
     }
 
@@ -82,7 +79,7 @@ public class UseTask
             denyCatalogAccess(catalog);
         }
 
-        String schema = plannerContext.getResolverManager().getResolver(session, catalog).canonicalize(statement.getSchema());
+        String schema = metadata.getResolverManager().getResolver(session, catalog).canonicalize(statement.getSchema());
 
         CatalogSchemaName name = new CatalogSchemaName(catalog, schema);
         if (!metadata.schemaExists(session, name)) {

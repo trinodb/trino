@@ -32,6 +32,7 @@ import io.trino.metadata.MetadataManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.ResolverManager;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.metadata.TableSchema;
@@ -90,6 +91,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
+import static io.trino.metadata.ResolverManager.getUpperCaseCanonicalizer;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.BRANCH_NOT_FOUND;
@@ -275,8 +277,9 @@ public abstract class BaseDataDefinitionTaskTest
 
         public MockMetadata(String catalogName)
         {
-            delegate = createTestingMetadataManager();
             this.catalogName = requireNonNull(catalogName, "catalogName is null");
+            delegate = createTestingMetadataManager();
+            delegate.getResolverManager().addResolver(catalogName, getUpperCaseCanonicalizer());
         }
 
         @Override
@@ -765,17 +768,15 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public Resolver getResolver(Canonicalizer canonicalizer)
+        public ResolverManager getResolverManager()
         {
-            return new Resolver(canonicalizer.name(), canonicalizer::canonicalize, canonicalizer::compare, canonicalizer::predicate);
+            return delegate.getResolverManager();
         }
 
         @Override
-        public Resolver getResolver(Session session, String catalog)
+        public Optional<Resolver> getResolver(Session session, String catalog)
         {
-            // FIXME: we need to retrieve the canonicalizer of the connector
-            Canonicalizer canonicalizer = Canonicalizer.IDENTITY_CANONICALIZER;
-            return new Resolver(catalogName, canonicalizer::canonicalize, canonicalizer::compare, canonicalizer::predicate);
+            return delegate.getResolver(session, catalog);
         }
 
         private static ColumnMetadata withComment(ColumnMetadata tableColumn, Optional<String> comment)

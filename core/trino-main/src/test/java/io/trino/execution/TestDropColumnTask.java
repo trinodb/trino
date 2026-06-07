@@ -167,7 +167,7 @@ public class TestDropColumnTask
 
     private ListenableFuture<Void> executeDropColumn(QualifiedName table, QualifiedName column, boolean tableExists, boolean columnExists)
     {
-        return new DropColumnTask(plannerContext, new AllowAllAccessControl())
+        return new DropColumnTask(metadata, new AllowAllAccessControl())
                 .execute(new DropColumn(new NodeLocation(1, 1), table, column, tableExists, columnExists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 

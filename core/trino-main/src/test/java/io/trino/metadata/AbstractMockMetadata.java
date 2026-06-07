@@ -1193,13 +1193,13 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Resolver getResolver(Canonicalizer canonicalizer)
+    public ResolverManager getResolverManager()
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Resolver getResolver(Session session, String catalog)
+    public Optional<Resolver> getResolver(Session session, String catalog)
     {
         throw new UnsupportedOperationException();
     }

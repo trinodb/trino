@@ -607,9 +607,9 @@ class StatementAnalyzer
         @Override
         protected Scope visitInsert(Insert insert, Optional<Scope> scope)
         {
-            QualifiedObjectName targetTable = createQualifiedObjectName(session, insert, insert.getTarget(), plannerContext);
-            Resolver resolver = plannerContext.getResolverManager().getResolver(session, targetTable.catalogName());
-            plannerContext.getResolverManager().setQueryResolver(session, resolver);
+            QualifiedObjectName targetTable = createQualifiedObjectName(session, insert, insert.getTarget(), metadata);
+            Resolver resolver = metadata.getResolverManager().getResolver(session, targetTable.catalogName());
+            metadata.getResolverManager().setQueryResolver(session, resolver);
 
             if (metadata.isMaterializedView(session, targetTable)) {
                 throw semanticException(NOT_SUPPORTED, insert, "Inserting into materialized views is not supported");
@@ -752,7 +752,7 @@ class StatementAnalyzer
         {
             // System.out.println("StatementAnalyzer.visitRefreshMaterializedView() 1");
 
-            QualifiedObjectName name = createQualifiedObjectName(session, refreshMaterializedView, refreshMaterializedView.getName(), plannerContext);
+            QualifiedObjectName name = createQualifiedObjectName(session, refreshMaterializedView, refreshMaterializedView.getName(), metadata);
             MaterializedViewDefinition view = metadata.getMaterializedView(session, name)
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Materialized view '%s' does not exist", name));
 
@@ -773,7 +773,7 @@ class StatementAnalyzer
             QualifiedName storageName = getMaterializedViewStorageTableName(view)
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Storage Table for materialized view '%s' does not exist", name));
 
-            QualifiedObjectName targetTable = createQualifiedObjectName(session, refreshMaterializedView, storageName, plannerContext);
+            QualifiedObjectName targetTable = createQualifiedObjectName(session, refreshMaterializedView, storageName, metadata);
             checkStorageTableNotRedirected(targetTable);
 
             // analyze the query that creates the data
@@ -881,7 +881,7 @@ class StatementAnalyzer
         protected Scope visitDelete(Delete node, Optional<Scope> scope)
         {
             Table table = node.getTable();
-            QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName(), plannerContext);
+            QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName(), metadata);
             if (metadata.isMaterializedView(session, originalName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Deleting from materialized views is not supported");
             }
@@ -946,7 +946,7 @@ class StatementAnalyzer
         protected Scope visitAnalyze(Analyze node, Optional<Scope> scope)
         {
             // System.out.println("StatementAnalyzer.visitAnalyze() 1");
-            QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName(), plannerContext);
+            QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName(), metadata);
             if (metadata.isView(session, tableName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Analyzing views is not supported");
             }
@@ -994,10 +994,10 @@ class StatementAnalyzer
         protected Scope visitCreateTableAsSelect(CreateTableAsSelect node, Optional<Scope> scope)
         {
             // turn this into a query that has a new table writer node on top.
-            QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName(), plannerContext);
+            QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName(), metadata);
             String catalogName = targetTable.catalogName();
-            Resolver resolver = plannerContext.getResolverManager().getResolver(session, catalogName);
-            plannerContext.getResolverManager().setQueryResolver(session, resolver);
+            Resolver resolver = metadata.getResolverManager().getResolver(session, catalogName);
+            metadata.getResolverManager().setQueryResolver(session, resolver);
 
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
             if (targetTableHandle.isPresent() && node.getSaveMode() != REPLACE) {
@@ -1115,9 +1115,9 @@ class StatementAnalyzer
         protected Scope visitCreateView(CreateView node, Optional<Scope> scope)
         {
             // System.out.println("StatementAnalyzer.visitCreateView() 1 scope resolver: " + getScopeInfo(scope));
-            QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName(), plannerContext);
-            Resolver resolver = plannerContext.getResolverManager().getResolver(session, viewName.catalogName());
-            plannerContext.getResolverManager().setQueryResolver(session, resolver);
+            QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName(), metadata);
+            Resolver resolver = metadata.getResolverManager().getResolver(session, viewName.catalogName());
+            metadata.getResolverManager().setQueryResolver(session, resolver);
 
             node.getQuery().getFunctions().stream().findFirst().ifPresent(function -> {
                 throw semanticException(NOT_SUPPORTED, function, "Views cannot contain inline functions");
@@ -1330,7 +1330,7 @@ class StatementAnalyzer
         protected Scope visitTableExecute(TableExecute node, Optional<Scope> scope)
         {
             Table table = node.getTable();
-            QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName(), plannerContext);
+            QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName(), metadata);
             String procedureName = node.getProcedureName().getCanonicalValue();
 
             if (metadata.isMaterializedView(session, originalName)) {
@@ -1533,7 +1533,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateMaterializedView(CreateMaterializedView node, Optional<Scope> scope)
         {
-            QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName(), plannerContext);
+            QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName(), metadata);
 
             if (node.isReplace() && node.isNotExists()) {
                 throw semanticException(NOT_SUPPORTED, node, "'CREATE OR REPLACE' and 'IF NOT EXISTS' clauses can not be used together");
@@ -1838,15 +1838,15 @@ class StatementAnalyzer
         @Override
         protected Scope visitTableFunctionInvocation(TableFunctionInvocation node, Optional<Scope> scope)
         {
-            // System.out.println("StatementAnalyzer.visitTableFunctionInvocation() scope resolver: " + getScopeInfo(scope) + " - table function: " + node.getName());
+            System.out.println("StatementAnalyzer.visitTableFunctionInvocation() scope resolver: " + getScopeInfo(scope) + " - table function: " + node.getName());
             TableFunctionMetadata tableFunctionMetadata = resolveTableFunction(node)
                     .orElseThrow(() -> semanticException(FUNCTION_NOT_FOUND, node, "Table function '%s' not registered", node.getName()));
 
             ConnectorTableFunction function = tableFunctionMetadata.function();
             CatalogHandle catalogHandle = tableFunctionMetadata.catalogHandle();
             String catalog = catalogHandle.getCatalogName().toString();
-            Resolver resolver = plannerContext.getResolverManager().getResolver(session, catalog);
-            plannerContext.getResolverManager().setQueryResolver(session, resolver);
+            Resolver resolver = metadata.getResolverManager().getResolver(session, catalog);
+            metadata.getResolverManager().setQueryResolver(session, resolver);
             // System.out.println("StatementAnalyzer.visitTableFunctionInvocation() catalog: " + catalog + " - resolver: " + resolver.getCanonicalizerKind().name());
 
             Node errorLocation = node;
@@ -2003,7 +2003,7 @@ class StatementAnalyzer
         private Optional<TableFunctionMetadata> resolveTableFunction(TableFunctionInvocation node)
         {
             boolean unauthorized = false;
-            for (CatalogSchemaFunctionName name : toPath(session, node.getName(), accessControl)) {
+            for (CatalogSchemaFunctionName name : toPath(session, metadata.getResolverManager().getCanonicalizers(), node.getName(), accessControl)) {
                 CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, name.catalogName());
                 Optional<ConnectorTableFunction> resolved = tableFunctionRegistry.resolve(catalogHandle, name.schemaFunctionName());
                 if (resolved.isPresent()) {
@@ -2338,7 +2338,7 @@ class StatementAnalyzer
                     }
                     if (candidates.isEmpty()) {
                         // qualify the name using current schema and catalog
-                        QualifiedObjectName fullyQualifiedName = createQualifiedObjectName(session, name.getOriginalParts().get(0), name, plannerContext);
+                        QualifiedObjectName fullyQualifiedName = createQualifiedObjectName(session, name.getOriginalParts().get(0), name, metadata);
                         QualifiedName qualifiedName = QualifiedName.of(fullyQualifiedName.catalogName(), fullyQualifiedName.schemaName(), fullyQualifiedName.objectName());
                         // System.out.println("StatementAnalyzer.analyzeCopartitioning() 7 name: " + qualifiedName);
                         // System.out.println("StatementAnalyzer.analyzeCopartitioning() 8 qualifiedInputs: " + String.join(", ", qualifiedInputs.keySet().stream().map(QualifiedName::toString).toList()));
@@ -2437,7 +2437,7 @@ class StatementAnalyzer
             // System.out.println("StatementAnalyzer.visitTable() 1 table: " + table.getName() + " - scope resolver: " + getScopeInfo(scope));
             // is this a reference to a WITH query?
             if (table.getName().getPrefix().isEmpty()) {
-                Resolver resolver = plannerContext.getResolverManager().getQueryResolver(session, scope);
+                Resolver resolver = metadata.getResolverManager().getQueryResolver(session, scope);
                 QualifiedName tableName = QualifiedName.of(resolver.getCanonicalizer(), table.getName());
                 Optional<WithQuery> withQuery = createScope(scope).getNamedQuery(tableName.getSuffix());
                 if (withQuery.isPresent()) {
@@ -2459,8 +2459,8 @@ class StatementAnalyzer
                 }
             }
 
-            QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName(), plannerContext);
-            Resolver resolver = plannerContext.getResolverManager().getResolver(session, name.catalogName());
+            QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName(), metadata);
+            Resolver resolver = metadata.getResolverManager().getResolver(session, name.catalogName());
             // System.out.println("StatementAnalyzer.visitTable() 2 table: " + name + " - resolver: " + resolver.getCanonicalizerKind().name());
 
             // FIXME: Need to canonicalize table.getName() to have testDuplicateOutputsInAnchorAndStepRelation() working
@@ -2475,9 +2475,9 @@ class StatementAnalyzer
                     // If materialized view is sufficiently fresh with respect to its grace period, answer the query using the storage table
                     QualifiedName storageName = getMaterializedViewStorageTableName(materializedViewDefinition)
                             .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Materialized view '%s' is fresh but does not have storage table name", name));
-                    QualifiedObjectName storageTableName = createQualifiedObjectName(session, table, storageName, plannerContext);
+                    QualifiedObjectName storageTableName = createQualifiedObjectName(session, table, storageName, metadata);
                     // System.out.println("StatementAnalyzer.visitTable() storageTableName: " + storageTableName);
-                    Resolver materializedViewResolver = plannerContext.getResolverManager().getResolver(session, storageTableName.catalogName());
+                    Resolver materializedViewResolver = metadata.getResolverManager().getResolver(session, storageTableName.catalogName());
                     checkStorageTableNotRedirected(storageTableName);
                     TableHandle tableHandle = metadata.getTableHandle(session, storageTableName)
                             .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Storage table '%s' does not exist", storageTableName));
@@ -2805,13 +2805,13 @@ class StatementAnalyzer
         {
             Statement statement = analysis.getStatement();
             if (statement instanceof CreateView viewStatement) {
-                QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName(), plannerContext);
+                QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName(), metadata);
                 if (viewStatement.isReplace() && viewNameFromStatement.equals(name)) {
                     throw semanticException(VIEW_IS_RECURSIVE, table, "Statement would create a recursive view");
                 }
             }
             if (statement instanceof CreateMaterializedView viewStatement) {
-                QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName(), plannerContext);
+                QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName(), metadata);
                 if (viewStatement.isReplace() && viewNameFromStatement.equals(name)) {
                     throw semanticException(VIEW_IS_RECURSIVE, table, "Statement would create a recursive materialized view");
                 }
@@ -2870,7 +2870,7 @@ class StatementAnalyzer
         {
             TableSchema tableSchema = metadata.getTableSchema(session, storageTable);
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, storageTable);
-            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName(), plannerContext);
+            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName(), metadata);
             checkStorageTableNotRedirected(tableName);
             List<Field> tableFields = analyzeTableOutputFields(table, tableName, tableSchema, columnHandles, resolver)
                     .stream()
@@ -3002,7 +3002,7 @@ class StatementAnalyzer
             }
 
             // analyze pattern recognition clauses
-            Resolver resolver = plannerContext.getResolverManager().getQueryResolver(session, Optional.of(inputScope));
+            Resolver resolver = metadata.getResolverManager().getQueryResolver(session, Optional.of(inputScope));
             // System.out.println("StatementAnalyzer.visitPatternRecognitionRelation() resolver: " + resolver.getCanonicalizerKind().name());
             PatternRecognitionAnalysis patternRecognitionAnalysis = PatternRecognitionAnalyzer.analyze(
                     resolver,
@@ -3169,7 +3169,7 @@ class StatementAnalyzer
             // FIXME: AliasedRelation are now canonicalized
             analysis.addAliased(relation.getRelation());
             Scope relationScope = process(relation.getRelation(), scope);
-            Resolver resolver = plannerContext.getResolverManager().getQueryResolver(session, Optional.of(relationScope));
+            Resolver resolver = metadata.getResolverManager().getQueryResolver(session, Optional.of(relationScope));
             analysis.setRelationName(relation, QualifiedName.of(resolver.getCanonicalizer(), relation.getAlias()));
             RelationType relationType = relationScope.getRelationType();
 
@@ -3729,9 +3729,9 @@ class StatementAnalyzer
         protected Scope visitUpdate(Update update, Optional<Scope> scope)
         {
             Table table = update.getTable();
-            QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName(), plannerContext);
-            Resolver resolver = plannerContext.getResolverManager().getResolver(session, originalName.catalogName());
-            plannerContext.getResolverManager().setQueryResolver(session, resolver);
+            QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName(), metadata);
+            Resolver resolver = metadata.getResolverManager().getResolver(session, originalName.catalogName());
+            metadata.getResolverManager().setQueryResolver(session, resolver);
 
             if (metadata.isMaterializedView(session, originalName)) {
                 throw semanticException(NOT_SUPPORTED, update, "Updating materialized views is not supported");
@@ -3886,8 +3886,8 @@ class StatementAnalyzer
         {
             Relation relation = merge.getTarget();
             Table table = getMergeTargetTable(relation);
-            QualifiedObjectName originalTableName = createQualifiedObjectName(session, table, table.getName(), plannerContext);
-            Resolver resolver = plannerContext.getResolverManager().getResolver(session, originalTableName.catalogName());
+            QualifiedObjectName originalTableName = createQualifiedObjectName(session, table, table.getName(), metadata);
+            Resolver resolver = metadata.getResolverManager().getResolver(session, originalTableName.catalogName());
 
             if (metadata.isMaterializedView(session, originalTableName)) {
                 throw semanticException(NOT_SUPPORTED, merge, "Merging into materialized views is not supported");
@@ -4435,7 +4435,7 @@ class StatementAnalyzer
             }
 
             // FIXME: In order to be correctly resolved, the Field must hold the correct canonicalizer
-            Optional<Resolver> resolver = Optional.of(plannerContext.getResolverManager().getQueryResolver(session, scope));
+            Optional<Resolver> resolver = Optional.of(metadata.getResolverManager().getQueryResolver(session, scope));
             List<Field> fields = commonSuperType.getFields().stream()
                     .map(field -> Field.newUnqualified(field.getName(), field.getType(), resolver))
                     .collect(toImmutableList());
@@ -4457,7 +4457,7 @@ class StatementAnalyzer
             // all column and path names must be unique
             Set<String> uniqueNames = new HashSet<>();
             JsonPathInvocation rootPath = node.getJsonPathInvocation();
-            Resolver resolver = plannerContext.getResolverManager().getQueryResolver(session, scope);
+            Resolver resolver = metadata.getResolverManager().getQueryResolver(session, scope);
             rootPath.getPathName().ifPresent(name -> uniqueNames.add(resolver.canonicalize(name)));
 
             ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
@@ -5082,7 +5082,7 @@ class StatementAnalyzer
         {
             ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
 
-            Resolver resolver = plannerContext.getResolverManager().getQueryResolver(session, Optional.of(sourceScope));
+            Resolver resolver = metadata.getResolverManager().getQueryResolver(session, Optional.of(sourceScope));
             for (SelectItem item : node.getSelect().getSelectItems()) {
                 if (item instanceof AllColumns allColumns) {
                     List<Field> fields = analysis.getSelectAllResultFields(allColumns);
@@ -5194,7 +5194,7 @@ class StatementAnalyzer
                 ImmutableList.Builder<SelectExpression> selectExpressionBuilder)
         {
             // expand * and expression.*
-            Resolver resolver = plannerContext.getResolverManager().getQueryResolver(session, Optional.of(scope));
+            Resolver resolver = metadata.getResolverManager().getQueryResolver(session, Optional.of(scope));
             if (allColumns.getTarget().isPresent()) {
                 // analyze AllColumns with target expression (expression.*)
                 Expression expression = allColumns.getTarget().get();
@@ -5833,7 +5833,7 @@ class StatementAnalyzer
                 return createScope(scope);
             }
             // FIXME: For WITH clause we use the WITH resolver (ie: UPPERCASE_CANONICALIZER)
-            Resolver resolver = plannerContext.getResolverManager().getWithResolver();
+            Resolver resolver = metadata.getResolverManager().getWithResolver();
 
             // analyze WITH clause
             With with = node.getWith().get();

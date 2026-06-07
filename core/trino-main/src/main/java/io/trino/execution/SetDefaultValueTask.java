@@ -77,8 +77,8 @@ public class SetDefaultValueTask
     {
         Session session = stateMachine.getSession();
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName(), plannerContext);
-        Resolver resolver = plannerContext.getResolverManager().getResolver(session, tableName.catalogName());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName(), metadata);
+        Resolver resolver = metadata.getResolverManager().getResolver(session, tableName.catalogName());
 
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {

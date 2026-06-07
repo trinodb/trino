@@ -22,6 +22,9 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
+import io.trino.connector.system.GlobalSystemConnector;
+import io.trino.metadata.GlobalFunctionCatalog;
+import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolverManager;
 import io.trino.metadata.SystemSecurityMetadata;
@@ -60,7 +63,6 @@ import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
-import io.trino.sql.SqlPath;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -147,7 +149,10 @@ public class TestAccessControl
                 .setSource("test")
                 .setCatalog("blackhole")
                 .setSchema("default")
-                .setPath(SqlPath.buildPath("mock.function", Optional.empty()))
+                .setRawPath(Optional.of("mock.function"))
+                .setCatalogSchemaPaths(
+                        new CatalogSchemaName(GlobalSystemConnector.NAME, LanguageFunctionManager.QUERY_LOCAL_SCHEMA),
+                        new CatalogSchemaName(GlobalSystemConnector.NAME, GlobalFunctionCatalog.BUILTIN_SCHEMA))
                 .build();
         QueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .setAdditionalModule(binder -> {
@@ -172,7 +177,7 @@ public class TestAccessControl
         queryRunner.installPlugin(new MemoryPlugin());
         queryRunner.createCatalog("memory", "memory", Map.of());
         queryRunner.createCatalog("memory_test", "memory", Map.of());
-        queryRunner.getPlannerContext().getResolverManager().setResolver("memory_test", ResolverManager.getUpperCaseCanonicalizer());
+        queryRunner.getPlannerContext().getMetadata().getResolverManager().addResolver("memory_test", ResolverManager.getUpperCaseCanonicalizer());
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
@@ -762,7 +767,10 @@ public class TestAccessControl
                 .setIdentity(Identity.ofUser("test_view_access_owner"))
                 .setCatalog(getSession().getCatalog())
                 .setSchema(getSession().getSchema())
-                .setPath(SqlPath.buildPath("mock.function", Optional.empty()))
+                .setRawPath(Optional.of("mock.function"))
+                .setCatalogSchemaPaths(
+                        new CatalogSchemaName(GlobalSystemConnector.NAME, LanguageFunctionManager.QUERY_LOCAL_SCHEMA),
+                        new CatalogSchemaName(GlobalSystemConnector.NAME, GlobalFunctionCatalog.BUILTIN_SCHEMA))
                 .build();
 
         // TEST FUNCTION PRIVILEGES

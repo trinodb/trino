@@ -49,15 +49,13 @@ import static java.util.Objects.requireNonNull;
 public class CommentTask
         implements DataDefinitionTask<Comment>
 {
-    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public CommentTask(PlannerContext plannerContext, AccessControl accessControl)
+    public CommentTask(Metadata metadata, AccessControl accessControl)
     {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.metadata = plannerContext.getMetadata();
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -94,7 +92,7 @@ public class CommentTask
 
     private void commentOnTable(Comment statement, Session session)
     {
-        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getName(), plannerContext);
+        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getName(), metadata);
         if (metadata.isMaterializedView(session, originalTableName)) {
             throw semanticException(
                     TABLE_NOT_FOUND,
@@ -123,7 +121,7 @@ public class CommentTask
 
     private void commentOnView(Comment statement, Session session)
     {
-        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName(), plannerContext);
+        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName(), metadata);
         if (!metadata.isView(session, viewName)) {
             String additionalInformation;
             if (metadata.getMaterializedView(session, viewName).isPresent()) {
@@ -147,7 +145,7 @@ public class CommentTask
         QualifiedName prefix = statement.getName().getPrefix()
                 .orElseThrow(() -> semanticException(MISSING_TABLE, statement, "Table must be specified"));
 
-        QualifiedObjectName originalObjectName = createQualifiedObjectName(session, statement, prefix, plannerContext);
+        QualifiedObjectName originalObjectName = createQualifiedObjectName(session, statement, prefix, metadata);
         Optional<ViewDefinition> view = metadata.getView(session, originalObjectName);
         if (view.isPresent()) {
             ViewDefinition viewDefinition = view.get();
@@ -167,7 +165,7 @@ public class CommentTask
             TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
 
             Identifier identifier = statement.getName().getOriginalParts().getLast();
-            Resolver resolver = plannerContext.getResolverManager().getResolver(session, originalObjectName.catalogName());
+            Resolver resolver = metadata.getResolverManager().getResolver(session, originalObjectName.catalogName());
             String columnName = resolver.canonicalize(identifier);
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
             if (!columnHandles.containsKey(columnName)) {

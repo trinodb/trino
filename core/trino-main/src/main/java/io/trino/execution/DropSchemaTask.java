@@ -21,7 +21,6 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.CatalogSchemaName;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.Expression;
 
@@ -38,15 +37,13 @@ import static java.util.Objects.requireNonNull;
 public class DropSchemaTask
         implements DataDefinitionTask<DropSchema>
 {
-    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public DropSchemaTask(PlannerContext plannerContext, AccessControl accessControl)
+    public DropSchemaTask(Metadata metadata, AccessControl accessControl)
     {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.metadata = plannerContext.getMetadata();
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -64,7 +61,7 @@ public class DropSchemaTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        CatalogSchemaName schema = createCatalogSchemaName(session, statement, Optional.of(statement.getSchemaName()), plannerContext);
+        CatalogSchemaName schema = createCatalogSchemaName(session, statement, Optional.of(statement.getSchemaName()), metadata);
 
         if (!metadata.schemaExists(session, schema)) {
             if (!statement.isExists()) {

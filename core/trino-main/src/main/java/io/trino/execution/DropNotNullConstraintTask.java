@@ -24,7 +24,6 @@ import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.DropNotNullConstraint;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Resolver;
@@ -42,15 +41,13 @@ import static java.util.Objects.requireNonNull;
 public class DropNotNullConstraintTask
         implements DataDefinitionTask<DropNotNullConstraint>
 {
-    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public DropNotNullConstraintTask(PlannerContext plannerContext, AccessControl accessControl)
+    public DropNotNullConstraintTask(Metadata metadata, AccessControl accessControl)
     {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.metadata = plannerContext.getMetadata();
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -68,8 +65,8 @@ public class DropNotNullConstraintTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable(), plannerContext);
-        Resolver resolver = plannerContext.getResolverManager().getResolver(session, tableName.catalogName());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable(), metadata);
+        Resolver resolver = metadata.getResolverManager().getResolver(session, tableName.catalogName());
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             String exceptionMessage = "Table '%s' does not exist".formatted(tableName);

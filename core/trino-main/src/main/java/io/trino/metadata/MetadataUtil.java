@@ -55,6 +55,7 @@ import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.sql.QueryUtil.identifier;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class MetadataUtil
@@ -156,34 +157,46 @@ public final class MetadataUtil
         return name.stream().collect(Collectors.joining("."));
     }
 
-    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema, PlannerContext plannerContext)
+    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema, Metadata metadata)
     {
-        return createCatalogSchemaName(session, plannerContext, getCatalogSchemaIdentifiers(session, node, schema, plannerContext));
+        return createCatalogSchemaName(session, metadata, getCatalogSchemaIdentifiers(session, node, schema, metadata));
     }
 
-    public static CatalogSchemaName createCatalogSchemaName(Session session, PlannerContext plannerContext, List<Identifier> identifiers)
+    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema, Metadata metadata, boolean lowerCase)
+    {
+        return createCatalogSchemaName(session, metadata, getCatalogSchemaIdentifiers(session, node, schema, metadata), lowerCase);
+    }
+
+    public static CatalogSchemaName createCatalogSchemaName(Session session, Metadata metadata, List<Identifier> identifiers)
+    {
+        return createCatalogSchemaName(session, metadata, identifiers, false);
+    }
+
+    public static CatalogSchemaName createCatalogSchemaName(Session session, Metadata metadata, List<Identifier> identifiers, boolean lowerCase)
     {
         String catalog = identifiers.getFirst().getValue();
-        Resolver resolver = plannerContext.getResolverManager().getResolver(session, catalog);
-        return new CatalogSchemaName(catalog, resolver.canonicalize(identifiers.getLast()));
+        String schema = lowerCase ?
+                identifiers.getLast().getValue().toLowerCase(ENGLISH) :
+                metadata.getResolverManager().getResolver(session, catalog).canonicalize(identifiers.getLast());
+        return new CatalogSchemaName(catalog, schema);
     }
 
-    public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name, PlannerContext plannerContext)
+    public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name, Metadata metadata)
     {
-        return createQualifiedObjectName(session, node, name, plannerContext, Optional.empty());
+        return createQualifiedObjectName(session, node, name, metadata, Optional.empty());
     }
 
-    public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name, PlannerContext plannerContext, Optional<Function<Identifier, String>> canonicalizer)
+    public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name, Metadata metadata, Optional<Function<Identifier, String>> canonicalizer)
     {
-        return createQualifiedObjectName(session, plannerContext, getQualifiedObjectIdentifiers(session, node, name, plannerContext), canonicalizer);
+        return createQualifiedObjectName(session, metadata, getQualifiedObjectIdentifiers(session, node, name, metadata), canonicalizer);
     }
 
-    public static QualifiedObjectName createQualifiedObjectName(Session session, PlannerContext plannerContext, List<Identifier> identifiers)
+    public static QualifiedObjectName createQualifiedObjectName(Session session, Metadata metadata, List<Identifier> identifiers)
     {
-        return createQualifiedObjectName(session, plannerContext, identifiers, Optional.empty());
+        return createQualifiedObjectName(session, metadata, identifiers, Optional.empty());
     }
 
-    public static QualifiedObjectName createQualifiedObjectName(Session session, PlannerContext plannerContext, List<Identifier> identifiers, Optional<Function<Identifier, String>> canonicalizer)
+    public static QualifiedObjectName createQualifiedObjectName(Session session, Metadata metadata, List<Identifier> identifiers, Optional<Function<Identifier, String>> canonicalizer)
     {
         requireNonNull(identifiers, "identifiers is null");
         if (identifiers.size() < 3) {
@@ -191,7 +204,7 @@ public final class MetadataUtil
         }
 
         String catalog = identifiers.getFirst().getValue();
-        Resolver resolver = getResolver(session, plannerContext, catalog);
+        Resolver resolver = getResolver(session, metadata, catalog);
         return new QualifiedObjectName(
                 catalog,
                 resolver.canonicalize(identifiers.get(1)),
@@ -200,9 +213,9 @@ public final class MetadataUtil
                 Optional.of(resolver::predicate));
     }
 
-    public static List<Identifier> getCatalogSchemaIdentifiers(Session session, Node node, Optional<QualifiedName> qualifiedName, PlannerContext plannerContext)
+    public static List<Identifier> getCatalogSchemaIdentifiers(Session session, Node node, Optional<QualifiedName> qualifiedName, Metadata metadata)
     {
-        requireNonNull(plannerContext, "plannerContext is null");
+        requireNonNull(metadata, "metadata is null");
         Identifier catalog = null;
         Identifier schema = null;
 
@@ -221,12 +234,12 @@ public final class MetadataUtil
             catalog = new Identifier(getSessionCatalog(session, node));
         }
         if (schema == null) {
-            schema = getSessionSchemaIdentifier(session, node, getResolver(session, plannerContext, catalog.getValue()));
+            schema = getSessionSchemaIdentifier(session, node, getResolver(session, metadata, catalog.getValue()));
         }
         return ImmutableList.of(catalog, schema);
     }
 
-    public static List<Identifier> getQualifiedObjectIdentifiers(Session session, Node node, QualifiedName name, PlannerContext plannerContext)
+    public static List<Identifier> getQualifiedObjectIdentifiers(Session session, Node node, QualifiedName name, Metadata metadata)
     {
         requireNonNull(session, "session is null");
         requireNonNull(name, "name is null");
@@ -250,7 +263,7 @@ public final class MetadataUtil
             default -> {
                 String currentCatalog = getSessionCatalog(session, node);
                 catalog = new Identifier(currentCatalog);
-                schema = getSessionSchemaIdentifier(session, node, getResolver(session, plannerContext, currentCatalog));
+                schema = getSessionSchemaIdentifier(session, node, getResolver(session, metadata, currentCatalog));
             }
         }
         return ImmutableList.of(catalog, schema, identifiers.getLast());
@@ -262,9 +275,9 @@ public final class MetadataUtil
                 semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set"));
     }
 
-    public static Resolver getResolver(Session session, PlannerContext plannerContext, String catalog)
+    public static Resolver getResolver(Session session, Metadata metadata, String catalog)
     {
-        return plannerContext.getResolverManager().getResolver(session, catalog);
+        return metadata.getResolverManager().getResolver(session, catalog);
     }
 
     private static Identifier getSessionSchemaIdentifier(Session session, Node node, Resolver resolver)

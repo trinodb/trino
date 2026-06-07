@@ -20,7 +20,6 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.CatalogSchemaName;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RenameSchema;
 
@@ -37,15 +36,13 @@ import static java.util.Objects.requireNonNull;
 public class RenameSchemaTask
         implements DataDefinitionTask<RenameSchema>
 {
-    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public RenameSchemaTask(PlannerContext plannerContext, AccessControl accessControl)
+    public RenameSchemaTask(Metadata metadata, AccessControl accessControl)
     {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.metadata = plannerContext.getMetadata();
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -63,7 +60,7 @@ public class RenameSchemaTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        CatalogSchemaName source = createCatalogSchemaName(session, statement, Optional.of(statement.getSource()), plannerContext);
+        CatalogSchemaName source = createCatalogSchemaName(session, statement, Optional.of(statement.getSource()), metadata);
         CatalogSchemaName target = new CatalogSchemaName(source.getCatalogName(), statement.getTarget().getValue());
 
         if (!metadata.schemaExists(session, source)) {

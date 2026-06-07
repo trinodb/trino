@@ -738,6 +738,8 @@ public class MemoryMetadata
     @Override
     public synchronized Collection<LanguageFunction> getLanguageFunctions(ConnectorSession session, SchemaFunctionName name)
     {
+        System.out.println("MemoryMetadata.getLanguageFunctions() name: " + name);
+        System.out.println("MemoryMetadata.getLanguageFunctions() functions name: " + String.join(", ", functions.keySet().toString()));
         return functions.getOrDefault(name, Map.of()).values();
     }
 

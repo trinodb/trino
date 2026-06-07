@@ -25,7 +25,6 @@ import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.DropDefaultValue;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
@@ -47,15 +46,13 @@ import static java.util.Objects.requireNonNull;
 public class DropDefaultValueTask
         implements DataDefinitionTask<DropDefaultValue>
 {
-    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public DropDefaultValueTask(PlannerContext plannerContext, AccessControl accessControl)
+    public DropDefaultValueTask(Metadata metadata, AccessControl accessControl)
     {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.metadata = plannerContext.getMetadata();
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -73,7 +70,7 @@ public class DropDefaultValueTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName(), plannerContext);
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName(), metadata);
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             String exceptionMessage = "Table '%s' does not exist".formatted(tableName);
@@ -97,7 +94,7 @@ public class DropDefaultValueTask
             throw semanticException(NOT_SUPPORTED, statement, "Cannot modify nested fields");
         }
         Identifier identifier = field.getOriginalParts().getFirst();
-        Resolver resolver = plannerContext.getResolverManager().getResolver(session, tableName.catalogName());
+        Resolver resolver = metadata.getResolverManager().getResolver(session, tableName.catalogName());
         String columnName = resolver.canonicalize(identifier);
         ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(columnName);
 

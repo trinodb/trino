@@ -20,12 +20,12 @@ import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.LanguageFunctionManager;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.function.LanguageFunction;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
@@ -64,7 +64,7 @@ public class CreateFunctionTask
 {
     private final Optional<CatalogSchemaName> defaultFunctionSchema;
     private final SqlParser sqlParser;
-    private final PlannerContext plannerContext;
+    private final Metadata metadata;
     private final FunctionManager functionManager;
     private final AccessControl accessControl;
     private final LanguageFunctionManager languageFunctionManager;
@@ -73,14 +73,14 @@ public class CreateFunctionTask
     public CreateFunctionTask(
             SqlEnvironmentConfig sqlEnvironmentConfig,
             SqlParser sqlParser,
-            PlannerContext plannerContext,
+            Metadata metadata,
             FunctionManager functionManager,
             AccessControl accessControl,
             LanguageFunctionManager languageFunctionManager)
     {
         this.defaultFunctionSchema = defaultFunctionSchema(sqlEnvironmentConfig);
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.languageFunctionManager = requireNonNull(languageFunctionManager, "languageFunctionManager is null");
@@ -98,7 +98,9 @@ public class CreateFunctionTask
         Session session = stateMachine.getSession();
 
         FunctionSpecification function = statement.getSpecification();
-        QualifiedObjectName name = qualifiedFunctionName(session, defaultFunctionSchema, statement, function.getName(), plannerContext);
+        System.out.println("CreateFunctionTask.execute() 1 function: " + function.getName());
+        QualifiedObjectName name = qualifiedFunctionName(session, defaultFunctionSchema, statement, function.getName(), metadata);
+        System.out.println("CreateFunctionTask.execute() 2 function: " + name);
 
         accessControl.checkCanCreateFunction(session.toSecurityContext(), name);
 
@@ -120,7 +122,7 @@ public class CreateFunctionTask
         LanguageFunction languageFunction = new LanguageFunction(signatureToken, sql, path, owner);
 
         boolean replace = false;
-        if (plannerContext.getMetadata().languageFunctionExists(session, name, signatureToken)) {
+        if (metadata.languageFunctionExists(session, name, signatureToken)) {
             if (!statement.isReplace()) {
                 throw semanticException(ALREADY_EXISTS, statement, "Function already exists");
             }
@@ -128,7 +130,7 @@ public class CreateFunctionTask
             replace = true;
         }
 
-        plannerContext.getMetadata().createLanguageFunction(session, name, languageFunction, replace);
+        metadata.createLanguageFunction(session, name, languageFunction, replace);
 
         return immediateVoidFuture();
     }
@@ -179,7 +181,7 @@ public class CreateFunctionTask
         return combine(config.getDefaultFunctionCatalog(), config.getDefaultFunctionSchema(), CatalogSchemaName::new);
     }
 
-    public static QualifiedObjectName qualifiedFunctionName(Session session, Optional<CatalogSchemaName> functionSchema, Node node, QualifiedName name, PlannerContext plannerContext)
+    public static QualifiedObjectName qualifiedFunctionName(Session session, Optional<CatalogSchemaName> functionSchema, Node node, QualifiedName name, Metadata metadata)
     {
         String catalog;
         String schema;
@@ -190,13 +192,13 @@ public class CreateFunctionTask
                 CatalogSchemaName catalogSchema = functionSchema.orElseThrow(() ->
                         semanticException(NOT_SUPPORTED, node, "Catalog and schema must be specified when function schema is not configured"));
                 catalog = catalogSchema.getCatalogName();
-                resolver = plannerContext.getResolverManager().getResolver(session, catalog);
+                resolver = metadata.getResolverManager().getResolver(session, catalog);
                 schema = catalogSchema.getSchemaName();
             }
             case 2 -> throw semanticException(NOT_SUPPORTED, node, "Function name must be unqualified or fully qualified with catalog and schema");
             case 3 -> {
                 catalog = parts.getFirst().getValue();
-                resolver = plannerContext.getResolverManager().getResolver(session, catalog);
+                resolver = metadata.getResolverManager().getResolver(session, catalog);
                 schema = resolver.canonicalize(parts.get(1));
             }
             default -> throw semanticException(SYNTAX_ERROR, node, "Too many dots in function name: %s", name);

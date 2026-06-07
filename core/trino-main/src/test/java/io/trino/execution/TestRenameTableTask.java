@@ -138,7 +138,7 @@ public class TestRenameTableTask
 
     private ListenableFuture<Void> executeRenameTable(QualifiedName source, QualifiedName target, boolean exists)
     {
-        return new RenameTableTask(plannerContext, new AllowAllAccessControl())
+        return new RenameTableTask(metadata, new AllowAllAccessControl())
                 .execute(new RenameTable(new NodeLocation(1, 1), source, target, exists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 }

@@ -968,7 +968,7 @@ public interface Metadata
      */
     Optional<ConnectorTableCredentials> getTableCredentials(Session session, CatalogHandle catalogHandle, ConnectorTableFunctionHandle tableHandle);
 
-    Resolver getResolver(Canonicalizer canonicalizer);
+    ResolverManager getResolverManager();
 
-    Resolver getResolver(Session session, String catalog);
+    Optional<Resolver> getResolver(Session session, String catalog);
 }

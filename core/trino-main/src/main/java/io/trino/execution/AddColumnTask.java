@@ -99,8 +99,8 @@ public class AddColumnTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getName(), plannerContext);
-        Resolver resolver = plannerContext.getResolverManager().getResolver(session, originalTableName.catalogName());
+        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getName(), plannerContext.getMetadata());
+        Resolver resolver = plannerContext.getMetadata().getResolverManager().getResolver(session, originalTableName.catalogName());
 
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
         RedirectionAwareTableHandle redirectionAwareTableHandle = plannerContext.getMetadata().getRedirectionAwareTableHandle(session, originalTableName);

@@ -21,7 +21,6 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.TruncateTable;
 
@@ -37,15 +36,13 @@ import static java.util.Objects.requireNonNull;
 public class TruncateTableTask
         implements DataDefinitionTask<TruncateTable>
 {
-    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public TruncateTableTask(PlannerContext plannerContext, AccessControl accessControl)
+    public TruncateTableTask(Metadata metadata, AccessControl accessControl)
     {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.metadata = plannerContext.getMetadata();
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -63,7 +60,7 @@ public class TruncateTableTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName(), plannerContext);
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName(), metadata);
 
         if (metadata.isMaterializedView(session, tableName)) {
             throw semanticException(NOT_SUPPORTED, statement, "Cannot truncate a materialized view");

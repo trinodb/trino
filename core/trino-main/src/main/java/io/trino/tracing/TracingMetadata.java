@@ -24,7 +24,6 @@ import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.metadata.AnalyzeMetadata;
 import io.trino.metadata.AnalyzeTableHandle;
-import io.trino.metadata.Canonicalizer;
 import io.trino.metadata.CatalogFunctionMetadata;
 import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.InsertTableHandle;
@@ -41,6 +40,7 @@ import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.RedirectionAwareView;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.ResolvedIndex;
+import io.trino.metadata.ResolverManager;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableFunctionHandle;
 import io.trino.metadata.TableHandle;
@@ -1765,16 +1765,16 @@ public class TracingMetadata
     }
 
     @Override
-    public Resolver getResolver(Canonicalizer canonicalizer)
+    public ResolverManager getResolverManager()
     {
-        Span span = startSpan("getResolver");
+        Span span = startSpan("getResolverManager");
         try (var ignored = scopedSpan(span)) {
-            return delegate.getResolver(canonicalizer);
+            return delegate.getResolverManager();
         }
     }
 
     @Override
-    public Resolver getResolver(Session session, String catalogName)
+    public Optional<Resolver> getResolver(Session session, String catalogName)
     {
         Span span = startSpan("getResolver", catalogName);
         try (var ignored = scopedSpan(span)) {

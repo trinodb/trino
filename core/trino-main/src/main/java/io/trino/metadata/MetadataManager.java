@@ -206,6 +206,7 @@ public final class MetadataManager
     private final TypeManager typeManager;
     private final TypeCoercion typeCoercion;
     private final CatalogManager catalogManager;
+    private final ResolverManager resolverManager;
 
     private final ConcurrentMap<QueryId, QueryCatalogs> catalogsByQueryId = new ConcurrentHashMap<>();
 
@@ -231,6 +232,7 @@ public final class MetadataManager
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.languageFunctionManager = requireNonNull(languageFunctionManager, "languageFunctionManager is null");
         this.tableFunctionRegistry = requireNonNull(tableFunctionRegistry, "tableFunctionRegistry is null");
+        this.resolverManager = new ResolverManager(this::getResolver);
     }
 
     @Override
@@ -2739,6 +2741,7 @@ public final class MetadataManager
 
     private List<CatalogFunctionMetadata> getFunctions(Session session, ConnectorMetadata metadata, CatalogHandle catalogHandle, SchemaFunctionName name)
     {
+        System.out.println("MetadataManger.getFunctions() SchemaFunctionName: " + name);
         ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
         ImmutableList.Builder<CatalogFunctionMetadata> functions = ImmutableList.builder();
 
@@ -3131,66 +3134,55 @@ public final class MetadataManager
     }
 
     @Override
-    public Resolver getResolver(Canonicalizer canonicalizer)
+    public ResolverManager getResolverManager()
     {
-        return new Resolver(canonicalizer.name(), canonicalizer::canonicalize, canonicalizer::compare, canonicalizer::predicate);
+        return resolverManager;
     }
 
     @Override
-    public Resolver getResolver(Session session, String catalogName)
+    public Optional<Resolver> getResolver(Session session, String catalogName)
     {
-        Canonicalizer canonicalizer;
-        if (catalogName.equalsIgnoreCase(GlobalSystemConnector.NAME)) {
-            //System.out.println("MetadataManager.getCanonicalizer() stacktrace: " + Arrays.toString(Thread.currentThread().getStackTrace()).replace(',', '\n'));
-            canonicalizer = Canonicalizer.LOWERCASE_CANONICALIZER;
-        }
-        else {
-            Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalogName);
-            if (catalogMetadata.isEmpty()) {
-                // FIXME: need to throw exception here...
-                System.out.println("MetadataManager.getCanonicalizer() ERROR ************************************************");
-                canonicalizer = Canonicalizer.IDENTITY_CANONICALIZER;
-            }
-            else {
-                ConnectorMetadata metadata = catalogMetadata.get().getMetadata(session);
-                canonicalizer = new Canonicalizer()
+        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalogName);
+        if (catalogMetadata.isPresent()) {
+            ConnectorMetadata metadata = catalogMetadata.get().getMetadata(session);
+            Canonicalizer canonicalizer = new Canonicalizer()
+            {
+                @Override
+                public String name()
                 {
-                    @Override
-                    public String name()
-                    {
-                        return catalogName;
-                    }
+                    return catalogName;
+                }
 
-                    @Override
-                    public String canonicalize(String value)
-                    {
-                        return metadata.canonicalize(value);
-                    }
+                @Override
+                public String canonicalize(String value)
+                {
+                    return metadata.canonicalize(value);
+                }
 
-                    @Override
-                    public String canonicalize(String value, boolean delimited)
-                    {
-                        return metadata.canonicalize(value, delimited);
-                    }
+                @Override
+                public String canonicalize(String value, boolean delimited)
+                {
+                    return metadata.canonicalize(value, delimited);
+                }
 
-                    @Override
-                    public String compare(String value, IdentifierKind kind)
-                    {
-                        return switch (kind) {
-                            case SCHEMA -> metadata.compareSchema(value);
-                            case TABLE -> metadata.compareTable(value);
-                            case COLUMN -> metadata.compareColumn(value);
-                        };
-                    }
+                @Override
+                public String compare(String value, IdentifierKind kind)
+                {
+                    return switch (kind) {
+                        case SCHEMA -> metadata.compareSchema(value);
+                        case TABLE -> metadata.compareTable(value);
+                        case COLUMN -> metadata.compareColumn(value);
+                    };
+                }
 
-                    @Override
-                    public boolean predicate(String value)
-                    {
-                        return Identifier.requiresDelimiter(value) || metadata.predicate(value);
-                    }
-                };
-            }
+                @Override
+                public boolean predicate(String value)
+                {
+                    return Identifier.requiresDelimiter(value) || metadata.predicate(value);
+                }
+            };
+            return Optional.of(new Resolver(catalogName, canonicalizer::canonicalize, canonicalizer::compare, canonicalizer::predicate));
         }
-        return new Resolver(catalogName, canonicalizer::canonicalize, canonicalizer::compare, canonicalizer::predicate);
+        return Optional.empty();
     }
 }

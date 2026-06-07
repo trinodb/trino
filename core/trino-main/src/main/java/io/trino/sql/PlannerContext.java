@@ -21,15 +21,12 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.FunctionResolver;
 import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.ResolverManager;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
-import io.trino.sql.tree.Resolver;
 
-import java.util.Map;
 import java.util.function.Supplier;
 
 import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
@@ -57,7 +54,6 @@ public class PlannerContext
     private final Supplier<IrExpressionOptimizer> expressionOptimizer = Suppliers.memoize(() -> newOptimizer(this));
     private final Supplier<IrExpressionEvaluator> expressionEvaluator = Suppliers.memoize(() -> new IrExpressionEvaluator(this));
     private final Supplier<IrExpressionOptimizer> partialEvaluator = Suppliers.memoize(() -> newPartialEvaluator(this));
-    private final ResolverManager resolverManager;
 
     @Inject
     public PlannerContext(
@@ -76,7 +72,6 @@ public class PlannerContext
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.languageFunctionManager = requireNonNull(languageFunctionManager, "languageFunctionManager is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
-        this.resolverManager = new ResolverManager(metadata::getResolver);
     }
 
     public Metadata getMetadata()
@@ -137,10 +132,5 @@ public class PlannerContext
     public Tracer getTracer()
     {
         return tracer;
-    }
-
-    public ResolverManager getResolverManager()
-    {
-        return resolverManager;
     }
 }

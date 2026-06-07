@@ -21,7 +21,6 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.DropBranch;
 import io.trino.sql.tree.Expression;
 
@@ -39,15 +38,13 @@ import static java.util.Objects.requireNonNull;
 public class DropBranchTask
         implements DataDefinitionTask<DropBranch>
 {
-    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public DropBranchTask(PlannerContext plannerContext, AccessControl accessControl)
+    public DropBranchTask(Metadata metadata, AccessControl accessControl)
     {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.metadata = plannerContext.getMetadata();
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -62,7 +59,7 @@ public class DropBranchTask
     {
         Session session = stateMachine.getSession();
 
-        QualifiedObjectName table = createQualifiedObjectName(session, statement, statement.getTableName(), plannerContext);
+        QualifiedObjectName table = createQualifiedObjectName(session, statement, statement.getTableName(), metadata);
         String branch = statement.getBranchName().getValue();
 
         if (metadata.isMaterializedView(session, table)) {

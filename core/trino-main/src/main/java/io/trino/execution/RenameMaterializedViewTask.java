@@ -20,7 +20,6 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AccessControl;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RenameMaterializedView;
 
@@ -38,15 +37,13 @@ import static java.util.Objects.requireNonNull;
 public class RenameMaterializedViewTask
         implements DataDefinitionTask<RenameMaterializedView>
 {
-    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public RenameMaterializedViewTask(PlannerContext plannerContext, AccessControl accessControl)
+    public RenameMaterializedViewTask(Metadata metadata, AccessControl accessControl)
     {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.metadata = plannerContext.getMetadata();
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -64,7 +61,7 @@ public class RenameMaterializedViewTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName materializedViewName = createQualifiedObjectName(session, statement, statement.getSource(), plannerContext);
+        QualifiedObjectName materializedViewName = createQualifiedObjectName(session, statement, statement.getSource(), metadata);
         if (!metadata.isMaterializedView(session, materializedViewName)) {
             if (metadata.isView(session, materializedViewName)) {
                 throw semanticException(
@@ -90,7 +87,7 @@ public class RenameMaterializedViewTask
             throw semanticException(TABLE_NOT_FOUND, statement, "Materialized View '%s' does not exist", materializedViewName);
         }
 
-        QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget(), plannerContext);
+        QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget(), metadata);
         if (metadata.getCatalogHandle(session, target.catalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' not found", target.catalogName());
         }

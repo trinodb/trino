@@ -21,7 +21,6 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.security.AccessControl;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.Expression;
 
@@ -37,15 +36,13 @@ import static java.util.Objects.requireNonNull;
 public class DropTableTask
         implements DataDefinitionTask<DropTable>
 {
-    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public DropTableTask(PlannerContext plannerContext, AccessControl accessControl)
+    public DropTableTask(Metadata metadata, AccessControl accessControl)
     {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.metadata = plannerContext.getMetadata();
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -63,7 +60,7 @@ public class DropTableTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getTableName(), plannerContext);
+        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getTableName(), metadata);
         if (metadata.isMaterializedView(session, originalTableName)) {
             throw semanticException(
                     GENERIC_USER_ERROR,

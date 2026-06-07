@@ -119,7 +119,7 @@ public class TestRenameViewTask
 
     private ListenableFuture<Void> executeRenameView(QualifiedName source, QualifiedName target)
     {
-        return new RenameViewTask(plannerContext, new AllowAllAccessControl())
+        return new RenameViewTask(metadata, new AllowAllAccessControl())
                 .execute(new RenameView(new NodeLocation(1, 1), source, target), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 }

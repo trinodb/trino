@@ -22,7 +22,6 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.CatalogSchemaName;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.tree.DropFunction;
 import io.trino.sql.tree.Expression;
@@ -41,7 +40,6 @@ public class DropFunctionTask
         implements DataDefinitionTask<DropFunction>
 {
     private final Optional<CatalogSchemaName> functionSchema;
-    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
     private final LanguageFunctionManager languageFunctionManager;
@@ -49,13 +47,12 @@ public class DropFunctionTask
     @Inject
     public DropFunctionTask(
             SqlEnvironmentConfig sqlEnvironmentConfig,
-            PlannerContext plannerContext,
+            Metadata metadata,
             AccessControl accessControl,
             LanguageFunctionManager languageFunctionManager)
     {
         this.functionSchema = defaultFunctionSchema(sqlEnvironmentConfig);
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.metadata = plannerContext.getMetadata();
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.languageFunctionManager = requireNonNull(languageFunctionManager, "languageFunctionManager is null");
     }
@@ -71,7 +68,7 @@ public class DropFunctionTask
     {
         Session session = stateMachine.getSession();
 
-        QualifiedObjectName name = qualifiedFunctionName(session, functionSchema, statement, statement.getName(), plannerContext);
+        QualifiedObjectName name = qualifiedFunctionName(session, functionSchema, statement, statement.getName(), metadata);
 
         accessControl.checkCanDropFunction(session.toSecurityContext(), name);
 

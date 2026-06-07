@@ -110,7 +110,7 @@ final class TestDropBranchTask
 
     private ListenableFuture<Void> executeDropBranch(QualifiedName tableName, boolean exists, String branchName)
     {
-        return new DropBranchTask(plannerContext, new AllowAllAccessControl())
+        return new DropBranchTask(metadata, new AllowAllAccessControl())
                 .execute(new DropBranch(new NodeLocation(1, 1), tableName, exists, new Identifier(branchName)), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 

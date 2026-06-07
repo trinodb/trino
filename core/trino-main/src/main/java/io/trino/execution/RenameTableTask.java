@@ -23,7 +23,6 @@ import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
@@ -47,15 +46,13 @@ import static java.util.Objects.requireNonNull;
 public class RenameTableTask
         implements DataDefinitionTask<RenameTable>
 {
-    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public RenameTableTask(PlannerContext plannerContext, AccessControl accessControl)
+    public RenameTableTask(Metadata metadata, AccessControl accessControl)
     {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.metadata = plannerContext.getMetadata();
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -73,7 +70,7 @@ public class RenameTableTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getSource(), plannerContext);
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getSource(), metadata);
 
         if (metadata.isMaterializedView(session, tableName)) {
             throw semanticException(
@@ -103,7 +100,7 @@ public class RenameTableTask
 
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
         QualifiedObjectName source = redirectionAwareTableHandle.redirectedTableName().orElse(tableName);
-        Resolver resolver = plannerContext.getResolverManager().getResolver(session, source.catalogName());
+        Resolver resolver = metadata.getResolverManager().getResolver(session, source.catalogName());
 
         QualifiedObjectName target = createTargetQualifiedObjectName(source, statement.getTarget(), resolver);
         if (metadata.getCatalogHandle(session, target.catalogName()).isEmpty()) {
