@@ -55,7 +55,6 @@ import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
@@ -567,7 +566,7 @@ public class ExpressionAnalyzer
     private Type analyzeJsonValueExpression(ValueColumn column, JsonPathAnalysis pathAnalysis, Scope scope, CorrelationSupport correlationSupport)
     {
         Visitor visitor = new Visitor(scope, warningCollector);
-        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
+        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(new TypeSignature(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
         return visitor.analyzeJsonValueExpression(
                 "JSON_TABLE",
                 column,
@@ -584,7 +583,7 @@ public class ExpressionAnalyzer
     private Type analyzeJsonQueryExpression(QueryColumn column, Scope scope)
     {
         Visitor visitor = new Visitor(scope, warningCollector);
-        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
+        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(new TypeSignature(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
         return visitor.analyzeJsonQueryExpression(
                 column,
                 column.getWrapperBehavior(),
@@ -3441,7 +3440,7 @@ public class ExpressionAnalyzer
 
             return ImmutableList.of(
                     JSON_2016, // input expression
-                    plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), // parsed JSON path representation
+                    plannerContext.getTypeManager().getType(new TypeSignature(JsonPath2016Type.NAME)), // parsed JSON path representation
                     parametersRowType); // passed parameters
         }
 

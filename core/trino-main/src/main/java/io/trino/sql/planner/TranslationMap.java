@@ -34,7 +34,7 @@ import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeId;
+import io.trino.spi.type.TypeSignature;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
@@ -1087,7 +1087,7 @@ public class TranslationMap
                 failOnError);
 
         IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.parametersOrder());
-        io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), path);
+        io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(new TypeSignature(JsonPath2016Type.NAME)), path);
 
         ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
                 .add(input)
@@ -1121,7 +1121,7 @@ public class TranslationMap
                 failOnError);
 
         IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.parametersOrder());
-        io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), path);
+        io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(new TypeSignature(JsonPath2016Type.NAME)), path);
         Type returnType = resolvedFunction.get().signature().getReturnType();
 
         ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
@@ -1170,7 +1170,7 @@ public class TranslationMap
                 failOnError);
 
         IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.parametersOrder());
-        io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), path);
+        io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(new TypeSignature(JsonPath2016Type.NAME)), path);
 
         ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
                 .add(input)
