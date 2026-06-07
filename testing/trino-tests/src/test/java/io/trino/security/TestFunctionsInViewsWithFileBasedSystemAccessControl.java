@@ -19,11 +19,7 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.TestingTableFunctions;
-import io.trino.connector.system.GlobalSystemConnector;
-import io.trino.metadata.GlobalFunctionCatalog;
-import io.trino.metadata.LanguageFunctionManager;
 import io.trino.plugin.blackhole.BlackHolePlugin;
-import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
@@ -65,10 +61,7 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
         QueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
                         .setCatalog(Optional.empty())
                         .setSchema(Optional.empty())
-                        .setRawPath(Optional.of("mock.function"))
-                        .setCatalogSchemaPaths(
-                                new CatalogSchemaName(GlobalSystemConnector.NAME, LanguageFunctionManager.QUERY_LOCAL_SCHEMA),
-                                new CatalogSchemaName(GlobalSystemConnector.NAME, GlobalFunctionCatalog.BUILTIN_SCHEMA))
+                        .setPath(SqlPath.buildPath("mock.function", Optional.empty()))
                         .build())
                 .setWorkerCount(0)
                 .setSystemAccessControl("file", Map.of(SECURITY_CONFIG_FILE, securityConfigFile))
@@ -188,14 +181,7 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
     {
         return testSessionBuilder()
                 .setIdentity(Identity.ofUser(user))
-                .setRawPath(Optional.of("mock.function"))
-                .setCatalogSchemaPaths(
-                        new CatalogSchemaName(GlobalSystemConnector.NAME, LanguageFunctionManager.QUERY_LOCAL_SCHEMA),
-                        new CatalogSchemaName(GlobalSystemConnector.NAME, GlobalFunctionCatalog.BUILTIN_SCHEMA))
-                .setRawPath(Optional.of("mock.function"))
-                .setCatalogSchemaPaths(
-                        new CatalogSchemaName(GlobalSystemConnector.NAME, LanguageFunctionManager.QUERY_LOCAL_SCHEMA),
-                        new CatalogSchemaName(GlobalSystemConnector.NAME, GlobalFunctionCatalog.BUILTIN_SCHEMA))
+                .setPath(SqlPath.buildPath("mock.function", Optional.empty()))
                 .build();
     }
 }

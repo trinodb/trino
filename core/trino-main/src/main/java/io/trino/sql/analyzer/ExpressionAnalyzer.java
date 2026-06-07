@@ -1334,8 +1334,8 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitFunctionCall(FunctionCall node, Context context)
         {
-            System.out.println("ExpressionAnalyzer.visitFunctionCall() 1 scope canonicalizer: " + getScopeInfo(context.getScope()));
-            System.out.println("ExpressionAnalyzer.visitFunctionCall() 2 functionName: " + node.getName());
+            // System.out.println("ExpressionAnalyzer.visitFunctionCall() 1 scope canonicalizer: " + getScopeInfo(context.getScope()));
+            // System.out.println("ExpressionAnalyzer.visitFunctionCall() 2 functionName: " + node.getName());
             // SQL:2023 6.3 Syntax Rule 2: a non-parenthesized value expression primary
             // of the form A.B(args) is treated as a method invocation if it satisfies
             // the rules for one; otherwise it is a routine invocation.
@@ -1344,9 +1344,9 @@ public class ExpressionAnalyzer
                 return asMethod.get();
             }
 
-            System.out.println("ExpressionAnalyzer.visitFunctionCall() 3");
+            // System.out.println("ExpressionAnalyzer.visitFunctionCall() 3");
             boolean isAggregation = functionResolver.isAggregationFunction(session, node.getName(), accessControl);
-            System.out.println("ExpressionAnalyzer.visitFunctionCall() 4 isAggregation: " + isAggregation);
+            // System.out.println("ExpressionAnalyzer.visitFunctionCall() 4 isAggregation: " + isAggregation);
             boolean isRowPatternCount = context.isPatternRecognition() &&
                     isAggregation &&
                     node.getName().getSuffix().equalsIgnoreCase("count");
@@ -1448,9 +1448,9 @@ public class ExpressionAnalyzer
 
             ResolvedFunction function;
             try {
-                System.out.println("ExpressionAnalyzer.visitFunctionCall() 5");
+                // System.out.println("ExpressionAnalyzer.visitFunctionCall() 5");
                 function = functionResolver.resolveFunction(session, node.getName(), argumentTypes, accessControl);
-                System.out.println("ExpressionAnalyzer.visitFunctionCall() 6");
+                // System.out.println("ExpressionAnalyzer.visitFunctionCall() 6");
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {

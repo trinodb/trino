@@ -16,16 +16,12 @@ package io.trino.plugin.datasketches;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
-import io.trino.connector.system.GlobalSystemConnector;
-import io.trino.metadata.GlobalFunctionCatalog;
-import io.trino.metadata.LanguageFunctionManager;
 import io.trino.plugin.datasketches.state.SketchState;
 import io.trino.plugin.datasketches.state.SketchStateFactory;
 import io.trino.plugin.datasketches.theta.Estimate;
 import io.trino.plugin.datasketches.theta.SketchFunctionsPlugin;
 import io.trino.plugin.datasketches.theta.Union;
 import io.trino.plugin.datasketches.theta.UnionWithParams;
-import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
@@ -62,10 +58,7 @@ public class TestDataSketches
             throws Exception
     {
         Session session = testSessionBuilder()
-                .setRawPath(Optional.of("datasketches.theta"))
-                .setCatalogSchemaPaths(
-                        new CatalogSchemaName(GlobalSystemConnector.NAME, LanguageFunctionManager.QUERY_LOCAL_SCHEMA),
-                        new CatalogSchemaName(GlobalSystemConnector.NAME, GlobalFunctionCatalog.BUILTIN_SCHEMA))
+                .setPath(buildPath("datasketches.theta", Optional.empty()))
                 .build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();

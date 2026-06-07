@@ -744,12 +744,12 @@ public final class ShowQueriesRewrite
         @Override
         protected Node visitShowFunctions(ShowFunctions node, Void context)
         {
-            System.out.println("ShowQueriesRewrite.visitShowFunctions() schema: " + node.getSchema());
+            // System.out.println("ShowQueriesRewrite.visitShowFunctions() schema: " + node.getSchema());
             Collection<FunctionMetadata> functions;
             if (node.getSchema().isPresent()) {
                 // FIXME: To support canonicalization the schema function need to bee in lowercase?
                 CatalogSchemaName schema = createCatalogSchemaName(session, node, node.getSchema(), metadata, true);
-                System.out.println("ShowQueriesRewrite.visitShowFunctions() schema: " + schema);
+                // System.out.println("ShowQueriesRewrite.visitShowFunctions() schema: " + schema);
                 accessControl.checkCanShowFunctions(session.toSecurityContext(), schema);
                 functions = listFunctions(schema);
             }

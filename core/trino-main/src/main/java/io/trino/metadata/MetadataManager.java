@@ -2741,7 +2741,6 @@ public final class MetadataManager
 
     private List<CatalogFunctionMetadata> getFunctions(Session session, ConnectorMetadata metadata, CatalogHandle catalogHandle, SchemaFunctionName name)
     {
-        System.out.println("MetadataManger.getFunctions() SchemaFunctionName: " + name);
         ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
         ImmutableList.Builder<CatalogFunctionMetadata> functions = ImmutableList.builder();
 
