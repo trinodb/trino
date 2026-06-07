@@ -24,7 +24,6 @@ import io.trino.connector.TestingColumnHandle;
 import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AbstractMockMetadata;
-import io.trino.metadata.Canonicalizer;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
@@ -91,7 +90,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.metadata.ResolverManager.getUpperCaseCanonicalizer;
+import static io.trino.metadata.ResolverManager.getLowerCaseCanonicalizer;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.BRANCH_NOT_FOUND;
@@ -146,6 +145,7 @@ public abstract class BaseDataDefinitionTaskTest
         queryRunner.createCatalog(TEST_CATALOG_NAME, "initial", ImmutableMap.of());
 
         metadata = new MockMetadata(TEST_CATALOG_NAME);
+        metadata.getResolverManager().addResolver(TEST_CATALOG_NAME, getLowerCaseCanonicalizer());
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
         Map<String, PropertyMetadata<?>> columnProperties = ImmutableMap.of(
                 COLUMN_PROPERTY_NAME, longProperty(COLUMN_PROPERTY_NAME, "column_property 1", COLUMN_PROPERTY_DEFAULT_VALUE, false));
@@ -277,9 +277,8 @@ public abstract class BaseDataDefinitionTaskTest
 
         public MockMetadata(String catalogName)
         {
-            this.catalogName = requireNonNull(catalogName, "catalogName is null");
             delegate = createTestingMetadataManager();
-            delegate.getResolverManager().addResolver(catalogName, getUpperCaseCanonicalizer());
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
         }
 
         @Override

@@ -16,22 +16,16 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
-import io.trino.spi.TrinoException;
-import io.trino.sql.analyzer.FieldId;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.Resolver;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -68,19 +62,9 @@ public class ResolverManager
 
     private final Map<String, Resolver> resolvers = new ConcurrentHashMap<>();
     private final Map<String, String> queries = new ConcurrentHashMap<>();
-    private final Optional<BiFunction<Session, String, Optional<Resolver>>> factory;
-
-    public ResolverManager()
-    {
-        this(Optional.empty());
-    }
+    private final BiFunction<Session, String, Optional<Resolver>> factory;
 
     public ResolverManager(BiFunction<Session, String, Optional<Resolver>> factory)
-    {
-        this(Optional.of(factory));
-    }
-
-    private ResolverManager(Optional<BiFunction<Session, String, Optional<Resolver>>> factory)
     {
         this.factory = requireNonNull(factory, "factory is null");
         addResolver(SYSTEM_RESOLVER.getCatalog(), SYSTEM_RESOLVER);
@@ -95,14 +79,12 @@ public class ResolverManager
     public Resolver getResolver(Session session, String catalog)
     {
         if (!hasResolver(catalog)) {
-            if (factory.isPresent()) {
-                Optional<Resolver> resolver = factory.get().apply(session, catalog);
-                if (resolver.isPresent()) {
-                    addResolver(catalog, resolver.get());
-                    return resolver.get();
-                }
+            Optional<Resolver> resolver = factory.apply(session, catalog);
+            if (resolver.isEmpty()) {
+                return DEFAULT_RESOLVER;
             }
-            throw new TrinoException(CATALOG_NOT_FOUND, format("Unable to create Resolver for catalog '%s'", catalog));
+            addResolver(catalog, resolver.get());
+            return resolver.get();
         }
         return resolvers.get(catalog);
     }
