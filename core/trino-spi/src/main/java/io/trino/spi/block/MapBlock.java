@@ -24,7 +24,7 @@ import java.util.function.ObjLongConsumer;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
-import static io.trino.spi.block.BlockUtil.checkReadablePosition;
+import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.BlockUtil.compactIsNull;
@@ -467,7 +467,7 @@ public final class MapBlock
 
     public SqlMap getMap(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         int startEntryOffset = getOffset(position);
         int endEntryOffset = getOffset(position + 1);
         return new SqlMap(
@@ -482,7 +482,7 @@ public final class MapBlock
     @Override
     public MapBlock getSingleValueBlock(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
 
         int startValueOffset = getOffset(position);
         int endValueOffset = getOffset(position + 1);
@@ -509,7 +509,7 @@ public final class MapBlock
     @Override
     public long getEstimatedDataSizeForStats(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
 
         if (isNull(position)) {
             return 0;
@@ -534,7 +534,7 @@ public final class MapBlock
         if (!mayHaveNull()) {
             return false;
         }
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         return mapIsNull[position + startOffset];
     }
 
