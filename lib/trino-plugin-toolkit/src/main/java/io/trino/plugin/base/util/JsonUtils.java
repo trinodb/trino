@@ -22,6 +22,7 @@ import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.core.StreamWriteFeature;
 import com.fasterxml.jackson.core.util.JsonRecyclerPools;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.json.JsonMapperProvider;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
@@ -105,12 +106,10 @@ public final class JsonUtils
         requireNonNull(input, "input is null");
         requireNonNull(javaType, "javaType is null");
         try (JsonParser parser = parserConstructor.createParser(mapper, input)) {
-            T value = mapper.readValue(parser, javaType);
-            checkArgument(parser.nextToken() == null, "Found characters after the expected end of input");
-            return value;
+            return mapper.readValue(parser, javaType);
         }
-        catch (IOException e) {
-            throw new UncheckedIOException("Could not parse JSON", e);
+        catch (Exception e) {
+            throw mapException(e);
         }
     }
 
@@ -169,5 +168,16 @@ public final class JsonUtils
     {
         JsonParser createParser(JsonMapper mapper, I input)
                 throws IOException;
+    }
+
+    private static RuntimeException mapException(Exception e)
+    {
+        // TODO: rethrow MismatchedInputException always and handle it at the call sites
+        return switch (e) {
+            case MismatchedInputException mismatchedInputException when mismatchedInputException.getMessage().contains("not allowed as per `DeserializationFeature.FAIL_ON_TRAILING_TOKENS`") -> new IllegalArgumentException("Found characters after the expected end of input", e);
+            case IllegalArgumentException iae -> iae;
+            case IOException ioe -> new UncheckedIOException("Could not parse JSON", ioe);
+            default -> new IllegalArgumentException("Could not parse JSON", e);
+        };
     }
 }
