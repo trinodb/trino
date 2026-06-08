@@ -171,7 +171,7 @@ public class Console
             closeTerminal();
         }));
 
-        Theme theme = Theme.DARK;
+        Theme theme = clientOptions.theme.resolve(isRealTerminal(), noColorRequested());
 
         try (QueryRunner queryRunner = new QueryRunner(
                 theme,
@@ -209,6 +209,13 @@ public class Console
             exited.countDown();
             interruptor.close();
         }
+    }
+
+    // Honor the https://no-color.org/ convention: any non-empty NO_COLOR disables color.
+    private static boolean noColorRequested()
+    {
+        String value = System.getenv("NO_COLOR");
+        return value != null && !value.isEmpty();
     }
 
     private static Optional<PropertyName> getMapping(Object userObject)

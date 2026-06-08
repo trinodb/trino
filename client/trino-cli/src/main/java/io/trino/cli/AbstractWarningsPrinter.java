@@ -20,8 +20,6 @@ import java.util.List;
 import java.util.OptionalInt;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.cli.TerminalUtils.isRealTerminal;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.jline.utils.AttributedStyle.DEFAULT;
 
@@ -41,16 +39,14 @@ abstract class AbstractWarningsPrinter
 
     private String getWarningMessage(Warning warning)
     {
-        // If this is a real terminal color the warnings
-        if (isRealTerminal()) {
-            return new AttributedStringBuilder()
-                    .style(theme.warning())
-                    .append("WARNING: ")
-                    .append(warning.getMessage())
-                    .style(DEFAULT)
-                    .toAnsi();
-        }
-        return format("WARNING: %s", warning.getMessage());
+        // The theme drives the styling; the NONE theme emits no escape codes, so this
+        // produces plain text for dumb terminals and when color is disabled.
+        return new AttributedStringBuilder()
+                .style(theme.warning())
+                .append("WARNING: ")
+                .append(warning.getMessage())
+                .style(DEFAULT)
+                .toAnsi();
     }
 
     private List<String> getNewWarnings(List<Warning> warnings)
