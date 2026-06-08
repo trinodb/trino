@@ -31,11 +31,9 @@ the client protocol, writing tests and other lower level details.
 
 ## Code Style
 
-We recommend you use IntelliJ as your IDE. The code style template for the
-project can be found in the [codestyle](https://github.com/airlift/codestyle)
-repository along with our general programming and Java guidelines. 
+We recommend you use IntelliJ as your IDE. Code style is managed through [airstyle](https://github.com/airlift/airstyle).
 
-To run checkstyle and other maven checks before opening a PR: `./mvnw validate`
+To run airstyle and other maven checks before opening a PR: `./mvnw validate`
 
 In addition to those you should also adhere to the following:
 
@@ -76,11 +74,11 @@ license by running `mvn license:format`.
 
 ### Prefer String formatting
 
-Consider using String formatting (printf style formatting using the Java
-`Formatter` class): `format("Session property %s is invalid: %s", name, value)`
-(note that `format()` should always be statically imported).  Sometimes, if you
-only need to append something, consider using the `+` operator.  Please avoid
-`format()` or concatenation in performance critical sections of code.
+Consider using String formatting with the `String.formatted` method:
+`"Session property %s is invalid: %s".formatted(name, value)`.
+Sometimes, if you only need to append something, consider using the `+` operator.
+Please avoid `formatted()` or concatenation in performance critical sections of
+code.
 
 ### Avoid ternary operator
 

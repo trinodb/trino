@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -29,7 +28,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 
 final class AggregationDecorrelation
 {
@@ -55,37 +54,15 @@ final class AggregationDecorrelation
      */
     public static boolean isNullRowInsensitiveAggregation(AggregationNode node)
     {
+        // For PARTIAL/FINAL/INTERMEDIATE steps, the aggregation.getResolvedFunction() inspected below does not carry the @InputFunction attributes
+        checkArgument(node.getStep() == SINGLE, "Expected SINGLE step aggregation, got %s", node.getStep());
+
         for (Aggregation aggregation : node.getAggregations().values()) {
-            // TODO pre-existing (moved), but probably redundant check
-            if (aggregation.getFilter().isPresent() || aggregation.getMask().isPresent()) {
+            if (!aggregation.getArguments().stream().allMatch(AggregationDecorrelation::isNullOnNullInput)) {
                 return false;
             }
-            CatalogSchemaFunctionName name = aggregation.getResolvedFunction().name();
-            if (!isBuiltinFunctionName(name)) {
-                // Unrecognized
+            if (aggregation.getResolvedFunction().functionNullability().getArgumentNullable().stream().allMatch(nullable -> nullable)) {
                 return false;
-            }
-            switch (name.functionName()) {
-                // TODO this should be determined from aggregation function metadata
-                case "min", "max", "sum", "avg", "bool_and", "bool_or" -> {
-                    if (!aggregation.getArguments().stream().allMatch(AggregationDecorrelation::isNullOnNullInput)) {
-                        return false;
-                    }
-                }
-                case "count" -> {
-                    if (aggregation.getArguments().isEmpty()) {
-                        // count(*)
-                        return false;
-                    }
-                    // count(a...)
-                    if (!aggregation.getArguments().stream().allMatch(AggregationDecorrelation::isNullOnNullInput)) {
-                        return false;
-                    }
-                }
-                default -> {
-                    // Unrecognized
-                    return false;
-                }
             }
         }
         return true;

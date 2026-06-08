@@ -26,8 +26,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
 
-import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.NANOSECONDS_PER_MICROSECOND;
-import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.getMicrosOfSecond;
 import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.getMillisOfSecond;
 import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.getNanosOfDay;
@@ -40,6 +38,8 @@ import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 import static java.time.format.DateTimeFormatter.ISO_OFFSET_TIME;

@@ -27,9 +27,9 @@ import java.time.ZonedDateTime;
 
 import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_DAY;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
-import static io.trino.type.DateTimes.round;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.round;
 import static java.lang.Math.floorMod;
 
 @ScalarFunction(value = "$current_time", hidden = true)

@@ -21,7 +21,7 @@ import java.util.function.ObjLongConsumer;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
-import static io.trino.spi.block.BlockUtil.checkReadablePosition;
+import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.compactOffsets;
@@ -239,7 +239,7 @@ public final class ArrayBlock
         IntArrayList valuesPositions = new IntArrayList();
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
-            checkReadablePosition(this, position);
+            checkValidPosition(position, positionCount);
             if (valueIsNull != null && valueIsNull[position + arrayOffset]) {
                 hasNull = true;
                 newValueIsNull[i] = true;
@@ -308,7 +308,7 @@ public final class ArrayBlock
 
     public Block getArray(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         int startValueOffset = offsets[position + arrayOffset];
         int endValueOffset = offsets[position + 1 + arrayOffset];
         return values.getRegion(startValueOffset, endValueOffset - startValueOffset);
@@ -317,7 +317,7 @@ public final class ArrayBlock
     @Override
     public ArrayBlock getSingleValueBlock(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
 
         int startValueOffset = offsets[position + arrayOffset];
         int valueLength = offsets[position + 1 + arrayOffset] - startValueOffset;
@@ -334,7 +334,7 @@ public final class ArrayBlock
     @Override
     public long getEstimatedDataSizeForStats(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
 
         if (isNull(position)) {
             return 0;
@@ -357,7 +357,7 @@ public final class ArrayBlock
         if (!mayHaveNull()) {
             return false;
         }
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         return valueIsNull[position + arrayOffset];
     }
 
@@ -375,7 +375,7 @@ public final class ArrayBlock
 
     public <T> T apply(ArrayBlockFunction<T> function, int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
 
         int startValueOffset = offsets[position + arrayOffset];
         int endValueOffset = offsets[position + 1 + arrayOffset];

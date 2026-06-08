@@ -433,7 +433,6 @@ import static io.trino.sql.tree.SaveMode.IGNORE;
 import static io.trino.sql.tree.SaveMode.REPLACE;
 import static io.trino.sql.util.AstUtils.preOrder;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static io.trino.util.MoreLists.mappedCopy;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -4705,7 +4704,7 @@ class StatementAnalyzer
                 if (windowFunction.getFilter().isPresent()) {
                     throw semanticException(NOT_SUPPORTED, node, "FILTER is not yet supported for window functions");
                 }
-                List<Expression> nestedWindowExpressions = new ArrayList<>(extractWindowExpressions(windowFunction.getArguments()));
+                List<Expression> nestedWindowExpressions = new ArrayList<>(extractWindowExpressions(windowFunction.argumentValues()));
                 windowFunction.getOrderBy().map(OrderBy::getChildren).map(ExpressionTreeUtils::extractWindowExpressions).ifPresent(nestedWindowExpressions::addAll);
                 if (!nestedWindowExpressions.isEmpty()) {
                     throw semanticException(NESTED_WINDOW, nestedWindowExpressions.getFirst(), "Cannot nest window functions or row pattern measures inside window function arguments");
@@ -4727,7 +4726,9 @@ class StatementAnalyzer
                     throw semanticException(NULL_TREATMENT_NOT_ALLOWED, windowFunction, "Cannot specify null treatment clause for %s function", windowFunction.getName());
                 }
 
-                List<Type> argumentTypes = mappedCopy(windowFunction.getArguments(), analysis::getType);
+                List<Type> argumentTypes = windowFunction.argumentValues().stream()
+                        .map(analysis::getType)
+                        .collect(toImmutableList());
 
                 ResolvedFunction resolvedFunction = functionResolver.resolveFunction(session, windowFunction.getName(), fromTypes(argumentTypes), accessControl);
                 FunctionKind kind = resolvedFunction.functionKind();
@@ -5949,8 +5950,8 @@ class StatementAnalyzer
             RelationType newDescriptor = oldDescriptor.withAlias(tableName.getValue(), columnNames.stream().map(Identifier::getValue).collect(toImmutableList()));
 
             Streams.forEachPair(
-                    oldDescriptor.getAllFields().stream(),
                     newDescriptor.getAllFields().stream(),
+                    oldDescriptor.getAllFields().stream(),
                     (newField, field) -> analysis.addSourceColumns(newField, analysis.getSourceColumns(field)));
             return scope.withRelationType(newDescriptor);
         }

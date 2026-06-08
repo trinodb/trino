@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
@@ -21,15 +22,16 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.UriLocation;
 import io.trino.filesystem.encryption.EncryptionKey;
+import io.trino.plugin.iceberg.IcebergStorageCredentials;
 
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
@@ -37,11 +39,18 @@ import static java.util.stream.Collectors.groupingBy;
 public class IcebergRestCatalogFileSystem
         implements TrinoFileSystem
 {
-    private final Function<Location, TrinoFileSystem> loader;
+    protected List<IcebergStorageCredentials> storageCredentials = ImmutableList.of();
+    private final IcebergRestCatalogFileSystemLoader loader;
 
-    public IcebergRestCatalogFileSystem(Function<Location, TrinoFileSystem> loader)
+    public IcebergRestCatalogFileSystem(IcebergRestCatalogFileSystemLoader loader)
     {
         this.loader = requireNonNull(loader, "loader is null");
+    }
+
+    public void setCredentials(List<IcebergStorageCredentials> storageCredentials)
+    {
+        this.storageCredentials = ImmutableList.copyOf(storageCredentials);
+        loader.setStorageCredentials(storageCredentials);
     }
 
     @Override
@@ -103,11 +112,23 @@ public class IcebergRestCatalogFileSystem
     public void deleteFiles(Collection<Location> locations)
             throws IOException
     {
-        Map<String, List<Location>> byScheme = locations.stream()
-                .collect(groupingBy(location -> location.scheme().orElseThrow()));
-        for (List<Location> group : byScheme.values()) {
+        // Group by the longest matching storage-credential prefix first so each group is served
+        // by a single credential set. Locations that match no prefix fall back to grouping by
+        // scheme, which is safe because all such locations share the root fileIoProperties.
+        Map<String, List<Location>> groups = locations.stream()
+                .collect(groupingBy(this::locationPrefix));
+        for (List<Location> group : groups.values()) {
             fileSystem(group.getFirst()).deleteFiles(group);
         }
+    }
+
+    private String locationPrefix(Location location)
+    {
+        return storageCredentials.stream()
+                .filter(credential -> location.toString().startsWith(credential.prefix()))
+                .max(Comparator.comparingInt(credential -> credential.prefix().length()))
+                .map(IcebergStorageCredentials::prefix)
+                .orElseGet(() -> location.scheme().orElseThrow());
     }
 
     @Override
@@ -189,6 +210,6 @@ public class IcebergRestCatalogFileSystem
 
     private TrinoFileSystem fileSystem(Location location)
     {
-        return loader.apply(location);
+        return loader.create(location);
     }
 }

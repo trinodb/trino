@@ -732,7 +732,7 @@ public final class DistributedQueryRunner
         }
     }
 
-    public static class Builder<SELF extends Builder<?>>
+    public static class Builder<SELF extends Builder<SELF>>
     {
         private Session defaultSession;
         private boolean withTracing;

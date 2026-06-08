@@ -13,6 +13,7 @@
  */
 package io.trino.server.protocol.spooling;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.trino.server.protocol.spooling.QueryDataEncoder.EncoderSelector;
@@ -34,7 +35,7 @@ class TestPreferredQueryDataEncoderSelector
     @Test
     public void testNoEncoderWhenNoneIsMatching()
     {
-        EncoderSelector selector = new PreferredQueryDataEncoderSelector(new QueryDataEncoders(new SpoolingEnabledConfig().setEnabled(true), Set.of(new JsonQueryDataEncoder.Factory())));
+        EncoderSelector selector = new PreferredQueryDataEncoderSelector(new QueryDataEncoders(new SpoolingEnabledConfig().setEnabled(true), Set.of(new JsonQueryDataEncoder.Factory(new JsonMapper()))));
 
         assertThat(selector.select(List.of())).isEmpty();
         assertThat(selector.select(List.of("json+zstd"))).isEmpty();
@@ -52,7 +53,7 @@ class TestPreferredQueryDataEncoderSelector
     @Test
     public void testSingleMatchingEncoderIsPicked()
     {
-        JsonQueryDataEncoder.Factory factory = new JsonQueryDataEncoder.Factory();
+        JsonQueryDataEncoder.Factory factory = new JsonQueryDataEncoder.Factory(new JsonMapper());
         EncoderSelector selector = new PreferredQueryDataEncoderSelector(new QueryDataEncoders(new SpoolingEnabledConfig().setEnabled(true), Set.of(factory)));
 
         assertThat(selector.select(List.of("json+zstd", "json"))).hasValue(factory);
@@ -61,8 +62,8 @@ class TestPreferredQueryDataEncoderSelector
     @Test
     public void testSingleMatchingEncoderFromMultipleIsPicked()
     {
-        JsonQueryDataEncoder.Factory factory = new JsonQueryDataEncoder.Factory();
-        EncoderSelector selector = new PreferredQueryDataEncoderSelector(new QueryDataEncoders(new SpoolingEnabledConfig().setEnabled(true), Set.of(factory, new JsonQueryDataEncoder.ZstdFactory(new QueryDataEncodingConfig()))));
+        JsonQueryDataEncoder.Factory factory = new JsonQueryDataEncoder.Factory(new JsonMapper());
+        EncoderSelector selector = new PreferredQueryDataEncoderSelector(new QueryDataEncoders(new SpoolingEnabledConfig().setEnabled(true), Set.of(factory, new JsonQueryDataEncoder.ZstdFactory(new QueryDataEncodingConfig(), new JsonMapper()))));
 
         assertThat(selector.select(List.of("protobuf", "json", "json+zstd"))).hasValue(factory);
     }
@@ -70,8 +71,8 @@ class TestPreferredQueryDataEncoderSelector
     @Test
     public void testSingleMatchingEncoderFromMultipleIsPickedInOrder()
     {
-        JsonQueryDataEncoder.Factory factory = new JsonQueryDataEncoder.Factory();
-        JsonQueryDataEncoder.ZstdFactory zstdFactory = new JsonQueryDataEncoder.ZstdFactory(new QueryDataEncodingConfig());
+        JsonQueryDataEncoder.Factory factory = new JsonQueryDataEncoder.Factory(new JsonMapper());
+        JsonQueryDataEncoder.ZstdFactory zstdFactory = new JsonQueryDataEncoder.ZstdFactory(new QueryDataEncodingConfig(), new JsonMapper());
 
         EncoderSelector selector = new PreferredQueryDataEncoderSelector(new QueryDataEncoders(new SpoolingEnabledConfig().setEnabled(true), Set.of(factory, zstdFactory)));
 

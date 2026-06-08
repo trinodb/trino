@@ -65,6 +65,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.locationtech.jts</groupId>
+            <artifactId>jts-core</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
             <scope>test</scope>
@@ -223,6 +229,21 @@
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
                                     <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.predicate.Utils::nativeValueToBlock(io.trino.spi.type.Type, java.lang.Object)</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.Object io.trino.spi.predicate.Utils::blockToNativeValue(io.trino.spi.type.Type, io.trino.spi.block.Block)</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.predicate.Utils</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
                                     <code>java.method.noLongerDefault</code>
                                     <old>method io.trino.spi.connector.ConnectorPageSink io.trino.spi.connector.ConnectorPageSinkProvider::createPageSink(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorInsertTableHandle, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableCredentials&gt;, io.trino.spi.connector.ConnectorPageSinkId)</old>
                                     <justification>Removed deprecated method without ConnectorTableCredentials parameter</justification>
@@ -326,6 +347,39 @@
                                     <code>java.method.addedToInterface</code>
                                     <new>method boolean io.trino.spi.type.TypeManager::isTypeRegistered(java.lang.String)</new>
                                     <justification>Required for resolving static method calls on parametric type bases (array, row, map). Cannot be a default that calls getType because parametric bases require parameters and would force exception-driven control flow.</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter io.trino.spi.function.Signature io.trino.spi.function.Signature::fromJson(java.util.List&lt;io.trino.spi.function.TypeVariableConstraint&gt;, java.util.List&lt;io.trino.spi.function.LongVariableConstraint&gt;, io.trino.spi.type.TypeSignature, ===java.util.List&lt;io.trino.spi.type.TypeSignature&gt;===, boolean)</old>
+                                    <new>parameter io.trino.spi.function.Signature io.trino.spi.function.Signature::fromJson(java.util.List&lt;io.trino.spi.function.TypeVariableConstraint&gt;, java.util.List&lt;io.trino.spi.function.LongVariableConstraint&gt;, io.trino.spi.type.TypeSignature, ===java.util.List&lt;io.trino.spi.function.Signature.Argument&gt;===, boolean)</new>
+                                    <justification>Replace parallel argumentTypes list with structural Signature.Argument list to carry parameter names</justification>
+                                </item>
+                                <item>
+                                    <code>java.annotation.attributeValueChanged</code>
+                                    <old>parameter io.trino.spi.function.Signature io.trino.spi.function.Signature::fromJson(java.util.List&lt;io.trino.spi.function.TypeVariableConstraint&gt;, java.util.List&lt;io.trino.spi.function.LongVariableConstraint&gt;, io.trino.spi.type.TypeSignature, ===java.util.List&lt;io.trino.spi.type.TypeSignature&gt;===, boolean)</old>
+                                    <new>parameter io.trino.spi.function.Signature io.trino.spi.function.Signature::fromJson(java.util.List&lt;io.trino.spi.function.TypeVariableConstraint&gt;, java.util.List&lt;io.trino.spi.function.LongVariableConstraint&gt;, io.trino.spi.type.TypeSignature, ===java.util.List&lt;io.trino.spi.function.Signature.Argument&gt;===, boolean)</new>
+                                    <justification>JsonProperty value renamed from argumentTypes to arguments</justification>
+                                </item>
+                                <item>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.util.List&lt;io.trino.spi.type.TypeSignature&gt; io.trino.spi.function.Signature::getArgumentTypes()</old>
+                                    <new>method java.util.List&lt;io.trino.spi.type.TypeSignature&gt; io.trino.spi.function.Signature::getArgumentTypes()</new>
+                                    <annotationType>com.fasterxml.jackson.annotation.JsonProperty</annotationType>
+                                    <justification>getArgumentTypes() is now a derived view; JsonProperty moved to getArguments()</justification>
+                                </item>
+                                <!-- Remove dead JSON serialization from Signature and FunctionMetadata (never serialized at runtime). -->
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java.annotation.removed</code>
+                                    <old>method .* io\.trino\.spi\.function\.(Signature|FunctionMetadata)::.*</old>
+                                    <annotationType>com\.fasterxml\.jackson\.annotation\.Json.*</annotationType>
+                                    <justification>Signature and FunctionMetadata are never JSON-serialized at runtime; removing the dead serialization.</justification>
+                                </item>
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java.method.removed</code>
+                                    <old>method .* io\.trino\.spi\.function\.(Signature|FunctionMetadata)::fromJson\(.*</old>
+                                    <justification>Remove the dead @JsonCreator; Signature/FunctionMetadata are never deserialized.</justification>
                                 </item>
                             </differences>
                         </revapi.differences>

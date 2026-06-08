@@ -16,7 +16,7 @@
 
     <properties>
         <!-- Nessie version (compatible with Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
-        <dep.nessie.version>0.107.5</dep.nessie.version>
+        <dep.nessie.version>0.107.6</dep.nessie.version>
         <dep.keycloak.version>26.0.8</dep.keycloak.version>
     </properties>
 
@@ -126,6 +126,11 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-filesystem-s3</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-geospatial-toolkit</artifactId>
         </dependency>
 
         <dependency>
@@ -383,6 +388,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.locationtech.jts</groupId>
+            <artifactId>jts-core</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.azure</groupId>
             <artifactId>azure-security-keyvault-keys</artifactId>
             <scope>runtime</scope>
@@ -576,6 +587,12 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-filesystem</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-geospatial</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -845,9 +862,10 @@
                                 <exclude>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergGcsConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergGcsVendingRestCatalogConnectorSmokeTest.java</exclude>
-                                <exclude>**/TestIcebergGcsRestCatalogVendedCredentialsRefreshTest.java</exclude>
+                                <exclude>**/TestIcebergGcsRestCatalogVendedCredentialsRefresh.java</exclude>
+                                <exclude>**/TestIcebergGcsRestCatalogStorageCredentialsRefresh.java</exclude>
                                 <exclude>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeTest.java</exclude>
-                                <exclude>**/TestIcebergAzureRestCatalogVendedCredentialsRefreshTest.java</exclude>
+                                <exclude>**/TestIcebergAzureRestCatalogVendedCredentialsRefresh.java</exclude>
                                 <exclude>**/TestIcebergAbfsConnectorSmokeTest.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
                                 <exclude>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</exclude>
@@ -916,9 +934,10 @@
                                 <include>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergGcsConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergGcsVendingRestCatalogConnectorSmokeTest.java</include>
-                                <include>**/TestIcebergGcsRestCatalogVendedCredentialsRefreshTest.java</include>
+                                <include>**/TestIcebergGcsRestCatalogVendedCredentialsRefresh.java</include>
+                                <include>**/TestIcebergGcsRestCatalogStorageCredentialsRefresh.java</include>
                                 <include>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeTest.java</include>
-                                <include>**/TestIcebergAzureRestCatalogVendedCredentialsRefreshTest.java</include>
+                                <include>**/TestIcebergAzureRestCatalogVendedCredentialsRefresh.java</include>
                                 <include>**/TestIcebergAbfsConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</include>
                                 <include>**/TestTrinoSnowflakeCatalog.java</include>

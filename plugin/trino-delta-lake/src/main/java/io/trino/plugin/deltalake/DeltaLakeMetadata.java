@@ -344,7 +344,6 @@ import static io.trino.spi.predicate.Range.greaterThanOrEqual;
 import static io.trino.spi.predicate.Range.lessThanOrEqual;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
-import static io.trino.spi.predicate.Utils.blockToNativeValue;
 import static io.trino.spi.predicate.ValueSet.ofRanges;
 import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static io.trino.spi.statistics.ColumnStatisticType.MIN_VALUE;
@@ -363,6 +362,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.blockToNativeValue;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -3385,6 +3385,10 @@ public class DeltaLakeMetadata
     {
         Location location = Location.of(credentialsHandle.tableLocation());
         List<Location> filesToDelete = dataFiles.stream()
+                // DataFileInfo entries with a deletionVector reference existing source files
+                // (via sourceReferencePath), not newly-written files. Skip them to avoid
+                // deleting active data files that are still referenced in the delta log.
+                .filter(info -> info.deletionVector().isEmpty())
                 .map(DataFileInfo::path)
                 .map(location::appendPath)
                 .collect(toImmutableList());

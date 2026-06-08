@@ -32,15 +32,15 @@ import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.trino.spi.type.TimeWithTimeZoneType.MAX_PRECISION;
 import static io.trino.spi.type.TimeWithTimeZoneType.MAX_SHORT_PRECISION;
-import static io.trino.type.DateTimes.NANOSECONDS_PER_DAY;
-import static io.trino.type.DateTimes.NANOSECONDS_PER_SECOND;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_DAY;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.calculateOffsetMinutes;
 import static io.trino.type.DateTimes.getOffsetMinutes;
 import static io.trino.type.DateTimes.isValidOffset;
 import static io.trino.type.DateTimes.rescale;
-import static io.trino.type.DateTimes.round;
 
 @ScalarOperator(CAST)
 public final class VarcharToTimeWithTimeZoneCast

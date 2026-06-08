@@ -420,8 +420,9 @@ class AggregationAnalyzer
         {
             if (functionResolver.isAggregationFunction(session, node.getName(), accessControl)) {
                 if (node.getWindow().isEmpty()) {
-                    List<FunctionCall> aggregateFunctions = extractAggregateFunctions(node.getArguments(), session, functionResolver, accessControl);
-                    List<Expression> windowExpressions = extractWindowExpressions(node.getArguments());
+                    List<Expression> arguments = node.argumentValues();
+                    List<FunctionCall> aggregateFunctions = extractAggregateFunctions(arguments, session, functionResolver, accessControl);
+                    List<Expression> windowExpressions = extractWindowExpressions(arguments);
 
                     if (!aggregateFunctions.isEmpty()) {
                         throw semanticException(
@@ -446,14 +447,14 @@ class AggregationAnalyzer
                                 .map(SortItem::getSortKey)
                                 .collect(toImmutableList());
                         if (node.isDistinct()) {
-                            List<FieldId> fieldIds = node.getArguments().stream()
+                            List<FieldId> fieldIds = arguments.stream()
                                     .map(NodeRef::of)
                                     .map(columnReferences::get)
                                     .filter(Objects::nonNull)
                                     .map(ResolvedField::getFieldId)
                                     .collect(toImmutableList());
                             for (Expression sortKey : sortKeys) {
-                                if (!node.getArguments().contains(sortKey)) {
+                                if (!arguments.contains(sortKey)) {
                                     ResolvedField field = columnReferences.get(NodeRef.of(sortKey));
                                     if (field == null || !fieldIds.contains(field.getFieldId())) {
                                         throw semanticException(
@@ -477,7 +478,7 @@ class AggregationAnalyzer
 
                     // in case of aggregate function in ORDER BY, ensure that no output fields are referenced from aggregation's arguments or filter
                     if (orderByScope.isPresent()) {
-                        node.getArguments()
+                        arguments
                                 .forEach(argument -> verifyNoOrderByReferencesToOutputColumns(
                                         argument,
                                         COLUMN_NOT_FOUND,
@@ -507,7 +508,7 @@ class AggregationAnalyzer
                 }
             }
 
-            return node.getArguments().stream().allMatch(expression -> process(expression, context));
+            return node.argumentValues().stream().allMatch(expression -> process(expression, context));
         }
 
         @Override

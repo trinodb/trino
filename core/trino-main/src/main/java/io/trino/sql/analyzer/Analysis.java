@@ -226,6 +226,8 @@ public class Analysis
     private final Map<NodeRef<Relation>, List<Type>> relationCoercions = new LinkedHashMap<>();
     private final Map<NodeRef<Node>, RoutineEntry> resolvedFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<FunctionCall>, Identifier> methodCallReceivers = new LinkedHashMap<>();
+
+    private final Map<NodeRef<FunctionCall>, List<Integer>> argumentBindings = new LinkedHashMap<>();
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
 
     private final Map<Field, ColumnHandle> columns = new LinkedHashMap<>();
@@ -729,6 +731,26 @@ public class Analysis
     public Optional<Identifier> getMethodCallReceiver(FunctionCall node)
     {
         return Optional.ofNullable(methodCallReceivers.get(NodeRef.of(node)));
+    }
+
+    /// Records the mapping from signature position to AST argument index for a
+    /// function call. Position `i` of the binding list holds the AST index whose
+    /// value supplies signature parameter `i`. For a call written entirely
+    /// positionally this is the identity binding `[0, 1, ..., N-1]`; for a call
+    /// with named arguments it reorders so the named values land at their declared
+    /// positions.
+    public void setArgumentBinding(FunctionCall node, List<Integer> binding)
+    {
+        argumentBindings.put(NodeRef.of(node), List.copyOf(binding));
+    }
+
+    public List<Integer> getArgumentBinding(FunctionCall node)
+    {
+        List<Integer> binding = argumentBindings.get(NodeRef.of(node));
+        if (binding == null) {
+            throw new IllegalStateException("argument binding not recorded for: " + node);
+        }
+        return binding;
     }
 
     public Set<NodeRef<Expression>> getColumnReferences()

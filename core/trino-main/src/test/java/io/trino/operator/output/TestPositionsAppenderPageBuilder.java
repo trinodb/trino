@@ -19,7 +19,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
-import io.trino.spi.predicate.Utils;
 import io.trino.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.junit.jupiter.api.Test;
@@ -28,6 +27,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -138,7 +138,7 @@ public class TestPositionsAppenderPageBuilder
                 List.of(VARCHAR),
                 new PositionsAppenderFactory(new BlockTypeOperators()));
 
-        Block valueBlock = Utils.nativeValueToBlock(VARCHAR, Slices.utf8Slice("test"));
+        Block valueBlock = writeNativeValue(VARCHAR, Slices.utf8Slice("test"));
         Block dictionaryBlock = DictionaryBlock.create(10, valueBlock, new int[10]);
         Page inputPage = new Page(dictionaryBlock);
 

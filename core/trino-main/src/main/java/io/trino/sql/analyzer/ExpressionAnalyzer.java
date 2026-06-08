@@ -25,6 +25,7 @@ import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.CatalogFunctionMetadata;
 import io.trino.metadata.FunctionResolver;
 import io.trino.metadata.LanguageFunctionAnalysisException;
 import io.trino.metadata.OperatorNotFoundException;
@@ -35,7 +36,10 @@ import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
@@ -51,7 +55,6 @@ import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
@@ -78,6 +81,7 @@ import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
@@ -332,6 +336,7 @@ public class ExpressionAnalyzer
 
     private final Map<NodeRef<Node>, ResolvedFunction> resolvedFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<FunctionCall>, Identifier> methodCallReceivers = new LinkedHashMap<>();
+    private final Map<NodeRef<FunctionCall>, List<Integer>> argumentBindings = new LinkedHashMap<>();
     private final Set<NodeRef<SubqueryExpression>> subqueries = new LinkedHashSet<>();
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries = new LinkedHashSet<>();
     private final Map<NodeRef<Expression>, Type> expressionCoercions = new LinkedHashMap<>();
@@ -445,6 +450,11 @@ public class ExpressionAnalyzer
         return unmodifiableMap(methodCallReceivers);
     }
 
+    public Map<NodeRef<FunctionCall>, List<Integer>> getArgumentBindings()
+    {
+        return unmodifiableMap(argumentBindings);
+    }
+
     public Map<NodeRef<Expression>, Type> getExpressionTypes()
     {
         return unmodifiableMap(expressionTypes);
@@ -556,7 +566,7 @@ public class ExpressionAnalyzer
     private Type analyzeJsonValueExpression(ValueColumn column, JsonPathAnalysis pathAnalysis, Scope scope, CorrelationSupport correlationSupport)
     {
         Visitor visitor = new Visitor(scope, warningCollector);
-        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
+        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(new TypeSignature(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
         return visitor.analyzeJsonValueExpression(
                 "JSON_TABLE",
                 column,
@@ -573,7 +583,7 @@ public class ExpressionAnalyzer
     private Type analyzeJsonQueryExpression(QueryColumn column, Scope scope)
     {
         Visitor visitor = new Visitor(scope, warningCollector);
-        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
+        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(new TypeSignature(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
         return visitor.analyzeJsonQueryExpression(
                 column,
                 column.getWrapperBehavior(),
@@ -1330,7 +1340,7 @@ public class ExpressionAnalyzer
                     isAggregation &&
                     node.getName().getSuffix().equalsIgnoreCase("count");
             // argument of the form `label.*` is only allowed for row pattern count function
-            node.getArguments().stream()
+            node.argumentValues().stream()
                     .filter(DereferenceExpression::isQualifiedAllFieldsReference)
                     .findAny()
                     .ifPresent(allRowsReference -> {
@@ -1338,6 +1348,10 @@ public class ExpressionAnalyzer
                             throw semanticException(INVALID_FUNCTION_ARGUMENT, allRowsReference, "label.* syntax is only supported as the only argument of row pattern count function");
                         }
                     });
+
+            if (node.hasNamedArguments() && isPatternRecognitionFunction(node)) {
+                throw semanticException(INVALID_FUNCTION_ARGUMENT, node, "Named arguments are not supported for pattern recognition function %s", node.getName());
+            }
 
             if (context.isPatternRecognition()) {
                 if (isPatternRecognitionFunction(node)) {
@@ -1397,14 +1411,24 @@ public class ExpressionAnalyzer
                 coerceType(expression, type, BOOLEAN, "Filter expression");
             }
 
-            List<TypeSignatureProvider> argumentTypes = getCallArgumentTypes(node.getArguments(), context);
+            List<Expression> argumentValues = node.argumentValues();
+            List<TypeSignatureProvider> rawTypes = getCallArgumentTypes(argumentValues, context);
+            // rawTypes may be shorter than the AST argument count when a `label.*`
+            // entry is consumed by getCallArgumentTypes; bind to rawTypes.size() so
+            // identity-binding of positional calls still indexes safely.
+            boolean hasNamedArguments = node.hasNamedArguments();
+            List<Integer> argumentBinding = hasNamedArguments
+                    ? computeArgumentBinding(node)
+                    : identityBinding(rawTypes.size());
+            List<TypeSignatureProvider> argumentTypes = argumentBinding.stream()
+                    .map(rawTypes::get)
+                    .collect(toImmutableList());
 
             if (QualifiedName.of("LISTAGG").equals(node.getName())) {
                 // Due to fact that the LISTAGG function is transformed out of pragmatic reasons
                 // in a synthetic function call, the type expression of this function call is evaluated
                 // explicitly here in order to make sure that it is a varchar.
-                List<Expression> arguments = node.getArguments();
-                Expression expression = arguments.getFirst();
+                Expression expression = argumentValues.getFirst();
                 Type expressionType = process(expression, context);
                 if (!(expressionType instanceof VarcharType)) {
                     throw semanticException(TYPE_MISMATCH, node, "Expected expression of varchar, but '%s' has %s type", expression, expressionType.getDisplayName());
@@ -1448,7 +1472,7 @@ public class ExpressionAnalyzer
 
             BoundSignature signature = function.signature();
             for (int i = 0; i < argumentTypes.size(); i++) {
-                Expression expression = node.getArguments().get(i);
+                Expression expression = node.getArguments().get(argumentBinding.get(i)).getValue();
                 Type expectedType = signature.getArgumentTypes().get(i);
                 if (expectedType == null) {
                     throw new NullPointerException(format("Type '%s' not found", signature.getArgumentTypes().get(i)));
@@ -1466,6 +1490,7 @@ public class ExpressionAnalyzer
                 }
             }
             resolvedFunctions.put(NodeRef.of(node), function);
+            argumentBindings.put(NodeRef.of(node), argumentBinding);
 
             // must run after arguments are processed and labels are recorded
             if (context.isPatternRecognition() && isAggregation) {
@@ -1476,10 +1501,170 @@ public class ExpressionAnalyzer
             return setExpressionType(node, type);
         }
 
+        /// Computes the binding from signature-position to AST argument index. Returns the
+        /// identity binding for a call without named arguments; otherwise pairs each named
+        /// argument with the position where its name appears in the function's declared
+        /// parameter names, leaving positional arguments at their written positions.
+        ///
+        // TODO: name-to-position resolution properly belongs in the function binder / type
+        //  inference engine. Doing it here means we walk the function search path twice —
+        //  once for the binding, once for the type-based resolution. Lifting it into the
+        //  binder is a much bigger change.
+        private List<Integer> computeArgumentBinding(FunctionCall node)
+        {
+            List<CallArgument> arguments = node.getArguments();
+            int arity = arguments.size();
+            int firstNamedArgument = findFirstNamedArgument(arguments);
+            verifyNoDuplicateNames(arguments);
+
+            // SQL name resolution picks the first path entry that has any candidate;
+            // we stop iterating the path after that. Registration enforces that
+            // overloads of the same name at the same arity place each named parameter
+            // at the same position (see InternalFunctionBundle), so the first
+            // arity-matching overload that fits is enough to build the binding.
+            List<FunctionMetadata> candidates = findCandidates(node.getName());
+            Optional<FunctionMetadata> chosen = Optional.empty();
+            for (FunctionMetadata candidate : candidates) {
+                if (candidate.getSignature().isVariableArity()) {
+                    // Variadic + named args is intentionally unsupported.
+                    continue;
+                }
+                List<Signature.Argument> declared = candidate.getSignature().getArguments();
+                if (declared.size() == arity && satisfiesNamedArguments(arguments, firstNamedArgument, declared)) {
+                    chosen = Optional.of(candidate);
+                    break;
+                }
+            }
+
+            if (chosen.isEmpty()) {
+                Set<String> knownNames = new LinkedHashSet<>();
+                for (FunctionMetadata candidate : candidates) {
+                    if (candidate.getSignature().isVariableArity()) {
+                        continue;
+                    }
+                    candidate.getSignature().getArguments().forEach(argument -> argument.name().ifPresent(knownNames::add));
+                }
+                for (int i = firstNamedArgument; i < arity; i++) {
+                    Identifier name = arguments.get(i).getName().orElseThrow();
+                    if (!knownNames.contains(name.getValue())) {
+                        throw semanticException(INVALID_FUNCTION_ARGUMENT, name, "No argument named %s for function %s", name.getValue(), node.getName());
+                    }
+                }
+                // Names are known but no overload accepts them — typically because a
+                // name maps to a slot already supplied positionally. Surface that
+                // specifically; otherwise fall through to a generic message.
+                for (FunctionMetadata candidate : candidates) {
+                    for (int i = firstNamedArgument; i < arity; i++) {
+                        Identifier name = arguments.get(i).getName().orElseThrow();
+                        OptionalInt declaredPosition = findArgumentPosition(candidate.getSignature().getArguments(), name.getValue());
+                        if (declaredPosition.isPresent() && declaredPosition.getAsInt() < firstNamedArgument) {
+                            throw semanticException(
+                                    INVALID_FUNCTION_ARGUMENT,
+                                    name,
+                                    "Named argument %s for function %s refers to parameter position %s, which is already supplied positionally",
+                                    name.getValue(),
+                                    node.getName(),
+                                    declaredPosition.getAsInt());
+                        }
+                    }
+                }
+                throw semanticException(INVALID_FUNCTION_ARGUMENT, node, "No overload of function %s accepts the given named arguments", node.getName());
+            }
+
+            List<Signature.Argument> chosenArguments = chosen.get().getSignature().getArguments();
+            List<Integer> binding = new ArrayList<>(identityBinding(arity));
+            for (int i = firstNamedArgument; i < arity; i++) {
+                Identifier name = arguments.get(i).getName().orElseThrow();
+                int signaturePosition = findArgumentPosition(chosenArguments, name.getValue()).orElseThrow();
+                binding.set(signaturePosition, i);
+            }
+            return List.copyOf(binding);
+        }
+
+        /// Returns the index of the first named argument (or `arguments.size()` for
+        /// a purely positional call). Throws if any positional argument appears after
+        /// a named one, enforcing the SQL-spec "positional before named" rule.
+        private static int findFirstNamedArgument(List<CallArgument> arguments)
+        {
+            int position = 0;
+            while (position < arguments.size() && arguments.get(position).getName().isEmpty()) {
+                position++;
+            }
+            for (int i = position; i < arguments.size(); i++) {
+                if (arguments.get(i).getName().isEmpty()) {
+                    throw semanticException(INVALID_FUNCTION_ARGUMENT, arguments.get(i), "Positional arguments cannot follow named arguments");
+                }
+            }
+            return position;
+        }
+
+        private static void verifyNoDuplicateNames(List<CallArgument> arguments)
+        {
+            Set<String> seen = new HashSet<>();
+            for (int i = 0; i < arguments.size(); i++) {
+                if (arguments.get(i).getName().isEmpty()) {
+                    continue;
+                }
+                Identifier name = arguments.get(i).getName().orElseThrow();
+                if (!seen.add(name.getValue())) {
+                    throw semanticException(INVALID_FUNCTION_ARGUMENT, name, "Duplicate named argument: %s", name.getValue());
+                }
+            }
+        }
+
+        private static boolean satisfiesNamedArguments(List<CallArgument> actualArguments, int firstNamedArgument, List<Signature.Argument> formalArguments)
+        {
+            for (int i = firstNamedArgument; i < actualArguments.size(); i++) {
+                String name = actualArguments.get(i).getName().orElseThrow().getValue();
+                OptionalInt declaredPosition = findArgumentPosition(formalArguments, name);
+                if (declaredPosition.isEmpty() || declaredPosition.getAsInt() < firstNamedArgument) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private List<FunctionMetadata> findCandidates(QualifiedName name)
+        {
+            for (CatalogSchemaFunctionName candidateName : FunctionResolver.toPath(session, name, accessControl)) {
+                Collection<CatalogFunctionMetadata> candidates = plannerContext.getMetadata().getFunctions(session, candidateName);
+                if (!candidates.isEmpty()) {
+                    return candidates.stream()
+                            .map(CatalogFunctionMetadata::functionMetadata)
+                            .collect(toImmutableList());
+                }
+            }
+            return List.of();
+        }
+
+        private static OptionalInt findArgumentPosition(List<Signature.Argument> arguments, String name)
+        {
+            for (int i = 0; i < arguments.size(); i++) {
+                if (arguments.get(i).name().equals(Optional.of(name))) {
+                    return OptionalInt.of(i);
+                }
+            }
+            return OptionalInt.empty();
+        }
+
+        private static List<Integer> identityBinding(int arity)
+        {
+            ImmutableList.Builder<Integer> result = ImmutableList.builderWithExpectedSize(arity);
+            for (int i = 0; i < arity; i++) {
+                result.add(i);
+            }
+            return result.build();
+        }
+
         private Optional<Type> tryResolveAsInstanceMethod(FunctionCall node, Context context)
         {
             QualifiedName name = node.getName();
             if (name.getParts().size() != 2) {
+                return Optional.empty();
+            }
+            if (node.hasNamedArguments()) {
+                // Method-call syntax (receiver.method(...)) does not support named arguments;
+                // fall through to ordinary function resolution so the caller sees a clear error.
                 return Optional.empty();
             }
             if (node.isDistinct()
@@ -1507,9 +1692,10 @@ public class ExpressionAnalyzer
             }
             Type receiverType = resolvedReceiver.get().getField().getType();
 
+            List<Expression> argumentValues = node.argumentValues();
             MethodResolution resolution;
             try {
-                resolution = resolveInstanceMethodCall(receiverType, method.getValue(), node.getArguments(), context);
+                resolution = resolveInstanceMethodCall(receiverType, method.getValue(), argumentValues, context);
             }
             catch (TrinoException e) {
                 return Optional.empty();
@@ -1518,8 +1704,9 @@ public class ExpressionAnalyzer
             // Commit to method-call interpretation: record the receiver field reference.
             process(receiver, context);
 
-            Type result = analyzeInstanceMethodInvocation(node, receiver, receiverType, method.getValue(), node.getArguments(), resolution, context);
+            Type result = analyzeInstanceMethodInvocation(node, receiver, receiverType, method.getValue(), argumentValues, resolution, context);
             methodCallReceivers.put(NodeRef.of(node), receiver);
+            argumentBindings.put(NodeRef.of(node), identityBinding(node.getArguments().size()));
             return Optional.of(result);
         }
 
@@ -2005,7 +2192,7 @@ public class ExpressionAnalyzer
 
             Optional<String> label = Optional.empty();
             if (node.getArguments().size() == 1) {
-                Node argument = node.getArguments().getFirst();
+                Expression argument = node.getArguments().getFirst().getValue();
                 if (!(argument instanceof Identifier identifier)) {
                     throw semanticException(TYPE_MISMATCH, argument, "CLASSIFIER function argument should be primary pattern variable or subset name. Actual: %s", argument.getClass().getSimpleName());
                 }
@@ -2037,7 +2224,7 @@ public class ExpressionAnalyzer
 
             Navigation navigation = context.getPatternRecognitionContext().navigation();
             Type type = process(
-                    node.getArguments().getFirst(),
+                    node.getArguments().getFirst().getValue(),
                     context.withNavigation(new Navigation(
                             navigation.anchor(),
                             navigation.mode(),
@@ -2069,7 +2256,7 @@ public class ExpressionAnalyzer
             };
 
             Type type = process(
-                    node.getArguments().getFirst(),
+                    node.getArguments().getFirst().getValue(),
                     context.withNavigation(new Navigation(
                             anchor,
                             mapProcessingMode(node.getProcessingMode()),
@@ -2099,7 +2286,7 @@ public class ExpressionAnalyzer
         {
             int offset = defaultOffset;
             if (node.getArguments().size() == 2) {
-                offset = (int) ((LongLiteral) node.getArguments().get(1)).getParsedValue();
+                offset = (int) ((LongLiteral) node.getArguments().get(1).getValue()).getParsedValue();
             }
             return offset;
         }
@@ -2134,10 +2321,10 @@ public class ExpressionAnalyzer
             }
             if (node.getArguments().size() == 2) {
                 // TODO the offset argument must be effectively constant, not necessarily a number. This could be extended with the use of ConstantAnalyzer.
-                if (!(node.getArguments().get(1) instanceof LongLiteral)) {
+                if (!(node.getArguments().get(1).getValue() instanceof LongLiteral)) {
                     throw semanticException(INVALID_FUNCTION_ARGUMENT, node, "%s pattern recognition navigation function requires a number as the second argument", node.getName());
                 }
-                long offset = ((LongLiteral) node.getArguments().get(1)).getParsedValue();
+                long offset = ((LongLiteral) node.getArguments().get(1).getValue()).getParsedValue();
                 if (offset < 0) {
                     throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, node, "%s pattern recognition navigation function requires a non-negative number as the second argument (actual: %s)", node.getName(), offset);
                 }
@@ -2153,7 +2340,7 @@ public class ExpressionAnalyzer
             String name = node.getName().getSuffix();
 
             // It is allowed to nest FIRST and LAST functions within PREV and NEXT functions. Only immediate nesting is supported
-            List<FunctionCall> nestedNavigationFunctions = extractExpressions(ImmutableList.of(node.getArguments().getFirst()), FunctionCall.class).stream()
+            List<FunctionCall> nestedNavigationFunctions = extractExpressions(ImmutableList.of(node.getArguments().getFirst().getValue()), FunctionCall.class).stream()
                     .filter(this::isPatternNavigationFunction)
                     .collect(toImmutableList());
             if (!nestedNavigationFunctions.isEmpty()) {
@@ -2182,7 +2369,7 @@ public class ExpressionAnalyzer
                             nestedName,
                             name);
                 }
-                if (nested != node.getArguments().getFirst()) {
+                if (nested != node.getArguments().getFirst().getValue()) {
                     throw semanticException(
                             INVALID_NAVIGATION_NESTING,
                             nested,
@@ -2216,16 +2403,17 @@ public class ExpressionAnalyzer
 
         private ArgumentLabel validateLabelConsistency(FunctionCall node, int argumentIndex)
         {
-            Set<Optional<String>> referenceLabels = extractExpressions(node.getArguments(), Expression.class).stream()
+            List<Expression> argumentValues = node.argumentValues();
+            Set<Optional<String>> referenceLabels = extractExpressions(argumentValues, Expression.class).stream()
                     .map(child -> labels.get(NodeRef.of(child)))
                     .filter(Objects::nonNull)
                     .collect(toImmutableSet());
 
-            Set<Optional<String>> classifierLabels = extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), FunctionCall.class).stream()
+            Set<Optional<String>> classifierLabels = extractExpressions(ImmutableList.of(argumentValues.get(argumentIndex)), FunctionCall.class).stream()
                     .filter(this::isClassifierFunction)
-                    .map(functionCall -> functionCall.getArguments().stream()
+                    .map(functionCall -> functionCall.argumentValues().stream()
                             .findFirst()
-                            .map(argument -> label((Identifier) argument)))
+                            .map(value -> label((Identifier) value)))
                     .collect(toImmutableSet());
 
             Set<Optional<String>> allLabels = ImmutableSet.<Optional<String>>builder()
@@ -2290,11 +2478,13 @@ public class ExpressionAnalyzer
             checkNoNestedNavigations(node);
             Set<String> labels = analyzeAggregationLabels(node);
 
-            List<FunctionCall> matchNumberCalls = extractExpressions(node.getArguments(), FunctionCall.class).stream()
+            List<Expression> argumentValues = node.argumentValues();
+
+            List<FunctionCall> matchNumberCalls = extractExpressions(argumentValues, FunctionCall.class).stream()
                     .filter(this::isMatchNumberFunction)
                     .collect(toImmutableList());
 
-            List<FunctionCall> classifierCalls = extractExpressions(node.getArguments(), FunctionCall.class).stream()
+            List<FunctionCall> classifierCalls = extractExpressions(argumentValues, FunctionCall.class).stream()
                     .filter(this::isClassifierFunction)
                     .collect(toImmutableList());
 
@@ -2302,7 +2492,7 @@ public class ExpressionAnalyzer
                     node,
                     new AggregationDescriptor(
                             function,
-                            node.getArguments(),
+                            argumentValues,
                             mapProcessingMode(node.getProcessingMode()),
                             labels,
                             matchNumberCalls,
@@ -2311,7 +2501,7 @@ public class ExpressionAnalyzer
 
         private void checkNoNestedAggregations(FunctionCall node)
         {
-            extractExpressions(node.getArguments(), FunctionCall.class).stream()
+            extractExpressions(node.argumentValues(), FunctionCall.class).stream()
                     .filter(function -> functionResolver.isAggregationFunction(session, function.getName(), accessControl))
                     .findFirst()
                     .ifPresent(aggregation -> {
@@ -2326,7 +2516,7 @@ public class ExpressionAnalyzer
 
         private void checkNoNestedNavigations(FunctionCall node)
         {
-            extractExpressions(node.getArguments(), FunctionCall.class).stream()
+            extractExpressions(node.argumentValues(), FunctionCall.class).stream()
                     .filter(this::isPatternNavigationFunction)
                     .findFirst()
                     .ifPresent(navigation -> {
@@ -3250,7 +3440,7 @@ public class ExpressionAnalyzer
 
             return ImmutableList.of(
                     JSON_2016, // input expression
-                    plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), // parsed JSON path representation
+                    plannerContext.getTypeManager().getType(new TypeSignature(JsonPath2016Type.NAME)), // parsed JSON path representation
                     parametersRowType); // passed parameters
         }
 
@@ -4095,6 +4285,7 @@ public class ExpressionAnalyzer
         analysis.addFrameBoundCalculations(analyzer.getFrameBoundCalculations());
         analyzer.getResolvedFunctions().forEach((key, value) -> analysis.addResolvedFunction(key.getNode(), value, session.getUser()));
         analyzer.getMethodCallReceivers().forEach((key, value) -> analysis.addMethodCallReceiver(key.getNode(), value));
+        analyzer.getArgumentBindings().forEach((key, value) -> analysis.setArgumentBinding(key.getNode(), value));
         analysis.addColumnReferences(analyzer.getColumnReferences());
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
         analysis.addTableColumnReferences(accessControl, session.getIdentity(), analyzer.getTableColumnReferences());

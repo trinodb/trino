@@ -271,6 +271,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
 import static io.trino.plugin.iceberg.ExpressionConverter.isConvertibleToIcebergExpression;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import static io.trino.plugin.iceberg.GeoSpatialUtils.isGeospatialType;
 import static io.trino.plugin.iceberg.IcebergAnalyzeProperties.getColumnNames;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_DATA;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_SPEC_ID;
@@ -1472,7 +1473,7 @@ public class IcebergMetadata
         try {
             // S3 Tables internally assigns a unique location for each table
             if (!isS3Tables(location.toString())) {
-                TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), transaction.table().io().properties());
+                TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), IcebergTableCredentials.forFileIO(transaction.table().io()));
                 if (!replace && fileSystem.listFiles(location).hasNext()) {
                     throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("" +
                             "Cannot create a table on a non-empty location: %s, set 'iceberg.unique-table-location=true' in your Iceberg catalog properties " +
@@ -2381,7 +2382,7 @@ public class IcebergMetadata
         }
 
         Instant expiration = session.getStart().minusMillis(retention.toMillis());
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), table.io().properties());
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), IcebergTableCredentials.forFileIO(table.io()));
         return removeOrphanFiles(
                 table,
                 fileSystem,
@@ -2395,7 +2396,7 @@ public class IcebergMetadata
     {
         IcebergAddFilesHandle addFilesHandle = (IcebergAddFilesHandle) executeHandle.procedureHandle();
         Table table = catalog.loadTable(session, executeHandle.schemaTableName());
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), table.io().properties());
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), IcebergTableCredentials.forFileIO(table.io()));
         long addedDataFiles = addFiles(
                 session,
                 fileSystem,
@@ -2412,7 +2413,7 @@ public class IcebergMetadata
     {
         IcebergAddFilesFromTableHandle addFilesHandle = (IcebergAddFilesFromTableHandle) executeHandle.procedureHandle();
         Table table = catalog.loadTable(session, executeHandle.schemaTableName());
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), table.io().properties());
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), IcebergTableCredentials.forFileIO(table.io()));
         long addedDataFiles = addFilesFromTable(
                 session,
                 fileSystem,
@@ -3119,7 +3120,9 @@ public class IcebergMetadata
                 .filter(column -> !column.isHidden())
                 .filter(column -> {
                     io.trino.spi.type.Type type = column.getType();
-                    return !(type instanceof MapType || type instanceof ArrayType || type instanceof RowType); // is scalar type
+                    // Geometry and Geography are excluded because Iceberg doesn't support geospatial statistics
+                    return !(type instanceof MapType || type instanceof ArrayType || type instanceof RowType
+                            || isGeospatialType(type));
                 })
                 .filter(column -> column.getType() != VARIANT) // variant does not support NDV statistics
                 .map(ColumnMetadata::getName)

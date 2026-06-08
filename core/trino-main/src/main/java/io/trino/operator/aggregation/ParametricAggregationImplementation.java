@@ -26,6 +26,7 @@ import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionNullability;
+import io.trino.spi.function.Name;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.SqlNullable;
@@ -266,7 +267,7 @@ public class ParametricAggregationImplementation
             argumentNativeContainerTypes = parseSignatureArgumentsTypes(inputFunction);
 
             // determine TypeSignatures of function declaration
-            signatureBuilder.argumentTypes(getInputTypesSignatures(inputFunction));
+            addInputTypeSignatures(signatureBuilder, inputFunction);
             signatureBuilder.returnType(parseTypeSignature(outputFunction.getAnnotation(OutputFunction.class).value(), literalParameters));
 
             inputHandle = methodHandle(inputFunction);
@@ -446,21 +447,38 @@ public class ParametricAggregationImplementation
             return containsAnnotation(annotations, annotation -> annotation instanceof BlockPosition);
         }
 
-        public List<TypeSignature> getInputTypesSignatures(Method inputFunction)
+        /// Appends to `signatureBuilder` the argument type — and, if the parameter
+        /// carries a [Name] annotation, its declared name — for every [SqlType]
+        /// input parameter of the aggregation function. Rejects `@Name` on a
+        /// non-`@SqlType` parameter, since the declared name has nothing to attach
+        /// to. (`@Name` itself is not `@Repeatable`, so the compiler enforces a
+        /// single annotation per parameter.)
+        private void addInputTypeSignatures(Signature.Builder signatureBuilder, Method inputFunction)
         {
-            ImmutableList.Builder<TypeSignature> builder = ImmutableList.builder();
-
             Annotation[][] parameterAnnotations = inputFunction.getParameterAnnotations();
             for (Annotation[] annotations : parameterAnnotations) {
+                SqlType sqlType = null;
+                String declaredName = null;
                 for (Annotation annotation : annotations) {
-                    if (annotation instanceof SqlType sqlType) {
-                        String typeName = sqlType.value();
-                        builder.add(parseTypeSignature(typeName, literalParameters));
+                    if (annotation instanceof SqlType type) {
+                        sqlType = type;
+                    }
+                    else if (annotation instanceof Name name) {
+                        declaredName = name.value();
                     }
                 }
+                if (sqlType == null) {
+                    checkArgument(declaredName == null, "Method [%s] has @Name on a parameter without @SqlType", inputFunction);
+                    continue;
+                }
+                TypeSignature typeSignature = parseTypeSignature(sqlType.value(), literalParameters);
+                if (declaredName != null) {
+                    signatureBuilder.argumentType(typeSignature, declaredName);
+                }
+                else {
+                    signatureBuilder.argumentType(typeSignature);
+                }
             }
-
-            return builder.build();
         }
 
         private static boolean isAggregationMetaAnnotation(Annotation annotation)

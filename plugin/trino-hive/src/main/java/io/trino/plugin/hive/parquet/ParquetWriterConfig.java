@@ -16,6 +16,7 @@ package io.trino.plugin.hive.parquet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
@@ -38,29 +39,46 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 })
 public class ParquetWriterConfig
 {
-    public static final String PARQUET_WRITER_MAX_BLOCK_SIZE = "2GB";
+    public static final String PARQUET_WRITER_MAX_ROW_GROUP_SIZE = "2GB";
     public static final String PARQUET_WRITER_MIN_PAGE_SIZE = "8kB";
     public static final String PARQUET_WRITER_MAX_PAGE_SIZE = "8MB";
     public static final int PARQUET_WRITER_MIN_PAGE_VALUE_COUNT = 1000;
     public static final int PARQUET_WRITER_MAX_PAGE_VALUE_COUNT = 200_000;
+    public static final int PARQUET_WRITER_MIN_ROW_GROUP_ROW_COUNT = PARQUET_WRITER_MIN_PAGE_VALUE_COUNT;
 
-    private DataSize blockSize = DataSize.of(128, MEGABYTE);
+    private DataSize rowGroupSize = DataSize.of(128, MEGABYTE);
+    private int rowGroupMaxRowCount = ParquetWriterOptions.DEFAULT_MAX_ROW_GROUP_ROW_COUNT;
     private DataSize pageSize = DataSize.ofBytes(ParquetProperties.DEFAULT_PAGE_SIZE);
     private int pageValueCount = ParquetWriterOptions.DEFAULT_MAX_PAGE_VALUE_COUNT;
     private int batchSize = ParquetWriterOptions.DEFAULT_BATCH_SIZE;
     private double validationPercentage = 5;
     private boolean deltaLengthByteArrayEncodingEnabled = true;
 
-    @MaxDataSize(PARQUET_WRITER_MAX_BLOCK_SIZE)
-    public DataSize getBlockSize()
+    @MaxDataSize(PARQUET_WRITER_MAX_ROW_GROUP_SIZE)
+    public DataSize getRowGroupSize()
     {
-        return blockSize;
+        return rowGroupSize;
     }
 
-    @Config("parquet.writer.block-size")
-    public ParquetWriterConfig setBlockSize(DataSize blockSize)
+    @Config("parquet.writer.row-group-size")
+    @LegacyConfig("parquet.writer.block-size")
+    public ParquetWriterConfig setRowGroupSize(DataSize rowGroupSize)
     {
-        this.blockSize = blockSize;
+        this.rowGroupSize = rowGroupSize;
+        return this;
+    }
+
+    @Min(PARQUET_WRITER_MIN_ROW_GROUP_ROW_COUNT)
+    public int getRowGroupMaxRowCount()
+    {
+        return rowGroupMaxRowCount;
+    }
+
+    @Config("parquet.writer.row-group-max-row-count")
+    @ConfigDescription("Maximum row count of row groups created by the Parquet writer")
+    public ParquetWriterConfig setRowGroupMaxRowCount(int rowGroupMaxRowCount)
+    {
+        this.rowGroupMaxRowCount = rowGroupMaxRowCount;
         return this;
     }
 

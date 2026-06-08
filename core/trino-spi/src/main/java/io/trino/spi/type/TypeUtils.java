@@ -14,7 +14,6 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -34,6 +33,14 @@ public final class TypeUtils
     public static final int NULL_HASH_CODE = 0;
 
     private TypeUtils() {}
+
+    public static Object blockToNativeValue(Type type, Block block)
+    {
+        if (block.getPositionCount() != 1) {
+            throw new IllegalArgumentException("Block should have exactly one position, but has: " + block.getPositionCount());
+        }
+        return readNativeValue(type, block, 0);
+    }
 
     /**
      * Get the native value as an object in the value at {@code position} of {@code block}.
@@ -85,16 +92,7 @@ public final class TypeUtils
             type.writeLong(blockBuilder, ((long) value));
         }
         else if (type.getJavaType() == Slice.class) {
-            Slice slice;
-            if (value instanceof byte[] bytes) {
-                slice = Slices.wrappedBuffer(bytes);
-            }
-            else if (value instanceof String string) {
-                slice = Slices.utf8Slice(string);
-            }
-            else {
-                slice = (Slice) value;
-            }
+            Slice slice = (Slice) value;
             type.writeSlice(blockBuilder, slice, 0, slice.length());
         }
         else {

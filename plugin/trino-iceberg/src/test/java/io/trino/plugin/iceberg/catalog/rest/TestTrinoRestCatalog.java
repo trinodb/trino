@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.metastore.TableInfo;
@@ -27,14 +28,18 @@ import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import org.apache.iceberg.catalog.Namespace;
-import org.apache.iceberg.catalog.SessionCatalog.SessionContext;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.exceptions.RESTException;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
 import org.apache.iceberg.rest.RESTSessionCatalog;
+import org.apache.iceberg.view.View;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -55,6 +60,8 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
 import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType.NONE;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
 import static io.trino.plugin.iceberg.delete.DeletionVectorWriter.UNSUPPORTED_DELETION_VECTOR_WRITER;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -88,7 +95,6 @@ public class TestTrinoRestCatalog
             throws IOException
     {
         Path warehouseLocation = Files.createTempDirectory(null);
-        warehouseLocation.toFile().deleteOnExit();
 
         String catalogName = "iceberg_rest";
         RESTSessionCatalog restSessionCatalog = DelegatingRestSessionCatalog
@@ -278,5 +284,57 @@ public class TestTrinoRestCatalog
     protected TableInfo.ExtendedRelationType getViewType()
     {
         return OTHER_VIEW;
+    }
+
+    @Test
+    public void testReplaceViewReuseExistingLocation()
+            throws IOException
+    {
+        TrinoRestCatalog catalog = createTrinoRestCatalog(true, ImmutableMap.of());
+
+        String namespace = "test_create_replace_view_" + randomNameSuffix();
+        SchemaTableName viewName = new SchemaTableName(namespace, "test_view");
+        ConnectorViewDefinition viewDefinition = viewDefinition(
+                "SELECT name FROM local.tiny.nation",
+                new ViewColumn("name", VARCHAR.getTypeId(), Optional.empty()));
+
+        catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+
+        catalog.createView(SESSION, viewName, viewDefinition, false);
+        assertViewDefinition(catalog.getView(SESSION, viewName).orElseThrow(), viewDefinition);
+
+        View initialView = catalog.getIcebergView(SESSION, viewName, false).orElse(null);
+        assertThat(initialView).isNotNull();
+        assertThat(initialView.location()).isNotNull();
+
+        ConnectorViewDefinition updatedViewDefinition = viewDefinition(
+                "SELECT regionkey, name, comment FROM local.tiny.region",
+                new ViewColumn("regionkey", BIGINT.getTypeId(), Optional.empty()),
+                new ViewColumn("name", VARCHAR.getTypeId(), Optional.empty()),
+                new ViewColumn("comment", VARCHAR.getTypeId(), Optional.empty()));
+
+        catalog.createView(SESSION, viewName, updatedViewDefinition, true);
+        assertViewDefinition(catalog.getView(SESSION, viewName).orElseThrow(), updatedViewDefinition);
+
+        View updatedView = catalog.getIcebergView(SESSION, viewName, false).orElse(null);
+        assertThat(updatedView).isNotNull();
+        assertThat(updatedView.location()).isEqualTo(initialView.location());
+        assertThat(updatedView.currentVersion().versionId()).isEqualTo(initialView.currentVersion().versionId() + 1);
+
+        catalog.dropView(SESSION, viewName);
+        catalog.dropNamespace(SESSION, namespace);
+    }
+
+    private static ConnectorViewDefinition viewDefinition(@Language("SQL") String sql, ViewColumn... columns)
+    {
+        return new ConnectorViewDefinition(
+                sql,
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.copyOf(columns),
+                Optional.empty(),
+                Optional.of(SESSION.getUser()),
+                false,
+                ImmutableList.of());
     }
 }

@@ -212,8 +212,8 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitFunctionCall(FunctionCall node, C context)
     {
-        for (Expression argument : node.getArguments()) {
-            process(argument, context);
+        for (CallArgument argument : node.getArguments()) {
+            process(argument.getValue(), context);
         }
 
         if (node.getOrderBy().isPresent()) {

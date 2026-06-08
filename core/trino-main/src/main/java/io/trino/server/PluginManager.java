@@ -79,6 +79,11 @@ public class PluginManager
             .add("org.locationtech.jts.")
             .build();
 
+    private static final List<String> SPI_PACKAGES_EXCLUDED = ImmutableList.<String>builder()
+            .add("org.locationtech.jts.io.geojson.")
+            .add("org.locationtech.jts.io.twkb.")
+            .build();
+
     private static final Logger log = Logger.get(PluginManager.class);
 
     private final PluginsProvider pluginsProvider;
@@ -292,7 +297,7 @@ public class PluginManager
     public static PluginClassLoader createClassLoader(String pluginName, List<URL> urls)
     {
         ClassLoader parent = PluginManager.class.getClassLoader();
-        return new PluginClassLoader(pluginName, urls, parent, SPI_PACKAGES);
+        return new PluginClassLoader(pluginName, urls, parent, SPI_PACKAGES, SPI_PACKAGES_EXCLUDED);
     }
 
     public interface PluginsProvider

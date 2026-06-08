@@ -16,7 +16,6 @@ package io.trino.plugin.prometheus;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CountingInputStream;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
@@ -44,6 +43,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.MapValueBuilder.buildMapValue;
@@ -54,6 +54,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -161,7 +162,7 @@ public class PrometheusRecordCursor
     public Slice getSlice(int field)
     {
         checkFieldType(field, createUnboundedVarcharType());
-        return Slices.utf8Slice((String) requireNonNull(getFieldValue(field)));
+        return utf8Slice((String) requireNonNull(getFieldValue(field)));
     }
 
     @Override
@@ -254,9 +255,11 @@ public class PrometheusRecordCursor
                     || SMALLINT.equals(type)
                     || INTEGER.equals(type)
                     || BIGINT.equals(type)
-                    || DOUBLE.equals(type)
-                    || type instanceof VarcharType) {
-                TypeUtils.writeNativeValue(type, builder, obj);
+                    || DOUBLE.equals(type)) {
+                writeNativeValue(type, builder, obj);
+            }
+            else if (type instanceof VarcharType) {
+                writeNativeValue(type, builder, obj == null ? null : utf8Slice((String) obj));
             }
         }
     }

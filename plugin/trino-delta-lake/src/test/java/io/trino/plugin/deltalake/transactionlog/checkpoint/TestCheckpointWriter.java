@@ -65,10 +65,10 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.TRANSACTION;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.DateTimeUtils.parseDate;
@@ -254,12 +254,12 @@ public class TestCheckpointWriter
         TransactionEntry transactionEntry = new TransactionEntry("appId", 1, 1001);
 
         Block[] minMaxRowFieldBlocks = {
-                nativeValueToBlock(IntegerType.INTEGER, 1L),
-                nativeValueToBlock(createUnboundedVarcharType(), utf8Slice("a")),
+                writeNativeValue(IntegerType.INTEGER, 1L),
+                writeNativeValue(createUnboundedVarcharType(), utf8Slice("a")),
         };
         Block[] nullCountRowFieldBlocks = {
-                nativeValueToBlock(BigintType.BIGINT, 0L),
-                nativeValueToBlock(BigintType.BIGINT, 15L),
+                writeNativeValue(BigintType.BIGINT, 0L),
+                writeNativeValue(BigintType.BIGINT, 15L),
         };
         AddFileEntry addFileEntryParquetStats = new AddFileEntry(
                 "addFilePathParquet",
@@ -383,12 +383,12 @@ public class TestCheckpointWriter
                 1000);
         ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.of(ImmutableSet.of()), Optional.of(ImmutableSet.of()));
         Block[] minMaxRowFieldBlocks = {
-                nativeValueToBlock(IntegerType.INTEGER, 1L),
-                nativeValueToBlock(createUnboundedVarcharType(), utf8Slice("a")),
+                writeNativeValue(IntegerType.INTEGER, 1L),
+                writeNativeValue(createUnboundedVarcharType(), utf8Slice("a")),
         };
         Block[] nullCountRowFieldBlocks = {
-                nativeValueToBlock(BigintType.BIGINT, 0L),
-                nativeValueToBlock(BigintType.BIGINT, 15L),
+                writeNativeValue(BigintType.BIGINT, 0L),
+                writeNativeValue(BigintType.BIGINT, 15L),
         };
         AddFileEntry addFileEntryParquetStats = new AddFileEntry(
                 "addFilePathParquet",

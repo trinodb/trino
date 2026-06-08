@@ -33,8 +33,8 @@ import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROP
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;

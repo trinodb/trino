@@ -45,6 +45,7 @@ import java.util.function.BiFunction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
+import static io.trino.plugin.iceberg.GeoSpatialUtils.isGeospatialType;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.util.Timestamps.compareTimestampNanosToRange;
 import static io.trino.plugin.iceberg.util.Timestamps.compareTimestampTzNanosToRange;
@@ -96,6 +97,11 @@ public final class ExpressionConverter
         if (domain.getType() == VARIANT) {
             // Iceberg does not support filtering on VARIANT type, but simple checks always work
             return domain.isOnlyNull() || domain.getValues().isAll();
+        }
+
+        // Geometry and Geography types are not supported for predicate pushdown in Iceberg
+        if (isGeospatialType(domain.getType())) {
+            return false;
         }
 
         if (domain.getType() == UUID) {

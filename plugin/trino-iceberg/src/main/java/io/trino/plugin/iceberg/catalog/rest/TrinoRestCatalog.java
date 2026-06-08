@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.cache.Cache;
@@ -29,6 +30,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
+import io.trino.plugin.iceberg.IcebergTableCredentials;
 import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Security;
@@ -518,7 +520,7 @@ public class TrinoRestCatalog
             // So log the exception and continue with deleting the table location
             log.warn(e, "Failed to delete table data referenced by metadata");
         }
-        deleteTableDirectory(fileSystemFactory.create(session.getIdentity(), table.io().properties()), schemaTableName, table.location());
+        deleteTableDirectory(fileSystemFactory.create(session.getIdentity(), IcebergTableCredentials.forFileIO(table.io())), schemaTableName, table.location());
     }
 
     private static void deleteTableDirectory(TrinoFileSystem fileSystem, SchemaTableName schemaTableName, String tableLocation)
@@ -673,12 +675,19 @@ public class TrinoRestCatalog
         definition.getComment().ifPresent(comment -> properties.put(COMMENT, comment));
         Schema schema = IcebergUtil.schemaFromViewColumns(typeManager, definition.getColumns());
         ViewBuilder viewBuilder = restSessionCatalog.buildView(convert(session), toRemoteView(session, schemaViewName, true));
+        String viewLocation = defaultTableLocation(session, schemaViewName);
+        if (replace) {
+            Optional<View> view = getIcebergView(session, schemaViewName, true);
+            if (view.isPresent()) {
+                viewLocation = view.get().location();
+            }
+        }
         viewBuilder = viewBuilder.withSchema(schema)
                 .withQuery("trino", definition.getOriginalSql())
                 .withDefaultNamespace(toRemoteNamespace(session, toNamespace(schemaViewName.getSchemaName())))
                 .withDefaultCatalog(definition.getCatalog().orElse(null))
                 .withProperties(properties.buildOrThrow())
-                .withLocation(defaultTableLocation(session, schemaViewName));
+                .withLocation(viewLocation);
         try {
             if (replace) {
                 viewBuilder.createOrReplace();
@@ -776,7 +785,8 @@ public class TrinoRestCatalog
         });
     }
 
-    private Optional<View> getIcebergView(ConnectorSession session, SchemaTableName viewName, boolean getCached)
+    @VisibleForTesting
+    Optional<View> getIcebergView(ConnectorSession session, SchemaTableName viewName, boolean getCached)
     {
         if (!viewEndpointsEnabled) {
             return Optional.empty();

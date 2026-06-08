@@ -34,7 +34,7 @@ import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeId;
+import io.trino.spi.type.TypeSignature;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
@@ -64,6 +64,7 @@ import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
@@ -676,11 +677,21 @@ public class TranslationMap
     private io.trino.sql.ir.Expression translate(FunctionCall expression)
     {
         if (analysis.isPatternNavigationFunction(expression)) {
-            return translate(expression.getArguments().getFirst(), false);
+            return translate(expression.getArguments().getFirst().getValue(), false);
         }
 
         Optional<ResolvedFunction> resolvedFunction = analysis.getResolvedFunction(expression);
         checkArgument(resolvedFunction.isPresent(), "Function has not been analyzed: %s", expression);
+
+        // Emit arguments in resolved signature order: for positional calls the binding
+        // is the identity; for named calls it reorders so values land at their
+        // declared positions.
+        List<CallArgument> arguments = expression.getArguments();
+        List<io.trino.sql.ir.Expression> translated = analysis.getArgumentBinding(expression).stream()
+                .map(arguments::get)
+                .map(CallArgument::getValue)
+                .map(this::translateExpression)
+                .collect(toImmutableList());
 
         Optional<Identifier> methodReceiver = analysis.getMethodCallReceiver(expression);
         if (methodReceiver.isPresent()) {
@@ -688,17 +699,11 @@ public class TranslationMap
                     resolvedFunction.get(),
                     ImmutableList.<io.trino.sql.ir.Expression>builder()
                             .add(translateExpression(methodReceiver.get()))
-                            .addAll(expression.getArguments().stream()
-                                    .map(this::translateExpression)
-                                    .collect(toImmutableList()))
+                            .addAll(translated)
                             .build());
         }
 
-        return new Call(
-                resolvedFunction.get(),
-                expression.getArguments().stream()
-                        .map(this::translateExpression)
-                        .collect(toImmutableList()));
+        return new Call(resolvedFunction.get(), translated);
     }
 
     private io.trino.sql.ir.Expression translate(StaticMethodCall expression)
@@ -1082,7 +1087,7 @@ public class TranslationMap
                 failOnError);
 
         IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.parametersOrder());
-        io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), path);
+        io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(new TypeSignature(JsonPath2016Type.NAME)), path);
 
         ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
                 .add(input)
@@ -1116,7 +1121,7 @@ public class TranslationMap
                 failOnError);
 
         IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.parametersOrder());
-        io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), path);
+        io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(new TypeSignature(JsonPath2016Type.NAME)), path);
         Type returnType = resolvedFunction.get().signature().getReturnType();
 
         ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
@@ -1165,7 +1170,7 @@ public class TranslationMap
                 failOnError);
 
         IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.parametersOrder());
-        io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), path);
+        io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(new TypeSignature(JsonPath2016Type.NAME)), path);
 
         ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
                 .add(input)
