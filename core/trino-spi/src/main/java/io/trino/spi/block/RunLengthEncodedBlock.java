@@ -170,13 +170,13 @@ public final class RunLengthEncodedBlock
     @Override
     public boolean mayHaveNull()
     {
-        return positionCount > 0 && value.isNull(0);
+        return hasNull();
     }
 
     @Override
     public boolean hasNull()
     {
-        return mayHaveNull();
+        return value.isNull(0);
     }
 
     @Override
