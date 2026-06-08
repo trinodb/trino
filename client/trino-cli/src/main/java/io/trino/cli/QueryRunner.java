@@ -77,6 +77,11 @@ public class QueryRunner
         return debug;
     }
 
+    public Theme theme()
+    {
+        return theme;
+    }
+
     public Query startQuery(String query)
     {
         return new Query(startInternalQuery(session.get(), query), debug, maxQueuedRows, maxBufferedRows, theme);

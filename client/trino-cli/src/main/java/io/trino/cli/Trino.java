@@ -66,7 +66,8 @@ public final class Trino
                 .registerConverter(Duration.class, Duration::valueOf)
                 .setResourceBundle(new TrinoResourceBundle())
                 .setExecutionExceptionHandler((e, cmd, parseResult) -> {
-                    System.err.println(formatCliErrorMessage(e, parseResult.hasMatchedOption(DEBUG_OPTION_NAME)));
+                    // The theme is not resolved this early (e.g. for option parsing errors), so fall back to DARK.
+                    System.err.println(formatCliErrorMessage(e, Theme.DARK, parseResult.hasMatchedOption(DEBUG_OPTION_NAME)));
                     return 1;
                 });
 
@@ -74,14 +75,14 @@ public final class Trino
         return commandLine;
     }
 
-    public static String formatCliErrorMessage(Throwable throwable, boolean debug)
+    public static String formatCliErrorMessage(Throwable throwable, Theme theme, boolean debug)
     {
         AttributedStringBuilder builder = new AttributedStringBuilder();
         if (debug) {
             builder.append(throwable.getClass().getName()).append(": ");
         }
 
-        builder.append(throwable.getMessage(), Theme.DARK.cliError());
+        builder.append(throwable.getMessage(), theme.cliError());
 
         if (debug) {
             String messagePattern = quote(throwable.getClass().getName() + ": " + throwable.getMessage());
