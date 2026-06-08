@@ -71,7 +71,7 @@ public abstract class BaseConnectorSmokeTest
 
     protected String createSchemaSql(String schemaName)
     {
-        return "CREATE SCHEMA \"%s\"".formatted(schemaName);
+        return "CREATE SCHEMA " + schemaName;
     }
 
     /**
@@ -96,46 +96,46 @@ public abstract class BaseConnectorSmokeTest
     @Test
     public void testSelect()
     {
-        assertQuery("SELECT \"name\" FROM \"region\"");
+        assertQuery("SELECT name FROM region");
     }
 
     @Test
     public void testPredicate()
     {
-        assertQuery("SELECT \"name\", \"regionkey\" FROM \"nation\" WHERE \"nationkey\" = 10");
-        assertQuery("SELECT \"name\", \"regionkey\" FROM \"nation\" WHERE \"nationkey\" BETWEEN 5 AND 15");
-        assertQuery("SELECT \"name\", \"regionkey\" FROM \"nation\" WHERE \"name\" = 'EGYPT'");
+        assertQuery("SELECT name, regionkey FROM nation WHERE nationkey = 10");
+        assertQuery("SELECT name, regionkey FROM nation WHERE nationkey BETWEEN 5 AND 15");
+        assertQuery("SELECT name, regionkey FROM nation WHERE name = 'EGYPT'");
     }
 
     @Test
     public void testLimit()
     {
-        assertQuery("SELECT \"name\" FROM \"region\" LIMIT 5");
+        assertQuery("SELECT name FROM region LIMIT 5");
     }
 
     @Test
     public void testTopN()
     {
-        assertQuery("SELECT \"regionkey\" FROM \"nation\" ORDER BY \"name\" LIMIT 3");
+        assertQuery("SELECT regionkey FROM nation ORDER BY name LIMIT 3");
     }
 
     @Test
     public void testAggregation()
     {
-        assertQuery("SELECT sum(\"regionkey\") FROM \"nation\"");
-        assertQuery("SELECT sum(\"nationkey\") FROM \"nation\" GROUP BY \"regionkey\"");
+        assertQuery("SELECT sum(regionkey) FROM nation");
+        assertQuery("SELECT sum(nationkey) FROM nation GROUP BY regionkey");
     }
 
     @Test
     public void testHaving()
     {
-        assertQuery("SELECT \"regionkey\", sum(\"nationkey\") FROM \"nation\" GROUP BY \"regionkey\" HAVING sum(\"nationkey\") = 58", "VALUES (4, 58)");
+        assertQuery("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey HAVING sum(nationkey) = 58", "VALUES (4, 58)");
     }
 
     @Test
     public void testJoin()
     {
-        assertQuery("SELECT n.\"name\", r.\"name\" FROM \"nation\" n JOIN \"region\" r on n.\"regionkey\" = r.\"regionkey\"");
+        assertQuery("SELECT n.name, r.name FROM nation n JOIN region r on n.regionkey = r.regionkey");
     }
 
     @Test
@@ -187,7 +187,7 @@ public abstract class BaseConnectorSmokeTest
     public void testInsert()
     {
         if (!hasBehavior(SUPPORTS_INSERT)) {
-            assertQueryFails("INSERT INTO \"region\" (\"regionkey\") VALUES (42)", "This connector does not support inserts");
+            assertQueryFails("INSERT INTO region (regionkey) VALUES (42)", "This connector does not support inserts");
             return;
         }
 
@@ -211,7 +211,7 @@ public abstract class BaseConnectorSmokeTest
         }
 
         assumeTrue(hasBehavior(SUPPORTS_CREATE_TABLE));
-        try (TestTable table = newTrinoTable("test_supports_delete", "AS SELECT * FROM \"region\"")) {
+        try (TestTable table = newTrinoTable("test_supports_delete", "AS SELECT * FROM region")) {
             assertQueryFails("DELETE FROM " + table.getName(), MODIFYING_ROWS_MESSAGE);
         }
     }
@@ -225,8 +225,8 @@ public abstract class BaseConnectorSmokeTest
         }
 
         assumeTrue(hasBehavior(SUPPORTS_CREATE_TABLE));
-        try (TestTable table = newTrinoTable("test_supports_row_level_delete", "AS SELECT * FROM \"region\"")) {
-            assertQueryFails("DELETE FROM " + table.getName() + " WHERE \"regionkey\" = 2", MODIFYING_ROWS_MESSAGE);
+        try (TestTable table = newTrinoTable("test_supports_row_level_delete", "AS SELECT * FROM region")) {
+            assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", MODIFYING_ROWS_MESSAGE);
         }
     }
 
@@ -239,8 +239,8 @@ public abstract class BaseConnectorSmokeTest
         }
 
         assumeTrue(hasBehavior(SUPPORTS_CREATE_TABLE));
-        try (TestTable table = newTrinoTable("test_supports_update", "AS SELECT * FROM \"nation\"")) {
-            assertQueryFails("UPDATE " + table.getName() + " SET nationkey = 100 WHERE \"regionkey\" = 2", MODIFYING_ROWS_MESSAGE);
+        try (TestTable table = newTrinoTable("test_supports_update", "AS SELECT * FROM nation")) {
+            assertQueryFails("UPDATE " + table.getName() + " SET nationkey = 100 WHERE regionkey = 2", MODIFYING_ROWS_MESSAGE);
         }
     }
 
@@ -253,8 +253,8 @@ public abstract class BaseConnectorSmokeTest
         }
 
         assumeTrue(hasBehavior(SUPPORTS_CREATE_TABLE));
-        try (TestTable table = newTrinoTable("test_row_update", "AS SELECT * FROM \"nation\"")) {
-            assertQueryFails("UPDATE " + table.getName() + " SET \"nationkey\" = \"nationkey\" * 100 WHERE \"regionkey\" = 2", MODIFYING_ROWS_MESSAGE);
+        try (TestTable table = newTrinoTable("test_row_update", "AS SELECT * FROM nation")) {
+            assertQueryFails("UPDATE " + table.getName() + " SET nationkey = nationkey * 100 WHERE regionkey = 2", MODIFYING_ROWS_MESSAGE);
         }
     }
 
@@ -262,9 +262,9 @@ public abstract class BaseConnectorSmokeTest
     public void testUpdate()
     {
         assumeTrue(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
-        try (TestTable table = newTrinoTable("test_row_update", "AS SELECT * FROM \"nation\"")) {
-            assertUpdate("UPDATE " + table.getName() + " SET \"nationkey\" = 100 WHERE \"regionkey\" = 2", 5);
-            assertQuery("SELECT count(*) FROM " + table.getName() + " WHERE \"nationkey\" = 100", "VALUES 5");
+        try (TestTable table = newTrinoTable("test_row_update", "AS SELECT * FROM nation")) {
+            assertUpdate("UPDATE " + table.getName() + " SET nationkey = 100 WHERE regionkey = 2", 5);
+            assertQuery("SELECT count(*) FROM " + table.getName() + " WHERE nationkey = 100", "VALUES 5");
         }
     }
 
@@ -272,7 +272,7 @@ public abstract class BaseConnectorSmokeTest
     public void testDeleteAllDataFromTable()
     {
         assumeTrue(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_DELETE));
-        try (TestTable table = newTrinoTable("test_delete_all_data", "AS SELECT * FROM \"region\"")) {
+        try (TestTable table = newTrinoTable("test_delete_all_data", "AS SELECT * FROM region")) {
             // not using assertUpdate as some connectors provide update count and some do not
             getQueryRunner().execute("DELETE FROM " + table.getName());
             assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 0");
@@ -283,11 +283,11 @@ public abstract class BaseConnectorSmokeTest
     public void testRowLevelDelete()
     {
         assumeTrue(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
-        try (TestTable table = newTrinoTable("test_row_level_delete", "AS SELECT * FROM \"region\"")) {
-            assertUpdate("DELETE FROM " + table.getName() + " WHERE \"regionkey\" = 2", 1);
-            assertThat(query("SELECT * FROM " + table.getName() + " WHERE \"regionkey\" = 2"))
+        try (TestTable table = newTrinoTable("test_row_level_delete", "AS SELECT * FROM region")) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 2", 1);
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE regionkey = 2"))
                     .returnsEmptyResult();
-            assertThat(query("SELECT cast(\"regionkey\" AS integer) FROM " + table.getName()))
+            assertThat(query("SELECT cast(regionkey AS integer) FROM " + table.getName()))
                     .skippingTypesCheck()
                     .matches("VALUES 0, 1, 3, 4");
         }
@@ -297,13 +297,13 @@ public abstract class BaseConnectorSmokeTest
     public void testTruncateTable()
     {
         if (!hasBehavior(SUPPORTS_TRUNCATE)) {
-            assertQueryFails("TRUNCATE TABLE \"nation\"", "This connector does not support truncating tables");
+            assertQueryFails("TRUNCATE TABLE nation", "This connector does not support truncating tables");
             return;
         }
 
         assumeTrue(hasBehavior(SUPPORTS_CREATE_TABLE));
 
-        try (TestTable table = newTrinoTable("test_truncate", "AS SELECT * FROM \"region\"")) {
+        try (TestTable table = newTrinoTable("test_truncate", "AS SELECT * FROM region")) {
             assertUpdate("TRUNCATE TABLE " + table.getName());
             assertThat(query("TABLE " + table.getName()))
                     .returnsEmptyResult();
@@ -315,7 +315,7 @@ public abstract class BaseConnectorSmokeTest
     {
         if (!hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
             // Note this change is a no-op, if actually run
-            assertQueryFails("UPDATE \"nation\" SET \"nationkey\" = \"nationkey\" + \"regionkey\" WHERE \"regionkey\" < 1", MODIFYING_ROWS_MESSAGE);
+            assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", MODIFYING_ROWS_MESSAGE);
             return;
         }
 
@@ -324,7 +324,7 @@ public abstract class BaseConnectorSmokeTest
         }
 
         try (TemporaryRelation table = createTestTableForWrites("test_update_")) {
-            assertUpdate("INSERT INTO " + table.getName() + " (a, b) SELECT \"regionkey\", \"regionkey\" * 2.5 FROM \"region\"", "SELECT count(*) FROM \"region\"");
+            assertUpdate("INSERT INTO " + table.getName() + " (a, b) SELECT regionkey, regionkey * 2.5 FROM region", "SELECT count(*) FROM region");
             assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches(expectedValues("(0, 0.0), (1, 2.5), (2, 5.0), (3, 7.5), (4, 10.0)"));
 
@@ -339,8 +339,9 @@ public abstract class BaseConnectorSmokeTest
     {
         if (!hasBehavior(SUPPORTS_MERGE)) {
             // Note this change is a no-op, if actually run
-            assertQueryFails("MERGE INTO \"nation\" n USING \"nation\" s ON (n.\"nationkey\" = s.\"nationkey\") " +
-                            "WHEN MATCHED AND n.\"regionkey\" < 1 THEN UPDATE SET \"nationkey\" = 5",
+            assertQueryFails(
+                    "MERGE INTO nation n USING nation s ON (n.nationkey = s.nationkey) " +
+                            "WHEN MATCHED AND n.regionkey < 1 THEN UPDATE SET nationkey = 5",
                     MODIFYING_ROWS_MESSAGE);
             return;
         }
@@ -350,7 +351,7 @@ public abstract class BaseConnectorSmokeTest
         }
 
         try (TemporaryRelation table = createTestTableForWrites("test_merge_")) {
-            assertUpdate("INSERT INTO " + table.getName() + " (a, b) SELECT \"regionkey\", \"regionkey\" * 2.5 FROM \"region\"", "SELECT count(*) FROM \"region\"");
+            assertUpdate("INSERT INTO " + table.getName() + " (a, b) SELECT regionkey, regionkey * 2.5 FROM region", "SELECT count(*) FROM region");
             assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches(expectedValues("(0, 0.0), (1, 2.5), (2, 5.0), (3, 7.5), (4, 10.0)"));
 
@@ -400,7 +401,7 @@ public abstract class BaseConnectorSmokeTest
         assertThat(query(newSession, "SHOW SCHEMAS"))
                 .skippingTypesCheck()
                 .containsAll(format("VALUES '%s'", schemaName));
-        assertUpdate(newSession, "DROP SCHEMA \"" + schemaName + "\"");
+        assertUpdate(newSession, "DROP SCHEMA " + schemaName);
     }
 
     @Test
@@ -421,10 +422,10 @@ public abstract class BaseConnectorSmokeTest
         String schemaName = "test_rename_schema_" + randomNameSuffix();
         try {
             assertUpdate(createSchemaSql(schemaName));
-            assertUpdate("ALTER SCHEMA \"" + schemaName + "\" RENAME TO " + schemaName + "_renamed");
+            assertUpdate("ALTER SCHEMA " + schemaName + " RENAME TO " + schemaName + "_renamed");
         }
         finally {
-            assertUpdate("DROP SCHEMA IF EXISTS \"" + schemaName + "\"");
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
             assertUpdate("DROP SCHEMA IF EXISTS " + schemaName + "_renamed");
         }
     }
@@ -434,7 +435,7 @@ public abstract class BaseConnectorSmokeTest
             throws Exception
     {
         if (!hasBehavior(SUPPORTS_RENAME_TABLE)) {
-            assertQueryFails("ALTER TABLE \"nation\" RENAME TO test_rename_table_" + randomNameSuffix(), "This connector does not support renaming tables");
+            assertQueryFails("ALTER TABLE nation RENAME TO test_rename_table_" + randomNameSuffix(), "This connector does not support renaming tables");
             return;
         }
 
@@ -479,7 +480,7 @@ public abstract class BaseConnectorSmokeTest
             if (!hasBehavior(SUPPORTS_RENAME_TABLE)) {
                 abort("Skipping since rename table is not supported at all");
             }
-            assertQueryFails("ALTER TABLE \"nation\" RENAME TO other_schema.test_rename_table_" + randomNameSuffix(), "This connector does not support renaming tables across schemas");
+            assertQueryFails("ALTER TABLE nation RENAME TO other_schema.test_rename_table_" + randomNameSuffix(), "This connector does not support renaming tables across schemas");
             return;
         }
 
@@ -525,23 +526,10 @@ public abstract class BaseConnectorSmokeTest
         assertUpdate("DROP SCHEMA " + schemaName);
     }
 
-    /**
-     * This seemingly duplicate test of {@link BaseConnectorTest#testShowInformationSchemaTables()}
-     * is used in the context of this class in order to be able to test
-     * against a wider range of connector configurations.
-     */
-    @Test
-    public void testShowInformationSchemaTables()
-    {
-        assertThat(query("SHOW TABLES FROM \"information_schema\""))
-                .skippingTypesCheck()
-                .containsAll("VALUES 'applicable_roles', 'columns', 'enabled_roles', 'roles', 'schemata', 'table_privileges', 'tables', 'views'");
-    }
-
     @Test
     public void testSelectInformationSchemaTables()
     {
-        assertThat(query(format("SELECT \"table_name\" FROM \"information_schema\".\"tables\" WHERE \"table_schema\" = '%s'", getSession().getSchema().orElseThrow())))
+        assertThat(query(format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", getSession().getSchema().orElseThrow())))
                 .skippingTypesCheck()
                 .containsAll("VALUES 'nation', 'region'");
     }
@@ -549,7 +537,7 @@ public abstract class BaseConnectorSmokeTest
     @Test
     public void testSelectInformationSchemaColumns()
     {
-        assertThat(query(format("SELECT \"column_name\" FROM \"information_schema\".\"columns\" WHERE \"table_schema\" = '%s' AND \"table_name\" = 'region'", getSession().getSchema().orElseThrow())))
+        assertThat(query(format("SELECT column_name FROM information_schema.columns WHERE table_schema = '%s' AND table_name = 'region'", getSession().getSchema().orElseThrow())))
                 .skippingTypesCheck()
                 .matches("VALUES 'regionkey', 'name', 'comment'");
     }
@@ -558,49 +546,41 @@ public abstract class BaseConnectorSmokeTest
     @Test
     public void testShowCreateTable()
     {
-        assertThat((String) computeScalar("SHOW CREATE TABLE \"region\""))
+        assertThat((String) computeScalar("SHOW CREATE TABLE region"))
                 .matches(format(
-                        "CREATE TABLE %s.%s.\"region\" \\(\n" +
-                                "   %s (bigint|decimal\\(19, 0\\)),\n" +
-                                "   %s varchar(\\(\\d+\\))?,\n" +
-                                "   %s varchar(\\(\\d+\\))?\n" +
+                        "CREATE TABLE %s.%s.region \\(\n" +
+                                "   regionkey (bigint|decimal\\(19, 0\\)),\n" +
+                                "   name varchar(\\(\\d+\\))?,\n" +
+                                "   comment varchar(\\(\\d+\\))?\n" +
                                 "\\)",
                         Pattern.quote(getSession().getCatalog().orElseThrow()),
-                        Pattern.quote(getSession().getSchema().orElseThrow()),
-                        requiresDelimiters("regionkey") ? "\"regionkey\"" : "regionkey",
-                        requiresDelimiters("name") ? "\"name\"" : "name",
-                        requiresDelimiters("comment") ? "\"comment\"" : "comment"));
+                        Pattern.quote(getSession().getSchema().orElseThrow())));
     }
 
     @Test
     public void testView()
     {
         if (!hasBehavior(SUPPORTS_CREATE_VIEW)) {
-            assertQueryFails("CREATE VIEW nation_v AS SELECT * FROM \"nation\"", "This connector does not support creating views");
+            assertQueryFails("CREATE VIEW nation_v AS SELECT * FROM nation", "This connector does not support creating views");
             return;
         }
 
         String catalogName = getSession().getCatalog().orElseThrow();
         String schemaName = getSession().getSchema().orElseThrow();
         String viewName = "test_view_" + randomNameSuffix();
-        assertUpdate("CREATE VIEW " + viewName + " AS SELECT * FROM \"nation\"");
+        assertUpdate("CREATE VIEW " + viewName + " AS SELECT * FROM nation");
 
         assertThat(query("SELECT * FROM " + viewName))
                 .skippingTypesCheck()
-                .matches("SELECT * FROM \"nation\"");
+                .matches("SELECT * FROM nation");
 
         assertThat(((String) computeScalar("SHOW CREATE VIEW " + viewName)))
-                .matches("""
-                        (?s)\
-                        CREATE VIEW %s.%s.%s\
-                        .* AS
-                        SELECT \\*
-                        FROM
-                          "nation"\
-                        """.formatted(
-                                catalogName,
-                                schemaName,
-                                viewName));
+                .matches("(?s)" +
+                        "CREATE VIEW \\Q" + catalogName + "." + schemaName + "." + viewName + "\\E" +
+                        ".* AS\n" +
+                        "SELECT \\*\n" +
+                        "FROM\n" +
+                        "  nation");
 
         assertUpdate("DROP  VIEW " + viewName);
     }
@@ -609,7 +589,7 @@ public abstract class BaseConnectorSmokeTest
     public void testMaterializedView()
     {
         if (!hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW)) {
-            assertQueryFails("CREATE MATERIALIZED VIEW nation_mv AS SELECT * FROM \"nation\"", "This connector does not support creating materialized views");
+            assertQueryFails("CREATE MATERIALIZED VIEW nation_mv AS SELECT * FROM nation", "This connector does not support creating materialized views");
             return;
         }
 
@@ -617,26 +597,21 @@ public abstract class BaseConnectorSmokeTest
         String schemaName = getSession().getSchema().orElseThrow();
         String viewName = "test_materialized_view_" + randomNameSuffix();
         try {
-            assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM \"nation\"");
+            assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
 
             // reading
             assertThat(query("SELECT * FROM " + viewName))
                     .skippingTypesCheck()
-                    .matches("SELECT * FROM \"nation\"");
+                    .matches("SELECT * FROM nation");
 
             // details
             assertThat(((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + viewName)))
-                    .matches("""
-                            (?s)\
-                            CREATE MATERIALIZED VIEW %s.%s.%s\
-                            .* AS
-                            SELECT \\*
-                            FROM
-                              "nation"\
-                            """.formatted(
-                                    catalogName,
-                                    schemaName,
-                                    viewName));
+                    .matches("(?s)" +
+                            "CREATE MATERIALIZED VIEW \\Q" + catalogName + "." + schemaName + "." + viewName + "\\E" +
+                            ".* AS\n" +
+                            "SELECT \\*\n" +
+                            "FROM\n" +
+                            "  nation");
 
             // information_schema.tables (no filtering on table_name so that ConnectorMetadata.listViews is exercised)
             assertThat(query("SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '" + schemaName + "'"))
@@ -662,7 +637,7 @@ public abstract class BaseConnectorSmokeTest
     {
         if (!hasBehavior(SUPPORTS_COMMENT_ON_VIEW)) {
             if (hasBehavior(SUPPORTS_CREATE_VIEW)) {
-                try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view", "SELECT * FROM \"region\"")) {
+                try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view", "SELECT * FROM region")) {
                     assertQueryFails("COMMENT ON VIEW " + view.getName() + " IS 'new comment'", "This connector does not support setting view comments");
                 }
                 return;
@@ -670,25 +645,25 @@ public abstract class BaseConnectorSmokeTest
             abort("Skipping as connector does not support CREATE VIEW");
         }
 
-        try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view", "SELECT * FROM \"region\"")) {
+        try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view", "SELECT * FROM region")) {
             // comment set
             assertUpdate("COMMENT ON VIEW " + view.getName() + " IS 'new comment'");
             assertThat((String) computeScalar("SHOW CREATE VIEW " + view.getName())).contains("COMMENT 'new comment'");
-            assertThat(getTableComment(canonicalize(view.getName()))).isEqualTo("new comment");
+            assertThat(getTableComment(view.getName())).isEqualTo("new comment");
 
             // comment updated
             assertUpdate("COMMENT ON VIEW " + view.getName() + " IS 'updated comment'");
-            assertThat(getTableComment(canonicalize(view.getName()))).isEqualTo("updated comment");
+            assertThat(getTableComment(view.getName())).isEqualTo("updated comment");
 
             // comment set to empty
             assertUpdate("COMMENT ON VIEW " + view.getName() + " IS ''");
-            assertThat(getTableComment(canonicalize(view.getName()))).isEmpty();
+            assertThat(getTableComment(view.getName())).isEmpty();
 
             // comment deleted
             assertUpdate("COMMENT ON VIEW " + view.getName() + " IS 'a comment'");
-            assertThat(getTableComment(canonicalize(view.getName()))).isEqualTo("a comment");
+            assertThat(getTableComment(view.getName())).isEqualTo("a comment");
             assertUpdate("COMMENT ON VIEW " + view.getName() + " IS NULL");
-            assertThat(getTableComment(canonicalize(view.getName()))).isNull();
+            assertThat(getTableComment(view.getName())).isNull();
         }
     }
 
@@ -697,7 +672,7 @@ public abstract class BaseConnectorSmokeTest
     {
         if (!hasBehavior(SUPPORTS_COMMENT_ON_VIEW_COLUMN)) {
             if (hasBehavior(SUPPORTS_CREATE_VIEW)) {
-                try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view_column", "SELECT * FROM \"region\"")) {
+                try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view_column", "SELECT * FROM region")) {
                     assertQueryFails("COMMENT ON COLUMN " + view.getName() + ".regionkey IS 'new region key comment'", "This connector does not support setting view column comments");
                 }
                 return;
@@ -706,7 +681,7 @@ public abstract class BaseConnectorSmokeTest
         }
 
         String viewColumnName = "regionkey";
-        try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view_column", "SELECT * FROM \"region\"")) {
+        try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view_column", "SELECT * FROM region")) {
             // comment set
             assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS 'new region key comment'");
             assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("new region key comment");
@@ -732,7 +707,7 @@ public abstract class BaseConnectorSmokeTest
             if (hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW)) {
                 String viewName = "test_materialized_view_" + randomNameSuffix();
                 try {
-                    assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM \"nation\"");
+                    assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
                     assertQueryFails("COMMENT ON COLUMN " + viewName + ".regionkey IS 'new region key comment'", "This connector does not support setting materialized view column comments");
                 }
                 finally {
@@ -745,14 +720,14 @@ public abstract class BaseConnectorSmokeTest
 
         String viewName = "test_materialized_view_" + randomNameSuffix();
         try {
-            assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM \"nation\"");
+            assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
 
             // comment set
-            assertUpdate("COMMENT ON COLUMN " + viewName + ".\"regionkey\" IS 'new region key comment'");
+            assertUpdate("COMMENT ON COLUMN " + viewName + ".regionkey IS 'new region key comment'");
             assertThat(getColumnComment(viewName, "regionkey")).isEqualTo("new region key comment");
 
             // comment updated
-            assertUpdate("COMMENT ON COLUMN " + viewName + ".\"regionkey\" IS 'updated region key comment'");
+            assertUpdate("COMMENT ON COLUMN " + viewName + ".regionkey IS 'updated region key comment'");
             assertThat(getColumnComment(viewName, "regionkey")).isEqualTo("updated region key comment");
 
             // refresh materialized view
@@ -760,11 +735,11 @@ public abstract class BaseConnectorSmokeTest
             assertThat(getColumnComment(viewName, "regionkey")).isEqualTo("updated region key comment");
 
             // comment set to empty
-            assertUpdate("COMMENT ON COLUMN " + viewName + ".\"regionkey\" IS ''");
+            assertUpdate("COMMENT ON COLUMN " + viewName + ".regionkey IS ''");
             assertThat(getColumnComment(viewName, "regionkey")).isEqualTo("");
 
             // comment deleted
-            assertUpdate("COMMENT ON COLUMN " + viewName + ".\"regionkey\" IS NULL");
+            assertUpdate("COMMENT ON COLUMN " + viewName + ".regionkey IS NULL");
             assertThat(getColumnComment(viewName, "regionkey")).isEqualTo(null);
         }
         finally {

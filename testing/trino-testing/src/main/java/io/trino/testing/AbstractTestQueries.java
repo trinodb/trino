@@ -26,7 +26,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.BaseConnectorTest.skipTestUnless;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.tpch.TpchTable.NATION;
@@ -36,7 +35,6 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class AbstractTestQueries
         extends AbstractTestQueryFramework
@@ -46,36 +44,34 @@ public abstract class AbstractTestQueries
     @Test
     public void testAggregationOverUnknown()
     {
-        assertQuery("""
-                SELECT "clerk", min("totalprice"), max("totalprice"), min(%1$s), max(%1$s) \
-                FROM (SELECT "clerk", "totalprice", null AS %1$s FROM "orders") \
-                GROUP BY "clerk"\
-                """.formatted(canonicalize("nullvalue")));
+        assertQuery("SELECT clerk, min(totalprice), max(totalprice), min(nullvalue), max(nullvalue) " +
+                "FROM (SELECT clerk, totalprice, null AS nullvalue FROM orders) " +
+                "GROUP BY clerk");
     }
 
     @Test
     public void testLimitMax()
     {
         // max int
-        assertQuery("SELECT \"orderkey\" FROM \"orders\" LIMIT " + Integer.MAX_VALUE);
-        assertQuery("SELECT \"orderkey\" FROM \"orders\" ORDER BY \"orderkey\" LIMIT " + Integer.MAX_VALUE);
+        assertQuery("SELECT orderkey FROM orders LIMIT " + Integer.MAX_VALUE);
+        assertQuery("SELECT orderkey FROM orders ORDER BY orderkey LIMIT " + Integer.MAX_VALUE);
 
         // max long; a connector may attempt a pushdown while remote system may not accept such high limit values
-        assertQuery("SELECT \"nationkey\" FROM \"nation\" LIMIT " + Long.MAX_VALUE, "SELECT \"nationkey\" FROM \"nation\"");
+        assertQuery("SELECT nationkey FROM nation LIMIT " + Long.MAX_VALUE, "SELECT nationkey FROM nation");
         // Currently this is not supported but once it's supported, it should be tested with connectors as well
-        assertQueryFails("SELECT \"nationkey\" FROM \"nation\" ORDER BY \"nationkey\" LIMIT " + Long.MAX_VALUE, "ORDER BY LIMIT > 2147483647 is not supported");
+        assertQueryFails("SELECT nationkey FROM nation ORDER BY nationkey LIMIT " + Long.MAX_VALUE, "ORDER BY LIMIT > 2147483647 is not supported");
     }
 
     @Test
     public void testComplexQuery()
     {
         assertQueryOrdered(
-                "SELECT sum(\"orderkey\"), row_number() OVER (ORDER BY \"orderkey\") " +
-                        "FROM \"orders\" " +
-                        "WHERE \"orderkey\" <= 10 " +
-                        "GROUP BY \"orderkey\" " +
-                        "HAVING sum(\"orderkey\") >= 3 " +
-                        "ORDER BY \"orderkey\" DESC " +
+                "SELECT sum(orderkey), row_number() OVER (ORDER BY orderkey) " +
+                        "FROM orders " +
+                        "WHERE orderkey <= 10 " +
+                        "GROUP BY orderkey " +
+                        "HAVING sum(orderkey) >= 3 " +
+                        "ORDER BY orderkey DESC " +
                         "LIMIT 3",
                 "VALUES (7, 5), (6, 4), (5, 3)");
     }
@@ -83,39 +79,39 @@ public abstract class AbstractTestQueries
     @Test
     public void testDistinctMultipleFields()
     {
-        assertQuery("SELECT DISTINCT \"custkey\", \"orderstatus\" FROM \"orders\"");
+        assertQuery("SELECT DISTINCT custkey, orderstatus FROM orders");
     }
 
     @Test
     public void testArithmeticNegation()
     {
-        assertQuery("SELECT -\"custkey\" FROM \"orders\"");
+        assertQuery("SELECT -custkey FROM orders");
     }
 
     @Test
     public void testDistinct()
     {
-        assertQuery("SELECT DISTINCT \"custkey\" FROM \"orders\"");
+        assertQuery("SELECT DISTINCT custkey FROM orders");
     }
 
     @Test
     public void testDistinctHaving()
     {
-        assertQuery("SELECT COUNT(DISTINCT \"clerk\") AS count " +
-                "FROM \"orders\" " +
-                "GROUP BY \"orderdate\" " +
-                "HAVING COUNT(DISTINCT \"clerk\") > 1");
+        assertQuery("SELECT COUNT(DISTINCT clerk) AS count " +
+                "FROM orders " +
+                "GROUP BY orderdate " +
+                "HAVING COUNT(DISTINCT clerk) > 1");
     }
 
     @Test
     public void testDistinctLimit()
     {
         assertQuery("" +
-                "SELECT DISTINCT \"orderstatus\", \"custkey\" " +
-                "FROM (SELECT \"orderstatus\", \"custkey\" FROM \"orders\" ORDER BY \"orderkey\" LIMIT 10) " +
+                "SELECT DISTINCT orderstatus, custkey " +
+                "FROM (SELECT orderstatus, custkey FROM orders ORDER BY orderkey LIMIT 10) " +
                 "LIMIT 10");
-        assertQuery("SELECT COUNT(*) FROM (SELECT DISTINCT \"orderstatus\", \"custkey\" FROM \"orders\" LIMIT 10)");
-        assertQuery("SELECT DISTINCT \"custkey\", \"orderstatus\" FROM \"orders\" WHERE \"custkey\" = 1268 LIMIT 2");
+        assertQuery("SELECT COUNT(*) FROM (SELECT DISTINCT orderstatus, custkey FROM orders LIMIT 10)");
+        assertQuery("SELECT DISTINCT custkey, orderstatus FROM orders WHERE custkey = 1268 LIMIT 2");
 
         assertQuery(
                 "" +
@@ -128,55 +124,55 @@ public abstract class AbstractTestQueries
     @Test
     public void testDistinctWithOrderBy()
     {
-        assertQueryOrdered("SELECT DISTINCT \"custkey\" FROM \"orders\" ORDER BY \"custkey\" LIMIT 10");
+        assertQueryOrdered("SELECT DISTINCT custkey FROM orders ORDER BY custkey LIMIT 10");
     }
 
     @Test
     public void testRepeatedAggregations()
     {
-        assertQuery("SELECT SUM(\"orderkey\"), SUM(\"orderkey\") FROM \"orders\"");
+        assertQuery("SELECT SUM(orderkey), SUM(orderkey) FROM orders");
     }
 
     @Test
     public void testLimit()
     {
-        MaterializedResult actual = computeActual("SELECT \"orderkey\" FROM \"orders\" LIMIT 10");
-        MaterializedResult all = computeExpected("SELECT \"orderkey\" FROM \"orders\"", actual.getTypes());
+        MaterializedResult actual = computeActual("SELECT orderkey FROM orders LIMIT 10");
+        MaterializedResult all = computeExpected("SELECT orderkey FROM orders", actual.getTypes());
         assertThat(actual.getMaterializedRows()).hasSize(10);
         assertContains(all, actual);
 
         actual = computeActual(
-                "(SELECT \"orderkey\", \"custkey\" FROM \"orders\" ORDER BY \"orderkey\") UNION ALL " +
-                        "SELECT \"orderkey\", \"custkey\" FROM \"orders\" WHERE \"orderstatus\" = 'F' UNION ALL " +
-                        "(SELECT \"orderkey\", \"custkey\" FROM \"orders\" ORDER BY \"orderkey\" LIMIT 20) UNION ALL " +
-                        "(SELECT \"orderkey\", \"custkey\" FROM \"orders\" LIMIT 5) UNION ALL " +
-                        "SELECT \"orderkey\", \"custkey\" FROM \"orders\" LIMIT 10");
-        all = computeExpected("SELECT \"orderkey\", \"custkey\" FROM \"orders\"", actual.getTypes());
+                "(SELECT orderkey, custkey FROM orders ORDER BY orderkey) UNION ALL " +
+                        "SELECT orderkey, custkey FROM orders WHERE orderstatus = 'F' UNION ALL " +
+                        "(SELECT orderkey, custkey FROM orders ORDER BY orderkey LIMIT 20) UNION ALL " +
+                        "(SELECT orderkey, custkey FROM orders LIMIT 5) UNION ALL " +
+                        "SELECT orderkey, custkey FROM orders LIMIT 10");
+        all = computeExpected("SELECT orderkey, custkey FROM orders", actual.getTypes());
         assertThat(actual.getMaterializedRows()).hasSize(10);
         assertContains(all, actual);
 
         // with ORDER BY
-        assertQuery("SELECT \"name\" FROM \"nation\" ORDER BY \"nationkey\" LIMIT 3");
-        assertQuery("SELECT \"name\" FROM \"nation\" ORDER BY \"regionkey\" LIMIT 5"); // query is deterministic because first peer group in regionkey order has 5 rows
+        assertQuery("SELECT name FROM nation ORDER BY nationkey LIMIT 3");
+        assertQuery("SELECT name FROM nation ORDER BY regionkey LIMIT 5"); // query is deterministic because first peer group in regionkey order has 5 rows
 
         // global aggregation, LIMIT should be removed (and connector should not prevent this from happening)
-        assertQuery("SELECT max(\"regionkey\") FROM \"nation\" LIMIT 5");
+        assertQuery("SELECT max(regionkey) FROM nation LIMIT 5");
 
         // with aggregation
-        assertQuery("SELECT \"regionkey\", max(\"name\") FROM \"nation\" GROUP BY \"regionkey\" LIMIT 5");
+        assertQuery("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5");
 
         // with DISTINCT (can be expressed as DistinctLimitNode and handled differently)
-        assertQuery("SELECT DISTINCT \"regionkey\" FROM \"nation\" LIMIT 5");
+        assertQuery("SELECT DISTINCT regionkey FROM nation LIMIT 5");
 
         // with filter and aggregation
-        assertQuery("SELECT \"regionkey\", count(*) FROM \"nation\" WHERE \"name\" < 'EGYPT' GROUP BY \"regionkey\" LIMIT 3");
+        assertQuery("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3");
     }
 
     @Test
     public void testLimitWithAggregation()
     {
-        MaterializedResult actual = computeActual("SELECT \"custkey\", SUM(\"orderkey\") FROM \"orders\" GROUP BY \"custkey\" LIMIT 10");
-        MaterializedResult all = computeExpected("SELECT \"custkey\", SUM(\"orderkey\") FROM \"orders\" GROUP BY \"custkey\"", actual.getTypes());
+        MaterializedResult actual = computeActual("SELECT custkey, SUM(orderkey) FROM orders GROUP BY custkey LIMIT 10");
+        MaterializedResult all = computeExpected("SELECT custkey, SUM(orderkey) FROM orders GROUP BY custkey", actual.getTypes());
 
         assertThat(actual.getMaterializedRows()).hasSize(10);
         assertContains(all, actual);
@@ -185,8 +181,8 @@ public abstract class AbstractTestQueries
     @Test
     public void testLimitInInlineView()
     {
-        MaterializedResult actual = computeActual("SELECT \"orderkey\" FROM (SELECT \"orderkey\" FROM \"orders\" LIMIT 100) T LIMIT 10");
-        MaterializedResult all = computeExpected("SELECT \"orderkey\" FROM \"orders\"", actual.getTypes());
+        MaterializedResult actual = computeActual("SELECT orderkey FROM (SELECT orderkey FROM orders LIMIT 100) T LIMIT 10");
+        MaterializedResult all = computeExpected("SELECT orderkey FROM orders", actual.getTypes());
 
         assertThat(actual.getMaterializedRows()).hasSize(10);
         assertContains(all, actual);
@@ -195,38 +191,38 @@ public abstract class AbstractTestQueries
     @Test
     public void testCountAll()
     {
-        assertQuery("SELECT COUNT(*) FROM \"orders\"");
-        assertQuery("SELECT COUNT(42) FROM \"orders\"", "SELECT COUNT(*) FROM \"orders\"");
-        assertQuery("SELECT COUNT(42 + 42) FROM \"orders\"", "SELECT COUNT(*) FROM \"orders\"");
-        assertQuery("SELECT COUNT(null) FROM \"orders\"", "SELECT 0");
+        assertQuery("SELECT COUNT(*) FROM orders");
+        assertQuery("SELECT COUNT(42) FROM orders", "SELECT COUNT(*) FROM orders");
+        assertQuery("SELECT COUNT(42 + 42) FROM orders", "SELECT COUNT(*) FROM orders");
+        assertQuery("SELECT COUNT(null) FROM orders", "SELECT 0");
     }
 
     @Test
     public void testCountColumn()
     {
-        assertQuery("SELECT COUNT(\"orderkey\") FROM \"orders\"");
-        assertQuery("SELECT COUNT(\"orderstatus\") FROM \"orders\"");
-        assertQuery("SELECT COUNT(\"orderdate\") FROM \"orders\"");
-        assertQuery("SELECT COUNT(1) FROM \"orders\"");
+        assertQuery("SELECT COUNT(orderkey) FROM orders");
+        assertQuery("SELECT COUNT(orderstatus) FROM orders");
+        assertQuery("SELECT COUNT(orderdate) FROM orders");
+        assertQuery("SELECT COUNT(1) FROM orders");
 
-        assertQuery("SELECT COUNT(NULLIF(\"orderstatus\", 'F')) FROM \"orders\"");
-        assertQuery("SELECT COUNT(NULL) FROM \"orders\"", "VALUES 0");
-        assertQuery("SELECT COUNT(CAST(NULL AS BIGINT)) FROM \"orders\"", "VALUES 0");
+        assertQuery("SELECT COUNT(NULLIF(orderstatus, 'F')) FROM orders");
+        assertQuery("SELECT COUNT(NULL) FROM orders", "VALUES 0");
+        assertQuery("SELECT COUNT(CAST(NULL AS BIGINT)) FROM orders", "VALUES 0");
     }
 
     @Test
     public void testSelectWithComparison()
     {
-        assertQuery("SELECT \"orderkey\" FROM \"orders\" WHERE \"totalprice\" < \"custkey\"");
+        assertQuery("SELECT orderkey FROM orders WHERE totalprice < custkey");
     }
 
     @Test
     public void testIn()
     {
-        assertQuery("SELECT \"orderkey\" FROM \"orders\" WHERE \"orderkey\" IN (1, 2, 3)");
-        assertQuery("SELECT \"orderkey\" FROM \"orders\" WHERE \"orderkey\" IN (1.5, 2.3)", "SELECT \"orderkey\" FROM \"orders\" LIMIT 0"); // H2 incorrectly matches rows
-        assertQuery("SELECT \"orderkey\" FROM \"orders\" WHERE \"orderkey\" IN (1, 2E0, 3)");
-        assertQuery("SELECT \"orderkey\" FROM \"orders\" WHERE \"totalprice\" IN (1, 2, 3)");
+        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (1, 2, 3)");
+        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (1.5, 2.3)", "SELECT orderkey FROM orders LIMIT 0"); // H2 incorrectly matches rows
+        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (1, 2E0, 3)");
+        assertQuery("SELECT orderkey FROM orders WHERE totalprice IN (1, 2, 3)");
     }
 
     @Test
@@ -237,11 +233,11 @@ public abstract class AbstractTestQueries
                     .map(value -> value * 2) // Make the values discontinuous to avoid getting optimized to a BETWEEN filter
                     .mapToObj(Integer::toString)
                     .collect(joining(", "));
-            assertQuery("SELECT \"orderkey\" FROM \"orders\" WHERE \"orderkey\" IN (" + longValues + ")");
-            assertQuery("SELECT \"orderkey\" FROM \"orders\" WHERE \"orderkey\" NOT IN (" + longValues + ")");
+            assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (" + longValues + ")");
+            assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (" + longValues + ")");
 
-            assertQuery("SELECT \"orderkey\" FROM \"orders\" WHERE \"orderkey\" IN (mod(1000, \"orderkey\"), " + longValues + ")");
-            assertQuery("SELECT \"orderkey\" FROM \"orders\" WHERE \"orderkey\" NOT IN (mod(1000, \"orderkey\"), " + longValues + ")");
+            assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (mod(1000, orderkey), " + longValues + ")");
+            assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (mod(1000, orderkey), " + longValues + ")");
         }
     }
 
@@ -258,20 +254,6 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testShowSchemasFrom()
-    {
-        MaterializedResult result = computeActual(format("SHOW SCHEMAS FROM %s", getSession().getCatalog().get()));
-        assertThat(result.getOnlyColumnAsSet()).contains(getSession().getSchema().get(), INFORMATION_SCHEMA);
-    }
-
-    @Test
-    public void testShowSchemasLike()
-    {
-        MaterializedResult result = computeActual(format("SHOW SCHEMAS LIKE '%s'", getSession().getSchema().get()));
-        assertThat(result.getOnlyColumnAsSet()).isEqualTo(ImmutableSet.of(getSession().getSchema().get()));
-    }
-
-    @Test
     public void testShowTables()
     {
         Set<String> expectedTables = REQUIRED_TPCH_TABLES.stream()
@@ -283,17 +265,9 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testShowTablesLike()
-    {
-        assertThat(computeActual("SHOW TABLES LIKE 'or%'").getOnlyColumnAsSet())
-                .contains("orders")
-                .allMatch(tableName -> ((String) tableName).startsWith("or"));
-    }
-
-    @Test
     public void testShowColumns()
     {
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM \"orders\"");
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 
         MaterializedResult expectedUnparametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
@@ -329,10 +303,10 @@ public abstract class AbstractTestQueries
     public void testInformationSchemaFiltering()
     {
         assertQuery(
-                "SELECT \"table_name\" FROM \"information_schema\".\"tables\" WHERE \"table_name\" = 'orders' LIMIT 1",
+                "SELECT table_name FROM information_schema.tables WHERE table_name = 'orders' LIMIT 1",
                 "SELECT 'orders' table_name");
         assertQuery(
-                "SELECT \"table_name\" FROM \"information_schema\".\"columns\" WHERE \"table_name\" = 'nation' and \"column_name\" = 'nationkey' LIMIT 1",
+                "SELECT table_name FROM information_schema.columns WHERE data_type = 'bigint' AND table_name = 'nation' and column_name = 'nationkey' LIMIT 1",
                 "SELECT 'nation' table_name");
     }
 
@@ -340,212 +314,97 @@ public abstract class AbstractTestQueries
     public void testInformationSchemaUppercaseName()
     {
         assertQuery(
-                "SELECT \"table_name\" FROM \"information_schema\".\"tables\" WHERE \"table_catalog\" = 'LOCAL'",
+                "SELECT table_name FROM information_schema.tables WHERE table_catalog = 'LOCAL'",
                 "SELECT '' WHERE false");
         assertQuery(
-                "SELECT \"table_name\" FROM \"information_schema\".\"tables\" WHERE \"table_schema\" = 'TINY'",
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'TINY'",
                 "SELECT '' WHERE false");
         assertQuery(
-                "SELECT \"table_name\" FROM \"information_schema\".\"tables\" WHERE \"table_name\" = 'UNKNOW'",
+                "SELECT table_name FROM information_schema.tables WHERE table_name = 'ORDERS'",
                 "SELECT '' WHERE false");
-    }
-
-    @Test
-    public void testJoinWithSubquery()
-    {
-        skipTestUnless(computeActual("SHOW CATALOGS").getOnlyColumnAsSet().contains("tpch"));
-
-        String unDelimitedJoinQuery = """
-                SELECT * FROM (SELECT custkey, count(*) count FROM orders GROUP BY custkey) a \
-                JOIN orders b \
-                ON a.count = b.custkey AND b.totalprice < 1000 \
-                """;
-        String requiredDelimiterJoinQuery = """
-                SELECT * FROM (SELECT "custkey", count(*) count FROM "orders" GROUP BY "custkey") a \
-                JOIN "orders" b \
-                ON a.count = b."custkey" AND b."totalprice" < 1000 \
-                """;
-        String resultQuery = "SELECT * FROM (SELECT custkey, count(*) count FROM tpch.tiny.orders GROUP BY custkey) a JOIN tpch.tiny.orders b ON a.count = b.custkey AND b.totalprice < 1000";
-        assertThat(getQueryRunner().execute(getSession(), requiredDelimiterJoinQuery).getMaterializedRows())
-                .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
-        if (canonicalize("x").equals("x")) {
-            assertThat(getQueryRunner().execute(getSession(), unDelimitedJoinQuery).getMaterializedRows())
-                    .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
-        }
-        //else {
-        //    assertThatThrownBy(() -> getQueryRunner().execute(getSession(), unDelimitedJoinQuery))
-        //            .hasMessage("line 1:52: Table '%s.%s.ORDERS' does not exist".formatted(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow()));
-        //}
-    }
-
-    @Test
-    public void testJoinRequiredDelimiterWithSubquery()
-    {
-        skipTestUnless(computeActual("SHOW CATALOGS").getOnlyColumnAsSet().contains("tpch"));
-
-        String unDelimitedJoinQuery = """
-                        SELECT * FROM (SELECT custkey, count(*) count FROM orders GROUP BY custkey) a \
-                        JOIN tpch.tiny.orders b \
-                        ON a.count = b.custkey AND b.totalprice < 1000 \
-                        """;
-        String fullDelimitedJoinQuery = """
-                        SELECT * FROM (SELECT "custkey", count(*) "count" FROM "orders" GROUP BY "custkey") "a" \
-                        JOIN tpch.tiny.orders "b" \
-                        ON "a"."count" = "b"."custkey" AND "b"."totalprice" < 1000 \
-                        """;
-        String requiredDelimiterJoinQuery = """
-                        SELECT * FROM (SELECT "custkey", count(*) count FROM "orders" GROUP BY "custkey") a \
-                        JOIN tpch.tiny.orders b \
-                        ON %s.%s = b.custkey AND b.totalprice < 1000 \
-                        """.formatted(canonicalize("a"), canonicalize("count"));
-        String leftDelimitedJoinQuery = """
-                        SELECT * FROM (SELECT "custkey", count(*) "count" FROM "orders" GROUP BY "custkey") "a" \
-                        JOIN tpch.tiny.orders b \
-                        ON "a"."count" = b."custkey" AND b."totalprice" < 1000 \
-                        """;
-        String rightDelimitedJoinQuery = """
-                        SELECT * FROM (SELECT "custkey", count(*) count FROM "orders" GROUP BY "custkey") a \
-                        JOIN tpch.tiny.orders "b" \
-                        ON a.count = "b"."custkey" AND "b"."totalprice" < 1000 \
-                        """;
-        String resultQuery = "SELECT * FROM (SELECT custkey, count(*) count FROM tpch.tiny.orders GROUP BY custkey) a JOIN tpch.tiny.orders b ON a.count = b.custkey AND b.totalprice < 1000";
-        assertThat(getQueryRunner().execute(getSession(), fullDelimitedJoinQuery).getMaterializedRows())
-                .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
-        assertThat(getQueryRunner().execute(getSession(), requiredDelimiterJoinQuery).getMaterializedRows())
-                .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
-        assertThat(getQueryRunner().execute(getSession(), leftDelimitedJoinQuery).getMaterializedRows())
-                .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
-        assertThat(getQueryRunner().execute(getSession(), rightDelimitedJoinQuery).getMaterializedRows())
-                .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
-        if (canonicalize("x").equals("x")) {
-            assertThat(getQueryRunner().execute(getSession(), unDelimitedJoinQuery).getMaterializedRows())
-                    .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
-        }
-        else {
-            assertThatThrownBy(() -> getQueryRunner().execute(getSession(), unDelimitedJoinQuery))
-                    .hasMessage("line 1:52: Table '%s.%s.ORDERS' does not exist".formatted(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow()));
-        }
-    }
-
-    @Test
-    public void testJoinRequiredDelimiter()
-    {
-        skipTestUnless(computeActual("SHOW CATALOGS").getOnlyColumnAsSet().contains("tpch"));
-
-        String unDelimitedJoinQuery = "SELECT n.name, r.name FROM nation n LEFT JOIN tpch.tiny.region r ON n.regionkey = r.regionkey ORDER BY n.name LIMIT 1";
-        String fullDelimitedJoinQuery = """
-                        SELECT "n"."name", "r"."name" FROM "nation" "n" LEFT JOIN tpch.tiny.region r ON "n"."regionkey" = "r"."regionkey" ORDER BY "n"."name" LIMIT 1\
-                        """;
-        String requiredDelimiterJoinQuery = """
-                        SELECT n."name", r."name" FROM "nation" n LEFT JOIN tpch.tiny.region r ON n."regionkey" = r."regionkey" ORDER BY n."name" LIMIT 1\
-                        """;
-        String leftDelimitedJoinQuery = """
-                        SELECT "n"."name", r."name" FROM "nation" "n" LEFT JOIN tpch.tiny.region r ON "n"."regionkey" = r."regionkey" ORDER BY "n"."name" LIMIT 1\
-                        """;
-        String rightDelimitedJoinQuery = """
-                        SELECT n."name", "r"."name" FROM "nation" n LEFT JOIN tpch.tiny.region r ON n."regionkey" = "r"."regionkey" ORDER BY n."name" LIMIT 1\
-                        """;
-        String resultQuery = "SELECT n.name, r.name FROM tpch.tiny.nation n LEFT JOIN tpch.tiny.region r ON n.regionkey = r.regionkey ORDER BY n.name LIMIT 1";
-        assertThat(getQueryRunner().execute(getSession(), fullDelimitedJoinQuery).getMaterializedRows())
-                .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
-        assertThat(getQueryRunner().execute(getSession(), requiredDelimiterJoinQuery).getMaterializedRows())
-                .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
-        assertThat(getQueryRunner().execute(getSession(), leftDelimitedJoinQuery).getMaterializedRows())
-                .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
-        assertThat(getQueryRunner().execute(getSession(), rightDelimitedJoinQuery).getMaterializedRows())
-                .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
-        if (canonicalize("x").equals("x")) {
-            assertThat(getQueryRunner().execute(getSession(), unDelimitedJoinQuery).getMaterializedRows())
-                    .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
-        }
-        else {
-            assertThatThrownBy(() -> getQueryRunner().execute(getSession(), unDelimitedJoinQuery))
-                    .hasMessage("line 1:28: Table '%s.%s.NATION' does not exist".formatted(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow()));
-        }
     }
 
     @Test
     public void testTopN()
     {
-        assertQueryOrdered("SELECT n.\"name\", r.\"name\" FROM \"nation\" n LEFT JOIN \"region\" r ON n.\"regionkey\" = r.\"regionkey\" ORDER BY n.\"name\" LIMIT 1");
+        assertQueryOrdered("SELECT n.name, r.name FROM nation n LEFT JOIN region r ON n.regionkey = r.regionkey ORDER BY n.name LIMIT 1");
 
-        assertQueryOrdered("SELECT \"orderkey\" FROM \"orders\" ORDER BY \"orderkey\" LIMIT 10");
-        assertQueryOrdered("SELECT \"orderkey\" FROM \"orders\" ORDER BY \"orderkey\" DESC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10");
+        assertQueryOrdered("SELECT orderkey FROM orders ORDER BY orderkey DESC LIMIT 10");
 
         // multiple sort columns with different sort orders
-        assertQueryOrdered("SELECT \"orderpriority\", \"totalprice\" FROM \"orders\" ORDER BY \"orderpriority\" DESC, \"totalprice\" ASC LIMIT 10");
+        assertQueryOrdered("SELECT orderpriority, totalprice FROM orders ORDER BY orderpriority DESC, totalprice ASC LIMIT 10");
 
         // TopN with Filter
-        assertQueryOrdered("SELECT \"orderkey\" FROM \"orders\" WHERE \"orderkey\" > 10 ORDER BY \"orderkey\" DESC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey FROM orders WHERE orderkey > 10 ORDER BY orderkey DESC LIMIT 10");
 
         // TopN over aggregation column
-        assertQueryOrdered("SELECT sum(\"totalprice\"), \"clerk\" FROM \"orders\" GROUP BY \"clerk\" ORDER BY sum(\"totalprice\") LIMIT 10");
+        assertQueryOrdered("SELECT sum(totalprice), clerk FROM orders GROUP BY clerk ORDER BY sum(totalprice) LIMIT 10");
 
         // TopN over TopN
-        assertQueryOrdered("SELECT \"orderkey\", \"totalprice\" FROM (SELECT \"orderkey\", \"totalprice\" FROM \"orders\" ORDER BY 1, 2 LIMIT 10) ORDER BY 2, 1 LIMIT 5");
+        assertQueryOrdered("SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders ORDER BY 1, 2 LIMIT 10) ORDER BY 2, 1 LIMIT 5");
 
         // TopN over complex query
         assertQueryOrdered(
-                "SELECT \"totalprice_sum\", \"clerk\" " +
-                        "FROM (SELECT SUM(\"totalprice\") as \"totalprice_sum\", \"clerk\" FROM \"orders\" WHERE \"orderpriority\"='1-URGENT' GROUP BY \"clerk\" ORDER BY \"totalprice_sum\" DESC LIMIT 10)" +
-                        "ORDER BY \"clerk\" DESC LIMIT 5");
+                "SELECT totalprice_sum, clerk " +
+                        "FROM (SELECT SUM(totalprice) as totalprice_sum, clerk FROM orders WHERE orderpriority='1-URGENT' GROUP BY clerk ORDER BY totalprice_sum DESC LIMIT 10)" +
+                        "ORDER BY clerk DESC LIMIT 5");
 
         // TopN over aggregation with filter
         assertQueryOrdered(
                 "SELECT * " +
-                        "FROM (SELECT SUM(\"totalprice\") as sum, \"custkey\" AS total FROM \"orders\" GROUP BY \"custkey\" HAVING COUNT(*) > 3) " +
-                        "ORDER BY %s DESC LIMIT 10".formatted(canonicalize("sum")));
+                        "FROM (SELECT SUM(totalprice) as sum, custkey AS total FROM orders GROUP BY custkey HAVING COUNT(*) > 3) " +
+                        "ORDER BY sum DESC LIMIT 10");
     }
 
     @Test
     public void testTopNByMultipleFields()
     {
-        assertQueryOrdered("SELECT \"orderkey\", \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY \"orderkey\" ASC, \"custkey\" ASC LIMIT 10");
-        assertQueryOrdered("SELECT \"orderkey\", \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY \"orderkey\" ASC, \"custkey\" DESC LIMIT 10");
-        assertQueryOrdered("SELECT \"orderkey\", \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY \"orderkey\" DESC, \"custkey\" ASC LIMIT 10");
-        assertQueryOrdered("SELECT \"orderkey\", \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY \"orderkey\" DESC, \"custkey\" DESC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY orderkey ASC, custkey ASC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY orderkey ASC, custkey DESC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY orderkey DESC, custkey ASC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY orderkey DESC, custkey DESC LIMIT 10");
 
         // now try with order by fields swapped
-        assertQueryOrdered("SELECT \"orderkey\", \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY \"custkey\" ASC, \"orderkey\" ASC LIMIT 10");
-        assertQueryOrdered("SELECT \"orderkey\", \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY \"custkey\" ASC, \"orderkey\" DESC LIMIT 10");
-        assertQueryOrdered("SELECT \"orderkey\", \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY \"custkey\" DESC, \"orderkey\" ASC LIMIT 10");
-        assertQueryOrdered("SELECT \"orderkey\", \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY \"custkey\" DESC, \"orderkey\" DESC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY custkey ASC, orderkey ASC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY custkey ASC, orderkey DESC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY custkey DESC, orderkey ASC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY custkey DESC, orderkey DESC LIMIT 10");
 
         // nulls first
-        assertQueryOrdered("SELECT \"orderkey\", \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY nullif(\"orderkey\", 3) ASC NULLS FIRST, \"custkey\" ASC LIMIT 10");
-        assertQueryOrdered("SELECT \"orderkey\", \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY nullif(\"orderkey\", 3) DESC NULLS FIRST, \"custkey\" ASC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) ASC NULLS FIRST, custkey ASC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) DESC NULLS FIRST, custkey ASC LIMIT 10");
 
         // nulls last
-        assertQueryOrdered("SELECT \"orderkey\", \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY nullif(\"orderkey\", 3) ASC NULLS LAST LIMIT 10");
-        assertQueryOrdered("SELECT \"orderkey\", \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY nullif(\"orderkey\", 3) DESC NULLS LAST, \"custkey\" ASC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) ASC NULLS LAST LIMIT 10");
+        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) DESC NULLS LAST, custkey ASC LIMIT 10");
 
         // assure that default is nulls last
         assertQueryOrdered(
-                "SELECT \"orderkey\", \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY nullif(\"orderkey\", 3) ASC, \"custkey\" ASC LIMIT 10",
-                "SELECT \"orderkey\", \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY nullif(\"orderkey\", 3) ASC NULLS LAST, \"custkey\" ASC LIMIT 10");
+                "SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) ASC, custkey ASC LIMIT 10",
+                "SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) ASC NULLS LAST, custkey ASC LIMIT 10");
     }
 
     @Test
     public void testPredicate()
     {
-        // FIXME: I can't pass this test if the table aliases aren't delimited.
         assertQuery("" +
                 "SELECT *\n" +
                 "FROM (\n" +
-                "  SELECT \"orderkey\"+1 AS \"a\" FROM \"orders\" WHERE \"orderstatus\" = 'F' UNION ALL \n" +
-                "  SELECT \"orderkey\" FROM \"orders\" WHERE \"orderkey\" % 2 = 0 UNION ALL \n" +
-                "  (SELECT \"orderkey\"+\"custkey\" FROM \"orders\" ORDER BY \"orderkey\" LIMIT 10)\n" +
+                "  SELECT orderkey+1 AS a FROM orders WHERE orderstatus = 'F' UNION ALL \n" +
+                "  SELECT orderkey FROM orders WHERE orderkey % 2 = 0 UNION ALL \n" +
+                "  (SELECT orderkey+custkey FROM orders ORDER BY orderkey LIMIT 10)\n" +
                 ") \n" +
-                "WHERE \"a\" < 20 OR \"a\" > 100 \n" +
-                "ORDER BY \"a\"");
+                "WHERE a < 20 OR a > 100 \n" +
+                "ORDER BY a");
     }
 
     @Test
     public void testTableSampleBernoulliBoundaryValues()
     {
-        MaterializedResult fullSample = computeActual("SELECT \"orderkey\" FROM \"orders\" TABLESAMPLE BERNOULLI (100)");
-        MaterializedResult emptySample = computeActual("SELECT \"orderkey\" FROM \"orders\" TABLESAMPLE BERNOULLI (0)");
-        MaterializedResult all = computeExpected("SELECT \"orderkey\" FROM \"orders\"", fullSample.getTypes());
+        MaterializedResult fullSample = computeActual("SELECT orderkey FROM orders TABLESAMPLE BERNOULLI (100)");
+        MaterializedResult emptySample = computeActual("SELECT orderkey FROM orders TABLESAMPLE BERNOULLI (0)");
+        MaterializedResult all = computeExpected("SELECT orderkey FROM orders", fullSample.getTypes());
 
         assertContains(all, fullSample);
         assertThat(emptySample.getMaterializedRows()).isEmpty();
@@ -556,10 +415,10 @@ public abstract class AbstractTestQueries
     {
         DescriptiveStatistics stats = new DescriptiveStatistics();
 
-        int total = computeExpected("SELECT \"orderkey\" FROM \"orders\"", ImmutableList.of(BIGINT)).getMaterializedRows().size();
+        int total = computeExpected("SELECT orderkey FROM orders", ImmutableList.of(BIGINT)).getMaterializedRows().size();
 
         for (int i = 0; i < 100; i++) {
-            List<MaterializedRow> values = computeActual("SELECT \"orderkey\" FROM \"orders\" TABLESAMPLE BERNOULLI (50)").getMaterializedRows();
+            List<MaterializedRow> values = computeActual("SELECT orderkey FROM orders TABLESAMPLE BERNOULLI (50)").getMaterializedRows();
 
             assertThat(values.size())
                     .describedAs("TABLESAMPLE produced duplicate rows")
@@ -576,13 +435,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testFilterPushdownWithAggregation()
     {
-        assertQuery("SELECT * FROM (SELECT count(*) FROM \"orders\") WHERE 0=1");
-        assertQuery("SELECT * FROM (SELECT count(*) FROM \"orders\") WHERE null");
-    }
-
-    @Test
-    public void testUnionAllAboveBroadcastJoin()
-    {
-        assertQuery("SELECT COUNT(*) FROM \"region\" r JOIN (SELECT \"nationkey\" FROM \"nation\" UNION ALL SELECT \"nationkey\" as \"key\" FROM \"nation\") n ON r.\"regionkey\" = n.\"nationkey\"", "VALUES 10");
+        assertQuery("SELECT * FROM (SELECT count(*) FROM orders) WHERE 0=1");
+        assertQuery("SELECT * FROM (SELECT count(*) FROM orders) WHERE null");
     }
 }

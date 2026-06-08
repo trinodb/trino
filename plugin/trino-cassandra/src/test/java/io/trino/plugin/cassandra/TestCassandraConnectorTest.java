@@ -254,13 +254,6 @@ public class TestCassandraConnectorTest
     }
 
     @Test
-    @Override // Override because some tests (e.g. testKeyspaceNameAmbiguity) cause table listing failure
-    public void testShowInformationSchemaTables()
-    {
-        executeExclusively(super::testShowInformationSchemaTables);
-    }
-
-    @Test
     @Override // Override because some tests (e.g. testKeyspaceNameAmbiguity, testNativeQueryCaseSensitivity) cause column listing failure
     public void testSelectInformationSchemaColumns()
     {
