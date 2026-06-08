@@ -22,7 +22,6 @@ import io.trino.cli.ClientOptions.ClientResourceEstimate;
 import io.trino.cli.ClientOptions.ClientSessionProperty;
 import io.trino.cli.ClientOptions.ExtraHeader;
 import org.jline.utils.AttributedStringBuilder;
-import org.jline.utils.AttributedStyle;
 import picocli.CommandLine;
 import picocli.CommandLine.IVersionProvider;
 
@@ -82,7 +81,7 @@ public final class Trino
             builder.append(throwable.getClass().getName()).append(": ");
         }
 
-        builder.append(throwable.getMessage(), AttributedStyle.BOLD.foreground(AttributedStyle.RED));
+        builder.append(throwable.getMessage(), Theme.DARK.cliError());
 
         if (debug) {
             String messagePattern = quote(throwable.getClass().getName() + ": " + throwable.getMessage());
