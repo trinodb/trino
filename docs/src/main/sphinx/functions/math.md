@@ -112,6 +112,13 @@ Returns the square root of `x`.
 Returns `x` rounded to integer by dropping digits after decimal point.
 :::
 
+:::{function} truncate(x, d) -> [same as input]
+:noindex: true
+
+Returns `x` truncated to `d` decimal places. `d` can be negative,
+in which case `d` digits to the left of the decimal point are zeroed out.
+:::
+
 :::{function} width_bucket(x, bound1, bound2, n) -> bigint
 Returns the bin number of `x` in an equi-width histogram with the
 specified `bound1` and `bound2` bounds and `n` number of buckets.

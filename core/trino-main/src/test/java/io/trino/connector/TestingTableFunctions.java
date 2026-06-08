@@ -65,10 +65,10 @@ import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.F
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.produced;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.usedInput;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.usedInputAndProduced;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -1252,7 +1252,7 @@ public class TestingTableFunctions
 
             public ConstantFunctionProcessor(Long value, ConstantFunctionSplit split)
             {
-                this.value = nativeValueToBlock(INTEGER, value);
+                this.value = writeNativeValue(INTEGER, value);
                 long count = split.count();
                 this.fullPagesCount = count / PAGE_SIZE;
                 this.reminder = toIntExact(count % PAGE_SIZE);

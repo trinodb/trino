@@ -75,6 +75,7 @@ import static io.trino.sql.tree.ExplainType.Type.LOGICAL;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.QueryTemplate.parameter;
 import static io.trino.tests.QueryTemplate.queryTemplate;
 import static io.trino.tpch.TpchTable.CUSTOMER;
@@ -5596,6 +5597,77 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testShowSchemasLike()
+    {
+        MaterializedResult result = computeActual(format("SHOW SCHEMAS LIKE '%s'", getSession().getSchema().get()));
+        assertThat(result.getOnlyColumnAsSet()).isEqualTo(ImmutableSet.of(getSession().getSchema().get()));
+    }
+
+    @Test
+    public void testShowSchemasFrom()
+    {
+        MaterializedResult result = computeActual(format("SHOW SCHEMAS FROM %s", getSession().getCatalog().get()));
+        assertThat(result.getOnlyColumnAsSet()).contains("information_schema");
+    }
+
+    @Test
+    public void testShowTablesLike()
+    {
+        assertThat(computeActual("SHOW TABLES LIKE 'or%'").getOnlyColumnAsSet())
+                .contains("orders")
+                .allMatch(tableName -> ((String) tableName).startsWith("or"));
+    }
+
+    @Test
+    public void testShowInformationSchemaTables()
+    {
+        assertThat(computeActual("SHOW TABLES FROM information_schema").getOnlyColumnAsSet())
+                .isEqualTo(Set.of("applicable_roles", "columns", "enabled_roles", "roles", "schemata", "table_privileges", "tables", "views"));
+    }
+
+    @Test
+    public void testShowCreateInformationSchema()
+    {
+        assertThat(query("SHOW CREATE SCHEMA information_schema"))
+                .skippingTypesCheck()
+                .matches(format("VALUES 'CREATE SCHEMA %s.information_schema'", getSession().getCatalog().orElseThrow()));
+    }
+
+    @Test
+    public void testShowCreateInformationSchemaTable()
+    {
+        assertQueryFails("SHOW CREATE VIEW information_schema.schemata", "line 1:1: Relation '\\w+.information_schema.schemata' is a table, not a view");
+        assertQueryFails("SHOW CREATE MATERIALIZED VIEW information_schema.schemata", "line 1:1: Relation '\\w+.information_schema.schemata' is a table, not a materialized view");
+
+        assertThat((String) computeScalar("SHOW CREATE TABLE information_schema.schemata"))
+                .isEqualTo("CREATE TABLE " + getSession().getCatalog().orElseThrow() + ".information_schema.schemata (\n" +
+                        "   catalog_name varchar,\n" +
+                        "   schema_name varchar\n" +
+                        ")");
+    }
+
+    @Test
+    public void testSymbolAliasing()
+    {
+        String tableName = "memory.default.test_symbol_aliasing_" + randomNameSuffix();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 foo_1, 2 foo_2_4", 1);
+            assertQuery("SELECT foo_1, foo_2_4 FROM " + tableName, "SELECT 1, 2");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testDropTableIfExists()
+    {
+        assertThat(getQueryRunner().tableExists(getSession(), "test_drop_if_exists")).isFalse();
+        assertUpdate("DROP TABLE IF EXISTS test_drop_if_exists");
+        assertThat(getQueryRunner().tableExists(getSession(), "test_drop_if_exists")).isFalse();
+    }
+
+    @Test
     public void testCast()
     {
         assertQuery("SELECT CAST('1' AS BIGINT)");
@@ -5758,6 +5830,12 @@ public abstract class AbstractTestEngineOnlyQueries
                         "   UNION ALL " +
                         "   SELECT shipdate ds, orderkey FROM lineitem) a " +
                         "JOIN orders o ON (a.orderkey = o.orderkey)");
+    }
+
+    @Test
+    public void testUnionAllAboveBroadcastJoin()
+    {
+        assertQuery("SELECT COUNT(*) FROM region r JOIN (SELECT nationkey FROM nation UNION ALL SELECT nationkey as key FROM nation) n ON r.regionkey = n.nationkey", "VALUES 10");
     }
 
     @Test

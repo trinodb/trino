@@ -68,7 +68,7 @@ jobs:
       fail-fast: ${{ github.event_name == 'merge_group' }}
       matrix:
         include:
-          - { java-version: 25.0.2, cache: 'true', cleanup-node: true }
+          - { java-version: 25.0.3, cache: 'true', cleanup-node: true }
           - { java-version: 26, cache: 'restore', cleanup-node: true }
           - { java-version: 27-ea, cache: 'restore', cleanup-node: true }
     timeout-minutes: 45
@@ -219,7 +219,6 @@ jobs:
         with:
           cache: restore
           cleanup-node: true # fix "No space left on device" error
-          java-version: 25.0.2
       - name: Maven Install
         run: |
           # build everything to make sure dependencies of impacted modules are present
@@ -519,7 +518,6 @@ jobs:
         with:
           cache: restore
           cleanup-node: ${{ format('{0}', matrix.modules == 'plugin/trino-singlestore' || matrix.modules == 'plugin/trino-exasol' || matrix.modules == 'plugin/trino-oracle' || matrix.modules == 'plugin/trino-iceberg' || matrix.modules == 'plugin/trino-lakehouse') }}
-          java-version: ${{ matrix.jdk != '' && matrix.jdk || '25.0.2' }}
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"

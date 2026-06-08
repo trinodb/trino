@@ -13,16 +13,9 @@
  */
 package io.trino.spi.predicate;
 
-import io.trino.spi.block.Block;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import jakarta.annotation.Nullable;
 
-import static io.trino.spi.type.TypeUtils.readNativeValue;
-import static io.trino.spi.type.TypeUtils.writeNativeValue;
-import static java.lang.String.format;
-
-public final class Utils
+final class Utils
 {
     private Utils() {}
 
@@ -30,25 +23,6 @@ public final class Utils
     // are too numerous to inject a type operator cache. Instead, we use a static cache
     // just for this use case.
     static final TypeOperators TUPLE_DOMAIN_TYPE_OPERATORS = new TypeOperators();
-
-    public static Block nativeValueToBlock(Type type, @Nullable Object object)
-    {
-        if (object != null) {
-            Class<?> expectedClass = Primitives.wrap(type.getJavaType());
-            if (!expectedClass.isInstance(object)) {
-                throw new IllegalArgumentException(format("Object '%s' (%s) is not instance of %s", object, object.getClass().getName(), expectedClass.getName()));
-            }
-        }
-        return writeNativeValue(type, object);
-    }
-
-    public static Object blockToNativeValue(Type type, Block block)
-    {
-        if (block.getPositionCount() != 1) {
-            throw new IllegalArgumentException("Block should have exactly one position, but has: " + block.getPositionCount());
-        }
-        return readNativeValue(type, block, 0);
-    }
 
     static RuntimeException handleThrowable(Throwable throwable)
     {

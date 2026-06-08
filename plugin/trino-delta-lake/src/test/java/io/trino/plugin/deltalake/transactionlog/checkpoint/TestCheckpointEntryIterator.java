@@ -525,7 +525,7 @@ public class TestCheckpointEntryIterator
                         .collect(toImmutableMap("intcol%s"::formatted, _ -> random.nextLong(0, 1000))))
                 .putAll(IntStream.rangeClosed(1, countStringColumns)
                         .boxed()
-                        .collect(toImmutableMap("stringcol%s"::formatted, _ -> "A".repeat(random.nextInt(1, 10)) + UUID.randomUUID())))
+                        .collect(toImmutableMap("stringcol%s"::formatted, _ -> utf8Slice("A".repeat(random.nextInt(1, 10)) + UUID.randomUUID()))))
                 .buildOrThrow();
         Map<String, Object> maxValues = ImmutableMap.<String, Object>builder()
                 .putAll(IntStream.rangeClosed(1, countIntegerColumns)
@@ -533,7 +533,7 @@ public class TestCheckpointEntryIterator
                         .collect(toImmutableMap("intcol%s"::formatted, _ -> 1000L + random.nextLong(0, 1000))))
                 .putAll(IntStream.rangeClosed(1, countStringColumns)
                         .boxed()
-                        .collect(toImmutableMap("stringcol%s"::formatted, _ -> "Z".repeat(random.nextInt(1, 10)) + UUID.randomUUID())))
+                        .collect(toImmutableMap("stringcol%s"::formatted, _ -> utf8Slice("Z".repeat(random.nextInt(1, 10)) + UUID.randomUUID()))))
                 .buildOrThrow();
         Map<String, Object> nullCount = ImmutableMap.<String, Object>builder()
                 .putAll(IntStream.rangeClosed(1, countIntegerColumns)

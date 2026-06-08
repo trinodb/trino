@@ -25,7 +25,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
-import static io.trino.spi.block.BlockUtil.checkReadablePosition;
+import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.compactOffsets;
@@ -96,7 +96,7 @@ public final class VariableWidthBlock
      */
     public int getRawSliceOffset(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         return getPositionOffset(position);
     }
 
@@ -107,7 +107,7 @@ public final class VariableWidthBlock
 
     public int getSliceLength(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         return getPositionOffset(position + 1) - getPositionOffset(position);
     }
 
@@ -154,7 +154,7 @@ public final class VariableWidthBlock
 
     public Slice getSlice(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         int offset = offsets[position + arrayOffset];
         int length = offsets[position + 1 + arrayOffset] - offset;
         return slice.slice(offset, length);
@@ -186,7 +186,7 @@ public final class VariableWidthBlock
         if (!mayHaveNull()) {
             return false;
         }
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         return valueIsNull[position + arrayOffset];
     }
 

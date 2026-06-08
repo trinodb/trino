@@ -23,7 +23,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeUtils;
 import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Bind;
@@ -58,6 +57,7 @@ import io.trino.sql.routine.ir.IrStatement;
 import io.trino.sql.routine.ir.IrVariable;
 import io.trino.sql.routine.ir.IrWhile;
 
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -229,7 +229,7 @@ public final class SqlRoutineHash
                         default -> {
                             // For complex types (e.g., Block-backed arrays/rows/maps), serialize canonically
                             BlockBuilder blockBuilder = constant.type().createBlockBuilder(null, 1);
-                            TypeUtils.writeNativeValue(constant.type(), blockBuilder, value);
+                            writeNativeValue(constant.type(), blockBuilder, value);
                             Block block = blockBuilder.build();
                             SliceOutput output = new DynamicSliceOutput(toIntExact(blockEncodingSerde.estimatedWriteSize(block)));
                             blockEncodingSerde.writeBlock(output, block);

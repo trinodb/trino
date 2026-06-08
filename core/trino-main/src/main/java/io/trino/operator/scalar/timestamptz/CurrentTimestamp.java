@@ -26,8 +26,8 @@ import java.time.Instant;
 
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimestampWithTimeZoneType.MAX_SHORT_PRECISION;
-import static io.trino.type.DateTimes.NANOSECONDS_PER_MILLISECOND;
-import static io.trino.type.DateTimes.round;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.roundToNearest;
 
 @ScalarFunction(value = "$current_timestamp", hidden = true, neverFails = true)

@@ -981,14 +981,6 @@ public abstract class BaseConnectorTest
     }
 
     @Test
-    public void testShowInformationSchemaTables()
-    {
-        assertThat(query("SHOW TABLES FROM information_schema"))
-                .skippingTypesCheck()
-                .containsAll("VALUES 'applicable_roles', 'columns', 'enabled_roles', 'roles', 'schemata', 'table_privileges', 'tables', 'views'");
-    }
-
-    @Test
     public void testView()
     {
         if (!hasBehavior(SUPPORTS_CREATE_VIEW)) {
@@ -2564,27 +2556,6 @@ public abstract class BaseConnectorTest
                 ('orders', 'shippriority'),
                 ('orders', 'comment')
                 """;
-    }
-
-    @Test
-    public void testShowCreateInformationSchema()
-    {
-        assertThat(query("SHOW CREATE SCHEMA information_schema"))
-                .skippingTypesCheck()
-                .matches(format("VALUES 'CREATE SCHEMA %s.information_schema'", getSession().getCatalog().orElseThrow()));
-    }
-
-    @Test
-    public void testShowCreateInformationSchemaTable()
-    {
-        assertQueryFails("SHOW CREATE VIEW information_schema.schemata", "line 1:1: Relation '\\w+.information_schema.schemata' is a table, not a view");
-        assertQueryFails("SHOW CREATE MATERIALIZED VIEW information_schema.schemata", "line 1:1: Relation '\\w+.information_schema.schemata' is a table, not a materialized view");
-
-        assertThat((String) computeScalar("SHOW CREATE TABLE information_schema.schemata"))
-                .isEqualTo("CREATE TABLE " + getSession().getCatalog().orElseThrow() + ".information_schema.schemata (\n" +
-                        "   catalog_name varchar,\n" +
-                        "   schema_name varchar\n" +
-                        ")");
     }
 
     @Test
@@ -6018,14 +5989,6 @@ public abstract class BaseConnectorTest
     }
 
     @Test
-    public void testDropTableIfExists()
-    {
-        assertThat(getQueryRunner().tableExists(getSession(), "test_drop_if_exists")).isFalse();
-        assertUpdate("DROP TABLE IF EXISTS test_drop_if_exists");
-        assertThat(getQueryRunner().tableExists(getSession(), "test_drop_if_exists")).isFalse();
-    }
-
-    @Test
     public void testTruncateTable()
     {
         if (!hasBehavior(SUPPORTS_TRUNCATE)) {
@@ -6106,18 +6069,6 @@ public abstract class BaseConnectorTest
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS FROM tpch");
         assertThat(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(INFORMATION_SCHEMA, "tiny", "sf1"))).isTrue();
-    }
-
-    // TODO move to to engine-only
-    @Test
-    public void testSymbolAliasing()
-    {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
-
-        String tableName = "test_symbol_aliasing" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 foo_1, 2 foo_2_4", 1);
-        assertQuery("SELECT foo_1, foo_2_4 FROM " + tableName, "SELECT 1, 2");
-        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

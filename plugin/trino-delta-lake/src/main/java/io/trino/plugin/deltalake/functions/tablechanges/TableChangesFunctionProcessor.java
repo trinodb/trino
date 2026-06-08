@@ -52,11 +52,11 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetIgno
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetUseColumnIndex;
 import static io.trino.plugin.deltalake.functions.tablechanges.TableChangesFileType.CDF_FILE;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -101,8 +101,8 @@ public class TableChangesFunctionProcessor
                 parquetReaderOptions,
                 handle,
                 tableChangesSplit);
-        this.currentVersionAsBlock = nativeValueToBlock(BIGINT, tableChangesSplit.currentVersion());
-        this.currentVersionCommitTimestampAsBlock = nativeValueToBlock(
+        this.currentVersionAsBlock = writeNativeValue(BIGINT, tableChangesSplit.currentVersion());
+        this.currentVersionCommitTimestampAsBlock = writeNativeValue(
                 TIMESTAMP_TZ_MILLIS,
                 packDateTimeWithZone(tableChangesSplit.currentVersionCommitTimestamp(), UTC_KEY));
     }
@@ -147,7 +147,7 @@ public class TableChangesFunctionProcessor
                 blocks[i] = page.getBlock(i);
             }
             blocks[filePageColumns] = RunLengthEncodedBlock.create(
-                    nativeValueToBlock(VARCHAR, utf8Slice("insert")), page.getPositionCount());
+                    writeNativeValue(VARCHAR, utf8Slice("insert")), page.getPositionCount());
             blocks[filePageColumns + 1] = RunLengthEncodedBlock.create(
                     currentVersionAsBlock, page.getPositionCount());
             blocks[filePageColumns + 2] = RunLengthEncodedBlock.create(

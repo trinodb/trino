@@ -65,6 +65,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.locationtech.jts</groupId>
+            <artifactId>jts-core</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
             <scope>test</scope>
@@ -221,6 +227,21 @@
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.predicate.Utils::nativeValueToBlock(io.trino.spi.type.Type, java.lang.Object)</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.Object io.trino.spi.predicate.Utils::blockToNativeValue(io.trino.spi.type.Type, io.trino.spi.block.Block)</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.predicate.Utils</old>
+                                </item>
                                 <item>
                                     <ignore>true</ignore>
                                     <code>java.method.noLongerDefault</code>

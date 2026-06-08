@@ -21,7 +21,7 @@ import java.util.function.ObjLongConsumer;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
-import static io.trino.spi.block.BlockUtil.checkReadablePosition;
+import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.BlockUtil.compactIsNull;
@@ -113,7 +113,7 @@ public final class IntArrayBlock
 
     public int getInt(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         return values[position + arrayOffset];
     }
 
@@ -143,14 +143,14 @@ public final class IntArrayBlock
         if (!mayHaveNull()) {
             return false;
         }
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         return valueIsNull[position + arrayOffset];
     }
 
     @Override
     public IntArrayBlock getSingleValueBlock(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         return new IntArrayBlock(
                 0,
                 1,
@@ -171,7 +171,7 @@ public final class IntArrayBlock
         int[] newValues = new int[length];
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
-            checkReadablePosition(this, position);
+            checkValidPosition(position, positionCount);
             if (valueIsNull != null) {
                 boolean isNull = valueIsNull[position + arrayOffset];
                 newValueIsNull[i] = isNull;

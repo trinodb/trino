@@ -23,9 +23,9 @@ import io.trino.spi.function.SqlType;
 import java.time.LocalDateTime;
 
 import static io.trino.spi.type.TimeType.MAX_PRECISION;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_DAY;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
-import static io.trino.type.DateTimes.round;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.round;
 
 @ScalarFunction(value = "$localtime", hidden = true, neverFails = true)
 public final class LocalTimeFunction

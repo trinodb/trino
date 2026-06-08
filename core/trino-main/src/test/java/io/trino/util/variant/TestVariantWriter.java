@@ -56,7 +56,7 @@ class TestVariantWriter
         assertPrimitiveWrite(REAL, (long) floatToRawIntBits(12.5f), Variant.ofFloat(12.5f));
         assertPrimitiveWrite(DOUBLE, 12.5, Variant.ofDouble(12.5));
         assertPrimitiveWrite(DATE, 20_000L, Variant.ofDate(20_000));
-        assertPrimitiveWrite(VARCHAR, "hello", Variant.ofString("hello"));
+        assertPrimitiveWrite(VARCHAR, utf8Slice("hello"), Variant.ofString("hello"));
 
         Slice binary = utf8Slice("hello");
         assertPrimitiveWrite(VARBINARY, binary, Variant.ofBinary(binary));

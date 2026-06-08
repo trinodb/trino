@@ -95,6 +95,12 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>slice</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>tracing</artifactId>
             <scope>runtime</scope>
         </dependency>
