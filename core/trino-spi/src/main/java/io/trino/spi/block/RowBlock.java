@@ -24,7 +24,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.arraySame;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
-import static io.trino.spi.block.BlockUtil.checkReadablePosition;
+import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
 import static java.lang.String.format;
@@ -334,7 +334,7 @@ public final class RowBlock
 
     public SqlRow getRow(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         if (isNull(position)) {
             throw new IllegalStateException("Position is null");
         }
@@ -344,7 +344,7 @@ public final class RowBlock
     @Override
     public RowBlock getSingleValueBlock(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
 
         Block[] newBlocks = new Block[fieldBlocks.length];
         for (int i = 0; i < fieldBlocks.length; i++) {
@@ -357,7 +357,7 @@ public final class RowBlock
     @Override
     public long getEstimatedDataSizeForStats(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
 
         if (isNull(position)) {
             return 0;
@@ -376,7 +376,7 @@ public final class RowBlock
         if (!mayHaveNull()) {
             return false;
         }
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         return rowIsNull[startOffset + position];
     }
 
