@@ -27,12 +27,12 @@ public class MergeDelete
     @Deprecated
     public MergeDelete(Optional<Expression> expression)
     {
-        super(Optional.empty(), expression);
+        super(Optional.empty(), MergeCaseKind.MATCHED, expression);
     }
 
-    public MergeDelete(NodeLocation location, Optional<Expression> expression)
+    public MergeDelete(NodeLocation location, MergeCaseKind mergeCaseKind, Optional<Expression> expression)
     {
-        super(location, expression);
+        super(location, mergeCaseKind, expression);
     }
 
     @Override
@@ -62,7 +62,7 @@ public class MergeDelete
     @Override
     public int hashCode()
     {
-        return Objects.hash(expression);
+        return Objects.hash(mergeCaseKind, expression);
     }
 
     @Override
@@ -75,13 +75,15 @@ public class MergeDelete
             return false;
         }
         MergeDelete mergeDelete = (MergeDelete) obj;
-        return Objects.equals(expression, mergeDelete.expression);
+        return mergeCaseKind == mergeDelete.mergeCaseKind &&
+                Objects.equals(expression, mergeDelete.expression);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
+                .add("mergeCaseKind", mergeCaseKind)
                 .add("expression", expression.orElse(null))
                 .omitNullValues()
                 .toString();

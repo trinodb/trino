@@ -1937,4 +1937,122 @@ public class TestIcebergV2
                 .map(String.class::cast)
                 .collect(toImmutableList());
     }
+
+    // -------------------------------------------------------------------------
+    // WHEN NOT MATCHED BY SOURCE
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testMergeNotMatchedBySourceDeleteProducesPositionDeletes()
+    {
+        // nation has keys 0..24.  Source contains only keys 0..4 → 20 BY SOURCE deletes.
+        try (TestTable table = newTrinoTable("test_merge_by_source_delete_", "AS SELECT * FROM tpch.tiny.nation")) {
+            assertUpdate(
+                    "MERGE INTO " + table.getName() + " t " +
+                            "USING (SELECT nationkey FROM tpch.tiny.nation WHERE nationkey < 5) s " +
+                            "ON t.nationkey = s.nationkey " +
+                            "WHEN NOT MATCHED BY SOURCE THEN DELETE",
+                    20);
+
+            // Iceberg v2 MOR: deletes materialize as position delete files.
+            // Count varies with worker count; we only assert that at least one was produced.
+            assertThat((long) computeScalar(
+                    "SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = " + POSITION_DELETES.id()))
+                    .isGreaterThan(0);
+
+            assertThat(query("SELECT nationkey FROM " + table.getName() + " ORDER BY nationkey"))
+                    .matches("VALUES BIGINT '0', BIGINT '1', BIGINT '2', BIGINT '3', BIGINT '4'");
+        }
+    }
+
+    @Test
+    public void testMergeNotMatchedBySourceUpdate()
+    {
+        // Source covers keys 0..4 → keys 5..24 (20 rows) get BY SOURCE UPDATE.
+        try (TestTable table = newTrinoTable("test_merge_by_source_update_", "AS SELECT * FROM tpch.tiny.nation")) {
+            assertUpdate(
+                    "MERGE INTO " + table.getName() + " t " +
+                            "USING (SELECT nationkey FROM tpch.tiny.nation WHERE nationkey < 5) s " +
+                            "ON t.nationkey = s.nationkey " +
+                            "WHEN NOT MATCHED BY SOURCE THEN UPDATE SET name = 'ARCHIVED'",
+                    20);
+
+            assertQuery(
+                    "SELECT count(*) FROM " + table.getName() + " WHERE name = 'ARCHIVED'",
+                    "VALUES 20");
+            assertQuery(
+                    "SELECT count(*) FROM " + table.getName() + " WHERE name <> 'ARCHIVED'",
+                    "VALUES 5");
+        }
+    }
+
+    @Test
+    public void testMergeAllThreeClauseKinds()
+    {
+        // MATCHED + BY TARGET + BY SOURCE → analyzer picks FULL OUTER join.
+        // Source: keys 0..4 (match existing 0..4) and keys 100..101 (no match — INSERT).
+        // Target keys 5..24 have no source row → BY SOURCE DELETE.
+        // Rows processed: 5 UPDATE + 2 INSERT + 20 DELETE = 27.
+        try (TestTable table = newTrinoTable("test_merge_all_three_", "AS SELECT * FROM tpch.tiny.nation")) {
+            assertUpdate(
+                    "MERGE INTO " + table.getName() + " t " +
+                            "USING (" +
+                            "  SELECT nationkey, name, regionkey, comment FROM tpch.tiny.nation WHERE nationkey < 5 " +
+                            "  UNION ALL " +
+                            "  SELECT 100, 'NEW_A', 0, 'inserted' " +
+                            "  UNION ALL " +
+                            "  SELECT 101, 'NEW_B', 0, 'inserted'" +
+                            ") s " +
+                            "ON t.nationkey = s.nationkey " +
+                            "WHEN MATCHED THEN UPDATE SET name = CONCAT(t.name, '_M') " +
+                            "WHEN NOT MATCHED THEN INSERT (nationkey, name, regionkey, comment) " +
+                            "  VALUES (s.nationkey, s.name, s.regionkey, s.comment) " +
+                            "WHEN NOT MATCHED BY SOURCE THEN DELETE",
+                    27);
+
+            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 7");
+            assertQuery(
+                    "SELECT count(*) FROM " + table.getName() + " WHERE name LIKE '%\\_M' ESCAPE '\\'",
+                    "VALUES 5");
+            assertQuery(
+                    "SELECT nationkey FROM " + table.getName() + " WHERE nationkey >= 100 ORDER BY nationkey",
+                    "VALUES 100, 101");
+
+            // Both BY SOURCE DELETE and MATCHED UPDATE materialize as position deletes (+ rewritten data files).
+            // Count varies with worker count; only assert that at least one was produced.
+            assertThat((long) computeScalar(
+                    "SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = " + POSITION_DELETES.id() + " AND record_count > 0"))
+                    .isGreaterThan(0);
+        }
+    }
+
+    @Test
+    public void testMergeNotMatchedBySourcePartitionedWithPredicate()
+    {
+        // Exercises §5.4 predicate pushdown on a partitioned table.
+        // Target partitioned by regionkey; source matches every row in region 0 only.
+        // BY SOURCE predicate restricts deletes to region 1.  Predicate pushdown must not break correctness.
+        try (TestTable table = newTrinoTable(
+                "test_merge_by_source_partitioned_",
+                "WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation")) {
+            // tpch.tiny.nation: region 0 has 5 nations, region 1 has 5 nations.
+            long region1Count = (long) computeScalar(
+                    "SELECT count(*) FROM " + table.getName() + " WHERE regionkey = 1");
+
+            assertUpdate(
+                    "MERGE INTO " + table.getName() + " t " +
+                            "USING (SELECT nationkey FROM tpch.tiny.nation WHERE regionkey = 0) s " +
+                            "ON t.nationkey = s.nationkey " +
+                            "WHEN NOT MATCHED BY SOURCE AND t.regionkey = 1 THEN DELETE",
+                    region1Count);
+
+            assertQuery(
+                    "SELECT count(*) FROM " + table.getName() + " WHERE regionkey = 1",
+                    "VALUES 0");
+            // Other regions (2, 3, 4) untouched — H2 expected runner resolves nation in default schema
+            assertQuery(
+                    "SELECT count(*) FROM " + table.getName() + " WHERE regionkey >= 2",
+                    "SELECT count(*) FROM nation WHERE regionkey >= 2");
+        }
+    }
 }
