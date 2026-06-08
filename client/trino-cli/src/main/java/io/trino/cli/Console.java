@@ -456,7 +456,7 @@ public class Console
             return success;
         }
         catch (RuntimeException e) {
-            System.err.println(formatCliErrorMessage(e, queryRunner.isDebug()));
+            System.err.println(formatCliErrorMessage(e, queryRunner.theme(), queryRunner.isDebug()));
             return false;
         }
     }
