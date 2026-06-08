@@ -34,7 +34,6 @@ import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
-import io.trino.sql.tree.Resolver;
 
 import java.util.List;
 import java.util.Map;
@@ -93,7 +92,6 @@ public class CreateViewTask
 
         Session session = stateMachine.getSession();
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName(), metadata);
-        Resolver resolver = metadata.getResolverManager().getResolver(session, name.catalogName());
 
         accessControl.checkCanCreateView(session.toSecurityContext(), name);
 

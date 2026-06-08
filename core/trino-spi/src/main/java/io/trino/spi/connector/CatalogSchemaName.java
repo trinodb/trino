@@ -18,8 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static java.util.Locale.ENGLISH;
-
 public final class CatalogSchemaName
 {
     private final String catalogName;

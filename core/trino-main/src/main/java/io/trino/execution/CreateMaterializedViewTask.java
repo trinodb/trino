@@ -38,7 +38,6 @@ import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
-import io.trino.sql.tree.Resolver;
 
 import java.time.Duration;
 import java.util.List;
@@ -116,7 +115,6 @@ public class CreateMaterializedViewTask
     {
         Metadata metadata = plannerContext.getMetadata();
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName(), metadata);
-        Resolver resolver = metadata.getResolverManager().getResolver(session, name.catalogName());
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);

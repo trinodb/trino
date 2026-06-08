@@ -6046,7 +6046,7 @@ class StatementAnalyzer
                 }
                 return query.getWith().get().getQueries().stream()
                         .map(WithQuery::getName)
-                        .map(canonicalizer::apply)
+                        .map(canonicalizer)
                         .anyMatch(withQueryName -> withQueryName.equals(canonicalizer.apply(name)));
             };
         }

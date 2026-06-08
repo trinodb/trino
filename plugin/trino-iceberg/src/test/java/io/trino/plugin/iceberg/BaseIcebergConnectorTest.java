@@ -1389,14 +1389,14 @@ public abstract class BaseIcebergConnectorTest
         assertThat(computeScalar("SHOW CREATE TABLE test_create_partitioned_table_as")).isEqualTo(format(
                 "CREATE TABLE %s.%s.%s (\n" +
                         "   \"order key\" bigint,\n" +
-                        "   ship_priority integer,\n" +
-                        "   order_status varchar\n" +
+                        "   \"Ship_Priority\" integer,\n" +
+                        "   \"Order_Status\" varchar\n" +
                         ")\n" +
                         "WITH (\n" +
                         "   format = '%s',\n" +
                         "   format_version = 2,\n" +
                         "   location = '%s',\n" +
-                        "   partitioning = ARRAY['order_status','ship_priority','bucket(\"order key\", 9)']\n" +
+                        "   partitioning = ARRAY['\"Order_Status\"','\"Ship_Priority\"','bucket(\"order key\", 9)']\n" +
                         ")",
                 getSession().getCatalog().orElseThrow(),
                 getSession().getSchema().orElseThrow(),
