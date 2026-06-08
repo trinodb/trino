@@ -266,7 +266,9 @@ public class PushPredicateIntoTableScan
         else {
             Map<String, Symbol> variableMappings = assignments.values().stream()
                     .collect(toImmutableMap(Symbol::name, Function.identity()));
-            Expression translatedExpression = ConnectorExpressionTranslator.translate(session, remainingConnectorExpression.get(), plannerContext, variableMappings);
+            // The serializer-aware translate inlines the IR predicate wrapped by any $engine_expression
+            // the connector echoed back, regardless of where it appears in the expression tree
+            Expression translatedExpression = ConnectorExpressionTranslator.translate(session, remainingConnectorExpression.get(), plannerContext, variableMappings, serializer);
             translatedExpression = LambdaCaptureDesugaringRewriter.rewrite(translatedExpression, symbolAllocator);
             // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
             // by ensuring expression is optimized.

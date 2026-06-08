@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
@@ -128,7 +129,26 @@ public final class ConnectorExpressionTranslator
 
     public static Expression translate(Session session, ConnectorExpression expression, PlannerContext plannerContext, Map<String, Symbol> variableMappings)
     {
-        return new ConnectorToSqlExpressionTranslator(session, plannerContext, variableMappings)
+        return new ConnectorToSqlExpressionTranslator(session, plannerContext, variableMappings, Optional.empty())
+                .translate(expression)
+                .orElseThrow(() -> new UnsupportedOperationException("Expression is not supported: " + expression.toString()));
+    }
+
+    /**
+     * Variant of {@link #translate(Session, ConnectorExpression, PlannerContext, Map)} that additionally
+     * translates {@code $engine_expression} calls by deserializing their payload back into the IR
+     * expression they wrap. The deserialized expression references the symbols captured by
+     * {@link EngineExpressions#buildEngineExpression}, bypassing {@code variableMappings}, so callers
+     * must ensure those symbols are in scope.
+     */
+    public static Expression translate(
+            Session session,
+            ConnectorExpression expression,
+            PlannerContext plannerContext,
+            Map<String, Symbol> variableMappings,
+            JsonCodec<Expression> serializer)
+    {
+        return new ConnectorToSqlExpressionTranslator(session, plannerContext, variableMappings, Optional.of(serializer))
                 .translate(expression)
                 .orElseThrow(() -> new UnsupportedOperationException("Expression is not supported: " + expression.toString()));
     }
@@ -205,12 +225,18 @@ public final class ConnectorExpressionTranslator
         private final Session session;
         private final PlannerContext plannerContext;
         private final Map<String, Symbol> variableMappings;
+        private final Optional<JsonCodec<Expression>> serializer;
 
-        public ConnectorToSqlExpressionTranslator(Session session, PlannerContext plannerContext, Map<String, Symbol> variableMappings)
+        public ConnectorToSqlExpressionTranslator(
+                Session session,
+                PlannerContext plannerContext,
+                Map<String, Symbol> variableMappings,
+                Optional<JsonCodec<Expression>> serializer)
         {
             this.session = requireNonNull(session, "session is null");
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.variableMappings = requireNonNull(variableMappings, "variableMappings is null");
+            this.serializer = requireNonNull(serializer, "serializer is null");
         }
 
         public Optional<Expression> translate(ConnectorExpression expression)
@@ -266,7 +292,12 @@ public final class ConnectorExpressionTranslator
         protected Optional<Expression> translateCall(io.trino.spi.expression.Call call, Map<String, Symbol> lambdaArguments)
         {
             if (call.getFunctionName().equals(ENGINE_EXPRESSION_FUNCTION_NAME)) {
-                throw new IllegalStateException("$engine_expression must be rewritten before translation to IR");
+                JsonCodec<Expression> codec = serializer.orElseThrow(
+                        () -> new IllegalStateException("$engine_expression cannot be translated in this context"));
+                Slice payload = (Slice) requireNonNull(
+                        ((io.trino.spi.expression.Constant) call.getArguments().getFirst()).getValue(),
+                        "engine expression payload is null");
+                return Optional.of(codec.fromJson(payload.toStringUtf8()));
             }
 
             if (call.getFunctionName().getCatalogSchema().isPresent()) {
