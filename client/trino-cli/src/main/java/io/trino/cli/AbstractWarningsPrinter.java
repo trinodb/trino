@@ -24,26 +24,27 @@ import static io.trino.cli.TerminalUtils.isRealTerminal;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.jline.utils.AttributedStyle.DEFAULT;
-import static org.jline.utils.AttributedStyle.YELLOW;
 
 abstract class AbstractWarningsPrinter
         implements WarningsPrinter
 {
     private final OptionalInt maxWarnings;
+    private final Theme theme;
     private boolean hasProcessedWarnings;
     private int processedWarnings;
 
-    AbstractWarningsPrinter(OptionalInt maxWarnings)
+    AbstractWarningsPrinter(OptionalInt maxWarnings, Theme theme)
     {
         this.maxWarnings = requireNonNull(maxWarnings, "maxWarnings is null");
+        this.theme = requireNonNull(theme, "theme is null");
     }
 
     private String getWarningMessage(Warning warning)
     {
-        // If this is a real terminal color the warnings yellow
+        // If this is a real terminal color the warnings
         if (isRealTerminal()) {
             return new AttributedStringBuilder()
-                    .style(DEFAULT.foreground(YELLOW))
+                    .style(theme.warning())
                     .append("WARNING: ")
                     .append(warning.getMessage())
                     .style(DEFAULT)

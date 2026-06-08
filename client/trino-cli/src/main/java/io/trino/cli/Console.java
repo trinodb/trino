@@ -72,7 +72,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.jline.utils.AttributedStyle.CYAN;
 import static org.jline.utils.AttributedStyle.DEFAULT;
 
 @Command(
@@ -172,7 +171,10 @@ public class Console
             closeTerminal();
         }));
 
+        Theme theme = Theme.DARK;
+
         try (QueryRunner queryRunner = new QueryRunner(
+                theme,
                 uri,
                 session,
                 clientOptions.debug,
@@ -199,7 +201,8 @@ public class Console
                     pager,
                     clientOptions.progress.orElse(true),
                     clientOptions.disableAutoSuggestion,
-                    clientOptions.decimalDataSize);
+                    clientOptions.decimalDataSize,
+                    theme);
             return true;
         }
         finally {
@@ -227,10 +230,11 @@ public class Console
             Optional<String> pager,
             boolean progress,
             boolean disableAutoSuggestion,
-            boolean decimalDataSize)
+            boolean decimalDataSize,
+            Theme theme)
     {
         try (TableNameCompleter tableNameCompleter = new TableNameCompleter(queryRunner);
-                InputReader reader = new InputReader(editingMode, historyFile, disableAutoSuggestion, commandCompleter(), tableNameCompleter)) {
+                InputReader reader = new InputReader(editingMode, historyFile, disableAutoSuggestion, theme, commandCompleter(), tableNameCompleter)) {
             tableNameCompleter.populateCache();
             String remaining = "";
             while (!exiting.get()) {
@@ -272,7 +276,7 @@ public class Console
                     case "history":
                         for (History.Entry entry : reader.getHistory()) {
                             System.out.println(new AttributedStringBuilder()
-                                    .style(DEFAULT.foreground(CYAN))
+                                    .style(theme.historyIndex())
                                     .append(format("%5d", entry.index() + 1))
                                     .style(DEFAULT)
                                     .append("  ")
