@@ -270,6 +270,7 @@ import static io.trino.plugin.hive.HiveWritableTableHandle.BucketInfo.createBuck
 import static io.trino.plugin.hive.HiveWriterFactory.computeNonTransactionalBucketedFilename;
 import static io.trino.plugin.hive.HiveWriterFactory.computeTransactionalBucketedFilename;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
+import static io.trino.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
 import static io.trino.plugin.hive.PartitionUpdate.UpdateMode.APPEND;
 import static io.trino.plugin.hive.PartitionUpdate.UpdateMode.NEW;
 import static io.trino.plugin.hive.PartitionUpdate.UpdateMode.OVERWRITE;
@@ -1063,15 +1064,30 @@ public class HiveMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
     {
-        if (saveMode == REPLACE) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
-        }
         SchemaTableName schemaTableName = tableMetadata.getTable();
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         Optional<BucketInfo> bucketInfo = getBucketInfo(tableMetadata.getProperties());
         boolean isTransactional = isTransactional(tableMetadata.getProperties()).orElse(false);
+
+        Optional<Table> existingTable = Optional.empty();
+        if (saveMode == REPLACE) {
+            if (!partitionedBy.isEmpty()) {
+                throw new TrinoException(NOT_SUPPORTED, "CREATE OR REPLACE for partitioned tables is not supported");
+            }
+            existingTable = metastore.getTable(schemaName, tableName);
+            if (existingTable.isPresent()) {
+                Table oldTable = existingTable.get();
+                if (isSomeKindOfAView(oldTable)) {
+                    throw new TrinoException(NOT_SUPPORTED, "Existing table is a view: " + schemaTableName);
+                }
+                if (!oldTable.getPartitionColumns().isEmpty()) {
+                    throw new TrinoException(NOT_SUPPORTED, "CREATE OR REPLACE for partitioned tables is not supported");
+                }
+                metastore.dropTable(session, schemaName, tableName);
+            }
+        }
 
         if (bucketInfo.isPresent() && getAvroSchemaUrl(tableMetadata.getProperties()) != null) {
             throw new TrinoException(NOT_SUPPORTED, "Bucketing columns not supported when Avro schema url is set");
@@ -1108,7 +1124,19 @@ public class HiveMetadata
 
             external = true;
             targetPath = Optional.of(getValidatedExternalLocation(externalLocation));
-            checkExternalPathAndCreateIfNotExists(session, targetPath.get());
+            if (existingTable.isPresent()) {
+                Location oldLocation = Location.of(existingTable.get().getStorage().getLocation());
+                if (!targetPath.get().equals(oldLocation)) {
+                    throw new TrinoException(NOT_SUPPORTED, format("The provided location '%s' does not match the existing table location '%s'", externalLocation, oldLocation));
+                }
+            }
+            else {
+                checkExternalPathAndCreateIfNotExists(session, targetPath.get());
+            }
+        }
+        else if (existingTable.isPresent()) {
+            external = EXTERNAL_TABLE.name().equals(existingTable.get().getTableType());
+            targetPath = Optional.of(Location.of(existingTable.get().getStorage().getLocation()));
         }
         else {
             external = false;
@@ -1140,7 +1168,7 @@ public class HiveMetadata
                 session,
                 table,
                 principalPrivileges,
-                Optional.empty(),
+                existingTable.isPresent() ? targetPath : Optional.empty(),
                 Optional.empty(),
                 saveMode == SaveMode.IGNORE,
                 new PartitionStatistics(basicStatistics, ImmutableMap.of()),
@@ -1769,10 +1797,6 @@ public class HiveMetadata
             RetryMode retryMode,
             boolean replace)
     {
-        if (replace) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
-        }
-
         Optional<Location> externalLocation = Optional.ofNullable(getExternalLocation(tableMetadata.getProperties()))
                 .map(HiveMetadata::getValidatedExternalLocation);
         if (!createsOfNonManagedTablesEnabled && externalLocation.isPresent()) {
@@ -1825,6 +1849,31 @@ public class HiveMetadata
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
 
+        if (replace && !partitionedBy.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "CREATE OR REPLACE for partitioned tables is not supported");
+        }
+
+        Optional<Table> existingTable = Optional.empty();
+        if (replace) {
+            existingTable = metastore.getTable(schemaName, tableName);
+            if (existingTable.isPresent()) {
+                Table oldTable = existingTable.get();
+                if (isSomeKindOfAView(oldTable)) {
+                    throw new TrinoException(NOT_SUPPORTED, "Existing table is a view: " + schemaTableName);
+                }
+                if (!oldTable.getPartitionColumns().isEmpty()) {
+                    throw new TrinoException(NOT_SUPPORTED, "CREATE OR REPLACE for partitioned tables is not supported");
+                }
+                if (externalLocation.isPresent()) {
+                    Location oldLocation = Location.of(oldTable.getStorage().getLocation());
+                    if (!externalLocation.get().equals(oldLocation)) {
+                        throw new TrinoException(NOT_SUPPORTED, format("The provided location '%s' does not match the existing table location '%s'", externalLocation.get(), oldLocation));
+                    }
+                }
+                metastore.dropTable(session, schemaName, tableName);
+            }
+        }
+
         Map<String, String> tableProperties = getEmptyTableProperties(tableMetadata, bucketProperty, session);
         List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy));
         HiveStorageFormat partitionStorageFormat = isRespectTableFormat(session) ? tableStorageFormat : getHiveStorageFormat(session);
@@ -1839,7 +1888,19 @@ public class HiveMetadata
                 .collect(toImmutableList());
         checkPartitionTypesSupported(partitionColumns);
 
-        LocationHandle locationHandle = locationService.forNewTableAsSelect(metastore, session, schemaName, tableName, externalLocation);
+        LocationHandle locationHandle;
+        boolean isExternal;
+        if (existingTable.isPresent()) {
+            isExternal = EXTERNAL_TABLE.name().equals(existingTable.get().getTableType());
+            locationHandle = locationService.forExistingTable(metastore, session, existingTable.get());
+            if (locationHandle.getWriteMode() != STAGE_AND_MOVE_TO_TARGET_DIRECTORY) {
+                throw new TrinoException(NOT_SUPPORTED, "CREATE OR REPLACE TABLE AS SELECT is not supported when writing directly to target directory");
+            }
+        }
+        else {
+            isExternal = externalLocation.isPresent();
+            locationHandle = locationService.forNewTableAsSelect(metastore, session, schemaName, tableName, externalLocation);
+        }
 
         AcidTransaction transaction = isTransactional ? forCreateTable() : NO_ACID_TRANSACTION;
 
@@ -1856,7 +1917,7 @@ public class HiveMetadata
                 session.getUser(),
                 tableProperties,
                 transaction,
-                externalLocation.isPresent(),
+                isExternal,
                 retryMode != NO_RETRIES);
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
@@ -3575,9 +3636,6 @@ public class HiveMetadata
     @Override
     public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean tableReplace)
     {
-        if (tableReplace) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
-        }
         if (!isCollectColumnStatisticsOnWrite(session)) {
             return TableStatisticsMetadata.empty();
         }
