@@ -15,6 +15,7 @@ package io.trino.filesystem.gcs;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -25,6 +26,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.util.Base64;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -40,13 +42,23 @@ public class GcsFileSystemConfig
         APPLICATION_DEFAULT,
     }
 
+    public enum FileAccessPattern
+    {
+        RANDOM,
+        SEQUENTIAL,
+        AUTO_SEQUENTIAL,
+        AUTO_RANDOM,
+    }
+
     private DataSize readBlockSize = DataSize.of(2, MEGABYTE);
     private DataSize writeBlockSize = DataSize.of(16, MEGABYTE);
     private int pageSize = 100;
     private int batchSize = 100;
 
     private String projectId;
+    private Optional<String> userProject = Optional.empty();
     private Optional<String> endpoint = Optional.empty();
+    private Optional<String> clientLibToken = Optional.empty();
 
     private AuthType authType = AuthType.SERVICE_ACCOUNT;
     private int maxRetries = 20;
@@ -56,6 +68,11 @@ public class GcsFileSystemConfig
     // Note: there is no benefit to setting this much higher as the rpc quota is 1x per second: https://cloud.google.com/storage/docs/retry-strategy#java
     private Duration maxBackoffDelay = new Duration(2000, TimeUnit.MILLISECONDS);
     private String applicationId = "Trino";
+    private boolean analyticsCoreEnabled;
+    private FileAccessPattern analyticsCoreFileAccessPattern = FileAccessPattern.AUTO_RANDOM;
+    private boolean analyticsCoreFooterPrefetchEnabled = true;
+    private int analyticsCoreReadThreadCount = 16;
+    private Optional<String> decryptionKey = Optional.empty();
 
     @NotNull
     public DataSize getReadBlockSize()
@@ -126,6 +143,19 @@ public class GcsFileSystemConfig
         return this;
     }
 
+    public Optional<String> getUserProject()
+    {
+        return userProject;
+    }
+
+    @ConfigDescription("Project ID whose Google Cloud Project's billing account should be charged for the operation being executed.")
+    @Config("gcs.user-project")
+    public GcsFileSystemConfig setUserProject(Optional<String> userProject)
+    {
+        this.userProject = userProject;
+        return this;
+    }
+
     public Optional<String> getEndpoint()
     {
         return endpoint;
@@ -136,6 +166,18 @@ public class GcsFileSystemConfig
     public GcsFileSystemConfig setEndpoint(Optional<String> endpoint)
     {
         this.endpoint = endpoint;
+        return this;
+    }
+
+    public Optional<String> getClientLibToken()
+    {
+        return clientLibToken;
+    }
+
+    @Config("gcs.client-lib-token")
+    public GcsFileSystemConfig setClientLibToken(Optional<String> clientLibToken)
+    {
+        this.clientLibToken = clientLibToken;
         return this;
     }
 
@@ -239,9 +281,91 @@ public class GcsFileSystemConfig
         return this;
     }
 
+    public boolean isAnalyticsCoreEnabled()
+    {
+        return analyticsCoreEnabled;
+    }
+
+    @Config("gcs.analytics-core.enabled")
+    @ConfigDescription("Enable Google Cloud Storage Analytics Core, which provides read implementations optimized for analytics workloads")
+    public GcsFileSystemConfig setAnalyticsCoreEnabled(boolean analyticsCoreEnabled)
+    {
+        this.analyticsCoreEnabled = analyticsCoreEnabled;
+        return this;
+    }
+
+    @NotNull
+    public FileAccessPattern getAnalyticsCoreFileAccessPattern()
+    {
+        return analyticsCoreFileAccessPattern;
+    }
+
+    @Config("gcs.analytics-core.file-access-pattern")
+    @ConfigDescription("File access pattern hint for Analytics Core reads. RANDOM is best for Parquet/columnar formats, SEQUENTIAL for full file scans, AUTO_RANDOM adapts but prefers random access")
+    public GcsFileSystemConfig setAnalyticsCoreFileAccessPattern(FileAccessPattern analyticsCoreFileAccessPattern)
+    {
+        this.analyticsCoreFileAccessPattern = analyticsCoreFileAccessPattern;
+        return this;
+    }
+
+    public boolean isAnalyticsCoreFooterPrefetchEnabled()
+    {
+        return analyticsCoreFooterPrefetchEnabled;
+    }
+
+    @Config("gcs.analytics-core.footer-prefetch-enabled")
+    @ConfigDescription("Enable prefetching of file footer data for Analytics Core reads")
+    public GcsFileSystemConfig setAnalyticsCoreFooterPrefetchEnabled(boolean analyticsCoreFooterPrefetchEnabled)
+    {
+        this.analyticsCoreFooterPrefetchEnabled = analyticsCoreFooterPrefetchEnabled;
+        return this;
+    }
+
+    @Min(1)
+    public int getAnalyticsCoreReadThreadCount()
+    {
+        return analyticsCoreReadThreadCount;
+    }
+
+    @Config("gcs.analytics-core.read-thread-count")
+    @ConfigDescription("Number of threads used for Analytics Core parallel reads")
+    public GcsFileSystemConfig setAnalyticsCoreReadThreadCount(int analyticsCoreReadThreadCount)
+    {
+        this.analyticsCoreReadThreadCount = analyticsCoreReadThreadCount;
+        return this;
+    }
+
+    public Optional<String> getDecryptionKey()
+    {
+        return decryptionKey;
+    }
+
+    @Config("gcs.client.decryption-key")
+    @ConfigSecuritySensitive
+    @ConfigDescription("Decryption key for Google Cloud Storage")
+    public GcsFileSystemConfig setDecryptionKey(Optional<String> decryptionKey)
+    {
+        this.decryptionKey = decryptionKey;
+        return this;
+    }
+
     @AssertTrue(message = "gcs.client.min-backoff-delay must be less than or equal to gcs.client.max-backoff-delay")
     public boolean isRetryDelayValid()
     {
         return minBackoffDelay.compareTo(maxBackoffDelay) <= 0;
+    }
+
+    @AssertTrue(message = "gcs.client.decryption-key must be base64 encoded")
+    public boolean isDecryptionKeyValid()
+    {
+        try {
+            decryptionKey.ifPresent(key -> {
+                Base64.getDecoder().decode(key);
+            });
+            return true;
+        }
+        catch (IllegalArgumentException _) {
+            return false;
+        }
     }
 }

@@ -17,26 +17,49 @@ import com.google.auth.Credentials;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.NoCredentials;
 import com.google.cloud.storage.StorageOptions;
+import com.google.inject.Inject;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.io.IOException;
 
+import static java.util.Objects.requireNonNull;
+
 public class ApplicationDefaultAuth
         implements GcsAuth
 {
+    private final CredentialsProvider credentialsProvider;
+
+    @Inject
+    public ApplicationDefaultAuth()
+    {
+        this(GoogleCredentials::getApplicationDefault);
+    }
+
+    ApplicationDefaultAuth(CredentialsProvider credentialsProvider)
+    {
+        this.credentialsProvider = requireNonNull(credentialsProvider, "credentialsProvider is null");
+    }
+
     @Override
     public void setAuth(StorageOptions.Builder builder, ConnectorIdentity identity)
     {
         builder.setCredentials(getCredentials());
     }
 
-    private static Credentials getCredentials()
+    private Credentials getCredentials()
     {
         try {
-            return GoogleCredentials.getApplicationDefault();
+            return credentialsProvider.getCredentials();
         }
         catch (IOException e) {
             return NoCredentials.getInstance();
         }
+    }
+
+    @FunctionalInterface
+    interface CredentialsProvider
+    {
+        Credentials getCredentials()
+                throws IOException;
     }
 }

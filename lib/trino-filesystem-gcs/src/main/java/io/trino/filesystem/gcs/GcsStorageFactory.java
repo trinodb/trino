@@ -20,6 +20,7 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import com.google.inject.Inject;
 import io.trino.spi.security.ConnectorIdentity;
+import jakarta.annotation.PreDestroy;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -49,6 +50,10 @@ public class GcsStorageFactory
     private final String applicationId;
     private final GcsAuth gcsAuth;
 
+    // Cached Storage instance for the default auth case (no per-identity OAuth token).
+    // Storage is thread-safe and can be shared across threads.
+    private volatile Storage sharedStorage;
+
     @Inject
     public GcsStorageFactory(GcsFileSystemConfig config, GcsAuth gcsAuth)
     {
@@ -63,7 +68,47 @@ public class GcsStorageFactory
         this.applicationId = config.getApplicationId();
     }
 
+    @PreDestroy
+    public void shutdown()
+    {
+        Storage storage = sharedStorage;
+        if (storage != null) {
+            try {
+                storage.close();
+            }
+            catch (Exception e) {
+                // ignore
+            }
+        }
+    }
+
     public Storage create(ConnectorIdentity identity)
+    {
+        // If identity has OAuth credentials, create a new Storage instance for that identity
+        if (hasOAuthCredentials(identity)) {
+            return createStorage(identity);
+        }
+
+        // Otherwise, use the shared cached Storage instance
+        Storage storage = sharedStorage;
+        if (storage == null) {
+            synchronized (this) {
+                storage = sharedStorage;
+                if (storage == null) {
+                    storage = createStorage(identity);
+                    sharedStorage = storage;
+                }
+            }
+        }
+        return storage;
+    }
+
+    private boolean hasOAuthCredentials(ConnectorIdentity identity)
+    {
+        return identity.getExtraCredentials().containsKey(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY);
+    }
+
+    private Storage createStorage(ConnectorIdentity identity)
     {
         try {
             StorageOptions.Builder storageOptionsBuilder = StorageOptions.newBuilder();

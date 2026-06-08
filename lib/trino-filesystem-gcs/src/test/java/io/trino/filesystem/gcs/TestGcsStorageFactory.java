@@ -19,10 +19,10 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.NoCredentials;
 import com.google.cloud.storage.Storage;
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.gcs.GcsFileSystemConfig.AuthType;
 import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.filesystem.gcs.GcsFileSystemConfig.AuthType;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY;
@@ -30,12 +30,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestGcsStorageFactory
 {
+    private static final ApplicationDefaultAuth TEST_APPLICATION_DEFAULT_AUTH = new ApplicationDefaultAuth(NoCredentials::getInstance);
+
     @Test
     void testApplicationDefaultCredentials()
             throws Exception
     {
         GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.APPLICATION_DEFAULT);
-        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, TEST_APPLICATION_DEFAULT_AUTH);
 
         Credentials actualCredentials;
         try (Storage storage = storageFactory.create(ConnectorIdentity.ofUser("test"))) {
@@ -50,7 +52,7 @@ final class TestGcsStorageFactory
             throws Exception
     {
         GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.APPLICATION_DEFAULT);
-        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, TEST_APPLICATION_DEFAULT_AUTH);
 
         ConnectorIdentity identity = ConnectorIdentity.forUser("test")
                 .withExtraCredentials(ImmutableMap.of(
@@ -72,7 +74,7 @@ final class TestGcsStorageFactory
             throws Exception
     {
         GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.APPLICATION_DEFAULT);
-        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, TEST_APPLICATION_DEFAULT_AUTH);
 
         ConnectorIdentity identity = ConnectorIdentity.forUser("test")
                 .withExtraCredentials(ImmutableMap.of(
@@ -99,7 +101,7 @@ final class TestGcsStorageFactory
         GcsFileSystemConfig config = new GcsFileSystemConfig()
                 .setAuthType(AuthType.APPLICATION_DEFAULT)
                 .setProjectId("static-project");
-        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, TEST_APPLICATION_DEFAULT_AUTH);
 
         ConnectorIdentity identity = ConnectorIdentity.forUser("test")
                 .withExtraCredentials(ImmutableMap.of(
@@ -119,11 +121,57 @@ final class TestGcsStorageFactory
         GcsFileSystemConfig config = new GcsFileSystemConfig()
                 .setAuthType(AuthType.APPLICATION_DEFAULT)
                 .setProjectId("static-project");
-        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, TEST_APPLICATION_DEFAULT_AUTH);
 
         try (Storage storage = storageFactory.create(ConnectorIdentity.ofUser("test"))) {
             assertThat(storage.getOptions().getProjectId()).isEqualTo("static-project");
             assertThat(storage.getOptions().getCredentials()).isEqualTo(NoCredentials.getInstance());
         }
+    }
+
+    @Test
+    void testSharedStorageInstanceForDefaultAuth()
+    {
+        GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.APPLICATION_DEFAULT);
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, TEST_APPLICATION_DEFAULT_AUTH);
+
+        // Multiple calls without OAuth credentials should return the same cached instance
+        Storage storage1 = storageFactory.create(ConnectorIdentity.ofUser("user1"));
+        Storage storage2 = storageFactory.create(ConnectorIdentity.ofUser("user2"));
+
+        assertThat(storage1).isSameAs(storage2);
+
+        storageFactory.shutdown();
+    }
+
+    @Test
+    void testSeparateStorageInstancesForOAuthCredentials()
+    {
+        GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.APPLICATION_DEFAULT);
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, TEST_APPLICATION_DEFAULT_AUTH);
+
+        ConnectorIdentity oauthIdentity1 = ConnectorIdentity.forUser("user1")
+                .withExtraCredentials(ImmutableMap.of(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY, "token1"))
+                .build();
+        ConnectorIdentity oauthIdentity2 = ConnectorIdentity.forUser("user2")
+                .withExtraCredentials(ImmutableMap.of(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY, "token2"))
+                .build();
+
+        // OAuth requests should get separate instances
+        Storage oauthStorage1 = storageFactory.create(oauthIdentity1);
+        Storage oauthStorage2 = storageFactory.create(oauthIdentity2);
+
+        assertThat(oauthStorage1).isNotSameAs(oauthStorage2);
+
+        // Default auth should get the shared instance
+        Storage defaultStorage = storageFactory.create(ConnectorIdentity.ofUser("default"));
+        assertThat(defaultStorage).isNotSameAs(oauthStorage1);
+        assertThat(defaultStorage).isNotSameAs(oauthStorage2);
+
+        // Second default auth call should return the same cached instance
+        Storage defaultStorage2 = storageFactory.create(ConnectorIdentity.ofUser("default2"));
+        assertThat(defaultStorage).isSameAs(defaultStorage2);
+
+        storageFactory.shutdown();
     }
 }

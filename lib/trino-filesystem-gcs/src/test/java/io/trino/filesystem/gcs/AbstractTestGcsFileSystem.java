@@ -36,9 +36,12 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.util.Base64;
+import java.util.UUID;
+import java.util.function.Consumer;
 
 import static com.google.cloud.storage.Storage.BlobTargetOption.doesNotExist;
 import static io.trino.filesystem.encryption.EncryptionKey.randomAes256;
+import static io.trino.filesystem.gcs.GcsFileSystemConfig.AuthType.APPLICATION_DEFAULT;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -51,23 +54,73 @@ public abstract class AbstractTestGcsFileSystem
     private Location rootLocation;
     private Storage storage;
     private GcsFileSystemFactory gcsFileSystemFactory;
+    private boolean ownsBucket;
 
     protected void initialize(String gcpCredentialKey)
+            throws IOException
+    {
+        initialize(gcpCredentialKey, null);
+    }
+
+    protected void initialize(String gcpCredentialKey, String staticBucket)
+            throws IOException
+    {
+        initialize(gcpCredentialKey, staticBucket, _ -> {});
+    }
+
+    protected void initialize(String gcpCredentialKey, String staticBucket, Consumer<GcsFileSystemConfig> configCustomizer)
             throws IOException
     {
         // Note: the account needs the following permissions:
         // create/get/delete bucket
         // create/get/list/delete blob
-        // For gcp testing this corresponds to the Cluster Storage Admin and Cluster Storage Object Admin roles
+        // For gcp testing this corresponds to the Cluster Storage Admin and Cluster
+        // Storage Object
+        // Admin roles
         byte[] jsonKeyBytes = Base64.getDecoder().decode(gcpCredentialKey);
         GcsFileSystemConfig config = new GcsFileSystemConfig();
-        GcsServiceAccountAuthConfig authConfig = new GcsServiceAccountAuthConfig().setJsonKey(new String(jsonKeyBytes, UTF_8));
+        configCustomizer.accept(config);
+        GcsServiceAccountAuthConfig authConfig = new GcsServiceAccountAuthConfig()
+                .setJsonKey(new String(jsonKeyBytes, UTF_8));
         GcsStorageFactory storageFactory = new GcsStorageFactory(config, new GcsServiceAccountAuth(authConfig));
-        this.gcsFileSystemFactory = new GcsFileSystemFactory(config, storageFactory);
+        AnalyticsCoreGcsFileSystemFactory analyticsCoreGcsFileSystemFactory = new AnalyticsCoreGcsFileSystemFactory(config);
+        initializeStorage(config, storageFactory, analyticsCoreGcsFileSystemFactory, staticBucket);
+    }
+
+    protected void initializeWithApplicationDefault(String staticBucket, Consumer<GcsFileSystemConfig> configCustomizer)
+            throws IOException
+    {
+        GcsFileSystemConfig config = new GcsFileSystemConfig()
+                .setAuthType(APPLICATION_DEFAULT);
+        configCustomizer.accept(config);
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
+        AnalyticsCoreGcsFileSystemFactory analyticsCoreGcsFileSystemFactory = new AnalyticsCoreGcsFileSystemFactory(config);
+        initializeStorage(config, storageFactory, analyticsCoreGcsFileSystemFactory, staticBucket);
+    }
+
+    private void initializeStorage(
+            GcsFileSystemConfig config,
+            GcsStorageFactory storageFactory,
+            AnalyticsCoreGcsFileSystemFactory analyticsCoreGcsFileSystemFactory,
+            String staticBucket)
+            throws IOException
+    {
+        this.gcsFileSystemFactory = new GcsFileSystemFactory(
+                config,
+                storageFactory,
+                analyticsCoreGcsFileSystemFactory);
         this.storage = storageFactory.create(ConnectorIdentity.ofUser("test"));
-        String bucket = RemoteStorageHelper.generateBucketName();
-        storage.create(BucketInfo.of(bucket));
-        this.rootLocation = Location.of("gs://%s/".formatted(bucket));
+        if (staticBucket != null && !staticBucket.isEmpty()) {
+            String uniquePath = UUID.randomUUID().toString();
+            this.rootLocation = Location.of("gs://%s/%s/".formatted(staticBucket, uniquePath));
+            this.ownsBucket = false;
+        }
+        else {
+            String bucket = RemoteStorageHelper.generateBucketName();
+            storage.create(BucketInfo.of(bucket));
+            this.rootLocation = Location.of("gs://%s/".formatted(bucket));
+            this.ownsBucket = true;
+        }
         this.fileSystem = gcsFileSystemFactory.create(ConnectorIdentity.ofUser("test"));
         cleanupFiles();
     }
@@ -76,11 +129,20 @@ public abstract class AbstractTestGcsFileSystem
     void tearDown()
     {
         try {
-            Bucket bucket = storage.get(new GcsLocation(rootLocation).bucket());
-            for (Blob blob : bucket.list().iterateAll()) {
-                storage.delete(blob.getBlobId());
+            String bucketName = new GcsLocation(rootLocation).bucket();
+            if (ownsBucket) {
+                Bucket bucket = storage.get(bucketName);
+                for (Blob blob : bucket.list().iterateAll()) {
+                    storage.delete(blob.getBlobId());
+                }
+                bucket.delete();
             }
-            bucket.delete();
+            else {
+                String prefix = new GcsLocation(rootLocation).path();
+                for (Blob blob : storage.list(bucketName, Storage.BlobListOption.prefix(prefix)).iterateAll()) {
+                    storage.delete(blob.getBlobId());
+                }
+            }
         }
         finally {
             fileSystem = null;
@@ -133,7 +195,14 @@ public abstract class AbstractTestGcsFileSystem
     protected void verifyFileSystemIsEmpty()
     {
         String bucket = new GcsLocation(rootLocation).bucket();
-        assertThat(storage.list(bucket).iterateAll()).isEmpty();
+        String prefix = new GcsLocation(rootLocation).path();
+        if (prefix.isEmpty()) {
+            assertThat(storage.list(bucket).iterateAll()).isEmpty();
+        }
+        else {
+            assertThat(storage.list(bucket, Storage.BlobListOption.prefix(prefix)).iterateAll())
+                    .isEmpty();
+        }
     }
 
     @Override
@@ -152,7 +221,8 @@ public abstract class AbstractTestGcsFileSystem
     void testExistingFileWithTrailingSlash()
             throws IOException
     {
-        BlobId blobId = BlobId.of(new GcsLocation(rootLocation).bucket(), "data/file/");
+        GcsLocation gcsRootLocation = new GcsLocation(rootLocation);
+        BlobId blobId = BlobId.of(gcsRootLocation.bucket(), gcsRootLocation.path() + "data/file/");
         storage.create(BlobInfo.newBuilder(blobId).build(), new byte[0], doesNotExist());
         try {
             assertThat(fileSystem.listFiles(getRootLocation()).hasNext()).isFalse();
@@ -161,7 +231,8 @@ public abstract class AbstractTestGcsFileSystem
             assertThat(fileSystem.listDirectories(getRootLocation())).containsExactly(data);
             assertThat(fileSystem.listDirectories(data)).containsExactly(data.appendPath("file/"));
 
-            // blobs ending in slash are deleted, even though they are not visible to listings
+            // blobs ending in slash are deleted, even though they are not visible to
+            // listings
             fileSystem.deleteDirectory(data);
             assertThat(fileSystem.listDirectories(getRootLocation())).isEmpty();
         }
@@ -174,8 +245,11 @@ public abstract class AbstractTestGcsFileSystem
     void testRoundTripFileWithDiscouragedCharsName()
             throws Exception
     {
-        // According to https://docs.cloud.google.com/storage/docs/objects#recommendations some chars ([*]#?) are discouraged
-        // because they are specially treated in gcloud cli. But they are not directly prohibited.
+        // According to
+        // https://docs.cloud.google.com/storage/docs/objects#recommendations some chars
+        // ([*]#?) are discouraged
+        // because they are specially treated in gcloud cli. But they are not directly
+        // prohibited.
         byte[] buffer = new byte[8];
         String stringToWrite = "test";
         Location fileLocation = getRootLocation().appendPath("[*]#?");

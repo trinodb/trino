@@ -15,6 +15,10 @@ package io.trino.filesystem.gcs;
 
 import com.google.cloud.BaseServiceException;
 import com.google.cloud.ReadChannel;
+import com.google.cloud.gcs.analyticscore.client.GcsFileInfo;
+import com.google.cloud.gcs.analyticscore.client.GcsFileSystem;
+import com.google.cloud.gcs.analyticscore.client.GcsItemId;
+import com.google.cloud.gcs.analyticscore.core.GoogleCloudStorageInputStream;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
@@ -77,8 +81,13 @@ public class GcsUtils
 
     private static Blob.BlobSourceOption[] blobSourceOptions(Optional<EncryptionKey> key)
     {
-        return key.map(encryption -> new Blob.BlobSourceOption[] {Blob.BlobSourceOption.decryptionKey(encodedKey(encryption)), shouldReturnRawInputStream(true)})
-                .orElse(new Blob.BlobSourceOption[] {shouldReturnRawInputStream(true)});
+        return key.map(encryption -> new Blob.BlobSourceOption[] {
+                        Blob.BlobSourceOption.decryptionKey(encodedKey(encryption)),
+                        shouldReturnRawInputStream(true),
+                })
+                .orElseGet(() -> new Blob.BlobSourceOption[] {
+                        shouldReturnRawInputStream(true),
+                });
     }
 
     public static Optional<Blob> getBlob(Storage storage, GcsLocation location, Storage.BlobGetOption... blobGetOptions)
@@ -93,9 +102,99 @@ public class GcsUtils
         return getBlob(storage, location, blobGetOptions).orElseThrow(() -> new FileNotFoundException("File %s not found".formatted(location)));
     }
 
+    public static Optional<GcsFileInfo> getGcsFileInfo(GcsFileSystem gcsFileSystem, GcsLocation location)
+    {
+        checkArgument(!location.path().isEmpty(), "Path for location %s is empty", location);
+        try {
+            return Optional.ofNullable(gcsFileSystem.getFileInfo(toGcsItemId(location)));
+        }
+        catch (IOException e) {
+            return Optional.empty();
+        }
+    }
+
+    public static GcsFileInfo getGcsFileInfoOrThrow(GcsFileSystem gcsFileSystem, GcsLocation location)
+            throws IOException
+    {
+        return getGcsFileInfo(gcsFileSystem, location).orElseThrow(() -> new FileNotFoundException("File %s not found".formatted(location)));
+    }
+
+    public static GoogleCloudStorageInputStream openGcsInputStream(GcsFileSystem gcsFileSystem, GcsLocation location)
+            throws IOException
+    {
+        try {
+            return GoogleCloudStorageInputStream.create(gcsFileSystem, toGcsItemId(location));
+        }
+        catch (IOException e) {
+            throw mapFileNotFound(e, location);
+        }
+        catch (RuntimeException e) {
+            throw handleGcsException(e, "reading file", location);
+        }
+    }
+
+    public static GoogleCloudStorageInputStream openGcsInputStream(GcsFileSystem gcsFileSystem, GcsFileInfo fileInfo, GcsLocation location)
+            throws IOException
+    {
+        try {
+            return GoogleCloudStorageInputStream.create(gcsFileSystem, fileInfo);
+        }
+        catch (IOException e) {
+            throw mapFileNotFound(e, location);
+        }
+        catch (RuntimeException e) {
+            throw handleGcsException(e, "reading file", location);
+        }
+    }
+
+    public static IOException mapFileNotFound(IOException exception, GcsLocation location)
+    {
+        if (exception instanceof FileNotFoundException) {
+            return exception;
+        }
+        String message = exception.getMessage();
+        if (message != null) {
+            if (message.startsWith("Object not found:")) {
+                return new FileNotFoundException("File %s not found".formatted(location));
+            }
+            // Handle Analytics Core library exceptions that wrap StorageException 404
+            if (message.contains("404 Not Found") || message.contains("No such object:")) {
+                return new FileNotFoundException("File %s not found".formatted(location));
+            }
+        }
+        return exception;
+    }
+
     public static String encodedKey(EncryptionKey key)
     {
         return Base64.getEncoder().encodeToString(key.key());
+    }
+
+    public static Storage.BlobGetOption[] blobGetOptions(Optional<EncryptionKey> key)
+    {
+        return key
+                .map(encryption -> new Storage.BlobGetOption[] {
+                        Storage.BlobGetOption.decryptionKey(encodedKey(encryption)),
+                })
+                .orElseGet(() -> new Storage.BlobGetOption[0]);
+    }
+
+    public static Storage.BlobGetOption[] blobGetOptionsFromEncodedKey(Optional<String> key)
+    {
+        return key
+                .map(encryption -> new Storage.BlobGetOption[] {
+                        Storage.BlobGetOption.decryptionKey(encryption),
+                })
+                .orElseGet(() -> new Storage.BlobGetOption[0]);
+    }
+
+    public static Optional<String> findEncryptionKey(GcsFileSystem gcsFileSystem)
+    {
+        String key = gcsFileSystem.getFileSystemOptions().getGcsClientOptions().getGcsReadOptions().getDecryptionKey().orElse("");
+        if (key.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(key);
     }
 
     public static String keySha256Checksum(EncryptionKey key)
@@ -108,5 +207,38 @@ public class GcsUtils
         catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * Creates a GcsItemId from a GcsLocation using the bucket and path directly,
+     * avoiding URI encoding issues with special characters.
+     */
+    public static GcsItemId toGcsItemId(GcsLocation location)
+    {
+        return GcsItemId.builder()
+                .setBucketName(location.bucket())
+                .setObjectName(location.path())
+                .build();
+    }
+
+    /**
+     * Checks if the path contains characters that cause issues with URI handling in
+     * Analytics Core.
+     * The gcs-analytics-core library internally uses URI.create() which fails for
+     * these characters.
+     * When detected, callers should fall back to the legacy GCS Storage API.
+     */
+    public static boolean pathHasSpecialCharacters(String path)
+    {
+        return path.contains(" ") || path.contains("#") || path.contains("?") || path.contains("[") || path.contains("]") || path.contains("*");
+    }
+
+    /**
+     * Decodes a Base64-encoded encryption key string to an EncryptionKey.
+     */
+    public static EncryptionKey decodeKey(String base64Key)
+    {
+        byte[] keyBytes = Base64.getDecoder().decode(base64Key);
+        return new EncryptionKey(keyBytes, "AES256");
     }
 }

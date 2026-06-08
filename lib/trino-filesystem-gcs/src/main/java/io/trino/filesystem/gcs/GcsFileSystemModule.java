@@ -28,6 +28,7 @@ public class GcsFileSystemModule
         configBinder(binder).bindConfig(GcsFileSystemConfig.class);
         binder.bind(GcsStorageFactory.class).in(Scopes.SINGLETON);
         binder.bind(GcsFileSystemFactory.class).in(Scopes.SINGLETON);
+        binder.bind(AnalyticsCoreGcsFileSystemFactory.class).in(Scopes.SINGLETON);
 
         switch (buildConfigObject(GcsFileSystemConfig.class).getAuthType()) {
             case ACCESS_TOKEN -> binder.bind(GcsAuth.class).to(GcsAccessTokenAuth.class).in(Scopes.SINGLETON);

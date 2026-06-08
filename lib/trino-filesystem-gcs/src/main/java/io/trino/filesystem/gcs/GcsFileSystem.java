@@ -78,8 +78,16 @@ public class GcsFileSystem
     private final long writeBlockSizeBytes;
     private final int pageSize;
     private final int batchSize;
+    private final Optional<com.google.cloud.gcs.analyticscore.client.GcsFileSystem> analyticsFileSystem;
 
-    public GcsFileSystem(ListeningExecutorService executorService, Storage storage, int readBlockSizeBytes, long writeBlockSizeBytes, int pageSize, int batchSize)
+    public GcsFileSystem(
+            ListeningExecutorService executorService,
+            Storage storage,
+            int readBlockSizeBytes,
+            long writeBlockSizeBytes,
+            int pageSize,
+            int batchSize,
+            Optional<com.google.cloud.gcs.analyticscore.client.GcsFileSystem> analyticsFileSystem)
     {
         this.executorService = requireNonNull(executorService, "executorService is null");
         this.storage = requireNonNull(storage, "storage is null");
@@ -87,6 +95,7 @@ public class GcsFileSystem
         this.writeBlockSizeBytes = writeBlockSizeBytes;
         this.pageSize = pageSize;
         this.batchSize = batchSize;
+        this.analyticsFileSystem = analyticsFileSystem;
     }
 
     @Override
@@ -94,7 +103,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.empty(), Optional.empty(), Optional.empty());
+        return createInputFile(gcsLocation, OptionalLong.empty(), Optional.empty(), Optional.empty());
     }
 
     @Override
@@ -102,7 +111,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.empty(), Optional.empty(), Optional.of(key));
+        return createInputFile(gcsLocation, OptionalLong.empty(), Optional.empty(), Optional.of(key));
     }
 
     @Override
@@ -110,7 +119,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.empty(), Optional.empty());
+        return createInputFile(gcsLocation, OptionalLong.of(length), Optional.empty(), Optional.empty());
     }
 
     @Override
@@ -118,7 +127,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.empty(), Optional.of(key));
+        return createInputFile(gcsLocation, OptionalLong.of(length), Optional.empty(), Optional.of(key));
     }
 
     @Override
@@ -126,7 +135,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.of(lastModified), Optional.empty());
+        return createInputFile(gcsLocation, OptionalLong.of(length), Optional.of(lastModified), Optional.empty());
     }
 
     @Override
@@ -134,7 +143,19 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.of(lastModified), Optional.of(key));
+        return createInputFile(gcsLocation, OptionalLong.of(length), Optional.of(lastModified), Optional.of(key));
+    }
+
+    private TrinoInputFile createInputFile(GcsLocation location, OptionalLong length, Optional<Instant> lastModified, Optional<EncryptionKey> key)
+    {
+        if (analyticsFileSystem.isPresent()) {
+            com.google.cloud.gcs.analyticscore.client.GcsFileSystem analytics = analyticsFileSystem.get();
+            if (key.isPresent() && analytics.getFileSystemOptions().getGcsClientOptions().getGcsReadOptions().getDecryptionKey().isEmpty()) {
+                throw new IllegalStateException("Encrypted GCS read requested, but gcs.client.decryption-key is not configured");
+            }
+            return new AnalyticsCoreGcsInputFile(location, storage, analytics, length, lastModified, readBlockSizeBytes);
+        }
+        return new GcsInputFile(location, storage, readBlockSizeBytes, length, lastModified, key);
     }
 
     @Override
@@ -294,9 +315,17 @@ public class GcsFileSystem
 
         GcsLocation gcsLocation = new GcsLocation(location);
         if (gcsLocation.path().isEmpty()) {
+            // Only check bucket existence when the path is the bucket root
+            // This requires storage.buckets.get permission
             return Optional.of(bucketExists(gcsLocation.bucket()));
         }
         if (listFiles(location).hasNext()) {
+            return Optional.of(true);
+        }
+        // For paths explicitly marked as directories (ending with /), return true
+        // This handles the case where an empty directory prefix is used as a root location
+        // We don't check bucket existence here to avoid requiring storage.buckets.get permission
+        if (location.path().endsWith("/")) {
             return Optional.of(true);
         }
         return Optional.empty();

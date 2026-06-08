@@ -15,12 +15,15 @@ package io.trino.filesystem.gcs;
 
 import io.trino.filesystem.Location;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-record GcsLocation(Location location)
+public record GcsLocation(Location location)
 {
-    GcsLocation
+    public GcsLocation
     {
         // Note: Underscores are allowed in bucket names, see https://cloud.google.com/storage/docs/buckets#naming.
 
@@ -56,5 +59,15 @@ record GcsLocation(Location location)
     public String toString()
     {
         return location.toString();
+    }
+
+    public URI toUri()
+    {
+        try {
+            return new URI(scheme(), bucket(), "/" + path(), null);
+        }
+        catch (URISyntaxException e) {
+            throw new IllegalArgumentException("Invalid GCS location: " + location, e);
+        }
     }
 }

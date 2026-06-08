@@ -19,8 +19,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
-import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
+import static io.airlift.units.Duration.succinctDuration;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -31,7 +32,24 @@ public class TestGcsFileSystem
     void setup()
             throws IOException
     {
-        initialize(requireEnv("GCP_CREDENTIALS_KEY"));
+        String staticBucket = System.getenv("GCS_TEST_BUCKET");
+        String gcpCredentialsKey = System.getenv("GCP_CREDENTIALS_KEY");
+        if (gcpCredentialsKey == null || gcpCredentialsKey.isBlank()) {
+            initializeWithApplicationDefault(staticBucket, this::configureRetrySettings);
+            return;
+        }
+
+        initialize(gcpCredentialsKey, staticBucket, this::configureRetrySettings);
+    }
+
+    private void configureRetrySettings(GcsFileSystemConfig config)
+    {
+        // This cloud test intentionally triggers retry behavior via repeated writes.
+        // Use a larger retry budget to absorb transient GCS throttling in shared CI environments.
+        config.setMaxRetries(100)
+                .setMaxRetryTime(succinctDuration(2, TimeUnit.MINUTES))
+                .setMinBackoffDelay(succinctDuration(50, TimeUnit.MILLISECONDS))
+                .setMaxBackoffDelay(succinctDuration(10, TimeUnit.SECONDS));
     }
 
     @Test

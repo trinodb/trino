@@ -60,6 +60,18 @@
         </dependency>
 
         <dependency>
+            <groupId>com.google.cloud.gcs.analytics</groupId>
+            <artifactId>client</artifactId>
+            <version>1.2.3</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.cloud.gcs.analytics</groupId>
+            <artifactId>gcs-analytics-core</artifactId>
+            <version>1.2.3</version>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
         </dependency>
@@ -188,6 +200,8 @@
                             <excludes>
                                 <exclude>**/TestGcsFileSystem.java</exclude>
                                 <exclude>**/TestGcsFileSystemWithEncryption.java</exclude>
+                                <exclude>**/TestGcsFileSystemWithAnalyticsCore.java</exclude>
+                                <exclude>**/TestGcsFileSystemWithAnalyticsCoreAndEncryption.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -206,6 +220,8 @@
                             <includes>
                                 <include>**/TestGcsFileSystem.java</include>
                                 <include>**/TestGcsFileSystemWithEncryption.java</include>
+                                <include>**/TestGcsFileSystemWithAnalyticsCore.java</include>
+                                <include>**/TestGcsFileSystemWithAnalyticsCoreAndEncryption.java</include>
                             </includes>
                         </configuration>
                     </plugin>

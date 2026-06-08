@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.gcs.AnalyticsCoreGcsFileSystemFactory;
 import io.trino.filesystem.gcs.GcsFileSystemConfig;
 import io.trino.filesystem.gcs.GcsFileSystemFactory;
 import io.trino.filesystem.gcs.GcsServiceAccountAuth;
@@ -69,7 +70,8 @@ final class TestIcebergGcsRestCatalogVendedCredentialsRefresh
         catch (IOException e) {
             throw new RuntimeException(e);
         }
-        fileSystem = new GcsFileSystemFactory(config, storageFactory).create(SESSION);
+        AnalyticsCoreGcsFileSystemFactory analyticsCoreFactory = new AnalyticsCoreGcsFileSystemFactory(config);
+        fileSystem = new GcsFileSystemFactory(config, storageFactory, analyticsCoreFactory).create(SESSION);
     }
 
     @AfterAll

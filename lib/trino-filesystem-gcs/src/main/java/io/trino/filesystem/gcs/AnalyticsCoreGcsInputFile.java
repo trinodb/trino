@@ -13,6 +13,8 @@
  */
 package io.trino.filesystem.gcs;
 
+import com.google.cloud.gcs.analyticscore.client.GcsFileInfo;
+import com.google.cloud.gcs.analyticscore.client.GcsFileSystem;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
 import io.trino.filesystem.Location;
@@ -27,48 +29,61 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.trino.filesystem.gcs.GcsUtils.blobGetOptions;
+import static io.trino.filesystem.gcs.GcsUtils.blobGetOptionsFromEncodedKey;
+import static io.trino.filesystem.gcs.GcsUtils.findEncryptionKey;
 import static io.trino.filesystem.gcs.GcsUtils.getBlob;
 import static io.trino.filesystem.gcs.GcsUtils.getBlobOrThrow;
+import static io.trino.filesystem.gcs.GcsUtils.getGcsFileInfoOrThrow;
 import static io.trino.filesystem.gcs.GcsUtils.handleGcsException;
+import static io.trino.filesystem.gcs.GcsUtils.pathHasSpecialCharacters;
 import static java.util.Objects.requireNonNull;
 
-public class GcsInputFile
+final class AnalyticsCoreGcsInputFile
         implements TrinoInputFile
 {
     private final GcsLocation location;
     private final Storage storage;
-    private final int readBlockSize;
+    private final GcsFileSystem gcsFileSystem;
     private final OptionalLong predeclaredLength;
-    private final Optional<EncryptionKey> key;
+    private final int readBlockSizeBytes;
     private OptionalLong length;
     private Optional<Instant> lastModified;
 
-    public GcsInputFile(GcsLocation location, Storage storage, int readBockSize, OptionalLong predeclaredLength, Optional<Instant> lastModified, Optional<EncryptionKey> key)
+    public AnalyticsCoreGcsInputFile(GcsLocation location, Storage storage, GcsFileSystem gcsFileSystem, OptionalLong predeclaredLength, Optional<Instant> lastModified, int readBlockSizeBytes)
     {
         this.location = requireNonNull(location, "location is null");
         this.storage = requireNonNull(storage, "storage is null");
-        this.readBlockSize = readBockSize;
+        this.gcsFileSystem = requireNonNull(gcsFileSystem, "gcsFileSystem is null");
         this.predeclaredLength = requireNonNull(predeclaredLength, "length is null");
+        this.readBlockSizeBytes = readBlockSizeBytes;
         this.length = OptionalLong.empty();
         this.lastModified = requireNonNull(lastModified, "lastModified is null");
-        this.key = requireNonNull(key, "key is null");
     }
 
     @Override
     public TrinoInput newInput()
             throws IOException
     {
-        // Note: Only pass predeclared length, to keep the contract of TrinoFileSystem.newInputFile
-        return new GcsInput(location, storage, predeclaredLength, key);
+        return new AnalyticsCoreGcsInput(location, storage, gcsFileSystem);
     }
 
     @Override
     public TrinoInputStream newStream()
             throws IOException
     {
-        Blob blob = getBlobOrThrow(storage, location, blobGetOptions(key));
-        return new GcsInputStream(location, blob, readBlockSize, predeclaredLength, key);
+        // Fall back to legacy GCS API for paths with special characters
+        // The gcs-analytics-core library internally uses URI.create() which fails for these
+        if (pathHasSpecialCharacters(location.path())) {
+            Blob blob = getBlobOrThrow(storage, location, blobGetOptionsFromEncodedKey(findEncryptionKey(gcsFileSystem)));
+            return new GcsInputStream(location, blob, readBlockSizeBytes, predeclaredLength, getFallbackEncryptionKey());
+        }
+        GcsFileInfo fileInfo = getGcsFileInfoOrThrow(gcsFileSystem, location);
+        return new AnalyticsCoreGcsInputStream(location, storage, fileInfo, gcsFileSystem, predeclaredLength);
+    }
+
+    private Optional<EncryptionKey> getFallbackEncryptionKey()
+    {
+        return findEncryptionKey(gcsFileSystem).map(GcsUtils::decodeKey);
     }
 
     @Override
@@ -98,7 +113,7 @@ public class GcsInputFile
     public boolean exists()
             throws IOException
     {
-        Optional<Blob> blob = getBlob(storage, location, blobGetOptions(key));
+        Optional<Blob> blob = getBlob(storage, location, blobGetOptionsFromEncodedKey(findEncryptionKey(gcsFileSystem)));
         return blob.isPresent() && blob.get().exists();
     }
 
@@ -122,7 +137,36 @@ public class GcsInputFile
     private void loadProperties()
             throws IOException
     {
-        Blob blob = getBlobOrThrow(storage, location, blobGetOptions(key));
+        // Fall back to legacy GCS API for paths with special characters
+        // The gcs-analytics-core library internally uses URI.create() which fails for these
+        if (pathHasSpecialCharacters(location.path())) {
+            loadPropertiesFromBlob();
+            return;
+        }
+
+        GcsFileInfo fileInfo = getGcsFileInfoOrThrow(gcsFileSystem, location);
+        try {
+            length = OptionalLong.of(fileInfo.getItemInfo().getSize());
+            if (lastModified.isEmpty()) {
+                Blob blob = getBlobOrThrow(
+                        storage,
+                        location,
+                        blobGetOptionsFromEncodedKey(findEncryptionKey(gcsFileSystem)));
+                lastModified = Optional.of(Instant.from(blob.getUpdateTimeOffsetDateTime()));
+            }
+        }
+        catch (RuntimeException e) {
+            throw handleGcsException(e, "fetching properties for file", location);
+        }
+    }
+
+    private void loadPropertiesFromBlob()
+            throws IOException
+    {
+        Blob blob = getBlobOrThrow(
+                storage,
+                location,
+                blobGetOptionsFromEncodedKey(findEncryptionKey(gcsFileSystem)));
         try {
             length = OptionalLong.of(blob.getSize());
             if (lastModified.isEmpty()) {
