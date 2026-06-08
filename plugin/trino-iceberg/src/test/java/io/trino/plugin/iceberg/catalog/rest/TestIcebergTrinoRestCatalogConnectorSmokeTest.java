@@ -43,6 +43,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
+import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.ICEBERG_VIEW_RUN_AS_OWNER;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -111,6 +112,29 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     public void teardown()
     {
         backend = null; // closed by closeAfterClass
+    }
+
+    @Test
+    void testCreateOrReplaceViewClearsRunAsOwner()
+    {
+        String viewName = "test_replace_view_security_" + randomNameSuffix();
+
+        try {
+            assertUpdate("CREATE VIEW " + viewName + " SECURITY DEFINER AS SELECT 1 x");
+            assertThat((String) computeScalar("SHOW CREATE VIEW " + viewName))
+                    .contains("SECURITY DEFINER");
+
+            assertUpdate("CREATE OR REPLACE VIEW " + viewName + " SECURITY INVOKER AS SELECT 1 x");
+
+            assertThat((String) computeScalar("SHOW CREATE VIEW " + viewName))
+                    .contains("SECURITY INVOKER")
+                    .doesNotContain("SECURITY DEFINER");
+            assertThat(backend.loadView(toIdentifier(viewName)).properties())
+                    .doesNotContainKey(ICEBERG_VIEW_RUN_AS_OWNER);
+        }
+        finally {
+            assertUpdate("DROP VIEW IF EXISTS " + viewName);
+        }
     }
 
     @Test
