@@ -494,7 +494,7 @@ public class TestArrayOperators
         assertThat(assertions.expression("CAST(a AS array(VARCHAR))")
                 .binding("a", "JSON '[true, false, 12, 12.3, \"puppies\", \"kittens\", \"null\", \"\", null]'"))
                 .hasType(new ArrayType(VARCHAR))
-                .isEqualTo(asList("true", "false", "12", "1.23E1", "puppies", "kittens", "null", "", null));
+                .isEqualTo(asList("true", "false", "12", "12.3", "puppies", "kittens", "null", "", null));
 
         assertThat(assertions.expression("CAST(a AS array(JSON))")
                 .binding("a", "JSON '[5, 3.14, [1, 2, 3], \"e\", {\"a\": \"b\"}, null, \"null\", [null]]'"))
@@ -1209,7 +1209,7 @@ public class TestArrayOperators
 
         // array with various types including scientific notation and string "null"
         String inputJsonArray = "[true, false, 12, 12.3, 1.23E1, 0, 0.000000000000000, 0e1000, 0e-1000, 1, 100000000000000000000000000000000000000000000000000000000000000000000e-68, 0.100000000000000, \"puppies\", \"kittens\", \"null\", null]";
-        String expectedVarcharArray = "ARRAY[VARCHAR 'true', 'false', '12', '1.23E1', '1.23E1', '0', '0E0', '0E0', '0E0', '1', '1.0E0', '1.0E-1', 'puppies', 'kittens', 'null', null]";
+        String expectedVarcharArray = "ARRAY[VARCHAR 'true', 'false', '12', '12.3', '12.3', '0', '0E-15', '0E+1000', '0E-1000', '1', '1.00000000000000000000000000000000000000000000000000000000000000000000', '0.100000000000000', 'puppies', 'kittens', 'null', null]";
         assertThat(assertions.expression("cast(a as ARRAY(VARCHAR))")
                 .binding("a", "JSON '" + inputJsonArray + "'"))
                 .hasType(new ArrayType(VARCHAR))
