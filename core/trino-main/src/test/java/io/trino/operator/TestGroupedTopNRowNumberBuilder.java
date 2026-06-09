@@ -112,8 +112,7 @@ public class TestGroupedTopNRowNumberBuilder
                 .row(3L, 0.1, 1)
                 .row(3L, 0.9, 2)
                 .row(4L, 0.6, 1)
-                .build()
-                .get(0);
+                .buildPage();
         if (produceRowNumbers) {
             assertPageEquals(ImmutableList.of(BIGINT, DOUBLE, BIGINT), output.get(0), expected);
         }
@@ -182,8 +181,7 @@ public class TestGroupedTopNRowNumberBuilder
                 .row(1L, 0.3, 3)
                 .row(1L, 0.4, 4)
                 .row(1L, 0.5, 5)
-                .build()
-                .get(0);
+                .buildPage();
         if (produceRowNumbers) {
             assertPageEquals(ImmutableList.of(BIGINT, DOUBLE, BIGINT), output.get(0), expected);
         }
@@ -201,8 +199,7 @@ public class TestGroupedTopNRowNumberBuilder
                 .row(1L, 0.2)
                 .row(1L, 0.9)
                 .row(1L, 0.1)
-                .build()
-                .get(0);
+                .buildPage();
         input.compact();
 
         AtomicBoolean unblock = new AtomicBoolean();
@@ -228,8 +225,7 @@ public class TestGroupedTopNRowNumberBuilder
                 .row(1L, 0.2)
                 .row(1L, 0.3)
                 .row(1L, 0.9)
-                .build()
-                .get(0);
+                .buildPage();
         assertPageEquals(types, output.get(0), expected);
     }
 

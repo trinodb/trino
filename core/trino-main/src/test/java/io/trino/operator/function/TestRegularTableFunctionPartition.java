@@ -54,8 +54,7 @@ public class TestRegularTableFunctionPartition
                 .newPagesIndex(ImmutableList.of(VARCHAR, BIGINT), 1);
         pagesIndex.addPage(RowPagesBuilder.rowPagesBuilder(VARCHAR, BIGINT)
                 .row("x".repeat(4096), 0L)
-                .build()
-                .get(0));
+                .buildPage());
 
         // A processor that reads the single input row and emits 2000 output rows,
         // each carrying a pass-through index pointing back to input row 0.

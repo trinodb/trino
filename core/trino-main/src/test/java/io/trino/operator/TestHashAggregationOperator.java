@@ -58,7 +58,6 @@ import java.util.OptionalLong;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
@@ -749,7 +748,7 @@ public class TestHashAggregationOperator
     {
         List<Integer> hashChannels = Ints.asList(0);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashChannels, BIGINT);
-        Page input = getOnlyElement(rowPagesBuilder.addSequencePage(500, 0).build());
+        Page input = rowPagesBuilder.addSequencePage(500, 0).buildPage();
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                 0,

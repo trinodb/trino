@@ -35,7 +35,6 @@ import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -183,7 +182,7 @@ public class TestAggregationOperator
     public void testMemoryTracking()
             throws Exception
     {
-        Page input = getOnlyElement(rowPagesBuilder(BIGINT).addSequencePage(100, 0).build());
+        Page input = rowPagesBuilder(BIGINT).addSequencePage(100, 0).buildPage();
 
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
                 0,

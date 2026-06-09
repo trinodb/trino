@@ -188,9 +188,9 @@ public class TestTopNOperator
     @Test
     public void testExceedMemoryLimit()
     {
-        List<Page> input = rowPagesBuilder(BIGINT)
+        Page input = rowPagesBuilder(BIGINT)
                 .row(1L)
-                .build();
+                .buildPage();
 
         DriverContext smallDiverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.ofBytes(1))
                 .addPipelineContext(0, true, true, false)
@@ -202,7 +202,7 @@ public class TestTopNOperator
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST));
         Operator operator = operatorFactory.createOperator(smallDiverContext);
-        operator.addInput(input.get(0));
+        operator.addInput(input);
         assertThatThrownBy(operator::getOutput)
                 .isInstanceOf(ExceededMemoryLimitException.class)
                 .hasMessageStartingWith("Query exceeded per-node memory limit of ");

@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.RowPageBuilder.rowPageBuilder;
 import static java.util.Objects.requireNonNull;
 
@@ -115,6 +116,11 @@ public class RowPagesBuilder
     {
         pageBreak();
         return pages.build();
+    }
+
+    public Page buildPage()
+    {
+        return getOnlyElement(build());
     }
 
     public List<Type> getTypes()
