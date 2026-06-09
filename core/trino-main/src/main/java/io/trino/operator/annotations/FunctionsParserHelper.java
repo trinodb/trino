@@ -283,10 +283,10 @@ public final class FunctionsParserHelper
         return (description == null) ? Optional.empty() : Optional.of(description.value());
     }
 
-    public static void parseLongVariableConstraints(Method inputFunction, Builder signatureBuilder)
+    public static void parseNumericVariableConstraints(Method inputFunction, Builder signatureBuilder)
     {
         Stream.of(inputFunction.getAnnotationsByType(Constraint.class))
-                .forEach(annotation -> signatureBuilder.longVariable(annotation.variable(), annotation.expression()));
+                .forEach(annotation -> signatureBuilder.numericVariable(annotation.variable(), annotation.expression()));
     }
 
     public static Map<String, Class<?>> getDeclaredSpecializedTypeParameters(Method method, Set<io.trino.spi.function.TypeParameter> typeParameters)

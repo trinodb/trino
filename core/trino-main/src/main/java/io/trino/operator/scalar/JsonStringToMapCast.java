@@ -36,7 +36,7 @@ public final class JsonStringToMapCast
                 .signature(Signature.builder()
                         .comparableTypeParameter("K")
                         .typeVariable("V")
-                        .longVariable("N")
+                        .numericVariable("N")
                         .returnType(mapType(typeVariable("K"), typeVariable("V")))
                         .argumentType(new TypeSignature("varchar", numericVariable("N")))
                         .build())
