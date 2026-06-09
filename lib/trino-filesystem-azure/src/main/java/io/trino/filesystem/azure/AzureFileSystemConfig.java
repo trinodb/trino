@@ -52,6 +52,7 @@ public class AzureFileSystemConfig
     private Duration httpRequestTimeout = new Duration(10, TimeUnit.MINUTES);
     private String applicationId = "Trino";
     private boolean multipartWriteEnabled;
+    private boolean allowNonStandardHosts;
 
     @NotNull
     public AuthType getAuthType()
@@ -212,6 +213,19 @@ public class AzureFileSystemConfig
     public AzureFileSystemConfig setMultipartWriteEnabled(boolean multipartWriteEnabled)
     {
         this.multipartWriteEnabled = multipartWriteEnabled;
+        return this;
+    }
+
+    public boolean isAllowNonStandardHosts()
+    {
+        return allowNonStandardHosts;
+    }
+
+    @Config("azure.allow-non-standard-hosts")
+    @ConfigDescription("Allow ABFS URIs whose hostname does not contain \".dfs.\", e.g., for Microsoft Fabric OneLake workspaces")
+    public AzureFileSystemConfig setAllowNonStandardHosts(boolean allowNonStandardHosts)
+    {
+        this.allowNonStandardHosts = allowNonStandardHosts;
         return this;
     }
 }
