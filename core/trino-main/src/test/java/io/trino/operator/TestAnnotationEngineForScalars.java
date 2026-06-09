@@ -376,7 +376,7 @@ public class TestAnnotationEngineForScalars
     {
         Signature expectedSignature = Signature.builder()
                 .returnType(BOOLEAN)
-                .argumentType(arrayType(new TypeSignature("varchar", TypeParameter.typeVariable("x"))))
+                .argumentType(arrayType(new TypeSignature("varchar", TypeParameter.numericVariable("x"))))
                 .build();
 
         Signature exactSignature = Signature.builder()
@@ -416,7 +416,7 @@ public class TestAnnotationEngineForScalars
     {
         Signature expectedSignature = Signature.builder()
                 .returnType(BIGINT)
-                .argumentType(new TypeSignature("varchar", TypeParameter.typeVariable("x")))
+                .argumentType(new TypeSignature("varchar", TypeParameter.numericVariable("x")))
                 .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(SimpleInjectionScalarFunction.class);

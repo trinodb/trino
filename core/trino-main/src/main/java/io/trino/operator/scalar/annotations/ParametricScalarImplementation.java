@@ -72,7 +72,7 @@ import static io.trino.operator.annotations.FunctionsParserHelper.containsLegacy
 import static io.trino.operator.annotations.FunctionsParserHelper.createTypeVariableConstraints;
 import static io.trino.operator.annotations.FunctionsParserHelper.getDeclaredSpecializedTypeParameters;
 import static io.trino.operator.annotations.FunctionsParserHelper.parseLiteralParameters;
-import static io.trino.operator.annotations.FunctionsParserHelper.parseLongVariableConstraints;
+import static io.trino.operator.annotations.FunctionsParserHelper.parseNumericVariableConstraints;
 import static io.trino.operator.annotations.ImplementationDependency.Factory.createDependency;
 import static io.trino.operator.annotations.ImplementationDependency.checkTypeParameters;
 import static io.trino.operator.annotations.ImplementationDependency.getImplementationDependencyAnnotation;
@@ -504,7 +504,7 @@ public class ParametricScalarImplementation
                 checkArgument(!nullable, "Method [%s] annotated with @SqlNullable has primitive return type %s", method, actualReturnType.getSimpleName());
             }
 
-            parseLongVariableConstraints(method, signatureBuilder);
+            parseNumericVariableConstraints(method, signatureBuilder);
 
             this.specializedTypeParameters = getDeclaredSpecializedTypeParameters(method, typeParameters);
 

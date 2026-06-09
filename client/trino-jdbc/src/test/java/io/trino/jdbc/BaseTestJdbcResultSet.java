@@ -48,7 +48,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.type.DateTimes.NANOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Arrays.asList;

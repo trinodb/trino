@@ -19,6 +19,7 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.variant.Metadata;
 
+import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.util.variant.PrimitiveMapVariantWriter.getMapKeys;
 
 public record MapVariantWriter(MapType type, VariantWriter valueWriter)
@@ -40,7 +41,7 @@ public record MapVariantWriter(MapType type, VariantWriter valueWriter)
         Block valueBlock = sqlMap.getRawValueBlock();
         int valueBlockOffset = sqlMap.getRawOffset();
         for (int entry = 0; entry < sqlMap.getSize(); entry++) {
-            plannedValues[entry] = valueWriter.plan(metadataBuilder, valueType.getObject(valueBlock, valueBlockOffset + entry));
+            plannedValues[entry] = valueWriter.plan(metadataBuilder, readNativeValue(valueType, valueBlock, valueBlockOffset + entry));
         }
 
         return new PlannedObjectValue(fieldIds, plannedValues);

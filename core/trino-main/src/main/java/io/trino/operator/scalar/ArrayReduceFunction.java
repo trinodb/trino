@@ -22,7 +22,6 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.lambda.BinaryFunctionInterface;
 import io.trino.sql.gen.lambda.UnaryFunctionInterface;
 
@@ -35,6 +34,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.functionType;
+import static io.trino.spi.type.TypeSignature.typeVariable;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.util.Reflection.methodHandle;
 
@@ -52,11 +52,11 @@ public final class ArrayReduceFunction
                         .typeVariable("T")
                         .typeVariable("S")
                         .typeVariable("R")
-                        .returnType(new TypeSignature("R"))
-                        .argumentType(arrayType(new TypeSignature("T")))
-                        .argumentType(new TypeSignature("S"))
-                        .argumentType(functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")))
-                        .argumentType(functionType(new TypeSignature("S"), new TypeSignature("R")))
+                        .returnType(typeVariable("R"))
+                        .argumentType(arrayType(typeVariable("T")))
+                        .argumentType(typeVariable("S"))
+                        .argumentType(functionType(typeVariable("S"), typeVariable("T"), typeVariable("S")))
+                        .argumentType(functionType(typeVariable("S"), typeVariable("R")))
                         .build())
                 .nullable()
                 .argumentNullability(false, true, false, false)

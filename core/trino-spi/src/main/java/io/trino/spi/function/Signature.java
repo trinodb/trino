@@ -43,20 +43,20 @@ public class Signature
     }
 
     private final List<TypeVariableConstraint> typeVariableConstraints;
-    private final List<LongVariableConstraint> longVariableConstraints;
+    private final List<NumericVariableConstraint> numericVariableConstraints;
     private final TypeSignature returnType;
     private final List<Argument> arguments;
     private final boolean variableArity;
 
     private Signature(
             List<TypeVariableConstraint> typeVariableConstraints,
-            List<LongVariableConstraint> longVariableConstraints,
+            List<NumericVariableConstraint> numericVariableConstraints,
             TypeSignature returnType,
             List<Argument> arguments,
             boolean variableArity)
     {
         this.typeVariableConstraints = List.copyOf(typeVariableConstraints);
-        this.longVariableConstraints = List.copyOf(longVariableConstraints);
+        this.numericVariableConstraints = List.copyOf(numericVariableConstraints);
         this.returnType = requireNonNull(returnType, "returnType is null");
         this.arguments = List.copyOf(arguments);
         this.variableArity = variableArity;
@@ -97,15 +97,15 @@ public class Signature
         return typeVariableConstraints;
     }
 
-    public List<LongVariableConstraint> getLongVariableConstraints()
+    public List<NumericVariableConstraint> getNumericVariableConstraints()
     {
-        return longVariableConstraints;
+        return numericVariableConstraints;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(typeVariableConstraints, longVariableConstraints, returnType, arguments, variableArity);
+        return Objects.hash(typeVariableConstraints, numericVariableConstraints, returnType, arguments, variableArity);
     }
 
     @Override
@@ -118,7 +118,7 @@ public class Signature
             return false;
         }
         return Objects.equals(this.typeVariableConstraints, other.typeVariableConstraints) &&
-                Objects.equals(this.longVariableConstraints, other.longVariableConstraints) &&
+                Objects.equals(this.numericVariableConstraints, other.numericVariableConstraints) &&
                 Objects.equals(this.returnType, other.returnType) &&
                 Objects.equals(this.arguments, other.arguments) &&
                 this.variableArity == other.variableArity;
@@ -129,7 +129,7 @@ public class Signature
     {
         List<String> allConstraints = concat(
                 typeVariableConstraints.stream().map(TypeVariableConstraint::toString),
-                longVariableConstraints.stream().map(LongVariableConstraint::toString))
+                numericVariableConstraints.stream().map(NumericVariableConstraint::toString))
                 .collect(Collectors.toList());
 
         return (allConstraints.isEmpty() ? "" : allConstraints.stream().collect(joining(",", "<", ">"))) +
@@ -146,7 +146,7 @@ public class Signature
     {
         Builder builder = new Builder()
                 .typeVariableConstraints(base.typeVariableConstraints)
-                .longVariableConstraints(base.longVariableConstraints)
+                .numericVariableConstraints(base.numericVariableConstraints)
                 .returnType(base.returnType)
                 .arguments(base.arguments);
         if (base.variableArity) {
@@ -158,7 +158,7 @@ public class Signature
     public static final class Builder
     {
         private final List<TypeVariableConstraint> typeVariableConstraints = new ArrayList<>();
-        private final List<LongVariableConstraint> longVariableConstraints = new ArrayList<>();
+        private final List<NumericVariableConstraint> numericVariableConstraints = new ArrayList<>();
         private TypeSignature returnType;
         private final List<Argument> arguments = new ArrayList<>();
         private boolean variableArity;
@@ -234,21 +234,21 @@ public class Signature
             return this;
         }
 
-        public Builder longVariable(String name, String expression)
+        public Builder numericVariable(String name, String expression)
         {
-            this.longVariableConstraints.add(new LongVariableConstraint(name, expression));
+            this.numericVariableConstraints.add(new NumericVariableConstraint(name, expression));
             return this;
         }
 
-        public Builder longVariable(String name)
+        public Builder numericVariable(String name)
         {
-            this.longVariableConstraints.add(new LongVariableConstraint(name, name));
+            this.numericVariableConstraints.add(new NumericVariableConstraint(name, name));
             return this;
         }
 
-        public Builder longVariableConstraints(List<LongVariableConstraint> longVariableConstraints)
+        public Builder numericVariableConstraints(List<NumericVariableConstraint> numericVariableConstraints)
         {
-            this.longVariableConstraints.addAll(longVariableConstraints);
+            this.numericVariableConstraints.addAll(numericVariableConstraints);
             return this;
         }
 
@@ -297,7 +297,7 @@ public class Signature
 
         public Signature build()
         {
-            return new Signature(typeVariableConstraints, longVariableConstraints, returnType, arguments, variableArity);
+            return new Signature(typeVariableConstraints, numericVariableConstraints, returnType, arguments, variableArity);
         }
     }
 }

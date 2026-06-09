@@ -25,7 +25,6 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
@@ -33,6 +32,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeSignature.typeVariable;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.util.Reflection.methodHandle;
 
@@ -52,9 +52,9 @@ public class MapElementAtFunction
                 .signature(Signature.builder()
                         .typeVariable("K")
                         .typeVariable("V")
-                        .returnType(new TypeSignature("V"))
-                        .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V")))
-                        .argumentType(new TypeSignature("K"))
+                        .returnType(typeVariable("V"))
+                        .argumentType(mapType(typeVariable("K"), typeVariable("V")))
+                        .argumentType(typeVariable("K"))
                         .build())
                 .nullable()
                 .description("Get value for the given key, or null if it does not exist")
@@ -65,7 +65,7 @@ public class MapElementAtFunction
     public FunctionDependencyDeclaration getFunctionDependencies()
     {
         return FunctionDependencyDeclaration.builder()
-                .addOperatorSignature(EQUAL, ImmutableList.of(new TypeSignature("K"), new TypeSignature("K")))
+                .addOperatorSignature(EQUAL, ImmutableList.of(typeVariable("K"), typeVariable("K")))
                 .build();
     }
 

@@ -21,12 +21,12 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class LongVariableConstraint
+public class NumericVariableConstraint
 {
     private final String name;
     private final String expression;
 
-    LongVariableConstraint(String name, String expression)
+    NumericVariableConstraint(String name, String expression)
     {
         this.name = requireNonNull(name, "name is null");
         this.expression = requireNonNull(expression, "expression is null");
@@ -59,7 +59,7 @@ public class LongVariableConstraint
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        LongVariableConstraint that = (LongVariableConstraint) o;
+        NumericVariableConstraint that = (NumericVariableConstraint) o;
         return Objects.equals(name, that.name) &&
                 Objects.equals(expression, that.expression);
     }
@@ -73,10 +73,10 @@ public class LongVariableConstraint
     @JsonCreator
     @DoNotCall // For JSON deserialization only
     @Deprecated // Discourage usages in SPI consumers
-    public static LongVariableConstraint fromJson(
+    public static NumericVariableConstraint fromJson(
             @JsonProperty("name") String name,
             @JsonProperty("expression") String expression)
     {
-        return new LongVariableConstraint(name, expression);
+        return new NumericVariableConstraint(name, expression);
     }
 }

@@ -59,7 +59,7 @@ import static io.trino.operator.aggregation.AggregationFunctionAdapter.Aggregati
 import static io.trino.operator.annotations.FunctionsParserHelper.containsAnnotation;
 import static io.trino.operator.annotations.FunctionsParserHelper.createTypeVariableConstraints;
 import static io.trino.operator.annotations.FunctionsParserHelper.parseLiteralParameters;
-import static io.trino.operator.annotations.FunctionsParserHelper.parseLongVariableConstraints;
+import static io.trino.operator.annotations.FunctionsParserHelper.parseNumericVariableConstraints;
 import static io.trino.operator.annotations.ImplementationDependency.Factory.createDependency;
 import static io.trino.operator.annotations.ImplementationDependency.getImplementationDependencyAnnotation;
 import static io.trino.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
@@ -250,7 +250,7 @@ public class ParametricAggregationImplementation
             inputParameterKinds = parseInputParameterKinds(inputFunction);
 
             // parse constraints
-            parseLongVariableConstraints(inputFunction, signatureBuilder);
+            parseNumericVariableConstraints(inputFunction, signatureBuilder);
             List<ImplementationDependency> allDependencies =
                     Stream.of(
                                     stateDetails.stream().map(AccumulatorStateDetails::getDependencies).flatMap(Collection::stream),

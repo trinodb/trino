@@ -20,7 +20,6 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.variant.Variant;
 import io.trino.util.variant.VariantWriter;
 
@@ -32,6 +31,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeSignature.typeVariable;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.variant.VariantUtil.canCastToVariant;
@@ -59,7 +59,7 @@ public class ArrayToVariantCast
                 .signature(Signature.builder()
                         .castableToTypeParameter("T", VARIANT.getTypeSignature())
                         .returnType(VARIANT)
-                        .argumentType(arrayType(new TypeSignature("T")))
+                        .argumentType(arrayType(typeVariable("T")))
                         .build())
                 .build());
     }

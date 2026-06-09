@@ -167,6 +167,16 @@ public final class TypeSignature
 
     // Type signature constructors for common types
 
+    /// Constructs a reference to the named type variable.
+    ///
+    /// A type variable is written as a parameterless type name whose base is the variable's
+    /// name; this factory makes that intent explicit instead of constructing a bare
+    /// [TypeSignature] that is indistinguishable from a concrete no-argument type.
+    public static TypeSignature typeVariable(String name)
+    {
+        return new TypeSignature(name);
+    }
+
     public static TypeSignature arrayType(TypeSignature elementType)
     {
         return new TypeSignature(StandardTypes.ARRAY, typeParameter(elementType));
@@ -182,13 +192,23 @@ public final class TypeSignature
         return new TypeSignature(StandardTypes.MAP, typeParameter(keyType), typeParameter(valueType));
     }
 
-    public static TypeSignature parametricType(String name, TypeSignature... parameters)
+    public static TypeSignature type(String base)
+    {
+        return new TypeSignature(base);
+    }
+
+    public static TypeSignature type(String name, TypeSignature... parameters)
     {
         return new TypeSignature(
                 name,
                 Arrays.stream(parameters)
                         .map(TypeParameter::typeParameter)
                         .collect(toUnmodifiableList()));
+    }
+
+    public static TypeSignature type(String base, TypeParameter... parameters)
+    {
+        return new TypeSignature(base, parameters);
     }
 
     public static TypeSignature functionType(TypeSignature first, TypeSignature... rest)

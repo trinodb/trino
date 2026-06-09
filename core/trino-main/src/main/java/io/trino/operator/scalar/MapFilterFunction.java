@@ -38,7 +38,6 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.SqlTypeBytecodeExpression;
 import io.trino.sql.gen.lambda.BinaryFunctionInterface;
@@ -65,6 +64,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.TypeSignature.functionType;
 import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeSignature.typeVariable;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -84,9 +84,9 @@ public final class MapFilterFunction
                 .signature(Signature.builder()
                         .typeVariable("K")
                         .typeVariable("V")
-                        .returnType(mapType(new TypeSignature("K"), new TypeSignature("V")))
-                        .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V")))
-                        .argumentType(functionType(new TypeSignature("K"), new TypeSignature("V"), BOOLEAN.getTypeSignature()))
+                        .returnType(mapType(typeVariable("K"), typeVariable("V")))
+                        .argumentType(mapType(typeVariable("K"), typeVariable("V")))
+                        .argumentType(functionType(typeVariable("K"), typeVariable("V"), BOOLEAN.getTypeSignature()))
                         .build())
                 .description("return map containing entries that match the given predicate")
                 .build());

@@ -25,7 +25,6 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.TypeSignature;
 import io.trino.util.JsonUtil.JsonGeneratorWriter;
 
 import java.io.IOException;
@@ -36,6 +35,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeSignature.typeVariable;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.canCastToJson;
@@ -58,7 +58,7 @@ public class ArrayToJsonCast
                 .signature(Signature.builder()
                         .castableToTypeParameter("T", JSON.getTypeSignature())
                         .returnType(JSON)
-                        .argumentType(arrayType(new TypeSignature("T")))
+                        .argumentType(arrayType(typeVariable("T")))
                         .build())
                 .build());
     }

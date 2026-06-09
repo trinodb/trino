@@ -31,7 +31,6 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.type.Json2016Type;
 
 import java.lang.invoke.MethodHandle;
@@ -49,6 +48,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.StandardTypes.BOOLEAN;
 import static io.trino.spi.type.StandardTypes.JSON_2016;
+import static io.trino.spi.type.TypeSignature.type;
+import static io.trino.spi.type.TypeSignature.typeVariable;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
 import static io.trino.util.Reflection.methodHandle;
@@ -67,8 +68,8 @@ public class JsonObjectFunction
                 .signature(Signature.builder()
                         .typeVariable("K")
                         .typeVariable("V")
-                        .returnType(new TypeSignature(JSON_2016))
-                        .argumentTypes(ImmutableList.of(new TypeSignature("K"), new TypeSignature("V"), new TypeSignature(BOOLEAN), new TypeSignature(BOOLEAN)))
+                        .returnType(type(JSON_2016))
+                        .argumentTypes(ImmutableList.of(typeVariable("K"), typeVariable("V"), type(BOOLEAN), type(BOOLEAN)))
                         .build())
                 .argumentNullability(true, true, false, false)
                 .hidden()

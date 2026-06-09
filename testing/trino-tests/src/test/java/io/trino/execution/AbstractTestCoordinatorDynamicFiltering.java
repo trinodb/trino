@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.operator.RetryPolicy;
 import io.trino.plugin.memory.MemoryPlugin;
@@ -65,6 +66,7 @@ import java.util.function.Consumer;
 import java.util.stream.LongStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -257,9 +259,9 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
 
         computeActual("CREATE TABLE memory.default.\"supplier_varchar\" AS SELECT name, CAST(address as varchar(42)) address FROM tpch.tiny.supplier");
 
-        List<String> values = computeActual("SELECT \"address\" FROM memory.default.\"supplier_varchar\" WHERE \"name\" >= 'Supplier#000000080'")
+        List<Slice> values = computeActual("SELECT \"address\" FROM memory.default.\"supplier_varchar\" WHERE \"name\" >= 'Supplier#000000080'")
                 .getOnlyColumn()
-                .map(Object::toString)
+                .map(value -> utf8Slice((String) value))
                 .collect(toImmutableList());
 
         assertQueryDynamicFilters(

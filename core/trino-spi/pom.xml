@@ -230,6 +230,54 @@
                                 <item>
                                     <ignore>true</ignore>
                                     <code>java.method.removed</code>
+                                    <old>method io.trino.spi.type.TypeParameter io.trino.spi.type.TypeParameter::typeVariable(java.lang.String)</old>
+                                    <justification>Renamed to numericVariable; the factory builds a numeric parameter variable, not a type variable.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.function.LongVariableConstraint</old>
+                                    <justification>Renamed to NumericVariableConstraint.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.function.Signature.Builder io.trino.spi.function.Signature.Builder::longVariable(java.lang.String)</old>
+                                    <justification>Renamed to numericVariable.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.function.Signature.Builder io.trino.spi.function.Signature.Builder::longVariable(java.lang.String, java.lang.String)</old>
+                                    <justification>Renamed to numericVariable.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.List&lt;io.trino.spi.function.LongVariableConstraint&gt; io.trino.spi.function.Signature::getLongVariableConstraints()</old>
+                                    <justification>Renamed to getNumericVariableConstraints.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.type.TypeSignature io.trino.spi.type.TypeSignature::parametricType(java.lang.String, io.trino.spi.type.TypeSignature[])</old>
+                                    <justification>Renamed parametricType to type; the parameterless type(name) is the degenerate case.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <new>method io.trino.spi.type.TypeSignature io.trino.spi.type.TypeSignature::type(java.lang.String, io.trino.spi.type.TypeSignature[])</new>
+                                    <justification>The type factory deliberately overloads on TypeSignature... and TypeParameter... varargs so callers avoid wrapping homogeneous parameters.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <new>method io.trino.spi.type.TypeSignature io.trino.spi.type.TypeSignature::type(java.lang.String, io.trino.spi.type.TypeParameter[])</new>
+                                    <justification>The type factory deliberately overloads on TypeSignature... and TypeParameter... varargs so callers avoid wrapping homogeneous parameters.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
                                     <old>method io.trino.spi.block.Block io.trino.spi.predicate.Utils::nativeValueToBlock(io.trino.spi.type.Type, java.lang.Object)</old>
                                 </item>
                                 <item>

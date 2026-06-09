@@ -50,7 +50,7 @@ public sealed interface TypeParameter
         return new Type(Optional.empty(), type);
     }
 
-    static TypeParameter typeVariable(String variable)
+    static TypeParameter numericVariable(String variable)
     {
         return new Variable(variable);
     }

@@ -17,11 +17,12 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
-import io.trino.spi.type.TypeSignature;
 
 import static io.trino.operator.scalar.JsonToMapCast.JSON_TO_MAP;
-import static io.trino.spi.type.TypeParameter.typeVariable;
+import static io.trino.spi.type.TypeParameter.numericVariable;
 import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeSignature.type;
+import static io.trino.spi.type.TypeSignature.typeVariable;
 
 public final class JsonStringToMapCast
         extends SqlScalarFunction
@@ -35,9 +36,9 @@ public final class JsonStringToMapCast
                 .signature(Signature.builder()
                         .comparableTypeParameter("K")
                         .typeVariable("V")
-                        .longVariable("N")
-                        .returnType(mapType(new TypeSignature("K"), new TypeSignature("V")))
-                        .argumentType(new TypeSignature("varchar", typeVariable("N")))
+                        .numericVariable("N")
+                        .returnType(mapType(typeVariable("K"), typeVariable("V")))
+                        .argumentType(type("varchar", numericVariable("N")))
                         .build())
                 .nullable()
                 .hidden()
