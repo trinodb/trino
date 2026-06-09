@@ -106,7 +106,7 @@ public final class IrExpressions
     {
         return switch (expression) {
             // These expressions never return null
-            case Array _, Bind _, IsNull _, Lambda _, Row _ -> false;
+            case Collection _, Bind _, IsNull _, Lambda _, Row _ -> false;
 
             // These expressions may return null based on their operands
             case Between e -> mayBeNull(plannerContext, e.value(), referencesMayBeNull) || mayBeNull(plannerContext, e.min(), referencesMayBeNull) || mayBeNull(plannerContext, e.max(), referencesMayBeNull);
@@ -160,7 +160,7 @@ public final class IrExpressions
             case Bind _, Constant _, FieldReference _, Lambda _, Reference _ -> false;
 
             // These expressions need to verify their operands
-            case Array e -> e.elements().stream().anyMatch(element -> mayFail(plannerContext, element));
+            case Collection e -> e.elements().stream().anyMatch(element -> mayFail(plannerContext, element));
             case Between e -> mayFail(plannerContext, e.value()) || mayFail(plannerContext, e.min()) || mayFail(plannerContext, e.max());
             case Call e -> mayFail(e) || e.arguments().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case Case e -> e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, clause.getOperand()) || mayFail(plannerContext, clause.getResult())) ||

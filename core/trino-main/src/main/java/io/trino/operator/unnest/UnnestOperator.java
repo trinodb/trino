@@ -24,6 +24,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
+import io.trino.spi.type.MultisetType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -335,6 +336,16 @@ public class UnnestOperator
     {
         if (nestedType instanceof ArrayType arrayType) {
             Type elementType = arrayType.getElementType();
+
+            if (elementType instanceof RowType rowType) {
+                return new ArrayOfRowsUnnester(rowType.getFields().size());
+            }
+            return new ArrayUnnester();
+        }
+
+        if (nestedType instanceof MultisetType multisetType) {
+            // a multiset shares the array block representation, so the array unnesters apply directly
+            Type elementType = multisetType.getElementType();
 
             if (elementType instanceof RowType rowType) {
                 return new ArrayOfRowsUnnester(rowType.getFields().size());

@@ -84,6 +84,9 @@ import io.trino.operator.aggregation.TDigestAggregationFunction;
 import io.trino.operator.aggregation.VarcharApproximateMostFrequent;
 import io.trino.operator.aggregation.VarianceAggregation;
 import io.trino.operator.aggregation.arrayagg.ArrayAggregationFunction;
+import io.trino.operator.aggregation.arrayagg.CollectAggregationFunction;
+import io.trino.operator.aggregation.arrayagg.FusionAggregationFunction;
+import io.trino.operator.aggregation.arrayagg.IntersectionAggregationFunction;
 import io.trino.operator.aggregation.histogram.Histogram;
 import io.trino.operator.aggregation.listagg.ListaggAggregationFunction;
 import io.trino.operator.aggregation.minmaxbyn.MaxByNAggregationFunction;
@@ -118,6 +121,7 @@ import io.trino.operator.scalar.ArraySliceFunction;
 import io.trino.operator.scalar.ArraySortComparatorFunction;
 import io.trino.operator.scalar.ArraySortFunction;
 import io.trino.operator.scalar.ArrayToArrayCast;
+import io.trino.operator.scalar.ArrayToMultisetCast;
 import io.trino.operator.scalar.ArrayTrimFunction;
 import io.trino.operator.scalar.ArrayUnionFunction;
 import io.trino.operator.scalar.ArrayVectorFunctions;
@@ -162,6 +166,17 @@ import io.trino.operator.scalar.MapTransformKeysFunction;
 import io.trino.operator.scalar.MapValues;
 import io.trino.operator.scalar.MathFunctions;
 import io.trino.operator.scalar.MultimapFromEntriesFunction;
+import io.trino.operator.scalar.MultisetCardinalityFunction;
+import io.trino.operator.scalar.MultisetElementFunction;
+import io.trino.operator.scalar.MultisetExceptFunction;
+import io.trino.operator.scalar.MultisetIntersectFunction;
+import io.trino.operator.scalar.MultisetIsASetFunction;
+import io.trino.operator.scalar.MultisetMemberFunction;
+import io.trino.operator.scalar.MultisetSetFunction;
+import io.trino.operator.scalar.MultisetSubmultisetFunction;
+import io.trino.operator.scalar.MultisetToArrayCast;
+import io.trino.operator.scalar.MultisetToMultisetCast;
+import io.trino.operator.scalar.MultisetUnionFunction;
 import io.trino.operator.scalar.QuantileDigestFunctions;
 import io.trino.operator.scalar.Re2JRegexpFunctions;
 import io.trino.operator.scalar.Re2JRegexpReplaceLambdaFunction;
@@ -558,6 +573,15 @@ public final class SystemFunctionBundle
                 .scalar(MapKeys.class)
                 .scalar(MapValues.class)
                 .scalar(MapCardinalityFunction.class)
+                .scalar(MultisetCardinalityFunction.class)
+                .scalar(MultisetElementFunction.class)
+                .scalar(MultisetSetFunction.class)
+                .scalars(MultisetUnionFunction.class)
+                .scalars(MultisetIntersectFunction.class)
+                .scalars(MultisetExceptFunction.class)
+                .scalar(MultisetSubmultisetFunction.class)
+                .scalar(MultisetMemberFunction.class)
+                .scalar(MultisetIsASetFunction.class)
                 .scalar(EmptyMapConstructor.class)
                 .scalar(TypeOfFunction.class)
                 .scalar(TryFunction.class)
@@ -568,6 +592,9 @@ public final class SystemFunctionBundle
                 .functions(ZIP_FUNCTIONS)
                 .scalars(ArrayJoin.class)
                 .scalar(ArrayToArrayCast.class)
+                .scalar(ArrayToMultisetCast.class)
+                .scalar(MultisetToArrayCast.class)
+                .scalar(MultisetToMultisetCast.class)
                 .functions(ARRAY_TO_ELEMENT_CONCAT_FUNCTION, ELEMENT_TO_ARRAY_CONCAT_FUNCTION)
                 .function(MAP_ELEMENT_AT)
                 .function(new MapConcatFunction(blockTypeOperators))
@@ -576,6 +603,9 @@ public final class SystemFunctionBundle
                 .function(ARRAY_CONCAT_FUNCTION)
                 .functions(ARRAY_SUBSCRIPT, JSON_TO_ARRAY, JSON_STRING_TO_ARRAY, JSON_STRING_ARRAY_EXTRACT_SCALAR)
                 .aggregates(ArrayAggregationFunction.class)
+                .aggregates(CollectAggregationFunction.class)
+                .aggregates(FusionAggregationFunction.class)
+                .aggregates(IntersectionAggregationFunction.class)
                 .aggregates(ListaggAggregationFunction.class)
                 .functions(new MapSubscriptOperator())
                 .functions(MAP_CONSTRUCTOR, JSON_TO_MAP, JSON_STRING_TO_MAP)

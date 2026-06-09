@@ -25,13 +25,13 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Collection;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -94,7 +94,7 @@ public class IrExpressionEvaluator
     public Object evaluate(Expression expression, Session session, Map<String, Object> bindings)
     {
         return switch (expression) {
-            case Array e -> evaluateInternal(e, session, bindings);
+            case Collection e -> evaluateInternal(e, session, bindings);
             case Between e -> evaluateInternal(e, session, bindings);
             case Bind e -> evaluateInternal(e, session, bindings);
             case Call e -> evaluateInternal(e, session, bindings);
@@ -390,7 +390,7 @@ public class IrExpressionEvaluator
         return null;
     }
 
-    private Object evaluateInternal(Array expression, Session session, Map<String, Object> bindings)
+    private Object evaluateInternal(Collection expression, Session session, Map<String, Object> bindings)
     {
         List<Object> values = expression.elements().stream()
                 .map(e -> evaluate(e, session, bindings))

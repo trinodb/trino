@@ -23,7 +23,6 @@ import io.trino.operator.scalar.FormatFunction;
 import io.trino.operator.scalar.TryFunction;
 import io.trino.plugin.base.util.JsonTypeUtil;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalParseResult;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -45,6 +44,7 @@ import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Collection;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FieldReference;
@@ -107,7 +107,10 @@ import io.trino.sql.tree.LocalTime;
 import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MemberPredicate;
 import io.trino.sql.tree.MethodCall;
+import io.trino.sql.tree.MultisetConstructor;
+import io.trino.sql.tree.MultisetSetOperation;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
@@ -115,10 +118,12 @@ import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SearchedCaseExpression;
+import io.trino.sql.tree.SetPredicate;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SubmultisetPredicate;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
@@ -329,6 +334,11 @@ public class TranslationMap
                 case MethodCall expression -> translate(expression);
                 case DereferenceExpression expression -> translate(expression);
                 case Array expression -> translate(expression);
+                case MultisetConstructor expression -> translate(expression);
+                case MultisetSetOperation expression -> translate(expression);
+                case SubmultisetPredicate expression -> translate(expression);
+                case MemberPredicate expression -> translate(expression);
+                case SetPredicate expression -> translate(expression);
                 case CurrentCatalog expression -> translate(expression);
                 case CurrentSchema expression -> translate(expression);
                 case CurrentPath expression -> translate(expression);
@@ -766,7 +776,66 @@ public class TranslationMap
                 .collect(toImmutableList());
 
         Type type = analysis.getType(expression);
-        return new io.trino.sql.ir.Array(((ArrayType) type).getElementType(), values);
+        return new Collection(type, values);
+    }
+
+    private io.trino.sql.ir.Expression translate(MultisetConstructor expression)
+    {
+        List<io.trino.sql.ir.Expression> values = expression.getValues().stream()
+                .map(this::translateExpression)
+                .collect(toImmutableList());
+
+        Type type = analysis.getType(expression);
+        return new Collection(type, values);
+    }
+
+    private io.trino.sql.ir.Expression translate(MultisetSetOperation expression)
+    {
+        Type type = analysis.getType(expression);
+        String name = switch (expression.getOperator()) {
+            case UNION -> expression.isDistinct() ? "$multiset_union_distinct" : "$multiset_union_all";
+            case INTERSECT -> expression.isDistinct() ? "$multiset_intersect_distinct" : "$multiset_intersect_all";
+            case EXCEPT -> expression.isDistinct() ? "$multiset_except_distinct" : "$multiset_except_all";
+        };
+        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                .setName(name)
+                .addArgument(type, translateExpression(expression.getLeft()))
+                .addArgument(type, translateExpression(expression.getRight()))
+                .build();
+    }
+
+    private io.trino.sql.ir.Expression translate(SubmultisetPredicate expression)
+    {
+        io.trino.sql.ir.Expression value = translateExpression(expression.getValue());
+        io.trino.sql.ir.Expression right = translateExpression(expression.getRight());
+        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                .setName("$submultiset")
+                .addArgument(value.type(), value)
+                .addArgument(right.type(), right)
+                .build();
+    }
+
+    private io.trino.sql.ir.Expression translate(MemberPredicate expression)
+    {
+        // x MEMBER OF m resolves to the hidden $member, which probes the multiset's hash index for an
+        // O(1) membership test (with a three-valued = fallback when an element or the value is
+        // indeterminate)
+        io.trino.sql.ir.Expression value = translateExpression(expression.getValue());
+        io.trino.sql.ir.Expression multiset = translateExpression(expression.getRight());
+        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                .setName("$member")
+                .addArgument(multiset.type(), multiset)
+                .addArgument(value.type(), value)
+                .build();
+    }
+
+    private io.trino.sql.ir.Expression translate(SetPredicate expression)
+    {
+        io.trino.sql.ir.Expression value = translateExpression(expression.getValue());
+        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                .setName("$is_a_set")
+                .addArgument(value.type(), value)
+                .build();
     }
 
     private io.trino.sql.ir.Expression translate(CurrentCatalog unused)

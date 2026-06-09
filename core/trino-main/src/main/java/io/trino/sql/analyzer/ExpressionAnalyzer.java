@@ -49,6 +49,7 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.MultisetType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
@@ -135,7 +136,11 @@ import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
+import io.trino.sql.tree.MemberPredicate;
 import io.trino.sql.tree.MethodCall;
+import io.trino.sql.tree.MultisetConstructor;
+import io.trino.sql.tree.MultisetSetOperation;
+import io.trino.sql.tree.MultisetSubquery;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -151,6 +156,7 @@ import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SearchedCaseExpression;
+import io.trino.sql.tree.SetPredicate;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.SkipTo;
@@ -158,6 +164,7 @@ import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SortItem.Ordering;
 import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SubmultisetPredicate;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SubsetDefinition;
@@ -309,6 +316,7 @@ import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static io.trino.type.Json2016Type.JSON_2016;
 import static io.trino.type.JsonType.JSON;
+import static io.trino.type.MultisetParametricType.MULTISET;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
@@ -1150,6 +1158,81 @@ public class ExpressionAnalyzer
             Type type = coerceToSingleType(context, "All ARRAY elements", node.getValues());
             Type arrayType = plannerContext.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeParameter.typeParameter(type.getTypeSignature())));
             return setExpressionType(node, arrayType);
+        }
+
+        @Override
+        protected Type visitMultisetSubquery(MultisetSubquery node, Context context)
+        {
+            Type rowType = analyzeSubquery(node, context);
+            if (!(rowType instanceof RowType row) || row.getFields().size() != 1) {
+                throw semanticException(INVALID_ARGUMENTS, node, "MULTISET subquery must return exactly one column");
+            }
+            Type elementType = row.getFields().getFirst().getType();
+            Type multisetType = plannerContext.getTypeManager().getParameterizedType(MULTISET.getName(), ImmutableList.of(TypeParameter.typeParameter(elementType.getTypeSignature())));
+            subqueries.add(NodeRef.of((SubqueryExpression) node));
+            return setExpressionType(node, multisetType);
+        }
+
+        @Override
+        protected Type visitMultisetConstructor(MultisetConstructor node, Context context)
+        {
+            Type type = coerceToSingleType(context, "All MULTISET elements", node.getValues());
+            if (!type.isComparable()) {
+                throw semanticException(TYPE_MISMATCH, node, "Multiset element type must be comparable, got %s", type);
+            }
+            Type multisetType = plannerContext.getTypeManager().getParameterizedType(MULTISET.getName(), ImmutableList.of(TypeParameter.typeParameter(type.getTypeSignature())));
+            return setExpressionType(node, multisetType);
+        }
+
+        @Override
+        protected Type visitMultisetSetOperation(MultisetSetOperation node, Context context)
+        {
+            Type type = coerceToSingleType(context, node, "Both operands of MULTISET " + node.getOperator() + " must be multisets", node.getLeft(), node.getRight());
+            if (!(type instanceof MultisetType)) {
+                throw semanticException(TYPE_MISMATCH, node, "MULTISET %s requires multiset operands, got: %s", node.getOperator(), type);
+            }
+            return setExpressionType(node, type);
+        }
+
+        @Override
+        protected Type visitSubmultisetPredicate(SubmultisetPredicate node, Context context)
+        {
+            Type type = coerceToSingleType(context, node, "Both operands of SUBMULTISET must be multisets", node.getValue(), node.getRight());
+            if (!(type instanceof MultisetType)) {
+                throw semanticException(TYPE_MISMATCH, node, "SUBMULTISET requires multiset operands, got: %s", type);
+            }
+            return setExpressionType(node, BOOLEAN);
+        }
+
+        @Override
+        protected Type visitMemberPredicate(MemberPredicate node, Context context)
+        {
+            Type valueType = process(node.getValue(), context);
+            Type rightType = process(node.getRight(), context);
+            if (!(rightType instanceof MultisetType multisetType)) {
+                throw semanticException(TYPE_MISMATCH, node, "MEMBER OF requires a multiset on the right, got: %s", rightType);
+            }
+            Type elementType = multisetType.getElementType();
+            Type commonType = typeCoercion.getCommonSuperType(valueType, elementType)
+                    .orElseThrow(() -> semanticException(TYPE_MISMATCH, node, "Cannot check if %s is a member of %s", valueType, rightType));
+            if (!valueType.equals(commonType)) {
+                addOrReplaceExpressionCoercion(node.getValue(), commonType);
+            }
+            if (!elementType.equals(commonType)) {
+                Type coercedMultiset = plannerContext.getTypeManager().getParameterizedType(MULTISET.getName(), ImmutableList.of(TypeParameter.typeParameter(commonType.getTypeSignature())));
+                addOrReplaceExpressionCoercion(node.getRight(), coercedMultiset);
+            }
+            return setExpressionType(node, BOOLEAN);
+        }
+
+        @Override
+        protected Type visitSetPredicate(SetPredicate node, Context context)
+        {
+            Type type = process(node.getValue(), context);
+            if (!(type instanceof MultisetType)) {
+                throw semanticException(TYPE_MISMATCH, node, "IS A SET requires a multiset operand, got: %s", type);
+            }
+            return setExpressionType(node, BOOLEAN);
         }
 
         @Override

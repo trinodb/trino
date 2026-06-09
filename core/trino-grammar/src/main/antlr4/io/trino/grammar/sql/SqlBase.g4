@@ -580,16 +580,21 @@ predicate[ParserRuleContext value]
     | NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)?  #like
     | IS NOT? NULL                                                        #nullPredicate
     | IS NOT? DISTINCT FROM right=valueExpression                         #distinctFrom
+    | NOT? SUBMULTISET OF? right=valueExpression                          #submultiset
+    | NOT? MEMBER OF? right=valueExpression                               #member
+    | IS NOT? A SET                                                       #setPredicate
     ;
 
 valueExpression
-    : primaryExpression                                                                 #valueExpressionDefault
-    | valueExpression AT timeZoneSpecifier                                              #atTimeZone
-    | valueExpression AT LOCAL                                                          #atLocal
-    | operator=(MINUS | PLUS) valueExpression                                           #arithmeticUnary
-    | left=valueExpression operator=(ASTERISK | SLASH | PERCENT) right=valueExpression  #arithmeticBinary
-    | left=valueExpression operator=(PLUS | MINUS) right=valueExpression                #arithmeticBinary
-    | left=valueExpression CONCAT right=valueExpression                                 #concatenation
+    : primaryExpression                                                                             #valueExpressionDefault
+    | valueExpression AT timeZoneSpecifier                                                          #atTimeZone
+    | valueExpression AT LOCAL                                                                      #atLocal
+    | operator=(MINUS | PLUS) valueExpression                                                       #arithmeticUnary
+    | left=valueExpression operator=(ASTERISK | SLASH | PERCENT) right=valueExpression              #arithmeticBinary
+    | left=valueExpression operator=(PLUS | MINUS) right=valueExpression                            #arithmeticBinary
+    | left=valueExpression CONCAT right=valueExpression                                             #concatenation
+    | left=valueExpression MULTISET INTERSECT setQuantifier? right=valueExpression                  #multisetIntersect
+    | left=valueExpression MULTISET operator=(UNION | EXCEPT) setQuantifier? right=valueExpression  #multisetUnion
     ;
 
 primaryExpression
@@ -620,6 +625,8 @@ primaryExpression
     | TRY_CAST '(' expression AS type ')'                                                 #cast
     | ARRAY '[' (expression (',' expression)*)? ']'                                       #arrayConstructor
     | '[' (expression (',' expression)*)? ']'                                             #arrayConstructor
+    | MULTISET '[' (expression (',' expression)*)? ']'                                    #multisetConstructor
+    | MULTISET '(' query ')'                                                              #multisetSubquery
     | value=primaryExpression '[' index=valueExpression ']'                               #subscript
     | identifier                                                                          #columnReference
     | base=primaryExpression '.' fieldName=identifier                                     #dereference
@@ -786,6 +793,7 @@ type
     | ARRAY '<' type '>'                                                           #legacyArrayType
     | MAP '<' keyType=type ',' valueType=type '>'                                  #legacyMapType
     | type ARRAY ('[' INTEGER_VALUE ']')?                                          #arrayType
+    | type MULTISET                                                                #multisetType
     | identifier ('(' typeParameter (',' typeParameter)* ')')?                     #genericType
     ;
 
@@ -1047,7 +1055,7 @@ authorizationUser
 
 nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
-    : ABSENT | ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
+    : A | ABSENT | ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
     | BEGIN | BERNOULLI | BOTH | BRANCH | BRANCHES
     | CALL | CALLED | CASCADE | CATALOG | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | CORRESPONDING | COUNT | CURRENT
     | DATA | DATE | DAY | DECLARE | DEFAULT | DEFINE | DEFINER | DENY | DESC | DESCRIPTOR | DETERMINISTIC | DISTRIBUTED | DO | DOUBLE
@@ -1059,14 +1067,14 @@ nonReserved
     | JSON
     | KEEP | KEY | KEYS
     | LANGUAGE | LAST | LATERAL | LEADING | LEAVE | LEVEL | LIMIT | LOCAL | LOGICAL | LOOP
-    | MAP | MATCH | MATCHED | MATCHES | MATCH_RECOGNIZE | MATERIALIZED | MEASURES | MERGE | MINUTE | MONTH
+    | MAP | MATCH | MATCHED | MATCHES | MATCH_RECOGNIZE | MATERIALIZED | MEASURES | MEMBER | MERGE | MINUTE | MONTH | MULTISET
     | NEAREST | NESTED | NEXT | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
     | OBJECT | OF | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OUTPUT | OVER | OVERFLOW
     | PARTITION | PARTITIONS | PASSING | PAST | PATH | PATTERN | PER | PERIOD | PERMUTE | PLAN | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES | PRUNE
     | QUOTES
     | RANGE | READ | REFRESH | RENAME | REPEAT  | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNING | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS | RUNNING
     | SCALAR | SCHEMA | SCHEMAS | SECOND | SECURITY | SEEK | SERIALIZABLE | SESSION | SET | SETS
-    | SHOW | SOME | STALE | START | STATS | SUBSET | SUBSTRING | SYSTEM
+    | SHOW | SOME | STALE | START | STATS | SUBMULTISET | SUBSET | SUBSTRING | SYSTEM
     | TABLES | TABLESAMPLE | TEXT | TEXT_STRING | TIES | TIME | TIMESTAMP | TO | TRAILING | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
     | UNBOUNDED | UNCOMMITTED | UNCONDITIONAL | UNIQUE | UNKNOWN | UNMATCHED | UNTIL | UPDATE | USE | USER | UTF16 | UTF32 | UTF8
     | VALIDATE | VALUE | VERBOSE | VERSION | VIEW
@@ -1075,6 +1083,7 @@ nonReserved
     | ZONE
     ;
 
+A: 'A';
 ABSENT: 'ABSENT';
 ADD: 'ADD';
 ADMIN: 'ADMIN';
@@ -1234,9 +1243,11 @@ MATCHES: 'MATCHES';
 MATCH_RECOGNIZE: 'MATCH_RECOGNIZE';
 MATERIALIZED: 'MATERIALIZED';
 MEASURES: 'MEASURES';
+MEMBER: 'MEMBER';
 MERGE: 'MERGE';
 MINUTE: 'MINUTE';
 MONTH: 'MONTH';
+MULTISET: 'MULTISET';
 NATURAL: 'NATURAL';
 NEAREST: 'NEAREST';
 NESTED: 'NESTED';
@@ -1324,6 +1335,7 @@ SOME: 'SOME';
 STALE: 'STALE';
 START: 'START';
 STATS: 'STATS';
+SUBMULTISET: 'SUBMULTISET';
 SUBSET: 'SUBSET';
 SUBSTRING: 'SUBSTRING';
 SYSTEM: 'SYSTEM';

@@ -63,6 +63,9 @@ import io.trino.sql.tree.LocalTime;
 import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.MeasureDefinition;
+import io.trino.sql.tree.MemberPredicate;
+import io.trino.sql.tree.MultisetConstructor;
+import io.trino.sql.tree.MultisetSetOperation;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -71,8 +74,10 @@ import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SearchedCaseExpression;
+import io.trino.sql.tree.SetPredicate;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SortItem;
+import io.trino.sql.tree.SubmultisetPredicate;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Trim;
@@ -285,6 +290,36 @@ class AggregationAnalyzer
         protected Boolean visitArray(Array node, Void context)
         {
             return node.getValues().stream().allMatch(expression -> process(expression, context));
+        }
+
+        @Override
+        protected Boolean visitMultisetConstructor(MultisetConstructor node, Void context)
+        {
+            return node.getValues().stream().allMatch(expression -> process(expression, context));
+        }
+
+        @Override
+        protected Boolean visitMultisetSetOperation(MultisetSetOperation node, Void context)
+        {
+            return process(node.getLeft(), context) && process(node.getRight(), context);
+        }
+
+        @Override
+        protected Boolean visitSubmultisetPredicate(SubmultisetPredicate node, Void context)
+        {
+            return process(node.getValue(), context) && process(node.getRight(), context);
+        }
+
+        @Override
+        protected Boolean visitMemberPredicate(MemberPredicate node, Void context)
+        {
+            return process(node.getValue(), context) && process(node.getRight(), context);
+        }
+
+        @Override
+        protected Boolean visitSetPredicate(SetPredicate node, Void context)
+        {
+            return process(node.getValue(), context);
         }
 
         @Override

@@ -160,6 +160,104 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitMultisetConstructor(MultisetConstructor node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteMultisetConstructor(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            List<Expression> values = rewrite(node.getValues(), context);
+
+            if (!sameElements(node.getValues(), values)) {
+                return new MultisetConstructor(node.getLocation().orElseThrow(), values);
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitMultisetSetOperation(MultisetSetOperation node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteMultisetSetOperation(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression left = rewrite(node.getLeft(), context.get());
+            Expression right = rewrite(node.getRight(), context.get());
+
+            if (left != node.getLeft() || right != node.getRight()) {
+                return new MultisetSetOperation(node.getLocation().orElseThrow(), node.getOperator(), node.isDistinct(), left, right);
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitSubmultisetPredicate(SubmultisetPredicate node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteSubmultisetPredicate(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression value = rewrite(node.getValue(), context.get());
+            Expression right = rewrite(node.getRight(), context.get());
+
+            if (value != node.getValue() || right != node.getRight()) {
+                return new SubmultisetPredicate(node.getLocation().orElseThrow(), value, right);
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitMemberPredicate(MemberPredicate node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteMemberPredicate(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression value = rewrite(node.getValue(), context.get());
+            Expression right = rewrite(node.getRight(), context.get());
+
+            if (value != node.getValue() || right != node.getRight()) {
+                return new MemberPredicate(node.getLocation().orElseThrow(), value, right);
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitSetPredicate(SetPredicate node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteSetPredicate(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression value = rewrite(node.getValue(), context.get());
+
+            if (value != node.getValue()) {
+                return new SetPredicate(node.getLocation().orElseThrow(), value);
+            }
+
+            return node;
+        }
+
+        @Override
         protected Expression visitAtTimeZone(AtTimeZone node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
