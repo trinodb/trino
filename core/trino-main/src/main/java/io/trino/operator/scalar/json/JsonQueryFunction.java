@@ -79,13 +79,13 @@ public class JsonQueryFunction
                 .signature(Signature.builder()
                         .typeVariable("T")
                         .returnType(type(JSON_2016))
-                        .argumentTypes(ImmutableList.of(
+                        .argumentTypes(
                                 type(JSON_2016),
                                 type(JsonPath2016Type.NAME),
                                 typeVariable("T"),
                                 type(TINYINT),
                                 type(TINYINT),
-                                type(TINYINT)))
+                                type(TINYINT))
                         .build())
                 .nullable()
                 .argumentNullability(false, false, true, false, false, false)

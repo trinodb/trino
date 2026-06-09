@@ -98,7 +98,7 @@ public class JsonValueFunction
                         .typeVariable("E")
                         .typeVariable("D")
                         .returnType(typeVariable("R"))
-                        .argumentTypes(ImmutableList.of(
+                        .argumentTypes(
                                 type(JSON_2016),
                                 type(JsonPath2016Type.NAME),
                                 typeVariable("T"),
@@ -106,7 +106,7 @@ public class JsonValueFunction
                                 type(TINYINT),
                                 functionType(typeVariable("E")),
                                 type(TINYINT),
-                                functionType(typeVariable("D"))))
+                                functionType(typeVariable("D")))
                         .build())
                 .nullable()
                 .argumentNullability(false, false, true, true, false, false, false, false)

@@ -71,7 +71,7 @@ public class JsonExistsFunction
                 .signature(Signature.builder()
                         .typeVariable("T")
                         .returnType(BOOLEAN)
-                        .argumentTypes(ImmutableList.of(type(JSON_2016), type(JsonPath2016Type.NAME), typeVariable("T"), type(TINYINT)))
+                        .argumentTypes(type(JSON_2016), type(JsonPath2016Type.NAME), typeVariable("T"), type(TINYINT))
                         .build())
                 .nullable()
                 .argumentNullability(false, false, true, false)

@@ -302,6 +302,14 @@ public class Signature
             return this;
         }
 
+        public Builder argumentTypes(TypeSignature... argumentTypes)
+        {
+            for (TypeSignature argumentType : argumentTypes) {
+                argumentType(argumentType);
+            }
+            return this;
+        }
+
         public Builder arguments(List<Argument> arguments)
         {
             this.arguments.clear();
