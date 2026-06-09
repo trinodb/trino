@@ -25,7 +25,7 @@ public final class PageAssertions
 {
     private PageAssertions() {}
 
-    public static void assertPageEquals(List<? extends Type> types, Page actualPage, Page expectedPage)
+    public static void assertPageEquals(List<Type> types, Page actualPage, Page expectedPage)
     {
         assertThat(expectedPage.getChannelCount()).isEqualTo(types.size());
         assertThat(actualPage.getChannelCount()).isEqualTo(expectedPage.getChannelCount());

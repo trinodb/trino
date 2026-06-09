@@ -23,7 +23,7 @@ import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
-import io.trino.spi.type.BigintType;
+import io.trino.spi.type.Type;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -73,7 +73,7 @@ public class TestArbitraryOutputBuffer
 {
     private static final long TASK_INSTANCE_ID = 0x1337;
 
-    private static final List<BigintType> TYPES = ImmutableList.of(BIGINT);
+    private static final List<Type> TYPES = ImmutableList.of(BIGINT);
     private static final OutputBufferId FIRST = new OutputBufferId(0);
     private static final OutputBufferId SECOND = new OutputBufferId(1);
 

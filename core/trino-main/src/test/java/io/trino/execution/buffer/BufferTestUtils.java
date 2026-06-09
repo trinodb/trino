@@ -53,7 +53,7 @@ public final class BufferTestUtils
         return bufferResult.get();
     }
 
-    static void assertBufferResultEquals(List<? extends Type> types, BufferResult actual, BufferResult expected)
+    static void assertBufferResultEquals(List<Type> types, BufferResult actual, BufferResult expected)
     {
         assertThat(actual.serializedPages().size())
                 .describedAs("page count")
