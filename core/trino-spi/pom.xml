@@ -229,6 +229,13 @@
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
                                     <ignore>true</ignore>
+                                    <code>java.class.nowFinal</code>
+                                    <old>class io.trino.spi.type.VariantType</old>
+                                    <new>class io.trino.spi.type.VariantType</new>
+                                    <justification>VariantType is a singleton type implementation and should not be extended</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
                                     <code>java.method.removed</code>
                                     <old>method io.trino.spi.block.Block io.trino.spi.predicate.Utils::nativeValueToBlock(io.trino.spi.type.Type, java.lang.Object)</old>
                                 </item>
