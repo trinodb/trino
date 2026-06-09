@@ -45,7 +45,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
-import static io.trino.operator.PageAssertions.assertPageEquals;
+import static io.trino.operator.PageAssertions.assertSameDataInOrder;
 import static io.trino.operator.PageTestUtils.Wrapping.DICTIONARY;
 import static io.trino.operator.PageTestUtils.Wrapping.RUN_LENGTH;
 import static io.trino.operator.PageTestUtils.createRandomPage;
@@ -53,7 +53,6 @@ import static io.trino.operator.unnest.TestingUnnesterUtil.UnnestedLengths;
 import static io.trino.operator.unnest.TestingUnnesterUtil.buildExpectedPage;
 import static io.trino.operator.unnest.TestingUnnesterUtil.buildOutputTypes;
 import static io.trino.operator.unnest.TestingUnnesterUtil.calculateMaxCardinalities;
-import static io.trino.operator.unnest.TestingUnnesterUtil.mergePages;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -541,9 +540,8 @@ public class TestUnnestOperator
                 outputPages.add(outputPage);
             }
 
-            Page mergedOutputPage = mergePages(outputTypes, outputPages);
             try {
-                assertPageEquals(outputTypes, mergedOutputPage, expectedPage);
+                assertSameDataInOrder(outputTypes, outputPages, List.of(expectedPage));
             }
             catch (Throwable e) {
                 System.out.println("withOrdinality: " + withOrdinality + ", outer: " + outer);

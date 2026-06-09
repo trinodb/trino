@@ -13,6 +13,7 @@
  */
 package io.trino.block;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -48,11 +49,13 @@ import java.util.Random;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Streams.forEachPair;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -121,10 +124,23 @@ public final class BlockAssertions
     {
         assertThat(actual.getPositionCount()).isEqualTo(expected.getPositionCount());
         for (int position = 0; position < actual.getPositionCount(); position++) {
-            assertThat(type.getObjectValue(actual, position))
-                    .describedAs("position " + position)
-                    .isEqualTo(type.getObjectValue(expected, position));
+            assertValueEquals(type, actual, position, expected, position);
         }
+    }
+
+    public static void assertSameDataInOrder(Type type, List<Block> actual, ImmutableList<Block> expected)
+    {
+        assertThat(actual.stream().mapToInt(Block::getPositionCount).sum()).as("actual position count (sum)")
+                .isEqualTo(expected.stream().mapToInt(Block::getPositionCount).sum());
+        forEachPair(positions(actual), positions(expected), (actualValue, expectedValue) ->
+                assertValueEquals(type, actualValue.block, actualValue.position, expectedValue.block, expectedValue.position));
+    }
+
+    private static void assertValueEquals(Type type, Block actual, int actualPosition, Block expected, int expectedPosition)
+    {
+        assertThat(type.getObjectValue(actual, actualPosition))
+                .describedAs("position " + actualPosition)
+                .isEqualTo(type.getObjectValue(expected, expectedPosition));
     }
 
     public static Block createRandomDictionaryBlock(Block dictionary, int positionCount)
@@ -954,4 +970,13 @@ public final class BlockAssertions
     {
         return new Random(RANDOM_SEED);
     }
+
+    private static Stream<BlockPosition> positions(List<Block> blocks)
+    {
+        return blocks.stream()
+                .flatMap(block -> IntStream.range(0, block.getPositionCount())
+                        .mapToObj(position -> new BlockPosition(block, position)));
+    }
+
+    private record BlockPosition(Block block, int position) {}
 }
