@@ -69,14 +69,16 @@ public final class JoinTestUtils
     public static OperatorFactory innerJoinOperatorFactory(
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager,
             RowPagesBuilder probePages,
+            List<Integer> hashChannels,
             boolean hasFilter)
     {
-        return innerJoinOperatorFactory(lookupSourceFactoryManager, probePages, false, hasFilter);
+        return innerJoinOperatorFactory(lookupSourceFactoryManager, probePages, hashChannels, false, hasFilter);
     }
 
     public static OperatorFactory innerJoinOperatorFactory(
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager,
             RowPagesBuilder probePages,
+            List<Integer> hashChannels,
             boolean outputSingleMatch,
             boolean hasFilter)
     {
@@ -87,7 +89,7 @@ public final class JoinTestUtils
                 lookupSourceFactoryManager,
                 hasFilter,
                 probePages.getTypes(),
-                probePages.getHashChannels().orElseThrow(),
+                hashChannels,
                 Optional.empty());
     }
 
@@ -115,9 +117,10 @@ public final class JoinTestUtils
             boolean parallelBuild,
             TaskContext taskContext,
             RowPagesBuilder buildPages,
+            List<Integer> hashChannels,
             Optional<InternalJoinFilterFunction> filterFunction)
     {
-        return setupBuildSide(partitionFunctionProvider, parallelBuild, taskContext, buildPages, filterFunction, true);
+        return setupBuildSide(partitionFunctionProvider, parallelBuild, taskContext, buildPages, hashChannels, filterFunction, true);
     }
 
     public static BuildSideSetup setupBuildSide(
@@ -125,6 +128,7 @@ public final class JoinTestUtils
             boolean parallelBuild,
             TaskContext taskContext,
             RowPagesBuilder buildPages,
+            List<Integer> hashChannels,
             Optional<InternalJoinFilterFunction> filterFunction,
             boolean enableSingleChannelBigintLookupSource)
     {
@@ -132,7 +136,6 @@ public final class JoinTestUtils
                 .map(function -> (_, addresses, pages) -> new StandardJoinFilterFunction(function, addresses, pages));
 
         int partitionCount = parallelBuild ? PARTITION_COUNT : 1;
-        List<Integer> hashChannels = buildPages.getHashChannels().orElseThrow();
         List<Type> types = buildPages.getTypes();
         List<Type> hashChannelTypes = hashChannels.stream()
                 .map(types::get)
