@@ -20,7 +20,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.TypeSignature;
 
 import static io.trino.operator.scalar.JsonToMapCast.JSON_TO_MAP;
-import static io.trino.spi.type.TypeParameter.typeVariable;
+import static io.trino.spi.type.TypeParameter.numericVariable;
 import static io.trino.spi.type.TypeSignature.mapType;
 
 public final class JsonStringToMapCast
@@ -37,7 +37,7 @@ public final class JsonStringToMapCast
                         .typeVariable("V")
                         .longVariable("N")
                         .returnType(mapType(new TypeSignature("K"), new TypeSignature("V")))
-                        .argumentType(new TypeSignature("varchar", typeVariable("N")))
+                        .argumentType(new TypeSignature("varchar", numericVariable("N")))
                         .build())
                 .nullable()
                 .hidden()

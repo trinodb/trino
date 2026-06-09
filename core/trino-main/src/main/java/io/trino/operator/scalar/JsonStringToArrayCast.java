@@ -20,7 +20,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.TypeSignature;
 
 import static io.trino.operator.scalar.JsonToArrayCast.JSON_TO_ARRAY;
-import static io.trino.spi.type.TypeParameter.typeVariable;
+import static io.trino.spi.type.TypeParameter.numericVariable;
 import static io.trino.spi.type.TypeSignature.arrayType;
 
 public final class JsonStringToArrayCast
@@ -36,7 +36,7 @@ public final class JsonStringToArrayCast
                         .typeVariable("T")
                         .longVariable("N")
                         .returnType(arrayType(new TypeSignature("T")))
-                        .argumentType(new TypeSignature("varchar", typeVariable("N")))
+                        .argumentType(new TypeSignature("varchar", numericVariable("N")))
                         .build())
                 .nullable()
                 .hidden()

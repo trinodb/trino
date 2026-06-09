@@ -31,7 +31,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.TypeParameter.namedField;
 import static io.trino.spi.type.TypeParameter.numericParameter;
-import static io.trino.spi.type.TypeParameter.typeVariable;
+import static io.trino.spi.type.TypeParameter.numericVariable;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.TypeSignature.rowType;
@@ -48,7 +48,7 @@ public class TestTypeSignature
     @Test
     public void parseSignatureWithLiterals()
     {
-        TypeSignature result = new TypeSignature("decimal", typeVariable("X"), numericParameter(42));
+        TypeSignature result = new TypeSignature("decimal", numericVariable("X"), numericParameter(42));
         assertThat(result.getParameters()).hasSize(2);
         assertThat(result.getParameters().get(0)).isInstanceOf(TypeParameter.Variable.class);
         assertThat(result.getParameters().get(1)).isInstanceOf(TypeParameter.Numeric.class);
@@ -184,7 +184,7 @@ public class TestTypeSignature
     private TypeSignature decimal(String precisionVariable, String scaleVariable)
     {
         return new TypeSignature(StandardTypes.DECIMAL, ImmutableList.of(
-                typeVariable(precisionVariable), typeVariable(scaleVariable)));
+                numericVariable(precisionVariable), numericVariable(scaleVariable)));
     }
 
     private static TypeSignature rowSignature(Field... fields)
@@ -280,13 +280,13 @@ public class TestTypeSignature
     public void testIsCalculated()
     {
         assertThat(BIGINT.getTypeSignature().isCalculated()).isFalse();
-        assertThat(new TypeSignature("decimal", typeVariable("p"), typeVariable("s")).isCalculated()).isTrue();
+        assertThat(new TypeSignature("decimal", numericVariable("p"), numericVariable("s")).isCalculated()).isTrue();
         assertThat(createDecimalType(2, 1).getTypeSignature().isCalculated()).isFalse();
-        assertThat(arrayType(new TypeSignature("decimal", typeVariable("p"), typeVariable("s"))).isCalculated()).isTrue();
+        assertThat(arrayType(new TypeSignature("decimal", numericVariable("p"), numericVariable("s"))).isCalculated()).isTrue();
         assertThat(arrayType(createDecimalType(2, 1).getTypeSignature()).isCalculated()).isFalse();
-        assertThat(mapType(new TypeSignature("decimal", typeVariable("p1"), typeVariable("s1")), new TypeSignature("decimal", typeVariable("p2"), typeVariable("s2"))).isCalculated()).isTrue();
+        assertThat(mapType(new TypeSignature("decimal", numericVariable("p1"), numericVariable("s1")), new TypeSignature("decimal", numericVariable("p2"), numericVariable("s2"))).isCalculated()).isTrue();
         assertThat(mapType(createDecimalType(2, 1).getTypeSignature(), createDecimalType(3, 1).getTypeSignature()).isCalculated()).isFalse();
-        assertThat(rowType(List.of(namedField("a", new TypeSignature("decimal", typeVariable("p1"), typeVariable("s1"))), namedField("b", new TypeSignature("decimal", typeVariable("p2"), typeVariable("s2"))))).isCalculated()).isTrue();
+        assertThat(rowType(List.of(namedField("a", new TypeSignature("decimal", numericVariable("p1"), numericVariable("s1"))), namedField("b", new TypeSignature("decimal", numericVariable("p2"), numericVariable("s2"))))).isCalculated()).isTrue();
     }
 
     private static void assertRowSignature(

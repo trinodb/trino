@@ -47,7 +47,7 @@ import static io.trino.spi.type.Int128Math.negateExact;
 import static io.trino.spi.type.Int128Math.remainder;
 import static io.trino.spi.type.Int128Math.rescale;
 import static io.trino.spi.type.Int128Math.subtract;
-import static io.trino.spi.type.TypeParameter.typeVariable;
+import static io.trino.spi.type.TypeParameter.numericVariable;
 import static java.lang.Integer.max;
 import static java.lang.Long.signum;
 import static java.lang.Math.abs;
@@ -70,9 +70,9 @@ public final class DecimalOperators
 
     private static SqlScalarFunction decimalAddOperator(boolean legacyTypeCalculation)
     {
-        TypeSignature decimalLeftSignature = new TypeSignature("decimal", typeVariable("a_precision"), typeVariable("a_scale"));
-        TypeSignature decimalRightSignature = new TypeSignature("decimal", typeVariable("b_precision"), typeVariable("b_scale"));
-        TypeSignature decimalResultSignature = new TypeSignature("decimal", typeVariable("r_precision"), typeVariable("r_scale"));
+        TypeSignature decimalLeftSignature = new TypeSignature("decimal", numericVariable("a_precision"), numericVariable("a_scale"));
+        TypeSignature decimalRightSignature = new TypeSignature("decimal", numericVariable("b_precision"), numericVariable("b_scale"));
+        TypeSignature decimalResultSignature = new TypeSignature("decimal", numericVariable("r_precision"), numericVariable("r_scale"));
 
         Signature.Builder signature = Signature.builder();
 
@@ -167,9 +167,9 @@ public final class DecimalOperators
 
     private static SqlScalarFunction decimalSubtractOperator(boolean legacyTypeCalculation)
     {
-        TypeSignature decimalLeftSignature = new TypeSignature("decimal", typeVariable("a_precision"), typeVariable("a_scale"));
-        TypeSignature decimalRightSignature = new TypeSignature("decimal", typeVariable("b_precision"), typeVariable("b_scale"));
-        TypeSignature decimalResultSignature = new TypeSignature("decimal", typeVariable("r_precision"), typeVariable("r_scale"));
+        TypeSignature decimalLeftSignature = new TypeSignature("decimal", numericVariable("a_precision"), numericVariable("a_scale"));
+        TypeSignature decimalRightSignature = new TypeSignature("decimal", numericVariable("b_precision"), numericVariable("b_scale"));
+        TypeSignature decimalResultSignature = new TypeSignature("decimal", numericVariable("r_precision"), numericVariable("r_scale"));
 
         Signature.Builder signature = Signature.builder();
 
@@ -262,9 +262,9 @@ public final class DecimalOperators
 
     private static SqlScalarFunction decimalMultiplyOperator(boolean legacyTypeCalculation)
     {
-        TypeSignature decimalLeftSignature = new TypeSignature("decimal", typeVariable("a_precision"), typeVariable("a_scale"));
-        TypeSignature decimalRightSignature = new TypeSignature("decimal", typeVariable("b_precision"), typeVariable("b_scale"));
-        TypeSignature decimalResultSignature = new TypeSignature("decimal", typeVariable("r_precision"), typeVariable("r_scale"));
+        TypeSignature decimalLeftSignature = new TypeSignature("decimal", numericVariable("a_precision"), numericVariable("a_scale"));
+        TypeSignature decimalRightSignature = new TypeSignature("decimal", numericVariable("b_precision"), numericVariable("b_scale"));
+        TypeSignature decimalResultSignature = new TypeSignature("decimal", numericVariable("r_precision"), numericVariable("r_scale"));
 
         Signature.Builder signature = Signature.builder();
 
@@ -366,9 +366,9 @@ public final class DecimalOperators
 
     private static SqlScalarFunction decimalDivideOperator(boolean legacyTypeCalculation)
     {
-        TypeSignature decimalLeftSignature = new TypeSignature("decimal", typeVariable("a_precision"), typeVariable("a_scale"));
-        TypeSignature decimalRightSignature = new TypeSignature("decimal", typeVariable("b_precision"), typeVariable("b_scale"));
-        TypeSignature decimalResultSignature = new TypeSignature("decimal", typeVariable("r_precision"), typeVariable("r_scale"));
+        TypeSignature decimalLeftSignature = new TypeSignature("decimal", numericVariable("a_precision"), numericVariable("a_scale"));
+        TypeSignature decimalRightSignature = new TypeSignature("decimal", numericVariable("b_precision"), numericVariable("b_scale"));
+        TypeSignature decimalResultSignature = new TypeSignature("decimal", numericVariable("r_precision"), numericVariable("r_scale"));
 
         Signature.Builder signature = Signature.builder();
 
@@ -552,9 +552,9 @@ public final class DecimalOperators
 
     private static SqlScalarFunction moduloScalarFunction(PolymorphicScalarFunctionBuilder builder)
     {
-        TypeSignature decimalLeftSignature = new TypeSignature("decimal", typeVariable("a_precision"), typeVariable("a_scale"));
-        TypeSignature decimalRightSignature = new TypeSignature("decimal", typeVariable("b_precision"), typeVariable("b_scale"));
-        TypeSignature decimalResultSignature = new TypeSignature("decimal", typeVariable("r_precision"), typeVariable("r_scale"));
+        TypeSignature decimalLeftSignature = new TypeSignature("decimal", numericVariable("a_precision"), numericVariable("a_scale"));
+        TypeSignature decimalRightSignature = new TypeSignature("decimal", numericVariable("b_precision"), numericVariable("b_scale"));
+        TypeSignature decimalResultSignature = new TypeSignature("decimal", numericVariable("r_precision"), numericVariable("r_scale"));
 
         Signature signature = Signature.builder()
                 .longVariable("r_precision", "min(b_precision - b_scale, a_precision - a_scale) + max(a_scale, b_scale)")

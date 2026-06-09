@@ -58,8 +58,8 @@ import static io.trino.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.StandardTypes.VARCHAR;
 import static io.trino.spi.type.TypeParameter.numericParameter;
+import static io.trino.spi.type.TypeParameter.numericVariable;
 import static io.trino.spi.type.TypeParameter.typeParameter;
-import static io.trino.spi.type.TypeParameter.typeVariable;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
@@ -150,7 +150,7 @@ public final class TypeSignatureTranslator
                     if (value instanceof GenericDataType genericDataType &&
                             genericDataType.getArguments().isEmpty() &&
                             typeVariables.contains(genericDataType.getName().getValue())) {
-                        parameters.add(typeVariable(genericDataType.getName().getValue()));
+                        parameters.add(numericVariable(genericDataType.getName().getValue()));
                     }
                     else {
                         parameters.add(typeParameter(toTypeSignature(value, typeVariables)));
@@ -222,7 +222,7 @@ public final class TypeSignatureTranslator
                 }
                 String variable = genericDataType.getName().getValue();
                 checkArgument(typeVariables.contains(variable), "Parameter to datetime type must be either a number or a type variable: %s", variable);
-                parameters.add(typeVariable(variable));
+                parameters.add(numericVariable(variable));
             }
         }
         return parameters;
