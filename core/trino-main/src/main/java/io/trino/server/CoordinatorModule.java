@@ -338,6 +338,10 @@ public class CoordinatorModule
         // dynamic filtering service
         binder.bind(DynamicFilterService.class).in(Scopes.SINGLETON);
 
+        // auto-analyze service
+        configBinder(binder).bindConfig(AutoAnalyzeConfig.class);
+        binder.bind(AutoAnalyzeService.class).in(Scopes.SINGLETON);
+
         // language functions
         binder.bind(LanguageFunctionManager.class).in(Scopes.SINGLETON);
         binder.bind(InitializeLanguageFunctionManager.class).asEagerSingleton();
