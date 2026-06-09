@@ -221,8 +221,7 @@ public class TestGroupedTopNRankBuilder
                 .row(1L, 0.2)
                 .row(1L, 0.9)
                 .row(1L, 0.1)
-                .build()
-                .get(0);
+                .buildPage();
         input.compact();
 
         AtomicBoolean unblock = new AtomicBoolean();
@@ -249,8 +248,7 @@ public class TestGroupedTopNRankBuilder
                 .row(1L, 0.2)
                 .row(1L, 0.3)
                 .row(1L, 0.9)
-                .build()
-                .get(0);
+                .buildPage();
         assertPageEquals(types, output.get(0), expected);
     }
 

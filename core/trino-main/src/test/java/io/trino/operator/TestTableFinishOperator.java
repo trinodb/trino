@@ -116,12 +116,12 @@ public class TestTableFinishOperator
 
         List<Type> inputTypes = ImmutableList.of(BIGINT, VARBINARY, BIGINT);
 
-        operator.addInput(rowPagesBuilder(inputTypes).row(4, null, null).build().get(0));
-        operator.addInput(rowPagesBuilder(inputTypes).row(5, null, null).build().get(0));
-        operator.addInput(rowPagesBuilder(inputTypes).row(null, new byte[] {1}, null).build().get(0));
-        operator.addInput(rowPagesBuilder(inputTypes).row(null, new byte[] {2}, null).build().get(0));
-        operator.addInput(rowPagesBuilder(inputTypes).row(null, null, 6).build().get(0));
-        operator.addInput(rowPagesBuilder(inputTypes).row(null, null, 7).build().get(0));
+        operator.addInput(rowPagesBuilder(inputTypes).row(4, null, null).buildPage());
+        operator.addInput(rowPagesBuilder(inputTypes).row(5, null, null).buildPage());
+        operator.addInput(rowPagesBuilder(inputTypes).row(null, new byte[] {1}, null).buildPage());
+        operator.addInput(rowPagesBuilder(inputTypes).row(null, new byte[] {2}, null).buildPage());
+        operator.addInput(rowPagesBuilder(inputTypes).row(null, null, 6).buildPage());
+        operator.addInput(rowPagesBuilder(inputTypes).row(null, null, 7).buildPage());
 
         assertThat(driverContext.getMemoryUsage()).as("memoryUsage").isGreaterThan(0);
 
@@ -139,7 +139,7 @@ public class TestTableFinishOperator
 
         assertThat(operator.getOutput()).isNull();
         List<Type> outputTypes = ImmutableList.of(BIGINT);
-        assertPageEquals(outputTypes, operator.getOutput(), rowPagesBuilder(outputTypes).row(9).build().get(0));
+        assertPageEquals(outputTypes, operator.getOutput(), rowPagesBuilder(outputTypes).row(9).buildPage());
 
         assertThat(operator.isBlocked().isDone())
                 .describedAs("isBlocked should be done")

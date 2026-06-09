@@ -50,7 +50,7 @@ public class TestMergeHashSort
     public void testBinaryMergeIteratorOverEmptyPageAndNonEmptyPage()
     {
         Page emptyPage = new Page(0, BIGINT.createFixedSizeBlockBuilder(0).build());
-        Page page = rowPagesBuilder(BIGINT).row(42).build().get(0);
+        Page page = rowPagesBuilder(BIGINT).row(42).buildPage();
 
         WorkProcessor<Page> mergedPage = new MergeHashSort(newSimpleAggregatedMemoryContext()).merge(
                 ImmutableList.of(BIGINT),
@@ -73,7 +73,7 @@ public class TestMergeHashSort
     public void testBinaryMergeIteratorOverPageWith()
     {
         Page emptyPage = new Page(0, BIGINT.createFixedSizeBlockBuilder(0).build());
-        Page page = rowPagesBuilder(BIGINT).row(42).build().get(0);
+        Page page = rowPagesBuilder(BIGINT).row(42).buildPage();
 
         WorkProcessor<Page> mergedPage = new MergeHashSort(newSimpleAggregatedMemoryContext()).merge(
                 ImmutableList.of(BIGINT),
@@ -100,7 +100,7 @@ public class TestMergeHashSort
                 .row(42)
                 .row(52)
                 .row(60)
-                .build().get(0);
+                .buildPage();
 
         WorkProcessor<Page> mergedPages = new MergeHashSort(newSimpleAggregatedMemoryContext()).merge(
                 ImmutableList.of(BIGINT),

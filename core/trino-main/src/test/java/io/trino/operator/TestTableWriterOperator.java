@@ -110,7 +110,7 @@ public class TestTableWriterOperator
         assertThat(operator.needsInput()).isTrue();
 
         // blockingPageSink that will return blocked future
-        operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
+        operator.addInput(rowPagesBuilder(BIGINT).row(42).buildPage());
 
         assertThat(operator.isBlocked().isDone()).isFalse();
         assertThat(operator.isFinished()).isFalse();
@@ -125,7 +125,7 @@ public class TestTableWriterOperator
         assertThat(operator.needsInput()).isTrue();
 
         // add second page
-        operator.addInput(rowPagesBuilder(BIGINT).row(44).build().get(0));
+        operator.addInput(rowPagesBuilder(BIGINT).row(44).buildPage());
 
         assertThat(operator.isBlocked().isDone()).isFalse();
         assertThat(operator.isFinished()).isFalse();
@@ -145,7 +145,7 @@ public class TestTableWriterOperator
         assertPageEquals(
                 expectedTypes,
                 operator.getOutput(),
-                rowPagesBuilder(expectedTypes).row(2, null).build().get(0));
+                rowPagesBuilder(expectedTypes).row(2, null).buildPage());
 
         assertThat(operator.isBlocked().isDone()).isTrue();
         assertThat(operator.isFinished()).isTrue();
@@ -157,12 +157,12 @@ public class TestTableWriterOperator
     {
         Operator operator = createTableWriterOperator(new BlockingPageSink());
 
-        operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
+        operator.addInput(rowPagesBuilder(BIGINT).row(42).buildPage());
 
         assertThat(operator.isBlocked().isDone()).isFalse();
         assertThat(operator.needsInput()).isFalse();
 
-        assertThatThrownBy(() -> operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0)))
+        assertThatThrownBy(() -> operator.addInput(rowPagesBuilder(BIGINT).row(42).buildPage()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Operator does not need input");
     }
@@ -217,8 +217,8 @@ public class TestTableWriterOperator
                 session,
                 driverContext);
 
-        operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
-        operator.addInput(rowPagesBuilder(BIGINT).row(43).build().get(0));
+        operator.addInput(rowPagesBuilder(BIGINT).row(42).buildPage());
+        operator.addInput(rowPagesBuilder(BIGINT).row(43).buildPage());
 
         assertThat(operator.isBlocked().isDone()).isTrue();
         assertThat(operator.needsInput()).isTrue();
@@ -230,11 +230,11 @@ public class TestTableWriterOperator
 
         assertPageEquals(outputTypes, operator.getOutput(),
                 rowPagesBuilder(outputTypes)
-                        .row(null, null, 43).build().get(0));
+                        .row(null, null, 43).buildPage());
 
         assertPageEquals(outputTypes, operator.getOutput(),
                 rowPagesBuilder(outputTypes)
-                        .row(2, null, null).build().get(0));
+                        .row(2, null, null).buildPage());
 
         assertThat(operator.isBlocked().isDone()).isTrue();
         assertThat(operator.needsInput()).isFalse();

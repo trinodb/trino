@@ -486,7 +486,7 @@ public class TestWindowOperator
         for (int i = 0; i < 500_000; ++i) {
             pageBuilder.row("b", 0L);
         }
-        List<Page> input = pageBuilder.build();
+        Page input = pageBuilder.buildPage();
 
         WindowOperatorFactory operatorFactory = createFactoryUnbounded(
                 ImmutableList.of(VARCHAR, BIGINT),
@@ -503,7 +503,7 @@ public class TestWindowOperator
         operatorFactory.noMoreOperators();
         assertThat(operator.isFinished()).isFalse();
         assertThat(operator.needsInput()).isTrue();
-        operator.addInput(input.get(0));
+        operator.addInput(input);
         operator.finish();
         operator.getOutput();
 

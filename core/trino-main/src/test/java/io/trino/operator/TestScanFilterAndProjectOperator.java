@@ -198,14 +198,14 @@ public class TestScanFilterAndProjectOperator
         List<Page> actual = toPages(operator);
         assertThat(actual).hasSize(1);
 
-        List<Page> expected = rowPagesBuilder(BIGINT)
+        Page expected = rowPagesBuilder(BIGINT)
                 .row(10L)
                 .row(10L)
                 .row(10L)
                 .row(10L)
-                .build();
+                .buildPage();
 
-        assertPageEquals(ImmutableList.of(BIGINT), actual.get(0), expected.get(0));
+        assertPageEquals(ImmutableList.of(BIGINT), actual.get(0), expected);
     }
 
     @Test
