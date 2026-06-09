@@ -566,7 +566,7 @@ public class TestHashJoinOperator
         lookupSourceFactory.finishProbeOperator(OptionalInt.of(1));
 
         // spill build partition after probe is finished
-        HashBuilderOperator hashBuilderOperator = buildSideSetup.getBuildOperators().get(0);
+        HashBuilderOperator hashBuilderOperator = buildSideSetup.getBuildOperators().getFirst(); // any
         hashBuilderOperator.startMemoryRevoke().get();
         hashBuilderOperator.finishMemoryRevoke();
         hashBuilderOperator.finish();

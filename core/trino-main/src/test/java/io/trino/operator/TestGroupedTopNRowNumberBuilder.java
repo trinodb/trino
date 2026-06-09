@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.operator.UpdateMemory.NOOP;
@@ -114,10 +115,10 @@ public class TestGroupedTopNRowNumberBuilder
                 .row(4L, 0.6, 1)
                 .buildPage();
         if (produceRowNumbers) {
-            assertPageEquals(ImmutableList.of(BIGINT, DOUBLE, BIGINT), output.get(0), expected);
+            assertPageEquals(ImmutableList.of(BIGINT, DOUBLE, BIGINT), getOnlyElement(output), expected);
         }
         else {
-            assertPageEquals(types, output.get(0), new Page(expected.getBlock(0), expected.getBlock(1)));
+            assertPageEquals(types, getOnlyElement(output), new Page(expected.getBlock(0), expected.getBlock(1)));
         }
     }
 
@@ -183,10 +184,10 @@ public class TestGroupedTopNRowNumberBuilder
                 .row(1L, 0.5, 5)
                 .buildPage();
         if (produceRowNumbers) {
-            assertPageEquals(ImmutableList.of(BIGINT, DOUBLE, BIGINT), output.get(0), expected);
+            assertPageEquals(ImmutableList.of(BIGINT, DOUBLE, BIGINT), getOnlyElement(output), expected);
         }
         else {
-            assertPageEquals(types, output.get(0), new Page(expected.getBlock(0), expected.getBlock(1)));
+            assertPageEquals(types, getOnlyElement(output), new Page(expected.getBlock(0), expected.getBlock(1)));
         }
     }
 
@@ -218,7 +219,6 @@ public class TestGroupedTopNRowNumberBuilder
         unblock.set(true);
         assertThat(work.process()).isTrue();
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertThat(output).hasSize(1);
 
         Page expected = rowPagesBuilder(types)
                 .row(1L, 0.1)
@@ -226,7 +226,7 @@ public class TestGroupedTopNRowNumberBuilder
                 .row(1L, 0.3)
                 .row(1L, 0.9)
                 .buildPage();
-        assertPageEquals(types, output.get(0), expected);
+        assertPageEquals(types, getOnlyElement(output), expected);
     }
 
     private static GroupByHash createGroupByHash(List<Type> partitionTypes, UpdateMemory updateMemory)

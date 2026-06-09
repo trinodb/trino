@@ -58,6 +58,7 @@ import java.util.OptionalLong;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
@@ -673,7 +674,7 @@ public class TestHashAggregationOperator
         // run the operator; we don’t care about the output pages here
         toPages(factory, context, pages.build());
 
-        Metrics metrics = context.getDriverStats().getOperatorStats().get(0).getMetrics();
+        Metrics metrics = getOnlyElement(context.getDriverStats().getOperatorStats()).getMetrics();
         Metric<?> spillCountMetric = metrics.getMetrics().get(SPILL_COUNT_METRIC_NAME);
         Metric<?> spillSizeMetric = metrics.getMetrics().get(SPILL_DATA_SIZE);
 
@@ -1103,7 +1104,7 @@ public class TestHashAggregationOperator
 
     private void assertInputRowsWithPartialAggregationDisabled(DriverContext context, long expectedRowCount)
     {
-        LongCount metric = ((LongCount) context.getDriverStats().getOperatorStats().get(0).getMetrics().getMetrics().get(INPUT_ROWS_WITH_PARTIAL_AGGREGATION_DISABLED_METRIC_NAME));
+        LongCount metric = ((LongCount) getOnlyElement(context.getDriverStats().getOperatorStats()).getMetrics().getMetrics().get(INPUT_ROWS_WITH_PARTIAL_AGGREGATION_DISABLED_METRIC_NAME));
         if (metric == null) {
             assertThat(0).isEqualTo(expectedRowCount);
         }
