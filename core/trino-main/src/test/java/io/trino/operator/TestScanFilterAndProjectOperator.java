@@ -69,8 +69,8 @@ import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.block.BlockAssertions.createIntsBlock;
-import static io.trino.block.BlockAssertions.toValues;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.operator.project.PageProcessor.MAX_BATCH_SIZE;
@@ -348,7 +348,7 @@ public class TestScanFilterAndProjectOperator
                     assertThat(page.getPositionCount()).isEqualTo(totalRows);
                     assertThat(page.getChannelCount()).isEqualTo(totalColumns);
                     for (int j = 0; j < totalColumns; j++) {
-                        assertThat(toValues(BIGINT, page.getBlock(j))).isEqualTo(toValues(BIGINT, input.getBlock(0)));
+                        assertBlockEquals(BIGINT, page.getBlock(j), input.getBlock(0));
                     }
                 }
                 else {
