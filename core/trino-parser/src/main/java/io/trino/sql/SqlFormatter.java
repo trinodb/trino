@@ -239,7 +239,7 @@ public final class SqlFormatter
                     .map(SqlFormatter::formatName)
                     .collect(joining("."));
         }
-        return String.join(".", name.getParts());
+        return name.getSqlName();
     }
 
     private static String formatExpression(Expression expression)

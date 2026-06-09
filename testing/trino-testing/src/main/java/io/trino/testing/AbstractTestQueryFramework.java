@@ -535,7 +535,7 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertTableColumnNames(String tableName, String... columnNames)
     {
-        MaterializedResult result = computeActual("DESCRIBE " + quoted(tableName));
+        MaterializedResult result = computeActual("DESCRIBE \"" + tableName + "\"");
         List<String> actual = result.getMaterializedRows().stream()
                 .map(row -> (String) row.getField(0))
                 .collect(toImmutableList());

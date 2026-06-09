@@ -31,12 +31,13 @@ public class QualifiedName
     private final List<Identifier> originalParts;
     private final Optional<QualifiedName> prefix;
     private final List<String> parts;
-    private final boolean isResolved;
 
     // Following fields are not part of the equals/hashCode methods as
     // they are exist solely to speed-up certain method calls.
     private final String name;
     private final String suffix;
+    private final String sqlName;
+    private final boolean isResolved;
 
     public static QualifiedName of(Optional<Function<Identifier, String>> canonicalizer, QualifiedName name)
     {
@@ -151,33 +152,51 @@ public class QualifiedName
 
     public QualifiedName(Optional<Function<Identifier, String>> canonicalizer, List<Identifier> originalParts, boolean withCatalog)
     {
-        int size = originalParts.size();
         this.originalParts = originalParts;
         this.isResolved = canonicalizer.isPresent();
 
+        int size = originalParts.size();
         if (size == 1) {
+            Identifier identifier = originalParts.getFirst();
+            String value = withCatalog || canonicalizer.isEmpty() ? identifier.getValue() : canonicalizer.get().apply(identifier);
             this.prefix = Optional.empty();
-            this.suffix = withCatalog || canonicalizer.isEmpty() ? originalParts.getFirst().getValue() : canonicalizer.get().apply(originalParts.getFirst());
-            this.parts = ImmutableList.of(suffix);
-            this.name = suffix;
+            this.parts = ImmutableList.of(value);
+            this.name = value;
+            this.sqlName = withCatalog || !identifier.isDelimited() ? value : delimited(value);
+            this.suffix = value;
         }
         else {
             // Iteration instead of stream for performance reasons
             List<Identifier> subList = originalParts.subList(0, size - 1);
             this.prefix = Optional.of(new QualifiedName(canonicalizer, subList, withCatalog));
             ImmutableList.Builder<String> partsBuilder = ImmutableList.builderWithExpectedSize(size);
+            ImmutableList.Builder<String> namesBuilder = ImmutableList.builderWithExpectedSize(size);
             for (Identifier identifier : originalParts) {
                 if (withCatalog) {
                     partsBuilder.add(identifier.getValue());
+                    namesBuilder.add(identifier.getValue());
                     withCatalog = false;
                     continue;
                 }
-                partsBuilder.add(canonicalizer.map(function -> function.apply(identifier)).orElse(identifier.getValue()));
+                String value = canonicalizer.map(function -> function.apply(identifier)).orElse(identifier.getValue());
+                partsBuilder.add(value);
+                namesBuilder.add(identifier.isDelimited() ? delimited(value) : value);
             }
             this.parts = partsBuilder.build();
             this.name = String.join(".", parts);
+            this.sqlName = String.join(".", namesBuilder.build());
             this.suffix = parts.getLast();
         }
+    }
+
+    private String delimited(String value)
+    {
+        return '"' + value.replace("\"", "\"\"") + '"';
+    }
+
+    public String getSqlName()
+    {
+        return sqlName;
     }
 
     public boolean isResolved()

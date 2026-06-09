@@ -280,7 +280,7 @@ public abstract class BaseOracleConnectorTest
 
         assertUpdate("CREATE TABLE " + tableName + " (t timestamp(12))");
 
-        assertThat(getColumnType(tableName, "t"))
+        assertThat(getColumnType(canonicalize(tableName), canonicalize("t")))
                 .isEqualTo("timestamp(9)");
 
         assertUpdate("DROP TABLE " + tableName);

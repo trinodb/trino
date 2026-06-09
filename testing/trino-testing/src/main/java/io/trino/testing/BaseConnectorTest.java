@@ -258,6 +258,31 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testIssue17()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        String tableName = "test_issue_17_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id VARCHAR)");
+
+        assertQueryReturnsEmptyResult(
+                """
+                WITH
+                t1 AS (
+                    SELECT NULL AS "address_id" FROM %1$s i1
+                        INNER JOIN %1$s i2 ON i1.id = i2.id),
+                t2 AS (
+                    SELECT "name" AS "address_id" FROM "nation"
+                    UNION
+                    SELECT * FROM t1)
+                SELECT * FROM t2
+                    INNER JOIN %1$s i ON i.id = t2."address_id"\
+                """.formatted(tableName));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testShowCreateSchema()
     {
         String schemaName = getSession().getSchema().orElseThrow();
@@ -2613,9 +2638,10 @@ public abstract class BaseConnectorTest
     @Test
     public void testShowCreateInformationSchema()
     {
-        assertThat(query("SHOW CREATE SCHEMA \"information_schema\""))
+        String schema = canonicalize("x").equals("x") ? "information_schema" : "\"information_schema\"";
+        assertThat(query("SHOW CREATE SCHEMA " + schema))
                 .skippingTypesCheck()
-                .matches(format("VALUES 'CREATE SCHEMA %s.\"information_schema\"'", getSession().getCatalog().orElseThrow()));
+                .matches(format("VALUES 'CREATE SCHEMA %s.%s'", getSession().getCatalog().orElseThrow(), schema));
     }
 
     @Test
@@ -2898,15 +2924,15 @@ public abstract class BaseConnectorTest
         }
 
         try (TestTable table = newTrinoTable("test_add_column_", "AS SELECT 2 second, 4 fourth")) {
-            assertTableColumnNames(table.getName(), "second", "fourth");
+            assertTableColumnNames(canonicalize(table.getName()), canonicalize("second"), canonicalize("fourth"));
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (2, 4)");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN first integer FIRST");
-            assertTableColumnNames(table.getName(), "first", "second", "fourth");
+            assertTableColumnNames(canonicalize(table.getName()), canonicalize("first"), canonicalize("second"), canonicalize("fourth"));
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (null, 2, 4)");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN third integer AFTER second");
-            assertTableColumnNames(table.getName(), "first", "second", "third", "fourth");
+            assertTableColumnNames(canonicalize(table.getName()), canonicalize("first"), canonicalize("second"), canonicalize("third"), canonicalize("fourth"));
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (null, 2, null, 4)");
 
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (10, 20, 30, 40)", 1);
@@ -3037,8 +3063,8 @@ public abstract class BaseConnectorTest
             assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN x");
             assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS y");
             assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS notExistColumn");
-            assertQueryFails("SELECT x FROM " + tableName, ".* Column 'x' cannot be resolved");
-            assertQueryFails("SELECT y FROM " + tableName, ".* Column 'y' cannot be resolved");
+            assertQueryFails("SELECT x FROM " + tableName, ".* Column 'x' cannot be resolved, .*");
+            assertQueryFails("SELECT y FROM " + tableName, ".* Column 'y' cannot be resolved, .*");
 
             assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", ".* Cannot drop the only column in a table");
         }
@@ -3926,7 +3952,7 @@ public abstract class BaseConnectorTest
     protected String getColumnType(String tableName, String columnName)
     {
         return (String) computeScalar(format(
-                "SELECT data_type FROM \"information_schema\".\"columns\" WHERE \"table_schema\" = CURRENT_SCHEMA AND \"table_name\" = '%s' AND \"column_name\" = '%s'",
+                "SELECT \"data_type\" FROM \"information_schema\".\"columns\" WHERE \"table_schema\" = CURRENT_SCHEMA AND \"table_name\" = '%s' AND \"column_name\" = '%s'",
                 tableName,
                 columnName));
     }
@@ -4131,11 +4157,11 @@ public abstract class BaseConnectorTest
         }
 
         try (TestTable table = newTrinoTable("test_create_or_replace_", " AS SELECT \"nationkey\", \"name\", \"regionkey\" FROM \"nation\"")) {
-            assertTableColumnNames(table.getName(), "nationkey", "name", "regionkey");
+            assertTableColumnNames(canonicalize(table.getName()), "nationkey", "name", "regionkey");
             @Language("SQL") String query = "SELECT \"nationkey\" AS nationkey_new, \"name\" AS name_new_2, \"regionkey\" AS region_key_new FROM \"nation\"";
             @Language("SQL") String rowCountQuery = "SELECT count(*) FROM \"nation\"";
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS " + query, rowCountQuery);
-            assertTableColumnNames(table.getName(), "nationkey_new", "name_new_2", "region_key_new");
+            assertTableColumnNames(canonicalize(table.getName()), canonicalize("nationkey_new"), canonicalize("name_new_2"), canonicalize("region_key_new"));
             assertQuery("SELECT * FROM " + table.getName(), query);
         }
     }
@@ -5080,7 +5106,7 @@ public abstract class BaseConnectorTest
 
         if (!hasBehavior(SUPPORTS_DEFAULT_COLUMN_VALUE)) {
             String tableName = "test_default_value_" + randomNameSuffix();
-            assertQueryFails("CREATE TABLE " + tableName + " (x int DEFAULT 1)", ".* Catalog '.*' does not support default value for column name 'x'");
+            assertQueryFails("CREATE TABLE " + tableName + " (x int DEFAULT 1)", ".* Catalog '.*' does not support default value for column name '%s'".formatted(canonicalize("x")));
             return;
         }
 
@@ -5722,7 +5748,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_UPDATE));
 
         try (TestTable table = newTrinoTable("test_row_update", "AS SELECT * FROM \"nation\"")) {
-            assertUpdate("UPDATE " + table.getName() + " SET NATIONKEY = 100 WHERE REGIONKEY = 2", 5);
+            assertUpdate("UPDATE " + table.getName() + " SET \"nationkey\" = 100 WHERE \"regionkey\" = 2", 5);
             assertQuery("SELECT count(*) FROM " + table.getName() + " WHERE \"nationkey\" = 100", "VALUES 5");
         }
     }
@@ -6348,6 +6374,7 @@ public abstract class BaseConnectorTest
     protected void testAddAndDropColumnName(String columnName, boolean delimited)
     {
         String nameInSql = toColumnNameInSql(columnName, delimited);
+        String column = delimited ? columnName : canonicalize(columnName);
         String tableName = "test_add_drop_column_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "") + randomNameSuffix();
 
         try {
@@ -6360,13 +6387,13 @@ public abstract class BaseConnectorTest
             }
             throw e;
         }
-        assertTableColumnNames(tableName, columnName.toLowerCase(ENGLISH), "value");
+        assertTableColumnNames(canonicalize(tableName), column, canonicalize("value"));
 
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN " + nameInSql);
-        assertTableColumnNames(tableName, "value");
+        assertTableColumnNames(canonicalize(tableName), canonicalize("value"));
 
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN " + nameInSql + " varchar(50)");
-        assertTableColumnNames(tableName, "value", columnName.toLowerCase(ENGLISH));
+        assertTableColumnNames(canonicalize(tableName), canonicalize("value"), column);
 
         assertUpdate("DROP TABLE " + tableName);
     }
