@@ -13,6 +13,9 @@
  */
 package io.trino.spi.function;
 
+import io.trino.spi.type.NumericExpression;
+import io.trino.spi.type.NumericExpressions;
+
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
@@ -20,9 +23,9 @@ import static java.util.Objects.requireNonNull;
 public class NumericVariableConstraint
 {
     private final String name;
-    private final String expression;
+    private final NumericExpression expression;
 
-    NumericVariableConstraint(String name, String expression)
+    NumericVariableConstraint(String name, NumericExpression expression)
     {
         this.name = requireNonNull(name, "name is null");
         this.expression = requireNonNull(expression, "expression is null");
@@ -33,7 +36,7 @@ public class NumericVariableConstraint
         return name;
     }
 
-    public String getExpression()
+    public NumericExpression getExpression()
     {
         return expression;
     }
@@ -41,7 +44,7 @@ public class NumericVariableConstraint
     @Override
     public String toString()
     {
-        return name + ":" + expression;
+        return name + ":" + NumericExpressions.render(expression);
     }
 
     @Override

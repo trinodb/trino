@@ -13,6 +13,7 @@
  */
 package io.trino.spi.function;
 
+import io.trino.spi.type.NumericExpression;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
@@ -234,7 +235,7 @@ public class Signature
             return this;
         }
 
-        public Builder numericVariable(String name, String expression)
+        public Builder numericVariable(String name, NumericExpression expression)
         {
             this.numericVariableConstraints.add(new NumericVariableConstraint(name, expression));
             return this;
@@ -242,8 +243,7 @@ public class Signature
 
         public Builder numericVariable(String name)
         {
-            this.numericVariableConstraints.add(new NumericVariableConstraint(name, name));
-            return this;
+            return numericVariable(name, new NumericExpression.Variable(name));
         }
 
         public Builder numericVariableConstraints(List<NumericVariableConstraint> numericVariableConstraints)
