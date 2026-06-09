@@ -176,7 +176,7 @@ public class TestRowNumberOperator
     public void testRowNumberPartitioned()
     {
         DriverContext driverContext = getDriverContext();
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(Ints.asList(0), BIGINT, DOUBLE);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(BIGINT, DOUBLE);
         List<Page> input = rowPagesBuilder
                 .row(1L, 0.3)
                 .row(2L, 0.2)
@@ -241,7 +241,7 @@ public class TestRowNumberOperator
     public void testRowNumberPartitionedLimit()
     {
         DriverContext driverContext = getDriverContext();
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(Ints.asList(0), BIGINT, DOUBLE);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(BIGINT, DOUBLE);
         List<Page> input = rowPagesBuilder
                 .row(1L, 0.3)
                 .row(2L, 0.2)

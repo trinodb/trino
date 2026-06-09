@@ -81,7 +81,7 @@ public class TestTopNRankingOperator
     {
         DriverContext driverContext = newDriverContext();
 
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(Ints.asList(0), VARCHAR, DOUBLE);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(VARCHAR, DOUBLE);
         List<Page> input = rowPagesBuilder
                 .row("a", 0.3)
                 .row("b", 0.2)
