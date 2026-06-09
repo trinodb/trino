@@ -68,7 +68,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
@@ -98,26 +97,6 @@ public final class BlockAssertions
                 .describedAs("Block positions")
                 .isEqualTo(1);
         return type.getObjectValue(block, 0);
-    }
-
-    public static List<Object> toValues(Type type, Iterable<Block> blocks)
-    {
-        List<Object> values = new ArrayList<>();
-        for (Block block : blocks) {
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                values.add(type.getObjectValue(block, position));
-            }
-        }
-        return unmodifiableList(values);
-    }
-
-    public static List<Object> toValues(Type type, Block block)
-    {
-        List<Object> values = new ArrayList<>();
-        for (int position = 0; position < block.getPositionCount(); position++) {
-            values.add(type.getObjectValue(block, position));
-        }
-        return unmodifiableList(values);
     }
 
     public static void assertBlockEquals(Type type, Block actual, Block expected)
@@ -738,15 +717,6 @@ public final class BlockAssertions
         BlockBuilder builder = DOUBLE.createFixedSizeBlockBuilder(length);
         for (int i = 0; i < length; i++) {
             DOUBLE.writeDouble(builder, value);
-        }
-        return builder.buildValueBlock();
-    }
-
-    public static ValueBlock createTimestampsWithTimeZoneMillisBlock(Long... values)
-    {
-        BlockBuilder builder = TIMESTAMP_TZ_MILLIS.createFixedSizeBlockBuilder(values.length);
-        for (long value : values) {
-            TIMESTAMP_TZ_MILLIS.writeLong(builder, value);
         }
         return builder.buildValueBlock();
     }
