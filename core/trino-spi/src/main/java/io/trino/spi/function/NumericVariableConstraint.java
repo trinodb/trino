@@ -13,10 +13,6 @@
  */
 package io.trino.spi.function;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.errorprone.annotations.DoNotCall;
-
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
@@ -32,13 +28,11 @@ public class NumericVariableConstraint
         this.expression = requireNonNull(expression, "expression is null");
     }
 
-    @JsonProperty
     public String getName()
     {
         return name;
     }
 
-    @JsonProperty
     public String getExpression()
     {
         return expression;
@@ -68,15 +62,5 @@ public class NumericVariableConstraint
     public int hashCode()
     {
         return Objects.hash(name, expression);
-    }
-
-    @JsonCreator
-    @DoNotCall // For JSON deserialization only
-    @Deprecated // Discourage usages in SPI consumers
-    public static NumericVariableConstraint fromJson(
-            @JsonProperty("name") String name,
-            @JsonProperty("expression") String expression)
-    {
-        return new NumericVariableConstraint(name, expression);
     }
 }
