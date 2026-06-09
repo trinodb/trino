@@ -140,6 +140,7 @@ public class TestRowNumberOperator
 
     @Test
     public void testMemoryReservationYield()
+            throws Exception
     {
         for (Type type : Arrays.asList(VARCHAR, BIGINT)) {
             List<Page> input = createPages(type, 6_000, 600);

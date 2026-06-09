@@ -254,6 +254,7 @@ public class TestHashAggregationOperator
 
     @Test
     public void testHashAggregationMemoryReservation()
+            throws Exception
     {
         testHashAggregationMemoryReservation(true, true, 8, Integer.MAX_VALUE);
         testHashAggregationMemoryReservation(true, false, 8, Integer.MAX_VALUE);
@@ -265,6 +266,7 @@ public class TestHashAggregationOperator
     }
 
     private void testHashAggregationMemoryReservation(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
+            throws Exception
     {
         DummySpillerFactory spillerFactory = new DummySpillerFactory();
 
@@ -301,10 +303,11 @@ public class TestHashAggregationOperator
                 hashStrategyCompiler,
                 Optional.empty());
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-        toPages(operator, input.iterator(), revokeMemoryWhenAddingPages);
-        assertThat(operator.getOperatorContext().getOperatorStats().getUserMemoryReservation().toBytes()).isEqualTo(0);
-        assertThat(operator.getOperatorContext().getOperatorStats().getRevocableMemoryReservation().toBytes()).isEqualTo(0);
+        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+            toPages(operator, input.iterator(), revokeMemoryWhenAddingPages);
+            assertThat(operator.getOperatorContext().getOperatorStats().getUserMemoryReservation().toBytes()).isEqualTo(0);
+            assertThat(operator.getOperatorContext().getOperatorStats().getRevocableMemoryReservation().toBytes()).isEqualTo(0);
+        }
     }
 
     @Test
@@ -402,12 +405,14 @@ public class TestHashAggregationOperator
 
     @Test
     public void testMemoryReservationYield()
+            throws Exception
     {
         testMemoryReservationYield(VARCHAR);
         testMemoryReservationYield(BIGINT);
     }
 
     public void testMemoryReservationYield(Type type)
+            throws Exception
     {
         List<Page> input = createPages(type, 6_000, 600);
         OperatorFactory operatorFactory = new HashAggregationOperatorFactory(

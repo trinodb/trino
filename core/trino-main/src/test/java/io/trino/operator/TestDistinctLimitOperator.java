@@ -148,12 +148,14 @@ public class TestDistinctLimitOperator
 
     @Test
     public void testMemoryReservationYield()
+            throws Exception
     {
         testMemoryReservationYield(VARCHAR);
         testMemoryReservationYield(BIGINT);
     }
 
     public void testMemoryReservationYield(Type type)
+            throws Exception
     {
         List<Page> input = createPages(type, 6_000, 600);
 

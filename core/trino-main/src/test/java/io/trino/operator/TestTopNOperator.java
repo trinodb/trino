@@ -187,6 +187,7 @@ public class TestTopNOperator
 
     @Test
     public void testExceedMemoryLimit()
+            throws Exception
     {
         Page input = rowPagesBuilder(BIGINT)
                 .row(1L)
@@ -201,11 +202,12 @@ public class TestTopNOperator
                 100,
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST));
-        Operator operator = operatorFactory.createOperator(smallDiverContext);
-        operator.addInput(input);
-        assertThatThrownBy(operator::getOutput)
-                .isInstanceOf(ExceededMemoryLimitException.class)
-                .hasMessageStartingWith("Query exceeded per-node memory limit of ");
+        try (Operator operator = operatorFactory.createOperator(smallDiverContext)) {
+            operator.addInput(input);
+            assertThatThrownBy(operator::getOutput)
+                    .isInstanceOf(ExceededMemoryLimitException.class)
+                    .hasMessageStartingWith("Query exceeded per-node memory limit of ");
+        }
     }
 
     private OperatorFactory topNOperatorFactory(
