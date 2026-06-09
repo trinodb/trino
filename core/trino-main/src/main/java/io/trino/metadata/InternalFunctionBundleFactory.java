@@ -38,6 +38,13 @@ public class InternalFunctionBundleFactory
         }
 
         @Override
+        public Builder functions(Object functionInstance)
+        {
+            delegate.functions(functionInstance);
+            return this;
+        }
+
+        @Override
         public FunctionBundle build()
         {
             return delegate.build();
