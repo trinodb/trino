@@ -232,9 +232,14 @@ public final class SqlFormatter
 
     public static String formatName(QualifiedName name)
     {
-        return name.getOriginalParts().stream()
-                .map(SqlFormatter::formatName)
-                .collect(joining("."));
+        // FIXME: If we do not want to lose the canonical form,
+        //        we must check if QualifiedName has not already been canonicalized.
+        if (!name.isResolved()) {
+            return name.getOriginalParts().stream()
+                    .map(SqlFormatter::formatName)
+                    .collect(joining("."));
+        }
+        return String.join(".", name.getParts());
     }
 
     private static String formatExpression(Expression expression)

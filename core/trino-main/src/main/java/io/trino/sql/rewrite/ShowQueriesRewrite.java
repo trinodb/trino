@@ -697,6 +697,8 @@ public final class ShowQueriesRewrite
         {
             List<Identifier> identifiers = getCatalogSchemaIdentifiers(session, node, Optional.of(node.getName()), metadata);
             CatalogSchemaName schemaName = createCatalogSchemaName(session, metadata, identifiers);
+            Resolver resolver = metadata.getResolverManager().getResolver(session, schemaName.getCatalogName());
+            QualifiedName qualifiedSchemaName = QualifiedName.of(resolver.getCanonicalizer(), identifiers, identifiers.size() > 1);
 
             if (!metadata.schemaExists(session, schemaName)) {
                 throw semanticException(SCHEMA_NOT_FOUND, node, "Schema '%s' does not exist", schemaName);
@@ -707,7 +709,6 @@ public final class ShowQueriesRewrite
             Map<String, Object> properties = metadata.getSchemaProperties(session, schemaName);
             CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, schemaName.getCatalogName());
             Collection<PropertyMetadata<?>> allTableProperties = schemaPropertyManager.getAllProperties(catalogHandle);
-            QualifiedName qualifiedSchemaName = QualifiedName.of(identifiers);
             List<Property> propertyNodes = toSqlProperties("schema " + qualifiedSchemaName, INVALID_SCHEMA_PROPERTY, properties, allTableProperties);
 
             Optional<PrincipalSpecification> owner = metadata.getSchemaOwner(session, schemaName).map(MetadataUtil::createPrincipal);
@@ -744,12 +745,10 @@ public final class ShowQueriesRewrite
         @Override
         protected Node visitShowFunctions(ShowFunctions node, Void context)
         {
-            // System.out.println("ShowQueriesRewrite.visitShowFunctions() schema: " + node.getSchema());
             Collection<FunctionMetadata> functions;
             if (node.getSchema().isPresent()) {
                 // FIXME: To support canonicalization the schema function need to bee in lowercase?
                 CatalogSchemaName schema = createCatalogSchemaName(session, node, node.getSchema(), metadata, true);
-                // System.out.println("ShowQueriesRewrite.visitShowFunctions() schema: " + schema);
                 accessControl.checkCanShowFunctions(session.toSecurityContext(), schema);
                 functions = listFunctions(schema);
             }

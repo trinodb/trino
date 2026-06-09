@@ -895,6 +895,8 @@ public final class MetadataManager
     @Override
     public void renameSchema(Session session, CatalogSchemaName source, String target)
     {
+        // FIXME: The target schema will never be canonicalized?
+        // System.out.println("MetadataManager.renameSchema() source : " + source + " - target: " + target);
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, source.getCatalogName());
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);

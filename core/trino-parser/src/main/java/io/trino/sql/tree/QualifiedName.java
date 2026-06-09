@@ -31,6 +31,7 @@ public class QualifiedName
     private final List<Identifier> originalParts;
     private final Optional<QualifiedName> prefix;
     private final List<String> parts;
+    private final boolean isResolved;
 
     // Following fields are not part of the equals/hashCode methods as
     // they are exist solely to speed-up certain method calls.
@@ -48,7 +49,7 @@ public class QualifiedName
     {
         requireNonNull(canonicalizer, "canonicalizer is null");
         requireNonNull(identifier, "identifier is null");
-        return of(canonicalizer.orElse(Identifier::getValue), identifier);
+        return of(canonicalizer, identifier);
     }
 
     public static QualifiedName of(Function<Identifier, String> canonicalizer, QualifiedName name)
@@ -60,28 +61,33 @@ public class QualifiedName
     {
         requireNonNull(canonicalizer, "canonicalizer is null");
         requireNonNull(name, "name is null");
-        return new QualifiedName(canonicalizer, name.originalParts, withCatalog);
+        return new QualifiedName(Optional.of(canonicalizer), name.originalParts, withCatalog);
     }
 
     public static QualifiedName of(Function<Identifier, String> canonicalizer, Identifier identifier)
     {
         requireNonNull(canonicalizer, "canonicalizer is null");
         requireNonNull(identifier, "identifier is null");
-        return new QualifiedName(canonicalizer, ImmutableList.of(identifier), false);
+        return new QualifiedName(Optional.of(canonicalizer), ImmutableList.of(identifier), false);
     }
 
     public static QualifiedName of(Optional<Function<Identifier, String>> canonicalizer, List<Identifier> identifiers)
     {
         requireNonNull(canonicalizer, "canonicalizer is null");
         requireNonNull(identifiers, "identifiers is null");
-        return of(canonicalizer.orElse(Identifier::getValue), identifiers);
+        return of(canonicalizer, identifiers);
     }
 
     public static QualifiedName of(Function<Identifier, String> canonicalizer, List<Identifier> identifiers)
     {
+        return of(canonicalizer, identifiers, identifiers.size() > 2);
+    }
+
+    public static QualifiedName of(Function<Identifier, String> canonicalizer, List<Identifier> identifiers, boolean withCatalog)
+    {
         requireNonNull(canonicalizer, "canonicalizer is null");
         requireNonNull(identifiers, "identifiers is null");
-        return new QualifiedName(canonicalizer, identifiers, identifiers.size() > 2);
+        return new QualifiedName(Optional.of(canonicalizer), identifiers, withCatalog);
     }
 
     public static QualifiedName of(String first, String... rest)
@@ -140,17 +146,18 @@ public class QualifiedName
     {
         requireNonNull(originalParts, "originalParts is null");
         checkArgument(!isEmpty(originalParts), "originalParts is empty");
-        return new QualifiedName(Identifier::getValue, ImmutableList.copyOf(originalParts), withCatalog);
+        return new QualifiedName(Optional.empty(), ImmutableList.copyOf(originalParts), withCatalog);
     }
 
-    public QualifiedName(Function<Identifier, String> canonicalizer, List<Identifier> originalParts, boolean withCatalog)
+    public QualifiedName(Optional<Function<Identifier, String>> canonicalizer, List<Identifier> originalParts, boolean withCatalog)
     {
         int size = originalParts.size();
         this.originalParts = originalParts;
+        this.isResolved = canonicalizer.isPresent();
 
         if (size == 1) {
             this.prefix = Optional.empty();
-            this.suffix = withCatalog ? originalParts.getFirst().getValue() : canonicalizer.apply(originalParts.getFirst());
+            this.suffix = withCatalog || canonicalizer.isEmpty() ? originalParts.getFirst().getValue() : canonicalizer.get().apply(originalParts.getFirst());
             this.parts = ImmutableList.of(suffix);
             this.name = suffix;
         }
@@ -165,12 +172,17 @@ public class QualifiedName
                     withCatalog = false;
                     continue;
                 }
-                partsBuilder.add(canonicalizer.apply(identifier));
+                partsBuilder.add(canonicalizer.map(function -> function.apply(identifier)).orElse(identifier.getValue()));
             }
             this.parts = partsBuilder.build();
             this.name = String.join(".", parts);
             this.suffix = parts.getLast();
         }
+    }
+
+    public boolean isResolved()
+    {
+        return isResolved;
     }
 
     public List<String> getParts()

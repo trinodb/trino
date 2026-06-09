@@ -1251,7 +1251,6 @@ class StatementAnalyzer
         @Override
         protected Scope visitSetAuthorization(SetAuthorizationStatement node, Optional<Scope> scope)
         {
-            // System.out.println("StatementAnalyzer.visitSetAuthorization() scope resolver: " + getScopeInfo(scope));
             return createAndAssignScope(node, scope);
         }
 
@@ -1838,7 +1837,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitTableFunctionInvocation(TableFunctionInvocation node, Optional<Scope> scope)
         {
-            System.out.println("StatementAnalyzer.visitTableFunctionInvocation() scope resolver: " + getScopeInfo(scope) + " - table function: " + node.getName());
+            // System.out.println("StatementAnalyzer.visitTableFunctionInvocation() scope resolver: " + getScopeInfo(scope) + " - table function: " + node.getName());
             TableFunctionMetadata tableFunctionMetadata = resolveTableFunction(node)
                     .orElseThrow(() -> semanticException(FUNCTION_NOT_FOUND, node, "Table function '%s' not registered", node.getName()));
 
@@ -2003,7 +2002,7 @@ class StatementAnalyzer
         private Optional<TableFunctionMetadata> resolveTableFunction(TableFunctionInvocation node)
         {
             boolean unauthorized = false;
-            for (CatalogSchemaFunctionName name : toPath(session, metadata.getResolverManager().getCanonicalizers(), node.getName(), accessControl)) {
+            for (CatalogSchemaFunctionName name : toPath(session, node.getName(), accessControl)) {
                 CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, name.catalogName());
                 Optional<ConnectorTableFunction> resolved = tableFunctionRegistry.resolve(catalogHandle, name.schemaFunctionName());
                 if (resolved.isPresent()) {

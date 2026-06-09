@@ -1664,7 +1664,7 @@ public class ExpressionAnalyzer
 
         private List<FunctionMetadata> findCandidates(QualifiedName name)
         {
-            for (CatalogSchemaFunctionName candidateName : FunctionResolver.toPath(session, plannerContext.getMetadata().getResolverManager().getCanonicalizers(), name, accessControl)) {
+            for (CatalogSchemaFunctionName candidateName : FunctionResolver.toPath(session, name, accessControl)) {
                 Collection<CatalogFunctionMetadata> candidates = plannerContext.getMetadata().getFunctions(session, candidateName);
                 if (!candidates.isEmpty()) {
                     return candidates.stream()
