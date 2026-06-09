@@ -43,7 +43,6 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.gen.lambda.LambdaFunctionInterface;
 import io.trino.sql.tree.JsonValue.EmptyOrErrorBehavior;
@@ -68,6 +67,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.type.StandardTypes.JSON_2016;
 import static io.trino.spi.type.StandardTypes.TINYINT;
 import static io.trino.spi.type.TypeSignature.functionType;
+import static io.trino.spi.type.TypeSignature.type;
 import static io.trino.spi.type.TypeSignature.typeVariable;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.methodHandle;
@@ -99,13 +99,13 @@ public class JsonValueFunction
                         .typeVariable("D")
                         .returnType(typeVariable("R"))
                         .argumentTypes(ImmutableList.of(
-                                new TypeSignature(JSON_2016),
-                                new TypeSignature(JsonPath2016Type.NAME),
+                                type(JSON_2016),
+                                type(JsonPath2016Type.NAME),
                                 typeVariable("T"),
                                 typeVariable("R"),
-                                new TypeSignature(TINYINT),
+                                type(TINYINT),
                                 functionType(typeVariable("E")),
-                                new TypeSignature(TINYINT),
+                                type(TINYINT),
                                 functionType(typeVariable("D"))))
                         .build())
                 .nullable()
