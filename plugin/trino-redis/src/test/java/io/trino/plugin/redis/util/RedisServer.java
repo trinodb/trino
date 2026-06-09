@@ -19,8 +19,12 @@ import redis.clients.jedis.Connection;
 import redis.clients.jedis.DefaultJedisClientConfig;
 import redis.clients.jedis.Protocol;
 import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.SslOptions;
 
 import java.io.Closeable;
+import java.io.File;
+
+import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
 public class RedisServer
         implements Closeable
@@ -32,6 +36,9 @@ public class RedisServer
     public static final String USER = "test";
     public static final String PASSWORD = "password";
 
+    public static final String TLS_STORE_PASSWORD = "changeit";
+    private static final String CONTAINER_CERTS_DIR = "/etc/redis/certs/";
+
     private final GenericContainer<?> container;
     private final RedisClient redisClient;
 
@@ -42,16 +49,32 @@ public class RedisServer
 
     public RedisServer(String version, boolean setAccessControl)
     {
+        this(version, setAccessControl, false);
+    }
+
+    public static RedisServer createTlsServer()
+    {
+        return new RedisServer(LATEST_VERSION, false, true);
+    }
+
+    private RedisServer(String version, boolean setAccessControl, boolean tls)
+    {
         container = new GenericContainer<>("redis:" + version)
                 .withExposedPorts(PORT);
         if (setAccessControl) {
             container.withCommand("redis-server", "--requirepass", PASSWORD);
+        }
+        if (tls) {
+            configureTls(container);
         }
         container.start();
 
         DefaultJedisClientConfig.Builder clientConfig = DefaultJedisClientConfig.builder();
         if (setAccessControl) {
             clientConfig.password(PASSWORD);
+        }
+        if (tls) {
+            clientConfig.sslOptions(buildClientSslOptions());
         }
         redisClient = RedisClient.builder()
                 .hostAndPort(container.getHost(), container.getMappedPort(PORT))
@@ -77,6 +100,16 @@ public class RedisServer
         return HostAndPort.fromParts(container.getHost(), container.getMappedPort(PORT));
     }
 
+    public static String getKeystorePath()
+    {
+        return forClasspathResource("tls/keystore.p12").getResolvedPath();
+    }
+
+    public static String getTruststorePath()
+    {
+        return forClasspathResource("tls/truststore.p12").getResolvedPath();
+    }
+
     @Override
     public void close()
     {
@@ -95,5 +128,34 @@ public class RedisServer
             connection.sendCommand(Protocol.Command.ACL, args);
             connection.getStatusCodeReply();
         }
+    }
+
+    private static void configureTls(GenericContainer<?> container)
+    {
+        container
+                .withCopyFileToContainer(forClasspathResource("tls/ca.crt", 0644), CONTAINER_CERTS_DIR + "ca.crt")
+                .withCopyFileToContainer(forClasspathResource("tls/redis.crt", 0644), CONTAINER_CERTS_DIR + "redis.crt")
+                .withCopyFileToContainer(forClasspathResource("tls/redis.key", 0644), CONTAINER_CERTS_DIR + "redis.key")
+                .withCommand(
+                        "redis-server",
+                        // serve TLS on the exposed port and disable the plaintext port
+                        "--tls-port",
+                        Integer.toString(PORT),
+                        "--port",
+                        "0",
+                        "--tls-cert-file",
+                        CONTAINER_CERTS_DIR + "redis.crt",
+                        "--tls-key-file",
+                        CONTAINER_CERTS_DIR + "redis.key",
+                        "--tls-ca-cert-file",
+                        CONTAINER_CERTS_DIR + "ca.crt");
+    }
+
+    private static SslOptions buildClientSslOptions()
+    {
+        return SslOptions.builder()
+                .keystore(new File(getKeystorePath()), TLS_STORE_PASSWORD.toCharArray())
+                .truststore(new File(getTruststorePath()), TLS_STORE_PASSWORD.toCharArray())
+                .build();
     }
 }
