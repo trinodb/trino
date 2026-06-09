@@ -61,16 +61,16 @@ import static java.time.ZoneOffset.UTC;
 
 public final class DateTimes
 {
-    public static final Pattern DATETIME_PATTERN = Pattern.compile("" +
+    public static final Pattern DATETIME_PATTERN = Pattern.compile(
             "(?<year>[-+]?\\d{4,})-(?<month>\\d{1,2})-(?<day>\\d{1,2})" +
-            "( (?:(?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?)?" +
-            "\\s*(?<timezone>.+)?)?");
+                    "( (?:(?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?)?" +
+                    "\\s*(?<timezone>.+)?)?");
     private static final String TIMESTAMP_FORMATTER_PATTERN = "uuuu-MM-dd HH:mm:ss";
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern(TIMESTAMP_FORMATTER_PATTERN);
 
-    public static final Pattern TIME_PATTERN = Pattern.compile("" +
+    public static final Pattern TIME_PATTERN = Pattern.compile(
             "(?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?" +
-            "\\s*((?<sign>[+-])(?<offsetHour>\\d\\d):(?<offsetMinute>\\d\\d))?");
+                    "\\s*((?<sign>[+-])(?<offsetHour>\\d\\d):(?<offsetMinute>\\d\\d))?");
 
     private static final long[] POWERS_OF_TEN = {
             1L,
@@ -463,7 +463,7 @@ public final class DateTimes
             throw new IllegalArgumentException("Invalid TIMESTAMP due to daylight savings transition");
         }
 
-        return timestamp.toEpochSecond(offsets.get(0));
+        return timestamp.toEpochSecond(offsets.getFirst());
     }
 
     public static boolean timeHasTimeZone(String value)
@@ -586,7 +586,7 @@ public final class DateTimes
             fractionValue = Long.parseLong(fraction);
         }
 
-        long picos = (((hour * 60) + minute) * 60 + second) * PICOSECONDS_PER_SECOND + rescale(fractionValue, precision, 12);
+        long picos = (((hour * 60L) + minute) * 60 + second) * PICOSECONDS_PER_SECOND + rescale(fractionValue, precision, 12);
         return new LongTimeWithTimeZone(picos, calculateOffsetMinutes(offsetSign, offsetHour, offsetMinute));
     }
 
