@@ -2734,7 +2734,7 @@ public class IcebergMetadata
             // Handle default value if present
             Literal<?> defaultLiteral = column.getDefaultValue()
                     .map(defaultValue -> {
-                        Object parsed = parseDefaultValue(defaultValue, column.getType(), icebergType);
+                        Object parsed = parseDefaultValue(defaultValue, column.getType());
                         return toIcebergLiteral(parsed, icebergType);
                     })
                     .orElse(null);
@@ -2762,7 +2762,7 @@ public class IcebergMetadata
         checkDefaultValueCompatibility(formatVersion(icebergTable), true);
 
         NestedField field = icebergTable.schema().findField(columnHandle.getId());
-        Object parsed = parseDefaultValue(defaultValue, columnHandle.getType(), field.type());
+        Object parsed = parseDefaultValue(defaultValue, columnHandle.getType());
         Literal<?> defaultLiteral = toIcebergLiteral(parsed, field.type());
 
         try {

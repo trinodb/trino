@@ -898,7 +898,7 @@ public final class IcebergUtil
                 // Set initial-default and write-default if present
                 // Note: DEFAULT NULL results in icebergDefault=null, which we skip since null is already the implicit default
                 column.getDefaultValue().ifPresent(defaultValue -> {
-                    Object icebergDefault = parseDefaultValue(defaultValue, column.getType(), type);
+                    Object icebergDefault = parseDefaultValue(defaultValue, column.getType());
                     if (icebergDefault != null) {
                         fieldBuilder.withInitialDefault(lit(icebergDefault));
                         fieldBuilder.withWriteDefault(lit(icebergDefault));
