@@ -192,13 +192,23 @@ public final class TypeSignature
         return new TypeSignature(StandardTypes.MAP, typeParameter(keyType), typeParameter(valueType));
     }
 
-    public static TypeSignature parametricType(String name, TypeSignature... parameters)
+    public static TypeSignature type(String base)
+    {
+        return new TypeSignature(base);
+    }
+
+    public static TypeSignature type(String name, TypeSignature... parameters)
     {
         return new TypeSignature(
                 name,
                 Arrays.stream(parameters)
                         .map(TypeParameter::typeParameter)
                         .collect(toUnmodifiableList()));
+    }
+
+    public static TypeSignature type(String base, TypeParameter... parameters)
+    {
+        return new TypeSignature(base, parameters);
     }
 
     public static TypeSignature functionType(TypeSignature first, TypeSignature... rest)

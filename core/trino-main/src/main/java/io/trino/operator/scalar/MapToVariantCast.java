@@ -20,7 +20,6 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.variant.Variant;
 import io.trino.util.variant.VariantWriter;
 
@@ -33,6 +32,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.TypeParameter.numericVariable;
 import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeSignature.type;
 import static io.trino.spi.type.TypeSignature.typeVariable;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.util.Failures.checkCondition;
@@ -61,7 +61,7 @@ public class MapToVariantCast
                         .numericVariable("N")
                         .castableToTypeParameter("V", VARIANT.getTypeSignature())
                         .returnType(VARIANT)
-                        .argumentType(mapType(new TypeSignature("varchar", numericVariable("N")), typeVariable("V")))
+                        .argumentType(mapType(type("varchar", numericVariable("N")), typeVariable("V")))
                         .build())
                 .build());
     }

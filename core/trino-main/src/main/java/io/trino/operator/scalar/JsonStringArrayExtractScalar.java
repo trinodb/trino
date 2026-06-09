@@ -29,7 +29,6 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.TypeSignature;
 import io.trino.type.JsonPathType;
 import io.trino.util.JsonCastException;
 
@@ -43,6 +42,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.type.TypeParameter.numericVariable;
 import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeSignature.type;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.JsonUtil.createJsonFactory;
 import static io.trino.util.JsonUtil.createJsonParser;
@@ -64,9 +64,9 @@ public final class JsonStringArrayExtractScalar
     {
         super(FunctionMetadata.scalarBuilder(JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME)
                 .signature(Signature.builder()
-                        .argumentType(new TypeSignature("varchar", numericVariable("N")))
+                        .argumentType(type("varchar", numericVariable("N")))
                         .numericVariable("N")
-                        .argumentType(new TypeSignature(JsonPathType.NAME))
+                        .argumentType(type(JsonPathType.NAME))
                         .returnType(arrayType(VARCHAR.getTypeSignature()))
                         .build())
                 .nullable()

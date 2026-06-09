@@ -63,6 +63,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeParameter.numericVariable;
+import static io.trino.spi.type.TypeSignature.type;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.type.JsonType.JSON;
@@ -100,7 +101,7 @@ public final class DecimalCasts
     public static final SqlScalarFunction REAL_TO_DECIMAL_CAST = castFunctionToDecimalFrom(REAL.getTypeSignature(), true, "realToShortDecimal", "realToLongDecimal");
     public static final SqlScalarFunction DECIMAL_TO_NUMBER_CAST = castFunctionFromDecimalTo(NUMBER.getTypeSignature(), true, "shortDecimalToNumber", "longDecimalToNumber");
     public static final SqlScalarFunction NUMBER_TO_DECIMAL_CAST = castFunctionToDecimalFrom(NUMBER.getTypeSignature(), false, "numberToShortDecimal", "numberToLongDecimal");
-    public static final SqlScalarFunction VARCHAR_TO_DECIMAL_CAST = castFunctionToDecimalFrom(new TypeSignature("varchar", numericVariable("x")), false, "varcharToShortDecimal", "varcharToLongDecimal");
+    public static final SqlScalarFunction VARCHAR_TO_DECIMAL_CAST = castFunctionToDecimalFrom(type("varchar", numericVariable("x")), false, "varcharToShortDecimal", "varcharToLongDecimal");
     // Despite decimalToJson having a catch inside that suggests that function can fail, IOException comes from the Jackson writing to an OutputStream
     // that never happens for SliceOutput.
     public static final SqlScalarFunction DECIMAL_TO_JSON_CAST = castFunctionFromDecimalTo(JSON.getTypeSignature(), true, "shortDecimalToJson", "longDecimalToJson");
@@ -113,7 +114,7 @@ public final class DecimalCasts
     private static SqlScalarFunction castFunctionFromDecimalTo(TypeSignature to, boolean neverFails, String... methodNames)
     {
         Signature signature = Signature.builder()
-                .argumentType(new TypeSignature("decimal", numericVariable("precision"), numericVariable("scale")))
+                .argumentType(type("decimal", numericVariable("precision"), numericVariable("scale")))
                 .returnType(to)
                 .build();
         return new PolymorphicScalarFunctionBuilder(CAST, DecimalCasts.class)
@@ -147,7 +148,7 @@ public final class DecimalCasts
     {
         Signature signature = Signature.builder()
                 .argumentType(from)
-                .returnType(new TypeSignature("decimal", numericVariable("precision"), numericVariable("scale")))
+                .returnType(type("decimal", numericVariable("precision"), numericVariable("scale")))
                 .build();
         return new PolymorphicScalarFunctionBuilder(CAST, DecimalCasts.class)
                 .signature(signature)
@@ -173,8 +174,8 @@ public final class DecimalCasts
 
     public static final SqlScalarFunction DECIMAL_TO_VARCHAR_CAST = new PolymorphicScalarFunctionBuilder(CAST, DecimalCasts.class)
             .signature(Signature.builder()
-                    .argumentType(new TypeSignature("decimal", numericVariable("precision"), numericVariable("scale")))
-                    .returnType(new TypeSignature("varchar", numericVariable("x")))
+                    .argumentType(type("decimal", numericVariable("precision"), numericVariable("scale")))
+                    .returnType(type("varchar", numericVariable("x")))
                     .build())
             .deterministic(true)
             .choice(choice -> choice
