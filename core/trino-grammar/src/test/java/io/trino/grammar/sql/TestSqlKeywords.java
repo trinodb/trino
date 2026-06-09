@@ -227,6 +227,7 @@ public class TestSqlKeywords
                         "PER",
                         "PERIOD",
                         "PERMUTE",
+                        "PIVOT",
                         "PLAN",
                         "POSITION",
                         "PRECEDING",
