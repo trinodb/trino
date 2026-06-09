@@ -439,7 +439,7 @@ public class BenchmarkHashBuildAndJoinOperators
 
         // assert that there are any rows
         checkState(!pages.isEmpty());
-        checkState(pages.get(0).getPositionCount() > 0);
+        checkState(pages.getFirst().getPositionCount() > 0);
     }
 
     @Test

@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
@@ -128,8 +129,7 @@ public class TestNestedLoopBuildOperator
         assertThat(nestedLoopJoinBridge.getPagesFuture().isDone()).isTrue();
         List<Page> buildPages = nestedLoopJoinBridge.getPagesFuture().get().getPages();
 
-        assertThat(buildPages).hasSize(1);
-        assertThat(buildPages.get(0).getPositionCount()).isEqualTo(3003);
+        assertThat(getOnlyElement(buildPages).getPositionCount()).isEqualTo(3003);
     }
 
     @Test

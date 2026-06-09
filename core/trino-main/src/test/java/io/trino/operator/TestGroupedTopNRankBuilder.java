@@ -241,7 +241,6 @@ public class TestGroupedTopNRankBuilder
         unblock.set(true);
         assertThat(work.process()).isTrue();
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertThat(output).hasSize(1);
 
         Page expected = rowPagesBuilder(types)
                 .row(1L, 0.1)
@@ -249,7 +248,7 @@ public class TestGroupedTopNRankBuilder
                 .row(1L, 0.3)
                 .row(1L, 0.9)
                 .buildPage();
-        assertPageEquals(types, output.get(0), expected);
+        assertPageEquals(types, getOnlyElement(output), expected);
     }
 
     private GroupByHash createGroupByHash(Type partitionType, UpdateMemory updateMemory, TypeOperators typeOperators)
