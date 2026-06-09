@@ -1068,7 +1068,7 @@ The current values of a table's properties can be shown using {doc}`SHOW CREATE
 TABLE </sql/show-create-table>`.
 
 (iceberg-table-properties)=
-##### Table properties
+#### Table properties
 
 Table properties supply or set metadata for the underlying tables. This is key
 for {doc}`/sql/create-table-as` statements. Table properties are passed to the
