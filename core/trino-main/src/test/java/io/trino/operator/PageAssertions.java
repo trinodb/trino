@@ -34,4 +34,12 @@ public final class PageAssertions
             assertBlockEquals(types.get(i), actualPage.getBlock(i), expectedPage.getBlock(i));
         }
     }
+
+    public static void assertPagesEqual(List<Type> types, List<Page> actual, List<Page> expected)
+    {
+        assertThat(actual.size()).as("actual pages count").isEqualTo(expected.size());
+        for (int i = 0; i < actual.size(); i++) {
+            assertPageEquals(types, actual.get(i), expected.get(i));
+        }
+    }
 }
