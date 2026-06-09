@@ -47,7 +47,8 @@ public class TestRedisConnectorConfig
                 .setRedisPassword(null)
                 .setRedisScanCount(100)
                 .setRedisMaxKeysPerFetch(100)
-                .setHideInternalColumns(true));
+                .setHideInternalColumns(true)
+                .setTlsEnabled(false));
     }
 
     @Test
@@ -68,6 +69,7 @@ public class TestRedisConnectorConfig
                 .put("redis.database-index", "5")
                 .put("redis.user", "test")
                 .put("redis.password", "secret")
+                .put("redis.tls.enabled", "true")
                 .buildOrThrow();
 
         RedisConnectorConfig expected = new RedisConnectorConfig()
@@ -84,7 +86,8 @@ public class TestRedisConnectorConfig
                 .setRedisUser("test")
                 .setRedisPassword("secret")
                 .setRedisKeyDelimiter(",")
-                .setKeyPrefixSchemaTable(true);
+                .setKeyPrefixSchemaTable(true)
+                .setTlsEnabled(true);
 
         assertFullMapping(properties, expected);
     }
