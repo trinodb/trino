@@ -43,7 +43,6 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.SqlTypeBytecodeExpression;
 import io.trino.sql.gen.lambda.BinaryFunctionInterface;
@@ -73,6 +72,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.TypeSignature.functionType;
 import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeSignature.typeVariable;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -93,9 +93,9 @@ public final class MapTransformKeysFunction
                         .typeVariable("K1")
                         .typeVariable("K2")
                         .typeVariable("V")
-                        .returnType(mapType(new TypeSignature("K2"), new TypeSignature("V")))
-                        .argumentType(mapType(new TypeSignature("K1"), new TypeSignature("V")))
-                        .argumentType(functionType(new TypeSignature("K1"), new TypeSignature("V"), new TypeSignature("K2")))
+                        .returnType(mapType(typeVariable("K2"), typeVariable("V")))
+                        .argumentType(mapType(typeVariable("K1"), typeVariable("V")))
+                        .argumentType(functionType(typeVariable("K1"), typeVariable("V"), typeVariable("K2")))
                         .build())
                 .description("Apply lambda to each entry of the map and transform the key")
                 .build());

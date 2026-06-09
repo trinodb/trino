@@ -31,7 +31,6 @@ import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.CallSiteBinder;
 
 import java.lang.invoke.MethodHandle;
@@ -58,6 +57,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.type.TypeSignature.typeVariable;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
@@ -79,8 +79,8 @@ public abstract class AbstractGreatestLeast
         super(FunctionMetadata.scalarBuilder(min ? "least" : "greatest")
                 .signature(Signature.builder()
                         .orderableTypeParameter("E")
-                        .returnType(new TypeSignature("E"))
-                        .argumentType(new TypeSignature("E"))
+                        .returnType(typeVariable("E"))
+                        .argumentType(typeVariable("E"))
                         .variableArity()
                         .build())
                 .nullable()
@@ -94,7 +94,7 @@ public abstract class AbstractGreatestLeast
     @Override
     public FunctionDependencyDeclaration getFunctionDependencies()
     {
-        return getMinMaxCompareFunctionDependencies(new TypeSignature("E"), min);
+        return getMinMaxCompareFunctionDependencies(typeVariable("E"), min);
     }
 
     @Override

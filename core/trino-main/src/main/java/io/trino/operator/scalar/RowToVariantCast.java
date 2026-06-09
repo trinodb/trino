@@ -22,7 +22,6 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.variant.Variant;
 import io.trino.util.variant.VariantWriter;
 
@@ -32,6 +31,7 @@ import java.lang.invoke.MethodHandles;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.TypeSignature.typeVariable;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static java.lang.invoke.MethodType.methodType;
 
@@ -61,7 +61,7 @@ public class RowToVariantCast
                                         .rowType()
                                         .build())
                         .returnType(VARIANT)
-                        .argumentType(new TypeSignature("T"))
+                        .argumentType(typeVariable("T"))
                         .build())
                 .build());
     }

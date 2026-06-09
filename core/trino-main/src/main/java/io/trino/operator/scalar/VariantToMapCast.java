@@ -24,7 +24,6 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.variant.Variant;
 import io.trino.util.variant.VariantUtil.BlockBuilderAppender;
 
@@ -37,6 +36,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeSignature.typeVariable;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.util.Failures.checkCondition;
@@ -64,7 +64,7 @@ public class VariantToMapCast
                 .signature(Signature.builder()
                         .castableFromTypeParameter("K", VARCHAR.getTypeSignature())
                         .castableFromTypeParameter("V", VARIANT.getTypeSignature())
-                        .returnType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                        .returnType(mapType(typeVariable("K"), typeVariable("V")))
                         .argumentType(VARIANT)
                         .build())
                 .nullable()

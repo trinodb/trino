@@ -55,6 +55,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.type.StandardTypes.JSON_2016;
 import static io.trino.spi.type.StandardTypes.TINYINT;
+import static io.trino.spi.type.TypeSignature.typeVariable;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.format;
@@ -81,7 +82,7 @@ public class JsonQueryFunction
                         .argumentTypes(ImmutableList.of(
                                 new TypeSignature(JSON_2016),
                                 new TypeSignature(JsonPath2016Type.NAME),
-                                new TypeSignature("T"),
+                                typeVariable("T"),
                                 new TypeSignature(TINYINT),
                                 new TypeSignature(TINYINT),
                                 new TypeSignature(TINYINT)))

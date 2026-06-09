@@ -36,7 +36,6 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.lambda.UnaryFunctionInterface;
 
@@ -62,6 +61,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.functionType;
+import static io.trino.spi.type.TypeSignature.typeVariable;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -92,9 +92,9 @@ public final class ArrayTransformFunction
                 .signature(Signature.builder()
                         .typeVariable("T")
                         .typeVariable("U")
-                        .returnType(arrayType(new TypeSignature("U")))
-                        .argumentType(arrayType(new TypeSignature("T")))
-                        .argumentType(functionType(new TypeSignature("T"), new TypeSignature("U")))
+                        .returnType(arrayType(typeVariable("U")))
+                        .argumentType(arrayType(typeVariable("T")))
+                        .argumentType(functionType(typeVariable("T"), typeVariable("U")))
                         .build())
                 .description("Apply lambda to each element of the array")
                 .build());

@@ -68,6 +68,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.type.StandardTypes.JSON_2016;
 import static io.trino.spi.type.StandardTypes.TINYINT;
 import static io.trino.spi.type.TypeSignature.functionType;
+import static io.trino.spi.type.TypeSignature.typeVariable;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.format;
@@ -96,16 +97,16 @@ public class JsonValueFunction
                         .typeVariable("T")
                         .typeVariable("E")
                         .typeVariable("D")
-                        .returnType(new TypeSignature("R"))
+                        .returnType(typeVariable("R"))
                         .argumentTypes(ImmutableList.of(
                                 new TypeSignature(JSON_2016),
                                 new TypeSignature(JsonPath2016Type.NAME),
-                                new TypeSignature("T"),
-                                new TypeSignature("R"),
+                                typeVariable("T"),
+                                typeVariable("R"),
                                 new TypeSignature(TINYINT),
-                                functionType(new TypeSignature("E")),
+                                functionType(typeVariable("E")),
                                 new TypeSignature(TINYINT),
-                                functionType(new TypeSignature("D"))))
+                                functionType(typeVariable("D"))))
                         .build())
                 .nullable()
                 .argumentNullability(false, false, true, true, false, false, false, false)
