@@ -65,7 +65,7 @@ public final class JsonStringArrayExtractScalar
         super(FunctionMetadata.scalarBuilder(JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME)
                 .signature(Signature.builder()
                         .argumentType(new TypeSignature("varchar", numericVariable("N")))
-                        .longVariable("N")
+                        .numericVariable("N")
                         .argumentType(new TypeSignature(JsonPathType.NAME))
                         .returnType(arrayType(VARCHAR.getTypeSignature()))
                         .build())

@@ -22,7 +22,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionId;
-import io.trino.spi.function.LongVariableConstraint;
+import io.trino.spi.function.NumericVariableConstraint;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.FunctionType;
@@ -535,9 +535,9 @@ public class SignatureBinder
 
     private void calculateVariableValuesForLongConstraints(BindingsBuilder variableBinder)
     {
-        for (LongVariableConstraint longVariableConstraint : declaredSignature.getLongVariableConstraints()) {
-            String calculation = longVariableConstraint.getExpression();
-            String variableName = longVariableConstraint.getName();
+        for (NumericVariableConstraint numericVariableConstraint : declaredSignature.getNumericVariableConstraints()) {
+            String calculation = numericVariableConstraint.getExpression();
+            String variableName = numericVariableConstraint.getName();
             Long calculatedValue = calculateLiteralValue(calculation, variableBinder.getLongVariables());
             if (variableBinder.containsLongVariable(variableName)) {
                 Long currentValue = variableBinder.getLongVariable(variableName);
@@ -661,7 +661,7 @@ public class SignatureBinder
         }
 
         // there must be exactly one type variable constraint and no long variable constraints
-        if (signature.getTypeVariableConstraints().size() != 1 || !signature.getLongVariableConstraints().isEmpty()) {
+        if (signature.getTypeVariableConstraints().size() != 1 || !signature.getNumericVariableConstraints().isEmpty()) {
             return false;
         }
         TypeVariableConstraint typeVariableConstraint = signature.getTypeVariableConstraints().getFirst();
@@ -689,7 +689,7 @@ public class SignatureBinder
         }
 
         // there must be exactly one type variable constraint and no long variable constraints
-        if (signature.getTypeVariableConstraints().size() != 1 || !signature.getLongVariableConstraints().isEmpty()) {
+        if (signature.getTypeVariableConstraints().size() != 1 || !signature.getNumericVariableConstraints().isEmpty()) {
             return false;
         }
         TypeVariableConstraint typeVariableConstraint = signature.getTypeVariableConstraints().getFirst();

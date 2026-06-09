@@ -35,7 +35,7 @@ public final class JsonStringToArrayCast
         super(FunctionMetadata.scalarBuilder(JSON_STRING_TO_ARRAY_NAME)
                 .signature(Signature.builder()
                         .typeVariable("T")
-                        .longVariable("N")
+                        .numericVariable("N")
                         .returnType(arrayType(typeVariable("T")))
                         .argumentType(new TypeSignature("varchar", numericVariable("N")))
                         .build())
