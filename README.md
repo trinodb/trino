@@ -101,7 +101,8 @@ property in the `pom.xml` file of the module from which the runner comes).
 When running individual test classes directly from IntelliJ, you need to
 configure the JUnit run configuration template. Go to Run/Debug Configurations >
 Edit Configuration Templates > JUnit > VM options and set the value to
-`-ea --add-modules=jdk.incubator.vector`.
+`-ea --add-modules=jdk.incubator.vector`. Some tests may rely on JVM options provided
+by airbase (e.g. `-XX:-OmitStackTraceInFastThrow`), so check for that too.
 
 ### Running the full server
 
