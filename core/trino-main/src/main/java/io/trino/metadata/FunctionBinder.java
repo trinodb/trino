@@ -25,6 +25,7 @@ import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 
 import java.util.ArrayList;
@@ -285,8 +286,8 @@ class FunctionBinder
 
     private boolean returnTypeIsTheSame(List<ApplicableFunction> applicableFunctions)
     {
-        Set<Type> returnTypes = applicableFunctions.stream()
-                .map(function -> typeManager.getType(function.boundSignature().getReturnType()))
+        Set<TypeSignature> returnTypes = applicableFunctions.stream()
+                .map(function -> function.boundSignature().getReturnType())
                 .collect(Collectors.toSet());
         return returnTypes.size() == 1;
     }
