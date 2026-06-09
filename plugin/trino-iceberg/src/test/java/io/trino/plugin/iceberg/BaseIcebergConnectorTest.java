@@ -8654,6 +8654,17 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
+    @Test // regression test for https://github.com/trinodb/trino/issues/29802
+    public void testColumnTypeEvolutionWithStatistics()
+    {
+        try (TestTable table = newTrinoTable("test_stats_type_change", "(x INT)", List.of("1", "2"))) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN x SET DATA TYPE BIGINT");
+
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE x IN (SELECT DISTINCT x FROM " + table.getName() + ")"))
+                    .matches("VALUES BIGINT '1', 2");
+        }
+    }
+
     @Test
     public void testAlterTableWithUnsupportedProperties()
     {

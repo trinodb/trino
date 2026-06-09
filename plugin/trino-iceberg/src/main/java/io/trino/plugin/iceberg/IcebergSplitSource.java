@@ -116,7 +116,6 @@ import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
 import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex.createStructLikeWrapper;
-import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -634,6 +633,7 @@ public class IcebergSplitSource
                     column,
                     domainForStatistics(
                             column,
+                            type,
                             lowerBounds == null ? null : fromByteBuffer(type, lowerBounds.get(fieldId)),
                             upperBounds == null ? null : fromByteBuffer(type, upperBounds.get(fieldId)),
                             mayContainNulls));
@@ -643,12 +643,12 @@ public class IcebergSplitSource
 
     private static Domain domainForStatistics(
             IcebergColumnHandle columnHandle,
+            Type statisticsIcebergType,
             @Nullable Object lowerBound,
             @Nullable Object upperBound,
             boolean mayContainNulls)
     {
         io.trino.spi.type.Type type = columnHandle.getType();
-        Type icebergType = toIcebergType(type, columnHandle.getColumnIdentity());
         if (lowerBound == null && upperBound == null) {
             return Domain.create(ValueSet.all(type), mayContainNulls);
         }
@@ -657,16 +657,16 @@ public class IcebergSplitSource
         if (lowerBound != null && upperBound != null) {
             statisticsRange = Range.range(
                     type,
-                    convertIcebergValueToTrino(icebergType, lowerBound),
+                    convertIcebergValueToTrino(statisticsIcebergType, lowerBound),
                     true,
-                    convertIcebergValueToTrino(icebergType, upperBound),
+                    convertIcebergValueToTrino(statisticsIcebergType, upperBound),
                     true);
         }
         else if (upperBound != null) {
-            statisticsRange = Range.lessThanOrEqual(type, convertIcebergValueToTrino(icebergType, upperBound));
+            statisticsRange = Range.lessThanOrEqual(type, convertIcebergValueToTrino(statisticsIcebergType, upperBound));
         }
         else {
-            statisticsRange = Range.greaterThanOrEqual(type, convertIcebergValueToTrino(icebergType, lowerBound));
+            statisticsRange = Range.greaterThanOrEqual(type, convertIcebergValueToTrino(statisticsIcebergType, lowerBound));
         }
         return Domain.create(ValueSet.ofRanges(statisticsRange), mayContainNulls);
     }
