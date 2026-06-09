@@ -31,7 +31,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.CAST;
-import static io.trino.spi.type.TypeParameter.typeVariable;
+import static io.trino.spi.type.TypeParameter.numericVariable;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.util.Failures.checkCondition;
@@ -60,7 +60,7 @@ public class MapToVariantCast
                         .longVariable("N")
                         .castableToTypeParameter("V", VARIANT.getTypeSignature())
                         .returnType(VARIANT)
-                        .argumentType(mapType(new TypeSignature("varchar", typeVariable("N")), new TypeSignature("V")))
+                        .argumentType(mapType(new TypeSignature("varchar", numericVariable("N")), new TypeSignature("V")))
                         .build())
                 .build());
     }
