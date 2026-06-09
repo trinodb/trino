@@ -27,7 +27,6 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.TypeSignature;
 import io.trino.util.JsonCastException;
 import io.trino.util.JsonUtil.BlockBuilderAppender;
 
@@ -39,6 +38,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeSignature.typeVariable;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.canCastFromJson;
@@ -61,7 +61,7 @@ public class JsonToArrayCast
         super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
                         .castableFromTypeParameter("T", JSON.getTypeSignature())
-                        .returnType(arrayType(new TypeSignature("T")))
+                        .returnType(arrayType(typeVariable("T")))
                         .argumentType(JSON)
                         .build())
                 .nullable()

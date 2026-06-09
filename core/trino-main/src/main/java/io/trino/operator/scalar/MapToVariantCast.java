@@ -33,6 +33,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.TypeParameter.numericVariable;
 import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeSignature.typeVariable;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.variant.VariantUtil.canCastToVariant;
@@ -60,7 +61,7 @@ public class MapToVariantCast
                         .longVariable("N")
                         .castableToTypeParameter("V", VARIANT.getTypeSignature())
                         .returnType(VARIANT)
-                        .argumentType(mapType(new TypeSignature("varchar", numericVariable("N")), new TypeSignature("V")))
+                        .argumentType(mapType(new TypeSignature("varchar", numericVariable("N")), typeVariable("V")))
                         .build())
                 .build());
     }

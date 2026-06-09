@@ -49,6 +49,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.StandardTypes.BOOLEAN;
 import static io.trino.spi.type.StandardTypes.JSON_2016;
+import static io.trino.spi.type.TypeSignature.typeVariable;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
 import static io.trino.util.Reflection.methodHandle;
@@ -68,7 +69,7 @@ public class JsonObjectFunction
                         .typeVariable("K")
                         .typeVariable("V")
                         .returnType(new TypeSignature(JSON_2016))
-                        .argumentTypes(ImmutableList.of(new TypeSignature("K"), new TypeSignature("V"), new TypeSignature(BOOLEAN), new TypeSignature(BOOLEAN)))
+                        .argumentTypes(ImmutableList.of(typeVariable("K"), typeVariable("V"), new TypeSignature(BOOLEAN), new TypeSignature(BOOLEAN)))
                         .build())
                 .argumentNullability(true, true, false, false)
                 .hidden()

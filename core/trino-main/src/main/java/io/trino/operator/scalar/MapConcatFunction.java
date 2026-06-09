@@ -25,7 +25,6 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.VarArgsToArrayAdapterGenerator.MethodHandleAndConstructor;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
@@ -39,6 +38,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeSignature.typeVariable;
 import static io.trino.sql.gen.VarArgsToArrayAdapterGenerator.generateVarArgsToArrayAdapter;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.Math.min;
@@ -68,8 +68,8 @@ public final class MapConcatFunction
                 .signature(Signature.builder()
                         .typeVariable("K")
                         .typeVariable("V")
-                        .returnType(mapType(new TypeSignature("K"), new TypeSignature("V")))
-                        .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                        .returnType(mapType(typeVariable("K"), typeVariable("V")))
+                        .argumentType(mapType(typeVariable("K"), typeVariable("V")))
                         .variableArity()
                         .build())
                 .description(DESCRIPTION)

@@ -19,7 +19,6 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -27,6 +26,7 @@ import java.lang.invoke.MethodHandles;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.TypeSignature.typeVariable;
 
 public class IdentityCast
         extends SqlScalarFunction
@@ -38,8 +38,8 @@ public class IdentityCast
         super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
                         .typeVariable("T")
-                        .returnType(new TypeSignature("T"))
-                        .argumentType(new TypeSignature("T"))
+                        .returnType(typeVariable("T"))
+                        .argumentType(typeVariable("T"))
                         .build())
                 .neverFails()
                 .build());

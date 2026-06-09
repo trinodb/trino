@@ -36,7 +36,6 @@ import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 
 import java.lang.invoke.MethodHandle;
@@ -66,6 +65,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeSignature.typeVariable;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.DateTimes.toLocalDateTime;
 import static io.trino.type.DateTimes.toZonedDateTime;
@@ -91,7 +91,7 @@ public final class FormatFunction
                 .signature(Signature.builder()
                         .rowTypeParameter("T")
                         .argumentType(VARCHAR.getTypeSignature())
-                        .argumentType(new TypeSignature("T"))
+                        .argumentType(typeVariable("T"))
                         .returnType(VARCHAR.getTypeSignature())
                         .build())
                 .hidden()

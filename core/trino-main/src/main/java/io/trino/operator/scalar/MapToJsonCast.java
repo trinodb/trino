@@ -28,7 +28,6 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
@@ -41,6 +40,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeSignature.typeVariable;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
@@ -66,7 +66,7 @@ public class MapToJsonCast
                         .castableToTypeParameter("K", VARCHAR.getTypeSignature())
                         .castableToTypeParameter("V", JSON.getTypeSignature())
                         .returnType(JSON)
-                        .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                        .argumentType(mapType(typeVariable("K"), typeVariable("V")))
                         .build())
                 .build());
     }
