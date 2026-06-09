@@ -157,12 +157,14 @@ public class TestMarkDistinctOperator
 
     @Test
     public void testMemoryReservationYield()
+            throws Exception
     {
         testMemoryReservationYield(BIGINT);
         testMemoryReservationYield(VARCHAR);
     }
 
     private void testMemoryReservationYield(Type type)
+            throws Exception
     {
         List<Page> input = createPages(type, 6_000, 600);
 

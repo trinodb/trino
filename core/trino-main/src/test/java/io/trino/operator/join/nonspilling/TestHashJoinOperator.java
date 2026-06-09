@@ -219,12 +219,14 @@ public class TestHashJoinOperator
 
     @Test
     public void testYield()
+            throws Exception
     {
         testYield(false);
         testYield(true);
     }
 
     private void testYield(boolean singleBigintLookupSource)
+            throws Exception
     {
         // create a filter function that yields for every probe match
         // verify we will yield #match times totally
@@ -263,33 +265,34 @@ public class TestHashJoinOperator
 
         instantiateBuildDrivers(buildSideSetup, taskContext);
         buildLookupSource(executor, buildSideSetup);
-        Operator operator = joinOperatorFactory.createOperator(driverContext);
-        assertThat(operator.needsInput()).isTrue();
-        operator.addInput(probeInput);
-        operator.finish();
+        try (Operator operator = joinOperatorFactory.createOperator(driverContext)) {
+            assertThat(operator.needsInput()).isTrue();
+            operator.addInput(probeInput);
+            operator.finish();
 
-        // we will yield 40 times due to filterFunction
-        for (int i = 0; i < entries; i++) {
+            // we will yield 40 times due to filterFunction
+            for (int i = 0; i < entries; i++) {
+                driverContext.getYieldSignal().setWithDelay(5 * SECONDS.toNanos(1), driverContext.getYieldExecutor());
+                filterFunctionCalls.set(0);
+                assertThat(operator.getOutput()).isNull();
+                assertThat(filterFunctionCalls.get())
+                        .describedAs("Expected join to stop processing (yield) after calling filter function once")
+                        .isEqualTo(1);
+                driverContext.getYieldSignal().reset();
+            }
+            // delayed yield is not going to prevent operator from producing a page now (yield won't be forced because filter function won't be called anymore)
             driverContext.getYieldSignal().setWithDelay(5 * SECONDS.toNanos(1), driverContext.getYieldExecutor());
-            filterFunctionCalls.set(0);
-            assertThat(operator.getOutput()).isNull();
-            assertThat(filterFunctionCalls.get())
-                    .describedAs("Expected join to stop processing (yield) after calling filter function once")
-                    .isEqualTo(1);
+            // expect output page to be produced within few calls to getOutput(), e.g. to facilitate spill
+            Page output = null;
+            for (int i = 0; output == null && i < 5; i++) {
+                output = operator.getOutput();
+            }
+            assertThat(output).isNotNull();
             driverContext.getYieldSignal().reset();
-        }
-        // delayed yield is not going to prevent operator from producing a page now (yield won't be forced because filter function won't be called anymore)
-        driverContext.getYieldSignal().setWithDelay(5 * SECONDS.toNanos(1), driverContext.getYieldExecutor());
-        // expect output page to be produced within few calls to getOutput(), e.g. to facilitate spill
-        Page output = null;
-        for (int i = 0; output == null && i < 5; i++) {
-            output = operator.getOutput();
-        }
-        assertThat(output).isNotNull();
-        driverContext.getYieldSignal().reset();
 
-        // make sure we have all 4 entries
-        assertThat(output.getPositionCount()).isEqualTo(entries);
+            // make sure we have all 4 entries
+            assertThat(output.getPositionCount()).isEqualTo(entries);
+        }
     }
 
     @Test
@@ -916,6 +919,7 @@ public class TestHashJoinOperator
 
     @Test
     public void testInnerJoinWithEmptyLookupSource()
+            throws Exception
     {
         testInnerJoinWithEmptyLookupSource(false, false);
         testInnerJoinWithEmptyLookupSource(false, true);
@@ -924,6 +928,7 @@ public class TestHashJoinOperator
     }
 
     private void testInnerJoinWithEmptyLookupSource(boolean parallelBuild, boolean singleBigintLookupSource)
+            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -949,15 +954,16 @@ public class TestHashJoinOperator
         // drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
         buildLookupSource(executor, buildSideSetup);
-        Operator operator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(0, true, true, false).addDriverContext());
-
-        operator.addInput(probePages.row(1L).buildPage());
-        Page outputPage = operator.getOutput();
-        assertThat(outputPage).isNull();
+        try (Operator operator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(0, true, true, false).addDriverContext())) {
+            operator.addInput(probePages.row(1L).buildPage());
+            Page outputPage = operator.getOutput();
+            assertThat(outputPage).isNull();
+        }
     }
 
     @Test
     public void testLookupOuterJoinWithEmptyLookupSource()
+            throws Exception
     {
         testLookupOuterJoinWithEmptyLookupSource(false, false);
         testLookupOuterJoinWithEmptyLookupSource(false, true);
@@ -966,6 +972,7 @@ public class TestHashJoinOperator
     }
 
     private void testLookupOuterJoinWithEmptyLookupSource(boolean parallelBuild, boolean singleBigintLookupSource)
+            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -991,11 +998,11 @@ public class TestHashJoinOperator
         // drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
         buildLookupSource(executor, buildSideSetup);
-        Operator operator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(0, true, true, false).addDriverContext());
-
-        operator.addInput(probePages.row(1L).buildPage());
-        Page outputPage = operator.getOutput();
-        assertThat(outputPage).isNull();
+        try (Operator operator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(0, true, true, false).addDriverContext())) {
+            operator.addInput(probePages.row(1L).buildPage());
+            Page outputPage = operator.getOutput();
+            assertThat(outputPage).isNull();
+        }
     }
 
     @Test

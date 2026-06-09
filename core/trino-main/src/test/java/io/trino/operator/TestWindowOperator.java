@@ -499,16 +499,16 @@ public class TestWindowOperator
                 false);
 
         DriverContext driverContext = createDriverContext(1000);
-        Operator operator = operatorFactory.createOperator(driverContext);
-        operatorFactory.noMoreOperators();
-        assertThat(operator.isFinished()).isFalse();
-        assertThat(operator.needsInput()).isTrue();
-        operator.addInput(input);
-        operator.finish();
-        operator.getOutput();
+        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+            operatorFactory.noMoreOperators();
+            assertThat(operator.isFinished()).isFalse();
+            assertThat(operator.needsInput()).isTrue();
+            operator.addInput(input);
+            operator.finish();
+            operator.getOutput();
 
-        // this should not fail
-        operator.close();
+            // implicit close should not fail
+        }
     }
 
     @Test
