@@ -65,6 +65,7 @@ import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.type.TypeCalculation.parseNumericExpression;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.util.Comparator.comparing;
 
@@ -286,7 +287,7 @@ public final class FunctionsParserHelper
     public static void parseNumericVariableConstraints(Method inputFunction, Builder signatureBuilder)
     {
         Stream.of(inputFunction.getAnnotationsByType(Constraint.class))
-                .forEach(annotation -> signatureBuilder.numericVariable(annotation.variable(), annotation.expression()));
+                .forEach(annotation -> signatureBuilder.numericVariable(annotation.variable(), parseNumericExpression(annotation.expression())));
     }
 
     public static Map<String, Class<?>> getDeclaredSpecializedTypeParameters(Method method, Set<io.trino.spi.function.TypeParameter> typeParameters)

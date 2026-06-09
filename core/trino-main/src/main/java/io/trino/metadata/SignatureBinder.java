@@ -26,6 +26,8 @@ import io.trino.spi.function.NumericVariableConstraint;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.FunctionType;
+import io.trino.spi.type.NumericExpression;
+import io.trino.spi.type.NumericExpressions;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -56,7 +58,6 @@ import static io.trino.metadata.SignatureBinder.RelationshipType.EXPLICIT_COERCI
 import static io.trino.metadata.SignatureBinder.RelationshipType.IMPLICIT_COERCION;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.type.TypeCalculation.calculateLiteralValue;
 import static io.trino.type.TypeCoercion.isCovariantTypeBase;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
@@ -536,9 +537,9 @@ public class SignatureBinder
     private void calculateVariableValuesForLongConstraints(BindingsBuilder variableBinder)
     {
         for (NumericVariableConstraint numericVariableConstraint : declaredSignature.getNumericVariableConstraints()) {
-            String calculation = numericVariableConstraint.getExpression();
+            NumericExpression calculation = numericVariableConstraint.getExpression();
             String variableName = numericVariableConstraint.getName();
-            Long calculatedValue = calculateLiteralValue(calculation, variableBinder.getLongVariables());
+            Long calculatedValue = NumericExpressions.evaluate(calculation, variableBinder.getLongVariables()).longValueExact();
             if (variableBinder.containsLongVariable(variableName)) {
                 Long currentValue = variableBinder.getLongVariable(variableName);
                 checkState(Objects.equals(currentValue, calculatedValue),
