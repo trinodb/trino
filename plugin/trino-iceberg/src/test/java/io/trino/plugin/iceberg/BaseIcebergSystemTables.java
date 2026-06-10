@@ -25,12 +25,18 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
+import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.expressions.Expressions;
+import org.apache.iceberg.io.CloseableIterable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -46,6 +52,8 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
@@ -57,6 +65,8 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static java.util.Locale.ENGLISH;
 import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.ManifestFiles.read;
+import static org.apache.iceberg.ManifestFiles.readDeleteManifest;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -994,6 +1004,98 @@ public abstract class BaseIcebergSystemTables
 
             assertThat(query("SELECT data_file.partition FROM \"" + table.getName() + "$entries\""))
                     .matches("SELECT CAST(ROW(DATE '2014-01-01') AS ROW(dt date))");
+        }
+    }
+
+    @Test
+    public void testPositionDeletesTable()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_position_deletes", "AS SELECT * FROM tpch.tiny.region")) {
+            assertQueryReturnsEmptyResult("SELECT * FROM \"" + table.getName() + "$position_deletes\"");
+
+            // Verify 1 delete file
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 1", 1);
+            BaseTable icebergTable = loadTable(table.getName());
+
+            try (CloseableIterable<FileScanTask> iterator = icebergTable.newScan().planFiles()) {
+                FileScanTask task = getOnlyElement(iterator);
+                String filePath = task.file().location();
+                String deleteFilePath = task.deletes().stream().map(ContentFile::location).collect(onlyElement());
+                assertThat(deleteFilePath).doesNotEndWith(".puffin");
+                assertThat(query("SELECT * FROM \"" + table.getName() + "$position_deletes\""))
+                        .matches("VALUES (VARCHAR '" + filePath + "', BIGINT '1', 0, VARCHAR '" + deleteFilePath + "')");
+            }
+
+            // Verify 2 delete files (1 deleted row + 2 deleted rows)
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey IN (2, 3)", 2);
+
+            icebergTable.refresh();
+            try (CloseableIterable<FileScanTask> iterator = icebergTable.newScan().planFiles()) {
+                FileScanTask task = getOnlyElement(iterator);
+                String filePath = task.file().location();
+                List<DeleteFile> deleteFiles = task.deletes();
+                assertThat(deleteFiles).hasSize(2);
+                String deleteFilePath1 = deleteFiles.getFirst().location();
+                String deleteFilePath2 = deleteFiles.getLast().location();
+                assertThat(query("SELECT * FROM \"" + table.getName() + "$position_deletes\""))
+                        .matches("VALUES " +
+                                "(VARCHAR '" + filePath + "', BIGINT '1', 0, VARCHAR '" + deleteFilePath1 + "')," +
+                                "(VARCHAR '" + filePath + "', BIGINT '2', 0, VARCHAR '" + deleteFilePath2 + "')," +
+                                "(VARCHAR '" + filePath + "', BIGINT '3', 0, VARCHAR '" + deleteFilePath2 + "')");
+            }
+        }
+    }
+
+    @Test
+    public void testPositionDeletesWithUnpartitionedTable()
+    {
+        testPositionDeletesWithUnpartitionedTable(2);
+        testPositionDeletesWithUnpartitionedTable(3);
+    }
+
+    private void testPositionDeletesWithUnpartitionedTable(int formatVersion)
+    {
+        try (TestTable table = newTrinoTable("test_position_deletes", "(id INT, part INT) WITH (format_version = " + formatVersion + ")")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 10), (2, 10), (3, 20), (4, 20)", 4);
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id = 1", 1);
+            BaseTable icebergTable = loadTable(table.getName());
+
+            ManifestFile deleteManifest = getOnlyElement(icebergTable.currentSnapshot().deleteManifests(icebergTable.io()));
+            DeleteFile deleteFile = getOnlyElement(readDeleteManifest(deleteManifest, icebergTable.io(), icebergTable.specs()));
+
+            ManifestFile dataManifest = getOnlyElement(icebergTable.currentSnapshot().dataManifests(icebergTable.io()));
+            DataFile dataFile = getOnlyElement(read(dataManifest, icebergTable.io(), icebergTable.specs()).filterRows(Expressions.equal("part", 10)));
+
+            assertThat(query("SELECT * FROM \"" + table.getName() + "$position_deletes\""))
+                    .matches("VALUES (VARCHAR '" + dataFile.location() + "', BIGINT '0', 0, VARCHAR '" + deleteFile.location() + "')");
+        }
+    }
+
+    @Test
+    public void testPositionDeletesWithPartitionedTable()
+    {
+        testPositionDeletesTableWithPartitioning(2);
+        testPositionDeletesTableWithPartitioning(3);
+    }
+
+    private void testPositionDeletesTableWithPartitioning(int formatVersion)
+    {
+        try (TestTable table = newTrinoTable("test_position_deletes", "(id INT, part INT) WITH (partitioning = ARRAY['part'], format_version = " + formatVersion + ")")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 10), (2, 10), (3, 20), (4, 20)", 4);
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id = 1", 1);
+            BaseTable icebergTable = loadTable(table.getName());
+
+            ManifestFile deleteManifest = getOnlyElement(icebergTable.currentSnapshot().deleteManifests(icebergTable.io()));
+            DeleteFile deleteFile = getOnlyElement(readDeleteManifest(deleteManifest, icebergTable.io(), icebergTable.specs()));
+
+            ManifestFile dataManifest = getOnlyElement(icebergTable.currentSnapshot().dataManifests(icebergTable.io()));
+            DataFile dataFile = getOnlyElement(read(dataManifest, icebergTable.io(), icebergTable.specs()).filterPartitions(Expressions.equal("part", 10)));
+
+            assertThat(query("SELECT * FROM \"" + table.getName() + "$position_deletes\""))
+                    .matches("VALUES (VARCHAR '" + dataFile.location() + "', BIGINT '0', ROW(10 AS part), 0, VARCHAR '" + deleteFile.location() + "')");
         }
     }
 

@@ -25,6 +25,7 @@ public enum TableType
     FILES,
     ALL_ENTRIES,
     ENTRIES,
+    POSITION_DELETES,
     PROPERTIES,
     REFS,
     MATERIALIZED_VIEW_STORAGE,
