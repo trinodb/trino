@@ -184,6 +184,17 @@ public class TestTrinoDriverUri
         // legacy url
         assertInvalid("jdbc:presto://localhost:8080", "Invalid JDBC URL: jdbc:presto://localhost:8080");
 
+        // client credentials: clientSecret without clientId
+        assertInvalid("jdbc:trino://localhost:8080?oauth2ClientSecret=secret", "Connection property oauth2ClientSecret requires oauth2ClientId to be set");
+
+        // client credentials: clientId without clientSecret
+        assertInvalid("jdbc:trino://localhost:8080?oauth2ClientId=id", "Connection property oauth2ClientId requires oauth2ClientSecret to be set");
+
+        // client credentials: clientId cannot be combined with externalAuthentication
+        assertInvalid(
+                "jdbc:trino://localhost:8080?oauth2ClientId=id&externalAuthentication=true",
+                "Connection property oauth2ClientId cannot be set when externalAuthentication is enabled");
+
         // cannot set mutually exclusive properties for non-conforming clients to true
         assertInvalid(
                 "jdbc:trino://localhost:8080?assumeLiteralNamesInMetadataCallsForNonConformingClients=true&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true",
@@ -467,6 +478,18 @@ public class TestTrinoDriverUri
                 .hasMessage("Connection property timezone value is invalid: Asia/NOT_FOUND")
                 .hasRootCauseInstanceOf(ZoneRulesException.class)
                 .hasRootCauseMessage("Unknown time-zone ID: Asia/NOT_FOUND");
+    }
+
+    @Test
+    public void testClientCredentials()
+            throws SQLException
+    {
+        TrinoDriverUri uri = createDriverUri(
+                "jdbc:trino://localhost:8080?oauth2ClientId=my-client" +
+                        "&oauth2ClientSecret=my-secret");
+        assertThat(uri.getOauth2ClientId()).hasValue("my-client");
+        assertThat(uri.getOauth2ClientSecret()).hasValue("my-secret");
+        assertThat(uri.isClientCredentialsAuthenticationEnabled()).isTrue();
     }
 
     @Test
