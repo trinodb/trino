@@ -1278,8 +1278,20 @@ class RelationPlanner
                 .add(nearest.getMatch())
                 .build();
 
-        PlanBuilder leftPlanBuilder = newPlanBuilder(leftPlanWithId, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
-        PlanBuilder rightPlanBuilder = newPlanBuilder(rightPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
+        List<Symbol> candidateOutputs = ImmutableList.<Symbol>builder()
+                .addAll(leftPlanWithId.getFieldMappings())
+                .addAll(rightPlan.getFieldMappings())
+                .build();
+
+        // WHERE and MATCH were analyzed in the NEAREST scope, which exposes the FROM relation fields locally and
+        // the left join input through the parent scope. Scope both side builders to that combined scope before
+        // planning subqueries so that handleSubqueries can rewrite a subquery's operand against the correct
+        // mappings — e.g. an IN-subquery whose left-hand side is a NEAREST relation column, which planInPredicate
+        // rewrites eagerly against the side builder rather than via candidateTranslations.
+        PlanBuilder leftPlanBuilder = newPlanBuilder(leftPlanWithId, analysis, lambdaDeclarationToSymbolMap, session, plannerContext)
+                .withScope(analysis.getScope(nearest), candidateOutputs);
+        PlanBuilder rightPlanBuilder = newPlanBuilder(rightPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext)
+                .withScope(analysis.getScope(nearest), candidateOutputs);
         Analysis.SubqueryAnalysis subqueries = analysis.getSubqueries(nearest);
         for (io.trino.sql.tree.Expression predicate : predicates) {
             Set<QualifiedName> dependencies = NamesExtractor.extractNamesNoSubqueries(predicate, analysis.getColumnReferences());
@@ -1295,13 +1307,6 @@ class RelationPlanner
             }
         }
 
-        List<Symbol> candidateOutputs = ImmutableList.<Symbol>builder()
-                .addAll(leftPlanWithId.getFieldMappings())
-                .addAll(rightPlan.getFieldMappings())
-                .build();
-        // WHERE and MATCH were analyzed in the NEAREST scope. That scope exposes the FROM relation fields locally
-        // and the left join input through the parent scope, so rewriting those expressions requires symbol mappings
-        // for both join sides even though the expression scope itself remains analysis.getScope(nearest).
         TranslationMap candidateTranslations = new TranslationMap(
                 outerContext,
                 analysis.getScope(nearest),
