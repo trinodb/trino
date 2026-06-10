@@ -54,6 +54,8 @@ public enum PropertyName
     KERBEROS_SERVICE_PRINCIPAL_PATTERN("KerberosServicePrincipalPattern"),
     KERBEROS_USE_CANONICAL_HOSTNAME("KerberosUseCanonicalHostname"),
     LOCALE("locale"),
+    OAUTH2_CLIENT_ID("oauth2ClientId"),
+    OAUTH2_CLIENT_SECRET("oauth2ClientSecret"),
     PASSWORD("password"),
     SQL_PATH("path"),
     RESOURCE_ESTIMATES("resourceEstimates"),

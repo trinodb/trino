@@ -31,6 +31,7 @@ import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
 import picocli.CommandLine;
 
+import java.io.Console;
 import java.lang.annotation.Retention;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -67,6 +68,8 @@ import static io.trino.client.uri.PropertyName.KERBEROS_PRINCIPAL;
 import static io.trino.client.uri.PropertyName.KERBEROS_REMOTE_SERVICE_NAME;
 import static io.trino.client.uri.PropertyName.KERBEROS_SERVICE_PRINCIPAL_PATTERN;
 import static io.trino.client.uri.PropertyName.KERBEROS_USE_CANONICAL_HOSTNAME;
+import static io.trino.client.uri.PropertyName.OAUTH2_CLIENT_ID;
+import static io.trino.client.uri.PropertyName.OAUTH2_CLIENT_SECRET;
 import static io.trino.client.uri.PropertyName.PASSWORD;
 import static io.trino.client.uri.PropertyName.RESOURCE_ESTIMATES;
 import static io.trino.client.uri.PropertyName.SCHEMA;
@@ -193,6 +196,14 @@ public class ClientOptions
     @PropertyMapping(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS)
     @Option(names = "--external-authentication-redirect-handler", paramLabel = "<externalAuthenticationRedirectHandler>", description = "External authentication redirect handlers: ${COMPLETION-CANDIDATES} " + DEFAULT_VALUE, defaultValue = "ALL")
     public List<ExternalRedirectStrategy> externalAuthenticationRedirectHandler = new ArrayList<>();
+
+    @PropertyMapping(OAUTH2_CLIENT_ID)
+    @Option(names = "--oauth2-client-id", paramLabel = "<clientId>", description = "OAuth2 client ID for client credentials authentication")
+    public Optional<String> oauth2ClientId;
+
+    @PropertyMapping(OAUTH2_CLIENT_SECRET)
+    @Option(names = "--oauth2-client-secret", description = "Prompt for OAuth2 client secret for client credentials authentication")
+    public boolean oauth2ClientSecret;
 
     @PropertyMapping(SOURCE)
     @Option(names = "--source", paramLabel = "<source>", description = "Name of the client to use as source that submits the query (default: " + SOURCE_DEFAULT + ")")
@@ -381,6 +392,7 @@ public class ClientOptions
         List<PropertyName> bannedProperties = ImmutableList.<PropertyName>builder()
                 .addAll(restrictedProperties.keySet())
                 .add(PASSWORD)
+                .add(OAUTH2_CLIENT_SECRET)
                 .build();
         TrinoUri.Builder builder = TrinoUri.builder()
                 .setUri(uri)
@@ -438,6 +450,10 @@ public class ClientOptions
         if (!externalAuthenticationRedirectHandler.isEmpty()) {
             builder.setExternalAuthenticationRedirectHandlers(externalAuthenticationRedirectHandler);
         }
+        oauth2ClientId.ifPresent(builder::setOauth2ClientId);
+        if (oauth2ClientSecret) {
+            builder.setOauth2ClientSecret(getClientSecret());
+        }
         source.ifPresent(builder::setSource);
         clientInfo.ifPresent(builder::setClientInfo);
         clientTags.ifPresent(builder::setClientTags);
@@ -468,6 +484,27 @@ public class ClientOptions
         }
     }
 
+    private String getClientSecret()
+    {
+        checkState(oauth2ClientId.isPresent() && !oauth2ClientId.get().isEmpty(), "Both client ID and client secret must be specified");
+        String defaultSecret = System.getenv("TRINO_OAUTH2_CLIENT_SECRET");
+        if (defaultSecret != null) {
+            return defaultSecret;
+        }
+
+        Console console = System.console();
+        if (console != null) {
+            char[] secret = console.readPassword("OAuth2 client secret: ");
+            if (secret == null) {
+                throw new IllegalArgumentException("OAuth2 client secret not provided");
+            }
+            return new String(secret);
+        }
+
+        LineReader reader = LineReaderBuilder.builder().terminal(getTerminal()).build();
+        return reader.readLine("OAuth2 client secret: ", (char) 0);
+    }
+
     private String getPassword()
     {
         checkState(user.isPresent() && !user.get().isEmpty(), "Both username and password must be specified");
@@ -476,7 +513,7 @@ public class ClientOptions
             return defaultPassword;
         }
 
-        java.io.Console console = System.console();
+        Console console = System.console();
         if (console != null) {
             char[] password = console.readPassword("Password: ");
             if (password != null) {
