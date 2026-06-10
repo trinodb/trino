@@ -1,26 +1,33 @@
 # OAuth 2.0 authentication
 
 Trino can be configured to enable OAuth 2.0 authentication over HTTPS for the
-Web UI and the JDBC driver. Trino uses the [Authorization Code](https://tools.ietf.org/html/rfc6749#section-1.3.1) flow which exchanges an
-Authorization Code for a token. At a high level, the flow includes the following
-steps:
+Web UI and the JDBC driver.
 
-1. the Trino coordinator redirects a user's browser to the Authorization Server
-2. the user authenticates with the Authorization Server, and it approves the Trino's permissions request
-3. the user's browser is redirected back to the Trino coordinator with an authorization code
-4. the Trino coordinator exchanges the authorization code for a token
+(trino-oauth2-authorization-code)=
+## Authorization code flow
+
+Trino uses the [Authorization Code](https://tools.ietf.org/html/rfc6749#section-1.3.1)
+flow which exchanges an Authorization Code for a token. At a high level, the flow
+includes the following steps:
+
+1. The Trino coordinator redirects a user's browser to the Authorization Server
+2. The user authenticates with the Authorization Server, and it approves the Trino's permissions request
+3. The user's browser is redirected back to the Trino coordinator with an authorization code
+4. The Trino coordinator exchanges the authorization code for a token
+
+## Authorization server setup
 
 To enable OAuth 2.0 authentication for Trino, configuration changes are made on
 the Trino coordinator. No changes are required to the worker configuration;
 only the communication from the clients to the coordinator is authenticated.
 
-Set the callback/redirect URL to `https://<trino-coordinator-domain-name>/oauth2/callback`,
-when configuring an OAuth 2.0 authorization server like an OpenID Connect (OIDC)
-provider.
+For the authorization code flow, configure the following URLs in the
+authorization server:
 
-If Web UI is enabled, set the post-logout callback URL to
-`https://<trino-coordinator-domain-name>/ui/logout/logout.html` when configuring
-an OAuth 2.0 authentication server like an OpenID Connect (OIDC) provider.
+- Set the callback/redirect URL to
+  `https://<trino-coordinator-domain-name>/oauth2/callback`.
+- If Web UI is enabled, set the post-logout callback URL to
+  `https://<trino-coordinator-domain-name>/ui/logout/logout.html`.
 
 Using {doc}`TLS <tls>` and {doc}`a configured shared secret
 </security/internal-communication>` is required for OAuth 2.0 authentication.
