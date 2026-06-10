@@ -255,6 +255,12 @@ may not be specified using both methods.
     allowing it to be reused across separate CLI or JDBC processes. If the JDBC
     driver is used in a shared mode by different users, the first registered
     token is stored and authenticates all users.
+* - `oauth2ClientId`
+  - OAuth2 client ID for non-interactive (machine-to-machine) authentication using the client
+    credentials flow. Unlike browser-based authentication, the client authenticates directly
+    using a client ID and secret without user involvement.
+* - `oauth2ClientSecret`
+  - OAuth2 client secret for client credentials authentication.
 * - `disableCompression`
   -  Whether HTTP compression should be disabled. Defaults to `false`.
 * - `disallowLocalRedirect`

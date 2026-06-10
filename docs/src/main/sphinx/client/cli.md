@@ -166,6 +166,13 @@ mode:
 * - `--extra-header`
   - HTTP header to add to the authenticated HTTP requests
     (property can be used multiple times; format is key=value).
+* - `--oauth2-client-id`
+  - OAuth2 client ID for client credentials authentication.
+* - `--oauth2-client-secret`
+  - Prompt for OAuth2 client secret for client credentials authentication. You 
+    can set the `TRINO_OAUTH2_CLIENT_SECRET` environment variable with the 
+    OAuth2 client secret value to avoid the prompt. For more information, see
+    [](cli-oauth2-client-credentials-auth)
 * - `--http-proxy`
   - Configures the URL of the HTTP proxy to connect to Trino.
 * - `--history-file`
@@ -321,10 +328,6 @@ export TRINO_PASSWORD='LongSecurePassword123!@#'
 If the `TRINO_PASSWORD` environment variable is set, you are not prompted
 to provide a password to connect with the CLI.
 
-```text
-./trino https://trino.example.com --user=exampleusername --password
-```
-
 (cli-external-sso-auth)=
 ### External authentication - SSO
 
@@ -347,6 +350,32 @@ The detailed behavior is as follows:
   authentication token remains valid. Token expiration depends on the external
   authentication type configuration.
 - Expired tokens force you to log in again.
+
+(cli-oauth2-client-credentials-auth)=
+### OAuth2 client credentials authentication
+
+OAuth2 client credentials authentication is used for non-interactive
+(machine-to-machine) authentication using the OAuth2 client credentials flow,
+as detailed in {doc}`/security/oauth2`. Unlike browser-based SSO, the client
+authenticates directly with a client ID and secret without user involvement.
+
+The following example connects to the server and prompts the CLI for your
+client secret:
+
+```text
+./trino https://trino.example.com --oauth2-client-id=myclientid --oauth2-client-secret
+```
+
+Alternatively, set the client secret as the value of the
+`TRINO_OAUTH2_CLIENT_SECRET` environment variable. Typically use single quotes
+to avoid problems with special characters such as `$`:
+
+```text
+export TRINO_OAUTH2_CLIENT_SECRET='MyClientSecret123!@#'
+```
+
+If the `TRINO_OAUTH2_CLIENT_SECRET` environment variable is set, you are not
+prompted to provide a client secret to connect with the CLI.
 
 (cli-certificate-auth)=
 ### Certificate authentication
