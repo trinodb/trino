@@ -38,6 +38,7 @@ import java.util.Set;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.filter.UtcConstraintExtractor.extractTupleDomain;
+import static io.trino.spi.expression.StandardFunctions.BETWEEN_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
@@ -149,6 +150,32 @@ public class TestUtcConstraintExtractor
                         Map.of(timestampTzColumnSymbol, columnHandle))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(
                         columnHandle, Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfDateUtc, true, startOfNextDateUtc, false)), false))));
+    }
+
+    @Test
+    public void testExtractTimestampTzDateBetween()
+    {
+        String timestampTzColumnSymbol = "timestamp_tz_symbol";
+        TimestampWithTimeZoneType columnType = TIMESTAMP_TZ_MILLIS;
+        ColumnHandle columnHandle = new TestingColumnHandle(timestampTzColumnSymbol);
+
+        ConnectorExpression castOfColumn = new Call(DATE, CAST_FUNCTION_NAME, ImmutableList.of(new Variable(timestampTzColumnSymbol, columnType)));
+
+        LocalDate minDate = LocalDate.of(2005, 9, 10);
+        LocalDate maxDate = LocalDate.of(2005, 9, 12);
+        long startOfMinUtc = timestampTzMillisFromEpochMillis(minDate.atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND);
+        long startOfDayAfterMaxUtc = timestampTzMillisFromEpochMillis(maxDate.atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND + MILLISECONDS_PER_DAY);
+
+        // CAST(timestamptz AS date) BETWEEN minDate AND maxDate decomposes to >= minDate AND <= maxDate.
+        assertThat(extract(
+                constraint(
+                        new Call(BOOLEAN, BETWEEN_FUNCTION_NAME, ImmutableList.of(
+                                castOfColumn,
+                                new Constant(minDate.toEpochDay(), DATE),
+                                new Constant(maxDate.toEpochDay(), DATE))),
+                        Map.of(timestampTzColumnSymbol, columnHandle))))
+                .isEqualTo(TupleDomain.withColumnDomains(Map.of(
+                        columnHandle, domain(Range.range(columnType, startOfMinUtc, true, startOfDayAfterMaxUtc, false)))));
     }
 
     /**

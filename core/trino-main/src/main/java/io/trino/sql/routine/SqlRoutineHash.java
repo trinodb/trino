@@ -24,7 +24,6 @@ import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Array;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
@@ -37,11 +36,11 @@ import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.NullIf;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.Switch;
 import io.trino.sql.routine.ir.IrBlock;
 import io.trino.sql.routine.ir.IrBreak;
 import io.trino.sql.routine.ir.IrContinue;
@@ -256,6 +255,12 @@ public final class SqlRoutineHash
                     });
                     hashExpression(lambda.body());
                 }
+                case Let let -> {
+                    hashString(let.name().name());
+                    hashType(let.name().type());
+                    hashExpression(let.value());
+                    hashExpression(let.body());
+                }
                 case FieldReference fieldRef -> {
                     hasher.putInt(fieldRef.field());
                     hasher.putInt(expression.children().size());
@@ -264,8 +269,8 @@ public final class SqlRoutineHash
                     }
                 }
                 // These expression types are fully represented by class name + type + children
-                case Array _, Between _, Bind _, Case _, Cast _, Coalesce _,
-                     In _, IsNull _, NullIf _, Row _, Switch _ -> {
+                case Array _, Bind _, Case _, Cast _, Coalesce _,
+                     In _, IsNull _, Row _, Match _ -> {
                     hasher.putInt(expression.children().size());
                     for (Expression child : expression.children()) {
                         hashExpression(child);

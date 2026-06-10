@@ -29,11 +29,15 @@ import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.type.TypeCoercion;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
@@ -44,6 +48,11 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 
 public final class IrExpressions
 {
@@ -59,6 +68,138 @@ public final class IrExpressions
         return new Call(function, Arrays.asList(arguments));
     }
 
+    /// Lower a BETWEEN to `value >= min AND value <= max`, wrapping `value` in a [Let] when it is
+    /// non-trivial so the operand is evaluated exactly once.
+    public static Expression between(SymbolAllocator allocator, Expression value, Expression min, Expression max)
+    {
+        // Inline trivial values directly so the result stays a plain AND of comparisons.
+        if (value instanceof Reference || value instanceof Constant) {
+            return new Logical(AND, ImmutableList.of(
+                    new Comparison(GREATER_THAN_OR_EQUAL, value, min),
+                    new Comparison(LESS_THAN_OR_EQUAL, value, max)));
+        }
+        Symbol bound = allocator.newSymbol("between", value.type());
+        Reference reference = new Reference(value.type(), bound.name());
+        return new Let(bound, value, new Logical(AND, ImmutableList.of(
+                new Comparison(GREATER_THAN_OR_EQUAL, reference, min),
+                new Comparison(LESS_THAN_OR_EQUAL, reference, max))));
+    }
+
+    /// Recognize a BETWEEN-shape as produced by [#between] in either the trivial-value form
+    /// (`AND(x >= min, x <= max)`) or the Let-wrapped form (`Let(s, value, AND(s >= min, s <= max))`).
+    public static Optional<BetweenPattern> asBetween(Expression expression)
+    {
+        if (expression instanceof Let(Symbol bound, Expression value, Expression body)) {
+            // The bound symbol must not leak through min/max: a pattern consumer sees only the
+            // extracted parts, where such a reference would be unbound.
+            return matchAndRange(body).flatMap(bounds -> bounds.value() instanceof Reference ref && ref.name().equals(bound.name()) &&
+                    !SymbolsExtractor.extractUnique(bounds.min()).contains(bound) &&
+                    !SymbolsExtractor.extractUnique(bounds.max()).contains(bound) ?
+                    Optional.of(new BetweenPattern(value, bounds.min(), bounds.max())) :
+                    Optional.empty());
+        }
+        return matchAndRange(expression);
+    }
+
+    private static Optional<BetweenPattern> matchAndRange(Expression expression)
+    {
+        if (!(expression instanceof Logical logical) || logical.operator() != AND || logical.terms().size() != 2) {
+            return Optional.empty();
+        }
+        if (!(logical.terms().get(0) instanceof Comparison(Comparison.Operator op1, Expression left1, Expression right1)) ||
+                !(logical.terms().get(1) instanceof Comparison(Comparison.Operator op2, Expression left2, Expression right2))) {
+            return Optional.empty();
+        }
+        // The value occurs in both conjuncts: collapsing the two independent evaluations into the
+        // pattern's single occurrence is only sound when the value is deterministic.
+        if (op1 == GREATER_THAN_OR_EQUAL && op2 == LESS_THAN_OR_EQUAL && left1.equals(left2) && isDeterministic(left1)) {
+            return Optional.of(new BetweenPattern(left1, right1, right2));
+        }
+        if (op1 == LESS_THAN_OR_EQUAL && op2 == LESS_THAN_OR_EQUAL && right1.equals(left2) && isDeterministic(right1)) {
+            return Optional.of(new BetweenPattern(right1, left1, right2));
+        }
+        return Optional.empty();
+    }
+
+    /// View of a `value BETWEEN min AND max` predicate as produced by [#between].
+    public record BetweenPattern(Expression value, Expression min, Expression max) {}
+
+    /// Lower a NULLIF to `if(first = second) then null else first`, wrapping `first` in a [Let]
+    /// when it is non-trivial so the operand is evaluated exactly once. Defaults the comparison
+    /// type to `first.type()` — see the overload below for the mixed-type case.
+    public static Expression nullIf(SymbolAllocator allocator, Expression first, Expression second)
+    {
+        return nullIf(allocator, first, second, first.type());
+    }
+
+    /// Same as [#nullIf(SymbolAllocator,Expression,Expression)] but performs the equality at
+    /// `comparisonType`, casting `first` and `second` as needed. The returned value keeps
+    /// `first`'s type, matching SQL `NULLIF` semantics; the cast is applied only for the
+    /// comparison.
+    public static Expression nullIf(SymbolAllocator allocator, Expression first, Expression second, Type comparisonType)
+    {
+        Expression secondForComparison = second.type().equals(comparisonType) ? second : new Cast(second, comparisonType);
+        // Inline trivial values directly so the result stays a plain Case expression.
+        if (first instanceof Reference || first instanceof Constant) {
+            Expression firstForComparison = first.type().equals(comparisonType) ? first : new Cast(first, comparisonType);
+            return ifExpression(
+                    new Comparison(EQUAL, firstForComparison, secondForComparison),
+                    constantNull(first.type()),
+                    first);
+        }
+        Symbol bound = allocator.newSymbol("nullif", first.type());
+        Reference reference = new Reference(first.type(), bound.name());
+        Expression referenceForComparison = first.type().equals(comparisonType) ? reference : new Cast(reference, comparisonType);
+        return new Let(bound, first, ifExpression(
+                new Comparison(EQUAL, referenceForComparison, secondForComparison),
+                constantNull(first.type()),
+                reference));
+    }
+
+    /// Recognize a NULLIF-shape as produced by [#nullIf] in either the trivial-value form
+    /// (`if(first = second) then null else first`) or the Let-wrapped form
+    /// (`Let(s, first, if(s = second) then null else s)`).
+    public static Optional<NullIfPattern> asNullIf(Expression expression)
+    {
+        if (expression instanceof Let(Symbol bound, Expression first, Expression body)) {
+            // The bound symbol must not leak through second: a pattern consumer sees only the
+            // extracted parts, where such a reference would be unbound.
+            return matchIfFirstEqualsSecond(body).flatMap(match ->
+                    match.first() instanceof Reference ref && ref.name().equals(bound.name()) &&
+                            !SymbolsExtractor.extractUnique(match.second()).contains(bound) ?
+                            Optional.of(new NullIfPattern(first, match.second())) :
+                            Optional.empty());
+        }
+        return matchIfFirstEqualsSecond(expression);
+    }
+
+    private static Optional<NullIfPattern> matchIfFirstEqualsSecond(Expression expression)
+    {
+        if (!(expression instanceof Case caseExpression) || caseExpression.whenClauses().size() != 1) {
+            return Optional.empty();
+        }
+        WhenClause when = caseExpression.whenClauses().get(0);
+        if (!(when.getOperand() instanceof Comparison(Comparison.Operator op, Expression left, Expression right)) || op != EQUAL) {
+            return Optional.empty();
+        }
+        if (!isConstantNull(when.getResult())) {
+            return Optional.empty();
+        }
+        if (!caseExpression.defaultValue().equals(left)) {
+            return Optional.empty();
+        }
+        // The first operand occurs in both the condition and the default: collapsing the two
+        // independent evaluations into the pattern's single occurrence is only sound when it is
+        // deterministic.
+        if (!isDeterministic(left)) {
+            return Optional.empty();
+        }
+        return Optional.of(new NullIfPattern(left, right));
+    }
+
+    /// View of a `NULLIF(first, second)` predicate as produced by [#nullIf].
+    public record NullIfPattern(Expression first, Expression second) {}
+
     public static Expression ifExpression(Expression condition, Expression trueCase)
     {
         return new Case(ImmutableList.of(new WhenClause(condition, trueCase)), constantNull(trueCase.type()));
@@ -67,6 +208,20 @@ public final class IrExpressions
     public static Expression ifExpression(Expression condition, Expression trueCase, Expression falseCase)
     {
         return new Case(ImmutableList.of(new WhenClause(condition, trueCase)), falseCase);
+    }
+
+    /// Build a [MatchClause] that matches when the [Match] operand equals `value`.
+    /// The clause's lambda is `(parameter) -> parameter = value`, where `parameter` is
+    /// the operand-bound lambda parameter. The caller supplies `parameter` — it must be
+    /// allocated through [io.trino.sql.planner.SymbolAllocator] so it cannot collide with a
+    /// symbol referenced in `value` or one allocated later.
+    public static MatchClause equalityClause(Symbol parameter, Expression value, Expression result)
+    {
+        return new MatchClause(
+                new Lambda(
+                        ImmutableList.of(parameter),
+                        new Comparison(EQUAL, new Reference(parameter.type(), parameter.name()), value)),
+                result);
     }
 
     public static Constant row(List<Constant> fields)
@@ -109,7 +264,6 @@ public final class IrExpressions
             case Array _, Bind _, IsNull _, Lambda _, Row _ -> false;
 
             // These expressions may return null based on their operands
-            case Between e -> mayBeNull(plannerContext, e.value(), referencesMayBeNull) || mayBeNull(plannerContext, e.min(), referencesMayBeNull) || mayBeNull(plannerContext, e.max(), referencesMayBeNull);
             case Call e -> mayBeNull(plannerContext, e.function(), e.arguments(), referencesMayBeNull);
             case Case e -> e.whenClauses().stream().anyMatch(clause -> mayBeNull(plannerContext, clause.getResult(), referencesMayBeNull)) ||
                     mayBeNull(plannerContext, e.defaultValue(), referencesMayBeNull);
@@ -117,13 +271,14 @@ public final class IrExpressions
             case Coalesce e -> e.operands().stream().allMatch(operand -> mayBeNull(plannerContext, operand, referencesMayBeNull));
             case Comparison e -> e.operator() != Comparison.Operator.IDENTICAL && (mayBeNull(plannerContext, e.left(), referencesMayBeNull) || mayBeNull(plannerContext, e.right(), referencesMayBeNull));
             case In e -> mayBeNull(plannerContext, e.value(), referencesMayBeNull) || e.valueList().stream().anyMatch(value -> mayBeNull(plannerContext, value, referencesMayBeNull));
+            case Let e -> mayBeNull(plannerContext, e.body(), referencesMayBeNull || mayBeNull(plannerContext, e.value(), referencesMayBeNull));
             case Logical e -> e.terms().stream().anyMatch(term -> mayBeNull(plannerContext, term, referencesMayBeNull));
-            case Switch e -> e.whenClauses().stream().anyMatch(clause -> mayBeNull(plannerContext, clause.getResult(), referencesMayBeNull)) ||
+            case Match e -> e.clauses().stream().anyMatch(clause -> mayBeNull(plannerContext, clause.result(), referencesMayBeNull)) ||
                     mayBeNull(plannerContext, e.defaultValue(), referencesMayBeNull);
 
             // These expressions may return null based on their own semantics
             case Constant e -> e.value() == null;
-            case FieldReference _, NullIf _ -> true;
+            case FieldReference _ -> true;
             case Reference _ -> referencesMayBeNull;
         };
     }
@@ -161,7 +316,6 @@ public final class IrExpressions
 
             // These expressions need to verify their operands
             case Array e -> e.elements().stream().anyMatch(element -> mayFail(plannerContext, element));
-            case Between e -> mayFail(plannerContext, e.value()) || mayFail(plannerContext, e.min()) || mayFail(plannerContext, e.max());
             case Call e -> mayFail(e) || e.arguments().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case Case e -> e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, clause.getOperand()) || mayFail(plannerContext, clause.getResult())) ||
                     mayFail(plannerContext, e.defaultValue());
@@ -170,10 +324,10 @@ public final class IrExpressions
             case Comparison e -> mayFail(plannerContext, e.left()) || mayFail(plannerContext, e.right());
             case In e -> mayFail(plannerContext, e.value()) || e.valueList().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case IsNull e -> mayFail(plannerContext, e.value());
+            case Let e -> mayFail(plannerContext, e.value()) || mayFail(plannerContext, e.body());
             case Logical e -> e.terms().stream().anyMatch(argument -> mayFail(plannerContext, argument));
-            case NullIf e -> mayFail(plannerContext, e.first()) || mayFail(plannerContext, e.second());
             case Row e -> e.items().stream().anyMatch(argument -> mayFail(plannerContext, argument));
-            case Switch e -> mayFail(plannerContext, e.operand()) || e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, clause.getOperand()) || mayFail(plannerContext, clause.getResult())) ||
+            case Match e -> mayFail(plannerContext, e.operand()) || e.clauses().stream().anyMatch(clause -> mayFail(plannerContext, clause.lambda().body()) || mayFail(plannerContext, clause.result())) ||
                     mayFail(plannerContext, e.defaultValue());
         };
     }

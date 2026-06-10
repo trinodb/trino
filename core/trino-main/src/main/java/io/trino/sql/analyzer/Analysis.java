@@ -60,7 +60,7 @@ import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.PatternInputAnalysis;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.tree.AllColumns;
-import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
@@ -68,7 +68,6 @@ import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GroupingOperation;
 import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.Join;
 import io.trino.sql.tree.JsonTable;
 import io.trino.sql.tree.JsonTableColumnDefinition;
@@ -77,11 +76,12 @@ import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Nearest;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Predicate;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RangeQuantifier;
@@ -213,12 +213,13 @@ public class Analysis
     private final Map<NodeRef<Join>, Expression> joins = new LinkedHashMap<>();
     private final Map<NodeRef<Join>, JoinUsingAnalysis> joinUsing = new LinkedHashMap<>();
     private final Map<NodeRef<Node>, SubqueryAnalysis> subqueries = new LinkedHashMap<>();
-    private final Map<NodeRef<Expression>, PredicateCoercions> predicateCoercions = new LinkedHashMap<>();
+    private final Map<NodeRef<Predicate>, PredicateCoercions> predicateCoercions = new LinkedHashMap<>();
 
     private final Map<NodeRef<Table>, TableEntry> tables = new LinkedHashMap<>();
 
     private final Map<NodeRef<Expression>, Type> types = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> coercions = new LinkedHashMap<>();
+    private final Map<NodeRef<NullIfExpression>, Type> nullIfComparisonTypes = new LinkedHashMap<>();
 
     private final Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundCalculation = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundComparison = new LinkedHashMap<>();
@@ -541,10 +542,10 @@ public class Analysis
     public void recordSubqueries(Node node, ExpressionAnalysis expressionAnalysis)
     {
         SubqueryAnalysis subqueries = this.subqueries.computeIfAbsent(NodeRef.of(node), _ -> new SubqueryAnalysis());
-        subqueries.addInPredicates(dereference(expressionAnalysis.getSubqueryInPredicates()));
+        subqueries.addInPredicates(expressionAnalysis.getSubqueryInPredicates());
         subqueries.addSubqueries(dereference(expressionAnalysis.getSubqueries()));
         subqueries.addExistsSubqueries(dereference(expressionAnalysis.getExistsSubqueries()));
-        subqueries.addQuantifiedComparisons(dereference(expressionAnalysis.getQuantifiedComparisons()));
+        subqueries.addQuantifiedComparisons(expressionAnalysis.getQuantifiedComparisons());
     }
 
     private <T extends Node> List<T> dereference(Collection<NodeRef<T>> nodeRefs)
@@ -798,6 +799,21 @@ public class Analysis
         this.coercions.putAll(coercions);
         this.sortKeyCoercionsForFrameBoundCalculation.putAll(sortKeyCoercionsForFrameBoundCalculation);
         this.sortKeyCoercionsForFrameBoundComparison.putAll(sortKeyCoercionsForFrameBoundComparison);
+    }
+
+    public void addNullIfComparisonType(NullIfExpression expression, Type type)
+    {
+        this.nullIfComparisonTypes.put(NodeRef.of(expression), type);
+    }
+
+    public void addNullIfComparisonTypes(Map<NodeRef<NullIfExpression>, Type> types)
+    {
+        this.nullIfComparisonTypes.putAll(types);
+    }
+
+    public Type getNullIfComparisonType(NullIfExpression expression)
+    {
+        return nullIfComparisonTypes.get(NodeRef.of(expression));
     }
 
     public Type getSortKeyCoercionForFrameBoundCalculation(Expression frameOffset)
@@ -1384,14 +1400,14 @@ public class Analysis
         return implicitFromScopes.get(NodeRef.of(node));
     }
 
-    public void addPredicateCoercions(Map<NodeRef<Expression>, PredicateCoercions> coercions)
+    public void addPredicateCoercions(Map<NodeRef<Predicate>, PredicateCoercions> coercions)
     {
         predicateCoercions.putAll(coercions);
     }
 
-    public PredicateCoercions getPredicateCoercions(Expression expression)
+    public PredicateCoercions getPredicateCoercions(Predicate predicate)
     {
-        return predicateCoercions.get(NodeRef.of(expression));
+        return predicateCoercions.get(NodeRef.of(predicate));
     }
 
     public void setTableExecuteHandle(TableExecuteHandle tableExecuteHandle)
@@ -1803,14 +1819,14 @@ public class Analysis
 
     public static class SubqueryAnalysis
     {
-        private final List<InPredicate> inPredicatesSubqueries = new ArrayList<>();
+        private final List<OperandAndPredicate> inPredicates = new ArrayList<>();
         private final List<SubqueryExpression> subqueries = new ArrayList<>();
         private final List<ExistsPredicate> existsSubqueries = new ArrayList<>();
-        private final List<QuantifiedComparisonExpression> quantifiedComparisonSubqueries = new ArrayList<>();
+        private final List<OperandAndPredicate> quantifiedComparisons = new ArrayList<>();
 
-        public void addInPredicates(List<InPredicate> expressions)
+        public void addInPredicates(List<OperandAndPredicate> predicates)
         {
-            inPredicatesSubqueries.addAll(expressions);
+            inPredicates.addAll(predicates);
         }
 
         public void addSubqueries(List<SubqueryExpression> expressions)
@@ -1823,14 +1839,14 @@ public class Analysis
             existsSubqueries.addAll(expressions);
         }
 
-        public void addQuantifiedComparisons(List<QuantifiedComparisonExpression> expressions)
+        public void addQuantifiedComparisons(List<OperandAndPredicate> predicates)
         {
-            quantifiedComparisonSubqueries.addAll(expressions);
+            quantifiedComparisons.addAll(predicates);
         }
 
-        public List<InPredicate> getInPredicatesSubqueries()
+        public List<OperandAndPredicate> getInPredicates()
         {
-            return unmodifiableList(inPredicatesSubqueries);
+            return unmodifiableList(inPredicates);
         }
 
         public List<SubqueryExpression> getSubqueries()
@@ -1843,9 +1859,22 @@ public class Analysis
             return unmodifiableList(existsSubqueries);
         }
 
-        public List<QuantifiedComparisonExpression> getQuantifiedComparisonSubqueries()
+        public List<OperandAndPredicate> getQuantifiedComparisons()
         {
-            return unmodifiableList(quantifiedComparisonSubqueries);
+            return unmodifiableList(quantifiedComparisons);
+        }
+    }
+
+    /// A relational subquery predicate (`InPredicate` or `QuantifiedComparisonPredicate`) paired
+    /// with its operand. Unifies the regular `Predicated(value, predicate)` case and the F262
+    /// extended-CASE case (operand from the surrounding CASE expression, predicate from the
+    /// WHEN clause). The same shape covers both — planning consumes them uniformly.
+    public record OperandAndPredicate(Expression operand, Predicate predicate)
+    {
+        public OperandAndPredicate
+        {
+            requireNonNull(operand, "operand is null");
+            requireNonNull(predicate, "predicate is null");
         }
     }
 
@@ -2668,7 +2697,7 @@ public class Analysis
     }
 
     public record NearestAnalysis(
-            ComparisonExpression.Operator operator,
+            ComparisonPredicate.Operator operator,
             Expression candidateExpression)
     {
         public NearestAnalysis

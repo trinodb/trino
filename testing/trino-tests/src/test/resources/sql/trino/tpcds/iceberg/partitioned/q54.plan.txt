@@ -18,7 +18,7 @@ local exchange (GATHER, SINGLE, [])
                                                                     scan store_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                                        dynamic filter (d_month_seq_24::LESS_THAN_OR_EQUAL)
+                                                                        dynamic filter (d_month_seq_24::GREATER_THAN_OR_EQUAL, d_month_seq_24::LESS_THAN_OR_EQUAL)
                                                                             scan date_dim
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])

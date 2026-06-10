@@ -21,6 +21,7 @@ import io.trino.Session;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
+import io.trino.sql.analyzer.Analysis.OperandAndPredicate;
 import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
@@ -35,14 +36,13 @@ import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.QuantifiedComparisonExpression;
-import io.trino.sql.tree.QuantifiedComparisonExpression.Quantifier;
+import io.trino.sql.tree.QuantifiedComparisonPredicate;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.SubqueryExpression;
 
@@ -52,6 +52,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -63,7 +64,6 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class SubqueryPlanner
@@ -114,21 +114,41 @@ class SubqueryPlanner
 
     public PlanBuilder handleSubqueries(PlanBuilder builder, io.trino.sql.tree.Expression expression, Analysis.SubqueryAnalysis subqueries)
     {
-        Iterable<Node> allSubExpressions = Traverser.forTree(recurseExpression(builder)).depthFirstPreOrder(expression);
-        for (Cluster<InPredicate> cluster : cluster(builder.getScope(), selectSubqueries(builder, allSubExpressions, subqueries.getInPredicatesSubqueries()))) {
+        List<Node> allSubExpressions = ImmutableList.copyOf(Traverser.forTree(recurseExpression(builder)).depthFirstPreOrder(expression));
+
+        // Relational subquery predicates - `x IN (subquery)`, `x <op> ANY (subquery)`, and the
+        // extended-CASE WHEN fragments over the implicit case operand - are registered by the
+        // analyzer as [OperandAndPredicate] pairs. They are planned uniformly here; the planned
+        // symbol is registered against the relational predicate node so that TranslationMap
+        // recovers it by node identity.
+        PlanBuilder inPredicatesBuilder = builder;
+        for (Cluster<OperandAndPredicate> cluster : cluster(selectSubqueryPredicates(inPredicatesBuilder, allSubExpressions, subqueries.getInPredicates()), entry -> subqueryPredicateKey(entry, inPredicatesBuilder.getScope()))) {
             builder = planInPredicate(builder, cluster, subqueries);
         }
-        for (Cluster<SubqueryExpression> cluster : cluster(builder.getScope(), selectSubqueries(builder, allSubExpressions, subqueries.getSubqueries()))) {
+        PlanBuilder scalarSubqueriesBuilder = builder;
+        for (Cluster<SubqueryExpression> cluster : cluster(selectSubqueries(scalarSubqueriesBuilder, allSubExpressions, subqueries.getSubqueries()), expr -> scopeAwareKey(expr, analysis, scalarSubqueriesBuilder.getScope()))) {
             builder = planScalarSubquery(builder, cluster);
         }
-        for (Cluster<ExistsPredicate> cluster : cluster(builder.getScope(), selectSubqueries(builder, allSubExpressions, subqueries.getExistsSubqueries()))) {
+        PlanBuilder existsBuilder = builder;
+        for (Cluster<ExistsPredicate> cluster : cluster(selectSubqueries(existsBuilder, allSubExpressions, subqueries.getExistsSubqueries()), expr -> scopeAwareKey(expr, analysis, existsBuilder.getScope()))) {
             builder = planExists(builder, cluster);
         }
-        for (Cluster<QuantifiedComparisonExpression> cluster : cluster(builder.getScope(), selectSubqueries(builder, allSubExpressions, subqueries.getQuantifiedComparisonSubqueries()))) {
+        PlanBuilder quantifiedComparisonsBuilder = builder;
+        for (Cluster<OperandAndPredicate> cluster : cluster(selectSubqueryPredicates(quantifiedComparisonsBuilder, allSubExpressions, subqueries.getQuantifiedComparisons()), entry -> subqueryPredicateKey(entry, quantifiedComparisonsBuilder.getScope()))) {
             builder = planQuantifiedComparison(builder, cluster, subqueries);
         }
 
         return builder;
+    }
+
+    /// Scope-aware grouping key for an [OperandAndPredicate]: two pairs cluster together only
+    /// when both the operand and the relational predicate are scope-aware equivalent. This is
+    /// also the key under which the planned symbol is registered for cross-call deduplication.
+    private TranslationMap.RelationalPredicateKey subqueryPredicateKey(OperandAndPredicate entry, Scope scope)
+    {
+        return new TranslationMap.RelationalPredicateKey(
+                scopeAwareKey(entry.operand(), analysis, scope),
+                scopeAwareKey(entry.predicate(), analysis, scope));
     }
 
     /**
@@ -141,6 +161,18 @@ class SubqueryPlanner
                 .stream()
                 .filter(candidate -> stream(allSubExpressions).anyMatch(child -> child == candidate))
                 .filter(candidate -> !subPlan.canTranslate(candidate))
+                .collect(toImmutableList());
+    }
+
+    /// Find relational subquery predicates whose predicate node is reachable in the current
+    /// expression tree and that have not already been planned in the sub-plan. Reachability is
+    /// keyed on predicate node identity; the already-planned check is scope-aware so that a
+    /// structurally equal predicate planned by an earlier `handleSubqueries` call is skipped.
+    private List<OperandAndPredicate> selectSubqueryPredicates(PlanBuilder subPlan, List<Node> allSubExpressions, List<OperandAndPredicate> candidates)
+    {
+        return candidates.stream()
+                .filter(candidate -> allSubExpressions.stream().anyMatch(node -> node == candidate.predicate()))
+                .filter(candidate -> !subPlan.getTranslations().isPlanned(candidate.operand(), candidate.predicate()))
                 .collect(toImmutableList());
     }
 
@@ -159,35 +191,42 @@ class SubqueryPlanner
     /**
      * Group expressions into clusters such that all entries in a cluster are #equals to each other
      */
-    private <T extends io.trino.sql.tree.Expression> Collection<Cluster<T>> cluster(Scope scope, List<T> expressions)
+    private <T> Collection<Cluster<T>> cluster(List<T> expressions, Function<T, Object> keyFunction)
     {
-        Map<ScopeAware<T>, List<T>> sets = new LinkedHashMap<>();
+        Map<Object, List<T>> sets = new LinkedHashMap<>();
 
         for (T expression : expressions) {
-            sets.computeIfAbsent(scopeAwareKey(expression, analysis, scope), _ -> new ArrayList<>())
+            sets.computeIfAbsent(keyFunction.apply(expression), _ -> new ArrayList<>())
                     .add(expression);
         }
 
         return sets.values().stream()
-                .map(cluster -> Cluster.newCluster(cluster, scope, analysis))
+                .map(cluster -> Cluster.newCluster(cluster, keyFunction))
                 .collect(toImmutableList());
     }
 
-    private PlanBuilder planInPredicate(PlanBuilder subPlan, Cluster<InPredicate> cluster, Analysis.SubqueryAnalysis subqueries)
+    private PlanBuilder planInPredicate(PlanBuilder subPlan, Cluster<OperandAndPredicate> cluster, Analysis.SubqueryAnalysis subqueries)
     {
         // Plan one of the predicates from the cluster
-        InPredicate predicate = cluster.getRepresentative();
+        OperandAndPredicate representative = cluster.getRepresentative();
+        InPredicate inPredicate = (InPredicate) representative.predicate();
 
-        io.trino.sql.tree.Expression value = predicate.getValue();
-        SubqueryExpression subquery = (SubqueryExpression) predicate.getValueList();
+        io.trino.sql.tree.Expression value = representative.operand();
+        SubqueryExpression subquery = (SubqueryExpression) inPredicate.getValueList();
         Symbol output = symbolAllocator.newSymbol("expr", BOOLEAN);
 
         subPlan = handleSubqueries(subPlan, value, subqueries);
-        subPlan = planInPredicate(subPlan, value, subquery, output, predicate, analysis.getPredicateCoercions(predicate));
+        subPlan = planInPredicate(subPlan, value, subquery, output, value, analysis.getPredicateCoercions(inPredicate));
 
+        // The in-place NOT (i.e. `x NOT IN (subquery)`) is carried on the predicate; wrap the
+        // semi-join's output with NOT and map the predicate to the wrapped symbol so the rest of
+        // the planner sees the negated form.
+        if (inPredicate.isNegated()) {
+            subPlan = addNegation(subPlan, cluster, output);
+            return subPlan;
+        }
         return new PlanBuilder(
-                subPlan.getTranslations()
-                        .withAdditionalMappings(mapAll(cluster, subPlan.getScope(), output)),
+                mapClusterOutput(subPlan.getTranslations(), cluster, output),
                 subPlan.getRoot());
     }
 
@@ -229,7 +268,8 @@ class SubqueryPlanner
                 analysis,
                 lambdaDeclarationToSymbolMap,
                 session,
-                plannerContext);
+                plannerContext,
+                symbolAllocator);
 
         PlanNode root = new EnforceSingleRowNode(idAllocator.getNextId(), subqueryPlan.getRoot());
 
@@ -308,14 +348,15 @@ class SubqueryPlanner
                 .process(subquery, null);
     }
 
-    private PlanBuilder planQuantifiedComparison(PlanBuilder subPlan, Cluster<QuantifiedComparisonExpression> cluster, Analysis.SubqueryAnalysis subqueries)
+    private PlanBuilder planQuantifiedComparison(PlanBuilder subPlan, Cluster<OperandAndPredicate> cluster, Analysis.SubqueryAnalysis subqueries)
     {
         // Plan one of the predicates from the cluster
-        QuantifiedComparisonExpression quantifiedComparison = cluster.getRepresentative();
+        OperandAndPredicate representative = cluster.getRepresentative();
+        QuantifiedComparisonPredicate quantifiedComparison = (QuantifiedComparisonPredicate) representative.predicate();
 
-        ComparisonExpression.Operator operator = quantifiedComparison.getOperator();
-        Quantifier quantifier = quantifiedComparison.getQuantifier();
-        io.trino.sql.tree.Expression value = quantifiedComparison.getValue();
+        ComparisonPredicate.Operator operator = quantifiedComparison.getOperator();
+        QuantifiedComparisonPredicate.Quantifier quantifier = quantifiedComparison.getQuantifier();
+        io.trino.sql.tree.Expression value = representative.operand();
         SubqueryExpression subquery = (SubqueryExpression) quantifiedComparison.getSubquery();
 
         subPlan = handleSubqueries(subPlan, value, subqueries);
@@ -329,54 +370,48 @@ class SubqueryPlanner
                 case ALL -> {
                     subPlan = planQuantifiedComparison(subPlan, operator, quantifier, value, subquery, output, predicateCoercions);
                     yield new PlanBuilder(
-                            subPlan.getTranslations()
-                                    .withAdditionalMappings(ImmutableMap.of(scopeAwareKey(quantifiedComparison, analysis, subPlan.getScope()), output)),
+                            mapClusterOutput(subPlan.getTranslations(), cluster, output),
                             subPlan.getRoot());
                 }
                 case ANY, SOME -> {
                     // A = ANY B <=> A IN B
-                    subPlan = planInPredicate(subPlan, value, subquery, output, quantifiedComparison, predicateCoercions);
+                    subPlan = planInPredicate(subPlan, value, subquery, output, value, predicateCoercions);
                     yield new PlanBuilder(
-                            subPlan.getTranslations()
-                                    .withAdditionalMappings(mapAll(cluster, subPlan.getScope(), output)),
+                            mapClusterOutput(subPlan.getTranslations(), cluster, output),
                             subPlan.getRoot());
                 }
             };
             case NOT_EQUAL -> switch (quantifier) {
                 // A <> ALL B <=> !(A IN B)
                 case ALL -> addNegation(
-                        planInPredicate(subPlan, value, subquery, output, quantifiedComparison, predicateCoercions),
+                        planInPredicate(subPlan, value, subquery, output, value, predicateCoercions),
                         cluster,
                         output);
                 // A <> ANY B <=> min B <> max B || A <> min B <=> !(min B = max B && A = min B) <=> !(A = ALL B)
                 // "A <> ANY B" is equivalent to "NOT (A = ALL B)" so add a rewrite for the initial quantifiedComparison to notAll
                 case ANY, SOME -> addNegation(
-                        planQuantifiedComparison(subPlan, ComparisonExpression.Operator.EQUAL, Quantifier.ALL, value, subquery, output, predicateCoercions),
+                        planQuantifiedComparison(subPlan, ComparisonPredicate.Operator.EQUAL, QuantifiedComparisonPredicate.Quantifier.ALL, value, subquery, output, predicateCoercions),
                         cluster,
                         output);
             };
             case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> {
                 subPlan = planQuantifiedComparison(subPlan, operator, quantifier, value, subquery, output, predicateCoercions);
                 yield new PlanBuilder(
-                        subPlan.getTranslations()
-                                .withAdditionalMappings(mapAll(cluster, subPlan.getScope(), output)),
+                        mapClusterOutput(subPlan.getTranslations(), cluster, output),
                         subPlan.getRoot());
             }
-            case IS_DISTINCT_FROM -> // Cannot be used with quantified comparison
-                    throw new IllegalArgumentException(format("Unexpected quantified comparison: '%s %s'", operator.getValue(), quantifier));
         };
     }
 
     /**
      * Adds a negation of the given input and remaps the provided expression to the negated expression
      */
-    private PlanBuilder addNegation(PlanBuilder subPlan, Cluster<? extends io.trino.sql.tree.Expression> cluster, Symbol input)
+    private PlanBuilder addNegation(PlanBuilder subPlan, Cluster<OperandAndPredicate> cluster, Symbol input)
     {
         Symbol output = symbolAllocator.newSymbol("not", BOOLEAN);
 
         return new PlanBuilder(
-                subPlan.getTranslations()
-                        .withAdditionalMappings(mapAll(cluster, subPlan.getScope(), output)),
+                mapClusterOutput(subPlan.getTranslations(), cluster, output),
                 new ProjectNode(
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
@@ -388,8 +423,8 @@ class SubqueryPlanner
 
     private PlanBuilder planQuantifiedComparison(
             PlanBuilder subPlan,
-            ComparisonExpression.Operator operator,
-            Quantifier quantifier,
+            ComparisonPredicate.Operator operator,
+            QuantifiedComparisonPredicate.Quantifier quantifier,
             io.trino.sql.tree.Expression value,
             io.trino.sql.tree.Expression subquery,
             Symbol assignment,
@@ -409,7 +444,7 @@ class SubqueryPlanner
                         subquery));
     }
 
-    private static ApplyNode.Quantifier mapQuantifier(Quantifier quantifier)
+    private static ApplyNode.Quantifier mapQuantifier(QuantifiedComparisonPredicate.Quantifier quantifier)
     {
         return switch (quantifier) {
             case ALL -> ApplyNode.Quantifier.ALL;
@@ -418,7 +453,7 @@ class SubqueryPlanner
         };
     }
 
-    private static ApplyNode.Operator mapOperator(ComparisonExpression.Operator operator)
+    private static ApplyNode.Operator mapOperator(ComparisonPredicate.Operator operator)
     {
         return switch (operator) {
             case EQUAL -> ApplyNode.Operator.EQUAL;
@@ -427,7 +462,6 @@ class SubqueryPlanner
             case LESS_THAN_OR_EQUAL -> ApplyNode.Operator.LESS_THAN_OR_EQUAL;
             case GREATER_THAN -> ApplyNode.Operator.GREATER_THAN;
             case GREATER_THAN_OR_EQUAL -> ApplyNode.Operator.GREATER_THAN_OR_EQUAL;
-            case IS_DISTINCT_FROM -> throw new IllegalArgumentException();
         };
     }
 
@@ -467,7 +501,8 @@ class SubqueryPlanner
                 lambdaDeclarationToSymbolMap,
                 ImmutableMap.of(scopeAwareKey(subquery, analysis, relationPlan.getScope()), column),
                 session,
-                plannerContext);
+                plannerContext,
+                symbolAllocator);
 
         RelationType descriptor = relationPlan.getDescriptor();
         ImmutableList.Builder<Expression> fields = ImmutableList.builder();
@@ -514,10 +549,22 @@ class SubqueryPlanner
                         (first, _) -> first));
     }
 
+    /// Register the planned `output` for the cluster under its representative's scope-aware
+    /// [TranslationMap.RelationalPredicateKey]. All cluster members share that key by
+    /// construction, so the single entry covers every member; it also lets structurally equal
+    /// `value <predicate>` occurrences planned in a later `handleSubqueries` call be recognized
+    /// as already planned.
+    private TranslationMap mapClusterOutput(TranslationMap translations, Cluster<OperandAndPredicate> cluster, Symbol output)
+    {
+        return translations
+                .withAdditionalPredicateMappings(ImmutableMap.of(
+                        subqueryPredicateKey(cluster.getRepresentative(), translations.getScope()), output));
+    }
+
     /**
      * A group of expressions that are equivalent to each other according to ScopeAware criteria
      */
-    private static class Cluster<T extends io.trino.sql.tree.Expression>
+    private static class Cluster<T>
     {
         private final List<T> expressions;
 
@@ -527,10 +574,10 @@ class SubqueryPlanner
             this.expressions = ImmutableList.copyOf(expressions);
         }
 
-        public static <T extends io.trino.sql.tree.Expression> Cluster<T> newCluster(List<T> expressions, Scope scope, Analysis analysis)
+        public static <T> Cluster<T> newCluster(List<T> expressions, Function<T, Object> keyFunction)
         {
             long count = expressions.stream()
-                    .map(expression -> scopeAwareKey(expression, analysis, scope))
+                    .map(keyFunction)
                     .distinct()
                     .count();
 

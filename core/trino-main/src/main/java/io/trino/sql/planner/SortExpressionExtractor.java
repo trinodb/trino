@@ -15,7 +15,6 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.join.SortedPositionLinks;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrUtils;
@@ -119,16 +118,6 @@ public final class SortExpressionExtractor
                 }
                 default -> List.of();
             };
-        }
-
-        @Override
-        protected List<SortExpressionContext> visitBetween(Between node, Void context)
-        {
-            // Handle both side of BETWEEN as `GREATER_THAN_OR_EQUAL` expression and `LESS_THAN_OR_EQUAL` expression.
-            return ImmutableList.<SortExpressionContext>builder()
-                    .addAll(visitComparison(new Comparison(GREATER_THAN_OR_EQUAL, node.value(), node.min()), context))
-                    .addAll(visitComparison(new Comparison(LESS_THAN_OR_EQUAL, node.value(), node.max()), context))
-                    .build();
         }
     }
 

@@ -317,14 +317,14 @@ public final class SqlRoutinePlanner
             Map<NodeRef<LambdaArgumentDeclaration>, Symbol> nodeRefSymbolMap = buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator);
 
             // Apply casts, desugar expression, and perform other rewrites
-            TranslationMap translationMap = new TranslationMap(Optional.empty(), scope, analysis, nodeRefSymbolMap, fieldSymbols, session, plannerContext);
+            TranslationMap translationMap = new TranslationMap(Optional.empty(), scope, analysis, nodeRefSymbolMap, fieldSymbols, session, plannerContext, symbolAllocator);
             io.trino.sql.ir.Expression translated = coerceIfNecessary(analysis, expression, translationMap.rewrite(expression));
 
             // desugar the lambda captures
             io.trino.sql.ir.Expression lambdaCaptureDesugared = LambdaCaptureDesugaringRewriter.rewrite(translated, symbolAllocator);
 
             // optimize the expression
-            io.trino.sql.ir.Expression optimized = optimizer.process(lambdaCaptureDesugared, session, ImmutableMap.of()).orElse(lambdaCaptureDesugared);
+            io.trino.sql.ir.Expression optimized = optimizer.process(lambdaCaptureDesugared, session, symbolAllocator, ImmutableMap.of()).orElse(lambdaCaptureDesugared);
 
             // Replace symbol references with routine variable references
             List<Map.Entry<String, IrVariable>> variableEntries = List.copyOf(context.variables().entrySet());

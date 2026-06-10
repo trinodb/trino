@@ -25,7 +25,6 @@ import io.trino.SystemSessionProperties;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Comparison.Operator;
@@ -74,7 +73,6 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -297,7 +295,7 @@ public class PredicatePushDown
             List<Expression> inlinedDeterministicConjuncts = inlineConjuncts.get(true).stream()
                     .map(entry -> inlineSymbols(node.getAssignments().assignments(), entry))
                     .map(conjunct -> canonicalizeExpression(conjunct, plannerContext)) // normalize expressions to a form that unwrapCasts understands
-                    .map(conjunct -> unwrapCasts(session, plannerContext, conjunct))
+                    .map(conjunct -> unwrapCasts(session, plannerContext, symbolAllocator, conjunct))
                     .collect(Collectors.toList());
 
             PlanNode rewrittenNode = context.defaultRewrite(node, combineConjuncts(inlinedDeterministicConjuncts));
@@ -421,8 +419,8 @@ public class PredicatePushDown
             // See if we can rewrite outer joins in terms of a plain inner join
             node = tryNormalizeToOuterToInnerJoin(node, inheritedPredicate);
 
-            Expression leftEffectivePredicate = effectivePredicateExtractor.extract(session, node.getLeft());
-            Expression rightEffectivePredicate = effectivePredicateExtractor.extract(session, node.getRight());
+            Expression leftEffectivePredicate = effectivePredicateExtractor.extract(session, symbolAllocator, node.getLeft());
+            Expression rightEffectivePredicate = effectivePredicateExtractor.extract(session, symbolAllocator, node.getRight());
             Expression joinPredicate = extractJoinPredicate(node);
 
             Expression leftPredicate;
@@ -610,7 +608,6 @@ public class PredicatePushDown
                                     .map(clause -> new DynamicFilterExpression(
                                             new Comparison(EQUAL, clause.getLeft().toSymbolReference(), clause.getRight().toSymbolReference()))),
                             joinFilterClauses.stream()
-                                    .flatMap(Rewriter::tryConvertBetweenIntoComparisons)
                                     .filter(clause -> joinDynamicFilteringExpression(clause, node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols()))
                                     .map(expression -> {
                                         if (expression instanceof Comparison comparison && comparison.operator() == IDENTICAL) {
@@ -667,16 +664,6 @@ public class PredicatePushDown
                     .collect(toImmutableList());
             // Return a mapping from build symbols to corresponding dynamic filter IDs:
             return new DynamicFiltersResult(buildSymbolToDynamicFilter.inverse(), predicates);
-        }
-
-        private static Stream<Expression> tryConvertBetweenIntoComparisons(Expression clause)
-        {
-            if (clause instanceof Between between) {
-                return Stream.of(
-                        new Comparison(GREATER_THAN_OR_EQUAL, between.value(), between.min()),
-                        new Comparison(LESS_THAN_OR_EQUAL, between.value(), between.max()));
-            }
-            return Stream.of(clause);
         }
 
         private static class DynamicFilterExpression
@@ -738,8 +725,8 @@ public class PredicatePushDown
                 node = new SpatialJoinNode(node.getId(), SpatialJoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getOutputSymbols(), node.getFilter(), node.getLeftPartitionSymbol(), node.getRightPartitionSymbol(), node.getKdbTree());
             }
 
-            Expression leftEffectivePredicate = effectivePredicateExtractor.extract(session, node.getLeft());
-            Expression rightEffectivePredicate = effectivePredicateExtractor.extract(session, node.getRight());
+            Expression leftEffectivePredicate = effectivePredicateExtractor.extract(session, symbolAllocator, node.getLeft());
+            Expression rightEffectivePredicate = effectivePredicateExtractor.extract(session, symbolAllocator, node.getRight());
             Expression joinPredicate = node.getFilter();
 
             Expression leftPredicate;
@@ -1240,7 +1227,7 @@ public class PredicatePushDown
         // Temporary implementation for joins because the SimplifyExpressions optimizers cannot run properly on join clauses
         private Expression simplifyExpression(Expression expression)
         {
-            return optimizer.process(expression, session, ImmutableMap.of()).orElse(expression);
+            return optimizer.process(expression, session, symbolAllocator, ImmutableMap.of()).orElse(expression);
         }
 
         /**
@@ -1253,7 +1240,7 @@ public class PredicatePushDown
                             symbol -> symbol,
                             symbol -> new Constant(symbol.type(), null)));
 
-            return optimizer.process(expression, session, inputs).orElse(expression);
+            return optimizer.process(expression, session, symbolAllocator, inputs).orElse(expression);
         }
 
         private boolean joinEqualityExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols)
@@ -1367,8 +1354,8 @@ public class PredicatePushDown
         {
             Expression inheritedPredicate = context.get();
             Expression deterministicInheritedPredicate = filterDeterministicConjuncts(inheritedPredicate);
-            Expression sourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicateExtractor.extract(session, node.getSource()));
-            Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicateExtractor.extract(session, node.getFilteringSource()));
+            Expression sourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicateExtractor.extract(session, symbolAllocator, node.getSource()));
+            Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicateExtractor.extract(session, symbolAllocator, node.getFilteringSource()));
             Expression joinExpression = new Comparison(
                     EQUAL,
                     node.getSourceJoinSymbol().toSymbolReference(),

@@ -23,6 +23,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 
 import java.util.List;
 import java.util.Map;
@@ -54,7 +55,7 @@ public class SimplifyCharLength
     }
 
     @Override
-    public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
+    public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
         if (!(expression instanceof Call(ResolvedFunction function, List<Expression> arguments))
                 || !function.name().equals(builtinFunctionName("length"))

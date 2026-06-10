@@ -18,11 +18,11 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import org.junit.jupiter.api.Test;
@@ -94,7 +94,7 @@ public class TestSortExpressionExtractor
 
         assertGetSortExpression(
                 new Logical(AND, ImmutableList.of(
-                        new Between(new Reference(BIGINT, "p1"), new Reference(BIGINT, "b1"), new Reference(BIGINT, "b2")),
+                        IrExpressions.between(new SymbolAllocator(), new Reference(BIGINT, "p1"), new Reference(BIGINT, "b1"), new Reference(BIGINT, "b2")),
                         new Comparison(
                                 LESS_THAN,
                                 new Reference(BIGINT, "b2"),
@@ -107,18 +107,18 @@ public class TestSortExpressionExtractor
                         new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "p2"), new Constant(BIGINT, 1L)))));
 
         assertGetSortExpression(
-                new Between(new Reference(BIGINT, "p1"), new Reference(BIGINT, "p2"), new Reference(BIGINT, "b1")),
+                IrExpressions.between(new SymbolAllocator(), new Reference(BIGINT, "p1"), new Reference(BIGINT, "p2"), new Reference(BIGINT, "b1")),
                 "b1",
                 new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "p1"), new Reference(BIGINT, "b1")));
 
         assertGetSortExpression(
-                new Between(new Reference(BIGINT, "b1"), new Reference(BIGINT, "p1"), new Reference(BIGINT, "p2")),
+                IrExpressions.between(new SymbolAllocator(), new Reference(BIGINT, "b1"), new Reference(BIGINT, "p1"), new Reference(BIGINT, "p2")),
                 "b1",
                 new Comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "b1"), new Reference(BIGINT, "p1")),
                 new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "b1"), new Reference(BIGINT, "p2")));
 
         assertGetSortExpression(
-                new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "b1"), new Reference(BIGINT, "p1")), new Between(new Reference(BIGINT, "p1"), new Reference(BIGINT, "b1"), new Reference(BIGINT, "b2")))),
+                new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "b1"), new Reference(BIGINT, "p1")), IrExpressions.between(new SymbolAllocator(), new Reference(BIGINT, "p1"), new Reference(BIGINT, "b1"), new Reference(BIGINT, "b2")))),
                 "b1",
                 new Comparison(GREATER_THAN, new Reference(BIGINT, "b1"), new Reference(BIGINT, "p1")),
                 new Comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "p1"), new Reference(BIGINT, "b1")));

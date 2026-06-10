@@ -25,10 +25,12 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.NullIf;
+import io.trino.sql.ir.Match;
+import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
@@ -193,7 +195,7 @@ public class TestSimplifyFilterPredicate
         // NULLIF(x, y) returns true if and only if: x != y AND x = true
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        new NullIf(new Reference(BOOLEAN, "a"), new Reference(BOOLEAN, "b")),
+                        IrExpressions.nullIf(new SymbolAllocator(), new Reference(BOOLEAN, "a"), new Reference(BOOLEAN, "b")),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
                         filter(
@@ -401,11 +403,11 @@ public class TestSimplifyFilterPredicate
     {
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        new Switch(
+                        new Match(
                                 new Reference(BOOLEAN, "a"),
                                 ImmutableList.of(
-                                        new WhenClause(new Reference(BOOLEAN, "b"), TRUE),
-                                        new WhenClause(new Comparison(EQUAL, new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), new Constant(INTEGER, 0L)), FALSE)),
+                                        equalityClause(new Reference(BOOLEAN, "b"), TRUE),
+                                        equalityClause(new Comparison(EQUAL, new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), new Constant(INTEGER, 0L)), FALSE)),
                                 TRUE),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .doesNotFire();
@@ -413,11 +415,11 @@ public class TestSimplifyFilterPredicate
         // comparison with null returns null - no WHEN branch matches, return default value
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        new Switch(
+                        new Match(
                                 new Constant(BOOLEAN, null),
                                 ImmutableList.of(
-                                        new WhenClause(new Constant(BOOLEAN, null), TRUE),
-                                        new WhenClause(new Reference(BOOLEAN, "a"), FALSE)),
+                                        equalityClause(new Constant(BOOLEAN, null), TRUE),
+                                        equalityClause(new Reference(BOOLEAN, "a"), FALSE)),
                                 new Reference(BOOLEAN, "b")),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
@@ -428,11 +430,11 @@ public class TestSimplifyFilterPredicate
         // comparison with null returns null - no WHEN branch matches, the result is default null, simplified to FALSE
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        new Switch(
+                        new Match(
                                 new Constant(BOOLEAN, null),
                                 ImmutableList.of(
-                                        new WhenClause(new Constant(BOOLEAN, null), TRUE),
-                                        new WhenClause(new Reference(BOOLEAN, "a"), FALSE)),
+                                        equalityClause(new Constant(BOOLEAN, null), TRUE),
+                                        equalityClause(new Reference(BOOLEAN, "a"), FALSE)),
                                 NULL_BOOLEAN),
                         p.values(p.symbol("a"))))
                 .matches(
@@ -443,11 +445,11 @@ public class TestSimplifyFilterPredicate
         // all results true
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        new Switch(
+                        new Match(
                                 new Reference(INTEGER, "a"),
                                 ImmutableList.of(
-                                        new WhenClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), TRUE),
-                                        new WhenClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 2L))), TRUE)),
+                                        equalityClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), TRUE),
+                                        equalityClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 2L))), TRUE)),
                                 TRUE),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
@@ -458,11 +460,11 @@ public class TestSimplifyFilterPredicate
         // all results not true
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        new Switch(
+                        new Match(
                                 new Reference(INTEGER, "a"),
                                 ImmutableList.of(
-                                        new WhenClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), FALSE),
-                                        new WhenClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 2L))), new Constant(BOOLEAN, null))),
+                                        equalityClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), FALSE),
+                                        equalityClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 2L))), new Constant(BOOLEAN, null))),
                                 FALSE),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
@@ -473,11 +475,11 @@ public class TestSimplifyFilterPredicate
         // all results not true (including default null result)
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        new Switch(
+                        new Match(
                                 new Reference(INTEGER, "a"),
                                 ImmutableList.of(
-                                        new WhenClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), FALSE),
-                                        new WhenClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 2L))), new Constant(BOOLEAN, null))),
+                                        equalityClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), FALSE),
+                                        equalityClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 2L))), new Constant(BOOLEAN, null))),
                                 NULL_BOOLEAN),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
@@ -489,5 +491,10 @@ public class TestSimplifyFilterPredicate
     private static Expression not(Expression expression)
     {
         return IrExpressions.not(FUNCTIONS.getMetadata(), expression);
+    }
+
+    private static MatchClause equalityClause(Expression value, Expression result)
+    {
+        return IrExpressions.equalityClause(new Symbol(value.type(), "operand"), value, result);
     }
 }

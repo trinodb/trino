@@ -29,15 +29,16 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
+import io.trino.sql.planner.SymbolAllocator;
 
 import java.lang.invoke.MethodHandle;
 import java.time.LocalDate;
@@ -101,15 +102,16 @@ public class UnwrapDateTruncInComparison
     {
         requireNonNull(plannerContext, "plannerContext is null");
 
-        return (expression, context) -> unwrapDateTrunc(context.getSession(), plannerContext, expression);
+        return (expression, context) -> unwrapDateTrunc(context.getSession(), plannerContext, context.getSymbolAllocator(), expression);
     }
 
     private static Expression unwrapDateTrunc(
             Session session,
             PlannerContext plannerContext,
+            SymbolAllocator symbolAllocator,
             Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, session), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, session, symbolAllocator), expression);
     }
 
     private static class Visitor
@@ -117,14 +119,16 @@ public class UnwrapDateTruncInComparison
     {
         private final PlannerContext plannerContext;
         private final Session session;
+        private final SymbolAllocator symbolAllocator;
         private final InterpretedFunctionInvoker functionInvoker;
         private final IrExpressionEvaluator evaluator;
         private final IrExpressionOptimizer optimizer;
 
-        public Visitor(PlannerContext plannerContext, Session session)
+        public Visitor(PlannerContext plannerContext, Session session, SymbolAllocator symbolAllocator)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.session = requireNonNull(session, "session is null");
+            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
             evaluator = plannerContext.getExpressionEvaluator();
             optimizer = plannerContext.getExpressionOptimizer();
@@ -159,7 +163,7 @@ public class UnwrapDateTruncInComparison
             }
 
             Expression argument = call.arguments().get(1);
-            Expression right = optimizer.process(expression.right(), session, ImmutableMap.of()).orElse(expression.right());
+            Expression right = optimizer.process(expression.right(), session, symbolAllocator, ImmutableMap.of()).orElse(expression.right());
 
             if (right instanceof Constant constant && constant.value() == null) {
                 return switch (expression.operator()) {
@@ -277,9 +281,10 @@ public class UnwrapDateTruncInComparison
             throw new UnsupportedOperationException("Unsupported type: " + type);
         }
 
-        private Between between(Expression argument, Type type, Object minInclusive, Object maxInclusive)
+        private Expression between(Expression argument, Type type, Object minInclusive, Object maxInclusive)
         {
-            return new Between(
+            return IrExpressions.between(
+                    symbolAllocator,
                     argument,
                     new Constant(type, minInclusive),
                     new Constant(type, maxInclusive));

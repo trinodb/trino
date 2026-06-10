@@ -13,48 +13,54 @@
  */
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.Symbol;
 
 import java.util.List;
 
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.IrUtils.validateType;
 
+/**
+ * Let(name, value, body)
+ * <p>
+ * Evaluates value, binds it to name, and evaluates body with the binding in scope.
+ * The result is the value of body. Use to avoid duplicating a subexpression that is
+ * referenced multiple times in the body — particularly important when the
+ * subexpression is non-deterministic, where structural sharing in the IR tree would
+ * still result in repeated evaluation.
+ */
 @JsonSerialize
-public record Between(Expression value, Expression min, Expression max)
+public record Let(Symbol name, Expression value, Expression body)
         implements Expression
 {
-    @JsonCreator
-    public Between
+    public Let
     {
-        validateType(value.type(), min);
-        validateType(value.type(), max);
+        validateType(name.type(), value);
     }
 
     @Override
     public Type type()
     {
-        return BOOLEAN;
+        return body.type();
     }
 
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
-        return visitor.visitBetween(this, context);
+        return visitor.visitLet(this, context);
     }
 
     @Override
     public List<? extends Expression> children()
     {
-        return ImmutableList.of(value, min, max);
+        return ImmutableList.of(value, body);
     }
 
     @Override
     public String toString()
     {
-        return "Between(%s, %s, %s)".formatted(value, min, max);
+        return "Let(%s = %s, %s)".formatted(name, value, body);
     }
 }

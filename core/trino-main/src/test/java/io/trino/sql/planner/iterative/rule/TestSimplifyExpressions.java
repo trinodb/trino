@@ -29,6 +29,7 @@ import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.type.Reals;
 import io.trino.util.DateTimeUtils;
 import org.junit.jupiter.api.Test;
@@ -529,7 +530,7 @@ public class TestSimplifyExpressions
 
     private static void assertSimplifies(Expression expression, Expression expected)
     {
-        Expression simplified = normalize(rewrite(expression, TEST_SESSION, PLANNER_CONTEXT.getExpressionOptimizer()));
+        Expression simplified = normalize(rewrite(expression, TEST_SESSION, new SymbolAllocator(), PLANNER_CONTEXT.getExpressionOptimizer()));
         assertThat(simplified).isEqualTo(normalize(expected));
     }
 
@@ -653,7 +654,7 @@ public class TestSimplifyExpressions
 
     private static void assertSimplifiesNumericTypes(Expression expression, Expression expected)
     {
-        Expression rewritten = rewrite(expression, TEST_SESSION, PLANNER_CONTEXT.getExpressionOptimizer());
+        Expression rewritten = rewrite(expression, TEST_SESSION, new SymbolAllocator(), PLANNER_CONTEXT.getExpressionOptimizer());
         assertThat(normalize(rewritten)).isEqualTo(normalize(expected));
     }
 

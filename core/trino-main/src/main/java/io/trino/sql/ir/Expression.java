@@ -25,7 +25,6 @@ import java.util.List;
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
 @JsonSubTypes({
         @JsonSubTypes.Type(value = Array.class, name = "array"),
-        @JsonSubTypes.Type(value = Between.class, name = "between"),
         @JsonSubTypes.Type(value = Bind.class, name = "bind"),
         @JsonSubTypes.Type(value = Call.class, name = "call"),
         @JsonSubTypes.Type(value = Case.class, name = "case"),
@@ -37,15 +36,14 @@ import java.util.List;
         @JsonSubTypes.Type(value = In.class, name = "in"),
         @JsonSubTypes.Type(value = IsNull.class, name = "isnull"),
         @JsonSubTypes.Type(value = Lambda.class, name = "lambda"),
+        @JsonSubTypes.Type(value = Let.class, name = "let"),
         @JsonSubTypes.Type(value = Logical.class, name = "logical"),
-        @JsonSubTypes.Type(value = NullIf.class, name = "nullif"),
         @JsonSubTypes.Type(value = Reference.class, name = "reference"),
         @JsonSubTypes.Type(value = Row.class, name = "row"),
-        @JsonSubTypes.Type(value = Switch.class, name = "switch"),
+        @JsonSubTypes.Type(value = Match.class, name = "match"),
 })
 public sealed interface Expression
         permits Array,
-                Between,
                 Bind,
                 Call,
                 Case,
@@ -57,11 +55,11 @@ public sealed interface Expression
                 In,
                 IsNull,
                 Lambda,
+                Let,
                 Logical,
-                NullIf,
+                Match,
                 Reference,
-                Row,
-                Switch
+                Row
 {
     Type type();
 

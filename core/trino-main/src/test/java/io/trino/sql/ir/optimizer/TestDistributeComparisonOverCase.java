@@ -19,15 +19,18 @@ import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.rule.DistributeComparisonOverCase;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.testing.TestingSession.testSession;
@@ -119,8 +122,23 @@ public class TestDistributeComparisonOverCase
                         new Comparison(GREATER_THAN, new Reference(BIGINT, "z"), new Constant(BIGINT, 1L)))));
     }
 
+    @Test
+    void testDoesNotDistributeNullIf()
+    {
+        // NULLIF(x, 1) desugars to a Case; it must be left intact so it stays recognizable for connector pushdown.
+        Expression nullIf = IrExpressions.nullIf(new SymbolAllocator(), new Reference(BIGINT, "x"), new Constant(BIGINT, 1L));
+
+        assertThat(optimize(new Comparison(EQUAL, nullIf, new Reference(BIGINT, "m"))))
+                .describedAs("nullif(...) = reference")
+                .isEqualTo(Optional.empty());
+
+        assertThat(optimize(new Comparison(EQUAL, new Reference(BIGINT, "m"), nullIf)))
+                .describedAs("reference = nullif(...)")
+                .isEqualTo(Optional.empty());
+    }
+
     private Optional<Expression> optimize(Expression expression)
     {
-        return new DistributeComparisonOverCase().apply(expression, testSession(), ImmutableMap.of());
+        return new DistributeComparisonOverCase().apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }

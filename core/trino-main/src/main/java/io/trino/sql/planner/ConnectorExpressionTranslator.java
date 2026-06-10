@@ -37,9 +37,9 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Comparison;
@@ -47,11 +47,12 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.type.JoniRegexp;
@@ -80,6 +81,7 @@ import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NA
 import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.ARRAY_CONSTRUCTOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.BETWEEN_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.COALESCE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.DIVIDE_FUNCTION_NAME;
@@ -124,9 +126,9 @@ public final class ConnectorExpressionTranslator
 {
     private ConnectorExpressionTranslator() {}
 
-    public static Expression translate(Session session, ConnectorExpression expression, PlannerContext plannerContext, Map<String, Symbol> variableMappings)
+    public static Expression translate(Session session, ConnectorExpression expression, PlannerContext plannerContext, Map<String, Symbol> variableMappings, SymbolAllocator symbolAllocator)
     {
-        return new ConnectorToSqlExpressionTranslator(session, plannerContext, variableMappings)
+        return new ConnectorToSqlExpressionTranslator(session, plannerContext, variableMappings, symbolAllocator)
                 .translate(expression)
                 .orElseThrow(() -> new UnsupportedOperationException("Expression is not supported: " + expression.toString()));
     }
@@ -188,12 +190,14 @@ public final class ConnectorExpressionTranslator
         private final Session session;
         private final PlannerContext plannerContext;
         private final Map<String, Symbol> variableMappings;
+        private final SymbolAllocator symbolAllocator;
 
-        public ConnectorToSqlExpressionTranslator(Session session, PlannerContext plannerContext, Map<String, Symbol> variableMappings)
+        public ConnectorToSqlExpressionTranslator(Session session, PlannerContext plannerContext, Map<String, Symbol> variableMappings, SymbolAllocator symbolAllocator)
         {
             this.session = requireNonNull(session, "session is null");
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.variableMappings = requireNonNull(variableMappings, "variableMappings is null");
+            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         }
 
         public Optional<Expression> translate(ConnectorExpression expression)
@@ -266,6 +270,12 @@ public final class ConnectorExpressionTranslator
             }
             if (OR_FUNCTION_NAME.equals(call.getFunctionName())) {
                 return translateLogicalExpression(Logical.Operator.OR, call.getArguments(), lambdaArguments);
+            }
+            if (BETWEEN_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 3) {
+                return translate(call.getArguments().get(0), lambdaArguments).flatMap(value ->
+                        translate(call.getArguments().get(1), lambdaArguments).flatMap(min ->
+                                translate(call.getArguments().get(2), lambdaArguments).map(max ->
+                                        IrExpressions.between(symbolAllocator, value, min, max))));
             }
             if (NOT_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
                 ConnectorExpression expression = getOnlyElement(call.getArguments());
@@ -446,7 +456,7 @@ public final class ConnectorExpressionTranslator
             Optional<Expression> firstExpression = translate(first, lambdaArguments);
             Optional<Expression> secondExpression = translate(second, lambdaArguments);
             if (firstExpression.isPresent() && secondExpression.isPresent()) {
-                return Optional.of(new NullIf(firstExpression.get(), secondExpression.get()));
+                return Optional.of(IrExpressions.nullIf(symbolAllocator, firstExpression.get(), secondExpression.get()));
             }
 
             return Optional.empty();
@@ -663,6 +673,27 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
+        protected Optional<ConnectorExpression> visitLet(Let node, Context context)
+        {
+            if (!isComplexExpressionPushdown(session)) {
+                return Optional.empty();
+            }
+            // Only the Let-wrapped forms are translated to their function-call equivalents.
+            // The trivial forms (AND of comparisons / a Case expression on a trivial value)
+            // already route through `visitLogical` / `visitCase` and are pushed as their plain
+            // shape, since duplicating a Reference or Constant on the connector side is harmless.
+            Optional<ConnectorExpression> between = IrExpressions.asBetween(node).flatMap(pattern ->
+                    process(pattern.value(), context).flatMap(value ->
+                            process(pattern.min(), context).flatMap(min ->
+                                    process(pattern.max(), context).map(max ->
+                                            new io.trino.spi.expression.Call(BOOLEAN, BETWEEN_FUNCTION_NAME, ImmutableList.of(value, min, max))))));
+            if (between.isPresent()) {
+                return between;
+            }
+            return IrExpressions.asNullIf(node).flatMap(pattern -> translateNullIfPattern(pattern, node.type(), context));
+        }
+
+        @Override
         protected Optional<ConnectorExpression> visitComparison(Comparison node, Context context)
         {
             if (!isComplexExpressionPushdown(session)) {
@@ -671,23 +702,6 @@ public final class ConnectorExpressionTranslator
 
             return process(node.left(), context).flatMap(left -> process(node.right(), context).map(right ->
                     new io.trino.spi.expression.Call(((Expression) node).type(), functionNameForComparisonOperator(node.operator()), ImmutableList.of(left, right))));
-        }
-
-        @Override
-        protected Optional<ConnectorExpression> visitBetween(Between node, Context context)
-        {
-            if (!isComplexExpressionPushdown(session)) {
-                return Optional.empty();
-            }
-            return process(node.value(), context).flatMap(value ->
-                    process(node.min(), context).flatMap(min ->
-                            process(node.max(), context).map(max ->
-                                    new io.trino.spi.expression.Call(
-                                            BOOLEAN,
-                                            AND_FUNCTION_NAME,
-                                            ImmutableList.of(
-                                                    new io.trino.spi.expression.Call(BOOLEAN, GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(value, min)),
-                                                    new io.trino.spi.expression.Call(BOOLEAN, LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(value, max)))))));
         }
 
         protected Optional<ConnectorExpression> translateNegation(Call node, Context context)
@@ -892,14 +906,22 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitNullIf(NullIf node, Context context)
+        protected Optional<ConnectorExpression> visitCase(Case node, Context context)
         {
-            Optional<ConnectorExpression> firstValue = process(node.first(), context);
-            Optional<ConnectorExpression> secondValue = process(node.second(), context);
-            if (firstValue.isPresent() && secondValue.isPresent()) {
-                return Optional.of(new io.trino.spi.expression.Call(((Expression) node).type(), NULLIF_FUNCTION_NAME, ImmutableList.of(firstValue.get(), secondValue.get())));
+            if (!isComplexExpressionPushdown(session)) {
+                return Optional.empty();
             }
-            return Optional.empty();
+            // Generic Case isn't translated; only the trivial NULLIF shape
+            // (`if(first = second) then null else first`) is recognized so it can be pushed as
+            // `$nullif`. The Let-wrapped NULLIF is handled by `visitLet`.
+            return IrExpressions.asNullIf(node).flatMap(pattern -> translateNullIfPattern(pattern, ((Expression) node).type(), context));
+        }
+
+        private Optional<ConnectorExpression> translateNullIfPattern(IrExpressions.NullIfPattern pattern, Type type, Context context)
+        {
+            return process(pattern.first(), context).flatMap(first ->
+                    process(pattern.second(), context).map(second ->
+                            new io.trino.spi.expression.Call(type, NULLIF_FUNCTION_NAME, ImmutableList.of(first, second))));
         }
 
         @Override

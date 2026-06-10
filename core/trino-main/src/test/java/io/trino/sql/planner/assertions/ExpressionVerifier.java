@@ -14,7 +14,6 @@
 package io.trino.sql.planner.assertions;
 
 import io.trino.sql.ir.Array;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
@@ -28,12 +27,16 @@ import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Match;
+import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
+import io.trino.sql.planner.Symbol;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
@@ -66,6 +69,10 @@ public final class ExpressionVerifier
         extends IrVisitor<Boolean, Expression>
 {
     private final SymbolAliases symbolAliases;
+    // Maps each in-scope expected lambda parameter name to the corresponding actual parameter
+    // name while descending into nested lambdas. References to a parameter are matched through
+    // this binding (alpha-equivalence) rather than looked up in the alias table.
+    private final Map<String, String> lambdaParameters = new HashMap<>();
 
     public ExpressionVerifier(SymbolAliases symbolAliases)
     {
@@ -109,6 +116,12 @@ public final class ExpressionVerifier
         // TODO: verify types. This is currently hard to do because planner tests
         //       are either missing types, have the wrong types, or they are unable to
         //       provide types due to limitations in the matcher infrastructure
+        // Lambda parameters are scoped to the lambda body and aren't in the alias table; compare
+        // by name directly. Everything else goes through the strict alias path — a missing alias
+        // is a test-writing error, not a name match.
+        if (lambdaParameters.containsKey(expected.name())) {
+            return actual.name().equals(lambdaParameters.get(expected.name()));
+        }
         return symbolAliases.get(expected.name()).name().equals(actual.name());
     }
 
@@ -170,18 +183,6 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitBetween(Between actual, Expression expectedExpression)
-    {
-        if (!(expectedExpression instanceof Between expected)) {
-            return false;
-        }
-
-        return process(actual.value(), expected.value()) &&
-                process(actual.min(), expected.min()) &&
-                process(actual.max(), expected.max());
-    }
-
-    @Override
     protected Boolean visitLogical(Logical actual, Expression expectedExpression)
     {
         if (!(expectedExpression instanceof Logical expected)) {
@@ -221,15 +222,29 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitSwitch(Switch actual, Expression expectedExpression)
+    protected Boolean visitMatch(Match actual, Expression expectedExpression)
     {
-        if (!(expectedExpression instanceof Switch expected)) {
+        if (!(expectedExpression instanceof Match expected)) {
             return false;
         }
 
         return process(actual.operand(), expected.operand()) &&
-                processWhenClauses(actual.whenClauses(), expected.whenClauses()) &&
+                processMatchClauses(actual.clauses(), expected.clauses()) &&
                 process(actual.defaultValue(), expected.defaultValue());
+    }
+
+    private boolean processMatchClauses(List<MatchClause> actual, List<MatchClause> expected)
+    {
+        if (actual.size() != expected.size()) {
+            return false;
+        }
+        for (int i = 0; i < actual.size(); i++) {
+            if (!process(actual.get(i).predicate(), expected.get(i).predicate()) ||
+                    !process(actual.get(i).result(), expected.get(i).result())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
@@ -283,12 +298,45 @@ public final class ExpressionVerifier
             return false;
         }
 
-        // todo this should allow the arguments to have different names
-        if (!actual.arguments().equals(lambda.arguments())) {
+        // Parameter names are free: the actual lambda's parameters were allocated by the planner
+        // and need not match the expected names. Require matching arity and parameter types, and
+        // bind expected parameter names to actual ones so the body compares up to alpha-renaming.
+        if (actual.arguments().size() != lambda.arguments().size()) {
             return false;
         }
+        for (int i = 0; i < actual.arguments().size(); i++) {
+            if (!actual.arguments().get(i).type().equals(lambda.arguments().get(i).type())) {
+                return false;
+            }
+        }
 
-        return process(actual.body(), lambda.body());
+        List<String> parameterNames = lambda.arguments().stream().map(Symbol::name).toList();
+        // Save any outer bindings that this lambda's parameter names shadow, so we can restore
+        // them on exit. Without this, a nested lambda reusing an outer parameter name would
+        // erase the outer binding when its frame ends, breaking matching of later outer
+        // references to that name.
+        Map<String, String> shadowed = new HashMap<>();
+        for (int i = 0; i < parameterNames.size(); i++) {
+            String name = parameterNames.get(i);
+            String prior = lambdaParameters.put(name, actual.arguments().get(i).name());
+            if (prior != null) {
+                shadowed.put(name, prior);
+            }
+        }
+        try {
+            return process(actual.body(), lambda.body());
+        }
+        finally {
+            for (String name : parameterNames) {
+                String prior = shadowed.get(name);
+                if (prior != null) {
+                    lambdaParameters.put(name, prior);
+                }
+                else {
+                    lambdaParameters.remove(name);
+                }
+            }
+        }
     }
 
     @Override

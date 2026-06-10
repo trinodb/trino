@@ -113,9 +113,9 @@ public class EffectivePredicateExtractor
         this.useTableProperties = useTableProperties;
     }
 
-    public Expression extract(Session session, PlanNode node)
+    public Expression extract(Session session, SymbolAllocator symbolAllocator, PlanNode node)
     {
-        return node.accept(new Visitor(plannerContext, session, useTableProperties), null);
+        return node.accept(new Visitor(plannerContext, session, symbolAllocator, useTableProperties), null);
     }
 
     private static class Visitor
@@ -124,14 +124,16 @@ public class EffectivePredicateExtractor
         private final PlannerContext plannerContext;
         private final Metadata metadata;
         private final Session session;
+        private final SymbolAllocator symbolAllocator;
         private final boolean useTableProperties;
         private final DomainTranslator domainTranslator;
 
-        public Visitor(PlannerContext plannerContext, Session session, boolean useTableProperties)
+        public Visitor(PlannerContext plannerContext, Session session, SymbolAllocator symbolAllocator, boolean useTableProperties)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.metadata = plannerContext.getMetadata();
             this.session = requireNonNull(session, "session is null");
+            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.useTableProperties = useTableProperties;
             this.domainTranslator = new DomainTranslator(metadata);
         }
@@ -371,7 +373,7 @@ public class EffectivePredicateExtractor
                             nonDeterministic[i] = true;
                         }
                         else {
-                            Expression item = plannerContext.getExpressionOptimizer().process(value, session, ImmutableMap.of()).orElse(value);
+                            Expression item = plannerContext.getExpressionOptimizer().process(value, session, symbolAllocator, ImmutableMap.of()).orElse(value);
                             if (!(item instanceof Constant constant)) {
                                 return TRUE;
                             }
@@ -400,7 +402,7 @@ public class EffectivePredicateExtractor
                     if (!DeterminismEvaluator.isDeterministic(expression)) {
                         return TRUE;
                     }
-                    Expression evaluated = plannerContext.getExpressionOptimizer().process(expression, session, ImmutableMap.of()).orElse(expression);
+                    Expression evaluated = plannerContext.getExpressionOptimizer().process(expression, session, symbolAllocator, ImmutableMap.of()).orElse(expression);
                     if (!(evaluated instanceof Constant constant)) {
                         return TRUE;
                     }

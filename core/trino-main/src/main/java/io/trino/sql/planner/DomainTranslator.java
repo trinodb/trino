@@ -38,16 +38,18 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.type.LikeFunctions;
@@ -101,6 +103,7 @@ import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.combineDisjunctsWithDefault;
 import static io.trino.sql.ir.IrUtils.or;
+import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -166,11 +169,9 @@ public final class DomainTranslator
         }
 
         if (isBetween(range)) {
-            // specialize the range with BETWEEN expression if possible b/c it is currently more efficient
-            return new Between(
-                    reference,
-                    new Constant(type, range.getLowBoundedValue()),
-                    new Constant(type, range.getHighBoundedValue()));
+            return new Logical(AND, ImmutableList.of(
+                    new Comparison(GREATER_THAN_OR_EQUAL, reference, new Constant(type, range.getLowBoundedValue())),
+                    new Comparison(LESS_THAN_OR_EQUAL, reference, new Constant(type, range.getHighBoundedValue()))));
         }
 
         List<Expression> rangeConjuncts = new ArrayList<>();
@@ -344,6 +345,30 @@ public final class DomainTranslator
         {
             // If we don't know how to process this node, the default response is to say that the TupleDomain is "all"
             return new ExtractionResult(TupleDomain.all(), complementIfNecessary(node, complement));
+        }
+
+        @Override
+        protected ExtractionResult visitLet(Let node, Boolean complement)
+        {
+            // Domain extraction is symbolic, so inlining the bound reference back into the body
+            // preserves the predicate's runtime semantics for extraction purposes.
+            Expression inlined = ExpressionTreeRewriter.rewriteWith(
+                    new ExpressionRewriter<>()
+                    {
+                        @Override
+                        public Expression rewriteReference(Reference reference, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                        {
+                            return reference.name().equals(node.name().name()) ? node.value() : reference;
+                        }
+                    },
+                    node.body());
+            ExtractionResult result = process(inlined, complement);
+            if (result.getTupleDomain().isAll()) {
+                // Nothing was extracted; keep the original Let as the remainder so the residual
+                // predicate still evaluates the bound value exactly once.
+                return new ExtractionResult(TupleDomain.all(), node);
+            }
+            return result;
         }
 
         @Override
@@ -908,15 +933,6 @@ public final class DomainTranslator
             }
 
             return Optional.of(new ExtractionResult(tupleDomain, remainingExpression));
-        }
-
-        @Override
-        protected ExtractionResult visitBetween(Between node, Boolean complement)
-        {
-            // Re-write as two comparison expressions
-            return process(and(
-                    new Comparison(GREATER_THAN_OR_EQUAL, node.value(), node.min()),
-                    new Comparison(LESS_THAN_OR_EQUAL, node.value(), node.max())), complement);
         }
 
         private Optional<ExtractionResult> tryVisitLikeFunction(Call node, Boolean complement)
