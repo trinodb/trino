@@ -901,6 +901,13 @@ public final class MathFunctions
 
         double factor = Math.pow(10, decimals);
         int sign = (num < 0) ? -1 : 1;
+        if (factor == 0) {
+            // decimals so negative that 10^decimals underflows to 0; the rounding place value
+            // is larger than any finite magnitude, so any finite num rounds to 0. The sign is
+            // preserved (yielding -0.0 for negative num), consistent with the general path below.
+            return sign * 0.0;
+        }
+
         double rescaled = sign * num * factor;
         long rescaledRound = Math.round(rescaled);
         if (rescaledRound != Long.MAX_VALUE) {
@@ -928,6 +935,13 @@ public final class MathFunctions
 
         double factor = Math.pow(10, decimals);
         int sign = (numInFloat < 0) ? -1 : 1;
+        if (factor == 0) {
+            // decimals so negative that 10^decimals underflows to 0; the rounding place value
+            // is larger than any finite magnitude, so any finite num rounds to 0. The sign is
+            // preserved (yielding -0.0 for negative num), consistent with the general path below.
+            return floatToRawIntBits(sign * 0.0f);
+        }
+
         double result;
         double rescaled = sign * numInFloat * factor;
         long rescaledRound = Math.round(rescaled);
