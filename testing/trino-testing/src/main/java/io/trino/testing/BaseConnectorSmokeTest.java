@@ -381,7 +381,7 @@ public abstract class BaseConnectorSmokeTest
             assertUpdate(createSchemaSql(schemaName));
             assertThat(query("SHOW SCHEMAS"))
                     .skippingTypesCheck()
-                    .containsAll(format("VALUES '%s', '%s'", getSession().getSchema().orElseThrow(), schemaName));
+                    .containsAll(format("VALUES '%s', '%s'", getSession().getSchema().orElseThrow(), canonicalize(schemaName)));
         }
         finally {
             assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
@@ -400,7 +400,7 @@ public abstract class BaseConnectorSmokeTest
         assertUpdate(newSession, createSchemaSql(schemaName));
         assertThat(query(newSession, "SHOW SCHEMAS"))
                 .skippingTypesCheck()
-                .containsAll(format("VALUES '%s'", schemaName));
+                .containsAll(format("VALUES '%s'", canonicalize(schemaName)));
         assertUpdate(newSession, "DROP SCHEMA " + schemaName);
     }
 
@@ -547,12 +547,13 @@ public abstract class BaseConnectorSmokeTest
     public void testShowCreateTable()
     {
         assertThat((String) computeScalar("SHOW CREATE TABLE \"region\""))
-                .matches(format(
-                        "CREATE TABLE %1$s.%2$s.%3$sregion%3$s \\(\n" +
-                                "   %3$sregionkey%3$s (bigint|decimal\\(19, 0\\)),\n" +
-                                "   %3$sname%3$s varchar(\\(\\d+\\))?,\n" +
-                                "   %3$scomment%3$s varchar(\\(\\d+\\))?\n" +
-                                "\\)",
+                .matches(format("""
+                        CREATE TABLE %1$s.%2$s."region" \\(
+                           %3$sregionkey%3$s (bigint|decimal\\(19, 0\\)),
+                           %3$sname%3$s varchar(\\(\\d+\\))?,
+                           %3$scomment%3$s varchar(\\(\\d+\\))?
+                        \\)\
+                        """,
                         Pattern.quote(getSession().getCatalog().orElseThrow()),
                         Pattern.quote(getSession().getSchema().orElseThrow()),
                         canonicalize("x").equals("x") ? "" : "\""));

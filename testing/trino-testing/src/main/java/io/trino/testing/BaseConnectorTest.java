@@ -3320,7 +3320,7 @@ public abstract class BaseConnectorTest
 
             assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN y TO Z"); // 'Z' is upper-case, not delimited
             assertQuery(
-                    "SELECT z FROM " + tableName, // 'z' is lower-case, not delimited
+                    "SELECT Z FROM " + tableName,
                     "VALUES 'some value'");
 
             assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN IF EXISTS z TO a");
@@ -3332,10 +3332,10 @@ public abstract class BaseConnectorTest
             assertQuery("SELECT * FROM " + tableName, "VALUES 'some value'");
         }
 
-        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        assertThat(getQueryRunner().tableExists(getSession(), canonicalize(tableName))).isFalse();
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " RENAME COLUMN columnNotExists TO y");
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " RENAME COLUMN IF EXISTS columnNotExists TO y");
-        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        assertThat(getQueryRunner().tableExists(getSession(), canonicalize(tableName))).isFalse();
     }
 
     @Test
@@ -4780,17 +4780,17 @@ public abstract class BaseConnectorTest
         String uppercaseName = "TEST_RENAME_" + randomNameSuffix(); // Test an upper-case, not delimited identifier
         assertUpdate("ALTER TABLE " + testExistsTableName + " RENAME TO " + uppercaseName);
         assertQuery(
-                "SELECT x FROM " + uppercaseName.toLowerCase(ENGLISH), // Ensure select allows for lower-case, not delimited identifier
+                "SELECT x FROM " + uppercaseName,
                 "VALUES 123");
 
         assertUpdate("DROP TABLE " + uppercaseName);
 
-        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
-        assertThat(getQueryRunner().tableExists(getSession(), renamedTable)).isFalse();
+        assertThat(getQueryRunner().tableExists(getSession(), canonicalize(tableName))).isFalse();
+        assertThat(getQueryRunner().tableExists(getSession(), canonicalize(renamedTable))).isFalse();
 
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " RENAME TO " + renamedTable);
-        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
-        assertThat(getQueryRunner().tableExists(getSession(), renamedTable)).isFalse();
+        assertThat(getQueryRunner().tableExists(getSession(), canonicalize(tableName))).isFalse();
+        assertThat(getQueryRunner().tableExists(getSession(), canonicalize(renamedTable))).isFalse();
     }
 
     @Test

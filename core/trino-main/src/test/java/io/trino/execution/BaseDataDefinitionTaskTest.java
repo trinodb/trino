@@ -90,7 +90,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.metadata.ResolverManager.getLowerCaseCanonicalizer;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.BRANCH_NOT_FOUND;
@@ -145,7 +144,6 @@ public abstract class BaseDataDefinitionTaskTest
         queryRunner.createCatalog(TEST_CATALOG_NAME, "initial", ImmutableMap.of());
 
         metadata = new MockMetadata(TEST_CATALOG_NAME);
-        metadata.getResolverManager().addResolver(TEST_CATALOG_NAME, getLowerCaseCanonicalizer());
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
         Map<String, PropertyMetadata<?>> columnProperties = ImmutableMap.of(
                 COLUMN_PROPERTY_NAME, longProperty(COLUMN_PROPERTY_NAME, "column_property 1", COLUMN_PROPERTY_DEFAULT_VALUE, false));

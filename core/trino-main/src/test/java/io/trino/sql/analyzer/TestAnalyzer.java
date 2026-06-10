@@ -3572,7 +3572,6 @@ public class TestAnalyzer
     @Test
     public void testCreateMaterializedRecursiveView()
     {
-        System.out.println("TestAnalyzer.testCreateMaterializedRecursiveView() catalog: " + CLIENT_SESSION.getCatalog());
         assertFails("CREATE OR REPLACE MATERIALIZED VIEW \"v1\" AS SELECT * FROM \"v1\"")
                 .hasErrorCode(VIEW_IS_RECURSIVE)
                 .hasMessage("line 1:59: Statement would create a recursive materialized view");
@@ -8164,14 +8163,19 @@ public class TestAnalyzer
         assertThat(lineageInfo.size()).isEqualTo(2);
 
         ColumnLineageInfo colX = lineageInfo.getFirst();
-        assertThat(colX.name()).isEqualTo("x");
+        assertThat(colX.name()).isEqualTo(withCanonicalize("x"));
         assertThat(colX.sourceColumns()).containsExactlyInAnyOrder(
                 new ColumnDetail("tpch", "s1", "t1", "a"));
 
         ColumnLineageInfo colY = lineageInfo.get(1);
-        assertThat(colY.name()).isEqualTo("y");
+        assertThat(colY.name()).isEqualTo(withCanonicalize("y"));
         assertThat(colY.sourceColumns()).containsExactlyInAnyOrder(
                 new ColumnDetail("tpch", "s1", "t1", "b"));
+    }
+
+    private String withCanonicalize(String value)
+    {
+        return value.toUpperCase(ENGLISH);
     }
 
     @Test

@@ -46,13 +46,6 @@ public class QualifiedName
         return canonicalizer.map(function -> of(function, name)).orElse(name);
     }
 
-    public static QualifiedName of(Optional<Function<Identifier, String>> canonicalizer, Identifier identifier)
-    {
-        requireNonNull(canonicalizer, "canonicalizer is null");
-        requireNonNull(identifier, "identifier is null");
-        return of(canonicalizer, identifier);
-    }
-
     public static QualifiedName of(Function<Identifier, String> canonicalizer, QualifiedName name)
     {
         return of(canonicalizer, name, name.originalParts.size() > 2);
@@ -67,9 +60,14 @@ public class QualifiedName
 
     public static QualifiedName of(Function<Identifier, String> canonicalizer, Identifier identifier)
     {
+        return of(Optional.of(canonicalizer), identifier);
+    }
+
+    public static QualifiedName of(Optional<Function<Identifier, String>> canonicalizer, Identifier identifier)
+    {
         requireNonNull(canonicalizer, "canonicalizer is null");
         requireNonNull(identifier, "identifier is null");
-        return new QualifiedName(Optional.of(canonicalizer), ImmutableList.of(identifier), false);
+        return new QualifiedName(canonicalizer, ImmutableList.of(identifier), false);
     }
 
     public static QualifiedName of(Optional<Function<Identifier, String>> canonicalizer, List<Identifier> identifiers)

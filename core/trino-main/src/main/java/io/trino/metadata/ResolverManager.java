@@ -79,6 +79,7 @@ public class ResolverManager
     public Resolver getResolver(Session session, String catalog)
     {
         if (!hasResolver(catalog)) {
+            System.out.println("ResolverManager.getResolver() catalog: " + catalog);
             Optional<Resolver> resolver = factory.apply(session, catalog);
             if (resolver.isEmpty()) {
                 return DEFAULT_RESOLVER;

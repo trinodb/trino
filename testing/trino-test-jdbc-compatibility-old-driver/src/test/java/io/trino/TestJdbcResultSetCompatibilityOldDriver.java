@@ -31,9 +31,9 @@ public class TestJdbcResultSetCompatibilityOldDriver
 
     protected String legacyCanonicalize(String value)
     {
-        if (VERSION_UNDER_TEST.isPresent() && VERSION_UNDER_TEST.get() < SUPPORT_CANONICALIZER) {
-            return value.toLowerCase(ENGLISH);
-        }
+        //if (VERSION_UNDER_TEST.isPresent() && VERSION_UNDER_TEST.get() < SUPPORT_CANONICALIZER) {
+        //    return value.toLowerCase(ENGLISH);
+        //}
         return value.toUpperCase(ENGLISH);
     }
 
