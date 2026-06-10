@@ -139,6 +139,23 @@ public abstract class BaseElasticsearchConnectorTest
     }
 
     @Test
+    public void testPathPrefix()
+            throws Exception
+    {
+        Map<String, String> properties = ImmutableMap.of("elasticsearch.path-prefix", "/test-prefix");
+
+        try (QueryRunner queryRunner = ElasticsearchQueryRunner.builder(server)
+                .addConnectorProperties(properties)
+                .build()) {
+            assertThatThrownBy(() -> queryRunner.execute("SELECT * FROM orders"))
+                    .hasMessageContaining("URI [/test-prefix/orders/_mappings], status line [HTTP/1.1 405 Method Not Allowed]");
+        }
+
+        // Verify that the original query runner is not affected
+        assertQuerySucceeds("SELECT * FROM orders");
+    }
+
+    @Test
     @Override
     public void testSelectAll()
     {
