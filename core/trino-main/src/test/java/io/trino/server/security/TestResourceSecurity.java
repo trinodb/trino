@@ -753,7 +753,7 @@ public class TestResourceSecurity
                     .isEqualTo(SC_UNAUTHORIZED);
             String authenticateHeader = response.header(WWW_AUTHENTICATE);
             assertThat(authenticateHeader).isNotNull();
-            Pattern oauth2BearerPattern = Pattern.compile("Bearer x_redirect_server=\"(https://127.0.0.1:[0-9]+/oauth2/token/initiate/.+)\", x_token_server=\"(https://127.0.0.1:[0-9]+/oauth2/token/.+)\"");
+            Pattern oauth2BearerPattern = Pattern.compile("Bearer x_redirect_server=\"(https://127.0.0.1:[0-9]+/oauth2/token/initiate/[^\"]+)\", x_token_server=\"(https://127.0.0.1:[0-9]+/oauth2/token/[^\"]+)\", x_issuer_server=\"[^\"]+\", scope=\"[^\"]+\"");
             Matcher matcher = oauth2BearerPattern.matcher(authenticateHeader);
             assertThat(matcher.matches())
                     .describedAs(format("Invalid authentication header.\nExpected: %s\nPattern: %s", authenticateHeader, oauth2BearerPattern))
