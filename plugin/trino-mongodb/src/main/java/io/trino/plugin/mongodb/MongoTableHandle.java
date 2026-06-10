@@ -19,6 +19,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -32,12 +33,13 @@ public record MongoTableHandle(
         Optional<String> filter,
         TupleDomain<ColumnHandle> constraint,
         Set<MongoColumnHandle> projectedColumns,
+        Optional<List<MongoTableSort>> sort,
         OptionalInt limit)
         implements ConnectorTableHandle
 {
     public MongoTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName, Optional<String> filter)
     {
-        this(schemaTableName, remoteTableName, filter, TupleDomain.all(), ImmutableSet.of(), OptionalInt.empty());
+        this(schemaTableName, remoteTableName, filter, TupleDomain.all(), ImmutableSet.of(), Optional.empty(), OptionalInt.empty());
     }
 
     public MongoTableHandle
@@ -47,6 +49,7 @@ public record MongoTableHandle(
         requireNonNull(filter, "filter is null");
         requireNonNull(constraint, "constraint is null");
         projectedColumns = ImmutableSet.copyOf(requireNonNull(projectedColumns, "projectedColumns is null"));
+        requireNonNull(sort, "sort is null");
         requireNonNull(limit, "limit is null");
     }
 
@@ -68,6 +71,7 @@ public record MongoTableHandle(
         if (!projectedColumns.isEmpty()) {
             builder.append(" columns=").append(projectedColumns);
         }
+        sort.ifPresent(value -> builder.append(" TopNPartial").append(value));
         limit.ifPresent(value -> builder.append(" limit=").append(value));
         return builder.toString();
     }
@@ -80,6 +84,7 @@ public record MongoTableHandle(
                 filter,
                 constraint,
                 projectedColumns,
+                sort,
                 limit);
     }
 
@@ -91,6 +96,7 @@ public record MongoTableHandle(
                 filter,
                 constraint,
                 projectedColumns,
+                sort,
                 limit);
     }
 }
