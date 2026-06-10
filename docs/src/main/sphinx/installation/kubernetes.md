@@ -160,7 +160,7 @@ this by running the commands generated upon installation.
 1. Create the tunnel from the client to the coordinator service.
 
    ```text
-   kubectl port-forward svc/trino 8080:8080
+   kubectl port-forward svc/example-trino-cluster-trino 8080:8080
    ```
 
    Now you can connect to the Trino coordinator at `http://localhost:8080`.
@@ -361,13 +361,13 @@ below to run `kind` on your system.
 To uninstall Trino from the Kubernetes cluster, run the following command:
 
 ```text
-helm uninstall my-trino-cluster
+helm uninstall example-trino-cluster
 ```
 
 You should expect to see the following output:
 
 ```text
-release "my-trino-cluster" uninstalled
+release "example-trino-cluster" uninstalled
 ```
 
 To validate that this worked, you can run this `kubectl` command to make sure
