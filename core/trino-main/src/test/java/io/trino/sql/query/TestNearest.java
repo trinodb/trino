@@ -555,4 +555,65 @@ public class TestNearest
                 """))
                 .matches("VALUES ('A', 10)");
     }
+
+    @Test
+    public void testNearestWithInSubqueryPredicate()
+    {
+        // A NEAREST predicate may carry an IN-subquery whose left-hand side is a column of the
+        // NEAREST relation. planInPredicate rewrites that left-hand side while planning the
+        // subquery, so it must resolve against the NEAREST scope. Here the IN filters out the
+        // price-11 quote, so every trade resolves to the price-10 quote.
+        assertThat(assertions.query(
+                """
+                WITH
+                    trades(symbol, ts) AS (
+                        VALUES
+                            ('A', TIMESTAMP '2020-01-01 00:00:02'),
+                            ('A', TIMESTAMP '2020-01-01 00:00:04')),
+                    quotes(symbol, ts, price) AS (
+                        VALUES
+                            ('A', TIMESTAMP '2020-01-01 00:00:01', 10),
+                            ('A', TIMESTAMP '2020-01-01 00:00:03', 11))
+                SELECT quotes.price
+                FROM trades
+                CROSS JOIN NEAREST (
+                    FROM quotes
+                    WHERE quotes.symbol = trades.symbol
+                        AND quotes.price IN (SELECT 10)
+                    MATCH quotes.ts <= trades.ts
+                )
+                """))
+                .matches("VALUES 10, 10");
+    }
+
+    @Test
+    public void testNearestWithQuantifiedComparisonSubqueryPredicate()
+    {
+        // A NEAREST predicate may also carry a quantified comparison whose left-hand side is a
+        // column of the NEAREST relation. planQuantifiedComparison rewrites that left-hand side
+        // eagerly while planning the subquery, so it must resolve against the NEAREST scope, just
+        // like the IN-subquery case. Here `<= ALL (SELECT 10)` excludes the price-11 quote, so
+        // every trade resolves to the price-10 quote.
+        assertThat(assertions.query(
+                """
+                WITH
+                    trades(symbol, ts) AS (
+                        VALUES
+                            ('A', TIMESTAMP '2020-01-01 00:00:02'),
+                            ('A', TIMESTAMP '2020-01-01 00:00:04')),
+                    quotes(symbol, ts, price) AS (
+                        VALUES
+                            ('A', TIMESTAMP '2020-01-01 00:00:01', 10),
+                            ('A', TIMESTAMP '2020-01-01 00:00:03', 11))
+                SELECT quotes.price
+                FROM trades
+                CROSS JOIN NEAREST (
+                    FROM quotes
+                    WHERE quotes.symbol = trades.symbol
+                        AND quotes.price <= ALL (SELECT 10)
+                    MATCH quotes.ts <= trades.ts
+                )
+                """))
+                .matches("VALUES 10, 10");
+    }
 }
