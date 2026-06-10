@@ -48,7 +48,7 @@ import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.invoke.MethodHandles.lookup;
 
-public class VariantType
+public final class VariantType
         extends AbstractType
         implements VariableWidthType
 {
