@@ -40,16 +40,6 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitBetweenPredicate(BetweenPredicate node, C context)
-    {
-        process(node.getValue(), context);
-        process(node.getMin(), context);
-        process(node.getMax(), context);
-
-        return null;
-    }
-
-    @Override
     protected Void visitCoalesceExpression(CoalesceExpression node, C context)
     {
         for (Expression operand : node.getOperands()) {
@@ -91,15 +81,6 @@ public abstract class DefaultTraversalVisitor<C>
     {
         process(node.getBase(), context);
         process(node.getIndex(), context);
-
-        return null;
-    }
-
-    @Override
-    protected Void visitComparisonExpression(ComparisonExpression node, C context)
-    {
-        process(node.getLeft(), context);
-        process(node.getRight(), context);
 
         return null;
     }
@@ -194,17 +175,8 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitWhenClause(WhenClause node, C context)
     {
-        process(node.getOperand(), context);
+        process(node.getMatch().node(), context);
         process(node.getResult(), context);
-
-        return null;
-    }
-
-    @Override
-    protected Void visitInPredicate(InPredicate node, C context)
-    {
-        process(node.getValue(), context);
-        process(node.getValueList(), context);
 
         return null;
     }
@@ -475,26 +447,61 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitPredicated(Predicated node, C context)
+    {
+        process(node.getValue(), context);
+        process(node.getPredicate(), context);
+        return null;
+    }
+
+    @Override
+    protected Void visitBetweenPredicate(BetweenPredicate node, C context)
+    {
+        process(node.getMin(), context);
+        process(node.getMax(), context);
+        return null;
+    }
+
+    @Override
+    protected Void visitComparisonPredicate(ComparisonPredicate node, C context)
+    {
+        process(node.getRight(), context);
+        return null;
+    }
+
+    @Override
+    protected Void visitDistinctFromPredicate(DistinctFromPredicate node, C context)
+    {
+        process(node.getRight(), context);
+        return null;
+    }
+
+    @Override
+    protected Void visitInPredicate(InPredicate node, C context)
+    {
+        process(node.getValueList(), context);
+        return null;
+    }
+
+    @Override
     protected Void visitLikePredicate(LikePredicate node, C context)
     {
-        process(node.getValue(), context);
         process(node.getPattern(), context);
-        node.getEscape().ifPresent(value -> process(value, context));
-
+        node.getEscape().ifPresent(escape -> process(escape, context));
         return null;
     }
 
     @Override
-    protected Void visitIsNotNullPredicate(IsNotNullPredicate node, C context)
+    protected Void visitMatchPredicate(MatchPredicate node, C context)
     {
-        process(node.getValue(), context);
+        process(node.getSubquery(), context);
         return null;
     }
 
     @Override
-    protected Void visitIsNullPredicate(IsNullPredicate node, C context)
+    protected Void visitQuantifiedComparisonPredicate(QuantifiedComparisonPredicate node, C context)
     {
-        process(node.getValue(), context);
+        process(node.getSubquery(), context);
         return null;
     }
 
@@ -880,15 +887,6 @@ public abstract class DefaultTraversalVisitor<C>
     protected Void visitShowStats(ShowStats node, C context)
     {
         process(node.getRelation(), context);
-        return null;
-    }
-
-    @Override
-    protected Void visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, C context)
-    {
-        process(node.getValue(), context);
-        process(node.getSubquery(), context);
-
         return null;
     }
 

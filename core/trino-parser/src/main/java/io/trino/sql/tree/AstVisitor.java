@@ -72,17 +72,7 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitBetweenPredicate(BetweenPredicate node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
     protected R visitCoalesceExpression(CoalesceExpression node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
-    protected R visitComparisonExpression(ComparisonExpression node, C context)
     {
         return visitExpression(node, context);
     }
@@ -327,11 +317,6 @@ public abstract class AstVisitor<R, C>
         return visitIntervalQualifier(node, context);
     }
 
-    protected R visitInPredicate(InPredicate node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
     protected R visitFunctionCall(FunctionCall node, C context)
     {
         return visitExpression(node, context);
@@ -447,19 +432,54 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitLikePredicate(LikePredicate node, C context)
+    protected R visitPredicated(Predicated node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitIsNotNullPredicate(IsNotNullPredicate node, C context)
+    protected R visitPredicate(Predicate node, C context)
     {
-        return visitExpression(node, context);
+        return visitNode(node, context);
+    }
+
+    protected R visitBetweenPredicate(BetweenPredicate node, C context)
+    {
+        return visitPredicate(node, context);
+    }
+
+    protected R visitComparisonPredicate(ComparisonPredicate node, C context)
+    {
+        return visitPredicate(node, context);
+    }
+
+    protected R visitDistinctFromPredicate(DistinctFromPredicate node, C context)
+    {
+        return visitPredicate(node, context);
+    }
+
+    protected R visitInPredicate(InPredicate node, C context)
+    {
+        return visitPredicate(node, context);
     }
 
     protected R visitIsNullPredicate(IsNullPredicate node, C context)
     {
-        return visitExpression(node, context);
+        return visitPredicate(node, context);
+    }
+
+    protected R visitLikePredicate(LikePredicate node, C context)
+    {
+        return visitPredicate(node, context);
+    }
+
+    protected R visitMatchPredicate(MatchPredicate node, C context)
+    {
+        return visitPredicate(node, context);
+    }
+
+    protected R visitQuantifiedComparisonPredicate(QuantifiedComparisonPredicate node, C context)
+    {
+        return visitPredicate(node, context);
     }
 
     protected R visitArray(Array node, C context)
@@ -945,11 +965,6 @@ public abstract class AstVisitor<R, C>
     protected R visitAutoGroupBy(AutoGroupBy node, C context)
     {
         return visitGroupingElement(node, context);
-    }
-
-    protected R visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, C context)
-    {
-        return visitExpression(node, context);
     }
 
     protected R visitLambdaArgumentDeclaration(LambdaArgumentDeclaration node, C context)

@@ -16,18 +16,23 @@ package io.trino.sql.tree;
 import java.util.List;
 import java.util.Objects;
 
-/// SQL spec `<null predicate part 2> ::= IS [NOT] NULL`. The `negated` flag records
-/// the user's in-place `NOT` (i.e. `IS NOT NULL`); an outer `NOT (x IS NULL)`
-/// remains a separate [NotExpression] wrapping a non-negated `IsNullPredicate`.
-public final class IsNullPredicate
+import static java.util.Objects.requireNonNull;
+
+/// SQL spec `<distinct predicate part 2> ::= IS [NOT] DISTINCT FROM <row value predicand>`.
+/// The in-place `NOT` (i.e. `IS NOT DISTINCT FROM`) is recorded via [#isNegated()];
+/// an outer `NOT (x IS DISTINCT FROM y)` is a [NotExpression] around a non-negated
+/// `DistinctFromPredicate`.
+public final class DistinctFromPredicate
         extends Predicate
 {
     private final boolean negated;
+    private final Expression right;
 
-    public IsNullPredicate(NodeLocation location, boolean negated)
+    public DistinctFromPredicate(NodeLocation location, boolean negated, Expression right)
     {
         super(location);
         this.negated = negated;
+        this.right = requireNonNull(right, "right is null");
     }
 
     public boolean isNegated()
@@ -35,39 +40,46 @@ public final class IsNullPredicate
         return negated;
     }
 
+    public Expression getRight()
+    {
+        return right;
+    }
+
     @Override
     public List<? extends Node> getChildren()
     {
-        return List.of();
+        return List.of(right);
     }
 
     @Override
     protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitIsNullPredicate(this, context);
+        return visitor.visitDistinctFromPredicate(this, context);
     }
 
     @Override
     public boolean shallowEquals(Node other)
     {
-        return sameClass(this, other) && negated == ((IsNullPredicate) other).negated;
+        return sameClass(this, other) && negated == ((DistinctFromPredicate) other).negated;
     }
 
     @Override
     public boolean equals(Object o)
     {
-        return o instanceof IsNullPredicate that && that.negated == negated;
+        return o instanceof DistinctFromPredicate that
+                && negated == that.negated
+                && right.equals(that.right);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(negated);
+        return Objects.hash(negated, right);
     }
 
     @Override
     public String toString()
     {
-        return negated ? "IS NOT NULL" : "IS NULL";
+        return (negated ? "IS NOT DISTINCT FROM " : "IS DISTINCT FROM ") + right;
     }
 }
