@@ -159,6 +159,7 @@ import static com.google.common.collect.Streams.stream;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
+import static io.trino.metadata.CatalogManager.NO_CATALOGS;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.CONNECTOR;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.SYSTEM;
 import static io.trino.metadata.CatalogStatus.OPERATIONAL;
@@ -232,7 +233,7 @@ public final class MetadataManager
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.languageFunctionManager = requireNonNull(languageFunctionManager, "languageFunctionManager is null");
         this.tableFunctionRegistry = requireNonNull(tableFunctionRegistry, "tableFunctionRegistry is null");
-        this.resolverManager = new ResolverManager(this::getResolver);
+        this.resolverManager = catalogManager.equals(NO_CATALOGS) ? new ResolverManager() : new ResolverManager(this::getResolver);
     }
 
     @Override

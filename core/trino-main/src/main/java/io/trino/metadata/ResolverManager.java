@@ -56,18 +56,27 @@ public class ResolverManager
     }
 
     private final Resolver DEFAULT_RESOLVER = getResolver("DEFAULT_RESOLVER", getUpperCaseCanonicalizer());
-    private final Resolver SYSTEM_RESOLVER = getResolver(GlobalSystemConnector.NAME, getLowerCaseCanonicalizer());
     private final Resolver WITH_RESOLVER = getResolver("WITH_RESOLVER", getUpperCaseCanonicalizer());
-    private final Resolver PARTITION_RESOLVER = getResolver("PARTITION_RESOLVER", getIdentityCanonicalizer());
+    private final Resolver IDENTITY_RESOLVER = getResolver("PARTITION_RESOLVER", getIdentityCanonicalizer());
 
     private final Map<String, Resolver> resolvers = new ConcurrentHashMap<>();
     private final Map<String, String> queries = new ConcurrentHashMap<>();
-    private final BiFunction<Session, String, Optional<Resolver>> factory;
+    private final Optional<BiFunction<Session, String, Optional<Resolver>>> factory;
+
+    public ResolverManager()
+    {
+        this(Optional.empty());
+    }
 
     public ResolverManager(BiFunction<Session, String, Optional<Resolver>> factory)
     {
+        this(Optional.of(factory));
+    }
+
+    private ResolverManager(Optional<BiFunction<Session, String, Optional<Resolver>>> factory)
+    {
         this.factory = requireNonNull(factory, "factory is null");
-        addResolver(SYSTEM_RESOLVER.getCatalog(), SYSTEM_RESOLVER);
+        addResolver(GlobalSystemConnector.NAME, getLowerCaseCanonicalizer());
     }
 
     public ResolverManager addResolver(String catalog, BiFunction<String, Boolean, String> canonicalizer)
@@ -79,13 +88,11 @@ public class ResolverManager
     public Resolver getResolver(Session session, String catalog)
     {
         if (!hasResolver(catalog)) {
-            System.out.println("ResolverManager.getResolver() catalog: " + catalog);
-            Optional<Resolver> resolver = factory.apply(session, catalog);
-            if (resolver.isEmpty()) {
-                return DEFAULT_RESOLVER;
-            }
-            addResolver(catalog, resolver.get());
-            return resolver.get();
+            // FIXME: If not factory is present (ie: for test only with mock connector) defaulting to Identity canonicalizer
+            //        else the default canonicalizer is the SQL canonicalizer (ie: UPPERCASE_CANONICALIZER)
+            Optional<Resolver> resolver = factory.map(f -> f.apply(session, catalog))
+                    .orElse(Optional.of(IDENTITY_RESOLVER));
+            addResolver(catalog, resolver.orElse(DEFAULT_RESOLVER));
         }
         return resolvers.get(catalog);
     }
@@ -111,11 +118,6 @@ public class ResolverManager
             return scope.get().getResolver().get();
         }
         return getQueryResolver(session.getQueryId().id());
-    }
-
-    public Resolver getPartitionResolver()
-    {
-        return PARTITION_RESOLVER;
     }
 
     public Resolver getWithResolver()

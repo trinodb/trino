@@ -132,6 +132,21 @@ public class TestMongoConnectorTest
     }
 
     @Test
+    @Override
+    public void testInformationSchemaUppercaseName()
+    {
+        assertQuery(
+                "SELECT \"table_name\" FROM \"information_schema\".\"tables\" WHERE \"table_catalog\" = 'LOCAL'",
+                "SELECT '' WHERE false");
+        assertQuery(
+                "SELECT \"table_name\" FROM \"information_schema\".\"tables\" WHERE \"table_schema\" = 'TINY'",
+                "SELECT '' WHERE false");
+        assertQuery(
+                "SELECT \"table_name\" FROM \"information_schema\".\"tables\" WHERE \"table_name\" = 'ORDERS'",
+                "SELECT 'ORDERS' WHERE true");
+    }
+
+    @Test
     void testMongoMixedTypeArrayType()
     {
         String schema = getSession().getSchema().orElseThrow();

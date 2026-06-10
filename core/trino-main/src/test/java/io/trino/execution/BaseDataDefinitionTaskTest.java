@@ -144,6 +144,7 @@ public abstract class BaseDataDefinitionTaskTest
         queryRunner.createCatalog(TEST_CATALOG_NAME, "initial", ImmutableMap.of());
 
         metadata = new MockMetadata(TEST_CATALOG_NAME);
+        metadata.getResolverManager().addResolver(TEST_CATALOG_NAME, ResolverManager.getLowerCaseCanonicalizer());
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
         Map<String, PropertyMetadata<?>> columnProperties = ImmutableMap.of(
                 COLUMN_PROPERTY_NAME, longProperty(COLUMN_PROPERTY_NAME, "column_property 1", COLUMN_PROPERTY_DEFAULT_VALUE, false));

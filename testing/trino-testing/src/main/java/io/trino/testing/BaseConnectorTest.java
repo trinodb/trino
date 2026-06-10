@@ -2755,7 +2755,9 @@ public abstract class BaseConnectorTest
             tableName = table.getName();
             assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first'", 1);
             assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN x bigint", ".* Column '%s' already exists".formatted(canonicalize("x")));
-            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN X bigint", ".* Column '%s' already exists".formatted(canonicalize("X")));
+            if (!canonicalize("x").equals("x") || !canonicalize("X").equals("X")) {
+                assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN X bigint", ".* Column '%s' already exists".formatted(canonicalize("X")));
+            }
             assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN q bad_type", ".* Unknown type 'bad_type' for column '%s'".formatted(canonicalize("q")));
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN a varchar(50)");
@@ -3323,7 +3325,7 @@ public abstract class BaseConnectorTest
                     "SELECT Z FROM " + tableName,
                     "VALUES 'some value'");
 
-            assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN IF EXISTS z TO a");
+            assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN IF EXISTS Z TO a");
             assertQuery(
                     "SELECT a FROM " + tableName,
                     "VALUES 'some value'");
@@ -3468,7 +3470,7 @@ public abstract class BaseConnectorTest
         try (TestTable table = newTrinoTable("test_set_column_type_", "AS SELECT CAST(123 AS integer) AS col")) {
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE bigint");
 
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("bigint");
+            assertThat(getColumnType(canonicalize(table.getName()), canonicalize("col"))).isEqualTo("bigint");
             assertThat(query("SELECT * FROM " + table.getName()))
                     .skippingTypesCheck()
                     .matches("VALUES bigint '123'");
@@ -3498,7 +3500,7 @@ public abstract class BaseConnectorTest
                 }
                 setColumnType.run();
 
-                assertThat(getColumnType(table.getName(), "col")).isEqualTo(setup.newColumnType);
+                assertThat(getColumnType(canonicalize(table.getName()), canonicalize("col"))).isEqualTo(setup.newColumnType);
                 assertThat(query("SELECT * FROM " + table.getName()))
                         .skippingTypesCheck()
                         .matches("SELECT " + setup.newValueLiteral);
@@ -3610,10 +3612,10 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
 
         try (TestTable table = newTrinoTable("test_set_column_type_null_", "(col int NOT NULL)")) {
-            assertThat(columnIsNullable(table.getName(), "col")).isFalse();
+            assertThat(columnIsNullable(canonicalize(table.getName()), canonicalize("col"))).isFalse();
 
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE bigint");
-            assertThat(columnIsNullable(table.getName(), "col")).isFalse();
+            assertThat(columnIsNullable(canonicalize(table.getName()), canonicalize("col"))).isFalse();
         }
     }
 

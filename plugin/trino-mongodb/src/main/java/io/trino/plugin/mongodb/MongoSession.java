@@ -273,7 +273,7 @@ public class MongoSession
 
     public void createTable(RemoteTableName name, List<MongoColumnHandle> columns, Optional<String> comment)
     {
-        if (getAllSchemas().stream().noneMatch(schemaName -> schemaName.equalsIgnoreCase(name.databaseName()))) {
+        if (getAllSchemas().stream().noneMatch(schemaName -> schemaName.equals(name.databaseName()))) {
             throw new SchemaNotFoundException(name.databaseName());
         }
         createTableMetadata(name, columns, comment);
