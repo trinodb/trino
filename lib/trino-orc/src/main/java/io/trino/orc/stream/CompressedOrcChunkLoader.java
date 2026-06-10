@@ -90,7 +90,9 @@ public final class CompressedOrcChunkLoader
             throws IOException
     {
         int compressedOffset = decodeCompressedBlockOffset(checkpoint);
-        if (compressedOffset >= dataReader.getSize()) {
+        int decompressedOffset = decodeDecompressedOffset(checkpoint);
+
+        if (compressedOffset > dataReader.getSize() || (compressedOffset == dataReader.getSize() && decompressedOffset != 0)) {
             throw new OrcCorruptionException(dataReader.getOrcDataSourceId(), "Seek past end of stream");
         }
         // is the compressed offset within the current compressed buffer
@@ -102,7 +104,7 @@ public final class CompressedOrcChunkLoader
             compressedBufferStream = EMPTY_SLICE.getInput();
         }
 
-        nextUncompressedOffset = decodeDecompressedOffset(checkpoint);
+        nextUncompressedOffset = decompressedOffset;
         lastCheckpoint = checkpoint;
     }
 
