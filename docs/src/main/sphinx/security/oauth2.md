@@ -1,7 +1,10 @@
 # OAuth 2.0 authentication
 
 Trino can be configured to enable OAuth 2.0 authentication over HTTPS for the
-Web UI and the JDBC driver.
+Web UI and the JDBC driver. Two flows are supported:
+
+- **Authorization code flow** — browser-based, interactive authentication for end users.
+- **Client credentials flow** — non-interactive, machine-to-machine authentication.
 
 (trino-oauth2-authorization-code)=
 ## Authorization code flow
@@ -14,6 +17,22 @@ includes the following steps:
 2. The user authenticates with the Authorization Server, and it approves the Trino's permissions request
 3. The user's browser is redirected back to the Trino coordinator with an authorization code
 4. The Trino coordinator exchanges the authorization code for a token
+
+(trino-oauth2-client-credentials)=
+## Client credentials flow
+
+The OAuth 2.0 [client credentials](https://tools.ietf.org/html/rfc6749#section-1.3.4)
+flow enables non-interactive (machine-to-machine) authentication. Unlike the
+authorization code flow, no browser or user interaction is required. At a high 
+level, the flow includes the following steps:
+
+1. The client sends a request to Trino without a valid access token.
+2. Trino responds with an HTTP 401 challenge containing the token endpoint URL
+   and required scopes in the `WWW-Authenticate` header.
+3. The client POSTs a `grant_type=client_credentials` request to the token
+   endpoint using its client ID and secret.
+4. The client re-sends the original request to Trino with the resulting access
+   token.
 
 ## Authorization server setup
 
