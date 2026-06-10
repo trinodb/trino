@@ -19,10 +19,10 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.cache.NonEvictableCache;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.FunctionBinder.CatalogFunctionBinding;
+import io.trino.metadata.SignatureBinder.GroundSignature;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
@@ -134,10 +134,7 @@ class BuiltinFunctionResolver
     ResolvedFunction resolveCoercion(String functionName, Type fromType, Type toType)
     {
         CatalogFunctionBinding functionBinding = functionBinder.bindCoercion(
-                Signature.builder()
-                        .returnType(toType)
-                        .argumentType(fromType)
-                        .build(),
+                new GroundSignature(toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())),
                 getBuiltinFunctions(functionName));
         return resolveBuiltin(functionBinding);
     }

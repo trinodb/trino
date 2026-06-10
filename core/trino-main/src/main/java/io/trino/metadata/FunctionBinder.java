@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import io.trino.connector.CatalogHandle;
+import io.trino.metadata.SignatureBinder.GroundSignature;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
@@ -97,7 +98,7 @@ class FunctionBinder
         return matchFunctionWithCoercion(candidates, parameterTypes);
     }
 
-    CatalogFunctionBinding bindCoercion(Signature signature, Collection<CatalogFunctionMetadata> candidates)
+    CatalogFunctionBinding bindCoercion(GroundSignature signature, Collection<CatalogFunctionMetadata> candidates)
     {
         // coercions are much more common and much simpler than function calls, so we use a custom algorithm
         List<CatalogFunctionMetadata> exactCandidates = candidates.stream()
@@ -122,21 +123,21 @@ class FunctionBinder
         throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", signature));
     }
 
-    private boolean canBindSignature(Signature declaredSignature, Signature actualSignature)
+    private boolean canBindSignature(Signature declaredSignature, GroundSignature actualSignature)
     {
         return new SignatureBinder(metadata, typeManager, declaredSignature, false)
-                .canBind(fromTypeSignatures(actualSignature.getArgumentTypes()), actualSignature.getReturnType());
+                .canBind(fromTypeSignatures(actualSignature.argumentTypes()), actualSignature.returnType());
     }
 
-    private static boolean possibleExactCastMatch(Signature signature, Signature declaredSignature)
+    private static boolean possibleExactCastMatch(GroundSignature signature, Signature declaredSignature)
     {
         if (declaredSignature.isGeneric()) {
             return false;
         }
-        if (!declaredSignature.getReturnType().getBase().equalsIgnoreCase(signature.getReturnType().getBase())) {
+        if (!declaredSignature.getReturnType().getBase().equalsIgnoreCase(signature.returnType().getBase())) {
             return false;
         }
-        return declaredSignature.getArgumentTypes().get(0).getBase().equalsIgnoreCase(signature.getArgumentTypes().get(0).getBase());
+        return declaredSignature.getArgumentTypes().get(0).getBase().equalsIgnoreCase(signature.argumentTypes().get(0).getBase());
     }
 
     private Optional<CatalogFunctionBinding> matchFunctionExact(List<CatalogFunctionMetadata> candidates, List<TypeSignatureProvider> actualParameters)
@@ -272,7 +273,7 @@ class FunctionBinder
 
     private boolean onlyCastsUnknown(ApplicableFunction applicableFunction, List<Type> actualParameters)
     {
-        List<Type> boundTypes = applicableFunction.boundSignature().getArgumentTypes().stream()
+        List<Type> boundTypes = applicableFunction.boundSignature().argumentTypes().stream()
                 .map(typeManager::getType)
                 .collect(toImmutableList());
         checkState(actualParameters.size() == boundTypes.size(), "type lists are of different lengths");
@@ -287,7 +288,7 @@ class FunctionBinder
     private boolean returnTypeIsTheSame(List<ApplicableFunction> applicableFunctions)
     {
         Set<TypeSignature> returnTypes = applicableFunctions.stream()
-                .map(function -> function.boundSignature().getReturnType())
+                .map(function -> function.boundSignature().returnType())
                 .collect(Collectors.toSet());
         return returnTypes.size() == 1;
     }
@@ -333,20 +334,20 @@ class FunctionBinder
      */
     private boolean isMoreSpecificThan(ApplicableFunction left, ApplicableFunction right)
     {
-        List<TypeSignatureProvider> resolvedTypes = fromTypeSignatures(left.boundSignature().getArgumentTypes());
+        List<TypeSignatureProvider> resolvedTypes = fromTypeSignatures(left.boundSignature().argumentTypes());
         return new SignatureBinder(metadata, typeManager, right.declaredSignature(), true)
                 .canBind(resolvedTypes);
     }
 
-    private CatalogFunctionBinding toFunctionBinding(CatalogFunctionMetadata functionMetadata, Signature signature)
+    private CatalogFunctionBinding toFunctionBinding(CatalogFunctionMetadata functionMetadata, GroundSignature signature)
     {
         BoundSignature boundSignature = new BoundSignature(
                 new CatalogSchemaFunctionName(
                         functionMetadata.catalogHandle().getCatalogName().toString(),
                         functionMetadata.schemaName(),
                         functionMetadata.functionMetadata().getCanonicalName()),
-                typeManager.getType(signature.getReturnType()),
-                signature.getArgumentTypes().stream()
+                typeManager.getType(signature.returnType()),
+                signature.argumentTypes().stream()
                         .map(typeManager::getType)
                         .collect(toImmutableList()));
         return new CatalogFunctionBinding(
@@ -423,13 +424,7 @@ class FunctionBinder
         return new TrinoException(FUNCTION_NOT_FOUND, message);
     }
 
-    /**
-     * @param boundSignature Ideally this would be a real bound signature,
-     *         but the resolver algorithm considers functions with illegal types (e.g., char(large_number))
-     *         We could just not consider these applicable functions, but there are tests that depend on
-     *         the specific error messages for these failures.
-     */
-    private record ApplicableFunction(CatalogFunctionMetadata function, Signature boundSignature)
+    private record ApplicableFunction(CatalogFunctionMetadata function, GroundSignature boundSignature)
     {
         public FunctionMetadata functionMetadata()
         {
