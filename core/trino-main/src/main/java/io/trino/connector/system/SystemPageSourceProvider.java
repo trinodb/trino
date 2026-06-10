@@ -14,8 +14,11 @@
 package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.FullConnectorSession;
+import io.trino.Session;
+import io.trino.connector.CatalogHandle;
 import io.trino.plugin.base.MappedPageSource;
 import io.trino.plugin.base.MappedRecordSet;
 import io.trino.security.AccessControl;
@@ -64,13 +67,15 @@ public class SystemPageSourceProvider
     private final SystemTablesProvider tables;
     private final AccessControl accessControl;
     private final String catalogName;
+    private final CatalogHandle sourceCatalogHandle;
     private final Optional<ConnectorPageSourceProvider> connectorPageSourceProvider;
 
-    public SystemPageSourceProvider(SystemTablesProvider tables, AccessControl accessControl, String catalogName, Optional<ConnectorPageSourceProviderFactory> pageSourceProviderFactory)
+    public SystemPageSourceProvider(SystemTablesProvider tables, AccessControl accessControl, String catalogName, CatalogHandle sourceCatalogHandle, Optional<ConnectorPageSourceProviderFactory> pageSourceProviderFactory)
     {
         this.tables = requireNonNull(tables, "tables is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.sourceCatalogHandle = requireNonNull(sourceCatalogHandle, "sourceCatalogHandle is null");
         this.connectorPageSourceProvider = requireNonNull(pageSourceProviderFactory, "pageSourceProviderFactory is null")
                 .map(ConnectorPageSourceProviderFactory::createPageSourceProvider);
     }
@@ -90,8 +95,19 @@ public class SystemPageSourceProvider
 
         // if the split is not a SystemSplit, we immediately delegate to the Connector to build a PageSource
         if (!(split instanceof SystemSplit systemSplit)) {
+            ConnectorSession sourceCatalogSession = session;
+            if (session instanceof FullConnectorSession fullSession) {
+                Session underlyingSession = fullSession.getSession();
+                sourceCatalogSession = new FullConnectorSession(
+                        underlyingSession,
+                        fullSession.getIdentity(),
+                        ImmutableMap.of(),
+                        sourceCatalogHandle,
+                        catalogName,
+                        underlyingSession.getSessionPropertyManager());
+            }
             return connectorPageSourceProvider.orElseThrow()
-                    .createPageSource(systemTransaction.getConnectorTransactionHandle(), session, split, table, tableCredentials, columns, dynamicFilter);
+                    .createPageSource(systemTransaction.getConnectorTransactionHandle(), sourceCatalogSession, split, table, tableCredentials, columns, dynamicFilter);
         }
 
         SchemaTableName tableName = ((SystemTableHandle) table).schemaTableName();
