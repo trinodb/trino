@@ -20,32 +20,32 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class IsNotNullPredicate
+public class UniquePredicate
         extends Expression
 {
-    private final Expression value;
+    private final Expression subquery;
 
-    public IsNotNullPredicate(NodeLocation location, Expression value)
+    public UniquePredicate(NodeLocation location, Expression subquery)
     {
         super(location);
-        this.value = requireNonNull(value, "value is null");
+        this.subquery = requireNonNull(subquery, "subquery is null");
     }
 
-    public Expression getValue()
+    public Expression getSubquery()
     {
-        return value;
+        return subquery;
     }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitIsNotNullPredicate(this, context);
+        return visitor.visitUniquePredicate(this, context);
     }
 
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.of(value);
+        return ImmutableList.of(subquery);
     }
 
     @Override
@@ -57,15 +57,14 @@ public class IsNotNullPredicate
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-
-        IsNotNullPredicate that = (IsNotNullPredicate) o;
-        return Objects.equals(value, that.value);
+        UniquePredicate that = (UniquePredicate) o;
+        return Objects.equals(subquery, that.subquery);
     }
 
     @Override
     public int hashCode()
     {
-        return value.hashCode();
+        return subquery.hashCode();
     }
 
     @Override

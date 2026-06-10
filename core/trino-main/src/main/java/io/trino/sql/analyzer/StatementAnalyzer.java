@@ -138,7 +138,7 @@ import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
-import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.Corresponding;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
@@ -214,6 +214,7 @@ import io.trino.sql.tree.PatternRecognitionRelation;
 import io.trino.sql.tree.PlanLeaf;
 import io.trino.sql.tree.PlanParentChild;
 import io.trino.sql.tree.PlanSiblings;
+import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
@@ -4212,16 +4213,18 @@ class StatementAnalyzer
 
         private NearestAnalysis analyzeNearestMatch(Nearest node, Scope nearestScope, Scope leftScope)
         {
-            if (!(node.getMatch() instanceof ComparisonExpression comparison)) {
+            if (!(node.getMatch() instanceof Predicated predicated) || !(predicated.getPredicate() instanceof ComparisonPredicate comparison)) {
                 throw semanticException(NOT_SUPPORTED, node.getMatch(), "NEAREST MATCH clause must be a comparison expression");
             }
+            Expression left = predicated.getValue();
+            Expression right = comparison.getRight();
 
             // MATCH is analyzed in nearestScope, which exposes fields from the FROM relation locally
             // and the left join input through the parent scope.
-            boolean leftReferencesFromRelation = hasReferencesToScope(comparison.getLeft(), analysis, nearestScope);
-            boolean rightReferencesFromRelation = hasReferencesToScope(comparison.getRight(), analysis, nearestScope);
-            boolean leftReferencesOuterRelation = hasReferencesToScope(comparison.getLeft(), analysis, leftScope);
-            boolean rightReferencesOuterRelation = hasReferencesToScope(comparison.getRight(), analysis, leftScope);
+            boolean leftReferencesFromRelation = hasReferencesToScope(left, analysis, nearestScope);
+            boolean rightReferencesFromRelation = hasReferencesToScope(right, analysis, nearestScope);
+            boolean leftReferencesOuterRelation = hasReferencesToScope(left, analysis, leftScope);
+            boolean rightReferencesOuterRelation = hasReferencesToScope(right, analysis, leftScope);
             if (leftReferencesFromRelation == rightReferencesFromRelation) {
                 throw semanticException(NOT_SUPPORTED, node.getMatch(), "NEAREST MATCH clause must compare one FROM relation expression with one non-FROM expression");
             }
@@ -4230,13 +4233,13 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, node.getMatch(), "NEAREST MATCH clause must keep FROM relation and non-FROM expressions on opposite sides");
             }
 
-            Expression candidateExpression = leftReferencesFromRelation ? comparison.getLeft() : comparison.getRight();
+            Expression candidateExpression = leftReferencesFromRelation ? left : right;
 
-            ComparisonExpression.Operator operator = leftReferencesFromRelation ? comparison.getOperator() : comparison.getOperator().flip();
-            if (operator != ComparisonExpression.Operator.LESS_THAN &&
-                    operator != ComparisonExpression.Operator.LESS_THAN_OR_EQUAL &&
-                    operator != ComparisonExpression.Operator.GREATER_THAN &&
-                    operator != ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL) {
+            ComparisonPredicate.Operator operator = leftReferencesFromRelation ? comparison.getOperator() : comparison.getOperator().flip();
+            if (operator != ComparisonPredicate.Operator.LESS_THAN &&
+                    operator != ComparisonPredicate.Operator.LESS_THAN_OR_EQUAL &&
+                    operator != ComparisonPredicate.Operator.GREATER_THAN &&
+                    operator != ComparisonPredicate.Operator.GREATER_THAN_OR_EQUAL) {
                 throw semanticException(NOT_SUPPORTED, node.getMatch(), "NEAREST MATCH clause must use <, <=, >, or >=");
             }
 

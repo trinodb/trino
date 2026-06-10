@@ -4332,6 +4332,43 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testMatchPredicate()
+    {
+        // basic SIMPLE / PARTIAL / FULL / UNIQUE all analyze when row and subquery shapes match
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH (SELECT b FROM t2)");
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH SIMPLE (SELECT b FROM t2)");
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH PARTIAL (SELECT b FROM t2)");
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH FULL (SELECT b FROM t2)");
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH UNIQUE (SELECT b FROM t2)");
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH UNIQUE FULL (SELECT b FROM t2)");
+
+        // mismatched row arity
+        assertFails("SELECT * FROM t1 WHERE ROW(t1.a) MATCH (SELECT b, c FROM t2)")
+                .hasErrorCode(TYPE_MISMATCH);
+
+        // mismatched element types
+        assertFails("SELECT * FROM t1 WHERE ROW(t1.a) MATCH (SELECT 'abc' FROM t2)")
+                .hasErrorCode(TYPE_MISMATCH);
+
+        // MATCH requires comparable types — HLL is not comparable
+        assertFails("SELECT * FROM t1 WHERE ROW(cast(NULL AS HyperLogLog)) MATCH (SELECT cast(NULL AS HyperLogLog) FROM t2)")
+                .hasErrorCode(TYPE_MISMATCH);
+    }
+
+    @Test
+    public void testUniquePredicate()
+    {
+        // Comparable scalar/row types
+        analyze("SELECT UNIQUE (SELECT a FROM t1)");
+        analyze("SELECT UNIQUE (SELECT a, b FROM t1)");
+        analyze("SELECT * FROM t1 WHERE NOT UNIQUE (SELECT a FROM t1)");
+
+        // Non-comparable type rejected
+        assertFails("SELECT UNIQUE (SELECT cast(NULL AS HyperLogLog))")
+                .hasErrorCode(TYPE_MISMATCH);
+    }
+
+    @Test
     public void testJoinUnnest()
     {
         // Lateral references are only allowed in INNER and LEFT join.
