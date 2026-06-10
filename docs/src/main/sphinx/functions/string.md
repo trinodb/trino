@@ -68,6 +68,13 @@ i.e. the number of positions at which the corresponding characters are different
 Note that the two strings must have the same length.
 :::
 
+:::{function} initcap(string) -> varchar
+Returns `string` with the first letter of each word converted to uppercase and
+all remaining letters converted to lowercase. Words are delimited by
+non-alphanumeric characters. For example, ``SELECT initcap('hello world')``
+returns ``'Hello World'``.
+:::
+
 :::{function} length(string) -> bigint
 Returns the length of `string` in characters.
 :::
