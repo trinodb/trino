@@ -41,11 +41,13 @@ import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Match;
+import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
 import io.trino.type.TypeCoercion;
@@ -107,12 +109,21 @@ public class IrExpressionEvaluator
             case In e -> evaluateInternal(e, session, bindings);
             case IsNull e -> evaluateInternal(e, session, bindings);
             case Lambda e -> makeLambdaInvoker(session, e);
+            case Let e -> evaluateInternal(e, session, bindings);
             case Logical e -> evaluateInternal(e, session, bindings);
             case NullIf e -> evaluateInternal(e, session, bindings);
             case Reference reference -> bindings.get(reference.name());
             case Row e -> evaluateInternal(e, session, bindings);
-            case Switch e -> evaluateInternal(e, session, bindings);
+            case Match e -> evaluateInternal(e, session, bindings);
         };
+    }
+
+    private Object evaluateInternal(Let let, Session session, Map<String, Object> assignments)
+    {
+        Object boundValue = evaluate(let.value(), session, assignments);
+        Map<String, Object> extended = new HashMap<>(assignments);
+        extended.put(let.name().name(), boundValue);
+        return evaluate(let.body(), session, extended);
     }
 
     private Object evaluateInternal(Bind bind, Session session, Map<String, Object> assignments)
@@ -148,23 +159,27 @@ public class IrExpressionEvaluator
         return rewriter.rewrite(expression, null);
     }
 
-    private Object evaluateInternal(Switch expression, Session session, Map<String, Object> bindings)
+    private Object evaluateInternal(Match expression, Session session, Map<String, Object> bindings)
     {
         Expression operand = expression.operand();
         Object value = evaluate(operand, session, bindings);
 
-        if (value == null) {
-            return evaluate(expression.defaultValue(), session, bindings);
-        }
+        for (MatchClause clause : expression.clauses()) {
+            Lambda lambda = clause.lambda();
+            Bind bind = clause.bind();
+            List<Symbol> arguments = lambda.arguments();
+            // After LambdaCaptureDesugaringRewriter, the leading args are captured symbols and the
+            // final arg is the operand-bound parameter — bind both into clauseBindings so the body
+            // can reference everything by name.
+            Map<String, Object> clauseBindings = new HashMap<>(bindings);
+            int captureCount = bind == null ? 0 : bind.values().size();
+            for (int i = 0; i < captureCount; i++) {
+                clauseBindings.put(arguments.get(i).name(), evaluate(bind.values().get(i), session, bindings));
+            }
+            clauseBindings.put(arguments.getLast().name(), value);
 
-        ConnectorSession connectorSession = session.toConnectorSession();
-        ResolvedFunction equals = metadata.resolveOperator(EQUAL, ImmutableList.of(operand.type(), operand.type()));
-
-        for (WhenClause clause : expression.whenClauses()) {
-            Object candidate = evaluate(clause.getOperand(), session, bindings);
-
-            if (Boolean.TRUE.equals(functionInvoker.invoke(equals, connectorSession, Arrays.asList(value, candidate)))) {
-                return evaluate(clause.getResult(), session, bindings);
+            if (Boolean.TRUE.equals(evaluate(lambda.body(), session, clauseBindings))) {
+                return evaluate(clause.result(), session, bindings);
             }
         }
 

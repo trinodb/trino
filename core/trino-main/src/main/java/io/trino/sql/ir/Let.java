@@ -16,56 +16,51 @@ package io.trino.sql.ir;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.Symbol;
 
 import java.util.List;
 
 import static io.trino.sql.ir.IrUtils.validateType;
-import static java.util.Objects.requireNonNull;
 
+/**
+ * Let(name, value, body)
+ * <p>
+ * Evaluates value, binds it to name, and evaluates body with the binding in scope.
+ * The result is the value of body. Use to avoid duplicating a subexpression that is
+ * referenced multiple times in the body — particularly important when the
+ * subexpression is non-deterministic, where structural sharing in the IR tree would
+ * still result in repeated evaluation.
+ */
 @JsonSerialize
-public record Switch(Expression operand, List<WhenClause> whenClauses, Expression defaultValue)
+public record Let(Symbol name, Expression value, Expression body)
         implements Expression
 {
-    public Switch
+    public Let
     {
-        requireNonNull(operand, "operand is null");
-        whenClauses = ImmutableList.copyOf(whenClauses);
-
-        for (WhenClause clause : whenClauses) {
-            validateType(operand.type(), clause.getOperand());
-        }
-
-        for (int i = 1; i < whenClauses.size(); i++) {
-            validateType(whenClauses.getFirst().getResult().type(), whenClauses.get(i).getResult());
-        }
-
-        validateType(whenClauses.getFirst().getResult().type(), defaultValue);
+        validateType(name.type(), value);
     }
 
     @Override
     public Type type()
     {
-        return whenClauses.getFirst().getResult().type();
+        return body.type();
     }
 
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
-        return visitor.visitSwitch(this, context);
+        return visitor.visitLet(this, context);
     }
 
     @Override
     public List<? extends Expression> children()
     {
-        ImmutableList.Builder<Expression> builder = ImmutableList.<Expression>builder()
-                .add(operand);
+        return ImmutableList.of(value, body);
+    }
 
-        whenClauses.forEach(clause -> {
-            builder.add(clause.getOperand());
-            builder.add(clause.getResult());
-        });
-
-        builder.add(defaultValue);
-        return builder.build();
+    @Override
+    public String toString()
+    {
+        return "Let(%s = %s, %s)".formatted(name, value, body);
     }
 }

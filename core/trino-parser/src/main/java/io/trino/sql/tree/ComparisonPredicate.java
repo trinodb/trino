@@ -13,16 +13,15 @@
  */
 package io.trino.sql.tree;
 
-import com.google.common.collect.ImmutableList;
-
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class ComparisonExpression
-        extends Expression
+/// SQL spec `<comparison predicate part 2> ::= <comp op> <row value predicand>`.
+/// The `IS [NOT] DISTINCT FROM` forms live on [DistinctFromPredicate].
+public final class ComparisonPredicate
+        extends Predicate
 {
     public enum Operator
     {
@@ -31,8 +30,7 @@ public class ComparisonExpression
         LESS_THAN("<"),
         LESS_THAN_OR_EQUAL("<="),
         GREATER_THAN(">"),
-        GREATER_THAN_OR_EQUAL(">="),
-        IS_DISTINCT_FROM("IS DISTINCT FROM");
+        GREATER_THAN_OR_EQUAL(">=");
 
         private final String value;
 
@@ -55,7 +53,6 @@ public class ComparisonExpression
                 case LESS_THAN_OR_EQUAL -> GREATER_THAN_OR_EQUAL;
                 case GREATER_THAN -> LESS_THAN;
                 case GREATER_THAN_OR_EQUAL -> LESS_THAN_OR_EQUAL;
-                case IS_DISTINCT_FROM -> IS_DISTINCT_FROM;
             };
         }
 
@@ -68,49 +65,23 @@ public class ComparisonExpression
                 case LESS_THAN_OR_EQUAL -> GREATER_THAN;
                 case GREATER_THAN -> LESS_THAN_OR_EQUAL;
                 case GREATER_THAN_OR_EQUAL -> LESS_THAN;
-                case IS_DISTINCT_FROM -> throw new IllegalArgumentException("Unsupported comparison: " + this);
             };
         }
     }
 
     private final Operator operator;
-    private final Expression left;
     private final Expression right;
 
-    @Deprecated
-    public ComparisonExpression(Operator operator, Expression left, Expression right)
-    {
-        this(Optional.empty(), operator, left, right);
-    }
-
-    public ComparisonExpression(NodeLocation location, Operator operator, Expression left, Expression right)
+    public ComparisonPredicate(NodeLocation location, Operator operator, Expression right)
     {
         super(location);
         this.operator = requireNonNull(operator, "operator is null");
-        this.left = requireNonNull(left, "left is null");
         this.right = requireNonNull(right, "right is null");
-    }
-
-    private ComparisonExpression(Optional<NodeLocation> location, Operator operator, Expression left, Expression right)
-    {
-        super(location);
-        requireNonNull(operator, "operator is null");
-        requireNonNull(left, "left is null");
-        requireNonNull(right, "right is null");
-
-        this.operator = operator;
-        this.left = left;
-        this.right = right;
     }
 
     public Operator getOperator()
     {
         return operator;
-    }
-
-    public Expression getLeft()
-    {
-        return left;
     }
 
     public Expression getRight()
@@ -119,46 +90,40 @@ public class ComparisonExpression
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    public List<? extends Node> getChildren()
     {
-        return visitor.visitComparisonExpression(this, context);
+        return List.of(right);
     }
 
     @Override
-    public List<Node> getChildren()
+    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return ImmutableList.of(left, right);
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        ComparisonExpression that = (ComparisonExpression) o;
-        return (operator == that.operator) &&
-                Objects.equals(left, that.left) &&
-                Objects.equals(right, that.right);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(operator, left, right);
+        return visitor.visitComparisonPredicate(this, context);
     }
 
     @Override
     public boolean shallowEquals(Node other)
     {
-        if (!sameClass(this, other)) {
-            return false;
-        }
+        return sameClass(this, other) && operator == ((ComparisonPredicate) other).operator;
+    }
 
-        return operator == ((ComparisonExpression) other).operator;
+    @Override
+    public boolean equals(Object o)
+    {
+        return o instanceof ComparisonPredicate that
+                && operator == that.operator
+                && right.equals(that.right);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(operator, right);
+    }
+
+    @Override
+    public String toString()
+    {
+        return operator.getValue() + " " + right;
     }
 }

@@ -260,10 +260,10 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        protected Expression visitSwitch(Switch node, Context<C> context)
+        protected Expression visitMatch(Match node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteSwitch(node, context.get(), ExpressionTreeRewriter.this);
+                Expression result = rewriter.rewriteMatch(node, context.get(), ExpressionTreeRewriter.this);
                 if (result != null) {
                     return result;
                 }
@@ -271,20 +271,30 @@ public final class ExpressionTreeRewriter<C>
 
             Expression operand = rewrite(node.operand(), context.get());
 
-            ImmutableList.Builder<WhenClause> builder = ImmutableList.builder();
-            for (WhenClause expression : node.whenClauses()) {
-                builder.add(rewriteWhenClause(expression, context));
+            ImmutableList.Builder<MatchClause> builder = ImmutableList.builder();
+            for (MatchClause expression : node.clauses()) {
+                builder.add(rewriteMatchClause(expression, context));
             }
 
             Expression defaultValue = rewrite(node.defaultValue(), context.get());
 
             if (operand != node.operand() ||
                     node.defaultValue() != defaultValue ||
-                    !sameElements(node.whenClauses(), builder.build())) {
-                return new Switch(operand, builder.build(), defaultValue);
+                    !sameElements(node.clauses(), builder.build())) {
+                return new Match(operand, builder.build(), defaultValue);
             }
 
             return node;
+        }
+
+        private MatchClause rewriteMatchClause(MatchClause clause, Context<C> context)
+        {
+            Expression predicate = rewrite(clause.predicate(), context.get());
+            Expression result = rewrite(clause.result(), context.get());
+            if (predicate == clause.predicate() && result == clause.result()) {
+                return clause;
+            }
+            return new MatchClause(predicate, result);
         }
 
         protected WhenClause rewriteWhenClause(WhenClause node, Context<C> context)
@@ -370,6 +380,25 @@ public final class ExpressionTreeRewriter<C>
 
             if (!sameElements(values, node.values()) || (function != node.function())) {
                 return new Bind(values, (Lambda) function);
+            }
+            return node;
+        }
+
+        @Override
+        protected Expression visitLet(Let node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteLet(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression value = rewrite(node.value(), context.get());
+            Expression body = rewrite(node.body(), context.get());
+
+            if (value != node.value() || body != node.body()) {
+                return new Let(node.name(), value, body);
             }
             return node;
         }

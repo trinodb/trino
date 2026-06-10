@@ -16,6 +16,7 @@ package io.trino.sql.gen;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
@@ -45,11 +46,12 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.type.TypeCoercion;
 
@@ -107,15 +109,20 @@ public class ExpressionBytecodeCompiler
 
     public BytecodeNode compile(Expression expression, Scope scope)
     {
-        return compile(expression, scope, Optional.empty());
+        return compile(expression, scope, Optional.empty(), ImmutableMap.of());
     }
 
     public BytecodeNode compile(Expression expression, Scope scope, Optional<Class<?>> lambdaInterface)
     {
-        return new Visitor().process(expression, new Context(scope, lambdaInterface));
+        return compile(expression, scope, lambdaInterface, ImmutableMap.of());
     }
 
-    private BytecodeGeneratorContext generatorContext(Scope scope)
+    public BytecodeNode compile(Expression expression, Scope scope, Optional<Class<?>> lambdaInterface, Map<String, LetBinding> lets)
+    {
+        return new Visitor().process(expression, new Context(scope, lambdaInterface, lets));
+    }
+
+    private BytecodeGeneratorContext generatorContext(Scope scope, Map<String, LetBinding> lets)
     {
         return new BytecodeGeneratorContext(
                 this,
@@ -125,7 +132,8 @@ public class ExpressionBytecodeCompiler
                 functionManager,
                 metadata,
                 classDefinition,
-                contextArguments);
+                contextArguments,
+                lets);
     }
 
     private static final String TEMP_PREFIX = "$$TEMP$$";
@@ -154,7 +162,7 @@ public class ExpressionBytecodeCompiler
         @Override
         protected BytecodeNode visitCall(Call node, Context context)
         {
-            BytecodeGeneratorContext generatorContext = generatorContext(context.scope());
+            BytecodeGeneratorContext generatorContext = generatorContext(context.scope(), context.lets());
             return generatorContext.generateFullCall(node.function(), node.arguments());
         }
 
@@ -197,6 +205,12 @@ public class ExpressionBytecodeCompiler
         @Override
         protected BytecodeNode visitReference(Reference node, Context context)
         {
+            LetBinding binding = context.lets().get(node.name());
+            if (binding != null) {
+                return new BytecodeBlock()
+                        .append(generatorContext(context.scope(), context.lets()).wasNull().set(binding.wasNull()))
+                        .append(binding.value());
+            }
             if (node.name().startsWith(TEMP_PREFIX)) {
                 return context.scope().getTempVariable(node.name().substring(TEMP_PREFIX.length()));
             }
@@ -212,7 +226,7 @@ public class ExpressionBytecodeCompiler
                 throw new VerifyException("lambda should be generated as class annotated with FunctionalInterface");
             }
 
-            BytecodeGeneratorContext generatorContext = generatorContext(context.scope());
+            BytecodeGeneratorContext generatorContext = generatorContext(context.scope(), context.lets());
             return generateLambda(
                     generatorContext,
                     ImmutableList.of(),
@@ -223,7 +237,7 @@ public class ExpressionBytecodeCompiler
         @Override
         protected BytecodeNode visitComparison(Comparison node, Context context)
         {
-            BytecodeGeneratorContext generatorContext = generatorContext(context.scope());
+            BytecodeGeneratorContext generatorContext = generatorContext(context.scope(), context.lets());
             Expression left = node.left();
             Expression right = node.right();
 
@@ -258,7 +272,7 @@ public class ExpressionBytecodeCompiler
         @Override
         protected BytecodeNode visitCast(Cast node, Context context)
         {
-            BytecodeGeneratorContext generatorContext = generatorContext(context.scope());
+            BytecodeGeneratorContext generatorContext = generatorContext(context.scope(), context.lets());
             Type returnType = node.type();
             Type sourceType = node.expression().type();
 
@@ -280,14 +294,14 @@ public class ExpressionBytecodeCompiler
                 case AND -> new AndCodeGenerator(node);
                 case OR -> new OrCodeGenerator(node);
             };
-            return generator.generateExpression(generatorContext(context.scope()));
+            return generator.generateExpression(generatorContext(context.scope(), context.lets()));
         }
 
         @Override
         protected BytecodeNode visitCase(Case node, Context context)
         {
             // Generate nested IF bytecode: IF(cond1, val1, IF(cond2, val2, ... default))
-            BytecodeGeneratorContext generatorContext = generatorContext(context.scope());
+            BytecodeGeneratorContext generatorContext = generatorContext(context.scope(), context.lets());
             BytecodeNode result = generatorContext.generate(node.defaultValue());
 
             for (WhenClause clause : node.whenClauses().reversed()) {
@@ -309,67 +323,98 @@ public class ExpressionBytecodeCompiler
         }
 
         @Override
-        protected BytecodeNode visitSwitch(Switch node, Context context)
+        protected BytecodeNode visitMatch(Match node, Context context)
         {
-            return new SwitchCodeGenerator(node, metadata).generateExpression(generatorContext(context.scope()));
+            return new MatchCodeGenerator(node).generateExpression(generatorContext(context.scope(), context.lets()));
         }
 
         @Override
         protected BytecodeNode visitCoalesce(Coalesce node, Context context)
         {
-            return new CoalesceCodeGenerator(node).generateExpression(generatorContext(context.scope()));
+            return new CoalesceCodeGenerator(node).generateExpression(generatorContext(context.scope(), context.lets()));
         }
 
         @Override
         protected BytecodeNode visitIsNull(IsNull node, Context context)
         {
-            return new IsNullCodeGenerator(node).generateExpression(generatorContext(context.scope()));
+            return new IsNullCodeGenerator(node).generateExpression(generatorContext(context.scope(), context.lets()));
         }
 
         @Override
         protected BytecodeNode visitNullIf(NullIf node, Context context)
         {
-            return new NullIfCodeGenerator(node, metadata).generateExpression(generatorContext(context.scope()));
+            return new NullIfCodeGenerator(node, metadata).generateExpression(generatorContext(context.scope(), context.lets()));
         }
 
         @Override
         protected BytecodeNode visitBetween(Between node, Context context)
         {
-            return new BetweenCodeGenerator(node, metadata).generateExpression(generatorContext(context.scope()));
+            return new BetweenCodeGenerator(node, metadata).generateExpression(generatorContext(context.scope(), context.lets()));
         }
 
         @Override
         protected BytecodeNode visitIn(In node, Context context)
         {
-            return new InCodeGenerator(node, metadata).generateExpression(generatorContext(context.scope()));
+            return new InCodeGenerator(node, metadata).generateExpression(generatorContext(context.scope(), context.lets()));
         }
 
         @Override
         protected BytecodeNode visitFieldReference(FieldReference node, Context context)
         {
-            return new DereferenceCodeGenerator(node).generateExpression(generatorContext(context.scope()));
+            return new DereferenceCodeGenerator(node).generateExpression(generatorContext(context.scope(), context.lets()));
         }
 
         @Override
         protected BytecodeNode visitRow(Row node, Context context)
         {
-            return new RowConstructorCodeGenerator(node).generateExpression(generatorContext(context.scope()));
+            return new RowConstructorCodeGenerator(node).generateExpression(generatorContext(context.scope(), context.lets()));
         }
 
         @Override
         protected BytecodeNode visitArray(Array node, Context context)
         {
-            return new ArrayConstructorCodeGenerator(node).generateExpression(generatorContext(context.scope()));
+            return new ArrayConstructorCodeGenerator(node).generateExpression(generatorContext(context.scope(), context.lets()));
         }
 
         @Override
         protected BytecodeNode visitBind(Bind node, Context context)
         {
             return new BindCodeGenerator(node, compiledLambdaMap, context.lambdaInterface().get())
-                    .generateExpression(generatorContext(context.scope()));
+                    .generateExpression(generatorContext(context.scope(), context.lets()));
+        }
+
+        @Override
+        protected BytecodeNode visitLet(Let node, Context context)
+        {
+            BytecodeGeneratorContext generatorContext = generatorContext(context.scope(), context.lets());
+            Class<?> valueJavaType = callSiteBinder.getAccessibleType(node.name().type().getJavaType());
+            Variable valueTemp = context.scope().getOrCreateTempVariable(valueJavaType);
+            Variable wasNullTemp = context.scope().getOrCreateTempVariable(boolean.class);
+
+            BytecodeBlock block = new BytecodeBlock()
+                    .append(generatorContext.generate(node.value()))
+                    .putVariable(valueTemp)
+                    .append(wasNullTemp.set(generatorContext.wasNull()))
+                    .append(generatorContext.wasNull().set(constantFalse()));
+
+            Map<String, LetBinding> lets = ImmutableMap.<String, LetBinding>builder()
+                    .putAll(context.lets())
+                    .put(node.name().name(), new LetBinding(valueTemp, wasNullTemp))
+                    .buildOrThrow();
+            block.append(process(node.body(), new Context(context.scope(), context.lambdaInterface(), lets)));
+
+            context.scope().releaseTempVariableForReuse(valueTemp);
+            context.scope().releaseTempVariableForReuse(wasNullTemp);
+            return block;
         }
     }
 
     @VisibleForTesting
-    record Context(Scope scope, Optional<Class<?>> lambdaInterface) {}
+    record Context(Scope scope, Optional<Class<?>> lambdaInterface, Map<String, LetBinding> lets) {}
+
+    /**
+     * Holds the locals that back a `Let`-bound symbol: the value itself plus the
+     * captured wasNull state at the point the binding was constructed.
+     */
+    record LetBinding(Variable value, Variable wasNull) {}
 }

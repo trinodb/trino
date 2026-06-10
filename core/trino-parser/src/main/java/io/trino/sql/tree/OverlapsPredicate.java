@@ -13,64 +13,61 @@
  */
 package io.trino.sql.tree;
 
-import com.google.common.collect.ImmutableList;
-
 import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class IsNotNullPredicate
-        extends Expression
+/// SQL spec `<overlaps predicate part 2> ::= OVERLAPS <row value predicand>`.
+public final class OverlapsPredicate
+        extends Predicate
 {
-    private final Expression value;
+    private final Expression right;
 
-    public IsNotNullPredicate(NodeLocation location, Expression value)
+    public OverlapsPredicate(NodeLocation location, Expression right)
     {
         super(location);
-        this.value = requireNonNull(value, "value is null");
+        this.right = requireNonNull(right, "right is null");
     }
 
-    public Expression getValue()
+    public Expression getRight()
     {
-        return value;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitIsNotNullPredicate(this, context);
+        return right;
     }
 
     @Override
-    public List<Node> getChildren()
+    public List<? extends Node> getChildren()
     {
-        return ImmutableList.of(value);
+        return List.of(right);
     }
 
     @Override
-    public boolean equals(Object o)
+    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        IsNotNullPredicate that = (IsNotNullPredicate) o;
-        return Objects.equals(value, that.value);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return value.hashCode();
+        return visitor.visitOverlapsPredicate(this, context);
     }
 
     @Override
     public boolean shallowEquals(Node other)
     {
         return sameClass(this, other);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        return o instanceof OverlapsPredicate that && right.equals(that.right);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(right);
+    }
+
+    @Override
+    public String toString()
+    {
+        return "OVERLAPS " + right;
     }
 }

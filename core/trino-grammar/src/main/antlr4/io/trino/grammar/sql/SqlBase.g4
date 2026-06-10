@@ -580,6 +580,7 @@ predicate[ParserRuleContext value]
     | NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)?  #like
     | IS NOT? NULL                                                        #nullPredicate
     | IS NOT? DISTINCT FROM right=valueExpression                         #distinctFrom
+    | OVERLAPS right=valueExpression                                      #overlaps
     ;
 
 valueExpression
@@ -614,8 +615,8 @@ primaryExpression
     | '(' query ')'                                                                       #subqueryExpression
     // This is an extension to ANSI SQL, which considers EXISTS to be a <boolean expression>
     | EXISTS '(' query ')'                                                                #exists
-    | CASE operand=expression whenClause+ (ELSE elseExpression=expression)? END           #simpleCase
-    | CASE whenClause+ (ELSE elseExpression=expression)? END                              #searchedCase
+    | CASE operand=expression simpleWhenClause+ (ELSE elseExpression=expression)? END     #simpleCase
+    | CASE searchedWhenClause+ (ELSE elseExpression=expression)? END                      #searchedCase
     | CAST '(' expression AS type ')'                                                     #cast
     | TRY_CAST '(' expression AS type ')'                                                 #cast
     | ARRAY '[' (expression (',' expression)*)? ']'                                       #arrayConstructor
@@ -809,7 +810,12 @@ typeParameter
     : INTEGER_VALUE | type
     ;
 
-whenClause
+simpleWhenClause
+    : WHEN partial=predicate[null] THEN result=expression
+    | WHEN condition=expression THEN result=expression
+    ;
+
+searchedWhenClause
     : WHEN condition=expression THEN result=expression
     ;
 
@@ -1267,6 +1273,7 @@ OUTER: 'OUTER';
 OUTPUT: 'OUTPUT';
 OVER: 'OVER';
 OVERFLOW: 'OVERFLOW';
+OVERLAPS: 'OVERLAPS';
 PARTITION: 'PARTITION';
 PARTITIONS: 'PARTITIONS';
 PASSING: 'PASSING';

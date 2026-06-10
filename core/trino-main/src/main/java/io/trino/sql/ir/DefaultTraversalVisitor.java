@@ -112,12 +112,12 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitSwitch(Switch node, C context)
+    protected Void visitMatch(Match node, C context)
     {
         process(node.operand(), context);
-        for (WhenClause clause : node.whenClauses()) {
-            process(clause.getOperand(), context);
-            process(clause.getResult(), context);
+        for (MatchClause clause : node.clauses()) {
+            process(clause.predicate(), context);
+            process(clause.result(), context);
         }
 
         process(node.defaultValue(), context);
@@ -141,6 +141,15 @@ public abstract class DefaultTraversalVisitor<C>
             process(value, context);
         }
         process(node.function(), context);
+
+        return null;
+    }
+
+    @Override
+    protected Void visitLet(Let node, C context)
+    {
+        process(node.value(), context);
+        process(node.body(), context);
 
         return null;
     }

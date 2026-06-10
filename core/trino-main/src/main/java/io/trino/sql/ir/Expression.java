@@ -37,11 +37,12 @@ import java.util.List;
         @JsonSubTypes.Type(value = In.class, name = "in"),
         @JsonSubTypes.Type(value = IsNull.class, name = "isnull"),
         @JsonSubTypes.Type(value = Lambda.class, name = "lambda"),
+        @JsonSubTypes.Type(value = Let.class, name = "let"),
         @JsonSubTypes.Type(value = Logical.class, name = "logical"),
         @JsonSubTypes.Type(value = NullIf.class, name = "nullif"),
         @JsonSubTypes.Type(value = Reference.class, name = "reference"),
         @JsonSubTypes.Type(value = Row.class, name = "row"),
-        @JsonSubTypes.Type(value = Switch.class, name = "switch"),
+        @JsonSubTypes.Type(value = Match.class, name = "match"),
 })
 public sealed interface Expression
         permits Array,
@@ -57,11 +58,12 @@ public sealed interface Expression
                 In,
                 IsNull,
                 Lambda,
+                Let,
                 Logical,
+                Match,
                 NullIf,
                 Reference,
-                Row,
-                Switch
+                Row
 {
     Type type();
 
