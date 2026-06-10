@@ -32,6 +32,7 @@ import static io.trino.spi.block.BlockUtil.compactOffsets;
 import static io.trino.spi.block.BlockUtil.compactSlice;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
+import static io.trino.spi.block.BlockUtil.hasNullValue;
 
 public final class VariableWidthBlock
         implements ValueBlock
@@ -169,15 +170,7 @@ public final class VariableWidthBlock
     @Override
     public boolean hasNull()
     {
-        if (valueIsNull == null) {
-            return false;
-        }
-        for (int i = 0; i < positionCount; i++) {
-            if (valueIsNull[i + arrayOffset]) {
-                return true;
-            }
-        }
-        return false;
+        return hasNullValue(valueIsNull, arrayOffset, positionCount);
     }
 
     @Override
