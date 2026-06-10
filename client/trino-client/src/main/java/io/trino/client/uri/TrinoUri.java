@@ -56,7 +56,11 @@ import static io.trino.client.uri.ConnectionProperties.DNS_RESOLVER_CONTEXT;
 import static io.trino.client.uri.ConnectionProperties.ENCODING;
 import static io.trino.client.uri.ConnectionProperties.EXPLICIT_PREPARE;
 import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION;
+import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_CLIENT_ID;
+import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_CLIENT_SECRET;
+import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_ISSUER;
 import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS;
+import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_SCOPES;
 import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_TIMEOUT;
 import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_TOKEN_CACHE;
 import static io.trino.client.uri.ConnectionProperties.EXTRA_CREDENTIALS;
@@ -388,6 +392,32 @@ public class TrinoUri
     public boolean isExternalAuthenticationEnabled()
     {
         return resolveWithDefault(EXTERNAL_AUTHENTICATION, false);
+    }
+
+    public Optional<String> getExternalAuthenticationClientId()
+    {
+        return resolveOptional(EXTERNAL_AUTHENTICATION_CLIENT_ID);
+    }
+
+    public Optional<String> getExternalAuthenticationClientSecret()
+    {
+        return resolveOptional(EXTERNAL_AUTHENTICATION_CLIENT_SECRET);
+    }
+
+    public Optional<String> getExternalAuthenticationIssuer()
+    {
+        return resolveOptional(EXTERNAL_AUTHENTICATION_ISSUER);
+    }
+
+    public Optional<Set<String>> getExternalAuthenticationScopes()
+    {
+        return resolveOptional(EXTERNAL_AUTHENTICATION_SCOPES);
+    }
+
+    public boolean isClientCredentialsAuthenticationEnabled()
+    {
+        return resolveOptional(EXTERNAL_AUTHENTICATION_CLIENT_ID).isPresent()
+                && resolveOptional(EXTERNAL_AUTHENTICATION_CLIENT_SECRET).isPresent();
     }
 
     public Optional<Duration> getExternalAuthenticationTimeout()
@@ -949,6 +979,26 @@ public class TrinoUri
         public Builder setExternalAuthentication(Boolean externalAuthentication)
         {
             return setProperty(EXTERNAL_AUTHENTICATION, requireNonNull(externalAuthentication, "externalAuthentication is null"));
+        }
+
+        public Builder setExternalAuthenticationClientId(String clientId)
+        {
+            return setProperty(EXTERNAL_AUTHENTICATION_CLIENT_ID, requireNonNull(clientId, "clientId is null"));
+        }
+
+        public Builder setExternalAuthenticationClientSecret(String clientSecret)
+        {
+            return setProperty(EXTERNAL_AUTHENTICATION_CLIENT_SECRET, requireNonNull(clientSecret, "clientSecret is null"));
+        }
+
+        public Builder setExternalAuthenticationIssuer(String issuer)
+        {
+            return setProperty(EXTERNAL_AUTHENTICATION_ISSUER, requireNonNull(issuer, "issuer is null"));
+        }
+
+        public Builder setExternalAuthenticationScopes(Set<String> scopes)
+        {
+            return setProperty(EXTERNAL_AUTHENTICATION_SCOPES, requireNonNull(scopes, "scopes is null"));
         }
 
         public Builder setExternalAuthenticationTimeout(Duration externalAuthenticationTimeout)

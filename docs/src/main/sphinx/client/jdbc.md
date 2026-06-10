@@ -255,6 +255,18 @@ may not be specified using both methods.
     allowing it to be reused across separate CLI or JDBC processes. If the JDBC
     driver is used in a shared mode by different users, the first registered
     token is stored and authenticates all users.
+* - `externalAuthenticationClientId`
+  - OAuth2 client ID for non-interactive (machine-to-machine) authentication using the client
+    credentials flow. Unlike browser-based authentication, the client authenticates directly
+    using a client ID and secret without user involvement.
+* - `externalAuthenticationClientSecret`
+  - OAuth2 client secret for client credentials authentication.
+* - `externalAuthenticationIssuer`
+  - OAuth2 issuer URL for client credentials authentication; used to discover the token endpoint
+    via OIDC. Optional and auto-discovered if not configured.
+* - `externalAuthenticationScopes`
+  - Comma-separated OAuth2 scopes for client credentials authentication. Optional and
+    auto-discovered if not configured.
 * - `disableCompression`
   -  Whether HTTP compression should be disabled. Defaults to `false`.
 * - `disallowLocalRedirect`

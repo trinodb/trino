@@ -95,6 +95,10 @@ final class ConnectionProperties
     public static final ConnectionProperty<GSSCredential, GSSCredential> KERBEROS_CONSTRAINED_DELEGATION = new KerberosConstrainedDelegation();
     public static final ConnectionProperty<String, String> ACCESS_TOKEN = new AccessToken();
     public static final ConnectionProperty<String, Boolean> EXTERNAL_AUTHENTICATION = new ExternalAuthentication();
+    public static final ConnectionProperty<String, String> EXTERNAL_AUTHENTICATION_CLIENT_ID = new ExternalAuthenticationClientId();
+    public static final ConnectionProperty<String, String> EXTERNAL_AUTHENTICATION_CLIENT_SECRET = new ExternalAuthenticationClientSecret();
+    public static final ConnectionProperty<String, String> EXTERNAL_AUTHENTICATION_ISSUER = new ExternalAuthenticationIssuer();
+    public static final ConnectionProperty<String, Set<String>> EXTERNAL_AUTHENTICATION_SCOPES = new ExternalAuthenticationScopes();
     public static final ConnectionProperty<String, Duration> EXTERNAL_AUTHENTICATION_TIMEOUT = new ExternalAuthenticationTimeout();
     public static final ConnectionProperty<String, List<ExternalRedirectStrategy>> EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS = new ExternalAuthenticationRedirectHandlers();
     public static final ConnectionProperty<String, KnownTokenCache> EXTERNAL_AUTHENTICATION_TOKEN_CACHE = new ExternalAuthenticationTokenCache();
@@ -138,6 +142,10 @@ final class ConnectionProperties
             .add(ENCODING)
             .add(EXPLICIT_PREPARE)
             .add(EXTERNAL_AUTHENTICATION)
+            .add(EXTERNAL_AUTHENTICATION_CLIENT_ID)
+            .add(EXTERNAL_AUTHENTICATION_CLIENT_SECRET)
+            .add(EXTERNAL_AUTHENTICATION_ISSUER)
+            .add(EXTERNAL_AUTHENTICATION_SCOPES)
             .add(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS)
             .add(EXTERNAL_AUTHENTICATION_TIMEOUT)
             .add(EXTERNAL_AUTHENTICATION_TOKEN_CACHE)
@@ -712,6 +720,67 @@ final class ConnectionProperties
         public ExternalAuthentication()
         {
             super(PropertyName.EXTERNAL_AUTHENTICATION, Optional.of(false), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class ExternalAuthenticationClientId
+            extends AbstractConnectionProperty<String, String>
+    {
+        private static final Validator<Properties> VALIDATE_NO_EXTERNAL_AUTHENTICATION = validator(
+                properties -> !EXTERNAL_AUTHENTICATION.getValueOrDefault(properties, false),
+                format("Connection property %s cannot be set when %s is enabled", PropertyName.EXTERNAL_AUTHENTICATION_CLIENT_ID, PropertyName.EXTERNAL_AUTHENTICATION));
+
+        private static final Validator<Properties> VALIDATE_CLIENT_SECRET_SET = validator(
+                properties -> EXTERNAL_AUTHENTICATION_CLIENT_SECRET.getValue(properties).isPresent(),
+                format("Connection property %s requires %s to be set", PropertyName.EXTERNAL_AUTHENTICATION_CLIENT_ID, PropertyName.EXTERNAL_AUTHENTICATION_CLIENT_SECRET));
+
+        public ExternalAuthenticationClientId()
+        {
+            super(PropertyName.EXTERNAL_AUTHENTICATION_CLIENT_ID, NOT_REQUIRED, VALIDATE_NO_EXTERNAL_AUTHENTICATION.and(VALIDATE_CLIENT_SECRET_SET), STRING_CONVERTER);
+        }
+    }
+
+    private static class ExternalAuthenticationClientSecret
+            extends AbstractConnectionProperty<String, String>
+    {
+        private static final Validator<Properties> VALIDATE_CLIENT_ID_SET = validator(
+                properties -> EXTERNAL_AUTHENTICATION_CLIENT_ID.getValue(properties).isPresent(),
+                format("Connection property %s requires %s to be set", PropertyName.EXTERNAL_AUTHENTICATION_CLIENT_SECRET, PropertyName.EXTERNAL_AUTHENTICATION_CLIENT_ID));
+
+        public ExternalAuthenticationClientSecret()
+        {
+            super(PropertyName.EXTERNAL_AUTHENTICATION_CLIENT_SECRET, NOT_REQUIRED, VALIDATE_CLIENT_ID_SET, STRING_CONVERTER);
+        }
+    }
+
+    private static class ExternalAuthenticationIssuer
+            extends AbstractConnectionProperty<String, String>
+    {
+        private static final Validator<Properties> VALIDATE_CLIENT_ID_SET = validator(
+                properties -> EXTERNAL_AUTHENTICATION_CLIENT_ID.getValue(properties).isPresent(),
+                format("Connection property %s requires %s to be set", PropertyName.EXTERNAL_AUTHENTICATION_ISSUER, PropertyName.EXTERNAL_AUTHENTICATION_CLIENT_ID));
+
+        public ExternalAuthenticationIssuer()
+        {
+            super(PropertyName.EXTERNAL_AUTHENTICATION_ISSUER, NOT_REQUIRED, VALIDATE_CLIENT_ID_SET, STRING_CONVERTER);
+        }
+    }
+
+    private static class ExternalAuthenticationScopes
+            extends AbstractConnectionProperty<String, Set<String>>
+    {
+        private static final Splitter SCOPE_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+
+        private static final Validator<Properties> VALIDATE_CLIENT_ID_SET = validator(
+                properties -> EXTERNAL_AUTHENTICATION_CLIENT_ID.getValue(properties).isPresent(),
+                format("Connection property %s requires %s to be set", PropertyName.EXTERNAL_AUTHENTICATION_SCOPES, PropertyName.EXTERNAL_AUTHENTICATION_CLIENT_ID));
+
+        public ExternalAuthenticationScopes()
+        {
+            super(PropertyName.EXTERNAL_AUTHENTICATION_SCOPES,
+                    NOT_REQUIRED,
+                    VALIDATE_CLIENT_ID_SET,
+                    converter(s -> ImmutableSet.copyOf(SCOPE_SPLITTER.split(s)), scopes -> Joiner.on(',').join(scopes)));
         }
     }
 
