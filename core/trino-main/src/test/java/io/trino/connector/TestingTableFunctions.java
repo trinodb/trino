@@ -99,6 +99,7 @@ public class TestingTableFunctions
     {
         private static final String FUNCTION_NAME = "simple_table_function";
         private static final String TABLE_NAME = "simple_table";
+        private static final String DESCRIPTION = "simple description";
 
         public SimpleTableFunction()
         {
@@ -114,7 +115,8 @@ public class TestingTableFunctions
                                     .type(BIGINT)
                                     .defaultValue(0L)
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    DESCRIPTION);
         }
 
         @Override
