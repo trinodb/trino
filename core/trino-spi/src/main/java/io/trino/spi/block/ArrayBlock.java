@@ -27,6 +27,7 @@ import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.compactOffsets;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
+import static io.trino.spi.block.BlockUtil.hasNullValue;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -195,15 +196,7 @@ public final class ArrayBlock
     @Override
     public boolean hasNull()
     {
-        if (valueIsNull == null) {
-            return false;
-        }
-        for (int i = 0; i < positionCount; i++) {
-            if (valueIsNull[i + arrayOffset]) {
-                return true;
-            }
-        }
-        return false;
+        return hasNullValue(valueIsNull, arrayOffset, positionCount);
     }
 
     @Override

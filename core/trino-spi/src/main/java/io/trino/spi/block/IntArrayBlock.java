@@ -27,6 +27,7 @@ import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
+import static io.trino.spi.block.BlockUtil.hasNullValue;
 
 public final class IntArrayBlock
         implements ValueBlock
@@ -126,15 +127,7 @@ public final class IntArrayBlock
     @Override
     public boolean hasNull()
     {
-        if (valueIsNull == null) {
-            return false;
-        }
-        for (int i = 0; i < positionCount; i++) {
-            if (valueIsNull[i + arrayOffset]) {
-                return true;
-            }
-        }
-        return false;
+        return hasNullValue(valueIsNull, arrayOffset, positionCount);
     }
 
     @Override

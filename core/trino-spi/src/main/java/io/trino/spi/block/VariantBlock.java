@@ -28,6 +28,7 @@ import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.hasNullValue;
 import static java.util.Objects.requireNonNull;
 
 public final class VariantBlock
@@ -167,15 +168,7 @@ public final class VariantBlock
     @Override
     public boolean hasNull()
     {
-        if (isNull == null) {
-            return false;
-        }
-        for (int i = 0; i < positionCount; i++) {
-            if (isNull[startOffset + i]) {
-                return true;
-            }
-        }
-        return false;
+        return hasNullValue(isNull, startOffset, positionCount);
     }
 
     @Nullable

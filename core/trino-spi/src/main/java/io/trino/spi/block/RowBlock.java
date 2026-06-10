@@ -27,6 +27,7 @@ import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.hasNullValue;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -171,15 +172,7 @@ public final class RowBlock
     @Override
     public boolean hasNull()
     {
-        if (rowIsNull == null) {
-            return false;
-        }
-        for (int i = 0; i < positionCount; i++) {
-            if (rowIsNull[startOffset + i]) {
-                return true;
-            }
-        }
-        return false;
+        return hasNullValue(rowIsNull, startOffset, positionCount);
     }
 
     @Nullable
