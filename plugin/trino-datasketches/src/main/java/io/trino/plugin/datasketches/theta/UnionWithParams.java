@@ -31,9 +31,9 @@ public final class UnionWithParams
     private UnionWithParams() {}
 
     @InputFunction
-    public static void input(@AggregationState SketchState state, @SqlType(StandardTypes.VARBINARY) Slice inputValue, @SqlType(StandardTypes.INTEGER) Integer nominalEntries, @SqlType(StandardTypes.BIGINT) Long seed)
+    public static void input(@AggregationState SketchState state, @SqlType(StandardTypes.VARBINARY) Slice inputValue, @SqlType(StandardTypes.INTEGER) long nominalEntries, @SqlType(StandardTypes.BIGINT) long seed)
     {
-        state.setNominalEntries(nominalEntries);
+        state.setNominalEntries((int) nominalEntries);
         state.setSeed(seed);
         state.addSketch(inputValue);
     }
