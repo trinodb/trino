@@ -75,6 +75,7 @@ import java.nio.file.Path;
 import java.security.Principal;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
@@ -753,7 +754,7 @@ public class TestResourceSecurity
                     .isEqualTo(SC_UNAUTHORIZED);
             String authenticateHeader = response.header(WWW_AUTHENTICATE);
             assertThat(authenticateHeader).isNotNull();
-            Pattern oauth2BearerPattern = Pattern.compile("Bearer x_redirect_server=\"(https://127.0.0.1:[0-9]+/oauth2/token/initiate/.+)\", x_token_server=\"(https://127.0.0.1:[0-9]+/oauth2/token/.+)\"");
+            Pattern oauth2BearerPattern = Pattern.compile("Bearer x_redirect_server=\"(https://127.0.0.1:[0-9]+/oauth2/token/initiate/[^\"]+)\", x_token_server=\"(https://127.0.0.1:[0-9]+/oauth2/token/[^\"]+)\", x_token_endpoint=\"[^\"]+\", scope=\"[^\"]+\"");
             Matcher matcher = oauth2BearerPattern.matcher(authenticateHeader);
             assertThat(matcher.matches())
                     .describedAs(format("Invalid authentication header.\nExpected: %s\nPattern: %s", authenticateHeader, oauth2BearerPattern))
@@ -853,6 +854,149 @@ public class TestResourceSecurity
                 assertThat(response.code()).isEqualTo(SC_OK);
                 assertThat(response.header("user")).isEqualTo(TEST_USER);
                 assertThat(response.header("principal")).isEqualTo(TEST_USER);
+            }
+        }
+    }
+
+    @Test
+    public void testOAuth2AuthenticatorChallengeWithMultipleScopes()
+            throws Exception
+    {
+        try (TokenServer tokenServer = new TokenServer(Optional.empty());
+                TestingTrinoServer server = TestingTrinoServer.builder()
+                        .setProperties(ImmutableMap.<String, String>builder()
+                                .putAll(SECURE_PROPERTIES)
+                                .put("http-server.authentication.type", "oauth2")
+                                .putAll(getOAuth2Properties(tokenServer))
+                                .put("http-server.authentication.oauth2.scopes", "openid,profile,email")
+                                .buildOrThrow())
+                        .setAdditionalModule(oauth2Module(tokenServer))
+                        .setSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION)
+                        .build()) {
+            URI baseUri = server.getInstance(Key.get(HttpServerInfo.class)).getHttpsUri();
+            try (Response response = client.newCall(new Request.Builder()
+                            .url(getAuthorizedUserLocation(baseUri))
+                            .build())
+                    .execute()) {
+                assertThat(response.code()).isEqualTo(SC_UNAUTHORIZED);
+                // RFC 6750: scopes are space-separated within a single scope parameter
+                String challenge = response.header(WWW_AUTHENTICATE);
+                assertThat(challenge).containsPattern("scope=\"[^\"]*openid[^\"]*\"");
+                assertThat(challenge).containsPattern("scope=\"[^\"]*profile[^\"]*\"");
+                assertThat(challenge).containsPattern("scope=\"[^\"]*email[^\"]*\"");
+            }
+        }
+    }
+
+    @Test
+    public void testOAuth2AuthenticatorExpiredTokenReturns401()
+            throws Exception
+    {
+        try (TokenServer tokenServer = new TokenServer(Optional.empty());
+                TestingTrinoServer server = TestingTrinoServer.builder()
+                        .setProperties(ImmutableMap.<String, String>builder()
+                                .putAll(SECURE_PROPERTIES)
+                                .put("http-server.authentication.type", "oauth2")
+                                .putAll(getOAuth2Properties(tokenServer))
+                                .put("http-server.authentication.oauth2.refresh-tokens", "true")
+                                .buildOrThrow())
+                        .setAdditionalModule(oauth2Module(tokenServer))
+                        .setSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION)
+                        .build()) {
+            URI baseUri = server.getInstance(Key.get(HttpServerInfo.class)).getHttpsUri();
+            TokenPairSerializer serializer = server.getInstance(Key.get(TokenPairSerializer.class));
+
+            String expiredToken = serializer.serialize(
+                    TokenPair.withAccessAndRefreshTokens(tokenServer.getAccessToken(), Date.from(Instant.EPOCH), null));
+
+            assertResponseCode(
+                    client,
+                    getAuthorizedUserLocation(baseUri),
+                    SC_UNAUTHORIZED,
+                    Headers.of(AUTHORIZATION, "Bearer " + expiredToken));
+        }
+    }
+
+    @Test
+    public void testOAuth2AuthenticatorUnrecognizedTokenReturns401()
+            throws Exception
+    {
+        try (TokenServer tokenServer = new TokenServer(Optional.empty());
+                TestingTrinoServer server = TestingTrinoServer.builder()
+                        .setProperties(ImmutableMap.<String, String>builder()
+                                .putAll(SECURE_PROPERTIES)
+                                .put("http-server.authentication.type", "oauth2")
+                                .putAll(getOAuth2Properties(tokenServer))
+                                .buildOrThrow())
+                        .setAdditionalModule(oauth2Module(tokenServer))
+                        .setSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION)
+                        .build()) {
+            URI baseUri = server.getInstance(Key.get(HttpServerInfo.class)).getHttpsUri();
+
+            assertResponseCode(
+                    client,
+                    getAuthorizedUserLocation(baseUri),
+                    SC_UNAUTHORIZED,
+                    Headers.of(AUTHORIZATION, "Bearer not-a-valid-jwt-token"));
+        }
+    }
+
+    @Test
+    public void testOAuth2AuthenticatorMissingPrincipalFieldReturns401()
+            throws Exception
+    {
+        try (TokenServer tokenServer = new TokenServer(Optional.empty());
+                TestingTrinoServer server = TestingTrinoServer.builder()
+                        .setProperties(ImmutableMap.<String, String>builder()
+                                .putAll(SECURE_PROPERTIES)
+                                .put("http-server.authentication.type", "oauth2")
+                                .putAll(getOAuth2Properties(tokenServer))
+                                .buildOrThrow())
+                        .setAdditionalModule(oauth2Module(tokenServer))
+                        .setSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION)
+                        .build()) {
+            URI baseUri = server.getInstance(Key.get(HttpServerInfo.class)).getHttpsUri();
+
+            assertResponseCode(
+                    client,
+                    getAuthorizedUserLocation(baseUri),
+                    SC_UNAUTHORIZED,
+                    Headers.of(AUTHORIZATION, "Bearer " + tokenServer.issueTokenWithoutSubject()));
+        }
+    }
+
+    @Test
+    public void testOAuth2AuthenticatorWithRefreshableTokenChallengeContainsOnlyTokenServer()
+            throws Exception
+    {
+        try (TokenServer tokenServer = new TokenServer(Optional.empty(), true);
+                TestingTrinoServer server = TestingTrinoServer.builder()
+                        .setProperties(ImmutableMap.<String, String>builder()
+                                .putAll(SECURE_PROPERTIES)
+                                .put("http-server.authentication.type", "oauth2")
+                                .putAll(getOAuth2Properties(tokenServer))
+                                .put("http-server.authentication.oauth2.refresh-tokens", "true")
+                                .buildOrThrow())
+                        .setAdditionalModule(oauth2Module(tokenServer))
+                        .setSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION)
+                        .build()) {
+            URI baseUri = server.getInstance(Key.get(HttpServerInfo.class)).getHttpsUri();
+            TokenPairSerializer serializer = server.getInstance(Key.get(TokenPairSerializer.class));
+
+            // Expired access token with a refresh token — server refreshes it and responds with x_token_server only
+            String tokenWithRefresh = serializer.serialize(
+                    TokenPair.withAccessAndRefreshTokens(tokenServer.getAccessToken(), Date.from(Instant.EPOCH), tokenServer.getRefreshToken()));
+
+            try (Response response = client.newCall(new Request.Builder()
+                            .url(getAuthorizedUserLocation(baseUri))
+                            .header(AUTHORIZATION, "Bearer " + tokenWithRefresh)
+                            .build())
+                    .execute()) {
+                assertThat(response.code()).isEqualTo(SC_UNAUTHORIZED);
+                String challenge = response.header(WWW_AUTHENTICATE);
+                assertThat(challenge).contains("x_token_server=");
+                assertThat(challenge).doesNotContain("x_redirect_server");
+                assertThat(challenge).doesNotContain("x_token_endpoint");
             }
         }
     }
@@ -1032,13 +1176,21 @@ public class TestResourceSecurity
         private final Date tokenExpiration = Date.from(ZonedDateTime.now().plusMinutes(5).toInstant());
         private final JwtParser jwtParser = newJwtParserBuilder().verifyWith(JWK_PUBLIC_KEY).build();
         private final Optional<String> principalField;
+        private final boolean supportsRefresh;
         private final TestingHttpServer jwkServer;
         private final String accessToken;
 
         public TokenServer(Optional<String> principalField)
                 throws Exception
         {
+            this(principalField, false);
+        }
+
+        public TokenServer(Optional<String> principalField, boolean supportsRefresh)
+                throws Exception
+        {
             this.principalField = requireNonNull(principalField, "principalField is null");
+            this.supportsRefresh = supportsRefresh;
             jwkServer = createTestingJwkServer();
             jwkServer.start();
             accessToken = issueAccessToken();
@@ -1083,6 +1235,9 @@ public class TestResourceSecurity
                 public Response refreshTokens(String refreshToken)
                         throws ChallengeFailedException
                 {
+                    if (supportsRefresh) {
+                        return new Response(issueAccessToken(), now().plus(5, ChronoUnit.MINUTES), Optional.empty(), Optional.empty());
+                    }
                     throw new UnsupportedOperationException("refresh tokens not supported");
                 }
 
@@ -1139,6 +1294,17 @@ public class TestResourceSecurity
                 accessToken.subject(TEST_USER);
             }
             return accessToken.compact();
+        }
+
+        public String issueTokenWithoutSubject()
+        {
+            return newJwtBuilder()
+                    .signWith(JWK_PRIVATE_KEY)
+                    .header().keyId(JWK_KEY_ID).and()
+                    .issuer(issuer)
+                    .audience().add(clientId).and()
+                    .expiration(tokenExpiration)
+                    .compact();
         }
 
         private String issueIdToken(Optional<String> nonceHash)
