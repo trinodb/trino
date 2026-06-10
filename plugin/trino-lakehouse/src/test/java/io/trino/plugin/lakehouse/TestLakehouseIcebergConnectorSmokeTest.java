@@ -25,6 +25,7 @@ import static io.trino.plugin.iceberg.TableType.MANIFESTS;
 import static io.trino.plugin.iceberg.TableType.MATERIALIZED_VIEW_STORAGE;
 import static io.trino.plugin.iceberg.TableType.METADATA_LOG_ENTRIES;
 import static io.trino.plugin.iceberg.TableType.PARTITIONS;
+import static io.trino.plugin.iceberg.TableType.POSITION_DELETES;
 import static io.trino.plugin.iceberg.TableType.PROPERTIES;
 import static io.trino.plugin.iceberg.TableType.REFS;
 import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
@@ -70,6 +71,7 @@ public class TestLakehouseIcebergConnectorSmokeTest
         assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$files\"")).matches("VALUES (CAST(1 AS BIGINT))");
         assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$all_entries\"")).matches("VALUES (CAST(1 AS BIGINT))");
         assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$entries\"")).matches("VALUES (CAST(1 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$position_deletes\"")).matches("VALUES (CAST(0 AS BIGINT))");
         assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$properties\"")).matches("VALUES (CAST(6 AS BIGINT))");
         assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$refs\"")).matches("VALUES (CAST(1 AS BIGINT))");
 
@@ -86,6 +88,7 @@ public class TestLakehouseIcebergConnectorSmokeTest
                         FILES,
                         ALL_ENTRIES,
                         ENTRIES,
+                        POSITION_DELETES,
                         PROPERTIES,
                         REFS,
                         MATERIALIZED_VIEW_STORAGE);
