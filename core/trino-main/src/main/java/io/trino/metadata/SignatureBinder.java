@@ -64,6 +64,7 @@ import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 /**
@@ -121,7 +122,7 @@ public class SignatureBinder
         return bindVariables(actualArgumentTypes, actualReturnType).isPresent();
     }
 
-    public Optional<Signature> bind(List<? extends TypeSignatureProvider> actualArgumentTypes)
+    Optional<GroundSignature> bind(List<? extends TypeSignatureProvider> actualArgumentTypes)
     {
         Optional<VariableBindings> boundVariables = bindVariables(actualArgumentTypes);
         if (boundVariables.isEmpty()) {
@@ -155,7 +156,7 @@ public class SignatureBinder
         return iterativeSolve(constraintSolvers.build());
     }
 
-    private static Signature applyBoundVariables(Signature signature, VariableBindings typeVariables, int arity)
+    private static GroundSignature applyBoundVariables(Signature signature, VariableBindings typeVariables, int arity)
     {
         List<TypeSignature> argumentSignatures;
         if (signature.isVariableArity()) {
@@ -165,13 +166,9 @@ public class SignatureBinder
             checkArgument(signature.getArgumentTypes().size() == arity);
             argumentSignatures = signature.getArgumentTypes();
         }
-        List<TypeSignature> boundArgumentSignatures = applyBoundVariables(argumentSignatures, typeVariables);
-        TypeSignature boundReturnTypeSignature = applyBoundVariables(signature.getReturnType(), typeVariables);
-
-        return Signature.builder()
-                .returnType(boundReturnTypeSignature)
-                .argumentTypes(boundArgumentSignatures)
-                .build();
+        return new GroundSignature(
+                applyBoundVariables(signature.getReturnType(), typeVariables),
+                applyBoundVariables(argumentSignatures, typeVariables));
     }
 
     public static List<TypeSignature> applyBoundVariables(List<TypeSignature> typeSignatures, VariableBindings typeVariables)
@@ -1038,5 +1035,30 @@ public class SignatureBinder
     public enum RelationshipType
     {
         EXACT, IMPLICIT_COERCION, EXPLICIT_COERCION_TO, EXPLICIT_COERCION_FROM
+    }
+
+    /// A function signature with all of its variables bound: the ground argument and return types of one
+    /// applicable binding. The types stay unresolved signatures rather than [Type]s because function
+    /// resolution keeps candidates whose bound types are illegal (e.g. `char(2147483647)`) so they can be
+    /// reported in error messages.
+    record GroundSignature(TypeSignature returnType, List<TypeSignature> argumentTypes)
+    {
+        public GroundSignature
+        {
+            requireNonNull(returnType, "returnType is null");
+            argumentTypes = ImmutableList.copyOf(argumentTypes);
+        }
+
+        /// The rendering participates in function resolution: ambiguous-candidate selection orders
+        /// by it, and error messages include it.
+        @Override
+        public String toString()
+        {
+            return "%s:%s".formatted(
+                    argumentTypes.stream()
+                            .map(TypeSignature::toString)
+                            .collect(joining(",", "(", ")")),
+                    returnType);
+        }
     }
 }
