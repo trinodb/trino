@@ -45,8 +45,8 @@ public abstract class BaseJdbcFailureRecoveryTest
     {
         // This simple delete on JDBC ends up as a very simple, single-fragment, coordinator-only plan,
         // which has no ability to recover from errors. This test simply verifies that's still the case.
-        Optional<String> setupQuery = Optional.of("CREATE TABLE <table> AS SELECT * FROM orders");
-        String testQuery = "DELETE FROM <table> WHERE orderkey = 1";
+        Optional<String> setupQuery = Optional.of("CREATE TABLE <table> AS SELECT * FROM \"orders\"");
+        String testQuery = "DELETE FROM <table> WHERE \"orderkey\" = 1";
         Optional<String> cleanupQuery = Optional.of("DROP TABLE <table>");
 
         assertThatQuery(testQuery)

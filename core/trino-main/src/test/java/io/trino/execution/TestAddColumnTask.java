@@ -22,6 +22,7 @@ import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.ResolverManager;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.ColumnMetadata;
@@ -84,6 +85,7 @@ public class TestAddColumnTask
     {
         super.setUp();
         metadata = new MockMetadataWithDefaultValue(TEST_CATALOG_NAME, ImmutableSet.of(DEFAULT_COLUMN_VALUE, NOT_NULL_COLUMN_CONSTRAINT));
+        metadata.getResolverManager().addResolver(TEST_CATALOG_NAME, ResolverManager.getLowerCaseCanonicalizer());
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
     }
 
@@ -322,6 +324,7 @@ public class TestAddColumnTask
     void testAddDefaultColumnWithUnsupportedConnector()
     {
         Metadata metadata = new MockMetadataWithDefaultValue(TEST_CATALOG_NAME, ImmutableSet.of());
+        metadata.getResolverManager().addResolver(TEST_CATALOG_NAME, ResolverManager.getLowerCaseCanonicalizer());
         PlannerContext plannerContext = plannerContextBuilder().withMetadata(metadata).build();
 
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
@@ -517,12 +520,12 @@ public class TestAddColumnTask
         assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .containsExactly(new ColumnMetadata("col", rowType(new RowType.Field(Optional.of("a"), BIGINT))));
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("col", "a"), INTEGER, false, false)))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.ofDelimited("col", "a"), INTEGER, false, false)))
                 .hasErrorCode(COLUMN_ALREADY_EXISTS)
                 .hasMessageContaining("Field 'a' already exists");
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("col", "A"), INTEGER, false, false)))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.ofDelimited("col", "A"), INTEGER, false, false)))
                 .hasErrorCode(COLUMN_ALREADY_EXISTS)
-                .hasMessageContaining("Field 'a' already exists");
+                .hasMessageContaining("Field 'A' already exists");
         assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .containsExactly(new ColumnMetadata("col", rowType(new RowType.Field(Optional.of("a"), BIGINT))));
     }

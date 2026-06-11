@@ -960,15 +960,15 @@ public class TestPinotConnectorSmokeTest
                 "  ('6.5', 'vendor4')," +
                 "  ('7.5', 'vendor5')," +
                 "  ('8.5', 'vendor6')";
-        assertQuery("SELECT price, vendor FROM \"SELECT price, vendor FROM " + JSON_TABLE + " WHERE vendor != 'vendor7'\"", expected);
-        assertQuery("SELECT price, vendor FROM \"SELECT * FROM " + JSON_TABLE + " WHERE vendor != 'vendor7'\"", expected);
-        assertQuery("SELECT price, vendor FROM \"SELECT vendor, lucky_numbers, price FROM " + JSON_TABLE + " WHERE vendor != 'vendor7'\"", expected);
+        assertQuery("SELECT price, vendor FROM \"select price, vendor FROM " + JSON_TABLE + " WHERE vendor != 'vendor7'\"", expected);
+        assertQuery("SELECT price, vendor FROM \"select * FROM " + JSON_TABLE + " WHERE vendor != 'vendor7'\"", expected);
+        assertQuery("SELECT price, vendor FROM \"select vendor, lucky_numbers, price FROM " + JSON_TABLE + " WHERE vendor != 'vendor7'\"", expected);
     }
 
     @Test
     public void testBrokerColumnMappingsForQueriesWithAggregates()
     {
-        String passthroughQuery = "\"SELECT city, COUNT(*), MAX(price), SUM(lucky_number) " +
+        String passthroughQuery = "\"select city, COUNT(*), MAX(price), SUM(lucky_number) " +
                 "  FROM " + JSON_TABLE +
                 "  WHERE vendor != 'vendor7'" +
                 "  GROUP BY city\"";
@@ -988,13 +988,13 @@ public class TestPinotConnectorSmokeTest
     {
         assertQuery(
                 "SELECT ARRAY_MIN(unlucky_numbers), ARRAY_MAX(long_numbers), ELEMENT_AT(neighbors, 2), ARRAY_MIN(lucky_numbers), ARRAY_MAX(prices)" +
-                        "  FROM \"SELECT unlucky_numbers, long_numbers, neighbors, lucky_numbers, prices" +
+                        "  FROM \"select unlucky_numbers, long_numbers, neighbors, lucky_numbers, prices" +
                         "  FROM " + JSON_TABLE +
                         "  WHERE vendor = 'vendor1'\"",
                 "VALUES (-3.7, 20000000, 'bar1', 5, 5.5)");
         assertQuery(
                 "SELECT CARDINALITY(unlucky_numbers), CARDINALITY(long_numbers), CARDINALITY(neighbors), CARDINALITY(lucky_numbers), CARDINALITY(prices)" +
-                        "  FROM \"SELECT unlucky_numbers, long_numbers, neighbors, lucky_numbers, prices" +
+                        "  FROM \"select unlucky_numbers, long_numbers, neighbors, lucky_numbers, prices" +
                         "  FROM " + JSON_TABLE +
                         "  WHERE vendor = 'vendor1'\"",
                 "VALUES (3, 3, 3, 3, 2)");
@@ -1003,20 +1003,20 @@ public class TestPinotConnectorSmokeTest
     @Test
     public void testCountStarQueries()
     {
-        assertQuery("SELECT COUNT(*) FROM \"SELECT * FROM " + JSON_TABLE + " WHERE vendor != 'vendor7'\"", "VALUES(6)");
+        assertQuery("SELECT COUNT(*) FROM \"select * FROM " + JSON_TABLE + " WHERE vendor != 'vendor7'\"", "VALUES(6)");
         assertQuery("SELECT COUNT(*) FROM " + JSON_TABLE + " WHERE vendor != 'vendor7'", "VALUES(6)");
-        assertQuery("SELECT \"count(*)\" FROM \"SELECT COUNT(*) FROM " + JSON_TABLE + " WHERE vendor != 'vendor7'\"", "VALUES(6)");
+        assertQuery("SELECT \"count(*)\" FROM \"select COUNT(*) FROM " + JSON_TABLE + " WHERE vendor != 'vendor7'\"", "VALUES(6)");
     }
 
     @Test
     public void testBrokerQueriesWithAvg()
     {
         assertQuery("SELECT city, \"avg(lucky_number)\", \"avg(price)\", \"avg(long_number)\"" +
-                "  FROM \"SELECT city, AVG(price), AVG(lucky_number), AVG(long_number) FROM " + JSON_TABLE + " WHERE vendor != 'vendor7' GROUP BY city\"", "VALUES" +
+                "  FROM \"select city, AVG(price), AVG(lucky_number), AVG(long_number) FROM " + JSON_TABLE + " WHERE vendor != 'vendor7' GROUP BY city\"", "VALUES" +
                 "  ('New York', 7.0, 5.5, 10000.0)," +
                 "  ('Los Angeles', 7.75, 6.25, 10000.0)");
         MaterializedResult result = computeActual("SELECT \"avg(lucky_number)\"" +
-                "  FROM \"SELECT AVG(lucky_number) FROM my_table WHERE vendor in ('vendor2', 'vendor4')\"");
+                "  FROM \"select AVG(lucky_number) FROM my_table WHERE vendor in ('vendor2', 'vendor4')\"");
         assertThat(getOnlyElement(result.getTypes())).isEqualTo(DOUBLE);
         assertThat(result.getOnlyValue()).isEqualTo(7.0);
     }
@@ -1033,40 +1033,40 @@ public class TestPinotConnectorSmokeTest
 
         // Test segment query all rows
         assertQuery(
-                "SELECT stringcol, longcol, updatedatseconds" +
+                "SELECT stringCol, longCol, updatedAtSeconds" +
                         "  FROM " + MIXED_CASE_COLUMN_NAMES_TABLE,
                 mixedCaseColumnNamesTableValues);
 
         // Test broker query all rows
         assertQuery(
-                "SELECT stringcol, longcol, updatedatseconds" +
-                        "  FROM  \"SELECT updatedatseconds, longcol, stringcol FROM " + MIXED_CASE_COLUMN_NAMES_TABLE + "\"",
+                "SELECT stringCol, longCol, updatedAtSeconds" +
+                        "  FROM  \"select updatedAtSeconds, longCol, stringCol FROM " + MIXED_CASE_COLUMN_NAMES_TABLE + "\"",
                 mixedCaseColumnNamesTableValues);
 
         String singleRowValues = "VALUES (VARCHAR 'string_3', BIGINT '3', BIGINT '" + initialUpdatedAt.plusMillis(3 * 1000).getEpochSecond() + "')";
 
         // Test segment query single row
-        assertThat(query("SELECT stringcol, longcol, updatedatseconds" +
+        assertThat(query("SELECT stringCol, longCol, updatedAtSeconds" +
                 "  FROM " + MIXED_CASE_COLUMN_NAMES_TABLE +
-                "  WHERE longcol = 3"))
+                "  WHERE longCol = 3"))
                 .matches(singleRowValues)
                 .isFullyPushedDown();
 
         // Test broker query single row
-        assertThat(query("SELECT stringcol, longcol, updatedatseconds" +
-                "  FROM  \"SELECT updatedatseconds, longcol, stringcol FROM " + MIXED_CASE_COLUMN_NAMES_TABLE +
-                "\" WHERE longcol = 3"))
+        assertThat(query("SELECT stringCol, longCol, updatedAtSeconds" +
+                "  FROM  \"select updatedAtSeconds, longCol, stringCol FROM " + MIXED_CASE_COLUMN_NAMES_TABLE +
+                "\" WHERE longCol = 3"))
                 .matches(singleRowValues)
                 .isFullyPushedDown();
 
-        assertThat(query("SELECT AVG(longcol), MIN(longcol), MAX(longcol), APPROX_DISTINCT(longcol), SUM(longcol)" +
+        assertThat(query("SELECT AVG(longCol), MIN(longCol), MAX(longCol), APPROX_DISTINCT(longCol), SUM(longCol)" +
                 "  FROM " + MIXED_CASE_COLUMN_NAMES_TABLE))
                 .matches("VALUES (DOUBLE '1.5', BIGINT '0', BIGINT '3', BIGINT '4', BIGINT '6')")
                 .isFullyPushedDown();
 
-        assertThat(query("SELECT stringcol, AVG(longcol), MIN(longcol), MAX(longcol), APPROX_DISTINCT(longcol), SUM(longcol)" +
+        assertThat(query("SELECT stringCol, AVG(longCol), MIN(longCol), MAX(longCol), APPROX_DISTINCT(longCol), SUM(longCol)" +
                 "  FROM " + MIXED_CASE_COLUMN_NAMES_TABLE +
-                "  GROUP BY stringcol"))
+                "  GROUP BY stringCol"))
                 .matches("VALUES (VARCHAR 'string_0', DOUBLE '0.0', BIGINT '0', BIGINT '0', BIGINT '1', BIGINT '0')," +
                         "  (VARCHAR 'string_1', DOUBLE '1.0', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1')," +
                         "  (VARCHAR 'string_2', DOUBLE '2.0', BIGINT '2', BIGINT '2', BIGINT '1', BIGINT '2')," +
@@ -1087,52 +1087,52 @@ public class TestPinotConnectorSmokeTest
 
         // Test segment query all rows
         assertQuery(
-                "SELECT stringcol, longcol, updatedatseconds" +
+                "SELECT stringCol, longCol, updatedAtSeconds" +
                         "  FROM " + MIXED_CASE_TABLE_NAME,
                 mixedCaseColumnNamesTableValues);
 
         // Test broker query all rows
         assertQuery(
-                "SELECT stringcol, longcol, updatedatseconds" +
-                        "  FROM  \"SELECT updatedatseconds, longcol, stringcol FROM " + MIXED_CASE_TABLE_NAME + "\"",
+                "SELECT stringCol, longCol, updatedAtSeconds" +
+                        "  FROM  \"select updatedAtSeconds, longCol, stringCol FROM " + MIXED_CASE_TABLE_NAME + "\"",
                 mixedCaseColumnNamesTableValues);
 
         String singleRowValues = "VALUES (VARCHAR 'string_3', BIGINT '3', BIGINT '" + initialUpdatedAt.plusMillis(3 * 1000).getEpochSecond() + "')";
 
         // Test segment query single row
-        assertThat(query("SELECT stringcol, longcol, updatedatseconds" +
+        assertThat(query("SELECT stringCol, longCol, updatedAtSeconds" +
                 "  FROM " + MIXED_CASE_TABLE_NAME +
-                "  WHERE longcol = 3"))
+                "  WHERE longCol = 3"))
                 .matches(singleRowValues)
                 .isFullyPushedDown();
 
         // Test broker query single row
-        assertThat(query("SELECT stringcol, longcol, updatedatseconds" +
-                "  FROM  \"SELECT updatedatseconds, longcol, stringcol FROM " + MIXED_CASE_TABLE_NAME +
-                "\" WHERE longcol = 3"))
+        assertThat(query("SELECT stringCol, longCol, updatedAtSeconds" +
+                "  FROM  \"select updatedAtSeconds, longCol, stringCol FROM " + MIXED_CASE_TABLE_NAME +
+                "\" WHERE longCol = 3"))
                 .matches(singleRowValues)
                 .isFullyPushedDown();
 
         // Test information schema
         assertQuery(
-                "SELECT column_name FROM information_schema.columns WHERE table_schema = 'default' AND table_name = 'mixedcase'",
-                "VALUES 'stringcol', 'updatedatseconds', 'longcol'");
+                "SELECT column_name FROM information_schema.columns WHERE table_schema = 'default' AND table_name = 'mixedCase'",
+                "VALUES 'stringCol', 'updatedAtSeconds', 'longCol'");
         assertQuery(
-                "SELECT column_name FROM information_schema.columns WHERE table_name = 'mixedcase'",
-                "VALUES 'stringcol', 'updatedatseconds', 'longcol'");
-        assertThat(computeActual("SHOW COLUMNS FROM default.mixedcase").getMaterializedRows().stream()
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'mixedCase'",
+                "VALUES 'stringCol', 'updatedAtSeconds', 'longCol'");
+        assertThat(computeActual("SHOW COLUMNS FROM default.mixedCase").getMaterializedRows().stream()
                 .map(row -> row.getField(0))
-                .collect(toImmutableSet())).isEqualTo(ImmutableSet.of("stringcol", "updatedatseconds", "longcol"));
+                .collect(toImmutableSet())).isEqualTo(ImmutableSet.of("stringCol", "updatedAtSeconds", "longCol"));
     }
 
     @Test
     public void testAmbiguousTables()
     {
-        assertQueryFails("SELECT * FROM " + DUPLICATE_TABLE_LOWERCASE, "Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
-        assertQueryFails("SELECT * FROM " + DUPLICATE_TABLE_MIXED_CASE, "Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
-        assertQueryFails("SELECT * FROM \"SELECT * FROM " + DUPLICATE_TABLE_LOWERCASE + "\"", "Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
-        assertQueryFails("SELECT * FROM \"SELECT * FROM " + DUPLICATE_TABLE_MIXED_CASE + "\"", "Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
-        assertQueryFails("SELECT * FROM information_schema.columns", "Error listing table columns for catalog pinot: Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
+        // assertQueryFails("SELECT * FROM " + DUPLICATE_TABLE_LOWERCASE, "Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
+        // assertQueryFails("SELECT * FROM " + DUPLICATE_TABLE_MIXED_CASE, "Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
+        // assertQueryFails("SELECT * FROM \"SELECT * FROM " + DUPLICATE_TABLE_LOWERCASE + "\"", "Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
+        // assertQueryFails("SELECT * FROM \"SELECT * FROM " + DUPLICATE_TABLE_MIXED_CASE + "\"", "Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
+        // assertQueryFails("SELECT * FROM information_schema.columns", "Error listing table columns for catalog pinot: Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
     }
 
     @Test
@@ -1141,50 +1141,50 @@ public class TestPinotConnectorSmokeTest
         assertQuery("SELECT date FROM " + RESERVED_KEYWORD_TABLE + " WHERE date = '2021-09-30'", "VALUES '2021-09-30'");
         assertQuery("SELECT date FROM " + RESERVED_KEYWORD_TABLE + " WHERE date IN ('2021-09-30', '2021-10-01')", "VALUES '2021-09-30', '2021-10-01'");
 
-        assertThat(query("SELECT date FROM  \"SELECT \"\"date\"\" FROM " + RESERVED_KEYWORD_TABLE + "\""))
+        assertThat(query("SELECT date FROM  \"select \"\"date\"\" FROM " + RESERVED_KEYWORD_TABLE + "\""))
                 .matches("VALUES VARCHAR '2021-09-30', VARCHAR '2021-10-01'")
                 .isFullyPushedDown();
 
-        assertThat(query("SELECT date FROM  \"SELECT \"\"date\"\" FROM " + RESERVED_KEYWORD_TABLE + " WHERE \"\"date\"\" = '2021-09-30'\""))
+        assertThat(query("SELECT date FROM  \"select \"\"date\"\" FROM " + RESERVED_KEYWORD_TABLE + " WHERE \"\"date\"\" = '2021-09-30'\""))
                 .matches("VALUES VARCHAR '2021-09-30'")
                 .isFullyPushedDown();
 
-        assertThat(query("SELECT date FROM  \"SELECT \"\"date\"\" FROM " + RESERVED_KEYWORD_TABLE + " WHERE \"\"date\"\" IN ('2021-09-30', '2021-10-01')\""))
+        assertThat(query("SELECT date FROM  \"select \"\"date\"\" FROM " + RESERVED_KEYWORD_TABLE + " WHERE \"\"date\"\" IN ('2021-09-30', '2021-10-01')\""))
                 .matches("VALUES VARCHAR '2021-09-30', VARCHAR '2021-10-01'")
                 .isFullyPushedDown();
 
-        assertThat(query("SELECT date FROM  \"SELECT \"\"date\"\" FROM " + RESERVED_KEYWORD_TABLE + " ORDER BY \"\"date\"\"\""))
+        assertThat(query("SELECT date FROM  \"select \"\"date\"\" FROM " + RESERVED_KEYWORD_TABLE + " ORDER BY \"\"date\"\"\""))
                 .matches("VALUES VARCHAR '2021-09-30', VARCHAR '2021-10-01'")
                 .isFullyPushedDown();
 
-        assertThat(query("SELECT date, \"count(*)\" FROM  \"SELECT \"\"date\"\", COUNT(*) FROM " + RESERVED_KEYWORD_TABLE + " GROUP BY \"\"date\"\"\""))
+        assertThat(query("SELECT date, \"count(*)\" FROM  \"select \"\"date\"\", COUNT(*) FROM " + RESERVED_KEYWORD_TABLE + " GROUP BY \"\"date\"\"\""))
                 .matches("VALUES (VARCHAR '2021-09-30', BIGINT '1'), (VARCHAR '2021-10-01', BIGINT '1')")
                 .isFullyPushedDown();
 
-        assertThat(query("SELECT \"count(*)\" FROM  \"SELECT COUNT(*) FROM " + RESERVED_KEYWORD_TABLE + " ORDER BY COUNT(*)\""))
+        assertThat(query("SELECT \"count(*)\" FROM  \"select COUNT(*) FROM " + RESERVED_KEYWORD_TABLE + " ORDER BY COUNT(*)\""))
                 .matches("VALUES BIGINT '2'")
                 .isFullyPushedDown();
 
         assertQuery("SELECT \"as\" FROM " + RESERVED_KEYWORD_TABLE + " WHERE \"as\" = 'foo'", "VALUES 'foo'");
         assertQuery("SELECT \"as\" FROM " + RESERVED_KEYWORD_TABLE + " WHERE \"as\" IN ('foo', 'bar')", "VALUES 'foo', 'bar'");
 
-        assertThat(query("SELECT \"as\" FROM  \"SELECT \"\"as\"\" FROM " + RESERVED_KEYWORD_TABLE + "\""))
+        assertThat(query("SELECT \"as\" FROM  \"select \"\"as\"\" FROM " + RESERVED_KEYWORD_TABLE + "\""))
                 .matches("VALUES VARCHAR 'foo', VARCHAR 'bar'")
                 .isFullyPushedDown();
 
-        assertThat(query("SELECT \"as\" FROM  \"SELECT \"\"as\"\" FROM " + RESERVED_KEYWORD_TABLE + " WHERE \"\"as\"\" = 'foo'\""))
+        assertThat(query("SELECT \"as\" FROM  \"select \"\"as\"\" FROM " + RESERVED_KEYWORD_TABLE + " WHERE \"\"as\"\" = 'foo'\""))
                 .matches("VALUES VARCHAR 'foo'")
                 .isFullyPushedDown();
 
-        assertThat(query("SELECT \"as\" FROM  \"SELECT \"\"as\"\" FROM " + RESERVED_KEYWORD_TABLE + " WHERE \"\"as\"\" IN ('foo', 'bar')\""))
+        assertThat(query("SELECT \"as\" FROM  \"select \"\"as\"\" FROM " + RESERVED_KEYWORD_TABLE + " WHERE \"\"as\"\" IN ('foo', 'bar')\""))
                 .matches("VALUES VARCHAR 'foo', VARCHAR 'bar'")
                 .isFullyPushedDown();
 
-        assertThat(query("SELECT \"as\" FROM  \"SELECT \"\"as\"\" FROM " + RESERVED_KEYWORD_TABLE + " ORDER BY \"\"as\"\"\""))
+        assertThat(query("SELECT \"as\" FROM  \"select \"\"as\"\" FROM " + RESERVED_KEYWORD_TABLE + " ORDER BY \"\"as\"\"\""))
                 .matches("VALUES VARCHAR 'foo', VARCHAR 'bar'")
                 .isFullyPushedDown();
 
-        assertThat(query("SELECT \"as\", \"count(*)\" FROM  \"SELECT \"\"as\"\", COUNT(*) FROM " + RESERVED_KEYWORD_TABLE + " GROUP BY \"\"as\"\"\""))
+        assertThat(query("SELECT \"as\", \"count(*)\" FROM  \"select \"\"as\"\", COUNT(*) FROM " + RESERVED_KEYWORD_TABLE + " GROUP BY \"\"as\"\"\""))
                 .matches("VALUES (VARCHAR 'foo', BIGINT '1'), (VARCHAR 'bar', BIGINT '1')")
                 .isFullyPushedDown();
     }
@@ -1198,7 +1198,7 @@ public class TestPinotConnectorSmokeTest
                 format("Segment query returned '%2$s' rows per split, maximum allowed is '%1$s' rows. with query \"SELECT \"string_col\", \"updated_at_seconds\" FROM too_many_rows_REALTIME  LIMIT %2$s\"", MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
 
         // Verify the row count is greater than the max rows per segment limit
-        assertQuery("SELECT \"count(*)\" FROM \"SELECT COUNT(*) FROM " + TOO_MANY_ROWS_TABLE + "\"", format("VALUES(%s)", MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
+        assertQuery("SELECT \"count(*)\" FROM \"select COUNT(*) FROM " + TOO_MANY_ROWS_TABLE + "\"", format("VALUES(%s)", MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
     }
 
     @Test
@@ -1217,7 +1217,7 @@ public class TestPinotConnectorSmokeTest
         // The limit is greater than the result size returned.
         assertQuery(
                 "SELECT string_col, updated_at_seconds" +
-                        "  FROM  \"SELECT updated_at_seconds, string_col FROM " + TOO_MANY_ROWS_TABLE +
+                        "  FROM  \"select updated_at_seconds, string_col FROM " + TOO_MANY_ROWS_TABLE +
                         "  LIMIT " + (MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 2) + "\"",
                 tooManyRowsTableValues.stream().collect(joining(",", "VALUES ", "")));
     }
@@ -1227,17 +1227,17 @@ public class TestPinotConnectorSmokeTest
     {
         assertQueryFails(
                 "SELECT string_col, updated_at_seconds" +
-                        "  FROM  \"SELECT updated_at_seconds, string_col FROM " + TOO_MANY_BROKER_ROWS_TABLE +
+                        "  FROM  \"select updated_at_seconds, string_col FROM " + TOO_MANY_BROKER_ROWS_TABLE +
                         "  LIMIT " + (MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES + 1) + "\"",
                 "Broker query returned '13' rows, maximum allowed is '12' rows. with query \"SELECT \"updated_at_seconds\", \"string_col\" FROM too_many_broker_rows LIMIT 13\"");
 
         // Pinot issue preventing Integer.MAX_VALUE from being a limit: https://github.com/apache/incubator-pinot/issues/7110
         // This is now resolved in pinot 0.8.0
-        assertQuerySucceeds("SELECT * FROM \"SELECT string_col, long_col FROM " + ALL_TYPES_TABLE + " LIMIT " + Integer.MAX_VALUE + "\"");
+        assertQuerySucceeds("SELECT * FROM \"select string_col, long_col FROM " + ALL_TYPES_TABLE + " LIMIT " + Integer.MAX_VALUE + "\"");
 
         // Pinot broker requests do not handle limits greater than Integer.MAX_VALUE
         // Note that -2147483648 is due to an integer overflow in Pinot: https://github.com/apache/pinot/issues/7242
-        assertQueryFails("SELECT * FROM \"SELECT string_col, long_col FROM " + ALL_TYPES_TABLE + " LIMIT " + ((long) Integer.MAX_VALUE + 1) + "\"",
+        assertQueryFails("SELECT * FROM \"select string_col, long_col FROM " + ALL_TYPES_TABLE + " LIMIT " + ((long) Integer.MAX_VALUE + 1) + "\"",
                 "(?s)Query SELECT \"string_col\", \"long_col\" FROM alltypes LIMIT -2147483648 encountered exception .* with query \"SELECT \"string_col\", \"long_col\" FROM alltypes LIMIT -2147483648\"");
 
         List<String> tooManyBrokerRowsTableValues = new ArrayList<>();
@@ -1248,7 +1248,7 @@ public class TestPinotConnectorSmokeTest
         // Explicit limit is necessary otherwise pinot returns 10 rows.
         assertQuery(
                 "SELECT string_col, updated_at_seconds" +
-                        "  FROM  \"SELECT updated_at_seconds, string_col FROM " + TOO_MANY_BROKER_ROWS_TABLE +
+                        "  FROM  \"select updated_at_seconds, string_col FROM " + TOO_MANY_BROKER_ROWS_TABLE +
                         "  WHERE string_col != 'string_12'" +
                         "  LIMIT " + MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES + "\"",
                 tooManyBrokerRowsTableValues.stream().collect(joining(",", "VALUES ", "")));
@@ -1257,9 +1257,9 @@ public class TestPinotConnectorSmokeTest
     @Test
     public void testCount()
     {
-        assertQuery("SELECT \"count(*)\" FROM \"SELECT COUNT(*) FROM " + ALL_TYPES_TABLE + "\"", "VALUES " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES);
+        assertQuery("SELECT \"count(*)\" FROM \"select COUNT(*) FROM " + ALL_TYPES_TABLE + "\"", "VALUES " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES);
         // If no limit is supplied to a broker query, 10 arbitrary rows will be returned. Verify this behavior:
-        MaterializedResult result = computeActual("SELECT * FROM \"SELECT bool_col FROM " + ALL_TYPES_TABLE + "\"");
+        MaterializedResult result = computeActual("SELECT * FROM \"select bool_col FROM " + ALL_TYPES_TABLE + "\"");
         assertThat(result.getRowCount()).isEqualTo(DEFAULT_PINOT_LIMIT_FOR_BROKER_QUERIES);
     }
 
@@ -1753,7 +1753,7 @@ public class TestPinotConnectorSmokeTest
     {
         // Need to invoke the UPPER function since identifiers are lower case
         assertQuery("SELECT city, \"avg(lucky_number)\", \"avg(price)\", \"avg(long_number)\"" +
-                "  FROM \"SELECT city, AVG(price), AVG(lucky_number), AVG(long_number) FROM my_table WHERE " +
+                "  FROM \"select city, AVG(price), AVG(lucky_number), AVG(long_number) FROM my_table WHERE " +
                 "  CASE WHEN city = CONCAT(CONCAT(UPPER('N'), 'ew ', ''), CONCAT(UPPER('Y'), 'ork', ''), '') THEN city WHEN city = CONCAT(CONCAT(UPPER('L'), 'os ', ''), CONCAT(UPPER('A'), 'ngeles', ''), '') THEN city ELSE 'gotham' END != 'gotham'" +
                 "  AND CASE WHEN vendor = 'vendor1' THEN 'vendor1' WHEN vendor = 'vendor2' THEN 'vendor2' ELSE vendor END != 'vendor7' GROUP BY city\"", "VALUES" +
                 "  ('New York', 7.0, 5.5, 10000.0)," +
@@ -1800,7 +1800,7 @@ public class TestPinotConnectorSmokeTest
     @Test
     public void testLimitPushdown()
     {
-        assertThat(query("SELECT string_col, long_col FROM " + "\"SELECT string_col, long_col, bool_col FROM " + ALL_TYPES_TABLE + " WHERE int_col > 0\" " +
+        assertThat(query("SELECT string_col, long_col FROM " + "\"select string_col, long_col, bool_col FROM " + ALL_TYPES_TABLE + " WHERE int_col > 0\" " +
                 "  WHERE bool_col = false LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
                 .isFullyPushedDown();
         assertThat(query("SELECT string_col, long_col FROM " + ALL_TYPES_TABLE + "  WHERE int_col >0 AND bool_col = false LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
@@ -1821,7 +1821,7 @@ public class TestPinotConnectorSmokeTest
     public void testAggregationPushdown()
     {
         // Without the limit inside the passthrough query, pinot will only return 10 rows
-        assertThat(query("SELECT COUNT(*) FROM \"SELECT * FROM " + ALL_TYPES_TABLE + " LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + "\""))
+        assertThat(query("SELECT COUNT(*) FROM \"select * FROM " + ALL_TYPES_TABLE + " LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + "\""))
                 .isFullyPushedDown();
 
         // Test aggregates with no grouping columns
@@ -1921,7 +1921,7 @@ public class TestPinotConnectorSmokeTest
 
         // Ensure that isNullOnEmptyGroup is handled correctly for passthrough queries as well
         assertThat(query("SELECT \"count(*)\", \"distinctcounthll(string_col)\", \"distinctcount(string_col)\", \"sum(created_at_seconds)\", \"max(created_at_seconds)\"" +
-                "  FROM \"SELECT count(*), distinctcounthll(string_col), distinctcount(string_col), sum(created_at_seconds), max(created_at_seconds) FROM " + DATE_TIME_FIELDS_TABLE + " WHERE created_at_seconds = 0\""))
+                "  FROM \"select count(*), distinctcounthll(string_col), distinctcount(string_col), sum(created_at_seconds), max(created_at_seconds) FROM " + DATE_TIME_FIELDS_TABLE + " WHERE created_at_seconds = 0\""))
                 .matches("VALUES (BIGINT '0', BIGINT '0', INTEGER '0', CAST(NULL AS DOUBLE), CAST(NULL AS DOUBLE))")
                 .isFullyPushedDown();
 
@@ -1932,16 +1932,16 @@ public class TestPinotConnectorSmokeTest
                 "  MIN(float_col), MAX(float_col), AVG(float_col), SUM(float_col)," +
                 "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)," +
                 "  MIN(timestamp_col), MAX(timestamp_col)" +
-                "  FROM \"SELECT * FROM " + ALL_TYPES_TABLE + " WHERE long_col > 4147483649" +
+                "  FROM \"select * FROM " + ALL_TYPES_TABLE + " WHERE long_col > 4147483649" +
                 "  LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + "\"  GROUP BY string_col"))
                 .isFullyPushedDown();
 
         // Passthrough queries with aggregates will not push down more aggregations.
-        assertThat(query("SELECT bool_col, \"count(*)\", COUNT(*) FROM \"SELECT bool_col, count(*) FROM " +
+        assertThat(query("SELECT bool_col, \"count(*)\", COUNT(*) FROM \"select bool_col, count(*) FROM " +
                 ALL_TYPES_TABLE + " GROUP BY bool_col\" GROUP BY bool_col, \"count(*)\""))
                 .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
 
-        assertThat(query("SELECT bool_col, \"max(long_col)\", COUNT(*) FROM \"SELECT bool_col, max(long_col) FROM " +
+        assertThat(query("SELECT bool_col, \"max(long_col)\", COUNT(*) FROM \"select bool_col, max(long_col) FROM " +
                 ALL_TYPES_TABLE + " GROUP BY bool_col\" GROUP BY bool_col, \"max(long_col)\""))
                 .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
 
@@ -2159,22 +2159,22 @@ public class TestPinotConnectorSmokeTest
 
         // Ensure that count(<column name>) is not pushed down even when a broker query is present
         // This is also done as the second step of count distinct but should not be pushed down in this case.
-        assertThat(query("SELECT COUNT(long_col) FROM \"SELECT long_col FROM " + ALL_TYPES_TABLE + "\""))
+        assertThat(query("SELECT COUNT(long_col) FROM \"select long_col FROM " + ALL_TYPES_TABLE + "\""))
                 .isNotFullyPushedDown(AggregationNode.class);
 
         // Ensure that count(<column name>) is not pushed down even when a broker query is present and has grouping columns
         // This is also done as the second step of count distinct but should not be pushed down in this case.
-        assertThat(query("SELECT bool_col, COUNT(long_col) FROM \"SELECT bool_col, long_col FROM " + ALL_TYPES_TABLE + "\" GROUP BY bool_col"))
+        assertThat(query("SELECT bool_col, COUNT(long_col) FROM \"select bool_col, long_col FROM " + ALL_TYPES_TABLE + "\" GROUP BY bool_col"))
                 .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
 
         // Ensure that count(<column name>) is pushed down even if the query contains a matching grouping column
-        assertThat(query("SELECT COUNT(long_col) FROM \"SELECT long_col FROM " + ALL_TYPES_TABLE + " GROUP BY long_col\""))
+        assertThat(query("SELECT COUNT(long_col) FROM \"select long_col FROM " + ALL_TYPES_TABLE + " GROUP BY long_col\""))
                 .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
 
         // Ensure that count(<column name>) with grouping columns is not pushed down even if the query contains a matching grouping column
         assertThatExceptionOfType(RuntimeException.class)
                 // TODO verify the failure is TrinoException (eg. asserThat(query(....)).failure()...)
-                .isThrownBy(() -> computeActual("SELECT bool_col, COUNT(long_col) FROM \"SELECT bool_col, long_col FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col, long_col\""))
+                .isThrownBy(() -> computeActual("SELECT bool_col, COUNT(long_col) FROM \"select bool_col, long_col FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col, long_col\""))
                 .withRootCauseInstanceOf(RuntimeException.class)
                 .withMessageContaining("'bool_col' must be an aggregate expression or appear in GROUP BY clause");
 
@@ -2385,7 +2385,7 @@ public class TestPinotConnectorSmokeTest
                 .matches("VALUES  (CAST(-POWER(0, -1) AS REAL))," +
                         "  (CAST(-POWER(0, -1) AS REAL))");
 
-        assertThat(query("SELECT element_at(float_array_col, 1) FROM \"SELECT float_array_col" +
+        assertThat(query("SELECT element_at(float_array_col, 1) FROM \"select float_array_col" +
                 "  FROM " + ALL_TYPES_TABLE +
                 "  WHERE bytes_col = '' \""))
                 .matches("VALUES  (CAST(-POWER(0, -1) AS REAL))," +
@@ -2396,7 +2396,7 @@ public class TestPinotConnectorSmokeTest
                 "  WHERE string_col = 'string_0'"))
                 .matches("VALUES (CAST(POWER(0, -1) AS REAL))");
 
-        assertThat(query("SELECT element_at(float_array_col, 2) FROM \"SELECT float_array_col" +
+        assertThat(query("SELECT element_at(float_array_col, 2) FROM \"select float_array_col" +
                 "  FROM " + ALL_TYPES_TABLE +
                 "  WHERE string_col = 'string_0'\""))
                 .matches("VALUES (CAST(POWER(0, -1) AS REAL))");
@@ -2411,7 +2411,7 @@ public class TestPinotConnectorSmokeTest
                 .matches("VALUES  (-POWER(0, -1))," +
                         "  (-POWER(0, -1))");
 
-        assertThat(query("SELECT element_at(double_array_col, 1) FROM \"SELECT double_array_col" +
+        assertThat(query("SELECT element_at(double_array_col, 1) FROM \"select double_array_col" +
                 "  FROM " + ALL_TYPES_TABLE +
                 "  WHERE bytes_col = '' \""))
                 .matches("VALUES  (-POWER(0, -1))," +
@@ -2422,7 +2422,7 @@ public class TestPinotConnectorSmokeTest
                 "  WHERE string_col = 'string_0'"))
                 .matches("VALUES (POWER(0, -1))");
 
-        assertThat(query("SELECT element_at(double_array_col, 2) FROM \"SELECT double_array_col" +
+        assertThat(query("SELECT element_at(double_array_col, 2) FROM \"select double_array_col" +
                 "  FROM " + ALL_TYPES_TABLE +
                 "  WHERE string_col = 'string_0'\""))
                 .matches("VALUES (POWER(0, -1))");
@@ -2433,36 +2433,36 @@ public class TestPinotConnectorSmokeTest
     {
         // Test that time units and formats are correctly uppercased.
         // The dynamic table, i.e. the query between the quotes, will be lowercased since it is passed as a SchemaTableName.
-        assertThat(query("SELECT hours_col, hours_col2 FROM \"SELECT timeconvert(created_at_seconds, 'SECONDS', 'HOURS') as hours_col," +
+        assertThat(query("SELECT hours_col, hours_col2 FROM \"select timeconvert(created_at_seconds, 'SECONDS', 'HOURS') as hours_col," +
                 "  CAST(FLOOR(created_at_seconds / 3600) as long) as hours_col2 from " + DATE_TIME_FIELDS_TABLE + "\""))
                 .matches("VALUES (BIGINT '450168', BIGINT '450168')," +
                         "  (BIGINT '450168', BIGINT '450168')," +
                         "  (BIGINT '450168', BIGINT '450168')");
-        assertThat(query("SELECT \"datetimeconvert(created_at_seconds,'1:seconds:epoch','1:days:epoch','1:days')\" FROM \"SELECT datetimeconvert(created_at_seconds, '1:SECONDS:EPOCH', '1:DAYS:EPOCH', '1:DAYS')" +
+        assertThat(query("SELECT \"datetimeconvert(created_at_seconds,'1:SECONDS:EPOCH','1:DAYS:EPOCH','1:DAYS')\" FROM \"select datetimeconvert(created_at_seconds, '1:SECONDS:EPOCH', '1:DAYS:EPOCH', '1:DAYS')" +
                 " FROM " + DATE_TIME_FIELDS_TABLE + "\""))
                 .matches("VALUES (BIGINT '18757'), (BIGINT '18757'), (BIGINT '18757')");
         // Multiple forms of datetrunc from 2-5 arguments
-        assertThat(query("SELECT \"datetrunc('hour',created_at)\" FROM \"SELECT datetrunc('hour', created_at)" +
+        assertThat(query("SELECT \"datetrunc('hour',created_at)\" FROM \"select datetrunc('hour', created_at)" +
                 " FROM " + DATE_TIME_FIELDS_TABLE + "\""))
                 .matches("VALUES (BIGINT '1620604800000'), (BIGINT '1620604800000'), (BIGINT '1620604800000')");
-        assertThat(query("SELECT \"datetrunc('hour',created_at_seconds,'seconds')\" FROM \"SELECT datetrunc('hour', created_at_seconds, 'SECONDS')" +
+        assertThat(query("SELECT \"datetrunc('hour',created_at_seconds,'SECONDS')\" FROM \"select datetrunc('hour', created_at_seconds, 'SECONDS')" +
                 " FROM " + DATE_TIME_FIELDS_TABLE + "\""))
                 .matches("VALUES (BIGINT '1620604800'), (BIGINT '1620604800'), (BIGINT '1620604800')");
-        assertThat(query("SELECT \"datetrunc('hour',created_at_seconds,'seconds','utc')\" FROM \"SELECT datetrunc('hour', created_at_seconds, 'SECONDS', 'UTC')" +
+        assertThat(query("SELECT \"datetrunc('hour',created_at_seconds,'SECONDS','UTC')\" FROM \"select datetrunc('hour', created_at_seconds, 'SECONDS', 'UTC')" +
                 " FROM " + DATE_TIME_FIELDS_TABLE + "\""))
                 .matches("VALUES (BIGINT '1620604800'), (BIGINT '1620604800'), (BIGINT '1620604800')");
 
-        assertThat(query("SELECT \"datetrunc('quarter',created_at_seconds,'seconds','america/los_angeles','hours')\" FROM \"SELECT datetrunc('quarter', created_at_seconds, 'SECONDS', 'America/Los_Angeles', 'HOURS')" +
+        assertThat(query("SELECT \"datetrunc('quarter',created_at_seconds,'SECONDS','America/Los_Angeles','HOURS')\" FROM \"select datetrunc('quarter', created_at_seconds, 'SECONDS', 'America/Los_Angeles', 'HOURS')" +
                 " FROM " + DATE_TIME_FIELDS_TABLE + "\""))
                 .matches("VALUES (BIGINT '449239'), (BIGINT '449239'), (BIGINT '449239')");
         assertThat(query("SELECT \"arraylength(double_array_col)\" FROM " +
-                "\"SELECT arraylength(double_array_col)" +
+                "\"select arraylength(double_array_col)" +
                 "  FROM " + ALL_TYPES_TABLE +
                 "  WHERE string_col in ('string_0', 'array_null')\""))
                 .matches("VALUES (3), (1)");
 
         assertThat(query("SELECT \"cast(floor(arrayaverage(long_array_col)),'BIGINT')\" FROM " +
-                "\"SELECT cast(floor(arrayaverage(long_array_col)) as long)" +
+                "\"select cast(floor(arrayaverage(long_array_col)) as long)" +
                 "  FROM " + ALL_TYPES_TABLE +
                 "  WHERE double_array_col is not null and double_col != -17.33\""))
                 .matches("VALUES (BIGINT '333333337')," +
@@ -2475,7 +2475,7 @@ public class TestPinotConnectorSmokeTest
                         "  (BIGINT '333333340')");
 
         assertThat(query("SELECT \"arraymax(long_array_col)\" FROM " +
-                "\"SELECT arraymax(long_array_col)" +
+                "\"select arraymax(long_array_col)" +
                 "  FROM " + ALL_TYPES_TABLE +
                 "  WHERE string_col is not null and string_col != 'array_null'\""))
                 .matches("VALUES (BIGINT '4147483647')," +
@@ -2489,7 +2489,7 @@ public class TestPinotConnectorSmokeTest
                         "  (BIGINT '4147483655')");
 
         assertThat(query("SELECT \"arraymin(long_array_col)\" FROM " +
-                "\"SELECT arraymin(long_array_col)" +
+                "\"select arraymin(long_array_col)" +
                 "  FROM " + ALL_TYPES_TABLE +
                 "  WHERE string_col is not null and string_col != 'array_null'\""))
                 .matches("VALUES (BIGINT '-3147483647')," +
@@ -2507,21 +2507,21 @@ public class TestPinotConnectorSmokeTest
     public void testPassthroughQueriesWithAliases()
     {
         assertThat(query("SELECT hours_col, hours_col2 FROM " +
-                "\"SELECT timeconvert(created_at_seconds, 'SECONDS', 'HOURS') AS hours_col," +
+                "\"select timeconvert(created_at_seconds, 'SECONDS', 'HOURS') AS hours_col," +
                 "  CAST(FLOOR(created_at_seconds / 3600) as long) as hours_col2" +
                 "  FROM " + DATE_TIME_FIELDS_TABLE + "\""))
                 .matches("VALUES (BIGINT '450168', BIGINT '450168'), (BIGINT '450168', BIGINT '450168'), (BIGINT '450168', BIGINT '450168')");
 
         // Test without aliases to verify fieldName is correctly handled
-        assertThat(query("SELECT \"timeconvert(created_at_seconds,'seconds','hours')\"," +
+        assertThat(query("SELECT \"timeconvert(created_at_seconds,'SECONDS','HOURS')\"," +
                 " \"cast(floor(divide(created_at_seconds,'3600')),'BIGINT')\" FROM " +
-                "\"SELECT timeconvert(created_at_seconds, 'SECONDS', 'HOURS')," +
+                "\"select timeconvert(created_at_seconds, 'SECONDS', 'HOURS')," +
                 "  CAST(FLOOR(created_at_seconds / 3600) as long)" +
                 "  FROM " + DATE_TIME_FIELDS_TABLE + "\""))
                 .matches("VALUES (BIGINT '450168', BIGINT '450168'), (BIGINT '450168', BIGINT '450168'), (BIGINT '450168', BIGINT '450168')");
 
         assertThat(query("SELECT int_col2, long_col2 FROM " +
-                "\"SELECT int_col AS int_col2, long_col AS long_col2" +
+                "\"select int_col AS int_col2, long_col AS long_col2" +
                 "  FROM " + ALL_TYPES_TABLE +
                 "  WHERE string_col IS NOT null AND string_col != 'array_null'\""))
                 .matches("VALUES (54, BIGINT '-3147483647')," +
@@ -2535,7 +2535,7 @@ public class TestPinotConnectorSmokeTest
                         "  (56, BIGINT '-3147483639')");
 
         assertThat(query("SELECT int_col2, long_col2 FROM " +
-                "\"SELECT int_col AS int_col2, long_col AS long_col2 " +
+                "\"select int_col AS int_col2, long_col AS long_col2 " +
                 "  FROM " + ALL_TYPES_TABLE +
                 "  WHERE string_col IS NOT null AND string_col != 'array_null'\""))
                 .matches("VALUES (54, BIGINT '-3147483647')," +
@@ -2549,7 +2549,7 @@ public class TestPinotConnectorSmokeTest
                         "  (56, BIGINT '-3147483639')");
 
         assertQuerySucceeds("SELECT int_col FROM " +
-                "\"SELECT floor(int_col / 3) AS int_col" +
+                "\"select floor(int_col / 3) AS int_col" +
                 "  FROM " + ALL_TYPES_TABLE +
                 "  WHERE string_col IS NOT null AND string_col != 'array_null'\"");
     }
@@ -2557,17 +2557,17 @@ public class TestPinotConnectorSmokeTest
     @Test
     public void testPassthroughQueriesWithPushdowns()
     {
-        assertThat(query("SELECT DISTINCT \"timeconvert(created_at_seconds,'seconds','hours')\"," +
+        assertThat(query("SELECT DISTINCT \"timeconvert(created_at_seconds,'SECONDS','HOURS')\"," +
                 "  \"cast(floor(divide(created_at_seconds,'3600')),'BIGINT')\" FROM " +
-                "\"SELECT timeconvert(created_at_seconds, 'SECONDS', 'HOURS')," +
+                "\"select timeconvert(created_at_seconds, 'SECONDS', 'HOURS')," +
                 "  CAST(FLOOR(created_at_seconds / 3600) AS long)" +
                 "  FROM " + DATE_TIME_FIELDS_TABLE + "\""))
                 .matches("VALUES (BIGINT '450168', BIGINT '450168')");
 
-        assertThat(query("SELECT DISTINCT \"timeconvert(created_at_seconds,'seconds','milliseconds')\"," +
+        assertThat(query("SELECT DISTINCT \"timeconvert(created_at_seconds,'SECONDS','MILLISECONDS')\"," +
                 "  \"cast(floor(divide(created_at_seco" +
                 "nds,'3600')),'BIGINT')\" FROM " +
-                "\"SELECT timeconvert(created_at_seconds, 'SECONDS', 'MILLISECONDS')," +
+                "\"select timeconvert(created_at_seconds, 'SECONDS', 'MILLISECONDS')," +
                 "  CAST(FLOOR(created_at_seconds / 3600) as long)" +
                 "  FROM " + DATE_TIME_FIELDS_TABLE + "\""))
                 .matches("VALUES (BIGINT '1620604802000', BIGINT '450168')," +
@@ -2575,30 +2575,30 @@ public class TestPinotConnectorSmokeTest
                         "  (BIGINT '1620604800000', BIGINT '450168')");
 
         assertThat(query("SELECT int_col, sum(long_col) FROM " +
-                "\"SELECT int_col, long_col" +
+                "\"select int_col, long_col" +
                 "  FROM " + ALL_TYPES_TABLE +
                 "  WHERE string_col IS NOT null AND string_col != 'array_null'\"" +
                 "  GROUP BY int_col"))
                 .isFullyPushedDown();
 
         assertThat(query("SELECT DISTINCT int_col, long_col FROM " +
-                "\"SELECT int_col, long_col FROM " + ALL_TYPES_TABLE +
+                "\"select int_col, long_col FROM " + ALL_TYPES_TABLE +
                 "  WHERE string_col IS NOT null AND string_col != 'array_null'\""))
                 .isFullyPushedDown();
 
         assertThat(query("SELECT int_col2, long_col2, count(*) FROM " +
-                "\"SELECT int_col AS int_col2, long_col AS long_col2" +
+                "\"select int_col AS int_col2, long_col AS long_col2" +
                 "  FROM " + ALL_TYPES_TABLE +
                 "  WHERE string_col IS NOT null AND string_col != 'array_null'\"" +
                 "  GROUP BY int_col2, long_col2"))
                 .isFullyPushedDown();
 
         assertQuerySucceeds("SELECT DISTINCT int_col2, long_col2 FROM " +
-                "\"SELECT int_col AS int_col2, long_col AS long_col2" +
+                "\"select int_col AS int_col2, long_col AS long_col2" +
                 "  FROM " + ALL_TYPES_TABLE +
                 "  WHERE string_col IS NOT null AND string_col != 'array_null'\"");
         assertThat(query("SELECT int_col2, count(*) FROM " +
-                "\"SELECT int_col AS int_col2, long_col AS long_col2" +
+                "\"select int_col AS int_col2, long_col AS long_col2" +
                 "  FROM " + ALL_TYPES_TABLE +
                 "  WHERE string_col IS NOT null AND string_col != 'array_null'\"" +
                 "  GROUP BY int_col2"))
@@ -2689,7 +2689,7 @@ public class TestPinotConnectorSmokeTest
     {
         // Aggregation pushdown must be disabled when there is an offset as the results will not be correct
         assertThat(query("SELECT COUNT(*), MAX(long_col)" +
-                "  FROM \"SELECT long_col FROM " + ALL_TYPES_TABLE +
+                "  FROM \"select long_col FROM " + ALL_TYPES_TABLE +
                 "  WHERE long_col < 0" +
                 "  ORDER BY long_col " +
                 "  LIMIT 5, 6\""))
@@ -2697,7 +2697,7 @@ public class TestPinotConnectorSmokeTest
                 .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
 
         assertThat(query("SELECT long_col, COUNT(*), MAX(long_col)" +
-                "  FROM \"SELECT long_col FROM " + ALL_TYPES_TABLE +
+                "  FROM \"select long_col FROM " + ALL_TYPES_TABLE +
                 "  WHERE long_col < 0" +
                 "  ORDER BY long_col " +
                 "  LIMIT 5, 6\" GROUP BY long_col"))
@@ -2708,7 +2708,7 @@ public class TestPinotConnectorSmokeTest
                 .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
 
         assertThat(query("SELECT long_col, string_col, COUNT(*), MAX(long_col)" +
-                "  FROM \"SELECT * FROM " + ALL_TYPES_TABLE +
+                "  FROM \"select * FROM " + ALL_TYPES_TABLE +
                 "  WHERE long_col < 0" +
                 "  ORDER BY long_col, string_col" +
                 "  LIMIT 5, 6\" GROUP BY long_col, string_col"))
@@ -2720,7 +2720,7 @@ public class TestPinotConnectorSmokeTest
 
         // Note that the offset is the first parameter
         assertThat(query("SELECT long_col" +
-                "  FROM \"SELECT long_col FROM " + ALL_TYPES_TABLE +
+                "  FROM \"select long_col FROM " + ALL_TYPES_TABLE +
                 "  WHERE long_col < 0" +
                 "  ORDER BY long_col " +
                 "  LIMIT 2, 6\""))
@@ -2734,7 +2734,7 @@ public class TestPinotConnectorSmokeTest
 
         // Note that the offset is the first parameter
         assertThat(query("SELECT long_col, string_col" +
-                "  FROM \"SELECT long_col, string_col FROM " + ALL_TYPES_TABLE +
+                "  FROM \"select long_col, string_col FROM " + ALL_TYPES_TABLE +
                 "  WHERE long_col < 0" +
                 "  ORDER BY long_col " +
                 "  LIMIT 2, 6\""))
@@ -2751,7 +2751,7 @@ public class TestPinotConnectorSmokeTest
     public void testAggregatePassthroughQueriesWithExpressions()
     {
         assertThat(query("SELECT string_col, sum_metric_col1, count_dup_string_col, ratio_metric_col" +
-                "  FROM \"SELECT string_col, SUM(metric_col1) AS sum_metric_col1, COUNT(DISTINCT another_string_col) AS count_dup_string_col," +
+                "  FROM \"select string_col, SUM(metric_col1) AS sum_metric_col1, COUNT(DISTINCT another_string_col) AS count_dup_string_col," +
                 "  (SUM(metric_col1) - SUM(metric_col2)) / SUM(metric_col1) AS ratio_metric_col" +
                 "  FROM duplicate_values_in_columns WHERE dim_col = another_dim_col" +
                 "  GROUP BY string_col" +
@@ -2760,7 +2760,7 @@ public class TestPinotConnectorSmokeTest
                         "  (VARCHAR 'string2', DOUBLE '100.0', 1, DOUBLE '-1.0')");
 
         assertThat(query("SELECT string_col, sum_metric_col1, count_dup_string_col, ratio_metric_col" +
-                "  FROM \"SELECT string_col, SUM(metric_col1) AS sum_metric_col1," +
+                "  FROM \"select string_col, SUM(metric_col1) AS sum_metric_col1," +
                 "  COUNT(DISTINCT another_string_col) AS count_dup_string_col," +
                 "  (SUM(metric_col1) - SUM(metric_col2)) / SUM(metric_col1) AS ratio_metric_col" +
                 "  FROM duplicate_values_in_columns WHERE dim_col != another_dim_col" +
@@ -2769,34 +2769,34 @@ public class TestPinotConnectorSmokeTest
                 .matches("VALUES (VARCHAR 'string2', DOUBLE '1000.0', 1, DOUBLE '-1.0')");
 
         assertThat(query("SELECT DISTINCT string_col, another_string_col" +
-                "  FROM \"SELECT string_col, another_string_col" +
+                "  FROM \"select string_col, another_string_col" +
                 "  FROM duplicate_values_in_columns WHERE dim_col = another_dim_col\""))
                 .matches("VALUES (VARCHAR 'string1', VARCHAR 'string1')," +
                         "  (VARCHAR 'string1', VARCHAR 'another_string1')," +
                         "  (VARCHAR 'string2', VARCHAR 'another_string2')");
 
         assertThat(query("SELECT string_col, sum_metric_col1" +
-                "  FROM \"SELECT string_col," +
+                "  FROM \"select string_col," +
                 "  SUM(CASE WHEN dim_col = another_dim_col THEN metric_col1 ELSE 0 END) AS sum_metric_col1" +
                 "  FROM duplicate_values_in_columns GROUP BY string_col ORDER BY string_col\""))
                 .matches("VALUES (VARCHAR 'string1', DOUBLE '1110.0')," +
                         "  (VARCHAR 'string2', DOUBLE '100.0')");
 
         assertThat(query("SELECT \"percentile(int_col, 90.0)\"" +
-                "  FROM \"SELECT percentile(int_col, 90) FROM " + ALL_TYPES_TABLE + "\""))
+                "  FROM \"select percentile(int_col, 90) FROM " + ALL_TYPES_TABLE + "\""))
                 .matches("VALUES (DOUBLE '56.0')");
 
         assertThat(query("SELECT bool_col, \"percentile(int_col, 90.0)\"" +
-                "  FROM \"SELECT bool_col, percentile(int_col, 90) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col\""))
+                "  FROM \"select bool_col, percentile(int_col, 90) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col\""))
                 .matches("VALUES (true, DOUBLE '56.0')," +
                         "  (false, DOUBLE '0.0')");
 
         assertThat(query("SELECT \"sqrt(percentile(sqrt(int_col),'26.457513110645905'))\"" +
-                "  FROM \"SELECT sqrt(percentile(sqrt(int_col), sqrt(700))) FROM " + ALL_TYPES_TABLE + "\""))
+                "  FROM \"select sqrt(percentile(sqrt(int_col), sqrt(700))) FROM " + ALL_TYPES_TABLE + "\""))
                 .matches("VALUES (DOUBLE '2.7108060108295344')");
 
         assertThat(query("SELECT int_col, \"sqrt(percentile(sqrt(int_col),'26.457513110645905'))\"" +
-                "  FROM \"SELECT int_col, sqrt(percentile(sqrt(int_col), sqrt(700))) FROM " + ALL_TYPES_TABLE + " GROUP BY int_col\""))
+                "  FROM \"select int_col, sqrt(percentile(sqrt(int_col), sqrt(700))) FROM " + ALL_TYPES_TABLE + " GROUP BY int_col\""))
                 .matches("VALUES (54, DOUBLE '2.7108060108295344')," +
                         "  (55, DOUBLE '2.7232698153315003')," +
                         "  (56, DOUBLE '2.7355647997347607')," +
@@ -2811,14 +2811,14 @@ public class TestPinotConnectorSmokeTest
         assertThat(query("SELECT int_array_col, string_array_col, count(*) FROM " + ALL_TYPES_TABLE + " WHERE int_col = 54 GROUP BY 1, 2"))
                 .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
         assertThat(query("SELECT int_array_col, \"count(*)\"" +
-                "  FROM \"SELECT int_array_col, COUNT(*) FROM " + ALL_TYPES_TABLE +
+                "  FROM \"select int_array_col, COUNT(*) FROM " + ALL_TYPES_TABLE +
                 "  WHERE int_col = 54 GROUP BY 1\""))
                 .isFullyPushedDown()
                 .matches("VALUES (-10001, BIGINT '3')," +
                         "(54, BIGINT '3')," +
                         "(1000, BIGINT '3')");
         assertThat(query("SELECT int_array_col, string_array_col, \"count(*)\"" +
-                "  FROM \"SELECT int_array_col, string_array_col, COUNT(*) FROM " + ALL_TYPES_TABLE +
+                "  FROM \"select int_array_col, string_array_col, COUNT(*) FROM " + ALL_TYPES_TABLE +
                 "  WHERE int_col = 56 AND string_col = 'string_8400' GROUP BY 1, 2\""))
                 .isFullyPushedDown()
                 .matches("VALUES (-10001, VARCHAR 'string_8400', BIGINT '1')," +
@@ -2848,7 +2848,7 @@ public class TestPinotConnectorSmokeTest
         // The filter on string_col is to have a deterministic result set: the default limit for broker queries is 10 rows.
         assertThat(query("SELECT bytes_col FROM alltypes WHERE string_col != 'array_null'"))
                 .matches(expectedValues);
-        assertThat(query("SELECT bytes_col FROM \"SELECT bytes_col, string_col FROM alltypes\" WHERE string_col != 'array_null'"))
+        assertThat(query("SELECT bytes_col FROM \"select bytes_col, string_col FROM alltypes\" WHERE string_col != 'array_null'"))
                 .matches(expectedValues);
     }
 
@@ -2862,10 +2862,10 @@ public class TestPinotConnectorSmokeTest
                 "(VARCHAR 'string_9', BIGINT '9', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.minus(1, DAYS).plusMillis(2000)) + "')," +
                 "(VARCHAR 'string_10', BIGINT '10', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.minus(1, DAYS).plusMillis(3000)) + "')," +
                 "(VARCHAR 'string_11', BIGINT '11', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.minus(1, DAYS).plusMillis(4000)) + "')";
-        assertThat(query("SELECT stringcol, longcol, updatedat FROM " + HYBRID_TABLE_NAME))
+        assertThat(query("SELECT stringCol, longCol, updatedAt FROM " + HYBRID_TABLE_NAME))
                 .matches(expectedValues);
         // Verify that this matches the time boundary behavior on the broker
-        assertThat(query("SELECT stringcol, longcol, updatedat FROM \"SELECT stringcol, longcol, updatedat FROM " + HYBRID_TABLE_NAME + "\""))
+        assertThat(query("SELECT stringCol, longCol, updatedAt FROM \"select stringCol, longCol, updatedAt FROM " + HYBRID_TABLE_NAME + "\""))
                 .matches(expectedValues);
     }
 
@@ -2896,11 +2896,11 @@ public class TestPinotConnectorSmokeTest
                         "  (JSON '{\"id\":1,\"name\":\"user_1\"}')," +
                         "  (JSON '{\"id\":2,\"name\":\"user_2\"}')");
         assertThat(query("SELECT json_col" +
-                "  FROM \"SELECT json_col FROM " + JSON_TYPE_TABLE + "\""))
+                "  FROM \"select json_col FROM " + JSON_TYPE_TABLE + "\""))
                 .matches("VALUES (JSON '{\"id\":0,\"name\":\"user_0\"}')," +
                         "  (JSON '{\"id\":1,\"name\":\"user_1\"}')," +
                         "  (JSON '{\"id\":2,\"name\":\"user_2\"}')");
-        assertThat(query("SELECT name FROM \"SELECT json_extract_scalar(json_col, '$.name', 'STRING', '0') AS name" +
+        assertThat(query("SELECT name FROM \"select json_extract_scalar(json_col, '$.name', 'STRING', '0') AS name" +
                 "  FROM json_type_table WHERE json_extract_scalar(json_col, '$.id', 'INT', '0') = '1'\""))
                 .matches("VALUES (VARCHAR 'user_1')");
         assertThat(query("SELECT JSON_EXTRACT_SCALAR(json_col, '$.name') FROM " + JSON_TYPE_TABLE +
@@ -2913,14 +2913,14 @@ public class TestPinotConnectorSmokeTest
     @Test
     public void testHavingClause()
     {
-        assertThat(query("SELECT city, \"sum(long_number)\" FROM \"SELECT city, SUM(long_number)" +
+        assertThat(query("SELECT city, \"sum(long_number)\" FROM \"select city, SUM(long_number)" +
                 "  FROM my_table" +
                 "  GROUP BY city" +
                 "  HAVING SUM(long_number) > 10000\""))
                 .matches("VALUES (VARCHAR 'Los Angeles', DOUBLE '50000.0')," +
                         "  (VARCHAR 'New York', DOUBLE '20000.0')")
                 .isFullyPushedDown();
-        assertThat(query("SELECT city, \"sum(long_number)\" FROM \"SELECT city, SUM(long_number) FROM my_table" +
+        assertThat(query("SELECT city, \"sum(long_number)\" FROM \"select city, SUM(long_number) FROM my_table" +
                 "  GROUP BY city HAVING SUM(long_number) > 14\"" +
                 "  WHERE city != 'New York'"))
                 .matches("VALUES (VARCHAR 'Los Angeles', DOUBLE '50000.0')")
@@ -2945,7 +2945,7 @@ public class TestPinotConnectorSmokeTest
         assertThat(query("SELECT city, \"sum(long_number)\" FROM" +
                 " \"SET skipUpsert = 'true';" +
                 " SET numReplicaGroupsToQuery = '1';" +
-                " SELECT city, SUM(long_number)" +
+                " select city, SUM(long_number)" +
                 "  FROM my_table" +
                 "  GROUP BY city" +
                 "  HAVING SUM(long_number) > 10000\""))

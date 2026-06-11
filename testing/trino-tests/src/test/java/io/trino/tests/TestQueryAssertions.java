@@ -56,7 +56,7 @@ public class TestQueryAssertions
     {
         QueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
                         .setCatalog("jdbc")
-                        .setSchema("public")
+                        .setSchema("PUBLIC")
                         .build())
                 .build();
         try {
@@ -99,7 +99,7 @@ public class TestQueryAssertions
     @Test
     public void testMatches()
     {
-        assertThat(query("SELECT name FROM nation WHERE nationkey = 3"))
+        assertThat(query("SELECT \"name\" FROM \"nation\" WHERE \"nationkey\" = 3"))
                 .matches("VALUES CAST('CANADA' AS varchar(25))");
     }
 
@@ -357,10 +357,10 @@ public class TestQueryAssertions
     @Test
     public void testIsFullyPushedDown()
     {
-        assertThat(query("SELECT name FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT \"name\" FROM \"nation\"")).isFullyPushedDown();
 
         // Test that, in case of failure, there is no failure when rendering expected and actual plans
-        assertThatThrownBy(() -> assertThat(query("SELECT name FROM nation WHERE rand() = 42")).isFullyPushedDown())
+        assertThatThrownBy(() -> assertThat(query("SELECT \"name\" FROM \"nation\" WHERE rand() = 42")).isFullyPushedDown())
                 .hasMessageContaining(
                         "Plan does not match, expected [\n" +
                                 "\n" +
@@ -384,12 +384,12 @@ public class TestQueryAssertions
                 .setCatalogSessionProperty("jdbc_with_aggregation_pushdown_disabled", AGGREGATION_PUSHDOWN_ENABLED, "true")
                 .build();
 
-        assertThat(query("SELECT count(*) FROM nation")).isFullyPushedDown();
-        assertThat(query(baseSession, "SELECT count(*) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-        assertThat(query(sessionWithAggregationPushdown, "SELECT count(*) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count(*) FROM \"nation\"")).isFullyPushedDown();
+        assertThat(query(baseSession, "SELECT count(*) FROM \"nation\"")).isNotFullyPushedDown(AggregationNode.class);
+        assertThat(query(sessionWithAggregationPushdown, "SELECT count(*) FROM \"nation\"")).isFullyPushedDown();
 
         // Test that, in case of failure, there is no failure when rendering expected and actual plans
-        assertThatThrownBy(() -> assertThat(query(sessionWithAggregationPushdown, "SELECT count(*) FROM nation WHERE rand() = 42")).isFullyPushedDown())
+        assertThatThrownBy(() -> assertThat(query(sessionWithAggregationPushdown, "SELECT count(*) FROM \"nation\" WHERE rand() = 42")).isFullyPushedDown())
                 .hasMessageContaining(
                         "Plan does not match, expected [\n" +
                                 "\n" +
@@ -424,10 +424,10 @@ public class TestQueryAssertions
     @Test
     public void testIsNotFullyPushedDown()
     {
-        assertThat(query("SELECT name FROM nation WHERE rand() = 42")).isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT \"name\" FROM \"nation\" WHERE rand() = 42")).isNotFullyPushedDown(FilterNode.class);
 
         // Test that, in case of failure, there is no failure when rendering expected and actual plans
-        assertThatThrownBy(() -> assertThat(query("SELECT name FROM nation")).isNotFullyPushedDown(FilterNode.class))
+        assertThatThrownBy(() -> assertThat(query("SELECT \"name\" FROM \"nation\"")).isNotFullyPushedDown(FilterNode.class))
                 .hasMessageContaining(
                         "Plan does not match, expected [\n" +
                                 "\n" +
@@ -444,40 +444,40 @@ public class TestQueryAssertions
     @Test
     public void testProjectedColumns()
     {
-        assertThat(query("SHOW COLUMNS FROM nation"))
+        assertThat(query("SHOW COLUMNS FROM \"nation\""))
                 .result()
                 .projected("Column")
                 .skippingTypesCheck()
                 .matches("VALUES 'nationkey', 'name', 'regionkey', 'comment'");
 
-        assertThat(query("SHOW COLUMNS FROM nation"))
+        assertThat(query("SHOW COLUMNS FROM \"nation\""))
                 .result()
                 .exceptColumns("Type", "Extra", "Comment")
                 .skippingTypesCheck()
                 .matches("VALUES 'nationkey', 'name', 'regionkey', 'comment'");
 
         assertThatThrownBy(
-                () -> assertThat(query("SHOW COLUMNS FROM nation"))
+                () -> assertThat(query("SHOW COLUMNS FROM \"nation\""))
                         .result().projected("Column", "Non_Existent"))
                 .hasMessageContaining("[Non_Existent] column is not present in [Column, Type, Extra, Comment]");
 
         assertThatThrownBy(
-                () -> assertThat(query("SHOW COLUMNS FROM nation"))
+                () -> assertThat(query("SHOW COLUMNS FROM \"nation\""))
                         .result().exceptColumns("Type", "Extra", "Comment", "Non_Existent"))
                 .hasMessageContaining("[Non_Existent] column is not present in [Column, Type, Extra, Comment]");
 
         assertThatThrownBy(
-                () -> assertThat(query("SHOW COLUMNS FROM nation"))
+                () -> assertThat(query("SHOW COLUMNS FROM \"nation\""))
                         .result().projected()) // project no columns
                 .hasMessageContaining("At least one column must be projected");
 
         assertThatThrownBy(
-                () -> assertThat(query("SHOW COLUMNS FROM nation"))
+                () -> assertThat(query("SHOW COLUMNS FROM \"nation\""))
                         .result().exceptColumns()) // exclude no columns
                 .hasMessageContaining("At least one column must be excluded");
 
         assertThatThrownBy(
-                () -> assertThat(query("SHOW COLUMNS FROM nation"))
+                () -> assertThat(query("SHOW COLUMNS FROM \"nation\""))
                         .result().exceptColumns("Column", "Type", "Extra", "Comment")) // exclude all columns
                 .hasMessageContaining("All columns cannot be excluded");
     }
