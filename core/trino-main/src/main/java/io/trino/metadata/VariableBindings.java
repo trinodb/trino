@@ -20,49 +20,83 @@ import io.trino.spi.type.Type;
 import java.util.Map;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.util.Objects.requireNonNull;
 
+/// The values bound to a signature's declared variables by a successful bind. A name resolves to
+/// exactly one [Binding], whose kind is structural — a variable cannot be bound as both a type and
+/// a numeric value.
 @Immutable
 public final class VariableBindings
 {
-    private final Map<String, Type> typeVariables;
-    private final Map<String, Long> longVariables;
+    /// The value bound to one signature variable: a [Type] for a type variable, a numeric value for
+    /// a numeric variable.
+    public sealed interface Binding
+            permits TypeBinding, NumericBinding {}
 
-    public VariableBindings(Map<String, Type> typeVariables, Map<String, Long> longVariables)
+    public record TypeBinding(Type type)
+            implements Binding
+    {
+        public TypeBinding
+        {
+            requireNonNull(type, "type is null");
+        }
+    }
+
+    public record NumericBinding(long value)
+            implements Binding {}
+
+    private final Map<String, Binding> bindings;
+
+    public VariableBindings(Map<String, Binding> bindings)
     {
         // Use CASE_INSENSITIVE_ORDER for consistency with other places. TODO: revisit whether this is even needed
-        this.typeVariables = ImmutableSortedMap.copyOf(typeVariables, CASE_INSENSITIVE_ORDER);
-        this.longVariables = ImmutableSortedMap.copyOf(longVariables, CASE_INSENSITIVE_ORDER);
+        this.bindings = ImmutableSortedMap.copyOf(bindings, CASE_INSENSITIVE_ORDER);
+    }
+
+    public Map<String, Type> getTypeVariables()
+    {
+        return bindings.entrySet().stream()
+                .filter(entry -> entry.getValue() instanceof TypeBinding)
+                .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, Map.Entry::getKey, entry -> ((TypeBinding) entry.getValue()).type()));
+    }
+
+    public Map<String, Long> getNumericVariables()
+    {
+        return bindings.entrySet().stream()
+                .filter(entry -> entry.getValue() instanceof NumericBinding)
+                .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, Map.Entry::getKey, entry -> ((NumericBinding) entry.getValue()).value()));
     }
 
     public Type getTypeVariable(String variableName)
     {
         requireNonNull(variableName, "variableName is null");
-        Type value = typeVariables.get(variableName);
-        checkState(value != null, "value for variable '%s' is null", variableName);
-        return value;
+        if (!(bindings.get(variableName) instanceof TypeBinding(Type type))) {
+            throw new IllegalStateException("variable '%s' is not bound to a type".formatted(variableName));
+        }
+        return type;
     }
 
     public boolean containsTypeVariable(String variableName)
     {
         requireNonNull(variableName, "variableName is null");
-        return typeVariables.containsKey(variableName);
+        return bindings.get(variableName) instanceof TypeBinding;
     }
 
-    public Long getLongVariable(String variableName)
+    public long getNumericVariable(String variableName)
     {
         requireNonNull(variableName, "variableName is null");
-        Long value = longVariables.get(variableName);
-        checkState(value != null, "value for variable '%s' is null", variableName);
+        if (!(bindings.get(variableName) instanceof NumericBinding(long value))) {
+            throw new IllegalStateException("variable '%s' is not bound to a numeric value".formatted(variableName));
+        }
         return value;
     }
 
-    public boolean containsLongVariable(String variableName)
+    public boolean containsNumericVariable(String variableName)
     {
         requireNonNull(variableName, "variableName is null");
-        return longVariables.containsKey(variableName);
+        return bindings.get(variableName) instanceof NumericBinding;
     }
 
     @Override
@@ -71,12 +105,12 @@ public final class VariableBindings
         if (!(o instanceof VariableBindings that)) {
             return false;
         }
-        return Objects.equals(typeVariables, that.typeVariables) && Objects.equals(longVariables, that.longVariables);
+        return Objects.equals(bindings, that.bindings);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(typeVariables, longVariables);
+        return Objects.hash(bindings);
     }
 }

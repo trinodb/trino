@@ -260,19 +260,19 @@ public class SignatureBinder
         if (isTypeWithLiteralParameters(declaredTypeSignature)) {
             for (int i = 0; i < declaredTypeSignature.getParameters().size(); i++) {
                 TypeParameter parameter = declaredTypeSignature.getParameters().get(i);
-                Long actualLongBinding = ((TypeParameter.Numeric) actualType.getTypeSignature().getParameters().get(i)).value();
+                long actualNumericBinding = ((TypeParameter.Numeric) actualType.getTypeSignature().getParameters().get(i)).value();
                 switch (parameter) {
                     case TypeParameter.Variable(String variable) -> {
-                        if (bindings.containsLongVariable(variable)) {
-                            Long existingLongBinding = bindings.getLongVariable(variable);
-                            verifyBoundSignature(actualLongBinding.equals(existingLongBinding), boundSignature, declaredSignature);
+                        if (bindings.containsNumericVariable(variable)) {
+                            long existingNumericBinding = bindings.getNumericVariable(variable);
+                            verifyBoundSignature(actualNumericBinding == existingNumericBinding, boundSignature, declaredSignature);
                         }
                         else {
-                            bindings.setLongVariable(variable, actualLongBinding);
+                            bindings.setNumericVariable(variable, actualNumericBinding);
                         }
                     }
                     case TypeParameter.Numeric numeric -> {
-                        verifyBoundSignature(actualLongBinding.equals(numeric.value()), boundSignature, declaredSignature);
+                        verifyBoundSignature(actualNumericBinding == numeric.value(), boundSignature, declaredSignature);
                     }
                     default -> throw new UnsupportedOperationException("Unexpected type signature parameter: " + parameter);
                 }
@@ -536,16 +536,16 @@ public class SignatureBinder
         for (NumericVariableConstraint numericVariableConstraint : declaredSignature.getNumericVariableConstraints()) {
             NumericExpression calculation = numericVariableConstraint.getExpression();
             String variableName = numericVariableConstraint.getName();
-            Long calculatedValue = NumericExpressions.evaluate(calculation, variableBinder.getLongVariables()).longValueExact();
-            if (variableBinder.containsLongVariable(variableName)) {
-                Long currentValue = variableBinder.getLongVariable(variableName);
+            Long calculatedValue = NumericExpressions.evaluate(calculation, variableBinder.getNumericVariables()).longValueExact();
+            if (variableBinder.containsNumericVariable(variableName)) {
+                long currentValue = variableBinder.getNumericVariable(variableName);
                 checkState(Objects.equals(currentValue, calculatedValue),
                         "variable '%s' is already set to %s when trying to set %s",
                         variableName,
                         currentValue,
                         calculatedValue);
             }
-            variableBinder.setLongVariable(variableName, calculatedValue);
+            variableBinder.setNumericVariable(variableName, calculatedValue);
         }
     }
 
@@ -561,10 +561,10 @@ public class SignatureBinder
             case TypeParameter.Type type -> TypeParameter.typeParameter(type.name(), applyBoundVariables(type.type(), typeVariables));
             case TypeParameter.Variable(String variable) -> {
                 checkState(
-                        typeVariables.containsLongVariable(variable),
+                        typeVariables.containsNumericVariable(variable),
                         "Variable is not bound: %s",
                         variable);
-                Long variableValue = typeVariables.getLongVariable(variable);
+                long variableValue = typeVariables.getNumericVariable(variable);
                 yield TypeParameter.numericParameter(variableValue);
             }
             case TypeParameter.Numeric _ -> parameter;
@@ -829,8 +829,8 @@ public class SignatureBinder
 
                 switch (parameter) {
                     case TypeParameter.Variable(String variable) -> {
-                        if (bindings.containsLongVariable(variable)) {
-                            originalTypeTypeParametersBuilder.add(TypeParameter.numericParameter(bindings.getLongVariable(variable)));
+                        if (bindings.containsNumericVariable(variable)) {
+                            originalTypeTypeParametersBuilder.add(TypeParameter.numericParameter(bindings.getNumericVariable(variable)));
                         }
                         else {
                             // if an existing value doesn't exist for the given variable name, use the value that comes from the actual type.
@@ -867,8 +867,8 @@ public class SignatureBinder
 
                 switch (parameter) {
                     case TypeParameter.Variable(String name) -> {
-                        if (!bindings.containsLongVariable(name) || !bindings.getLongVariable(name).equals(commonSuperLongLiteral)) {
-                            bindings.setLongVariable(name, commonSuperLongLiteral);
+                        if (!bindings.containsNumericVariable(name) || bindings.getNumericVariable(name) != commonSuperLongLiteral) {
+                            bindings.setNumericVariable(name, commonSuperLongLiteral);
                             result = SolverReturnStatus.CHANGED;
                         }
                     }
@@ -1021,7 +1021,7 @@ public class SignatureBinder
                 }
             }
             for (String variable : longVariables) {
-                if (!bindings.containsLongVariable(variable)) {
+                if (!bindings.containsNumericVariable(variable)) {
                     return SolverReturnStatus.UNCHANGED_NOT_SATISFIED;
                 }
             }
