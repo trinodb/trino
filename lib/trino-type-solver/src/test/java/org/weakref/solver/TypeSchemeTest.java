@@ -144,6 +144,81 @@ public class TypeSchemeTest
                 .isInstanceOf(TypeScheme.Unsatisfied.class);
     }
 
+    /**
+     * A null argument (the ground unknown type) flowing into a parametric formal binds the
+     * minimum instance — varchar(0), decimal(1, 0) — mirroring Trino's unknown defaults; the
+     * other arguments still bind their own positions independently.
+     */
+    @Test
+    void testUnknownArgumentBindsMinimumParametricInstance()
+    {
+        TypeScheme strpos = new TypeScheme(
+                List.of(variable("@x"), variable("@y")),
+                List.of(),
+                function(
+                        List.of(apply("varchar", variable("@x")), apply("varchar", variable("@y"))),
+                        symbol("bigint")));
+        assertThat(satisfiedMatch(strpos, List.of(symbol("unknown"), apply("varchar", literal(3)))).parameterTypes())
+                .isEqualTo(List.of(apply("varchar", literal(0)), apply("varchar", literal(3))));
+
+        TypeScheme truncate = new TypeScheme(
+                List.of(variable("@p"), variable("@s")),
+                List.of(),
+                function(
+                        List.of(apply("decimal", variable("@p"), variable("@s"))),
+                        apply("decimal", variable("@p"), literal(0))));
+        TypeScheme.MatchResult result = satisfiedMatch(truncate, List.of(symbol("unknown")));
+        assertThat(result.parameterTypes()).isEqualTo(List.of(apply("decimal", literal(1), literal(0))));
+        assertThat(result.returnType()).isEqualTo(apply("decimal", literal(1), literal(0)));
+    }
+
+    /**
+     * A type variable constrained only by null arguments resolves to unknown — the bottom of the
+     * binding lattice; it survives only because nothing rebinds it. (A concrete sibling argument
+     * rebinding the variable is covered by the common-supertype tests.)
+     */
+    @Test
+    void testUnknownOnlyArgumentsBindVariableToUnknown()
+    {
+        TypeScheme arrayFirst = new TypeScheme(
+                List.of(variable("@e")),
+                List.of(),
+                function(List.of(apply("array", variable("@e"))), variable("@e")));
+
+        TypeScheme.MatchResult result = satisfiedMatch(arrayFirst, List.of(apply("array", symbol("unknown"))));
+        assertThat(result.returnType()).isEqualTo(symbol("unknown"));
+        assertThat(result.parameterTypes()).isEqualTo(List.of(apply("array", symbol("unknown"))));
+    }
+
+    /**
+     * A numeric variable shared across argument positions widens to the largest actual, the way
+     * the engine resolves date_diff over two timestamps of different precision — the narrower
+     * argument coerces up, and a single-position variable still binds its actual exactly.
+     */
+    @Test
+    void testSharedNumericVariableWidensAcrossPositions()
+    {
+        TypeScheme dateDiff = new TypeScheme(
+                List.of(variable("@p")),
+                List.of(),
+                function(
+                        List.of(apply("timestamp", variable("@p")), apply("timestamp", variable("@p"))),
+                        symbol("bigint")));
+
+        TypeScheme.MatchResult result = satisfiedMatch(dateDiff, List.of(
+                apply("timestamp", literal(11)),
+                apply("timestamp", literal(12))));
+        assertThat(result.parameterTypes())
+                .isEqualTo(List.of(apply("timestamp", literal(12)), apply("timestamp", literal(12))));
+
+        TypeScheme exact = new TypeScheme(
+                List.of(variable("@x")),
+                List.of(),
+                function(List.of(apply("varchar", variable("@x"))), apply("varchar", variable("@x"))));
+        assertThat(satisfiedMatch(exact, List.of(apply("varchar", literal(3)))).returnType())
+                .isEqualTo(apply("varchar", literal(3)));
+    }
+
     private static TypeScheme.MatchResult satisfiedMatch(TypeScheme scheme, List<Expression> arguments)
     {
         return switch (scheme.matchFunctionCallOutcome(arguments, TrinoPreset.typeSystem())) {

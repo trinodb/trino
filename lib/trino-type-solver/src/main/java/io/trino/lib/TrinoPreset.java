@@ -65,8 +65,10 @@ import org.weakref.solver.type.TypeConstructor;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.weakref.solver.Expression.BinaryOperator.ADD;
 import static org.weakref.solver.Expression.BinaryOperator.GREATER_THAN_OR_EQUAL;
 import static org.weakref.solver.Expression.BinaryOperator.LESS_THAN_OR_EQUAL;
+import static org.weakref.solver.Expression.BinaryOperator.MIN;
 import static org.weakref.solver.Expression.BinaryOperator.SUBTRACT;
 import static org.weakref.solver.Expression.apply;
 import static org.weakref.solver.Expression.literal;
@@ -123,6 +125,20 @@ public final class TrinoPreset
         return List.of(
                 new SelfCoercion(),
                 new PatternCoercion(symbol("unknown"), variable("@X"), List.of()),
+                // Magic-literal argument types: a string argument implicitly compiles into the
+                // form the function declares (TypeCoercion's special cases for varchar and char)
+                new PatternCoercion(apply("varchar", variable("@n")), symbol("joniregexp"), List.of()),
+                new PatternCoercion(apply("varchar", variable("@n")), symbol("re2jregexp"), List.of()),
+                new PatternCoercion(apply("varchar", variable("@n")), symbol("jsonpath"), List.of()),
+                new PatternCoercion(apply("varchar", variable("@n")), symbol("codepoints"), List.of()),
+                new PatternCoercion(apply("char", variable("@n")), symbol("joniregexp"), List.of()),
+                new PatternCoercion(apply("char", variable("@n")), symbol("re2jregexp"), List.of()),
+                new PatternCoercion(apply("char", variable("@n")), symbol("jsonpath"), List.of()),
+                new PatternCoercion(apply("char", variable("@n")), symbol("codepoints"), List.of()),
+                new PatternCoercion(symbol("varchar"), symbol("joniregexp"), List.of()),
+                new PatternCoercion(symbol("varchar"), symbol("re2jregexp"), List.of()),
+                new PatternCoercion(symbol("varchar"), symbol("jsonpath"), List.of()),
+                new PatternCoercion(symbol("varchar"), symbol("codepoints"), List.of()),
                 new PrimitiveTypeCoercion("tinyint", "smallint"),
                 new PrimitiveTypeCoercion("tinyint", "integer"),
                 new PrimitiveTypeCoercion("tinyint", "bigint"),
@@ -138,7 +154,7 @@ public final class TrinoPreset
                 new PrimitiveTypeCoercion("bigint", "real"),
                 new PrimitiveTypeCoercion("bigint", "double"),
                 new PrimitiveTypeCoercion("real", "double"),
-                new PrimitiveTypeCoercion("P4HyperLogLog", "HyperLogLog"),
+                new PrimitiveTypeCoercion("p4hyperloglog", "hyperloglog"),
                 new PrimitiveTypeCoercion("tinyint", "number"),
                 new PrimitiveTypeCoercion("smallint", "number"),
                 new PrimitiveTypeCoercion("integer", "number"),
@@ -196,14 +212,21 @@ public final class TrinoPreset
                         apply("char", variable("@n2")),
                         List.of(
                                 new NumericRelation(operation(LESS_THAN_OR_EQUAL, variable("@n1"), variable("@n2"))))),
+                // Decimal widening is lossy at the top end, mirroring the engine's clamped common
+                // supertype: the target precision needs min(38, integer digits + target scale), so
+                // decimal(36, 1) flows into decimal(38, 20) even though its 35 integer digits do
+                // not fit — exactly what comparing it against decimal(37, 20) requires
                 new PatternCoercion(
                         apply("decimal", variable("@p1"), variable("@s1")),
                         apply("decimal", variable("@p2"), variable("@s2")),
                         List.of(
                                 new NumericRelation(operation(
-                                        LESS_THAN_OR_EQUAL,
-                                        operation(SUBTRACT, variable("@p1"), variable("@s1")),
-                                        operation(SUBTRACT, variable("@p2"), variable("@s2")))),
+                                        GREATER_THAN_OR_EQUAL,
+                                        variable("@p2"),
+                                        operation(
+                                                MIN,
+                                                literal(38),
+                                                operation(ADD, operation(SUBTRACT, variable("@p1"), variable("@s1")), variable("@s2"))))),
                                 new NumericRelation(operation(LESS_THAN_OR_EQUAL, variable("@s1"), variable("@s2"))))),
                 new PatternCoercion(
                         apply("decimal", variable("@p"), variable("@s")),
@@ -491,14 +514,14 @@ public final class TrinoPreset
                 new PatternCoercion(apply("decimal", variable("@p"), variable("@s")), symbol("boolean"), List.of()),
                 new PatternCoercion(apply("char", variable("@n")), symbol("boolean"), List.of()),
                 // Sketch types cast to/from varbinary.
-                new PrimitiveTypeCoercion("HyperLogLog", "varbinary"),
-                new PrimitiveTypeCoercion("varbinary", "HyperLogLog"),
+                new PrimitiveTypeCoercion("hyperloglog", "varbinary"),
+                new PrimitiveTypeCoercion("varbinary", "hyperloglog"),
                 new PrimitiveTypeCoercion("tdigest", "varbinary"),
                 new PrimitiveTypeCoercion("varbinary", "tdigest"),
-                new PrimitiveTypeCoercion("SetDigest", "varbinary"),
-                new PrimitiveTypeCoercion("varbinary", "SetDigest"),
-                new PrimitiveTypeCoercion("SetDigest", "HyperLogLog"),
-                new PrimitiveTypeCoercion("HyperLogLog", "P4HyperLogLog"),
+                new PrimitiveTypeCoercion("setdigest", "varbinary"),
+                new PrimitiveTypeCoercion("varbinary", "setdigest"),
+                new PrimitiveTypeCoercion("setdigest", "hyperloglog"),
+                new PrimitiveTypeCoercion("hyperloglog", "p4hyperloglog"),
                 new PatternCoercion(apply("qdigest", variable("@T")), symbol("varbinary"), List.of()),
                 new PatternCoercion(symbol("varbinary"), apply("qdigest", variable("@T")), List.of())));
         rules.addAll(unboundedVarcharCasts());

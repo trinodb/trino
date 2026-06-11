@@ -98,14 +98,42 @@ final class SolverMaterializer
             }
         });
 
+        // A variable the search left free — no binding, no selected alternative — but holding
+        // ground lower bounds defaults to their least upper bound: the smallest solution. This is
+        // how the engine resolves a type variable constrained only by null arguments — unknown is
+        // the bottom of the binding lattice and survives only when nothing rebinds it. Defaults
+        // chain (one variable's default can ground another's bounds), so iterate to a fixpoint —
+        // first strictly, then tolerating bounds that are still free variables: such a bound
+        // defaults the same way from its own ground bounds, so it cannot raise the LUB (a lambda's
+        // fresh parameter variable mirroring T through `function(@x) <: function(T)` is the
+        // canonical case — without the tolerance a null-typed container leaves T unmaterialized).
+        boolean tolerateFreeVariables = false;
+        boolean changed;
+        do {
+            changed = false;
+            for (Map.Entry<String, VariableState> entry : variableBounds.entrySet()) {
+                if (!(entry.getValue() instanceof TypeVariableState typeState) || substitutions.containsKey(entry.getKey())) {
+                    continue;
+                }
+                if (defaultFromLowerBounds(entry.getKey(), typeState, substitutions, tolerateFreeVariables)) {
+                    changed = true;
+                }
+            }
+            if (!changed && !tolerateFreeVariables) {
+                tolerateFreeVariables = true;
+                changed = true;
+            }
+        }
+        while (changed);
+
         Map<String, Expression> result = new HashMap<>();
         variableBounds.forEach((name, state) -> {
-            if (!(state instanceof TypeVariableState)) {
+            if (!(state instanceof TypeVariableState typeState)) {
                 return;
             }
             Expression expression = substitutions.get(name);
             if (expression != null) {
-                result.put(name, Expression.substitute(expression, substitutions));
+                result.put(name, mergeRowFieldNamesWithBounds(Expression.substitute(expression, substitutions), typeState, substitutions));
             }
         });
         Map<String, Alternative> materializedSelections = selections.orElse(Map.of()).entrySet().stream()
@@ -113,6 +141,56 @@ final class SolverMaterializer
                         Map.Entry::getKey,
                         entry -> entry.getValue().apply(substitutions)));
         return new Materialization(Map.copyOf(numericValues), Map.copyOf(result), Map.copyOf(materializedSelections));
+    }
+
+    private boolean defaultFromLowerBounds(String name, TypeVariableState typeState, Map<String, Expression> substitutions, boolean tolerateFreeVariables)
+    {
+        return typeState.lowerBounds().map(bounds -> {
+            List<Expression> substituted = bounds.stream()
+                    .map(bound -> Expression.substitute(bound, substitutions))
+                    .toList();
+            List<Expression> ground = substituted.stream()
+                    .filter(Expression::isGround)
+                    .distinct()
+                    .toList();
+            if (ground.isEmpty()) {
+                return false;
+            }
+            boolean decidable = substituted.stream()
+                    .allMatch(bound -> Expression.isGround(bound) || (tolerateFreeVariables && bound instanceof Expression.Variable));
+            if (!decidable) {
+                return false;
+            }
+            return ground.stream()
+                    .filter(candidate -> ground.stream().allMatch(other -> subtypeOracle.isSubtype(other, candidate)))
+                    .findFirst()
+                    .map(top -> {
+                        substitutions.put(name, top);
+                        return true;
+                    })
+                    .orElse(false);
+        }).orElse(false);
+    }
+
+    /// Merge a materialized type's row field names against the variable's ground lower bounds: a
+    /// name survives only where the binding and every input agree, the way the engine computes
+    /// row supertypes. This is applied to the final binding regardless of how it was reached — a
+    /// forced symbolic witness binds with its source row's names before a competing anonymous
+    /// bound can intersect it, so the merge must happen here rather than only during domain
+    /// intersection. Rows that differ only in field names are mutual subtypes, so this never
+    /// changes which type is chosen, only its names.
+    private static Expression mergeRowFieldNamesWithBounds(Expression resolved, TypeVariableState typeState, Map<String, Expression> substitutions)
+    {
+        return typeState.lowerBounds().map(bounds -> {
+            Expression merged = resolved;
+            for (Expression bound : bounds) {
+                Expression ground = Expression.substitute(bound, substitutions);
+                if (Expression.isGround(ground)) {
+                    merged = Expression.mergeRowFieldNames(merged, ground);
+                }
+            }
+            return merged;
+        }).orElse(resolved);
     }
 
     private Optional<Map<String, Alternative>> chooseAlternatives(List<String> variables, int index, Map<String, Alternative> selections, Map<String, TypeVariableState> typeStates)
@@ -305,6 +383,47 @@ final class SolverMaterializer
             };
         }
 
+        // General difference form: a variable minus an evaluable subtrahend bounded below by an
+        // evaluable expression — (p - s) >= 8, or its mirrored (8 <= p - s) — raises the variable
+        // to bound + subtrahend once the rest settles
+        if ((operation.operator() == BinaryOperator.GREATER_THAN || operation.operator() == BinaryOperator.GREATER_THAN_OR_EQUAL || operation.operator() == BinaryOperator.EQUAL) &&
+                operation.left() instanceof BinaryOperation(BinaryOperator differenceOperator, Expression minuend, Expression subtrahend) &&
+                differenceOperator == BinaryOperator.SUBTRACT &&
+                minuend instanceof Expression.Variable(String variable)) {
+            OptionalInt bound = evaluateNumericExpression(substituteNumericValues(operation.right(), values));
+            OptionalInt subtracted = evaluateNumericExpression(substituteNumericValues(subtrahend, values));
+            if (bound.isPresent() && subtracted.isPresent()) {
+                int floor = bound.orElseThrow() + subtracted.orElseThrow() + (operation.operator() == BinaryOperator.GREATER_THAN ? 1 : 0);
+                return raise(values, variable, floor);
+            }
+        }
+        if ((operation.operator() == BinaryOperator.LESS_THAN || operation.operator() == BinaryOperator.LESS_THAN_OR_EQUAL || operation.operator() == BinaryOperator.EQUAL) &&
+                operation.right() instanceof BinaryOperation(BinaryOperator differenceOperator, Expression minuend, Expression subtrahend) &&
+                differenceOperator == BinaryOperator.SUBTRACT &&
+                minuend instanceof Expression.Variable(String variable)) {
+            OptionalInt bound = evaluateNumericExpression(substituteNumericValues(operation.left(), values));
+            OptionalInt subtracted = evaluateNumericExpression(substituteNumericValues(subtrahend, values));
+            if (bound.isPresent() && subtracted.isPresent()) {
+                int floor = bound.orElseThrow() + subtracted.orElseThrow() + (operation.operator() == BinaryOperator.LESS_THAN ? 1 : 0);
+                return raise(values, variable, floor);
+            }
+        }
+
+        // General form: a bare variable bounded below by any expression that evaluates under the
+        // values established so far — min(38, (p1 - s1) + s2) once the other variables settle.
+        // The enclosing loop re-runs to a fixpoint and raise() is monotonic, so chained bounds
+        // resolve in dependency order.
+        if (operation.left() instanceof Expression.Variable(String variable) && !(operation.right() instanceof Literal)) {
+            OptionalInt bound = evaluateNumericExpression(substituteNumericValues(operation.right(), values));
+            if (bound.isPresent()) {
+                return switch (operation.operator()) {
+                    case BinaryOperator.GREATER_THAN -> raise(values, variable, bound.orElseThrow() + 1);
+                    case BinaryOperator.GREATER_THAN_OR_EQUAL, BinaryOperator.EQUAL -> raise(values, variable, bound.orElseThrow());
+                    default -> false;
+                };
+            }
+        }
+
         if (operation.left() instanceof Expression.Variable(String variable) && operation.right() instanceof Literal(int literal)) {
             return switch (operation.operator()) {
                 case BinaryOperator.GREATER_THAN -> raise(values, variable, literal + 1);
@@ -352,6 +471,12 @@ final class SolverMaterializer
         return false;
     }
 
+    private static Expression substituteNumericValues(Expression expression, Map<String, Integer> values)
+    {
+        return Expression.substitute(expression, values.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> Expression.literal(entry.getValue()))));
+    }
+
     private static BinaryOperation substituteNumeric(BinaryOperation operation, Map<String, Integer> values)
     {
         return (BinaryOperation) Expression.substitute(operation, values.entrySet().stream()
@@ -386,10 +511,12 @@ final class SolverMaterializer
                 if (leftValue.isEmpty() || rightValue.isEmpty()) {
                     yield OptionalInt.empty();
                 }
+                // Saturating like Expression.evaluate: calculated varchar lengths overflow 32 bits
+                // by design (growth formulas clamp with min(2147483647, ...)) and must not wrap
                 yield OptionalInt.of(switch (operator) {
-                    case ADD -> leftValue.orElseThrow() + rightValue.orElseThrow();
-                    case SUBTRACT -> leftValue.orElseThrow() - rightValue.orElseThrow();
-                    case MULTIPLY -> leftValue.orElseThrow() * rightValue.orElseThrow();
+                    case ADD -> Expression.saturateToInt((long) leftValue.orElseThrow() + rightValue.orElseThrow());
+                    case SUBTRACT -> Expression.saturateToInt((long) leftValue.orElseThrow() - rightValue.orElseThrow());
+                    case MULTIPLY -> Expression.saturateToInt((long) leftValue.orElseThrow() * rightValue.orElseThrow());
                     case DIVIDE -> leftValue.orElseThrow() / rightValue.orElseThrow();
                     case MIN -> Math.min(leftValue.orElseThrow(), rightValue.orElseThrow());
                     case MAX -> Math.max(leftValue.orElseThrow(), rightValue.orElseThrow());

@@ -22,5 +22,7 @@ public record JsonType()
         implements Type
 {
     // JSON values support neither equality comparison nor ordering in Trino.
-    public static final TypeConstructor CONSTRUCTOR = new PrimitiveTypeConstructor("json", JsonType::new, Trait.ABSENT, Trait.ABSENT);
+    // Comparable but not orderable, mirroring the engine's JsonType: json supports equality
+    // (map keys, DISTINCT) but not ordering
+    public static final TypeConstructor CONSTRUCTOR = new PrimitiveTypeConstructor("json", JsonType::new, Trait.PRESENT, Trait.ABSENT);
 }

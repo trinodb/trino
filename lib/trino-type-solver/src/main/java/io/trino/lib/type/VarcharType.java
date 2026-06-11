@@ -13,6 +13,7 @@
  */
 package io.trino.lib.type;
 
+import org.weakref.solver.NumericRelation;
 import org.weakref.solver.RequireKind;
 import org.weakref.solver.type.ParametricTypeConstructor;
 import org.weakref.solver.type.Type;
@@ -22,6 +23,11 @@ import org.weakref.solver.type.TypeConstructor.NumericArgument;
 
 import java.util.List;
 
+import static org.weakref.solver.Expression.BinaryOperator.GREATER_THAN_OR_EQUAL;
+import static org.weakref.solver.Expression.BinaryOperator.LESS_THAN_OR_EQUAL;
+import static org.weakref.solver.Expression.literal;
+import static org.weakref.solver.Expression.operation;
+import static org.weakref.solver.Expression.variable;
 import static org.weakref.solver.Kind.NUMBER;
 
 public record VarcharType(long length)
@@ -36,7 +42,10 @@ public record VarcharType(long length)
         {
             super("varchar",
                     List.of("@n"),
-                    List.of(new RequireKind("@n", NUMBER)));
+                    List.of(
+                            new RequireKind("@n", NUMBER),
+                            new NumericRelation(operation(GREATER_THAN_OR_EQUAL, variable("@n"), literal(0))),
+                            new NumericRelation(operation(LESS_THAN_OR_EQUAL, variable("@n"), literal(Integer.MAX_VALUE)))));
         }
 
         @Override

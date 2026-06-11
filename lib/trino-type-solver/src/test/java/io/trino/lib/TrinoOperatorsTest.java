@@ -286,11 +286,12 @@ public class TrinoOperatorsTest
     }
 
     @Test
-    void testEqualityRejectsNonComparableJson()
+    void testEqualityAcceptsComparableJson()
     {
-        // json is neither comparable nor orderable, so no `=` overload can bind T to it.
+        // json is comparable (it supports equality, like the engine's JsonType) but not orderable.
         assertThat(LIBRARY.resolveFunction("=", List.of(symbol("json"), symbol("json"))))
-                .isInstanceOf(FunctionResolver.NoMatch.class);
+                .isInstanceOfSatisfying(FunctionResolver.Resolved.class, outcome ->
+                        assertThat(outcome.resolution().returnType()).isEqualTo(symbol("boolean")));
     }
 
     @Test
@@ -327,10 +328,11 @@ public class TrinoOperatorsTest
                 .isInstanceOfSatisfying(FunctionResolver.Resolved.class, outcome ->
                         assertThat(outcome.resolution().returnType()).isEqualTo(symbol("boolean")));
 
-        // ...but array(json) is not, because json is not.
+        // ...and array(json) is too, because json supports equality.
         assertThat(LIBRARY.resolveFunction(
                 "=",
                 List.of(apply("array", symbol("json")), apply("array", symbol("json")))))
-                .isInstanceOf(FunctionResolver.NoMatch.class);
+                .isInstanceOfSatisfying(FunctionResolver.Resolved.class, outcome ->
+                        assertThat(outcome.resolution().returnType()).isEqualTo(symbol("boolean")));
     }
 }

@@ -281,12 +281,12 @@ public class CastTest
     @Test
     void testSketchTypeCasts()
     {
-        assertThat(LIBRARY.resolveCast(symbol("HyperLogLog"), symbol("varbinary"))).isPresent();
-        assertThat(LIBRARY.resolveCast(symbol("varbinary"), symbol("HyperLogLog"))).isPresent();
-        assertThat(LIBRARY.resolveCast(symbol("SetDigest"), symbol("HyperLogLog"))).isPresent();
+        assertThat(LIBRARY.resolveCast(symbol("hyperloglog"), symbol("varbinary"))).isPresent();
+        assertThat(LIBRARY.resolveCast(symbol("varbinary"), symbol("hyperloglog"))).isPresent();
+        assertThat(LIBRARY.resolveCast(symbol("setdigest"), symbol("hyperloglog"))).isPresent();
         assertThat(LIBRARY.resolveCast(apply("qdigest", symbol("bigint")), symbol("varbinary"))).isPresent();
         // P4HyperLogLog -> HyperLogLog is an implicit coercion (so also a cast).
-        assertThat(LIBRARY.typeSystem().coercionPlan(symbol("P4HyperLogLog"), symbol("HyperLogLog"))).isPresent();
+        assertThat(LIBRARY.typeSystem().coercionPlan(symbol("p4hyperloglog"), symbol("hyperloglog"))).isPresent();
     }
 
     @Test

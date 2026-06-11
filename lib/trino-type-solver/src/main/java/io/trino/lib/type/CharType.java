@@ -13,6 +13,7 @@
  */
 package io.trino.lib.type;
 
+import org.weakref.solver.NumericRelation;
 import org.weakref.solver.RequireKind;
 import org.weakref.solver.type.ParametricTypeConstructor;
 import org.weakref.solver.type.Type;
@@ -22,6 +23,10 @@ import org.weakref.solver.type.TypeConstructor.NumericArgument;
 
 import java.util.List;
 
+import static org.weakref.solver.Expression.BinaryOperator.GREATER_THAN_OR_EQUAL;
+import static org.weakref.solver.Expression.literal;
+import static org.weakref.solver.Expression.operation;
+import static org.weakref.solver.Expression.variable;
 import static org.weakref.solver.Kind.NUMBER;
 
 public record CharType(long length)
@@ -42,7 +47,14 @@ public record CharType(long length)
         {
             super("char",
                     List.of("@n"),
-                    List.of(new RequireKind("@n", NUMBER)));
+                    // Only the lower bound: it is what defaults an unconstrained length (a null
+                    // argument) to char(0). The 65536 maximum is deliberately NOT validated here —
+                    // the engine's overload-specificity probe binds candidate signatures without
+                    // materializing their return types, so a calculated char return may exceed the
+                    // maximum during specificity comparison without disqualifying the candidate.
+                    List.of(
+                            new RequireKind("@n", NUMBER),
+                            new NumericRelation(operation(GREATER_THAN_OR_EQUAL, variable("@n"), literal(0)))));
         }
 
         @Override

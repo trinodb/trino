@@ -21,5 +21,5 @@ import org.weakref.solver.type.TypeConstructor.Trait;
 public record SetDigestType()
         implements Type
 {
-    public static final TypeConstructor CONSTRUCTOR = new PrimitiveTypeConstructor("SetDigest", SetDigestType::new, Trait.ABSENT, Trait.ABSENT);
+    public static final TypeConstructor CONSTRUCTOR = new PrimitiveTypeConstructor("setdigest", SetDigestType::new, Trait.ABSENT, Trait.ABSENT);
 }

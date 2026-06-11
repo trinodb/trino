@@ -368,14 +368,37 @@ public class TypeSystem
             return structuralPlan(from, to, leftName, leftArguments, rightArguments);
         }
 
-        List<CoercionPlan> directPlans = coercions.stream()
+        // Function types are invariant in their parameters and covariant in the return — a lambda
+        // whose body produces a subtype of the declared result satisfies the formal (the engine
+        // coerces the lambda's return expression, never its parameters)
+        if (from instanceof Expression.FunctionType fromFunction &&
+                to instanceof Expression.FunctionType toFunction &&
+                fromFunction.parameterTypes().equals(toFunction.parameterTypes()) &&
+                !fromFunction.isVariadic() &&
+                !toFunction.isVariadic()) {
+            return structuralPlan(from, to, "function", List.of(fromFunction.returnType()), List.of(toFunction.returnType()));
+        }
+
+        List<CoercionPlan> matchedPlans = coercions.stream()
                 .map(coercion -> coercion.matches(new VariableAllocator(), from, to))
                 .flatMap(Optional::stream)
                 .filter(match -> match.constraints().stream().allMatch(this::isGuardSatisfiable))
                 .map(CoercionRule.Match::plan)
                 .flatMap(Optional::stream)
-                .filter(plan -> plan.kind() == CoercionPlan.Kind.DIRECT)
                 .distinct()
+                .toList();
+
+        // A rule declaring the conversion exact (a re-encoding, not a coercion) settles the plan:
+        // there is nothing to convert, whatever other rules might offer
+        Optional<CoercionPlan> exactPlan = matchedPlans.stream()
+                .filter(CoercionPlan::isExact)
+                .findFirst();
+        if (exactPlan.isPresent()) {
+            return exactPlan;
+        }
+
+        List<CoercionPlan> directPlans = matchedPlans.stream()
+                .filter(plan -> plan.kind() == CoercionPlan.Kind.DIRECT)
                 .toList();
         if (!directPlans.isEmpty()) {
             if (directPlans.size() == 1) {
@@ -604,15 +627,27 @@ public class TypeSystem
                 .anyMatch(coercion -> coercion.type().equals(name));
     }
 
+    /// Whether the type coerces to anything: some rule's target pattern is a bare variable, the
+    /// way the unknown rule (`unknown <: @X`) declares. Such a type is the bottom of the coercion
+    /// lattice, and binding extraction assumes its nested types are bottom as well — a parametric
+    /// formal facing it binds every type parameter to it, the way the engine treats nulls.
+    public boolean isBottom(Expression type)
+    {
+        return coercions.stream().anyMatch(rule -> rule instanceof PatternCoercion pattern
+                && pattern.toPattern() instanceof Expression.Variable
+                && Unifier.unify(Expression.instantiate(pattern.fromPattern(), new VariableAllocator()).expression(), type) instanceof Unifier.Success);
+    }
+
     public List<Constraint> instantiateValidationConstraints(Expression expression)
     {
         if (!(expression instanceof Expression.Application(Expression.Symbol(String name), List<Expression> arguments))) {
             return List.of();
         }
 
-        Optional<TypeConstructor> constructor = types.stream()
-                .filter(type -> type.name().equals(name))
-                .findFirst();
+        // The lookup must respect arity: a name can have constructors at several arities
+        // (unbounded varchar is parameterless, bounded varchar takes a length), and matching by
+        // name alone finds whichever registered first and silently drops the constraints.
+        Optional<TypeConstructor> constructor = findConstructor(name, arguments.size());
 
         if (constructor.isEmpty()) {
             return List.of();

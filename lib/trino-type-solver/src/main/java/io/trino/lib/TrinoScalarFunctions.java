@@ -862,10 +862,10 @@ public final class TrinoScalarFunctions
         builder.registerFunction("variant_is_null", function(List.of(symbol("variant")), symbol("boolean")));
 
         // Approximate-set / quantile-digest accessors over the sketch types.
-        builder.registerFunction("empty_approx_set", function(List.of(), symbol("HyperLogLog")));
-        builder.registerFunction("hash_counts", function(List.of(symbol("SetDigest")), apply("map", symbol("bigint"), symbol("smallint"))));
-        builder.registerFunction("intersection_cardinality", function(List.of(symbol("SetDigest"), symbol("SetDigest")), symbol("bigint")));
-        builder.registerFunction("jaccard_index", function(List.of(symbol("SetDigest"), symbol("SetDigest")), symbol("double")));
+        builder.registerFunction("empty_approx_set", function(List.of(), symbol("hyperloglog")));
+        builder.registerFunction("hash_counts", function(List.of(symbol("setdigest")), apply("map", symbol("bigint"), symbol("smallint"))));
+        builder.registerFunction("intersection_cardinality", function(List.of(symbol("setdigest"), symbol("setdigest")), symbol("bigint")));
+        builder.registerFunction("jaccard_index", function(List.of(symbol("setdigest"), symbol("setdigest")), symbol("double")));
         // value_at_quantile(qdigest(T), quantile) -> T; tdigest is always double-valued.
         builder.registerFunction("value_at_quantile", new TypeScheme(
                 List.of(variable("@T")),

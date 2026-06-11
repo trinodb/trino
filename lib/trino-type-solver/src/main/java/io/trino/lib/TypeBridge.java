@@ -16,6 +16,7 @@ package io.trino.lib;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
@@ -28,6 +29,7 @@ import org.weakref.solver.Expression;
 
 import java.util.List;
 
+import static java.util.Locale.ROOT;
 import static java.util.stream.Collectors.joining;
 import static org.weakref.solver.Expression.anonymousField;
 import static org.weakref.solver.Expression.apply;
@@ -64,6 +66,9 @@ public final class TypeBridge
             case TimeType time -> apply("time", literal(time.getPrecision()));
             case TimeWithTimeZoneType time -> apply("time_with_time_zone", literal(time.getPrecision()));
             case ArrayType array -> apply("array", toExpression(array.getElementType()));
+            case FunctionType function -> Expression.function(
+                    function.getArgumentTypes().stream().map(TypeBridge::toExpression).toList(),
+                    toExpression(function.getReturnType()));
             case io.trino.spi.type.QuantileDigestType qdigest -> apply("qdigest", toExpression(qdigest.getValueType()));
             case MapType map -> apply("map", toExpression(map.getKeyType()), toExpression(map.getValueType()));
             case RowType rowType -> row(rowType.getFields().stream()
@@ -77,9 +82,10 @@ public final class TypeBridge
 
     private static String symbolName(Type type)
     {
-        // Zero-argument types map by base name; multi-word names (interval / with time zone)
-        // use underscores in the solver preset.
-        return type.getTypeDescriptor().getBase().replace(' ', '_');
+        // Zero-argument types map by lower-cased base name (programmatically declared bases like
+        // JoniRegExp keep their case in the descriptor, parsed ones are already lower case);
+        // multi-word names (interval / with time zone) use underscores in the solver preset.
+        return type.getTypeDescriptor().getBase().toLowerCase(ROOT).replace(' ', '_');
     }
 
     /**
@@ -101,6 +107,11 @@ public final class TypeBridge
             case Expression.Row(List<Expression.RowField> fields) -> "row(" + fields.stream()
                     .map(rowField -> rowField.name().map(name -> name + " ").orElse("") + render(rowField.type()))
                     .collect(joining(", ")) + ")";
+            // Mirror the solver's own function-type format, but render the components through
+            // this method so nested canonicalizations (the unbounded varchar sentinel) apply
+            case Expression.FunctionType functionType -> "((" + functionType.parameterTypes().stream()
+                    .map(TypeBridge::render)
+                    .collect(joining(", ")) + "))->" + render(functionType.returnType());
             default -> expression.toString();
         };
     }

@@ -21,5 +21,7 @@ import org.weakref.solver.type.TypeConstructor.Trait;
 public record ColorType()
         implements Type
 {
-    public static final TypeConstructor CONSTRUCTOR = new PrimitiveTypeConstructor("color", ColorType::new, Trait.ABSENT, Trait.ABSENT);
+    // Comparable but not orderable, mirroring the engine's ColorType (an AbstractIntType that
+    // opts out of ordering only)
+    public static final TypeConstructor CONSTRUCTOR = new PrimitiveTypeConstructor("color", ColorType::new, Trait.PRESENT, Trait.ABSENT);
 }

@@ -21,5 +21,5 @@ import org.weakref.solver.type.TypeConstructor.Trait;
 public record HyperLogLogType()
         implements Type
 {
-    public static final TypeConstructor CONSTRUCTOR = new PrimitiveTypeConstructor("HyperLogLog", HyperLogLogType::new, Trait.ABSENT, Trait.ABSENT);
+    public static final TypeConstructor CONSTRUCTOR = new PrimitiveTypeConstructor("hyperloglog", HyperLogLogType::new, Trait.ABSENT, Trait.ABSENT);
 }

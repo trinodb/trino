@@ -45,6 +45,7 @@ public record DecimalType(int precision, int scale)
                     List.of(
                             new RequireKind("@p", NUMBER),
                             new RequireKind("@s", NUMBER),
+                            new NumericRelation(operation(GREATER_THAN_OR_EQUAL, variable("@p"), literal(1))),
                             new NumericRelation(operation(LESS_THAN_OR_EQUAL, variable("@p"), literal(38))),
                             new NumericRelation(operation(GREATER_THAN_OR_EQUAL, variable("@s"), literal(0))),
                             new NumericRelation(operation(LESS_THAN_OR_EQUAL, variable("@s"), variable("@p")))));

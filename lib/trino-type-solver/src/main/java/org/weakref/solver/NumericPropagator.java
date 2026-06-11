@@ -219,9 +219,9 @@ final class NumericPropagator
                     yield OptionalInt.empty();
                 }
                 yield switch (operator) {
-                    case ADD -> OptionalInt.of(leftValue.orElseThrow() + rightValue.orElseThrow());
-                    case SUBTRACT -> OptionalInt.of(leftValue.orElseThrow() - rightValue.orElseThrow());
-                    case MULTIPLY -> OptionalInt.of(leftValue.orElseThrow() * rightValue.orElseThrow());
+                    case ADD -> OptionalInt.of(Expression.saturateToInt((long) leftValue.orElseThrow() + rightValue.orElseThrow()));
+                    case SUBTRACT -> OptionalInt.of(Expression.saturateToInt((long) leftValue.orElseThrow() - rightValue.orElseThrow()));
+                    case MULTIPLY -> OptionalInt.of(Expression.saturateToInt((long) leftValue.orElseThrow() * rightValue.orElseThrow()));
                     case DIVIDE -> rightValue.orElseThrow() == 0 ? OptionalInt.empty() : OptionalInt.of(leftValue.orElseThrow() / rightValue.orElseThrow());
                     case MIN -> OptionalInt.of(Math.min(leftValue.orElseThrow(), rightValue.orElseThrow()));
                     case MAX -> OptionalInt.of(Math.max(leftValue.orElseThrow(), rightValue.orElseThrow()));
@@ -374,10 +374,12 @@ final class NumericPropagator
                 if (leftValue.isEmpty() || rightValue.isEmpty()) {
                     yield OptionalInt.empty();
                 }
+                // Saturating like Expression.evaluate, so wrapped arithmetic cannot fail
+                // a calculated varchar length's validation
                 yield OptionalInt.of(switch (operator) {
-                    case ADD -> leftValue.orElseThrow() + rightValue.orElseThrow();
-                    case SUBTRACT -> leftValue.orElseThrow() - rightValue.orElseThrow();
-                    case MULTIPLY -> leftValue.orElseThrow() * rightValue.orElseThrow();
+                    case ADD -> Expression.saturateToInt((long) leftValue.orElseThrow() + rightValue.orElseThrow());
+                    case SUBTRACT -> Expression.saturateToInt((long) leftValue.orElseThrow() - rightValue.orElseThrow());
+                    case MULTIPLY -> Expression.saturateToInt((long) leftValue.orElseThrow() * rightValue.orElseThrow());
                     case DIVIDE -> leftValue.orElseThrow() / rightValue.orElseThrow();
                     case MIN -> Math.min(leftValue.orElseThrow(), rightValue.orElseThrow());
                     case MAX -> Math.max(leftValue.orElseThrow(), rightValue.orElseThrow());

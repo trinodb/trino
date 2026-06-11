@@ -92,13 +92,18 @@ public record TypeScheme(List<Variable> parameters, List<Constraint> constraints
         }
 
         // Step 2: add Subtype constraints for each argument position. This is the only
-        // place call-level binding obligations enter the system.
+        // place call-level binding obligations enter the system. The formal's own constructor
+        // invariants are collected alongside, whatever the actual is: an unknown actual leaves
+        // the formal's variables otherwise unconstrained, and the validation bounds are what
+        // default them (varchar(0), decimal(1, 0)) at materialization.
         int fixedParameterCount = functionType.parameterTypes().size();
         for (int index = 0; index < fixedParameterCount; index++) {
             addBindingConstraints(arguments.get(index), functionType.parameterTypes().get(index), typeSystem, callConstraints);
+            collectValidationConstraints(functionType.parameterTypes().get(index), typeSystem, callConstraints);
         }
         if (functionType.isVariadic()) {
             Expression variadicType = functionType.variadicParameterType().orElseThrow();
+            collectValidationConstraints(variadicType, typeSystem, callConstraints);
             for (int index = fixedParameterCount; index < arguments.size(); index++) {
                 addBindingConstraints(arguments.get(index), variadicType, typeSystem, callConstraints);
             }
@@ -161,7 +166,15 @@ public record TypeScheme(List<Variable> parameters, List<Constraint> constraints
     {
         return coercionPlan(actual, template, formal, result)
                 .or(() -> typeSystem.coercionPlan(actual, formal))
-                .orElseThrow(() -> new IllegalStateException("Expected coercion plan for " + actual + " <: " + formal));
+                .orElseGet(() -> {
+                    // A lambda's conversion has no runtime object: when resolution widens a
+                    // shared variable past the parameter types a lambda was typed at, the engine
+                    // re-analyzes the lambda at the formal — it never coerces a function value
+                    if (actual instanceof Expression.FunctionType && formal instanceof Expression.FunctionType) {
+                        return CoercionPlan.exact(actual, formal);
+                    }
+                    throw new IllegalStateException("Expected coercion plan for " + actual + " <: " + formal);
+                });
     }
 
     /**
@@ -180,6 +193,32 @@ public record TypeScheme(List<Variable> parameters, List<Constraint> constraints
 
     private static void addBindingConstraints(Expression actual, Expression formal, TypeSystem typeSystem, List<Constraint> constraints)
     {
+        // A bottom actual (a null's unknown type) is assumed to have bottom nested types, the way
+        // the engine treats nulls: a parametric or row formal binds every type parameter position
+        // to the bottom type, while numeric positions are left to their validation defaults
+        if (!(actual instanceof Expression.Application) && !(actual instanceof Expression.Row) && typeSystem.isBottom(actual)) {
+            if (formal instanceof Expression.Application(Expression.Symbol(String formalName), List<Expression> formalArgs)) {
+                Optional<TypeConstructor> constructor = typeSystem.findConstructor(formalName, formalArgs.size());
+                if (constructor.isPresent()) {
+                    collectValidationConstraints(formal, typeSystem, constraints);
+                    Map<String, Kind> kinds = parameterKinds(constructor.orElseThrow());
+                    List<String> params = constructor.orElseThrow().parameters();
+                    for (int i = 0; i < formalArgs.size(); i++) {
+                        Kind paramKind = i < params.size() ? kinds.getOrDefault(params.get(i), Kind.TYPE) : Kind.TYPE;
+                        if (paramKind == Kind.TYPE) {
+                            addBindingConstraints(actual, formalArgs.get(i), typeSystem, constraints);
+                        }
+                    }
+                    return;
+                }
+            }
+            if (formal instanceof Expression.Row(List<Expression.RowField> formalFields)) {
+                for (Expression.RowField field : formalFields) {
+                    addBindingConstraints(actual, field.type(), typeSystem, constraints);
+                }
+                return;
+            }
+        }
         if (actual instanceof Expression.Application(Expression.Symbol(String actualName), List<Expression> actualArgs) &&
                 formal instanceof Expression.Application(Expression.Symbol(String formalName), List<Expression> formalArgs) &&
                 actualName.equals(formalName) &&
@@ -253,7 +292,12 @@ public record TypeScheme(List<Variable> parameters, List<Constraint> constraints
     private static void bindAt(Expression actual, Expression formal, Kind parentKind, TypeSystem typeSystem, List<Constraint> constraints)
     {
         if (formal instanceof Variable(String _) && parentKind == Kind.NUMBER) {
-            constraints.add(new NumericRelation(new Expression.BinaryOperation(Expression.BinaryOperator.EQUAL, formal, actual)));
+            // At-least, not equality: argument positions are coercion positions, and the engine
+            // widens a numeric variable shared across them to the largest actual —
+            // date_diff(unit, T(p), T(p)) called with precisions 11 and 12 binds p to 12 and
+            // coerces the narrower argument. Materialization assigns the minimum satisfying all
+            // bounds, so a single-position variable still binds its actual exactly.
+            constraints.add(new NumericRelation(new Expression.BinaryOperation(Expression.BinaryOperator.GREATER_THAN_OR_EQUAL, formal, actual)));
             return;
         }
         addBindingConstraints(actual, formal, typeSystem, constraints);

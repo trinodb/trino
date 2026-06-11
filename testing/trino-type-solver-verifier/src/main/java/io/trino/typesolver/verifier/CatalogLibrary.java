@@ -16,10 +16,10 @@ package io.trino.typesolver.verifier;
 import io.trino.lib.SignatureBridge;
 import io.trino.lib.TrinoPreset;
 import io.trino.lib.TrinoSpecificity;
+import io.trino.lib.UnboundedVarcharSentinelCoercion;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
-import org.weakref.solver.PatternCoercion;
 import org.weakref.solver.Specificity;
 import org.weakref.solver.TypeLibrary;
 
@@ -27,10 +27,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-
-import static org.weakref.solver.Expression.apply;
-import static org.weakref.solver.Expression.literal;
-import static org.weakref.solver.Expression.symbol;
 
 /// Builds a solver [TypeLibrary] fed from Trino's live function catalog: the preset contributes the
 /// type catalog and coercion/cast rules, while every function definition comes from the catalog's
@@ -78,9 +74,8 @@ public final class CatalogLibrary
 
         // The preset models unbounded varchar as a distinct parameterless type, but the catalog's
         // signatures are parametric over varchar(x) with the MAX_VALUE sentinel standing in for
-        // unbounded. Let an unbounded varchar flow into those signatures by pinning the length to
-        // the sentinel — the same reinterpretation Trino itself performs.
-        builder.registerCoercion(new PatternCoercion(symbol("varchar"), apply("varchar", literal(Integer.MAX_VALUE)), List.of()));
+        // unbounded — re-encoded exactly, not coerced, so overload selection matches the engine
+        builder.registerCoercion(new UnboundedVarcharSentinelCoercion());
 
         for (FunctionMetadata metadata : functions) {
             if (metadata.getKind() != FunctionKind.SCALAR) {

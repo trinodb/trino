@@ -21,9 +21,11 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.weakref.solver.Expression.BinaryOperator.GREATER_THAN_OR_EQUAL;
 import static org.weakref.solver.Expression.BinaryOperator.SUBTRACT;
+import static org.weakref.solver.Expression.anonymousField;
 import static org.weakref.solver.Expression.apply;
 import static org.weakref.solver.Expression.literal;
 import static org.weakref.solver.Expression.operation;
+import static org.weakref.solver.Expression.row;
 import static org.weakref.solver.Expression.symbol;
 import static org.weakref.solver.Expression.variable;
 import static org.weakref.solver.Kind.TYPE;
@@ -77,9 +79,13 @@ public class TypeSystemTest
         assertThat(typeSystem.isComparable(apply("decimal", literal(10), literal(2)))).isTrue();
         assertThat(typeSystem.isOrderable(apply("decimal", literal(10), literal(2)))).isTrue();
 
-        // JSON supports neither.
-        assertThat(typeSystem.isComparable(symbol("json"))).isFalse();
+        // JSON supports equality (like the engine's JsonType) but not ordering.
+        assertThat(typeSystem.isComparable(symbol("json"))).isTrue();
         assertThat(typeSystem.isOrderable(symbol("json"))).isFalse();
+
+        // HyperLogLog supports neither.
+        assertThat(typeSystem.isComparable(symbol("hyperloglog"))).isFalse();
+        assertThat(typeSystem.isOrderable(symbol("hyperloglog"))).isFalse();
 
         // Function types support neither.
         assertThat(typeSystem.isComparable(Expression.function(List.of(symbol("integer")), symbol("integer")))).isFalse();
@@ -87,7 +93,7 @@ public class TypeSystemTest
 
         // Maps are comparable iff key and value are, but never orderable.
         assertThat(typeSystem.isComparable(apply("map", symbol("integer"), symbol("integer")))).isTrue();
-        assertThat(typeSystem.isComparable(apply("map", symbol("integer"), symbol("json")))).isFalse();
+        assertThat(typeSystem.isComparable(apply("map", symbol("integer"), symbol("hyperloglog")))).isFalse();
         assertThat(typeSystem.isOrderable(apply("map", symbol("integer"), symbol("integer")))).isFalse();
     }
 
@@ -99,8 +105,8 @@ public class TypeSystemTest
         // Arrays and rows inherit the trait from their element/field types.
         assertThat(typeSystem.isComparable(apply("array", symbol("integer")))).isTrue();
         assertThat(typeSystem.isOrderable(apply("array", symbol("integer")))).isTrue();
-        assertThat(typeSystem.isComparable(apply("array", symbol("json")))).isFalse();
-        assertThat(typeSystem.isComparable(apply("array", apply("array", symbol("json"))))).isFalse();
+        assertThat(typeSystem.isComparable(apply("array", symbol("hyperloglog")))).isFalse();
+        assertThat(typeSystem.isComparable(apply("array", apply("array", symbol("hyperloglog"))))).isFalse();
         assertThat(typeSystem.isComparable(apply("array", apply("map", symbol("integer"), symbol("integer"))))).isTrue();
         // An array of maps is comparable (maps are) but not orderable (maps aren't).
         assertThat(typeSystem.isOrderable(apply("array", apply("map", symbol("integer"), symbol("integer"))))).isFalse();
@@ -115,6 +121,36 @@ public class TypeSystemTest
         assertThat(typeSystem.isComparable(variable("@T"))).isTrue();
         assertThat(typeSystem.isOrderable(variable("@T"))).isTrue();
         assertThat(typeSystem.isComparable(apply("array", variable("@T")))).isTrue();
+    }
+
+    @Test
+    void testRowSupertypeKeepsOnlyAgreedFieldNames()
+    {
+        TypeSystem typeSystem = TrinoPreset.typeSystem();
+
+        // A named row against an anonymous constructor merges to the anonymous shape — field
+        // names survive only where both sides agree, matching the engine's row supertype
+        Expression named = row(Expression.field("a", symbol("bigint")), Expression.field("b", symbol("bigint")));
+        Expression anonymous = row(anonymousField(symbol("bigint")), anonymousField(symbol("bigint")));
+        assertThat(typeSystem.getCommonSupertype(named, anonymous)).contains(anonymous);
+        assertThat(typeSystem.getCommonSupertype(anonymous, named)).contains(anonymous);
+
+        // Identical names on both sides survive
+        assertThat(typeSystem.getCommonSupertype(named, named)).contains(named);
+
+        // Names drop at every nesting level, even when an inner coercion forces the field
+        // variable to bind to a named symbolic witness before the anonymous side intersects it
+        Expression nestedNamed = row(
+                Expression.field("c1", symbol("bigint")),
+                Expression.field("c2", row(Expression.field("c21", symbol("bigint")), Expression.field("c22", symbol("bigint")))));
+        Expression nestedAnonymous = row(
+                anonymousField(symbol("integer")),
+                anonymousField(row(anonymousField(symbol("integer")), anonymousField(symbol("integer")))));
+        Expression nestedExpected = row(
+                anonymousField(symbol("bigint")),
+                anonymousField(row(anonymousField(symbol("bigint")), anonymousField(symbol("bigint")))));
+        assertThat(typeSystem.getCommonSupertype(nestedNamed, nestedAnonymous)).contains(nestedExpected);
+        assertThat(typeSystem.getCommonSupertype(nestedAnonymous, nestedNamed)).contains(nestedExpected);
     }
 
     @Test

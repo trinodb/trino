@@ -117,7 +117,9 @@ public final class SignatureBridge
 
         Expression.FunctionType functionType;
         if (signature.isVariableArity() && !argumentTypes.isEmpty()) {
-            functionType = variadicFunction(argumentTypes, argumentTypes.getLast(), returnType);
+            // The last declared argument repeats zero or more times — concat_ws(varchar, varchar)
+            // accepts a lone separator — so only the preceding arguments are fixed
+            functionType = variadicFunction(argumentTypes.subList(0, argumentTypes.size() - 1), argumentTypes.getLast(), returnType);
         }
         else {
             functionType = function(argumentTypes, returnType);
@@ -142,10 +144,10 @@ public final class SignatureBridge
             if (typeVariables.contains(variableName)) {
                 return variable("@" + variableName);
             }
-            return symbol(base.replace(' ', '_'));
+            return symbol(symbolName(base));
         }
 
-        String symbolBase = base.replace(' ', '_');
+        String symbolBase = symbolName(base);
         // Unbounded varchar is encoded by Trino as varchar(Integer.MAX_VALUE) (the UNBOUNDED_LENGTH
         // sentinel), but the solver's preset models it as a distinct parameterless type. Map the sentinel
         // back so bounded and unbounded varchar stay separate kinds in the solver.
@@ -178,6 +180,14 @@ public final class SignatureBridge
                 .map(parameter -> toParameter(parameter, typeVariables, numericVariables))
                 .toArray(Expression[]::new);
         return apply(symbolBase, arguments);
+    }
+
+    /// Canonical solver symbol for a Trino type base: lower case (annotation-declared bases are
+    /// lowercased by parsing, programmatic ones — JoniRegExp, CodePoints — are not), with
+    /// multi-word names (interval / with time zone) underscored.
+    private static String symbolName(String base)
+    {
+        return base.toLowerCase(ROOT).replace(' ', '_');
     }
 
     private static Expression toParameter(TemplateParameter parameter, Set<String> typeVariables, Map<String, NumericExpression> numericVariables)

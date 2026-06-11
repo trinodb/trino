@@ -458,6 +458,38 @@ public sealed interface Expression
         return new Variable(name);
     }
 
+    /// Merge two structurally-unified expressions' row field names: a name survives only where
+    /// both sides carry it identically, the way the engine computes row supertypes — comparing a
+    /// named row column against an anonymous ROW constructor yields the anonymous shape. The
+    /// expressions must have the same structure (one unified against the other); positions where
+    /// they differ (a variable against a type) keep the left side.
+    static Expression mergeRowFieldNames(Expression left, Expression right)
+    {
+        if (left instanceof Row(List<RowField> leftFields) &&
+                right instanceof Row(List<RowField> rightFields) &&
+                leftFields.size() == rightFields.size()) {
+            List<RowField> merged = new ArrayList<>(leftFields.size());
+            for (int index = 0; index < leftFields.size(); index++) {
+                RowField leftField = leftFields.get(index);
+                RowField rightField = rightFields.get(index);
+                Optional<String> name = leftField.name().equals(rightField.name()) ? leftField.name() : Optional.empty();
+                merged.add(new RowField(name, mergeRowFieldNames(leftField.type(), rightField.type())));
+            }
+            return new Row(merged);
+        }
+        if (left instanceof Application(Expression leftHead, List<Expression> leftArguments) &&
+                right instanceof Application(Expression rightHead, List<Expression> rightArguments) &&
+                leftHead.equals(rightHead) &&
+                leftArguments.size() == rightArguments.size()) {
+            List<Expression> merged = new ArrayList<>(leftArguments.size());
+            for (int index = 0; index < leftArguments.size(); index++) {
+                merged.add(mergeRowFieldNames(leftArguments.get(index), rightArguments.get(index)));
+            }
+            return new Application(leftHead, merged);
+        }
+        return left;
+    }
+
     static Symbol symbol(String name)
     {
         return new Symbol(name);
@@ -581,7 +613,7 @@ public sealed interface Expression
         };
     }
 
-    private static int saturateToInt(long value)
+    static int saturateToInt(long value)
     {
         return (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, value));
     }

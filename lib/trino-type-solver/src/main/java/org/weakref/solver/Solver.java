@@ -130,7 +130,7 @@ public class Solver
                     }
                     else {
                         variableState.addUpperBound(type);
-                        constrainDomain(variable, variableState, toAlternatives(typeSystem.coercionsTo(type, allocator)), state);
+                        constrainEnumerableDomain(variable, variableState, type, typeSystem.coercionsTo(type, allocator), state);
                     }
                 }
                 case Subtype(Expression type, Variable(String variable)) -> {
@@ -140,7 +140,7 @@ public class Solver
                     }
                     else {
                         variableState.addLowerBound(type);
-                        constrainDomain(variable, variableState, toAlternatives(typeSystem.coercionsFrom(type, allocator)), state);
+                        constrainEnumerableDomain(variable, variableState, type, typeSystem.coercionsFrom(type, allocator), state);
                     }
                 }
                 case Subtype(Expression subtype, Expression supertype) -> processConcreteSubtype(subtype, supertype, allocator, state);
@@ -319,19 +319,79 @@ public class Solver
                     if (leftValue.isEmpty() || rightValue.isEmpty()) {
                         yield OptionalInt.empty();
                     }
+                    // Saturating like Expression.evaluate, so wrapped arithmetic cannot fail
+                    // a calculated varchar length's validation
                     yield switch (operator) {
-                        case ADD -> OptionalInt.of(leftValue.orElseThrow() + rightValue.orElseThrow());
-                        case SUBTRACT -> OptionalInt.of(leftValue.orElseThrow() - rightValue.orElseThrow());
-                        case MULTIPLY -> OptionalInt.of(leftValue.orElseThrow() * rightValue.orElseThrow());
+                        case ADD -> OptionalInt.of(Expression.saturateToInt((long) leftValue.orElseThrow() + rightValue.orElseThrow()));
+                        case SUBTRACT -> OptionalInt.of(Expression.saturateToInt((long) leftValue.orElseThrow() - rightValue.orElseThrow()));
+                        case MULTIPLY -> OptionalInt.of(Expression.saturateToInt((long) leftValue.orElseThrow() * rightValue.orElseThrow()));
                         case DIVIDE -> rightValue.orElseThrow() == 0 ? OptionalInt.empty() : OptionalInt.of(leftValue.orElseThrow() / rightValue.orElseThrow());
                         case MIN -> OptionalInt.of(Math.min(leftValue.orElseThrow(), rightValue.orElseThrow()));
                         case MAX -> OptionalInt.of(Math.max(leftValue.orElseThrow(), rightValue.orElseThrow()));
                         default -> OptionalInt.empty();
                     };
                 }
+                case Expression.Conditional(Expression.BinaryOperation condition, Expression ifTrue, Expression ifFalse) -> {
+                    Optional<Boolean> holds = evaluateBoolean(condition);
+                    if (holds.isEmpty()) {
+                        yield OptionalInt.empty();
+                    }
+                    yield evaluateNumericExpression(holds.orElseThrow() ? ifTrue : ifFalse);
+                }
                 default -> OptionalInt.empty();
             };
         }
+    }
+
+    /// Constrains the variable's domain to the given coercion results — unless one of them is a
+    /// wildcard: a witness with a variable that no guard constrains, as produced by the unknown
+    /// rule (`unknown <: @X`) directly or lifted covariantly (`array(unknown) <: array(@x)`). A
+    /// wildcard means the bound type coerces to ANYTHING of that shape — the domain cannot be
+    /// enumerated, and treating the wildcard as a concrete alternative poisons dominance pruning
+    /// (it and any concrete witness dominate each other, emptying the domain). Shaped witnesses
+    /// whose variables ARE guarded (`varchar(@n2)` under `n1 <= @n2`) remain enumerable. The bound
+    /// itself still holds either way, and materialization defaults an otherwise-unconstrained
+    /// variable from its ground bounds.
+    private void constrainEnumerableDomain(String variable, TypeVariableState variableState, Expression boundType, List<TypeSystem.CoercionResult> coercionResults, SolverState state)
+    {
+        Set<String> boundVariables = new HashSet<>();
+        walkExpression(boundType, expression -> {
+            if (expression instanceof Variable(String name)) {
+                boundVariables.add(name);
+            }
+        });
+        List<Alternative> alternatives = toAlternatives(coercionResults);
+        if (alternatives.stream().anyMatch(alternative -> hasWildcardVariable(alternative, boundVariables))) {
+            return;
+        }
+        constrainDomain(variable, variableState, alternatives, state);
+    }
+
+    /// A wildcard variable in a witness is one that nothing pins down: it is neither a variable of
+    /// the bound type itself (an exact witness of a symbolic bound mirrors its variables) nor
+    /// mentioned by any guard (a widening witness like `varchar(@n2)` is pinned by `n1 <= @n2`).
+    /// The unknown rule produces them (`unknown <: @X`, lifted covariantly to `array(@x)`).
+    private static boolean hasWildcardVariable(Alternative alternative, Set<String> boundVariables)
+    {
+        Set<String> witnessVariables = new HashSet<>();
+        walkExpression(alternative.witness(), expression -> {
+            if (expression instanceof Variable(String name)) {
+                witnessVariables.add(name);
+            }
+        });
+        witnessVariables.removeAll(boundVariables);
+        if (witnessVariables.isEmpty()) {
+            return false;
+        }
+        Set<String> guardedVariables = new HashSet<>();
+        for (Constraint guard : alternative.guards()) {
+            walkConstraint(guard, expression -> {
+                if (expression instanceof Variable(String name)) {
+                    guardedVariables.add(name);
+                }
+            });
+        }
+        return !guardedVariables.containsAll(witnessVariables);
     }
 
     private static List<Alternative> toAlternatives(List<TypeSystem.CoercionResult> coercionResults)
@@ -343,6 +403,13 @@ public class Solver
 
     private void bindTypeVariable(String variable, Expression expression, SolverState state)
     {
+        // A numeric-kind variable (declared by a constructor's RequireKind before any binding
+        // arrives, e.g. the length in varchar(@n)) binds through its bounds, not as a type:
+        // an exact literal pins min and max to the value
+        if (state.variableStates().get(variable) instanceof NumericVariableState && expression instanceof Expression.Literal(int value)) {
+            NumericPropagator.process(new Expression.BinaryOperation(Expression.BinaryOperator.EQUAL, new Variable(variable), Expression.literal(value)), state);
+            return;
+        }
         requireTypeVariable(variable, state).bind(expression);
         enqueueValidationConstraints(expression, state);
     }

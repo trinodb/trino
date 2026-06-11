@@ -21,5 +21,5 @@ import org.weakref.solver.type.TypeConstructor.Trait;
 public record P4HyperLogLogType()
         implements Type
 {
-    public static final TypeConstructor CONSTRUCTOR = new PrimitiveTypeConstructor("P4HyperLogLog", P4HyperLogLogType::new, Trait.ABSENT, Trait.ABSENT);
+    public static final TypeConstructor CONSTRUCTOR = new PrimitiveTypeConstructor("p4hyperloglog", P4HyperLogLogType::new, Trait.ABSENT, Trait.ABSENT);
 }

@@ -79,8 +79,15 @@ public final class Domain
                             .map(constraint -> constraint.apply(success.bindings()))
                             .forEach(guards::add);
 
+                    // The merged witness keeps a row field name only where both sides agree, the
+                    // way the engine computes row supertypes — this catches names where the two
+                    // witnesses meet as simultaneous domain alternatives; a witness that forces
+                    // and binds before its competitor arrives is reconciled later against the
+                    // variable's recorded bounds in the materializer
                     intersection.add(new Alternative(
-                            Expression.substitute(existing.witness(), success.bindings()),
+                            Expression.mergeRowFieldNames(
+                                    Expression.substitute(existing.witness(), success.bindings()),
+                                    Expression.substitute(candidate.witness(), success.bindings())),
                             Set.copyOf(guards),
                             mergePlans(existing, candidate, success.bindings())));
                 }
