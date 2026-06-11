@@ -703,6 +703,36 @@ public class TestStringFunctions
         assertThat(assertions.function("starts_with", "'信念 爱 希望'", "'爱'"))
                 .isEqualTo(false);
 
+        assertThat(assertions.function("ends_with", "'foo'", "'foo'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("ends_with", "'foo'", "'bar'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("ends_with", "'foo'", "''"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("ends_with", "''", "'foo'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("ends_with", "''", "''"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("ends_with", "'foo_bar_baz'", "'baz'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("ends_with", "'foo_bar_baz'", "'bar'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("ends_with", "'baz'", "'foo_bar_baz'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("ends_with", "'信念 爱 希望'", "'希望'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("ends_with", "'信念 爱 希望'", "'爱'"))
+                .isEqualTo(false);
+
         assertThat(assertions.function("strpos", "NULL", "''"))
                 .isNull(BIGINT);
 
