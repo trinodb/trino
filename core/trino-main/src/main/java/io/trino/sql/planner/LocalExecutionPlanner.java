@@ -737,6 +737,17 @@ public class LocalExecutionPlanner
                     operatorFactories.subList(i + 1, operatorFactories.size()).stream()
                             .map(OperatorFactory::duplicate)
                             .forEach(newOperators::add);
+                    
+                    // each duplicated spilling join operator in the outer driver pipeline will call. 
+                    // finishProbeOperator, which requires incrementing the totalOperatorsCount of the corresponding original factory by 1.
+                    // ensure that PartitionedLookupSourceFactory waits for the correct number of operators to complete before releasing resources.
+                    operatorFactories.subList(i + 1, operatorFactories.size()).stream()
+                            .filter(WorkProcessorOperatorAdapter.Factory.class::isInstance)
+                            .map(WorkProcessorOperatorAdapter.Factory.class::cast)
+                            .map(WorkProcessorOperatorAdapter.Factory::getWorkProcessorOperatorFactory)
+                            .filter(LookupJoinOperatorFactory.class::isInstance)
+                            .map(LookupJoinOperatorFactory.class::cast)
+                            .forEach(LookupJoinOperatorFactory::incrementTotalOperatorsCount);
 
                     addDriverFactory(false, isOutputDriver, newOperators.build(), OptionalInt.of(1));
                 }

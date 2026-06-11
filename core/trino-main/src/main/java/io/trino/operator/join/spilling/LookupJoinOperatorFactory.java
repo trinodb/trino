@@ -15,6 +15,7 @@ package io.trino.operator.join.spilling;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import com.google.common.annotations.VisibleForTesting;
 import io.trino.operator.HashGenerator;
 import io.trino.operator.JoinOperatorType;
 import io.trino.operator.NullSafeHashCompiler;
@@ -37,6 +38,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -59,7 +61,7 @@ public class LookupJoinOperatorFactory
     private final JoinProbeFactory joinProbeFactory;
     private final Optional<OperatorFactory> outerOperatorFactory;
     private final JoinBridgeManager<? extends LookupSourceFactory> joinBridgeManager;
-    private final OptionalInt totalOperatorsCount;
+    private final AtomicReference<OptionalInt> totalOperatorsCount;
     private final HashGenerator probeHashGenerator;
     private final PartitioningSpillerFactory partitioningSpillerFactory;
 
@@ -102,7 +104,7 @@ public class LookupJoinOperatorFactory
                     buildOutputTypes,
                     lookupSourceFactoryManager));
         }
-        this.totalOperatorsCount = requireNonNull(totalOperatorsCount, "totalOperatorsCount is null");
+        this.totalOperatorsCount = new AtomicReference<>(requireNonNull(totalOperatorsCount, "totalOperatorsCount is null"));
 
         requireNonNull(probeJoinChannels, "probeJoinChannels is null");
         List<Type> hashTypes = probeJoinChannels.stream()
@@ -176,7 +178,7 @@ public class LookupJoinOperatorFactory
                 lookupSourceFactory,
                 joinProbeFactory,
                 joinBridgeManager::probeOperatorClosed,
-                totalOperatorsCount,
+                totalOperatorsCount.get(),
                 probeHashGenerator,
                 partitioningSpillerFactory,
                 processorContext,
@@ -195,5 +197,17 @@ public class LookupJoinOperatorFactory
     public LookupJoinOperatorFactory duplicate()
     {
         return new LookupJoinOperatorFactory(this);
+    }
+
+    public void incrementTotalOperatorsCount()
+    {
+        totalOperatorsCount.updateAndGet(current ->
+                current.isPresent() ? OptionalInt.of(current.getAsInt() + 1) : current);
+    }
+    
+    @VisibleForTesting
+    public OptionalInt getTotalOperatorsCount()
+    {
+        return totalOperatorsCount.get();
     }
 }

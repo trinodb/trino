@@ -1802,4 +1802,81 @@ public class TestHashJoinOperator
     {
         return ImmutableList.copyOf(Iterables.concat(initialElements, moreElements));
     }
+
+    
+    /**
+     * Regression test for the bug where {@code addLookupOuterDrivers} duplicates a spilling
+     * {@link LookupJoinOperatorFactory} into the outer driver pipeline without incrementing
+     * {@code totalOperatorsCount}. This caused two failures in fault-tolerant execution when
+     * {@code AdaptiveReorderPartitionedJoin} flipped a LEFT JOIN to a RIGHT JOIN (LOOKUP_OUTER)
+     * and the probe pipeline contained another spilling join downstream:
+     *
+     * <ul>
+     *   <li>{@code IllegalStateException}: "N+1 probe operators finished out of N declared"
+     *   <li>{@code NullPointerException}: {@code lookupSourceSupplier} is null inside
+     *       {@code SpillAwareLookupSourceProvider.withLease}
+     * </ul>
+     *
+     * The fix stores {@code totalOperatorsCount} in a shared {@link java.util.concurrent.atomic.AtomicReference}
+     * so that {@code incrementTotalOperatorsCount()} is visible to both the original factory and
+     * every duplicated factory.
+     */
+    @Test
+    public void testIncrementTotalOperatorsCountOnDuplicate()
+    {
+        int driverCount = 4;
+        TaskContext taskContext = createTaskContext();
+
+        // Build side setup
+        RowPagesBuilder buildPages = rowPagesBuilder(true, Ints.asList(0), ImmutableList.of(VARCHAR));
+        BuildSideSetup buildSideSetup = setupBuildSide(
+                nodePartitioningManager,
+                false,
+                taskContext,
+                buildPages,
+                Optional.empty(),
+                false,
+                SINGLE_STREAM_SPILLER_FACTORY);
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager =
+                buildSideSetup.getLookupSourceFactoryManager();
+
+        // Create the spilling join factory with totalOperatorsCount = driverCount
+        RowPagesBuilder probePages = rowPagesBuilder(true, Ints.asList(0), ImmutableList.of(VARCHAR));
+        OperatorFactory joinOperatorFactory = spillingJoin(
+                innerJoin(false, false),
+                0,
+                new PlanNodeId("test"),
+                lookupSourceFactoryManager,
+                probePages.getTypes(),
+                Ints.asList(0),
+                getHashChannelAsInt(probePages),
+                Optional.empty(),
+                OptionalInt.of(driverCount),
+                PARTITIONING_SPILLER_FACTORY,
+                TYPE_OPERATORS);
+
+        // Simulate addLookupOuterDrivers: duplicate then increment.
+        // Before the fix, the duplicate held the stale value N because OptionalInt was copied by
+        // value and incrementTotalOperatorsCount only updated the original. After the fix both
+        // share an AtomicReference so both see N+1.
+        OperatorFactory duplicatedFactory = joinOperatorFactory.duplicate();
+
+        LookupJoinOperatorFactory originalInner = (LookupJoinOperatorFactory)
+                ((io.trino.operator.WorkProcessorOperatorAdapter.Factory) joinOperatorFactory)
+                        .getWorkProcessorOperatorFactory();
+        LookupJoinOperatorFactory duplicatedInner = (LookupJoinOperatorFactory)
+                ((io.trino.operator.WorkProcessorOperatorAdapter.Factory) duplicatedFactory)
+                        .getWorkProcessorOperatorFactory();
+
+        // Before increment: both see driverCount
+        assertThat(originalInner.getTotalOperatorsCount()).isEqualTo(OptionalInt.of(driverCount));
+        assertThat(duplicatedInner.getTotalOperatorsCount()).isEqualTo(OptionalInt.of(driverCount));
+
+        // After increment: BOTH must see driverCount + 1 (shared AtomicReference)
+        originalInner.incrementTotalOperatorsCount();
+        assertThat(originalInner.getTotalOperatorsCount()).isEqualTo(OptionalInt.of(driverCount + 1));
+        assertThat(duplicatedInner.getTotalOperatorsCount())
+                .as("duplicated factory must see the incremented count via shared AtomicReference")
+                .isEqualTo(OptionalInt.of(driverCount + 1));
+    }
 }
