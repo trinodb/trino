@@ -121,6 +121,23 @@ public class JsonPathAnalyzer
         return new JsonPathAnalysis((JsonPath) root, types, jsonParameters);
     }
 
+    /// Analyzes a pre-built [JsonPath] tree, skipping the parse step.
+    ///
+    /// Used by SQL:2023 §6.36 simplified-accessor desugaring, which builds
+    /// the path tree directly from the surface AST chain rather than
+    /// synthesizing a path string and re-parsing it.
+    ///
+    /// @param path the pre-built JSON path tree.
+    /// @param location source location to use for diagnostics raised by
+    ///         the type-inference visitor.
+    /// @return the path analysis carrying the inferred type for every
+    ///         visited [io.trino.sql.jsonpath.tree.PathNode].
+    public JsonPathAnalysis analyzeJsonPath(JsonPath path, NodeLocation location)
+    {
+        new Visitor(ImmutableMap.of(), new StringLiteral(location, "")).process(path);
+        return new JsonPathAnalysis(path, types, jsonParameters);
+    }
+
     /**
      * This visitor determines and validates output types of PathNodes, whenever they can be deduced and represented as SQL types.
      * In some cases, the type of a PathNode can be determined without context. E.g., the `double()` method always returns DOUBLE.

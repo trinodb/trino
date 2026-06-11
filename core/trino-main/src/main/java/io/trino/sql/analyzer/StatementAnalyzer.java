@@ -432,6 +432,7 @@ import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
 import static io.trino.sql.tree.SaveMode.IGNORE;
 import static io.trino.sql.tree.SaveMode.REPLACE;
 import static io.trino.sql.util.AstUtils.preOrder;
+import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -5057,11 +5058,11 @@ class StatementAnalyzer
 
                 QualifiedName prefix = asQualifiedName(expression);
                 if (prefix != null) {
-                    // analyze prefix as an 'asterisked identifier chain'
-                    AsteriskedIdentifierChainBasis identifierChainBasis = scope.resolveAsteriskedIdentifierChainBasis(prefix, allColumns)
-                            .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, allColumns, "Unable to resolve reference %s", prefix));
-                    if (identifierChainBasis.getBasisType() == TABLE) {
-                        RelationType relationType = identifierChainBasis.getRelationType().orElseThrow();
+                    // analyze prefix as an 'asterisked identifier chain' first: a relation alias
+                    // always takes precedence over a JSON accessor chain reading the same name
+                    Optional<AsteriskedIdentifierChainBasis> identifierChainBasis = scope.resolveAsteriskedIdentifierChainBasis(prefix, allColumns);
+                    if (identifierChainBasis.isPresent() && identifierChainBasis.get().getBasisType() == TABLE) {
+                        RelationType relationType = identifierChainBasis.get().getRelationType().orElseThrow();
                         List<Field> requestedFields = relationType.resolveVisibleFieldsWithRelationPrefix(Optional.of(prefix));
                         List<Field> fields = filterInaccessibleFields(requestedFields);
                         if (fields.isEmpty()) {
@@ -5070,18 +5071,27 @@ class StatementAnalyzer
                             }
                             throw semanticException(COLUMN_NOT_FOUND, allColumns, "SELECT * not allowed from relation that has no columns");
                         }
-                        boolean local = scope.isLocalScope(identifierChainBasis.getScope().orElseThrow());
+                        boolean local = scope.isLocalScope(identifierChainBasis.get().getScope().orElseThrow());
                         analyzeAllColumnsFromTable(
                                 fields,
                                 allColumns,
                                 node,
-                                local ? scope : identifierChainBasis.getScope().get(),
+                                local ? scope : identifierChainBasis.get().getScope().get(),
                                 outputExpressionBuilder,
                                 selectExpressionBuilder,
                                 relationType,
                                 local);
                         return;
                     }
+                    if (tryAnalyzeJsonWildcardSelectAll(expression, allColumns, scope, outputExpressionBuilder, selectExpressionBuilder)) {
+                        return;
+                    }
+                    if (identifierChainBasis.isEmpty()) {
+                        throw semanticException(TABLE_NOT_FOUND, allColumns, "Unable to resolve reference %s", prefix);
+                    }
+                }
+                else if (tryAnalyzeJsonWildcardSelectAll(expression, allColumns, scope, outputExpressionBuilder, selectExpressionBuilder)) {
+                    return;
                 }
                 // identifierChainBasis.get().getBasisType == FIELD or target expression isn't a QualifiedName
                 analyzeAllFieldsFromRowTypeExpression(expression, allColumns, node, scope, outputExpressionBuilder, selectExpressionBuilder);
@@ -5200,6 +5210,62 @@ class StatementAnalyzer
                 }
             }
             analysis.setSelectAllResultFields(allColumns, itemOutputFieldBuilder.build());
+        }
+
+        private boolean tryAnalyzeJsonWildcardSelectAll(
+                Expression target,
+                AllColumns allColumns,
+                Scope scope,
+                ImmutableList.Builder<Expression> outputExpressionBuilder,
+                ImmutableList.Builder<SelectExpression> selectExpressionBuilder)
+        {
+            if (!isJsonWildcardCandidate(target, scope)) {
+                return false;
+            }
+            if (!allColumns.getAliases().isEmpty()) {
+                validateColumnAliasesCount(allColumns.getAliases(), 1);
+            }
+
+            boolean registered = ExpressionAnalyzer.analyzeJsonWildcardAccessor(
+                    session,
+                    plannerContext,
+                    statementAnalyzerFactory,
+                    accessControl,
+                    scope,
+                    analysis,
+                    target,
+                    warningCollector,
+                    correlationSupport);
+            if (!registered) {
+                return false;
+            }
+
+            Optional<String> fieldName = allColumns.getAliases().isEmpty()
+                    ? Optional.empty()
+                    : Optional.of(allColumns.getAliases().getFirst().getValue());
+            outputExpressionBuilder.add(target);
+            selectExpressionBuilder.add(new SelectExpression(target, Optional.of(ImmutableList.of(target))));
+            analysis.setSelectAllResultFields(allColumns, ImmutableList.of(Field.newUnqualified(fieldName, VARCHAR)));
+            return true;
+        }
+
+        private static boolean isJsonWildcardCandidate(Expression target, Scope scope)
+        {
+            return JsonAccessorChain.walkForWildcard(target)
+                    .map(chain -> resolvesToJsonColumn(target, chain.prefix(), scope))
+                    .orElse(false);
+        }
+
+        private static boolean resolvesToJsonColumn(Expression target, List<Identifier> prefix, Scope scope)
+        {
+            for (int prefixLength = prefix.size(); prefixLength >= 1; prefixLength--) {
+                Optional<ResolvedField> resolved = scope.tryResolveField(target, QualifiedName.of(prefix.subList(0, prefixLength)));
+                if (resolved.isEmpty()) {
+                    continue;
+                }
+                return resolved.get().getType().equals(JSON);
+            }
+            return false;
         }
 
         private void analyzeAllFieldsFromRowTypeExpression(
