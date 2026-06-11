@@ -158,12 +158,4 @@ final class TestTrinoJdbcCatalog
             catalog.dropNamespace(SESSION, namespace);
         }
     }
-
-    @Test
-    @Override
-    public void testSchemaWithInvalidProperties()
-    {
-        // JDBC catalog preserves arbitrary namespace properties
-        // https://github.com/trinodb/trino/issues/29769
-    }
 }
