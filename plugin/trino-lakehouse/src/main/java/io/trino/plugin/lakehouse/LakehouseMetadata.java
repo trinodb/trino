@@ -637,10 +637,17 @@ public class LakehouseMetadata
         forHandle(mergeTableHandle).finishMerge(session, mergeTableHandle, sourceTableHandles, fragments, computedStatistics);
     }
 
+    @Deprecated
     @Override
     public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
         hiveMetadata.createView(session, viewName, definition, viewProperties, replace);
+    }
+
+    @Override
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode)
+    {
+        hiveMetadata.createView(session, viewName, definition, viewProperties, saveMode);
     }
 
     @Override

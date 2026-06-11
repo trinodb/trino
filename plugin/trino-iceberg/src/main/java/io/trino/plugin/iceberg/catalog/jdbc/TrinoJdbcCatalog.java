@@ -35,6 +35,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.ViewNotFoundException;
@@ -465,7 +466,7 @@ public class TrinoJdbcCatalog
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, SaveMode saveMode)
     {
         if (schemaVersion == SchemaVersion.V0) {
             throw new TrinoException(NOT_SUPPORTED, "Schema version V0 does not support views");
@@ -483,7 +484,7 @@ public class TrinoJdbcCatalog
                 .withProperties(properties.buildOrThrow())
                 .withLocation(defaultTableLocation(session, schemaViewName));
 
-        if (replace) {
+        if (saveMode == SaveMode.REPLACE) {
             viewBuilder.createOrReplace();
         }
         else {

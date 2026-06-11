@@ -47,6 +47,7 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -938,7 +939,7 @@ public class TrinoGlueCatalog
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, SaveMode saveMode)
     {
         // If a view is created between listing the existing view and calling createTable, retry
         TableInput viewTableInput = getViewTableInput(
@@ -949,17 +950,17 @@ public class TrinoGlueCatalog
         Failsafe.with(RetryPolicy.builder()
                         .withMaxRetries(3)
                         .withDelay(Duration.ofMillis(100))
-                        .handleIf(throwable -> replace && !(throwable instanceof ViewAlreadyExistsException))
+                        .handleIf(throwable -> saveMode == SaveMode.REPLACE && !(throwable instanceof ViewAlreadyExistsException))
                         .abortOn(TrinoFileSystem::isUnrecoverableException)
                         .build())
-                .run(() -> doCreateView(session, schemaViewName, viewTableInput, replace));
+                .run(() -> doCreateView(session, schemaViewName, viewTableInput, saveMode));
     }
 
-    private void doCreateView(ConnectorSession session, SchemaTableName schemaViewName, TableInput viewTableInput, boolean replace)
+    private void doCreateView(ConnectorSession session, SchemaTableName schemaViewName, TableInput viewTableInput, SaveMode saveMode)
     {
         Optional<Table> existing = getTableAndCacheMetadata(session, schemaViewName);
         if (existing.isPresent()) {
-            if (!replace || !isTrinoView(getTableType(existing.get()), existing.get().parameters())) {
+            if (saveMode != SaveMode.REPLACE || !isTrinoView(getTableType(existing.get()), existing.get().parameters())) {
                 // TODO: ViewAlreadyExists is misleading if the name is used by a table https://github.com/trinodb/trino/issues/10037
                 throw new ViewAlreadyExistsException(schemaViewName);
             }

@@ -109,7 +109,8 @@ statement
         (WHEN STALE (INLINE | FAIL))?
         (COMMENT string)?
         (WITH properties)? AS rootQuery                                #createMaterializedView
-    | CREATE (OR REPLACE)? VIEW qualifiedName
+    | CREATE (OR REPLACE)? VIEW
+        (IF NOT EXISTS)? qualifiedName
         (COMMENT string)?
         (SECURITY (DEFINER | INVOKER))?
         (WITH properties)? AS rootQuery                                #createView

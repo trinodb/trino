@@ -205,10 +205,17 @@ public class TestingMetadata
     }
 
     @Override
+    @Deprecated
     public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
+        createView(session, viewName, definition, viewProperties, replace ? SaveMode.REPLACE : SaveMode.FAIL);
+    }
+
+    @Override
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode)
+    {
         checkArgument(viewProperties.isEmpty(), "This connector does not support creating views with properties");
-        if (replace) {
+        if (saveMode == REPLACE) {
             views.put(viewName, definition);
         }
         else if (views.putIfAbsent(viewName, definition) != null) {

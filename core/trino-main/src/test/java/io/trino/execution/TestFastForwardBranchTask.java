@@ -78,7 +78,7 @@ final class TestFastForwardBranchTask
     void testFastForwardBranchOnView()
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
-        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeFastForwardBranch(asQualifiedName(viewName), "main", "main")))
                 .hasErrorCode(NOT_SUPPORTED)

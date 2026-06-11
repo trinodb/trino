@@ -712,7 +712,11 @@ public class MockConnector
         public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column) {}
 
         @Override
+        @Deprecated
         public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace) {}
+
+        @Override
+        public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode) {}
 
         @Override
         public void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target) {}

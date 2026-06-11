@@ -453,10 +453,22 @@ public class BlackHoleMetadata
     public void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle) {}
 
     @Override
+    @Deprecated
     public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
+        createView(session, viewName, definition, viewProperties, replace ? SaveMode.REPLACE : SaveMode.FAIL);
+    }
+
+    @Override
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode)
+    {
         checkArgument(viewProperties.isEmpty(), "This connector does not support creating views with properties");
-        views.put(viewName, definition);
+        if (saveMode == SaveMode.REPLACE) {
+            views.put(viewName, definition);
+        }
+        else if (saveMode == SaveMode.FAIL && views.putIfAbsent(viewName, definition) != null) {
+            throw new TrinoException(ALREADY_EXISTS, "View already exists: " + viewName);
+        }
     }
 
     @Override

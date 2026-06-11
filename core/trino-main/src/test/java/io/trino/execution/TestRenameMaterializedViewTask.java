@@ -105,7 +105,7 @@ public class TestRenameMaterializedViewTask
     public void testRenameMaterializedViewOnView()
     {
         QualifiedName viewName = qualifiedName("existing_view");
-        metadata.createView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someView(), ImmutableMap.of(), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameMaterializedView(viewName, qualifiedName("existing_view_new"))))
                 .hasErrorCode(TABLE_NOT_FOUND)
@@ -116,7 +116,7 @@ public class TestRenameMaterializedViewTask
     public void testRenameMaterializedViewOnViewIfExists()
     {
         QualifiedName viewName = qualifiedName("existing_view");
-        metadata.createView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someView(), ImmutableMap.of(), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameMaterializedView(viewName, qualifiedName("existing_view_new"), true)))
                 .hasErrorCode(TABLE_NOT_FOUND)
@@ -129,7 +129,7 @@ public class TestRenameMaterializedViewTask
         QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
         metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
         QualifiedName viewName = qualifiedName("existing_view");
-        metadata.createView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someView(), ImmutableMap.of(), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameMaterializedView(asQualifiedName(materializedViewName), viewName)))
                 .hasErrorCode(TABLE_ALREADY_EXISTS)

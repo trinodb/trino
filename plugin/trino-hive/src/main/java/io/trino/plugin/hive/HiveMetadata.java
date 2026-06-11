@@ -2778,7 +2778,7 @@ public class HiveMetadata
             SchemaTableName viewName,
             ConnectorViewDefinition definition,
             Map<String, Object> viewProperties,
-            boolean replace)
+            SaveMode saveMode)
     {
         if (usingSystemSecurity) {
             definition = definition.withoutOwner();
@@ -2830,7 +2830,7 @@ public class HiveMetadata
 
         Optional<Table> existing = metastore.getTable(viewName.getSchemaName(), viewName.getTableName());
         if (existing.isPresent()) {
-            if (!replace || !isTrinoView(existing.get())) {
+            if (saveMode != REPLACE || !isTrinoView(existing.get())) {
                 throw new ViewAlreadyExistsException(viewName);
             }
 
