@@ -16,7 +16,11 @@ package io.trino.plugin.ldapgroup;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.NotNull;
+
+import java.util.concurrent.TimeUnit;
 
 public class LdapGroupProviderConfig
 {
@@ -26,6 +30,7 @@ public class LdapGroupProviderConfig
     private String ldapUserSearchFilter = "(uid={0})";
     private String ldapGroupsNameAttribute = "cn";
     private boolean ldapUseGroupFilter;
+    private Duration groupsCacheTtl = new Duration(0, TimeUnit.SECONDS);
 
     @NotNull
     public String getLdapAdminUser()
@@ -108,6 +113,21 @@ public class LdapGroupProviderConfig
     public LdapGroupProviderConfig setLdapUseGroupFilter(boolean ldapUseGroupFilter)
     {
         this.ldapUseGroupFilter = ldapUseGroupFilter;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("0ms")
+    public Duration getGroupsCacheTtl()
+    {
+        return groupsCacheTtl;
+    }
+
+    @Config("ldap.group-cache-ttl")
+    @ConfigDescription("Duration to cache groups retrieved from LDAP. Set to 0 to disable caching, default value is 0s (disabled)")
+    public LdapGroupProviderConfig setGroupsCacheTtl(Duration groupsCacheTtl)
+    {
+        this.groupsCacheTtl = groupsCacheTtl;
         return this;
     }
 }

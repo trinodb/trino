@@ -36,6 +36,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -265,6 +266,60 @@ public class TestLdapGroupProviderIntegration
         });
 
         latch.await();
+    }
+
+    @Test
+    public void testGroupsCacheWithTtl()
+    {
+        for (ConfigBuilder configBuilder : CONFIG_BUILDERS) {
+            // Test with cache enabled (10 minute TTL)
+            Map<String, String> config = configBuilder.apply(new HashMap<>(baseConfig));
+            config.put("ldap.group-cache-ttl", "10m");
+            GroupProvider groupsProvider = factory.create(config);
+
+            // First call - should query LDAP
+            long start = System.nanoTime();
+            Set<String> groups1 = groupsProvider.getGroups("alicea");
+            long firstCallTime = System.nanoTime() - start;
+            assertThat(groups1).containsAll(ImmutableSet.of("clients", "qualityAssurance", "developers"));
+
+            // Second call - should be cached (much faster)
+            start = System.nanoTime();
+            Set<String> groups2 = groupsProvider.getGroups("alicea");
+            long cachedCallTime = System.nanoTime() - start;
+            assertThat(groups2).isEqualTo(groups1);
+
+            // Cached call should be significantly faster (at least 10x faster as a rough heuristic)
+            // Note: This is a heuristic test - actual performance may vary
+            assertThat(cachedCallTime).isLessThan(firstCallTime / 10);
+        }
+    }
+
+    @Test
+    public void testGroupsCacheExpiration()
+            throws InterruptedException
+    {
+        for (ConfigBuilder configBuilder : CONFIG_BUILDERS) {
+            // Test with very short cache TTL (100ms)
+            Map<String, String> config = configBuilder.apply(new HashMap<>(baseConfig));
+            config.put("ldap.group-cache-ttl", "100ms");
+            GroupProvider groupsProvider = factory.create(config);
+
+            // First call
+            Set<String> groups1 = groupsProvider.getGroups("alicea");
+            assertThat(groups1).containsAll(ImmutableSet.of("clients", "qualityAssurance", "developers"));
+
+            // Immediate second call should be cached
+            Set<String> groups2 = groupsProvider.getGroups("alicea");
+            assertThat(groups2).isEqualTo(groups1);
+
+            // Wait for cache to expire
+            MILLISECONDS.sleep(150);
+
+            // Call after expiration should query LDAP again (result should still be correct)
+            Set<String> groups3 = groupsProvider.getGroups("alicea");
+            assertThat(groups3).containsAll(ImmutableSet.of("clients", "qualityAssurance", "developers"));
+        }
     }
 
     @FunctionalInterface
