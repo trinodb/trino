@@ -473,7 +473,7 @@ public class ServerMainModule
         configBinder(binder).bindConfig(DynamicFilterConfig.class);
 
         // dispatcher
-        // TODO remove dispatcher fromm ServerMainModule, and bind dependent components only on coordinators
+        // TODO remove dispatcher from ServerMainModule, and bind dependent components only on coordinators
         newOptionalBinder(binder, DispatchManager.class);
 
         // Added for RuleStatsSystemTable
