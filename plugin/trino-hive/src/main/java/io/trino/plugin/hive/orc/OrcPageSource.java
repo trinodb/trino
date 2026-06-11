@@ -47,6 +47,13 @@ public class OrcPageSource
 {
     private static final String ORC_CODEC_METRIC_PREFIX = "OrcReaderCompressionFormat_";
 
+    // TEST-ONLY HOOK. Default no-op. Invoked with the source page that getNextSourcePage just built,
+    // BEFORE it is returned to the engine, i.e. before the engine polls
+    // ConnectorPageSource#getMemoryUsage / accounts the page. A reproduction test sets this to a
+    // barrier (and may force-load the page's blocks) so concurrent splits coincide at peak
+    // (unaccounted) allocation.
+    public static volatile java.util.function.Consumer<SourcePage> afterPageBuiltHookForTesting = page -> {};
+
     private final OrcRecordReader recordReader;
     private final OrcDataSource orcDataSource;
     private final Optional<OrcDeletedRows> deletedRows;
@@ -152,6 +159,9 @@ public class OrcPageSource
             }
             page = deletedRows.get().maskPage(page, startRowId);
         }
+
+        // TEST-ONLY: hold the just-built (still unaccounted) page so concurrent splits coincide at peak.
+        afterPageBuiltHookForTesting.accept(page);
 
         return page;
     }
