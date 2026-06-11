@@ -23,6 +23,7 @@ import java.util.Map;
 
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -41,6 +42,12 @@ public class TestRemoteQueryCommentLogging
                 .addConnectorProperties(Map.of("query.comment-format", "query executed by $USER"))
                 .setInitialTables(ImmutableList.of(CUSTOMER, NATION))
                 .build();
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Test

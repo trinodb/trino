@@ -30,13 +30,13 @@ public class UdtJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "udts");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("type_cat", VARCHAR)
-            .column("type_schem", VARCHAR)
-            .column("type_name", VARCHAR)
-            .column("class_name", VARCHAR)
-            .column("data_type", VARCHAR)
-            .column("remarks", VARCHAR)
-            .column("base_type", VARCHAR)
+            .column("TYPE_CAT", VARCHAR)
+            .column("TYPE_SCHEM", VARCHAR)
+            .column("TYPE_NAME", VARCHAR)
+            .column("CLASS_NAME", VARCHAR)
+            .column("DATA_TYPE", VARCHAR)
+            .column("REMARKS", VARCHAR)
+            .column("BASE_TYPE", VARCHAR)
             .build();
 
     @Override

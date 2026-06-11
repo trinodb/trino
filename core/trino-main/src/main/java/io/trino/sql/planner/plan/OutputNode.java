@@ -50,6 +50,7 @@ public class OutputNode
         this.source = source;
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.outputs = ImmutableList.copyOf(outputs);
+        // System.out.println("OutputNode::new columnNames: " + String.join(", ", columnNames));
     }
 
     @Override

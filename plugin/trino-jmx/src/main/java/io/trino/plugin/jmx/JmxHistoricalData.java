@@ -18,19 +18,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 
 import javax.management.MBeanServer;
+import javax.management.ObjectName;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.jmx.JmxMetadata.toPattern;
-import static java.util.Locale.ENGLISH;
 import static javax.management.ObjectName.WILDCARD;
 
 public class JmxHistoricalData
@@ -47,9 +45,9 @@ public class JmxHistoricalData
     public JmxHistoricalData(int maxEntries, Set<String> tableNames, MBeanServer mbeanServer)
     {
         tables = tableNames.stream()
-                .map(objectNamePattern -> toPattern(objectNamePattern.toLowerCase(ENGLISH)))
+                .map(JmxMetadata::toPattern)
                 .flatMap(objectNamePattern -> mbeanServer.queryNames(WILDCARD, null).stream()
-                        .map(objectName -> objectName.getCanonicalName().toLowerCase(ENGLISH))
+                        .map(ObjectName::getCanonicalName)
                         .filter(name -> name.matches(objectNamePattern)))
                 .collect(toImmutableSet());
 
@@ -65,18 +63,18 @@ public class JmxHistoricalData
 
     public synchronized void addRow(String tableName, List<Object> row)
     {
-        String lowerCaseTableName = tableName.toLowerCase(Locale.ENGLISH);
-        checkArgument(tableData.containsKey(lowerCaseTableName));
-        tableData.get(lowerCaseTableName).add(row);
+        System.out.println("JmxHistoricalData.addRow() table: " + tableName);
+        System.out.println("JmxHistoricalData.addRow() tables: " + String.join(", ", tableData.keySet()));
+        checkArgument(tableData.containsKey(tableName));
+        tableData.get(tableName).add(row);
     }
 
     public synchronized List<List<Object>> getRows(String objectName, List<Integer> selectedColumns)
     {
-        String lowerCaseObjectName = objectName.toLowerCase(Locale.ENGLISH);
-        if (!tableData.containsKey(lowerCaseObjectName)) {
+        if (!tableData.containsKey(objectName)) {
             return ImmutableList.of();
         }
-        return projectRows(tableData.get(lowerCaseObjectName), selectedColumns);
+        return projectRows(tableData.get(objectName), selectedColumns);
     }
 
     private List<List<Object>> projectRows(Collection<List<Object>> rows, List<Integer> selectedColumns)

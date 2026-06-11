@@ -4,8 +4,8 @@ FROM
   (
    SELECT
      "i_manufact_id"
-   , "sum"("ss_sales_price") "sum_sales"
-   , "avg"("sum"("ss_sales_price")) OVER (PARTITION BY "i_manufact_id") "avg_quarterly_sales"
+   , sum("ss_sales_price") "sum_sales"
+   , avg(sum("ss_sales_price")) OVER (PARTITION BY "i_manufact_id") "avg_quarterly_sales"
    FROM
      item
    , store_sales
@@ -23,6 +23,6 @@ FROM
             AND ("i_brand" IN ('amalgimporto #1'         , 'edu packscholar #1'         , 'exportiimporto #1'         , 'importoamalg #1'))))
    GROUP BY "i_manufact_id", "d_qoy"
 )  tmp1
-WHERE ((CASE WHEN ("avg_quarterly_sales" > 0) THEN ("abs"((CAST("sum_sales" AS DECIMAL(38,4)) - "avg_quarterly_sales")) / "avg_quarterly_sales") ELSE null END) > DECIMAL '0.1')
+WHERE ((CASE WHEN ("avg_quarterly_sales" > 0) THEN (abs((CAST("sum_sales" AS DECIMAL(38,4)) - "avg_quarterly_sales")) / "avg_quarterly_sales") ELSE null END) > DECIMAL '0.1')
 ORDER BY "avg_quarterly_sales" ASC, "sum_sales" ASC, "i_manufact_id" ASC
 LIMIT 100

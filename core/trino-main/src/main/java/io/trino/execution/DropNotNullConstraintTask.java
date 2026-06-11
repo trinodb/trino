@@ -26,6 +26,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.sql.tree.DropNotNullConstraint;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Resolver;
 
 import java.util.List;
 
@@ -64,7 +65,8 @@ public class DropNotNullConstraintTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable(), metadata);
+        Resolver resolver = metadata.getResolverManager().getResolver(session, tableName.catalogName());
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             String exceptionMessage = "Table '%s' does not exist".formatted(tableName);
@@ -82,7 +84,7 @@ public class DropNotNullConstraintTask
         accessControl.checkCanAlterColumn(session.toSecurityContext(), tableName);
 
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
-        String column = statement.getColumn().toString();
+        String column = resolver.canonicalize(statement.getColumn());
         ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(column);
 
         if (columnHandle == null) {

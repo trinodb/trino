@@ -21,7 +21,7 @@ WITH
      (
       SELECT
         "c_customer_sk"
-      , "sum"(("ss_quantity" * "ss_sales_price")) "csales"
+      , sum(("ss_quantity" * "ss_sales_price")) "csales"
       FROM
         ${database}.${schema}.store_sales
       , ${database}.${schema}.customer
@@ -35,13 +35,13 @@ WITH
 , best_ss_customer AS (
    SELECT
      "c_customer_sk"
-   , "sum"(("ss_quantity" * "ss_sales_price")) "ssales"
+   , sum(("ss_quantity" * "ss_sales_price")) "ssales"
    FROM
      ${database}.${schema}.store_sales
    , ${database}.${schema}.customer
    WHERE ("ss_customer_sk" = "c_customer_sk")
    GROUP BY "c_customer_sk"
-   HAVING ("sum"(("ss_quantity" * "ss_sales_price")) > ((95 / DECIMAL '100.0') * (
+   HAVING (sum(("ss_quantity" * "ss_sales_price")) > ((95 / DECIMAL '100.0') * (
             SELECT *
             FROM
               max_store_sales
@@ -56,7 +56,7 @@ FROM
    SELECT
      "c_last_name"
    , "c_first_name"
-   , "sum"(("cs_quantity" * "cs_list_price")) "sales"
+   , sum(("cs_quantity" * "cs_list_price")) "sales"
    FROM
      ${database}.${schema}.catalog_sales
    , ${database}.${schema}.customer
@@ -79,7 +79,7 @@ FROM
 UNION ALL    SELECT
      "c_last_name"
    , "c_first_name"
-   , "sum"(("ws_quantity" * "ws_list_price")) "sales"
+   , sum(("ws_quantity" * "ws_list_price")) "sales"
    FROM
      ${database}.${schema}.web_sales
    , ${database}.${schema}.customer

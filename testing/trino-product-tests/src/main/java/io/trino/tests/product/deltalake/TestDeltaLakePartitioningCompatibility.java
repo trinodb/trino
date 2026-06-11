@@ -416,7 +416,7 @@ public class TestDeltaLakePartitioningCompatibility
             onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE data = 3");
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(row(1, 2));
 
-            onTrino().executeQuery("UPDATE delta.default." + tableName + " SET part = 20");
+            onTrino().executeQuery("UPDATE delta.default." + tableName + " SET PART = 20");
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(row(1, 20));
 
             onTrino().executeQuery("MERGE INTO delta.default." + tableName + " USING (SELECT 1 a) input ON true WHEN MATCHED THEN DELETE");

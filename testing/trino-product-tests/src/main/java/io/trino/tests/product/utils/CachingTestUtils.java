@@ -25,9 +25,9 @@ public final class CachingTestUtils
     public static CacheStats getCacheStats(String catalog)
     {
         QueryResult queryResult = onTrino().executeQuery("SELECT " +
-                "  sum(\"cachereads.alltime.count\") as cachereads, " +
-                "  sum(\"externalreads.alltime.count\") as externalreads " +
-                "FROM jmx.current.\"io.trino.filesystem.alluxio:catalog=" + catalog + ",name=" + catalog + ",type=alluxiocachestats\";");
+                "  sum(\"CacheReads.AllTime.Count\") as cachereads, " +
+                "  sum(\"ExternalReads.AllTime.Count\") as externalreads " +
+                "FROM jmx.current.\"io.trino.filesystem.alluxio:catalog=" + catalog + ",name=" + catalog + ",type=AlluxioCacheStats\";");
 
         double cacheReads = (Double) getOnlyElement(queryResult.rows())
                 .get(queryResult.tryFindColumnIndex("cachereads").get() - 1);
@@ -35,8 +35,8 @@ public final class CachingTestUtils
         double externalReads = (Double) getOnlyElement(queryResult.rows())
                 .get(queryResult.tryFindColumnIndex("externalreads").get() - 1);
 
-        long cacheSpaceUsed = (Long) onTrino().executeQuery("SELECT sum(count) FROM " +
-                "jmx.current.\"org.alluxio:name=client.cachespaceusedcount,type=counters\"").getOnlyValue();
+        long cacheSpaceUsed = (Long) onTrino().executeQuery("SELECT sum(Count) FROM " +
+                "jmx.current.\"org.alluxio:name=Client.CacheSpaceUsedCount,type=counters\"").getOnlyValue();
 
         return new CacheStats(cacheReads, externalReads, cacheSpaceUsed);
     }

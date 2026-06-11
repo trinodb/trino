@@ -1,7 +1,7 @@
 SELECT
   "count"(DISTINCT "cs_order_number") "order count"
-, "sum"("cs_ext_ship_cost") "total shipping cost"
-, "sum"("cs_net_profit") "total net profit"
+, sum("cs_ext_ship_cost") "total shipping cost"
+, sum("cs_net_profit") "total net profit"
 FROM
   ${database}.${schema}.catalog_sales cs1
 , ${database}.${schema}.date_dim

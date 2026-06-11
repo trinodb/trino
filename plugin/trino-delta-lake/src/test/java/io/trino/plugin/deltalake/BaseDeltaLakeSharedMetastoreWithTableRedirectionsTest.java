@@ -31,6 +31,12 @@ public abstract class BaseDeltaLakeSharedMetastoreWithTableRedirectionsTest
 
     protected abstract String getExpectedDeltaLakeCreateSchema(String catalogName);
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testReadInformationSchema()
     {

@@ -1,10 +1,10 @@
 -- database: trino_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 SELECT
   "i_item_id"
-, "avg"("cs_quantity") "agg1"
-, "avg"("cs_list_price") "agg2"
-, "avg"("cs_coupon_amt") "agg3"
-, "avg"("cs_sales_price") "agg4"
+, avg("cs_quantity") "agg1"
+, avg("cs_list_price") "agg2"
+, avg("cs_coupon_amt") "agg3"
+, avg("cs_sales_price") "agg4"
 FROM
   catalog_sales
 , customer_demographics

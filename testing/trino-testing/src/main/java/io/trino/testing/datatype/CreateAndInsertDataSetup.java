@@ -19,6 +19,7 @@ import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -31,11 +32,13 @@ public class CreateAndInsertDataSetup
 {
     private final SqlExecutor sqlExecutor;
     private final String tableNamePrefix;
+    private final Function<String, String> canonicalizer;
 
-    public CreateAndInsertDataSetup(SqlExecutor sqlExecutor, String tableNamePrefix)
+    public CreateAndInsertDataSetup(SqlExecutor sqlExecutor, String tableNamePrefix, Function<String, String> canonicalizer)
     {
         this.sqlExecutor = sqlExecutor;
         this.tableNamePrefix = tableNamePrefix;
+        this.canonicalizer = canonicalizer;
     }
 
     @Override
@@ -70,7 +73,7 @@ public class CreateAndInsertDataSetup
         if (inputs.stream().allMatch(input -> input.getDeclaredType().isPresent())) {
             // When all types are explicitly specified, use ordinary CREATE TABLE
             return IntStream.range(0, inputs.size())
-                    .mapToObj(column -> format("col_%d %s", column, inputs.get(column).getDeclaredType().orElseThrow()))
+                    .mapToObj(column -> format("%s_%d %s", canonicalizer.apply("col"), column, inputs.get(column).getDeclaredType().orElseThrow()))
                     .collect(joining(",\n", "(\n", ")"));
         }
 
@@ -83,10 +86,10 @@ public class CreateAndInsertDataSetup
                 .mapToObj(column -> {
                     ColumnSetup input = inputs.get(column);
                     if (input.getDeclaredType().isEmpty()) {
-                        return format("%s AS col_%d", input.getInputLiteral(), column);
+                        return format("%s AS %s_%d", input.getInputLiteral(), canonicalizer.apply("col"), column);
                     }
 
-                    return format("CAST(%s AS %s) AS col_%d", input.getInputLiteral(), input.getDeclaredType().get(), column);
+                    return format("CAST(%s AS %s) AS %s_%d", input.getInputLiteral(), input.getDeclaredType().get(), canonicalizer.apply("col"), column);
                 })
                 .collect(joining(",\n", "AS\nSELECT\n", "\nWHERE 'with no' = 'data'"));
     }

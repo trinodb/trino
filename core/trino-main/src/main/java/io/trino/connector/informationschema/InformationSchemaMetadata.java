@@ -73,7 +73,6 @@ import static io.trino.sql.planner.EngineExpressions.containsEngineExpression;
 import static java.util.Arrays.stream;
 import static java.util.Collections.emptyIterator;
 import static java.util.Collections.emptyList;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -258,7 +257,6 @@ public class InformationSchemaMetadata
         Optional<Set<String>> schemas = filterString(constraint.getSummary(), SCHEMA_COLUMN_HANDLE);
         if (schemas.isPresent()) {
             Set<QualifiedTablePrefix> schemasFromPredicate = schemas.get().stream()
-                    .filter(this::isLowerCase)
                     .filter(schema -> switch (prepared.tryEvaluate(schemaAsFixedValues(schema, constraint.getAssignments()))) {
                         case EvaluationResult.Value(var value) -> Boolean.TRUE.equals(value);
                         case EvaluationResult.NoResult _ -> true;
@@ -307,7 +305,6 @@ public class InformationSchemaMetadata
                             .map(_ -> Stream.of(prefix))
                             .orElseGet(() -> listSchemaNames(session)))
                     .flatMap(prefix -> tables.get().stream()
-                            .filter(this::isLowerCase)
                             .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
                     .filter(objectName -> switch (prepared.tryEvaluate(asFixedValues(objectName, constraint.getAssignments()))) {
                         case EvaluationResult.Value(var value) -> Boolean.TRUE.equals(value);
@@ -418,10 +415,5 @@ public class InformationSchemaMetadata
             }
         }
         return builder.buildOrThrow();
-    }
-
-    private boolean isLowerCase(String value)
-    {
-        return value.toLowerCase(ENGLISH).equals(value);
     }
 }

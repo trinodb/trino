@@ -151,7 +151,7 @@ public class TestCachingHiveMetastoreWithQueryRunner
         String renamedColumnQuery = "SELECT renamed FROM cached";
         // Should fail as Trino has old metadata cached
         assertThatThrownBy(() -> getQueryRunner().execute(renamedColumnQuery))
-                .hasMessageMatching(".*Column 'renamed' cannot be resolved");
+                .hasMessageMatching(".*\\QColumn 'renamed' cannot be resolved, available candidates are: 'initial, $path, $file_size, $file_modified_time'\\E");
 
         // Should success after flushing Trino JDBC metadata cache
         getQueryRunner().execute("CALL system.flush_metadata_cache()");

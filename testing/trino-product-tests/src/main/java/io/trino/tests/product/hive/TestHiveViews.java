@@ -101,34 +101,34 @@ public class TestHiveViews
         // The expected behavior is different across hive versions. For hive 3, the call "getTableNamesByType" is
         // used in ThriftHiveMetastore#getAllViews. For older versions, the fallback to doGetTablesWithParameter
         // is used, so Trino's system.jdbc.tables table does not include translated Hive views.
-        String withSchemaFilter = "SELECT table_name FROM system.jdbc.tables WHERE " +
-                "table_cat = 'hive' AND " +
-                "table_schem = 'test_list_failing_views' AND " +
-                "table_type = 'VIEW'";
-        String withNoFilter = "SELECT table_name FROM system.jdbc.tables WHERE table_cat = 'hive' AND table_type = 'VIEW'";
+        String withSchemaFilter = "SELECT \"TABLE_NAME\" FROM system.jdbc.tables WHERE " +
+                "\"TABLE_CAT\" = 'hive' AND " +
+                "\"TABLE_SCHEM\" = 'test_list_failing_views' AND " +
+                "\"TABLE_TYPE\" = 'VIEW'";
+        String withNoFilter = "SELECT \"TABLE_NAME\" FROM system.jdbc.tables WHERE \"TABLE_CAT\" = 'hive' AND \"TABLE_TYPE\" = 'VIEW'";
         assertThat(onTrino().executeQuery(withSchemaFilter)).containsOnly(row("correct_view"), row("failing_view"));
         assertThat(onTrino().executeQuery(withNoFilter)).contains(row("correct_view"), row("failing_view"));
 
         // Queries with filters on table_schema and table_name are optimized to only fetch the specified table and uses
         // a different API. so the Hive version does not matter here.
         assertThat(onTrino().executeQuery(
-                "SELECT table_name FROM system.jdbc.tables WHERE " +
-                        "table_cat = 'hive' AND " +
-                        "table_schem = 'test_list_failing_views' AND " +
-                        "table_name = 'correct_view'"))
+                "SELECT \"TABLE_NAME\" FROM system.jdbc.tables WHERE " +
+                        "\"TABLE_CAT\" = 'hive' AND " +
+                        "\"TABLE_SCHEM\" = 'test_list_failing_views' AND " +
+                        "\"TABLE_NAME\" = 'correct_view'"))
                 .containsOnly(row("correct_view"));
 
         // Listing fails when metadata for the problematic view is queried specifically
         assertThatThrownBy(() -> onTrino().executeQuery(
-                "SELECT table_name FROM system.jdbc.tables WHERE " +
-                        "table_cat = 'hive' AND " +
-                        "table_schem = 'test_list_failing_views' AND " +
-                        "table_name = 'failing_view'"))
+                "SELECT \"TABLE_NAME\" FROM system.jdbc.tables WHERE " +
+                        "\"TABLE_CAT\" = 'hive' AND " +
+                        "\"TABLE_SCHEM\" = 'test_list_failing_views' AND " +
+                        "\"TABLE_NAME\" = 'failing_view'"))
                 .hasMessageContaining("Failed to translate Hive view 'test_list_failing_views.failing_view'");
 
         // Queries on system.jdbc.columns also trigger ConnectorMetadata#getViews. Columns from failing_view are
         // listed too since HiveMetadata#listTableColumns does not ignore Hive views.
-        assertThat(onTrino().executeQuery("SELECT table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = 'test_list_failing_views'"))
+        assertThat(onTrino().executeQuery("SELECT \"TABLE_NAME\", \"COLUMN_NAME\" FROM system.jdbc.columns WHERE \"TABLE_CAT\" = 'hive' AND \"TABLE_SCHEM\" = 'test_list_failing_views'"))
                 .containsOnly(
                         row("correct_view", "n_nationkey"),
                         row("correct_view", "n_name"),
@@ -136,7 +136,7 @@ public class TestHiveViews
                         row("correct_view", "n_comment"),
                         row("failing_view", "col0"));
 
-        assertThat(onTrino().executeQuery("SELECT * FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = 'test_list_failing_views' AND table_name = 'failing_view'"))
+        assertThat(onTrino().executeQuery("SELECT * FROM system.jdbc.columns WHERE \"TABLE_CAT\" = 'hive' AND \"TABLE_SCHEM\" = 'test_list_failing_views' AND \"TABLE_NAME\" = 'failing_view'"))
                 .hasNoRows();
     }
 
@@ -400,7 +400,7 @@ public class TestHiveViews
         assertThat(onHive().executeQuery("SELECT nested_field_key_word_lower_case, nested_field_key_word_upper_case, nested_field_quote FROM test_nested_field_with_reserved_key_names_view"))
                 .containsOnly(row("{\"from\":1}", "{\"from\":2}", "{\"do...from\":3}"));
 
-        assertThat(onHive().executeQuery("SELECT nested_field_key_word_lower_case.`from`, nested_field_key_word_upper_case.`from`, nested_field_quote.`do...from` FROM test_nested_field_with_reserved_key_names_view"))
+        assertThat(onHive().executeQuery("SELECT nested_field_key_word_lower_case.`from`, nested_field_key_word_upper_case.`FROM`, nested_field_quote.`do...from` FROM test_nested_field_with_reserved_key_names_view"))
                 .containsOnly(row(1L, 2L, 3L));
 
         assertThat(onTrino().executeQuery("SELECT nested_field_key_word_lower_case, nested_field_key_word_upper_case, nested_field_quote FROM test_nested_field_with_reserved_key_names_view"))
@@ -408,7 +408,7 @@ public class TestHiveViews
                         Row.builder().addField("from", 2L).build(),
                         Row.builder().addField("do...from", 3L).build()));
 
-        assertThat(onTrino().executeQuery("SELECT nested_field_key_word_lower_case.\"from\", nested_field_key_word_upper_case.\"from\", nested_field_quote.\"do...from\" FROM test_nested_field_with_reserved_key_names_view"))
+        assertThat(onTrino().executeQuery("SELECT nested_field_key_word_lower_case.\"from\", nested_field_key_word_upper_case.\"FROM\", nested_field_quote.\"do...from\" FROM test_nested_field_with_reserved_key_names_view"))
                 .containsOnly(row(1L, 2L, 3L));
 
         onHive().executeQuery("DROP VIEW test_nested_field_with_reserved_key_names_view");

@@ -1076,11 +1076,11 @@ public class TestIcebergSparkCompatibility
                         row("keep_col", "bigint"),
                         row("drop_and_add_col", "bigint"),
                         row("add_col", "bigint"),
-                        row("casesensitivecol", "bigint"),
+                        row("CaseSensitiveCol", "bigint"),
                         row("a_struct", "row(\"renamed\" bigint, \"keep\" bigint, \"CaseSensitive\" bigint, \"drop_and_add\" bigint, \"added\" bigint)"),
                         row("a_partition", "bigint"));
 
-        assertThat(onTrino().executeQuery(format("SELECT quite_renamed_col, keep_col, drop_and_add_col, add_col, casesensitivecol, a_struct, a_partition FROM %s", trinoTableName)))
+        assertThat(onTrino().executeQuery(format("SELECT quite_renamed_col, keep_col, drop_and_add_col, add_col, CaseSensitiveCol, a_struct, a_partition FROM %s", trinoTableName)))
                 .containsOnly(row(
                         2L, // quite_renamed_col
                         3L, // keep_col
@@ -1103,14 +1103,14 @@ public class TestIcebergSparkCompatibility
         // smoke test for dereference
         assertThat(onTrino().executeQuery(format("SELECT a_struct.renamed FROM %s", trinoTableName))).containsOnly(row(11L));
         assertThat(onTrino().executeQuery(format("SELECT a_struct.keep FROM %s", trinoTableName))).containsOnly(row(12L));
-        assertThat(onTrino().executeQuery(format("SELECT a_struct.casesensitive FROM %s", trinoTableName))).containsOnly(row(14L));
+        assertThat(onTrino().executeQuery(format("SELECT a_struct.CaseSensitive FROM %s", trinoTableName))).containsOnly(row(14L));
         assertThat(onTrino().executeQuery(format("SELECT a_struct.drop_and_add FROM %s", trinoTableName))).containsOnly(row((Object) null));
         assertThat(onTrino().executeQuery(format("SELECT a_struct.added FROM %s", trinoTableName))).containsOnly(row((Object) null));
 
         // smoke test for dereference in a predicate
         assertThat(onTrino().executeQuery(format("SELECT keep_col FROM %s WHERE a_struct.renamed = 11", trinoTableName))).containsOnly(row(3L));
         assertThat(onTrino().executeQuery(format("SELECT keep_col FROM %s WHERE a_struct.keep = 12", trinoTableName))).containsOnly(row(3L));
-        assertThat(onTrino().executeQuery(format("SELECT keep_col FROM %s WHERE a_struct.casesensitive = 14", trinoTableName))).containsOnly(row(3L));
+        assertThat(onTrino().executeQuery(format("SELECT keep_col FROM %s WHERE a_struct.CaseSensitive = 14", trinoTableName))).containsOnly(row(3L));
         // make sure predicates are also ID based
         assertThat(onTrino().executeQuery(format("SELECT keep_col FROM %s WHERE a_struct.drop_and_add IS NULL", trinoTableName))).containsOnly(row(3L));
         assertThat(onTrino().executeQuery(format("SELECT keep_col FROM %s WHERE a_struct.added IS NULL", trinoTableName))).containsOnly(row(3L));
@@ -1508,7 +1508,7 @@ public class TestIcebergSparkCompatibility
             onTrino().executeQuery("DELETE FROM " + trinoTableName + " WHERE data = 3");
             assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).contains(row(1, 2));
 
-            onTrino().executeQuery("UPDATE " + trinoTableName + " SET part = 20");
+            onTrino().executeQuery("UPDATE " + trinoTableName + " SET PART = 20");
             assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).contains(row(1, 20));
 
             onTrino().executeQuery("MERGE INTO " + trinoTableName + " USING (SELECT 1 a) input ON true WHEN MATCHED THEN DELETE");
@@ -1530,9 +1530,7 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery(format(
                 "CREATE TABLE %s (id INTEGER, `mIxEd_COL` STRING) USING ICEBERG",
                 sparkTableName));
-        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + trinoTableName + " SET PROPERTIES partitioning = ARRAY['mIxEd_COL']"))
-                .hasMessageContaining("Unable to parse partitioning value");
-        onTrino().executeQuery("ALTER TABLE " + trinoTableName + " SET PROPERTIES partitioning = ARRAY['\"mIxEd_COL\"']");
+        onTrino().executeQuery("ALTER TABLE " + trinoTableName + " SET PROPERTIES partitioning = ARRAY['mIxEd_COL']");
 
         onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (1, 'trino')");
         onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (2, 'spark')");
@@ -1542,7 +1540,7 @@ public class TestIcebergSparkCompatibility
         assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).contains(expected);
 
         assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + trinoTableName).getOnlyValue())
-                .contains("partitioning = ARRAY['\"mIxEd_COL\"']");
+                .contains("partitioning = ARRAY['mIxEd_COL']");
         assertThat((String) onSpark().executeQuery("SHOW CREATE TABLE " + sparkTableName).getOnlyValue())
                 .contains("PARTITIONED BY (mIxEd_COL)");
 

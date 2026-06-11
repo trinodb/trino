@@ -1,5 +1,5 @@
 -- database: trino_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
-SELECT "sum"("ss_quantity")
+SELECT sum("ss_quantity")
 FROM
   store_sales
 , store

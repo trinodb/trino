@@ -142,7 +142,7 @@ public class TestRedshiftTypeMapping
                 .addRoundTrip("varchar(255)", "'text_b'", createVarcharType(255), "CAST('text_b' AS varchar(255))")
                 .addRoundTrip("varchar(4096)", "'char max'", createVarcharType(4096), "CAST('char max' AS varchar(4096))")
                 .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_varchar"))
-                .execute(getQueryRunner(), redshiftCreateAndInsert("jdbc_test_varchar"));
+                .execute(getQueryRunner(), redshiftCreateAndInsert("jdbc_test_varchar", this::canonicalize));
     }
 
     @Test
@@ -153,7 +153,7 @@ public class TestRedshiftTypeMapping
                 .addRoundTrip("char(255)", "'text_b'", createCharType(255), "CAST('text_b' AS char(255))")
                 .addRoundTrip("char(4096)", "'char max'", createCharType(4096), "CAST('char max' AS char(4096))")
                 .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_char"))
-                .execute(getQueryRunner(), redshiftCreateAndInsert("jdbc_test_char"));
+                .execute(getQueryRunner(), redshiftCreateAndInsert("jdbc_test_char", this::canonicalize));
 
         // Test with types larger than Redshift's char(max)
         SqlDataTypeTest.create()
@@ -202,13 +202,13 @@ public class TestRedshiftTypeMapping
                 .addRoundTrip("nvarchar(10)", "'text_a'", createVarcharType(10), "CAST('text_a' AS varchar(10))")
                 .addRoundTrip("nvarchar(255)", "'text_b'", createVarcharType(255), "CAST('text_b' AS varchar(255))")
                 .addRoundTrip("nvarchar(4096)", "'char max'", createVarcharType(4096), "CAST('char max' AS varchar(4096))")
-                .execute(getQueryRunner(), redshiftCreateAndInsert("jdbc_test_nvarchar"));
+                .execute(getQueryRunner(), redshiftCreateAndInsert("jdbc_test_nvarchar", this::canonicalize));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("nchar(10)", "'text_a'", createCharType(10), "CAST('text_a' AS char(10))")
                 .addRoundTrip("nchar(255)", "'text_b'", createCharType(255), "CAST('text_b' AS char(255))")
                 .addRoundTrip("nchar(4096)", "'char max'", createCharType(4096), "CAST('char max' AS char(4096))")
-                .execute(getQueryRunner(), redshiftCreateAndInsert("jdbc_test_nchar"));
+                .execute(getQueryRunner(), redshiftCreateAndInsert("jdbc_test_nchar", this::canonicalize));
     }
 
     @Test
@@ -277,7 +277,7 @@ public class TestRedshiftTypeMapping
                 .addRoundTrip("binary varying", "to_varbyte('0001020304050607080DF9367AA7000000', 'hex')", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
                 .addRoundTrip("binary varying(1)", "to_varbyte('00', 'hex')", VARBINARY, "X'00'") // minimum length
                 .addRoundTrip("binary varying(1024000)", "to_varbyte('00', 'hex')", VARBINARY, "X'00'") // maximum length
-                .execute(getQueryRunner(), redshiftCreateAndInsert("test_varbinary"));
+                .execute(getQueryRunner(), redshiftCreateAndInsert("test_varbinary", this::canonicalize));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("varbinary", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
@@ -317,7 +317,7 @@ public class TestRedshiftTypeMapping
                 .addRoundTrip("decimal(31, 0)", "CAST('-2718281828459045235360287471352' AS decimal(31, 0))", createDecimalType(31, 0), "CAST('-2718281828459045235360287471352' AS decimal(31, 0))")
                 .addRoundTrip("decimal(3, 0)", "NULL", createDecimalType(3, 0), "CAST(NULL AS decimal(3, 0))")
                 .addRoundTrip("decimal(31, 0)", "NULL", createDecimalType(31, 0), "CAST(NULL AS decimal(31, 0))")
-                .execute(getQueryRunner(), redshiftCreateAndInsert("test_decimal"))
+                .execute(getQueryRunner(), redshiftCreateAndInsert("test_decimal", this::canonicalize))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
     }
 
@@ -384,7 +384,7 @@ public class TestRedshiftTypeMapping
                 .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'") // day of midnight gap in Vilnius
                 .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'") // day after midnight setback in Vilnius
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
-                .execute(getQueryRunner(), session, redshiftCreateAndInsert("test_date"));
+                .execute(getQueryRunner(), session, redshiftCreateAndInsert("test_date", this::canonicalize));
 
         // some time BC
         SqlDataTypeTest.create()
@@ -392,7 +392,7 @@ public class TestRedshiftTypeMapping
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
         SqlDataTypeTest.create()
                 .addRoundTrip("date", "DATE '0101-01-01 BC'", DATE, "DATE '-0100-01-01'")
-                .execute(getQueryRunner(), session, redshiftCreateAndInsert("test_date"));
+                .execute(getQueryRunner(), session, redshiftCreateAndInsert("test_date", this::canonicalize));
     }
 
     @Test
@@ -415,7 +415,7 @@ public class TestRedshiftTypeMapping
         timeTypeTests("time(6)")
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "time_from_trino"));
         timeTypeTests("time")
-                .execute(getQueryRunner(), session, redshiftCreateAndInsert("time_from_jdbc"));
+                .execute(getQueryRunner(), session, redshiftCreateAndInsert("time_from_jdbc", this::canonicalize));
     }
 
     private static SqlDataTypeTest timeTypeTests(String inputType)
@@ -457,7 +457,7 @@ public class TestRedshiftTypeMapping
         timestampTypeTests("timestamp(6)")
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "timestamp_from_trino"));
         timestampTypeTests("timestamp")
-                .execute(getQueryRunner(), session, redshiftCreateAndInsert("timestamp_from_jdbc"));
+                .execute(getQueryRunner(), session, redshiftCreateAndInsert("timestamp_from_jdbc", this::canonicalize));
 
         // some time BC
         SqlDataTypeTest.create()
@@ -465,7 +465,7 @@ public class TestRedshiftTypeMapping
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
         SqlDataTypeTest.create()
                 .addRoundTrip("timestamp", "TIMESTAMP '0101-01-01 00:00:00 BC'", createTimestampType(6), "TIMESTAMP '-0100-01-01 00:00:00.000000'")
-                .execute(getQueryRunner(), session, redshiftCreateAndInsert("test_date"));
+                .execute(getQueryRunner(), session, redshiftCreateAndInsert("test_date", this::canonicalize));
     }
 
     private static SqlDataTypeTest timestampTypeTests(String inputType)
@@ -565,9 +565,9 @@ public class TestRedshiftTypeMapping
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_timestamp_tz"));
 
         redshiftTimestampWithTimeZoneTests("timestamptz")
-                .execute(getQueryRunner(), session, redshiftCreateAndInsert("test_timestamp_tz"));
+                .execute(getQueryRunner(), session, redshiftCreateAndInsert("test_timestamp_tz", this::canonicalize));
         redshiftTimestampWithTimeZoneTests("timestamp with time zone")
-                .execute(getQueryRunner(), session, redshiftCreateAndInsert("test_timestamp_tz"));
+                .execute(getQueryRunner(), session, redshiftCreateAndInsert("test_timestamp_tz", this::canonicalize));
     }
 
     private static SqlDataTypeTest redshiftTimestampWithTimeZoneTests(String inputType)
@@ -890,12 +890,12 @@ public class TestRedshiftTypeMapping
 
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutorWithRetries(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutorWithRetries(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
-    private static DataSetup redshiftCreateAndInsert(String tableNamePrefix)
+    private static DataSetup redshiftCreateAndInsert(String tableNamePrefix, Function<String, String> canonicalizer)
     {
-        return new CreateAndInsertDataSetup(getRedshiftExecutor(), TEST_SCHEMA + "." + tableNamePrefix);
+        return new CreateAndInsertDataSetup(getRedshiftExecutor(), TEST_SCHEMA + "." + tableNamePrefix, canonicalizer);
     }
 
     /**

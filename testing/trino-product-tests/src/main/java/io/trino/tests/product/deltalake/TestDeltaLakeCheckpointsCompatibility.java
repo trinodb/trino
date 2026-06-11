@@ -95,8 +95,8 @@ public class TestDeltaLakeCheckpointsCompatibility
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (3, 'osla')");
             onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (3, 'psa'), (4, 'bobra')");
             onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (4, 'lwa'), (5, 'jeza')");
-            onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE a_string = 'jeza'");
-            onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a_string = 'bobra'");
+            onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE a_StRiNg = 'jeza'");
+            onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a_StRiNg = 'bobra'");
 
             List<Row> expectedRows = ImmutableList.of(
                     row(1, "ala"),
@@ -112,9 +112,9 @@ public class TestDeltaLakeCheckpointsCompatibility
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
                     .containsOnly(expectedRows);
 
-            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName + " WHERE a_string <> 'fill'"))
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName + " WHERE a_StRiNg <> 'fill'"))
                     .containsOnly(expectedRows);
-            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName + " WHERE a_string <> 'fill'"))
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName + " WHERE a_StRiNg <> 'fill'"))
                     .containsOnly(expectedRows);
 
             // fill with inserts to trigger checkpoint
@@ -125,9 +125,9 @@ public class TestDeltaLakeCheckpointsCompatibility
 
             // check we can still query data
             assertThat(listCheckpointFiles(bucketName, tableDirectory)).hasSize(1);
-            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName + " WHERE a_string <> 'fill'"))
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName + " WHERE a_StRiNg <> 'fill'"))
                     .containsOnly(expectedRows);
-            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName + " WHERE a_string <> 'fill'"))
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName + " WHERE a_StRiNg <> 'fill'"))
                     .containsOnly(expectedRows);
         }
         finally {
@@ -260,7 +260,7 @@ public class TestDeltaLakeCheckpointsCompatibility
             // sanity check
             fillWithInserts("delta.default." + tableName, "(1, 'trino')", 4);
             assertThat(listCheckpointFiles(bucketName, tableDirectory)).isEmpty();
-            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName + " WHERE a_string <> 'trino'")).hasNoRows();
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName + " WHERE a_StRiNg <> 'trino'")).hasNoRows();
 
             // fill to first checkpoint using Trino
             onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, 'ala'), (2, 'kota')");
@@ -269,7 +269,7 @@ public class TestDeltaLakeCheckpointsCompatibility
             // fill to next checkpoint using a mix of Trino and Databricks
             fillWithInserts("delta.default." + tableName, "(2, 'trino')", 3);
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (3, 'psa'), (4, 'bobra')");
-            onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE a_string = 'trino'");
+            onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE a_StRiNg = 'trino'");
 
             onDelta().executeQuery("ALTER TABLE default." + tableName + " SET TBLPROPERTIES ('delta.checkpointInterval' = '2')");
             // Starting with Databricks Runtime 8.4 checkpoint writing is dynamic rather than relying on a set interval

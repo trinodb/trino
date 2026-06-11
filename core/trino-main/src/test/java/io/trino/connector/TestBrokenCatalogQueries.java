@@ -76,7 +76,7 @@ public class TestBrokenCatalogQueries
     {
         assertThat(queryRunner.execute("SELECT state FROM system.metadata.catalogs WHERE catalog_name = '%s'".formatted(BROKEN_CATALOG)).getOnlyValue())
                 .isEqualTo("FAILING");
-        assertThat(queryRunner.execute("SELECT count(*) FROM system.jdbc.catalogs WHERE table_cat = '%s'".formatted(BROKEN_CATALOG)).getOnlyValue())
+        assertThat(queryRunner.execute("SELECT count(*) FROM system.jdbc.catalogs WHERE \"TABLE_CAT\" = '%s'".formatted(BROKEN_CATALOG)).getOnlyValue())
                 .isEqualTo(1L);
     }
 
@@ -92,19 +92,19 @@ public class TestBrokenCatalogQueries
     public void testCatalogEnumeratingQueriesIgnoreBrokenCatalog()
     {
         // Broken catalog contributes no metadata; healthy catalog still does.
-        assertThat(queryRunner.execute("SELECT count(*) FROM system.jdbc.tables WHERE table_cat = '%s'".formatted(BROKEN_CATALOG)).getOnlyValue())
+        assertThat(queryRunner.execute("SELECT count(*) FROM system.jdbc.tables WHERE \"TABLE_CAT\" = '%s'".formatted(BROKEN_CATALOG)).getOnlyValue())
                 .isEqualTo(0L);
-        assertThat((long) queryRunner.execute("SELECT count(*) FROM system.jdbc.tables WHERE table_cat = '%s'".formatted(HEALTHY_CATALOG)).getOnlyValue())
+        assertThat((long) queryRunner.execute("SELECT count(*) FROM system.jdbc.tables WHERE \"TABLE_CAT\" = '%s'".formatted(HEALTHY_CATALOG)).getOnlyValue())
                 .isGreaterThan(0L);
 
-        assertThat(queryRunner.execute("SELECT count(*) FROM system.jdbc.schemas WHERE table_catalog = '%s'".formatted(BROKEN_CATALOG)).getOnlyValue())
+        assertThat(queryRunner.execute("SELECT count(*) FROM system.jdbc.schemas WHERE \"TABLE_CATALOG\" = '%s'".formatted(BROKEN_CATALOG)).getOnlyValue())
                 .isEqualTo(0L);
-        assertThat((long) queryRunner.execute("SELECT count(*) FROM system.jdbc.schemas WHERE table_catalog = '%s'".formatted(HEALTHY_CATALOG)).getOnlyValue())
+        assertThat((long) queryRunner.execute("SELECT count(*) FROM system.jdbc.schemas WHERE \"TABLE_CATALOG\" = '%s'".formatted(HEALTHY_CATALOG)).getOnlyValue())
                 .isGreaterThan(0L);
 
-        assertThat(queryRunner.execute("SELECT count(*) FROM system.jdbc.columns WHERE table_cat = '%s'".formatted(BROKEN_CATALOG)).getOnlyValue())
+        assertThat(queryRunner.execute("SELECT count(*) FROM system.jdbc.columns WHERE \"TABLE_CAT\" = '%s'".formatted(BROKEN_CATALOG)).getOnlyValue())
                 .isEqualTo(0L);
-        assertThat((long) queryRunner.execute("SELECT count(*) FROM system.jdbc.columns WHERE table_schem = 'tiny'").getOnlyValue())
+        assertThat((long) queryRunner.execute("SELECT count(*) FROM system.jdbc.columns WHERE \"TABLE_SCHEM\" = 'tiny'").getOnlyValue())
                 .isGreaterThan(0L);
 
         assertThat(queryRunner.execute("SELECT count(*) FROM system.metadata.table_comments WHERE catalog_name = '%s'".formatted(BROKEN_CATALOG)).getOnlyValue())

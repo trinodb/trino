@@ -55,6 +55,7 @@ public final class PlanAssert
         if (!matches.isMatch()) {
             String formattedPlan = textLogicalPlan(actual.getRoot(), metadata, functionManager, StatsAndCosts.empty(), session, 0, false);
             if (!containsGroupReferences(actual.getRoot())) {
+                System.out.println("PlanAssert.assertPlan() 1");
                 throw new AssertionError(format(
                         "Plan does not match, expected [\n\n%s\n] but found [\n\n%s\n]",
                         pattern,

@@ -66,6 +66,12 @@ public class TestDruidTypeMapping
         druidServer = null;
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testLong()
     {

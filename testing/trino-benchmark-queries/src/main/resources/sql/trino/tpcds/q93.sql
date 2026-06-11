@@ -1,6 +1,6 @@
 SELECT
   "ss_customer_sk"
-, "sum"("act_sales") "sumsales"
+, sum("act_sales") "sumsales"
 FROM
   (
    SELECT

@@ -3,7 +3,7 @@ WITH
    SELECT
      "ws_item_sk" "item_sk"
    , "d_date"
-   , "sum"("sum"("ws_sales_price")) OVER (PARTITION BY "ws_item_sk" ORDER BY "d_date" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) "cume_sales"
+   , sum(sum("ws_sales_price")) OVER (PARTITION BY "ws_item_sk" ORDER BY "d_date" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) "cume_sales"
    FROM
      ${database}.${schema}.web_sales
    , ${database}.${schema}.date_dim
@@ -16,7 +16,7 @@ WITH
    SELECT
      "ss_item_sk" "item_sk"
    , "d_date"
-   , "sum"("sum"("ss_sales_price")) OVER (PARTITION BY "ss_item_sk" ORDER BY "d_date" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) "cume_sales"
+   , sum(sum("ss_sales_price")) OVER (PARTITION BY "ss_item_sk" ORDER BY "d_date" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) "cume_sales"
    FROM
      ${database}.${schema}.store_sales
    , ${database}.${schema}.date_dim
@@ -33,19 +33,19 @@ FROM
    , "d_date"
    , "web_sales"
    , "store_sales"
-   , "max"("web_sales") OVER (PARTITION BY "item_sk" ORDER BY "d_date" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) "web_cumulative"
-   , "max"("store_sales") OVER (PARTITION BY "item_sk" ORDER BY "d_date" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) "store_cumulative"
+   , max("web_sales") OVER (PARTITION BY "item_sk" ORDER BY "d_date" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) "web_cumulative"
+   , max("store_sales") OVER (PARTITION BY "item_sk" ORDER BY "d_date" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) "store_cumulative"
    FROM
      (
       SELECT
-        (CASE WHEN ("web"."item_sk" IS NOT NULL) THEN "web"."item_sk" ELSE "store"."item_sk" END) "item_sk"
-      , (CASE WHEN ("web"."d_date" IS NOT NULL) THEN "web"."d_date" ELSE "store"."d_date" END) "d_date"
-      , "web"."cume_sales" "web_sales"
-      , "store"."cume_sales" "store_sales"
+        (CASE WHEN (web."item_sk" IS NOT NULL) THEN web."item_sk" ELSE store."item_sk" END) "item_sk"
+      , (CASE WHEN (web."d_date" IS NOT NULL) THEN web."d_date" ELSE store."d_date" END) "d_date"
+      , web."cume_sales" "web_sales"
+      , store."cume_sales" "store_sales"
       FROM
         (web_v1 web
-      FULL JOIN store_v1 store ON ("web"."item_sk" = "store"."item_sk")
-         AND ("web"."d_date" = "store"."d_date"))
+      FULL JOIN store_v1 store ON (web."item_sk" = store."item_sk")
+         AND (web."d_date" = store."d_date"))
    )  x
 )  y
 WHERE ("web_cumulative" > "store_cumulative")

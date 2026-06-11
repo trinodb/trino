@@ -177,7 +177,7 @@ public class TestDeltaLakeChangeDataFeedCompatibility
                 "TBLPROPERTIES ('delta.enableChangeDataFeed' = true, 'delta.columnMapping.mode'='" + columnMappingMode + "')");
         try {
             onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES ('testValue1', 1), ('testValue2', 2), ('testValue3', 3)");
-            onTrino().executeQuery("UPDATE delta.default." + tableName + " SET updated_column = 5 WHERE col1 = 'testValue3'");
+            onTrino().executeQuery("UPDATE delta.default." + tableName + " SET Updated_Column = 5 WHERE col1 = 'testValue3'");
 
             List<Row> expectedRows = ImmutableList.<Row>builder()
                     .add(row("testValue1", 1, "insert", 1L))
@@ -186,10 +186,10 @@ public class TestDeltaLakeChangeDataFeedCompatibility
                     .add(row("testValue3", 3, "update_preimage", 2L))
                     .add(row("testValue3", 5, "update_postimage", 2L))
                     .build();
-            assertThat(onDelta().executeQuery("SELECT col1, updated_column, _change_type, _commit_version " +
+            assertThat(onDelta().executeQuery("SELECT col1, Updated_Column, _change_type, _commit_version " +
                     "FROM table_changes('default." + tableName + "', 0)"))
                     .containsOnly(expectedRows);
-            assertThat(onTrino().executeQuery("SELECT col1, updated_column, _change_type, _commit_version " +
+            assertThat(onTrino().executeQuery("SELECT col1, Updated_Column, _change_type, _commit_version " +
                     "FROM TABLE(delta.system.table_changes('default', '" + tableName + "'))"))
                     .containsOnly(expectedRows);
         }

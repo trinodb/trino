@@ -30,6 +30,7 @@ import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.Testing
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_MOR;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHudiSmokeTest
@@ -42,6 +43,12 @@ public class TestHudiSmokeTest
         return HudiQueryRunner.builder()
                 .setDataLoader(new ResourceHudiTablesInitializer())
                 .build();
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Test
@@ -78,48 +85,54 @@ public class TestHudiSmokeTest
     public void testShowCreateTable()
     {
         assertThat((String) computeActual("SHOW CREATE TABLE " + STOCK_TICKS_COW).getOnlyValue())
-                .matches("CREATE TABLE \\w+\\.\\w+\\.stock_ticks_cow \\Q(\n" +
-                        "   _hoodie_commit_time varchar,\n" +
-                        "   _hoodie_commit_seqno varchar,\n" +
-                        "   _hoodie_record_key varchar,\n" +
-                        "   _hoodie_partition_path varchar,\n" +
-                        "   _hoodie_file_name varchar,\n" +
-                        "   volume bigint,\n" +
-                        "   ts varchar,\n" +
-                        "   symbol varchar,\n" +
-                        "   year integer,\n" +
-                        "   month varchar,\n" +
-                        "   high double,\n" +
-                        "   low double,\n" +
-                        "   key varchar,\n" +
-                        "   date varchar,\n" +
-                        "   close double,\n" +
-                        "   open double,\n" +
-                        "   day varchar,\n" +
-                        "   dt varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   location = \\E'.*/stock_ticks_cow',\n\\Q" +
-                        "   partitioned_by = ARRAY['dt']\n" +
-                        ")");
+                .matches(
+                        """
+                        CREATE TABLE \\w+\\.\\w+\\.STOCK_TICKS_COW \\Q(
+                           _hoodie_commit_time varchar,
+                           _hoodie_commit_seqno varchar,
+                           _hoodie_record_key varchar,
+                           _hoodie_partition_path varchar,
+                           _hoodie_file_name varchar,
+                           volume bigint,
+                           ts varchar,
+                           symbol varchar,
+                           year integer,
+                           month varchar,
+                           high double,
+                           low double,
+                           key varchar,
+                           date varchar,
+                           close double,
+                           open double,
+                           day varchar,
+                           dt varchar
+                        )
+                        WITH (
+                           location = \\E'.*/stock_ticks_cow',\\Q
+                           partitioned_by = ARRAY['dt']
+                        )\
+                        """);
         // multi-partitioned table
         assertThat((String) computeActual("SHOW CREATE TABLE " + HUDI_COW_PT_TBL).getOnlyValue())
-                .matches("CREATE TABLE \\w+\\.\\w+\\.hudi_cow_pt_tbl \\Q(\n" +
-                        "   _hoodie_commit_time varchar,\n" +
-                        "   _hoodie_commit_seqno varchar,\n" +
-                        "   _hoodie_record_key varchar,\n" +
-                        "   _hoodie_partition_path varchar,\n" +
-                        "   _hoodie_file_name varchar,\n" +
-                        "   id bigint,\n" +
-                        "   name varchar,\n" +
-                        "   ts bigint,\n" +
-                        "   dt varchar,\n" +
-                        "   hh varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   location = \\E'.*/hudi_cow_pt_tbl',\n\\Q" +
-                        "   partitioned_by = ARRAY['dt','hh']\n" +
-                        ")");
+                .matches(
+                        """
+                        CREATE TABLE \\w+\\.\\w+\\.HUDI_COW_PT_TBL \\Q(
+                           _hoodie_commit_time varchar,
+                           _hoodie_commit_seqno varchar,
+                           _hoodie_record_key varchar,
+                           _hoodie_partition_path varchar,
+                           _hoodie_file_name varchar,
+                           id bigint,
+                           name varchar,
+                           ts bigint,
+                           dt varchar,
+                           hh varchar
+                        )
+                        WITH (
+                           location = \\E'.*/hudi_cow_pt_tbl',\\Q
+                           partitioned_by = ARRAY['dt','hh']
+                        )\
+                        """);
     }
 
     @Test
@@ -167,7 +180,7 @@ public class TestHudiSmokeTest
         assertQuery("SELECT \"$partition\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 1", "VALUES 'dt=2021-12-09/hh=10'");
         assertQuery("SELECT \"$partition\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 2", "VALUES 'dt=2021-12-09/hh=11'");
 
-        assertQueryFails("SELECT \"$partition\" FROM " + HUDI_NON_PART_COW, ".* Column '\\$partition' cannot be resolved");
+        assertQueryFails("SELECT \"$partition\" FROM " + HUDI_NON_PART_COW, ".*\\QColumn '$partition' cannot be resolved, available candidates are: '_hoodie_commit_time\\E.*");
     }
 
     @Test

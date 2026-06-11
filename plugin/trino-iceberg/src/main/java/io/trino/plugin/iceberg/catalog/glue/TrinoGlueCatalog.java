@@ -222,11 +222,6 @@ public class TrinoGlueCatalog
     @Override
     public boolean namespaceExists(ConnectorSession session, String namespace)
     {
-        if (!namespace.equals(namespace.toLowerCase(ENGLISH))) {
-            // Currently, Trino schemas are always lowercase, so this one cannot exist (https://github.com/trinodb/trino/issues/17)
-            // In fact, Glue stores database names lowercase only (but accepted mixed case on lookup).
-            return false;
-        }
         try {
             glueClient.getDatabase(namespace);
             return true;

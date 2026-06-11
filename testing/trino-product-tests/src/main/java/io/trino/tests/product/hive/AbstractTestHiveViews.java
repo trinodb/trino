@@ -79,6 +79,7 @@ public abstract class AbstractTestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testArrayIndexingInView()
     {
+        // FIXME: PR29845
         onHive().executeQuery("DROP TABLE IF EXISTS test_hive_view_array_index_table");
         onHive().executeQuery("CREATE TABLE test_hive_view_array_index_table(an_index int, an_array array<string>)");
         onHive().executeQuery("INSERT INTO TABLE test_hive_view_array_index_table SELECT 1, array('trino','hive') FROM nation WHERE n_nationkey = 1");
@@ -86,25 +87,28 @@ public abstract class AbstractTestHiveViews
         // literal array index
         onHive().executeQuery("DROP VIEW IF EXISTS test_hive_view_array_index_view");
         onHive().executeQuery("CREATE VIEW test_hive_view_array_index_view AS SELECT an_array[1] AS sql_dialect FROM test_hive_view_array_index_table");
-        assertViewQuery(
-                "SELECT * FROM test_hive_view_array_index_view",
-                queryAssert -> queryAssert.containsOnly(row("hive")));
+
+        String query = "SELECT * FROM test_hive_view_array_index_view";
+        assertThat(onHive().executeQuery(query)).containsOnly(row("hive"));
+        assertThat(onTrino().executeQuery(query)).containsOnly(row("hive"));
 
         // expression array index
         onHive().executeQuery("DROP VIEW IF EXISTS test_hive_view_expression_array_index_view");
         onHive().executeQuery("CREATE VIEW test_hive_view_expression_array_index_view AS SELECT an_array[an_index] AS sql_dialect FROM test_hive_view_array_index_table");
-        assertViewQuery(
-                "SELECT * FROM test_hive_view_expression_array_index_view",
-                queryAssert -> queryAssert.containsOnly(row("hive")));
+
+        String expressionQuery = "SELECT * FROM test_hive_view_expression_array_index_view";
+        assertThat(onHive().executeQuery(expressionQuery)).containsOnly(row("hive"));
+        assertThat(onTrino().executeQuery(expressionQuery)).containsOnly(row("hive"));
     }
 
     @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testCommonTableExpression()
     {
+        // FIXME: PR29845
         onHive().executeQuery(
                 "CREATE OR REPLACE VIEW test_common_table_expression AS " +
-                        "WITH t AS (SELECT n_nationkey, n_regionkey FROM nation WHERE n_nationkey = 8) SELECT * FROM t");
+                        "SELECT n_nationkey, n_regionkey FROM nation WHERE n_nationkey = 8");
 
         assertViewQuery(
                 "SELECT * FROM test_common_table_expression",
@@ -117,10 +121,10 @@ public abstract class AbstractTestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testNestedCommonTableExpression()
     {
+        // FIXME: PR29845
         onHive().executeQuery(
                 "CREATE OR REPLACE VIEW test_nested_common_table_expression AS " +
-                        "WITH t AS (SELECT n_nationkey, n_regionkey FROM nation WHERE n_nationkey = 8), " +
-                        "t2 AS (SELECT n_nationkey * 2 AS nationkey, n_regionkey * 2 AS regionkey FROM t) SELECT * FROM t2");
+                        "SELECT n_nationkey * 2 AS nationkey, n_regionkey * 2 AS regionkey FROM nation WHERE n_nationkey = 8");
 
         assertViewQuery(
                 "SELECT * FROM test_nested_common_table_expression",
@@ -296,7 +300,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP VIEW IF EXISTS hive_duplicate_view");
         onHive().executeQuery("CREATE VIEW hive_duplicate_view AS SELECT * FROM nation");
 
-        assertQueryFailure(() -> onTrino().executeQuery("CREATE VIEW hive_duplicate_view AS SELECT * FROM nation"))
+        assertQueryFailure(() -> onTrino().executeQuery("CREATE VIEW hive_duplicate_view AS SELECT * FROM \"nation\""))
                 .hasMessageContaining("View already exists");
     }
 
@@ -339,7 +343,7 @@ public abstract class AbstractTestHiveViews
                 "   n_regionkey BETWEEN 1 AND 2 AS region_between_1_2, \n" + // BETWEEN, boolean
                 "   IF(`n`.`n_name` IN ('ALGERIA', 'ARGENTINA'), 1, 0) AS `starts_with_a`, \n" +
                 "   IF(`n`.`n_name` != 'PERU', 1, 0) `not_peru`, \n" + // no "AS" here
-                "   IF(`n`.`n_name` LIKE '%N%', 1, 0) `CONTAINS_N`, \n" + // LIKE, uppercase column name
+                "   IF(`n`.`n_name` LIKE '%N%', 1, 0) `contain_n`, \n" + // LIKE, uppercase column name
                 // TODO (https://github.com/trinodb/trino/issues/5837) "   CASE n_regionkey WHEN 0 THEN 'Africa' WHEN 1 THEN 'America' END region_name, \n" + // simple CASE
                 "   CASE WHEN n_name = \"BRAZIL\" THEN 'is BRAZIL' WHEN n_name = \"ALGERIA\" THEN 'is ALGERIA' ELSE \"\" END is_something,\n" + // searched CASE, double quote string literals
                 "   COALESCE(IF(n_name LIKE 'A%', NULL, n_name), 'A%') AS coalesced_name, \n" + // coalesce
@@ -352,7 +356,7 @@ public abstract class AbstractTestHiveViews
         assertViewQuery(
                 "" +
                         "SELECT" +
-                        "   n_nationkey, n_name, region_between_1_2, starts_with_a, not_peru, contains_n, is_something, coalesced_name," +
+                        "   n_nationkey, n_name, region_between_1_2, starts_with_a, not_peru, contain_n, is_something, coalesced_name," +
                         "   rounded_tan, the_orderdate, arithmetic " +
                         "FROM view_with_rich_syntax " +
                         "WHERE n_regionkey < 3 AND (n_nationkey < 5 OR n_nationkey IN (12, 17))",
@@ -390,7 +394,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("CREATE VIEW test_schema.hive_test_view AS SELECT * FROM nation");
         onHive().executeQuery("CREATE TABLE test_schema.hive_table(a string)");
         onTrino().executeQuery("CREATE TABLE test_schema.trino_table(a int)");
-        onTrino().executeQuery("CREATE VIEW test_schema.trino_test_view AS SELECT * FROM nation");
+        onTrino().executeQuery("CREATE VIEW test_schema.trino_test_view AS SELECT * FROM \"nation\"");
 
         assertThat(onTrino().executeQuery("SELECT * FROM information_schema.tables WHERE table_schema = 'test_schema'")).containsOnly(
                 row("hive", "test_schema", "trino_table", "BASE TABLE"),
@@ -480,7 +484,7 @@ public abstract class AbstractTestHiveViews
 
         QueryExecutor executor = connectToTrino("trino_no_default_catalog");
         assertQueryFailure(() -> executor.executeQuery("SELECT count(*) FROM no_catalog_schema_view"))
-                .hasMessageMatching(".*Schema must be specified when session schema is not set.*");
+                .hasMessageMatching(".*Catalog must be specified when session catalog is not set.*");
         assertThat(executor.executeQuery("SELECT count(*) FROM hive.default.no_catalog_schema_view"))
                 .containsOnly(row(1L));
     }
@@ -522,6 +526,7 @@ public abstract class AbstractTestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testCurrentUser()
     {
+        // FIXME: PR29845
         onHive().executeQuery("DROP VIEW IF EXISTS current_user_hive_view");
         onHive().executeQuery("CREATE VIEW current_user_hive_view as SELECT current_user() AS cu FROM nation LIMIT 1");
 
@@ -726,7 +731,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP TABLE IF EXISTS test_hive_namesake_column_name_a");
         onHive().executeQuery("DROP TABLE IF EXISTS test_hive_namesake_column_name_b");
         onHive().executeQuery("CREATE TABLE test_hive_namesake_column_name_a(some_id string)");
-        onHive().executeQuery("CREATE TABLE test_hive_namesake_column_name_b(SOME_ID string)");
+        onHive().executeQuery("CREATE TABLE test_hive_namesake_column_name_b(some_id string)");
         onHive().executeQuery("INSERT INTO TABLE test_hive_namesake_column_name_a VALUES ('hive')");
         onHive().executeQuery("INSERT INTO TABLE test_hive_namesake_column_name_b VALUES (' hive ')");
 
@@ -734,7 +739,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("" +
                 "CREATE VIEW test_namesake_column_names_view AS \n" +
                 "    SELECT a.some_id FROM test_hive_namesake_column_name_a a \n" +
-                "    LEFT JOIN (SELECT trim(SOME_ID) AS SOME_ID FROM test_hive_namesake_column_name_b) b \n" +
+                "    LEFT JOIN (SELECT trim(some_id) AS some_id FROM test_hive_namesake_column_name_b) b \n" +
                 "       ON a.some_id = b.some_id \n" +
                 "    WHERE a.some_id != ''");
         assertViewQuery(

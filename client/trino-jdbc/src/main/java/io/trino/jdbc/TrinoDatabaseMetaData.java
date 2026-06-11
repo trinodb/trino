@@ -197,7 +197,7 @@ public class TrinoDatabaseMetaData
     public boolean supportsMixedCaseIdentifiers()
             throws SQLException
     {
-        return false;
+        return true;
     }
 
     @Override
@@ -211,14 +211,14 @@ public class TrinoDatabaseMetaData
     public boolean storesLowerCaseIdentifiers()
             throws SQLException
     {
-        return true;
+        return false;
     }
 
     @Override
     public boolean storesMixedCaseIdentifiers()
             throws SQLException
     {
-        return false;
+        return true;
     }
 
     @Override
@@ -226,7 +226,7 @@ public class TrinoDatabaseMetaData
             throws SQLException
     {
         // TODO: support quoted identifiers properly
-        return false;
+        return true;
     }
 
     @Override
@@ -241,7 +241,7 @@ public class TrinoDatabaseMetaData
             throws SQLException
     {
         // TODO: support quoted identifiers properly
-        return true;
+        return false;
     }
 
     @Override
@@ -249,7 +249,7 @@ public class TrinoDatabaseMetaData
             throws SQLException
     {
         // TODO: support quoted identifiers properly
-        return false;
+        return true;
     }
 
     @Override
@@ -923,11 +923,15 @@ public class TrinoDatabaseMetaData
     {
         schemaPattern = escapeIfNecessary(schemaPattern);
         procedureNamePattern = escapeIfNecessary(procedureNamePattern);
-        return selectEmpty("" +
-                "SELECT PROCEDURE_CAT, PROCEDURE_SCHEM, PROCEDURE_NAME,\n " +
-                "  null, null, null, REMARKS, PROCEDURE_TYPE, SPECIFIC_NAME\n" +
+        String procedureCat = quoted("PROCEDURE_CAT");
+        String procedureSchem = quoted("PROCEDURE_SCHEM");
+        String procedureName = quoted("PROCEDURE_NAME");
+        String specificName = quoted("SPECIFIC_NAME");
+        String query = "SELECT " + procedureCat + ", " + procedureSchem + ", " + procedureName + ",\n " +
+                "NULL, NULL, NULL, " + quoted("REMARKS") + ", " + quoted("PROCEDURE_TYPE") + ", " + specificName + "\n" +
                 "FROM system.jdbc.procedures\n" +
-                "ORDER BY PROCEDURE_CAT, PROCEDURE_SCHEM, PROCEDURE_NAME, SPECIFIC_NAME");
+                "ORDER BY " + procedureCat + ", " + procedureSchem + ", " + procedureName + ", " + specificName;
+        return selectEmpty(query);
     }
 
     @Override
@@ -937,14 +941,20 @@ public class TrinoDatabaseMetaData
         schemaPattern = escapeIfNecessary(schemaPattern);
         procedureNamePattern = escapeIfNecessary(procedureNamePattern);
         columnNamePattern = escapeIfNecessary(columnNamePattern);
-        return selectEmpty("" +
-                "SELECT PROCEDURE_CAT, PROCEDURE_SCHEM, PROCEDURE_NAME, " +
-                "  COLUMN_NAME, COLUMN_TYPE, DATA_TYPE, TYPE_NAME,\n" +
-                "  PRECISION, LENGTH, SCALE, RADIX,\n" +
-                "  NULLABLE, REMARKS, COLUMN_DEF, SQL_DATA_TYPE, SQL_DATETIME_SUB,\n" +
-                "  CHAR_OCTET_LENGTH, ORDINAL_POSITION, IS_NULLABLE, SPECIFIC_NAME\n" +
+        String procedureCat = quoted("PROCEDURE_CAT");
+        String procedureSchem = quoted("PROCEDURE_SCHEM");
+        String procedureName = quoted("PROCEDURE_NAME");
+        String specificName = quoted("SPECIFIC_NAME");
+        String columnName = quoted("COLUMN_NAME");
+
+        String query = "SELECT " + procedureCat + ", " + procedureSchem + ", " + procedureName + ", " + columnName + ", " +
+                quoted("COLUMN_TYPE") + ", " + quoted("DATA_TYPE") + ", " + quoted("TYPE_NAME") + ",\n" +
+                quoted("PRECISION") + ", " + quoted("LENGTH") + ", " + quoted("SCALE") + ", " + quoted("RADIX") + ",\n" +
+                quoted("NULLABLE") + ", " + quoted("REMARKS") + ", " + quoted("COLUMN_DEF") + ", " + quoted("SQL_DATA_TYPE") + ", " + quoted("SQL_DATETIME_SUB") + ",\n" +
+                quoted("CHAR_OCTET_LENGTH") + ", " + quoted("ORDINAL_POSITION") + ", " + quoted("IS_NULLABLE") + ", " + specificName + "\n" +
                 "FROM system.jdbc.procedure_columns\n" +
-                "ORDER BY PROCEDURE_CAT, PROCEDURE_SCHEM, PROCEDURE_NAME, SPECIFIC_NAME, COLUMN_NAME");
+                "ORDER BY " + procedureCat + ", " + procedureSchem + ", " + procedureName + ", " + specificName + ", " + columnName;
+        return selectEmpty(query);
     }
 
     @Override
@@ -953,20 +963,36 @@ public class TrinoDatabaseMetaData
     {
         schemaPattern = escapeIfNecessary(schemaPattern);
         tableNamePattern = escapeIfNecessary(tableNamePattern);
-        StringBuilder query = new StringBuilder("" +
-                "SELECT TABLE_CAT, TABLE_SCHEM, TABLE_NAME, TABLE_TYPE, REMARKS,\n" +
-                "  TYPE_CAT, TYPE_SCHEM, TYPE_NAME, " +
-                "  SELF_REFERENCING_COL_NAME, REF_GENERATION\n" +
-                "FROM system.jdbc.tables");
+
+        String tableCat = quoted("TABLE_CAT");
+        String tableSchem = quoted("TABLE_SCHEM");
+        String tableName = quoted("TABLE_NAME");
+        String tableType = quoted("TABLE_TYPE");
+        StringBuilder query = new StringBuilder("SELECT ");
+        query.append(tableCat).append(", ");
+        query.append(tableSchem).append(", ");
+        query.append(tableName).append(", ");
+        query.append(tableType).append(", ");
+        query.append(quoted("REMARKS")).append(",\n");
+        query.append(quoted("TYPE_CAT")).append(", ");
+        query.append(quoted("TYPE_SCHEM")).append(", ");
+        query.append(quoted("TYPE_NAME")).append(", ");
+        query.append(quoted("SELF_REFERENCING_COL_NAME")).append(", ");
+        query.append(quoted("REF_GENERATION")).append("\n");
+        query.append("FROM system.jdbc.tables");
 
         List<String> filters = new ArrayList<>();
-        emptyStringEqualsFilter(filters, "TABLE_CAT", effectiveCatalog(catalog));
-        emptyStringLikeFilter(filters, "TABLE_SCHEM", schemaPattern);
-        optionalStringLikeFilter(filters, "TABLE_NAME", tableNamePattern);
-        optionalStringInFilter(filters, "TABLE_TYPE", types);
+        emptyStringEqualsFilter(filters, tableCat, effectiveCatalog(catalog));
+        emptyStringLikeFilter(filters, tableSchem, schemaPattern);
+        optionalStringLikeFilter(filters, tableName, tableNamePattern);
+        optionalStringInFilter(filters, tableType, types);
         buildFilters(query, filters);
 
-        query.append("\nORDER BY TABLE_TYPE, TABLE_CAT, TABLE_SCHEM, TABLE_NAME");
+        query.append("\nORDER BY ");
+        query.append(tableType).append(", ");
+        query.append(tableCat).append(", ");
+        query.append(tableSchem).append(", ");
+        query.append(tableName);
 
         return select(query.toString());
     }
@@ -975,30 +1001,38 @@ public class TrinoDatabaseMetaData
     public ResultSet getSchemas()
             throws SQLException
     {
-        return select("" +
-                "SELECT TABLE_SCHEM, TABLE_CATALOG\n" +
+        String tableSchem = quoted("TABLE_SCHEM");
+        String tableCatalog = quoted("TABLE_CATALOG");
+        String query = "SELECT " +
+                tableSchem + ", " +
+                tableCatalog + "\n" +
                 "FROM system.jdbc.schemas\n" +
-                "ORDER BY TABLE_CATALOG, TABLE_SCHEM");
+                "ORDER BY " +
+                tableCatalog + ", " +
+                tableSchem;
+        return select(query);
     }
 
     @Override
     public ResultSet getCatalogs()
             throws SQLException
     {
-        return select("" +
-                "SELECT TABLE_CAT\n" +
+        String tableCat = quoted("TABLE_CAT");
+        String query = "SELECT " + tableCat + "\n" +
                 "FROM system.jdbc.catalogs\n" +
-                "ORDER BY TABLE_CAT");
+                "ORDER BY " + tableCat;
+        return select(query);
     }
 
     @Override
     public ResultSet getTableTypes()
             throws SQLException
     {
-        return select("" +
-                "SELECT TABLE_TYPE\n" +
+        String tableType = quoted("TABLE_TYPE");
+        String query = "SELECT " + tableType + "\n" +
                 "FROM system.jdbc.table_types\n" +
-                "ORDER BY TABLE_TYPE");
+                "ORDER BY " + tableType;
+        return select(query);
     }
 
     @Override
@@ -1008,23 +1042,32 @@ public class TrinoDatabaseMetaData
         schemaPattern = escapeIfNecessary(schemaPattern);
         tableNamePattern = escapeIfNecessary(tableNamePattern);
         columnNamePattern = escapeIfNecessary(columnNamePattern);
-        StringBuilder query = new StringBuilder("" +
-                "SELECT TABLE_CAT, TABLE_SCHEM, TABLE_NAME, COLUMN_NAME, DATA_TYPE,\n" +
-                "  TYPE_NAME, COLUMN_SIZE, BUFFER_LENGTH, DECIMAL_DIGITS, NUM_PREC_RADIX,\n" +
-                "  NULLABLE, REMARKS, COLUMN_DEF, SQL_DATA_TYPE, SQL_DATETIME_SUB,\n" +
-                "  CHAR_OCTET_LENGTH, ORDINAL_POSITION, IS_NULLABLE,\n" +
-                "  SCOPE_CATALOG, SCOPE_SCHEMA, SCOPE_TABLE,\n" +
-                "  SOURCE_DATA_TYPE, IS_AUTOINCREMENT, IS_GENERATEDCOLUMN\n" +
+
+        String tableCat = quoted("TABLE_CAT");
+        String tableSchem = quoted("TABLE_SCHEM");
+        String tableName = quoted("TABLE_NAME");
+        String columnName = quoted("COLUMN_NAME");
+        String ordinalPosition = quoted("ORDINAL_POSITION");
+        StringBuilder query = new StringBuilder("SELECT " + tableCat + ", " + tableSchem + ", " +
+                tableName + ", " + columnName + ", " + quoted("DATA_TYPE") + ",\n" +
+                quoted("TYPE_NAME") + ", " + quoted("COLUMN_SIZE") + ", " + quoted("BUFFER_LENGTH") + ", " +
+                quoted("DECIMAL_DIGITS") + ", " + quoted("NUM_PREC_RADIX") + ",\n" +
+                quoted("NULLABLE") + ", " + quoted("REMARKS") + ", " + quoted("COLUMN_DEF") + ", " +
+                quoted("SQL_DATA_TYPE") + ", " + quoted("SQL_DATETIME_SUB") + ",\n" +
+                quoted("CHAR_OCTET_LENGTH") + ", " + ordinalPosition + ", " + quoted("IS_NULLABLE") + ",\n" +
+                quoted("SCOPE_CATALOG") + ", " + quoted("SCOPE_SCHEMA") + ", " + quoted("SCOPE_TABLE") + ",\n" +
+                quoted("SOURCE_DATA_TYPE") + ", " + quoted("IS_AUTOINCREMENT") + ", " + quoted("IS_GENERATEDCOLUMN") + "\n" +
                 "FROM system.jdbc.columns");
 
         List<String> filters = new ArrayList<>();
-        emptyStringEqualsFilter(filters, "TABLE_CAT", effectiveCatalog(catalog));
-        emptyStringLikeFilter(filters, "TABLE_SCHEM", schemaPattern);
-        optionalStringLikeFilter(filters, "TABLE_NAME", tableNamePattern);
-        optionalStringLikeFilter(filters, "COLUMN_NAME", columnNamePattern);
+        emptyStringEqualsFilter(filters, tableCat, effectiveCatalog(catalog));
+        emptyStringLikeFilter(filters, tableSchem, schemaPattern);
+        optionalStringLikeFilter(filters, tableName, tableNamePattern);
+        optionalStringLikeFilter(filters, columnName, columnNamePattern);
         buildFilters(query, filters);
 
-        query.append("\nORDER BY TABLE_CAT, TABLE_SCHEM, TABLE_NAME, ORDINAL_POSITION");
+        query.append("\nORDER BY ").append(tableCat).append(", ").append(tableSchem)
+                .append(", ").append(tableName).append(", ").append(ordinalPosition);
 
         return select(query.toString());
     }
@@ -1065,12 +1108,12 @@ public class TrinoDatabaseMetaData
             throws SQLException
     {
         String query = "SELECT " +
-                " CAST(NULL AS varchar) TABLE_CAT, " +
-                " CAST(NULL AS varchar) TABLE_SCHEM, " +
-                " CAST(NULL AS varchar) TABLE_NAME, " +
-                " CAST(NULL AS varchar) COLUMN_NAME, " +
-                " CAST(NULL AS smallint) KEY_SEQ, " +
-                " CAST(NULL AS varchar) PK_NAME " +
+                " CAST(NULL AS varchar) " + quoted("TABLE_CAT") + ", " +
+                " CAST(NULL AS varchar) " + quoted("TABLE_SCHEM") + ", " +
+                " CAST(NULL AS varchar) " + quoted("TABLE_NAME") + ", " +
+                " CAST(NULL AS varchar) " + quoted("COLUMN_NAME") + ", " +
+                " CAST(NULL AS smallint) " + quoted("KEY_SEQ") + ", " +
+                " CAST(NULL AS varchar) " + quoted("PK_NAME") +
                 "WHERE false";
         return select(query);
     }
@@ -1080,21 +1123,21 @@ public class TrinoDatabaseMetaData
             throws SQLException
     {
         String query = "SELECT " +
-                " CAST(NULL AS varchar) PKTABLE_CAT, " +
-                " CAST(NULL AS varchar) PKTABLE_SCHEM, " +
-                " CAST(NULL AS varchar) PKTABLE_NAME, " +
-                " CAST(NULL AS varchar) PKCOLUMN_NAME, " +
-                " CAST(NULL AS varchar) FKTABLE_CAT, " +
-                " CAST(NULL AS varchar) FKTABLE_SCHEM, " +
-                " CAST(NULL AS varchar) FKTABLE_NAME, " +
-                " CAST(NULL AS varchar) FKCOLUMN_NAME, " +
-                " CAST(NULL AS smallint) KEY_SEQ, " +
-                " CAST(NULL AS smallint) UPDATE_RULE, " +
-                " CAST(NULL AS smallint) DELETE_RULE, " +
-                " CAST(NULL AS varchar) FK_NAME, " +
-                " CAST(NULL AS varchar) PK_NAME, " +
-                " CAST(NULL AS smallint) DEFERRABILITY " +
-                "WHERE false";
+                " CAST(NULL AS varchar) " + quoted("PKTABLE_CAT") + ", " +
+                " CAST(NULL AS varchar) " + quoted("PKTABLE_SCHEM") + ", " +
+                " CAST(NULL AS varchar) " + quoted("PKTABLE_NAME") + ", " +
+                " CAST(NULL AS varchar) " + quoted("PKCOLUMN_NAME") + ", " +
+                " CAST(NULL AS varchar) " + quoted("FKTABLE_CAT") + ", " +
+                " CAST(NULL AS varchar) " + quoted("FKTABLE_SCHEM") + ", " +
+                " CAST(NULL AS varchar) " + quoted("FKTABLE_NAME") + ", " +
+                " CAST(NULL AS varchar) " + quoted("FKCOLUMN_NAME") + ", " +
+                " CAST(NULL AS smallint) " + quoted("KEY_SEQ") + ", " +
+                " CAST(NULL AS smallint) " + quoted("UPDATE_RULE") + ", " +
+                " CAST(NULL AS smallint) " + quoted("DELETE_RULE") + ", " +
+                " CAST(NULL AS varchar) " + quoted("FK_NAME") + ", " +
+                " CAST(NULL AS varchar) " + quoted("PK_NAME") + ", " +
+                " CAST(NULL AS smallint) " + quoted("DEFERRABILITY") +
+                " WHERE false";
         return select(query);
     }
 
@@ -1116,13 +1159,18 @@ public class TrinoDatabaseMetaData
     public ResultSet getTypeInfo()
             throws SQLException
     {
-        return select("" +
-                "SELECT TYPE_NAME, DATA_TYPE, PRECISION, LITERAL_PREFIX, LITERAL_SUFFIX,\n" +
-                "CREATE_PARAMS, NULLABLE, CASE_SENSITIVE, SEARCHABLE, UNSIGNED_ATTRIBUTE,\n" +
-                "FIXED_PREC_SCALE, AUTO_INCREMENT, LOCAL_TYPE_NAME, MINIMUM_SCALE, MAXIMUM_SCALE,\n" +
-                "SQL_DATA_TYPE, SQL_DATETIME_SUB, NUM_PREC_RADIX\n" +
+        String dataType = quoted("DATA_TYPE");
+        String query = "SELECT " + quoted("TYPE_NAME") + "," +
+                dataType + ", " + quoted("PRECISION") + ", " +
+                quoted("LITERAL_PREFIX") + ", " + quoted("LITERAL_SUFFIX") + ",\n" +
+                quoted("CREATE_PARAMS") + ", " + quoted("NULLABLE") + ", " + quoted("CASE_SENSITIVE") + ", " +
+                quoted("SEARCHABLE") + ", " + quoted("UNSIGNED_ATTRIBUTE") + ",\n" +
+                quoted("FIXED_PREC_SCALE") + ", " + quoted("AUTO_INCREMENT") + ", " + quoted("LOCAL_TYPE_NAME") + ", " +
+                quoted("MINIMUM_SCALE") + ", " + quoted("MAXIMUM_SCALE") + ",\n" +
+                quoted("SQL_DATA_TYPE") + ", " + quoted("SQL_DATETIME_SUB") + ", " + quoted("NUM_PREC_RADIX") + "\n" +
                 "FROM system.jdbc.types\n" +
-                "ORDER BY DATA_TYPE");
+                "ORDER BY " + dataType;
+        return select(query);
     }
 
     @Override
@@ -1223,11 +1271,17 @@ public class TrinoDatabaseMetaData
     {
         schemaPattern = escapeIfNecessary(schemaPattern);
         typeNamePattern = escapeIfNecessary(typeNamePattern);
-        return selectEmpty("" +
-                "SELECT TYPE_CAT, TYPE_SCHEM, TYPE_NAME,\n" +
-                "  CLASS_NAME, DATA_TYPE, REMARKS, BASE_TYPE\n" +
+        String typeCat = quoted("TYPE_CAT");
+        String typeSchem = quoted("TYPE_SCHEM");
+        String typeName = quoted("TYPE_NAME");
+        String dataType = quoted("DATA_TYPE");
+        String query = "SELECT " +
+                typeCat + ", " + typeSchem + ", " + typeName + ",\n" +
+                quoted("CLASS_NAME") + ", " + dataType + ", " +
+                quoted("REMARKS") + ", " + quoted("BASE_TYPE") + "\n" +
                 "FROM system.jdbc.udts\n" +
-                "ORDER BY DATA_TYPE, TYPE_CAT, TYPE_SCHEM, TYPE_NAME");
+                "ORDER BY " + dataType + ", " + typeCat + ", " + typeSchem + ", " + typeName;
+        return selectEmpty(query);
     }
 
     @Override
@@ -1271,11 +1325,14 @@ public class TrinoDatabaseMetaData
     {
         schemaPattern = escapeIfNecessary(schemaPattern);
         typeNamePattern = escapeIfNecessary(typeNamePattern);
-        return selectEmpty("" +
-                "SELECT TYPE_CAT, TYPE_SCHEM, TYPE_NAME,\n" +
-                "  SUPERTYPE_CAT, SUPERTYPE_SCHEM, SUPERTYPE_NAME\n" +
+        String typeCat = quoted("TYPE_CAT");
+        String typeSchem = quoted("TYPE_SCHEM");
+        String typeName = quoted("TYPE_NAME");
+        String query = "SELECT " + typeCat + ", " + typeSchem + ", " + typeName + ",\n" +
+                quoted("SUPERTYPE_CAT") + ", " + quoted("SUPERTYPE_SCHEM") + ", " + quoted("SUPERTYPE_NAME") + "\n" +
                 "FROM system.jdbc.super_types\n" +
-                "ORDER BY TYPE_CAT, TYPE_SCHEM, TYPE_NAME");
+                "ORDER BY " + typeCat + ", " + typeSchem + ", " + typeName;
+        return selectEmpty(query);
     }
 
     @Override
@@ -1284,10 +1341,13 @@ public class TrinoDatabaseMetaData
     {
         schemaPattern = escapeIfNecessary(schemaPattern);
         tableNamePattern = escapeIfNecessary(tableNamePattern);
-        return selectEmpty("" +
-                "SELECT TABLE_CAT, TABLE_SCHEM, TABLE_NAME, SUPERTABLE_NAME\n" +
+        String tableCat = quoted("TABLE_CAT");
+        String tableSchem = quoted("TABLE_SCHEM");
+        String tableName = quoted("TABLE_NAME");
+        String query = "SELECT " + tableCat + ", " + tableSchem + ", " + tableName + ", " + quoted("SUPERTABLE_NAME") + "\n" +
                 "FROM system.jdbc.super_tables\n" +
-                "ORDER BY TABLE_CAT, TABLE_SCHEM, TABLE_NAME");
+                "ORDER BY " + tableCat + ", " + tableSchem + ", " + tableName;
+        return selectEmpty(query);
     }
 
     @Override
@@ -1297,14 +1357,18 @@ public class TrinoDatabaseMetaData
         schemaPattern = escapeIfNecessary(schemaPattern);
         typeNamePattern = escapeIfNecessary(typeNamePattern);
         attributeNamePattern = escapeIfNecessary(attributeNamePattern);
-        return selectEmpty("" +
-                "SELECT TYPE_CAT, TYPE_SCHEM, TYPE_NAME, ATTR_NAME, DATA_TYPE,\n" +
-                "  ATTR_TYPE_NAME, ATTR_SIZE, DECIMAL_DIGITS, NUM_PREC_RADIX, NULLABLE,\n" +
-                "  REMARKS, ATTR_DEF, SQL_DATA_TYPE, SQL_DATETIME_SUB, CHAR_OCTET_LENGTH,\n" +
-                "  ORDINAL_POSITION, IS_NULLABLE, SCOPE_CATALOG, SCOPE_SCHEMA, SCOPE_TABLE,\n" +
-                "SOURCE_DATA_TYPE\n" +
+        String typeCat = quoted("TYPE_CAT");
+        String typeSchem = quoted("TYPE_SCHEM");
+        String typeName = quoted("TYPE_NAME");
+        String ordinalPosition = quoted("ORDINAL_POSITION");
+        String query = "SELECT " + typeCat + ", " + typeSchem + ", " + typeName + ", " + quoted("ATTR_NAME") + ", " + quoted("DATA_TYPE") + ",\n" +
+                quoted("ATTR_TYPE_NAME") + ", " + quoted("ATTR_SIZE") + ", " + quoted("DECIMAL_DIGITS") + ", " + quoted("NUM_PREC_RADIX") + ", " + quoted("NULLABLE") + ",\n" +
+                quoted("REMARKS") + ", " + quoted("ATTR_DEF") + ", " + quoted("SQL_DATA_TYPE") + ", " + quoted("SQL_DATETIME_SUB") + ", " + quoted("CHAR_OCTET_LENGTH") + ",\n" +
+                ordinalPosition + ", " + quoted("IS_NULLABLE") + ", " + quoted("SCOPE_CATALOG") + ", " + quoted("SCOPE_SCHEMA") + ", " + quoted("SCOPE_TABLE") + ",\n" +
+                quoted("SOURCE_DATA_TYPE") + "\n" +
                 "FROM system.jdbc.attributes\n" +
-                "ORDER BY TYPE_CAT, TYPE_SCHEM, TYPE_NAME, ORDINAL_POSITION");
+                "ORDER BY " + typeCat + ", " + typeSchem + ", " + typeName + ", " + ordinalPosition;
+        return selectEmpty(query);
     }
 
     @Override
@@ -1394,17 +1458,20 @@ public class TrinoDatabaseMetaData
     public ResultSet getSchemas(String catalog, String schemaPattern)
             throws SQLException
     {
+        String tableSchem = quoted("TABLE_SCHEM");
+        String tableCatalog = quoted("TABLE_CATALOG");
         schemaPattern = escapeIfNecessary(schemaPattern);
-        StringBuilder query = new StringBuilder("" +
-                "SELECT TABLE_SCHEM, TABLE_CATALOG\n" +
-                "FROM system.jdbc.schemas");
+
+        StringBuilder query = new StringBuilder();
+        query.append("SELECT ").append(tableSchem).append(", ").append(tableCatalog);
+        query.append("\nFROM system.jdbc.schemas");
 
         List<String> filters = new ArrayList<>();
-        emptyStringEqualsFilter(filters, "TABLE_CATALOG", effectiveCatalog(catalog));
-        optionalStringLikeFilter(filters, "TABLE_SCHEM", schemaPattern);
+        emptyStringEqualsFilter(filters, tableCatalog, effectiveCatalog(catalog));
+        optionalStringLikeFilter(filters, tableSchem, schemaPattern);
         buildFilters(query, filters);
 
-        query.append("\nORDER BY TABLE_CATALOG, TABLE_SCHEM");
+        query.append("\nORDER BY ").append(tableCatalog).append(", ").append(tableSchem);
 
         return select(query.toString());
     }
@@ -1476,12 +1543,18 @@ public class TrinoDatabaseMetaData
         schemaPattern = escapeIfNecessary(schemaPattern);
         tableNamePattern = escapeIfNecessary(tableNamePattern);
         columnNamePattern = escapeIfNecessary(columnNamePattern);
-        return selectEmpty("" +
-                "SELECT TABLE_CAT, TABLE_SCHEM, TABLE_NAME, COLUMN_NAME, DATA_TYPE,\n" +
-                "  COLUMN_SIZE, DECIMAL_DIGITS, NUM_PREC_RADIX, COLUMN_USAGE, REMARKS,\n" +
-                "  CHAR_OCTET_LENGTH, IS_NULLABLE\n" +
+        String tableCat = quoted("TABLE_CAT");
+        String tableSchem = quoted("TABLE_SCHEM");
+        String tableName = quoted("TABLE_NAME");
+        String columnName = quoted("COLUMN_NAME");
+        String query = "SELECT " + tableCat + ", " + tableSchem + ", " + tableName + ", " +
+                columnName + ", " + quoted("DATA_TYPE") + ",\n" +
+                quoted("COLUMN_SIZE") + ", " + quoted("DECIMAL_DIGITS") + ", " +
+                quoted("NUM_PREC_RADIX") + ", " + quoted("COLUMN_USAGE") + ", " + quoted("REMARKS") + ",\n" +
+                quoted("CHAR_OCTET_LENGTH") + ", " + quoted("IS_NULLABLE") + "\n" +
                 "FROM system.jdbc.pseudo_columns\n" +
-                "ORDER BY TABLE_CAT, table_SCHEM, TABLE_NAME, COLUMN_NAME");
+                "ORDER BY " + tableCat + ", " + tableSchem + ", " + tableName + ", " + columnName;
+        return selectEmpty(query);
     }
 
     @Override
@@ -1655,6 +1728,11 @@ public class TrinoDatabaseMetaData
             }
         }
         out.append('\'');
+    }
+
+    private static String quoted(String columnName)
+    {
+        return '"' + columnName + '"';
     }
 
     private String effectiveCatalog(String catalog)

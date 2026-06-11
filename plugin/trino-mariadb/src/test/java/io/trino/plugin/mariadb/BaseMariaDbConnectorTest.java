@@ -27,7 +27,9 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NATIVE_QUERY;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -94,6 +96,27 @@ public abstract class BaseMariaDbConnectorTest
     public void testShowColumns()
     {
         assertThat(query("SHOW COLUMNS FROM orders")).result().matches(getDescribeOrdersResult());
+    }
+
+    @Test
+    @Override
+    public void testNativeQueryColumnAlias()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
+        // The output column type may differ per connector. Skipping the check because it's unrelated to the test purpose.
+        assertThat(query(format("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region WHERE regionkey = 0'))", getSession().getSchema().orElseThrow())))
+                .skippingTypesCheck()
+                .matches("VALUES 'AFRICA'");
+    }
+
+    @Test
+    @Override
+    public void testNativeQuerySelectFromNation()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
+        assertQuery(
+                format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))", getSession().getSchema().orElseThrow()),
+                "VALUES 'ALGERIA'");
     }
 
     @Override
@@ -168,7 +191,7 @@ public abstract class BaseMariaDbConnectorTest
     public void testViews()
     {
         onRemoteDatabase().execute("CREATE OR REPLACE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
-        assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
+        assertQuery("SELECT orderkey FROM test_view", "SELECT \"orderkey\" FROM \"orders\"");
         onRemoteDatabase().execute("DROP VIEW IF EXISTS tpch.test_view");
     }
 
@@ -320,6 +343,19 @@ public abstract class BaseMariaDbConnectorTest
         }
     }
 
+    @Test
+    @Override
+    public void testNativeQueryColumnAliasNotFound()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
+        assertQueryFails(
+                format("SELECT name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region'))", getSession().getSchema().orElseThrow()),
+                ".* Column 'name' cannot be resolved, available candidates are: 'region_name'");
+        assertQueryFails(
+                format("SELECT column_not_found FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region'))", getSession().getSchema().orElseThrow()),
+                ".* Column 'column_not_found' cannot be resolved, available candidates are: 'region_name'");
+    }
+
     @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
@@ -372,5 +408,17 @@ public abstract class BaseMariaDbConnectorTest
     protected void verifyColumnNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching("(.*Identifier name '.*' is too long|.*Incorrect column name.*)");
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
+    protected String compareColumn(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 }

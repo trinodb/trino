@@ -46,7 +46,6 @@ public class TestPartitionFields
     {
         assertParse("order_key", partitionSpec(builder -> builder.identity("order_key")));
         assertParse("comment", partitionSpec(builder -> builder.identity("comment")));
-        assertParse("COMMENT", partitionSpec(builder -> builder.identity("comment")), "comment");
         assertParse("year(ts)", partitionSpec(builder -> builder.year("ts")));
         assertParse("month(ts)", partitionSpec(builder -> builder.month("ts")));
         assertParse("day(ts)", partitionSpec(builder -> builder.day("ts")));
@@ -90,15 +89,15 @@ public class TestPartitionFields
         assertParse("truncate(\"nested.nested.value\", 13)", partitionSpec(builder -> builder.truncate("nested.nested.value", 13)));
         assertParse("bucket(\"nested.nested.value\", 42)", partitionSpec(builder -> builder.bucket("nested.nested.value", 42)));
         assertParse("void(\"nested.nested.value\")", partitionSpec(builder -> builder.alwaysNull("nested.nested.value")));
-        assertParse("\"MixedTs\"", partitionSpec(builder -> builder.identity("MixedTs")));
+        assertParse("MixedTs", partitionSpec(builder -> builder.identity("MixedTs")));
         assertParse("\"MixedNested.MixedValue\"", partitionSpec(builder -> builder.identity("MixedNested.MixedValue")));
-        assertParse("year(\"MixedTs\")", partitionSpec(builder -> builder.year("MixedTs")));
-        assertParse("month(\"MixedTs\")", partitionSpec(builder -> builder.month("MixedTs")));
-        assertParse("day(\"MixedTs\")", partitionSpec(builder -> builder.day("MixedTs")));
-        assertParse("hour(\"MixedTs\")", partitionSpec(builder -> builder.hour("MixedTs")));
-        assertParse("bucket(\"MixedTs\", 42)", partitionSpec(builder -> builder.bucket("MixedTs", 42)));
-        assertParse("truncate(\"MixedString\", 13)", partitionSpec(builder -> builder.truncate("MixedString", 13)));
-        assertParse("void(\"MixedString\")", partitionSpec(builder -> builder.alwaysNull("MixedString")));
+        assertParse("year(MixedTs)", partitionSpec(builder -> builder.year("MixedTs")));
+        assertParse("month(MixedTs)", partitionSpec(builder -> builder.month("MixedTs")));
+        assertParse("day(MixedTs)", partitionSpec(builder -> builder.day("MixedTs")));
+        assertParse("hour(MixedTs)", partitionSpec(builder -> builder.hour("MixedTs")));
+        assertParse("bucket(MixedTs, 42)", partitionSpec(builder -> builder.bucket("MixedTs", 42)));
+        assertParse("truncate(MixedString, 13)", partitionSpec(builder -> builder.truncate("MixedString", 13)));
+        assertParse("void(MixedString)", partitionSpec(builder -> builder.alwaysNull("MixedString")));
 
         assertInvalid("bucket()", "Invalid partition field declaration: bucket()");
         assertInvalid(".nested", "Invalid partition field declaration: .nested");
@@ -112,9 +111,9 @@ public class TestPartitionFields
         assertInvalid("\"test with space\"", "Cannot find source column: test with space");
         assertInvalid("\"test \"with space\"", "Invalid partition field declaration: \"test \"with space\"");
         assertInvalid("\"test \"\"\"with space\"", "Invalid partition field declaration: \"test \"\"\"with space\"");
-        assertInvalid("ABC", "Cannot find source column: abc");
+        assertInvalid("ABC", "Cannot find source column: ABC");
         assertInvalid("\"ABC\"", "Cannot find source column: ABC");
-        assertInvalid("year(ABC)", "Cannot find source column: abc");
+        assertInvalid("year(ABC)", "Cannot find source column: ABC");
         assertInvalid("bucket(\"ABC\", 12)", "Cannot find source column: ABC");
         assertInvalid("\"nested.list\"", "Cannot partition by non-primitive source field: list<string>");
     }

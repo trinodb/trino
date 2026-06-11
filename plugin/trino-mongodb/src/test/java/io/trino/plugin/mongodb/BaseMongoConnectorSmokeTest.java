@@ -39,6 +39,12 @@ public abstract class BaseMongoConnectorSmokeTest
         };
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testProjectionPushdown()
     {

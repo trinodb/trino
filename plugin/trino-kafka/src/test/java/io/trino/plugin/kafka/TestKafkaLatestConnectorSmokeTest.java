@@ -53,6 +53,12 @@ public class TestKafkaLatestConnectorSmokeTest
     }
 
     @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     @Test
     public void testInsert()
     {

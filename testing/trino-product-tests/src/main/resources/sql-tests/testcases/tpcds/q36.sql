@@ -1,17 +1,17 @@
 -- database: trino_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 SELECT
-  ("sum"("ss_net_profit") / "sum"("ss_ext_sales_price")) "gross_margin"
+  (sum("ss_net_profit") / sum("ss_ext_sales_price")) "gross_margin"
 , "i_category"
 , "i_class"
 , (GROUPING ("i_category") + GROUPING ("i_class")) "lochierarchy"
-, "rank"() OVER (PARTITION BY (GROUPING ("i_category") + GROUPING ("i_class")), (CASE WHEN (GROUPING ("i_class") = 0) THEN "i_category" END) ORDER BY ("sum"("ss_net_profit") / "sum"("ss_ext_sales_price")) ASC) "rank_within_parent"
+, "rank"() OVER (PARTITION BY (GROUPING ("i_category") + GROUPING ("i_class")), (CASE WHEN (GROUPING ("i_class") = 0) THEN "i_category" END) ORDER BY (sum("ss_net_profit") / sum("ss_ext_sales_price")) ASC) "rank_within_parent"
 FROM
   store_sales
 , date_dim d1
 , item
 , store
-WHERE ("d1"."d_year" = 2001)
-   AND ("d1"."d_date_sk" = "ss_sold_date_sk")
+WHERE (d1."d_year" = 2001)
+   AND (d1."d_date_sk" = "ss_sold_date_sk")
    AND ("i_item_sk" = "ss_item_sk")
    AND ("s_store_sk" = "ss_store_sk")
    AND ("s_state" IN (

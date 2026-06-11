@@ -39,7 +39,6 @@ import static io.trino.plugin.pinot.MetadataUtil.BROKER_RESPONSE_NATIVE_JSON_COD
 import static io.trino.plugin.pinot.MetadataUtil.TABLES_JSON_CODEC;
 import static io.trino.plugin.pinot.MetadataUtil.TEST_TABLE;
 import static io.trino.plugin.pinot.MetadataUtil.TIME_BOUNDARY_JSON_CODEC;
-import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.stream.Collectors.toList;
 
@@ -95,11 +94,11 @@ public class MockPinotClient
     public Multimap<String, String> getAllTables()
     {
         return ImmutableListMultimap.<String, String>builder()
-                .put(TestPinotSplitManager.realtimeOnlyTable.tableName().toLowerCase(ENGLISH), TestPinotSplitManager.realtimeOnlyTable.tableName())
-                .put(TestPinotSplitManager.hybridTable.tableName().toLowerCase(ENGLISH), TestPinotSplitManager.hybridTable.tableName())
-                .put(TEST_TABLE.toLowerCase(ENGLISH), TEST_TABLE)
+                .put(TestPinotSplitManager.realtimeOnlyTable.tableName(), TestPinotSplitManager.realtimeOnlyTable.tableName())
+                .put(TestPinotSplitManager.hybridTable.tableName(), TestPinotSplitManager.hybridTable.tableName())
+                .put(TEST_TABLE, TEST_TABLE)
                 .putAll(metadata.keySet().stream()
-                        .map(key -> new AbstractMap.SimpleEntry<>(key.toLowerCase(ENGLISH), key))
+                        .map(key -> new AbstractMap.SimpleEntry<>(key, key))
                         .collect(toList()))
                 .build();
     }

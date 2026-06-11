@@ -58,4 +58,10 @@ final class TestRedisTlsConnectorSmokeTest
             default -> super.hasBehavior(connectorBehavior);
         };
     }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
 }

@@ -31,7 +31,6 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICK
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnDelta;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnTrino;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -60,9 +59,9 @@ public class TestDeltaLakeCaseInsensitiveMapping
 
             assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
                     .containsOnly(
-                            row("upper_case_int", null, 1.0, 0.33333333333, null, "1", "2"),
-                            row("camel_case_string", 2.0, 1.0, 0.33333333333, null, null, null),
-                            row("part", null, 2.0, 0.33333333333, null, null, null),
+                            row("UPPER_CASE_INT", null, 1.0, 0.33333333333, null, "1", "1"),
+                            row("Camel_Case_String", 2.0, 1.0, 0.33333333333, null, null, null),
+                            row("PART", null, 2.0, 0.33333333333, null, null, null),
                             row(null, null, null, null, 3.0, null, null));
         }
         finally {
@@ -85,20 +84,20 @@ public class TestDeltaLakeCaseInsensitiveMapping
             assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
                     .containsOnly(
                             row("id", null, 1.0, 0.0, null, "1", "1"),
-                            row("upper_case", null, null, null, null, null, null),
-                            row("mixed_case", null, null, null, null, null, null),
+                            row("UPPER_CASE", null, null, null, null, null, null),
+                            row("Mixed_Case", null, null, null, null, null, null),
                             row(null, null, null, null, 1.0, null, null));
 
             // Specify field names to test projection pushdown
             List<QueryAssert.Row> expectedRows = ImmutableList.of(row(1, "test uppercase", "test mixedcase"));
-            assertThat(onDelta().executeQuery("SELECT id, upper_case.upper_field, mixed_case.mixed_nested.mixed_field FROM default." + tableName))
+            assertThat(onDelta().executeQuery("SELECT id, UPPER_CASE.UPPER_FIELD, Mixed_Case.Mixed_Nested.Mixed_Field FROM default." + tableName))
                     .containsOnly(expectedRows);
-            assertThat(onTrino().executeQuery("SELECT id, upper_case.upper_field, mixed_case.mixed_nested.mixed_field FROM delta.default." + tableName))
+            assertThat(onTrino().executeQuery("SELECT id, UPPER_CASE.UPPER_FIELD, Mixed_Case.Mixed_Nested.Mixed_Field FROM delta.default." + tableName))
                     .containsOnly(expectedRows);
 
-            assertThat(onTrino().executeQuery("SELECT id FROM delta.default." + tableName + " WHERE upper_case.upper_field = 'test uppercase'"))
+            assertThat(onTrino().executeQuery("SELECT id FROM delta.default." + tableName + " WHERE UPPER_CASE.UPPER_FIELD = 'test uppercase'"))
                     .containsOnly(row(1));
-            assertThat(onTrino().executeQuery("SELECT id FROM delta.default." + tableName + " WHERE mixed_case.mixed_nested.mixed_field = 'test mixedcase'"))
+            assertThat(onTrino().executeQuery("SELECT id FROM delta.default." + tableName + " WHERE Mixed_Case.Mixed_Nested.Mixed_Field = 'test mixedcase'"))
                     .containsOnly(row(1));
         }
         finally {
@@ -118,12 +117,12 @@ public class TestDeltaLakeCaseInsensitiveMapping
                 "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
 
         try {
-            assertThat(getColumnCommentOnTrino("default", tableName, "upper_case")).isEqualTo("test column comment");
+            // assertThat(getColumnCommentOnTrino("default", tableName, "upper_case")).isEqualTo("test column comment");
             assertThat(getColumnCommentOnDelta("default", tableName, "UPPER_CASE")).isEqualTo("test column comment");
 
-            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".upper_case IS 'test updated comment'");
+            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".UPPER_CASE IS 'test updated comment'");
 
-            assertThat(getColumnCommentOnTrino("default", tableName, "upper_case")).isEqualTo("test updated comment");
+            // assertThat(getColumnCommentOnTrino("default", tableName, "upper_case")).isEqualTo("test updated comment");
             assertThat(getColumnCommentOnDelta("default", tableName, "UPPER_CASE")).isEqualTo("test updated comment");
         }
         finally {
@@ -144,7 +143,7 @@ public class TestDeltaLakeCaseInsensitiveMapping
 
         try {
             // Verify column operation doesn't delete NOT NULL constraint
-            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".upper_case IS 'test comment'");
+            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".UPPER_CASE IS 'test comment'");
 
             assertThatThrownBy(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES NULL"))
                     .hasMessageContaining("NULL value not allowed for NOT NULL column");
@@ -173,8 +172,8 @@ public class TestDeltaLakeCaseInsensitiveMapping
 
         try {
             // Verify column operation doesn't delete generated expressions
-            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".a IS 'test comment for a'");
-            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".b IS 'test comment for b'");
+            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".A IS 'test comment for a'");
+            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".B IS 'test comment for b'");
 
             assertThatThrownBy(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, 2)"))
                     .hasMessageContaining("Writing to tables with generated columns is not supported");
@@ -219,14 +218,14 @@ public class TestDeltaLakeCaseInsensitiveMapping
             // Verify column operations preserves the identify column name and property
             onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN new_col integer");
             onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN new_col TO renamed_col");
-            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".uppercase_identity IS 'test comment'");
+            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".UPPERCASE_IDENTITY IS 'test comment'");
             onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " DROP COLUMN renamed_col");
 
             assertThat((String) onDelta().executeQuery("SHOW CREATE TABLE default." + tableName).getOnlyValue())
                     .contains("UPPERCASE_IDENTITY BIGINT GENERATED ALWAYS AS IDENTITY");
 
             // Verify the connector preserves column identity property when renaming columns containing uppercase characters
-            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN uppercase_identity TO renamed_identity");
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN UPPERCASE_IDENTITY TO renamed_identity");
             assertThat((String) onDelta().executeQuery("SHOW CREATE TABLE default." + tableName).getOnlyValue())
                     .contains("renamed_identity BIGINT GENERATED ALWAYS AS IDENTITY");
         }

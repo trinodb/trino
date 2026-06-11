@@ -51,6 +51,12 @@ public abstract class BaseMongoFailureRecoveryTest
                 .build();
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     @Override
     protected void testAnalyzeTable()

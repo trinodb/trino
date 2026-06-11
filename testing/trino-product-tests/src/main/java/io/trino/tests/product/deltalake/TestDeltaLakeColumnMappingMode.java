@@ -330,13 +330,13 @@ public class TestDeltaLakeColumnMappingMode
 
             assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
                     .containsOnly(ImmutableList.of(
-                            row("mixed_case", null, null, 0.0, null, "0", "9"),
+                            row("mIxEd_CaSe", null, null, 0.0, null, "0", "9"),
                             row(null, null, null, null, 2.0, null, null)));
 
             // Verify column comments
-            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".mixed_case IS 'test column comment'");
-            assertThat(getColumnCommentOnTrino("default", tableName, "mixed_case")).isEqualTo("test column comment");
-            assertThat(getColumnCommentOnDelta("default", tableName, "mixed_case")).isEqualTo("test column comment");
+            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".mIxEd_CaSe IS 'test column comment'");
+            assertThat(getColumnCommentOnTrino("default", tableName, "mIxEd_CaSe")).isEqualTo("test column comment");
+            assertThat(getColumnCommentOnDelta("default", tableName, "mIxEd_CaSe")).isEqualTo("test column comment");
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
@@ -1041,32 +1041,32 @@ public class TestDeltaLakeColumnMappingMode
             onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, 10, 'part#1')");
             assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
                     .containsOnly(ImmutableList.of(
-                            row("upper_id", null, 1.0, 0.0, null, "1", "1"),
-                            row("upper_data", null, 1.0, 0.0, null, "10", "10"),
-                            row("upper_part", null, 1.0, 0.0, null, null, null),
+                            row("UPPER_ID", null, 1.0, 0.0, null, "1", "1"),
+                            row("UPPER_DATA", null, 1.0, 0.0, null, "10", "10"),
+                            row("UPPER_PART", null, 1.0, 0.0, null, null, null),
                             row(null, null, null, null, 1.0, null, null)));
 
-            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " DROP COLUMN upper_data");
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " DROP COLUMN UPPER_DATA");
             assertThat(getColumnNamesOnDelta("default", tableName))
                     .containsExactly("UPPER_ID", "UPPER_PART");
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
                     .containsOnly(row(1, "part#1"));
             assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
                     .containsOnly(ImmutableList.of(
-                            row("upper_id", null, 1.0, 0.0, null, "1", "1"),
-                            row("upper_part", null, 1.0, 0.0, null, null, null),
+                            row("UPPER_ID", null, 1.0, 0.0, null, "1", "1"),
+                            row("UPPER_PART", null, 1.0, 0.0, null, null, null),
                             row(null, null, null, null, 1.0, null, null)));
 
-            assertThatThrownBy(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " DROP COLUMN upper_part"))
+            assertThatThrownBy(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " DROP COLUMN UPPER_PART"))
                     .hasMessageContaining("Cannot drop partition column");
 
             // Verify adding a column with the same name doesn't restore the old statistics
             onDelta().executeQuery("ALTER TABLE default." + tableName + " ADD COLUMN UPPER_DATA INT");
             assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
                     .containsOnly(ImmutableList.of(
-                            row("upper_id", null, 1.0, 0.0, null, "1", "1"),
-                            row("upper_data", null, null, null, null, null, null),
-                            row("upper_part", null, 1.0, 0.0, null, null, null),
+                            row("UPPER_ID", null, 1.0, 0.0, null, "1", "1"),
+                            row("UPPER_DATA", null, null, null, null, null, null),
+                            row("UPPER_PART", null, 1.0, 0.0, null, null, null),
                             row(null, null, null, null, 1.0, null, null)));
         }
         finally {
@@ -1162,21 +1162,21 @@ public class TestDeltaLakeColumnMappingMode
             onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, 2)");
             assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
                     .containsOnly(
-                            row("upper_col", null, 1.0, 0.0, null, "1", "1"),
-                            row("upper_part", null, 1.0, 0.0, null, null, null),
+                            row("UPPER_COL", null, 1.0, 0.0, null, "1", "1"),
+                            row("UPPER_PART", null, 1.0, 0.0, null, null, null),
                             row(null, null, null, null, 1.0, null, null));
 
             assertThat(getColumnNamesOnDelta("default", tableName))
                     .containsExactly("UPPER_COL", "UPPER_PART");
 
-            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN upper_col TO new_col");
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN UPPER_COL TO new_col");
             assertThat(getColumnNamesOnDelta("default", tableName))
                     .containsExactly("new_col", "UPPER_PART");
             assertThat(getColumnCommentOnDelta("default", tableName, "new_col")).isEqualTo("test comment");
             assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " (new_col) VALUES NULL"))
                     .hasMessageContaining("NULL value not allowed for NOT NULL column: new_col");
 
-            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN upper_part TO new_part");
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN UPPER_PART TO new_part");
             assertThat(getColumnNamesOnDelta("default", tableName))
                     .containsExactly("new_col", "new_part");
 

@@ -95,7 +95,6 @@ import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_BROKER;
 import static io.trino.plugin.pinot.PinotMetadata.SCHEMA_NAME;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
 import static java.util.stream.Collectors.joining;
@@ -276,7 +275,7 @@ public class PinotClient
         List<String> allTables = sendHttpGetToControllerJson(GET_ALL_TABLES_API_TEMPLATE, tablesJsonCodec).getTables();
         ImmutableListMultimap.Builder<String, String> builder = ImmutableListMultimap.builder();
         for (String table : allTables) {
-            builder.put(table.toLowerCase(ENGLISH), table);
+            builder.put(table, table);
         }
         return builder.build();
     }
@@ -308,7 +307,7 @@ public class PinotClient
 
     public String getPinotTableNameFromTrinoTableNameIfExists(String trinoTableName)
     {
-        Collection<String> candidates = getFromCache(allTablesCache, ALL_TABLES_CACHE_KEY).get(trinoTableName.toLowerCase(ENGLISH));
+        Collection<String> candidates = getFromCache(allTablesCache, ALL_TABLES_CACHE_KEY).get(trinoTableName);
         if (candidates.isEmpty()) {
             return null;
         }
@@ -611,11 +610,11 @@ public class PinotClient
         Map<String, Integer> columnIndices = IntStream.range(0, columnNames.length)
                 .boxed()
                 // Pinot lower cases column names which use aggregate functions, ex. min(my_Col) becomes min(my_col)
-                .collect(toImmutableMap(i -> columnNames[i].toLowerCase(ENGLISH), identity()));
+                .collect(toImmutableMap(i -> columnNames[i], identity()));
         int[] indices = new int[columnNames.length];
         int[] inverseIndices = new int[columnNames.length];
         for (int i = 0; i < columnHandles.size(); i++) {
-            String columnName = columnHandles.get(i).getColumnName().toLowerCase(ENGLISH);
+            String columnName = columnHandles.get(i).getColumnName();
             indices[i] = requireNonNull(columnIndices.get(columnName), format("column index for '%s' was not found", columnName));
             inverseIndices[indices[i]] = i;
         }

@@ -371,7 +371,7 @@ public class TestHiveBucketedTables
                     .hasRowsCount(1);
 
             assertQueryFailure(() -> onTrino().executeQuery("SELECT \"$bucket\" FROM " + tableName))
-                    .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:8: Column '$bucket' cannot be resolved");
+                    .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:8: Column '$bucket' cannot be resolved, available candidates are: \\E.*");
 
             assertQueryFailure(() -> onTrino().executeQuery(format("INSERT INTO %s(n_integer) VALUES (1)", tableName)))
                     .hasMessageMatching("Query failed \\(#\\w+\\): Cannot write to a table bucketed on an unsupported type");

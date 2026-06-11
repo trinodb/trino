@@ -32,6 +32,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NATIVE_QUERY;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -77,6 +78,18 @@ final class TestDuckDbConnectorTest
 
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
+    protected String compareColumn(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Override

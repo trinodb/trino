@@ -188,6 +188,12 @@ public class BigQueryMetadata
     }
 
     @Override
+    public String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
+    @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return listRemoteSchemaNames(session).stream()

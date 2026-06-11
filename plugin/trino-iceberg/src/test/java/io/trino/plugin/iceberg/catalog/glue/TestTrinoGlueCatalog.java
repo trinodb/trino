@@ -152,7 +152,7 @@ public class TestTrinoGlueCatalog
         try {
             TrinoCatalog catalog = createTrinoCatalog(false);
             assertThat(catalog.namespaceExists(SESSION, databaseName)).as("catalog.namespaceExists(databaseName)")
-                    .isFalse();
+                    .isTrue();
             assertThat(catalog.namespaceExists(SESSION, trinoSchemaName)).as("catalog.namespaceExists(trinoSchemaName)")
                     .isTrue();
             assertThat(catalog.listNamespaces(SESSION)).as("catalog.listNamespaces")
@@ -183,7 +183,7 @@ public class TestTrinoGlueCatalog
                     ZERO,
                     ConnectorExpressionEvaluator.NO_OP);
             assertThat(icebergMetadata.schemaExists(SESSION, databaseName)).as("icebergMetadata.schemaExists(databaseName)")
-                    .isFalse();
+                    .isTrue();
             assertThat(icebergMetadata.schemaExists(SESSION, trinoSchemaName)).as("icebergMetadata.schemaExists(trinoSchemaName)")
                     .isTrue();
             assertThat(icebergMetadata.listSchemaNames(SESSION)).as("icebergMetadata.listSchemaNames")

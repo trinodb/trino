@@ -45,6 +45,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.time.ZoneOffset.UTC;
+import static java.util.Locale.ENGLISH;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -92,6 +93,18 @@ final class TestDuckDbTypeMapping
     {
         duckDb = closeAfterClass(new TestingDuckDb());
         return DuckDbQueryRunner.builder(duckDb).build();
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
+    protected String compareColumn(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Test
@@ -302,7 +315,7 @@ final class TestDuckDbTypeMapping
 
     private DataSetup duckDbCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(duckDb.getSqlExecutor(), TPCH_SCHEMA + "." + tableNamePrefix);
+        return new CreateAndInsertDataSetup(duckDb.getSqlExecutor(), TPCH_SCHEMA + "." + tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup trinoCreateAsSelect(String tableNamePrefix)
@@ -312,12 +325,12 @@ final class TestDuckDbTypeMapping
 
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup trinoCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix, this::canonicalize);
     }
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)

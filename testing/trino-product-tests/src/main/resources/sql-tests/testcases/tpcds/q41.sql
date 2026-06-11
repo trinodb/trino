@@ -4,10 +4,10 @@ FROM
   item i1
 WHERE ("i_manufact_id" BETWEEN 738 AND (738 + 40))
    AND ((
-      SELECT "count"(*) "item_cnt"
+      SELECT count(*) "item_cnt"
       FROM
         item
-      WHERE (("i_manufact" = "i1"."i_manufact")
+      WHERE (("i_manufact" = i1."i_manufact")
             AND ((("i_category" = 'Women')
                   AND (("i_color" = 'powder')
                      OR ("i_color" = 'khaki'))
@@ -36,7 +36,7 @@ WHERE ("i_manufact_id" BETWEEN 738 AND (738 + 40))
                      OR ("i_units" = 'Pound'))
                   AND (("i_size" = 'medium')
                      OR ("i_size" = 'extra large')))))
-         OR (("i_manufact" = "i1"."i_manufact")
+         OR (("i_manufact" = i1."i_manufact")
             AND ((("i_category" = 'Women')
                   AND (("i_color" = 'midnight')
                      OR ("i_color" = 'snow'))

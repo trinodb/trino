@@ -52,6 +52,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.ignite.IgniteClient.IGNITE_SCHEMA;
 import static io.trino.plugin.jdbc.JdbcMetadata.getColumns;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
@@ -82,7 +83,7 @@ public class IgniteMetadata
                 .map(JdbcNamedRelationHandle::getRemoteTableName)
                 .map(remoteTableName -> new JdbcTableHandle(
                         schemaTableName,
-                        new RemoteTableName(remoteTableName.getCatalogName(), Optional.of(remoteTableName.getSchemaName().orElse("public")), remoteTableName.getTableName()),
+                        new RemoteTableName(remoteTableName.getCatalogName(), Optional.of(remoteTableName.getSchemaName().orElse(IGNITE_SCHEMA)), remoteTableName.getTableName()),
                         Optional.empty()))
                 .orElse(null);
     }
