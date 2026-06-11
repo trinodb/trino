@@ -22,9 +22,9 @@ import java.util.Map;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
-public class WebUiPreviewQueryRunner
+public class WebUiQueryRunner
 {
-    private WebUiPreviewQueryRunner() {}
+    private WebUiQueryRunner() {}
 
     public static Builder builder()
     {
@@ -72,16 +72,14 @@ public class WebUiPreviewQueryRunner
             throws Exception
     {
         DistributedQueryRunner queryRunner = builder()
-                .addCoordinatorProperty("web-ui.preview.enabled", "true")
                 .addCoordinatorProperty("http-server.http.port", "8080")
                 .addCoordinatorProperty("web-ui.authentication.type", "fixed")
-                .addCoordinatorProperty("web-ui.user", "webapp-preview-user")
+                .addCoordinatorProperty("web-ui.user", "webapp-user")
                 .withProtocolSpooling("json")
                 .build();
 
-        Logger log = Logger.get(WebUiPreviewQueryRunner.class);
+        Logger log = Logger.get(WebUiQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
-        log.info("\n====\nPreview UI %s/ui/preview\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }

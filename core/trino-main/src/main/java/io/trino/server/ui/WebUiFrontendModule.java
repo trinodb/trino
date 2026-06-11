@@ -23,18 +23,17 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static java.util.Locale.ENGLISH;
 
-public class WebUiPreviewModule
+public class WebUiFrontendModule
         extends AbstractConfigurationAwareModule
 {
     @Override
     protected void setup(Binder binder)
     {
-        jaxrsBinder(binder).bind(WebUiPreviewStaticResource.class);
         String authentication = getAuthenticationType();
         switch (authentication) {
-            case "insecure", "form", "jwt", "kerberos", "certificate" -> jaxrsBinder(binder).bind(LoginPreviewResource.class);
-            case "fixed" -> jaxrsBinder(binder).bind(FixedUserPreviewResource.class);
-            case "oauth2" -> jaxrsBinder(binder).bind(OAuth2WebUiPreviewResource.class);
+            case "insecure", "form", "jwt", "kerberos", "certificate" -> jaxrsBinder(binder).bind(LoginResource.class);
+            case "fixed" -> jaxrsBinder(binder).bind(FixedUserResource.class);
+            case "oauth2" -> jaxrsBinder(binder).bind(OAuth2WebUiResource.class);
             case "none" -> {}
             default -> throw new IllegalArgumentException("Unknown authentication type: " + authentication);
         }

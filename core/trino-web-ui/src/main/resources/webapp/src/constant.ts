@@ -53,7 +53,6 @@ export const Texts = {
             Settings: 'Settings',
             Profile: 'Profile',
             Logout: 'Logout',
-            ClassicUi: 'Classic UI',
         },
         Drawer: {
             Dashboard: 'Dashboard',

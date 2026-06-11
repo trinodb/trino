@@ -39,7 +39,7 @@ import static io.airlift.http.server.HttpServer.ClientCertificate.REQUESTED;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public class WebUiAuthenticationModule
+public class WebUiLegacyAuthenticationModule
         extends AbstractConfigurationAwareModule
 {
     @Override
@@ -47,10 +47,10 @@ public class WebUiAuthenticationModule
     {
         configBinder(binder).bindConfig(WebUiAuthenticationConfig.class);
 
-        installWebUiAuthenticator("insecure", new FormUiAuthenticatorModule(false));
-        installWebUiAuthenticator("form", new FormUiAuthenticatorModule(true));
-        installWebUiAuthenticator("fixed", new FixedUiAuthenticatorModule());
-        installWebUiAuthenticator("oauth2", new OAuth2WebUiModule());
+        installWebUiAuthenticator("insecure", new FormUiLegacyAuthenticatorModule(false));
+        installWebUiAuthenticator("form", new FormUiLegacyAuthenticatorModule(true));
+        installWebUiAuthenticator("fixed", new FixedUiLegacyAuthenticatorModule());
+        installWebUiAuthenticator("oauth2", new OAuth2WebUiLegacyModule());
 
         install(webUiAuthenticator("certificate", CertificateAuthenticator.class, certificateBinder -> {
             newOptionalBinder(certificateBinder, ClientCertificate.class).setBinding().toInstance(REQUESTED);
@@ -79,7 +79,7 @@ public class WebUiAuthenticationModule
     {
         checkArgument(name.toLowerCase(ENGLISH).equals(name), "name is not lower case: %s", name);
         Module authModule = binder -> {
-            binder.install(new FormUiAuthenticatorModule(false));
+            binder.install(new FormUiLegacyAuthenticatorModule(false));
             newOptionalBinder(binder, Key.get(Authenticator.class, ForWebUi.class)).setBinding().to(clazz).in(SINGLETON);
         };
         return webUiAuthenticator(name, combine(module, authModule));

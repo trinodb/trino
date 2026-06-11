@@ -25,12 +25,12 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 
-public class FormUiAuthenticatorModule
+public class FormUiLegacyAuthenticatorModule
         implements Module
 {
     private final boolean usePasswordManager;
 
-    public FormUiAuthenticatorModule(boolean usePasswordManager)
+    public FormUiLegacyAuthenticatorModule(boolean usePasswordManager)
     {
         this.usePasswordManager = usePasswordManager;
     }
@@ -49,7 +49,7 @@ public class FormUiAuthenticatorModule
             binder.bind(FormAuthenticator.class).to(InsecureFormAuthenticator.class).in(SINGLETON);
         }
         configBinder(binder).bindConfig(FormWebUiConfig.class);
-        jaxrsBinder(binder).bind(LoginResource.class);
+        jaxrsBinder(binder).bind(LoginLegacyResource.class);
         newOptionalBinder(binder, Key.get(Authenticator.class, ForWebUi.class));
     }
 }

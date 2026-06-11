@@ -23,13 +23,13 @@ export interface AuthInfo {
 export type Empty = object
 
 export async function authInfoApi(): Promise<ApiResponse<AuthInfo>> {
-    return api.get('/ui/preview/auth/info')
+    return api.get('/ui/auth/info')
 }
 
 export async function loginApi(body: Record<string, string>): Promise<ApiResponse<Empty>> {
-    return api.post('/ui/preview/auth/login', body)
+    return api.post('/ui/auth/login', body)
 }
 
 export async function logoutApi(): Promise<ApiResponse<Empty>> {
-    return api.get('/ui/preview/auth/logout')
+    return api.get('/ui/auth/logout')
 }
