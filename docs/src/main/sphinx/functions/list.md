@@ -143,6 +143,7 @@
 - {func}`e`
 - {func}`element_at`
 - {func}`empty_approx_set`
+- {func}`ends_with`
 - `evaluate_classifier_predictions`
 - {func}`every`
 - {func}`exclude_columns`
