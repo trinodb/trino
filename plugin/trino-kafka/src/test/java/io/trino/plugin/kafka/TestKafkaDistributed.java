@@ -30,4 +30,10 @@ public class TestKafkaDistributed
                 .setTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
 }

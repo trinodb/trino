@@ -6,8 +6,8 @@ WITH
    , "i_class_id"
    , "i_category_id"
    , "i_manufact_id"
-   , "sum"("sales_cnt") "sales_cnt"
-   , "sum"("sales_amt") "sales_amt"
+   , sum("sales_cnt") "sales_cnt"
+   , sum("sales_amt") "sales_amt"
    FROM
      (
       SELECT
@@ -59,25 +59,25 @@ UNION       SELECT
    GROUP BY "d_year", "i_brand_id", "i_class_id", "i_category_id", "i_manufact_id"
 ) 
 SELECT
-  "prev_yr"."d_year" "prev_year"
-, "curr_yr"."d_year" "year"
-, "curr_yr"."i_brand_id"
-, "curr_yr"."i_class_id"
-, "curr_yr"."i_category_id"
-, "curr_yr"."i_manufact_id"
-, "prev_yr"."sales_cnt" "prev_yr_cnt"
-, "curr_yr"."sales_cnt" "curr_yr_cnt"
-, ("curr_yr"."sales_cnt" - "prev_yr"."sales_cnt") "sales_cnt_diff"
-, ("curr_yr"."sales_amt" - "prev_yr"."sales_amt") "sales_amt_diff"
+  prev_yr."d_year" "prev_year"
+, curr_yr."d_year" "year"
+, curr_yr."i_brand_id"
+, curr_yr."i_class_id"
+, curr_yr."i_category_id"
+, curr_yr."i_manufact_id"
+, prev_yr."sales_cnt" "prev_yr_cnt"
+, curr_yr."sales_cnt" "curr_yr_cnt"
+, (curr_yr."sales_cnt" - prev_yr."sales_cnt") "sales_cnt_diff"
+, (curr_yr."sales_amt" - prev_yr."sales_amt") "sales_amt_diff"
 FROM
   all_sales curr_yr
 , all_sales prev_yr
-WHERE ("curr_yr"."i_brand_id" = "prev_yr"."i_brand_id")
-   AND ("curr_yr"."i_class_id" = "prev_yr"."i_class_id")
-   AND ("curr_yr"."i_category_id" = "prev_yr"."i_category_id")
-   AND ("curr_yr"."i_manufact_id" = "prev_yr"."i_manufact_id")
-   AND ("curr_yr"."d_year" = 2002)
-   AND ("prev_yr"."d_year" = (2002 - 1))
-   AND ((CAST("curr_yr"."sales_cnt" AS DECIMAL(17,2)) / CAST("prev_yr"."sales_cnt" AS DECIMAL(17,2))) < DECIMAL '0.9')
+WHERE (curr_yr."i_brand_id" = prev_yr."i_brand_id")
+   AND (curr_yr."i_class_id" = prev_yr."i_class_id")
+   AND (curr_yr."i_category_id" = prev_yr."i_category_id")
+   AND (curr_yr."i_manufact_id" = prev_yr."i_manufact_id")
+   AND (curr_yr."d_year" = 2002)
+   AND (prev_yr."d_year" = (2002 - 1))
+   AND ((CAST(curr_yr."sales_cnt" AS DECIMAL(17,2)) / CAST(prev_yr."sales_cnt" AS DECIMAL(17,2))) < DECIMAL '0.9')
 ORDER BY "sales_cnt_diff" ASC, "sales_amt_diff" ASC
 LIMIT 100

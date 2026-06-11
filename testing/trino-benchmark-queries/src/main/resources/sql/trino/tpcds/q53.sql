@@ -3,8 +3,8 @@ FROM
   (
    SELECT
      "i_manufact_id"
-   , "sum"("ss_sales_price") "sum_sales"
-   , "avg"("sum"("ss_sales_price")) OVER (PARTITION BY "i_manufact_id") "avg_quarterly_sales"
+   , sum("ss_sales_price") "sum_sales"
+   , avg(sum("ss_sales_price")) OVER (PARTITION BY "i_manufact_id") "avg_quarterly_sales"
    FROM
      ${database}.${schema}.item
    , ${database}.${schema}.store_sales

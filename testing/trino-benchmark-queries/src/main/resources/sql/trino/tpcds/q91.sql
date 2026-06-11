@@ -2,7 +2,7 @@ SELECT
   "cc_call_center_id" "Call_Center"
 , "cc_name" "Call_Center_Name"
 , "cc_manager" "Manager"
-, "sum"("cr_net_loss") "Returns_Loss"
+, sum("cr_net_loss") "Returns_Loss"
 FROM
   ${database}.${schema}.call_center
 , ${database}.${schema}.catalog_returns
@@ -26,4 +26,4 @@ WHERE ("cr_call_center_sk" = "cc_call_center_sk")
    AND ("hd_buy_potential" LIKE 'Unknown%')
    AND ("ca_gmt_offset" = -7)
 GROUP BY "cc_call_center_id", "cc_name", "cc_manager", "cd_marital_status", "cd_education_status"
-ORDER BY "sum"("cr_net_loss") DESC
+ORDER BY sum("cr_net_loss") DESC

@@ -29,6 +29,7 @@ import java.util.stream.IntStream;
 import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
 import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_JSON;
 import static io.trino.plugin.postgresql.PostgreSqlSessionProperties.ARRAY_MAPPING;
+import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -46,6 +47,12 @@ final class TestPostgreSqlVectorType
         // 'SCHEMA public' is required until the connector supports pushdown vector type which is installed in other schemas
         postgreSqlServer.execute("CREATE EXTENSION vector SCHEMA public");
         return PostgreSqlQueryRunner.builder(postgreSqlServer).build();
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Test
