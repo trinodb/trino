@@ -14,8 +14,10 @@
 package org.weakref.solver;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Answers "is A a subtype of B?" by delegating to a {@link Solver} and caching the result.
@@ -35,7 +37,7 @@ public final class SubtypeOracle
 {
     private final TypeSystem typeSystem;
     private final Map<Key, Relation> cache = new HashMap<>();
-    private final java.util.Set<Key> inProgress = new java.util.HashSet<>();
+    private final Set<Key> inProgress = new HashSet<>();
 
     public SubtypeOracle(TypeSystem typeSystem)
     {

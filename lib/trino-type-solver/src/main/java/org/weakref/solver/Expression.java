@@ -361,6 +361,9 @@ public sealed interface Expression
         return substitute(expression, substitutions, null);
     }
 
+    // Identity comparisons are deliberate: an unchanged subtree is returned as-is to avoid
+    // reallocating equal structures on the substitution hot path
+    @SuppressWarnings("ReferenceEquality")
     private static Expression substitute(Expression expression, Map<String, Expression> substitutions, Set<String> activeVariables)
     {
         // Each arm returns the original expression unchanged when no nested substitution applied, so

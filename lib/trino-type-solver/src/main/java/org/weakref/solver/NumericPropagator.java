@@ -26,7 +26,7 @@ import java.util.OptionalInt;
  * <p>
  * Handles {@link NumericRelation} constraints: evaluates relations against current
  * bounds, propagates bounds across difference constraints, and tightens variable
- * ranges when a relation has the shape {@code variable &lt;cmp&gt; literal}.
+ * ranges when a relation has the shape "variable (comparison) literal".
  */
 final class NumericPropagator
 {
@@ -440,7 +440,7 @@ final class NumericPropagator
                 min = tightenLower(min, literal);
                 max = tightenUpper(max, literal);
             }
-            case NOT_EQUAL, ADD, SUBTRACT, MULTIPLY, DIVIDE -> {
+            case NOT_EQUAL, ADD, SUBTRACT, MULTIPLY, DIVIDE, MIN, MAX -> {
                 state.pendingConstraints().add(new NumericRelation(new BinaryOperation(
                         operator,
                         variableOnLeft ? new Variable(variable) : new Literal(literal),

@@ -20,6 +20,7 @@ import org.weakref.solver.Expression;
 import org.weakref.solver.RequireCastableFrom;
 import org.weakref.solver.VariableAllocator;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -42,7 +43,7 @@ public final class JsonToRowCastRule
         }
         Set<Constraint> guards = fields.stream()
                 .map(field -> (Constraint) new RequireCastableFrom(field.type(), JSON))
-                .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+                .collect(Collectors.toCollection(LinkedHashSet::new));
         return Optional.of(new Match(
                 guards,
                 CoercionPlan.directSteps(from, to, List.of(new CoercionPlan.DirectRule(ruleId(), List.of())))));

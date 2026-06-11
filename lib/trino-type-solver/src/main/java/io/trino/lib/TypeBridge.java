@@ -18,6 +18,7 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.MapType;
+import io.trino.spi.type.QuantileDigestType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
@@ -69,7 +70,7 @@ public final class TypeBridge
             case FunctionType function -> Expression.function(
                     function.getArgumentTypes().stream().map(TypeBridge::toExpression).toList(),
                     toExpression(function.getReturnType()));
-            case io.trino.spi.type.QuantileDigestType qdigest -> apply("qdigest", toExpression(qdigest.getValueType()));
+            case QuantileDigestType qdigest -> apply("qdigest", toExpression(qdigest.getValueType()));
             case MapType map -> apply("map", toExpression(map.getKeyType()), toExpression(map.getValueType()));
             case RowType rowType -> row(rowType.getFields().stream()
                     .map(rowField -> rowField.getName()

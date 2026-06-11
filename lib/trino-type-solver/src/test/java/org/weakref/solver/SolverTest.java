@@ -17,6 +17,7 @@ import io.trino.lib.TrinoPreset;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -244,7 +245,7 @@ public class SolverTest
                         apply("varchar", variable("@T")))));
 
         assertThat(result.variableBounds().get("@T"))
-                .isEqualTo(new NumericVariableState(java.util.OptionalInt.of(20), java.util.OptionalInt.of(30)));
+                .isEqualTo(new NumericVariableState(OptionalInt.of(20), OptionalInt.of(30)));
         assertThat(result.materializedNumericValues())
                 .containsEntry("@T", 20);
     }
@@ -557,9 +558,9 @@ public class SolverTest
                 new NumericRelation(operation(LESS_THAN_OR_EQUAL, variable("@p"), literal(38)))));
 
         assertThat(result.variableBounds().get("@p"))
-                .isEqualTo(new NumericVariableState(java.util.OptionalInt.of(12), java.util.OptionalInt.of(38)));
+                .isEqualTo(new NumericVariableState(OptionalInt.of(12), OptionalInt.of(38)));
         assertThat(result.variableBounds().get("@s"))
-                .isEqualTo(new NumericVariableState(java.util.OptionalInt.of(2), java.util.OptionalInt.of(28)));
+                .isEqualTo(new NumericVariableState(OptionalInt.of(2), OptionalInt.of(28)));
         assertThat(result.materializedNumericValues())
                 .containsEntry("@p", 12)
                 .containsEntry("@s", 2);

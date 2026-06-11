@@ -22,6 +22,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.weakref.solver.Expression.BinaryOperator.LESS_THAN_OR_EQUAL;
+import static org.weakref.solver.Expression.apply;
 import static org.weakref.solver.Expression.function;
 import static org.weakref.solver.Expression.literal;
 import static org.weakref.solver.Expression.operation;
@@ -39,7 +40,7 @@ public class TypeLibraryTest
         TypeLibrary library = TrinoPreset.install(TypeLibrary.builder())
                 .registerFunction("f", function(List.of(symbol("integer")), symbol("integer")))
                 .registerFunction("f", function(List.of(symbol("bigint")), symbol("bigint")))
-                .withSpecificity(org.weakref.solver.Specificity.BY_COERCION_COUNT)
+                .withSpecificity(Specificity.BY_COERCION_COUNT)
                 .build();
 
         assertThat(library.resolveFunction("f", List.of(symbol("smallint"))))
@@ -88,7 +89,7 @@ public class TypeLibraryTest
                 .containsExactly("widget");
         assertThat(library.typeSystem().instantiateValidationConstraints(symbol("widget")))
                 .isEmpty();
-        assertThat(library.typeSystem().instantiateValidationConstraints(org.weakref.solver.Expression.apply("widget", literal(11))))
+        assertThat(library.typeSystem().instantiateValidationConstraints(apply("widget", literal(11))))
                 .containsExactly(new NumericRelation(operation(LESS_THAN_OR_EQUAL, literal(11), literal(10))));
     }
 

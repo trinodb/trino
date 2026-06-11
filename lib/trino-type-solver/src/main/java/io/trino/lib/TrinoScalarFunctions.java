@@ -315,12 +315,12 @@ public final class TrinoScalarFunctions
     private static void registerTemporalFunctions(TypeLibrary.Builder builder)
     {
         builder.registerFunction("current_date", function(List.of(), symbol("date")));
-        builder.registerFunction("current_time", function(List.of(), apply("time_with_time_zone", org.weakref.solver.Expression.literal(3))));
-        builder.registerFunction("current_timestamp", function(List.of(), apply("timestamp_with_time_zone", org.weakref.solver.Expression.literal(3))));
+        builder.registerFunction("current_time", function(List.of(), apply("time_with_time_zone", literal(3))));
+        builder.registerFunction("current_timestamp", function(List.of(), apply("timestamp_with_time_zone", literal(3))));
         builder.registerFunction("current_timezone", function(List.of(), symbol("varchar")));
-        builder.registerFunction("now", function(List.of(), apply("timestamp_with_time_zone", org.weakref.solver.Expression.literal(3))));
-        builder.registerFunction("localtime", function(List.of(), apply("time", org.weakref.solver.Expression.literal(3))));
-        builder.registerFunction("localtimestamp", function(List.of(), apply("timestamp", org.weakref.solver.Expression.literal(3))));
+        builder.registerFunction("now", function(List.of(), apply("timestamp_with_time_zone", literal(3))));
+        builder.registerFunction("localtime", function(List.of(), apply("time", literal(3))));
+        builder.registerFunction("localtimestamp", function(List.of(), apply("timestamp", literal(3))));
 
         // date_trunc / date_add / date_diff: variants per type.
         for (String name : List.of("date_trunc")) {
@@ -356,20 +356,20 @@ public final class TrinoScalarFunctions
                 List.of(variable("@p")),
                 List.of(),
                 function(List.of(apply("timestamp", variable("@p")), symbol("varchar")), symbol("varchar"))));
-        builder.registerFunction("date_parse", function(List.of(symbol("varchar"), symbol("varchar")), apply("timestamp", org.weakref.solver.Expression.literal(3))));
+        builder.registerFunction("date_parse", function(List.of(symbol("varchar"), symbol("varchar")), apply("timestamp", literal(3))));
         builder.registerFunction("format_datetime", new TypeScheme(
                 List.of(variable("@p")),
                 List.of(),
                 function(List.of(apply("timestamp", variable("@p")), symbol("varchar")), symbol("varchar"))));
-        builder.registerFunction("parse_datetime", function(List.of(symbol("varchar"), symbol("varchar")), apply("timestamp_with_time_zone", org.weakref.solver.Expression.literal(3))));
+        builder.registerFunction("parse_datetime", function(List.of(symbol("varchar"), symbol("varchar")), apply("timestamp_with_time_zone", literal(3))));
 
         // Unix time.
         builder.registerFunction("to_unixtime", new TypeScheme(
                 List.of(variable("@p")),
                 List.of(),
                 function(List.of(apply("timestamp", variable("@p"))), symbol("double"))));
-        builder.registerFunction("from_unixtime", function(List.of(symbol("double")), apply("timestamp_with_time_zone", org.weakref.solver.Expression.literal(3))));
-        builder.registerFunction("from_unixtime", function(List.of(symbol("double"), symbol("varchar")), apply("timestamp_with_time_zone", org.weakref.solver.Expression.literal(3))));
+        builder.registerFunction("from_unixtime", function(List.of(symbol("double")), apply("timestamp_with_time_zone", literal(3))));
+        builder.registerFunction("from_unixtime", function(List.of(symbol("double"), symbol("varchar")), apply("timestamp_with_time_zone", literal(3))));
         builder.registerFunction("from_unixtime_nanos", function(List.of(symbol("bigint")), apply("timestamp_with_time_zone", literal(9))));
         builder.registerFunction("from_unixtime_nanos", new TypeScheme(
                 List.of(variable("@p"), variable("@s")),
@@ -445,7 +445,7 @@ public final class TrinoScalarFunctions
                         List.of(apply("timestamp_with_time_zone", variable("@p"))),
                         apply("varchar", operation(ADD, operation(ADD, literal(28), operation(MIN, variable("@p"), literal(1))), variable("@p"))))));
         builder.registerFunction("to_iso8601", function(List.of(symbol("date")), apply("varchar", literal(16))));
-        builder.registerFunction("from_iso8601_timestamp", function(List.of(symbol("varchar")), apply("timestamp_with_time_zone", org.weakref.solver.Expression.literal(3))));
+        builder.registerFunction("from_iso8601_timestamp", function(List.of(symbol("varchar")), apply("timestamp_with_time_zone", literal(3))));
         builder.registerFunction("from_iso8601_date", function(List.of(symbol("varchar")), symbol("date")));
     }
 

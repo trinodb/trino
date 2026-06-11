@@ -13,6 +13,8 @@
  */
 package org.weakref.solver;
 
+import org.weakref.solver.Expression.FunctionType;
+import org.weakref.solver.Expression.Variable;
 import org.weakref.solver.type.TypeConstructor;
 
 import java.util.ArrayList;
@@ -22,11 +24,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.SequencedSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
-import static org.weakref.solver.Expression.FunctionType;
-import static org.weakref.solver.Expression.Variable;
 import static org.weakref.solver.Expression.apply;
 import static org.weakref.solver.Expression.variable;
 
@@ -190,7 +192,7 @@ public class TypeSystem
         return hasTrait(type, TypeConstructor::orderable);
     }
 
-    private boolean hasTrait(Expression type, java.util.function.Function<TypeConstructor, TypeConstructor.Trait> selector)
+    private boolean hasTrait(Expression type, Function<TypeConstructor, TypeConstructor.Trait> selector)
     {
         return switch (type) {
             // An unresolved variable hasn't been forced to a concrete type, so there's nothing to refute yet.
@@ -208,7 +210,7 @@ public class TypeSystem
         };
     }
 
-    private boolean constructorHasTrait(String name, List<Expression> arguments, java.util.function.Function<TypeConstructor, TypeConstructor.Trait> selector)
+    private boolean constructorHasTrait(String name, List<Expression> arguments, Function<TypeConstructor, TypeConstructor.Trait> selector)
     {
         Optional<TypeConstructor> constructor = findConstructor(name, arguments.size());
         if (constructor.isEmpty()) {
@@ -560,7 +562,7 @@ public class TypeSystem
             int index,
             List<Expression> arguments,
             List<CoercionPlan> plans,
-            LinkedHashSet<Constraint> guards,
+            SequencedSet<Constraint> guards,
             Set<CoercionResult> results)
     {
         if (index == argumentCandidates.size()) {
@@ -592,7 +594,7 @@ public class TypeSystem
             int index,
             List<Expression.RowField> fields,
             List<CoercionPlan> plans,
-            LinkedHashSet<Constraint> guards,
+            SequencedSet<Constraint> guards,
             Set<CoercionResult> results)
     {
         if (index == fieldCandidates.size()) {

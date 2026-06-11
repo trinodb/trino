@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**
@@ -51,7 +52,6 @@ import java.util.function.Predicate;
 public class Solver
 {
     private final TypeSystem typeSystem;
-    private final SubtypeOracle subtypeOracle;
     private final DomainRefiner domainRefiner;
     private final ChoiceSimplifier choiceSimplifier;
 
@@ -63,7 +63,6 @@ public class Solver
     Solver(TypeSystem typeSystem, SubtypeOracle subtypeOracle)
     {
         this.typeSystem = typeSystem;
-        this.subtypeOracle = subtypeOracle;
         this.domainRefiner = new DomainRefiner(subtypeOracle);
         this.choiceSimplifier = new ChoiceSimplifier(subtypeOracle);
     }
@@ -474,7 +473,7 @@ public class Solver
         return max[0];
     }
 
-    private static void walkConstraint(Constraint constraint, java.util.function.Consumer<Expression> visitor)
+    private static void walkConstraint(Constraint constraint, Consumer<Expression> visitor)
     {
         switch (constraint) {
             case ExactType(_, Expression type) -> walkExpression(type, visitor);
@@ -487,7 +486,7 @@ public class Solver
         }
     }
 
-    private static void walkExpression(Expression expression, java.util.function.Consumer<Expression> visitor)
+    private static void walkExpression(Expression expression, Consumer<Expression> visitor)
     {
         visitor.accept(expression);
         switch (expression) {

@@ -41,6 +41,7 @@ import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Predicated;
+import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.StringLiteral;
@@ -238,7 +239,7 @@ final class SolverExpressionTypeChecker
                 superType(compared, scope, List.of(new RequireComparable("@t")), true);
                 yield superType(caseResults(caseExpression.getWhenClauses(), caseExpression.getDefaultValue()), scope, List.of(), true);
             }
-            case io.trino.sql.tree.Row row -> {
+            case Row row -> {
                 Expression.RowField[] fields = row.getFields().stream()
                         .map(field -> {
                             Expression type = TypeBridge.toExpression(typeOf(field.getExpression(), scope));

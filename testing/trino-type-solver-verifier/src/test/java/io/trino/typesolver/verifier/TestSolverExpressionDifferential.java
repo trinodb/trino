@@ -187,7 +187,7 @@ class TestSolverExpressionDifferential
     {
         return transaction(transactionManager, plannerContext.getMetadata(), new AllowAllAccessControl())
                 .singleStatement()
-                .execute(TEST_SESSION, callback::apply);
+                .execute(TEST_SESSION, callback);
     }
 
     @Test

@@ -16,8 +16,10 @@ package org.weakref.solver;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * The set of alternatives a type variable may still take, narrowing as the solver progresses.
@@ -151,9 +153,9 @@ public final class Domain
         return List.copyOf(normalized);
     }
 
-    private static List<CoercionPlan> mergePlans(Alternative existing, Alternative candidate, java.util.Map<String, Expression> substitutions)
+    private static List<CoercionPlan> mergePlans(Alternative existing, Alternative candidate, Map<String, Expression> substitutions)
     {
-        return java.util.stream.Stream.concat(
+        return Stream.concat(
                         existing.coercionPlans().stream().map(plan -> plan.apply(substitutions)),
                         candidate.coercionPlans().stream().map(plan -> plan.apply(substitutions)))
                 .distinct()

@@ -18,6 +18,7 @@ import org.weakref.solver.Expression.BinaryOperator;
 import org.weakref.solver.Expression.Literal;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -73,7 +74,7 @@ final class SolverMaterializer
                 .filter(entry -> entry.getValue().binding().isEmpty())
                 .filter(entry -> entry.getValue().domain().isRestricted())
                 .filter(entry -> !entry.getValue().domain().alternatives().isEmpty())
-                .sorted(Map.Entry.comparingByValue(java.util.Comparator.comparingInt(state -> state.domain().alternatives().size())))
+                .sorted(Map.Entry.comparingByValue(Comparator.comparingInt(state -> state.domain().alternatives().size())))
                 .map(Map.Entry::getKey)
                 .toList();
 

@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Embedder-facing facade bundling a {@link TypeSystem}, a set of named function signatures,
@@ -81,7 +82,7 @@ public final class TypeLibrary
      * Return a {@link CoercionPlan} for an explicit cast from {@code from} to {@code to},
      * considering both implicit coercions and cast-only rules. Empty if no rule applies.
      */
-    public java.util.Optional<CoercionPlan> resolveCast(Expression from, Expression to)
+    public Optional<CoercionPlan> resolveCast(Expression from, Expression to)
     {
         return typeSystem.castPlan(from, to);
     }

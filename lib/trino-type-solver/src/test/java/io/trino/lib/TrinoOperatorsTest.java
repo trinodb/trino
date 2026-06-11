@@ -21,6 +21,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.weakref.solver.Expression.apply;
+import static org.weakref.solver.Expression.literal;
 import static org.weakref.solver.Expression.symbol;
 
 public class TrinoOperatorsTest
@@ -127,11 +128,11 @@ public class TrinoOperatorsTest
         //   scale = max(2, 3) = 3; p-s = max(10-2, 5-3) + 1 = 9; p = 12.
         assertThat(LIBRARY.resolveFunction("+",
                 List.of(
-                        org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(10), org.weakref.solver.Expression.literal(2)),
-                        org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(5), org.weakref.solver.Expression.literal(3)))))
+                        apply("decimal", literal(10), literal(2)),
+                        apply("decimal", literal(5), literal(3)))))
                 .isInstanceOfSatisfying(FunctionResolver.Resolved.class, outcome ->
                         assertThat(outcome.resolution().returnType()).isEqualTo(
-                                org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(12), org.weakref.solver.Expression.literal(3))));
+                                apply("decimal", literal(12), literal(3))));
     }
 
     @Test
@@ -144,20 +145,20 @@ public class TrinoOperatorsTest
         //   scale = min(5, max(6, 38 - 10)) = min(5, 28) = 5
         assertThat(LIBRARY.resolveFunction("*",
                 List.of(
-                        org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(10), org.weakref.solver.Expression.literal(2)),
-                        org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(5), org.weakref.solver.Expression.literal(3)))))
+                        apply("decimal", literal(10), literal(2)),
+                        apply("decimal", literal(5), literal(3)))))
                 .isInstanceOfSatisfying(FunctionResolver.Resolved.class, outcome ->
                         assertThat(outcome.resolution().returnType()).isEqualTo(
-                                org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(15), org.weakref.solver.Expression.literal(5))));
+                                apply("decimal", literal(15), literal(5))));
 
         // decimal(10, 2) * decimal(10, 2) = decimal(20, 4) — Trino's p1 + p2 precision, not p1 + p2 + 1.
         assertThat(LIBRARY.resolveFunction("*",
                 List.of(
-                        org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(10), org.weakref.solver.Expression.literal(2)),
-                        org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(10), org.weakref.solver.Expression.literal(2)))))
+                        apply("decimal", literal(10), literal(2)),
+                        apply("decimal", literal(10), literal(2)))))
                 .isInstanceOfSatisfying(FunctionResolver.Resolved.class, outcome ->
                         assertThat(outcome.resolution().returnType()).isEqualTo(
-                                org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(20), org.weakref.solver.Expression.literal(4))));
+                                apply("decimal", literal(20), literal(4))));
     }
 
     @Test
@@ -166,11 +167,11 @@ public class TrinoOperatorsTest
         // varchar(5) || varchar(10) = varchar(15)
         assertThat(LIBRARY.resolveFunction("||",
                 List.of(
-                        org.weakref.solver.Expression.apply("varchar", org.weakref.solver.Expression.literal(5)),
-                        org.weakref.solver.Expression.apply("varchar", org.weakref.solver.Expression.literal(10)))))
+                        apply("varchar", literal(5)),
+                        apply("varchar", literal(10)))))
                 .isInstanceOfSatisfying(FunctionResolver.Resolved.class, outcome ->
                         assertThat(outcome.resolution().returnType()).isEqualTo(
-                                org.weakref.solver.Expression.apply("varchar", org.weakref.solver.Expression.literal(15))));
+                                apply("varchar", literal(15))));
     }
 
     @Test
@@ -178,11 +179,11 @@ public class TrinoOperatorsTest
     {
         assertThat(LIBRARY.resolveFunction("||",
                 List.of(
-                        org.weakref.solver.Expression.apply("char", org.weakref.solver.Expression.literal(5)),
-                        org.weakref.solver.Expression.apply("char", org.weakref.solver.Expression.literal(10)))))
+                        apply("char", literal(5)),
+                        apply("char", literal(10)))))
                 .isInstanceOfSatisfying(FunctionResolver.Resolved.class, outcome ->
                         assertThat(outcome.resolution().returnType()).isEqualTo(
-                                org.weakref.solver.Expression.apply("char", org.weakref.solver.Expression.literal(15))));
+                                apply("char", literal(15))));
     }
 
     @Test
@@ -203,11 +204,11 @@ public class TrinoOperatorsTest
         //   scale = min(15, max(6, 38 - 41)) = min(15, 6) = 6
         assertThat(LIBRARY.resolveFunction("*",
                 List.of(
-                        org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(30), org.weakref.solver.Expression.literal(5)),
-                        org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(25), org.weakref.solver.Expression.literal(10)))))
+                        apply("decimal", literal(30), literal(5)),
+                        apply("decimal", literal(25), literal(10)))))
                 .isInstanceOfSatisfying(FunctionResolver.Resolved.class, outcome ->
                         assertThat(outcome.resolution().returnType()).isEqualTo(
-                                org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(38), org.weakref.solver.Expression.literal(6))));
+                                apply("decimal", literal(38), literal(6))));
     }
 
     @Test
@@ -218,11 +219,11 @@ public class TrinoOperatorsTest
         //   precision = min(38, p1 - s1 + s2 + scale) = min(38, 10 - 2 + 3 + 8) = 19
         assertThat(LIBRARY.resolveFunction("/",
                 List.of(
-                        org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(10), org.weakref.solver.Expression.literal(2)),
-                        org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(5), org.weakref.solver.Expression.literal(3)))))
+                        apply("decimal", literal(10), literal(2)),
+                        apply("decimal", literal(5), literal(3)))))
                 .isInstanceOfSatisfying(FunctionResolver.Resolved.class, outcome ->
                         assertThat(outcome.resolution().returnType()).isEqualTo(
-                                org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(19), org.weakref.solver.Expression.literal(8))));
+                                apply("decimal", literal(19), literal(8))));
     }
 
     @Test
@@ -238,10 +239,10 @@ public class TrinoOperatorsTest
     {
         assertThat(LIBRARY.resolveFunction(
                 "-",
-                List.of(org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(10), org.weakref.solver.Expression.literal(2)))))
+                List.of(apply("decimal", literal(10), literal(2)))))
                 .isInstanceOfSatisfying(FunctionResolver.Resolved.class, outcome ->
                         assertThat(outcome.resolution().returnType()).isEqualTo(
-                                org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(10), org.weakref.solver.Expression.literal(2))));
+                                apply("decimal", literal(10), literal(2))));
     }
 
     @Test
@@ -263,11 +264,11 @@ public class TrinoOperatorsTest
         //   precision = min(38, integerDigits + naturalScale) = min(38, 115) = 38
         assertThat(LIBRARY.resolveFunction("/",
                 List.of(
-                        org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(38), org.weakref.solver.Expression.literal(0)),
-                        org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(38), org.weakref.solver.Expression.literal(38)))))
+                        apply("decimal", literal(38), literal(0)),
+                        apply("decimal", literal(38), literal(38)))))
                 .isInstanceOfSatisfying(FunctionResolver.Resolved.class, outcome ->
                         assertThat(outcome.resolution().returnType()).isEqualTo(
-                                org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(38), org.weakref.solver.Expression.literal(6))));
+                                apply("decimal", literal(38), literal(6))));
     }
 
     @Test
@@ -278,11 +279,11 @@ public class TrinoOperatorsTest
         //   precision = min(p1 - s1, p2 - s2) + scale = min(8, 2) + 3 = 5
         assertThat(LIBRARY.resolveFunction("%",
                 List.of(
-                        org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(10), org.weakref.solver.Expression.literal(2)),
-                        org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(5), org.weakref.solver.Expression.literal(3)))))
+                        apply("decimal", literal(10), literal(2)),
+                        apply("decimal", literal(5), literal(3)))))
                 .isInstanceOfSatisfying(FunctionResolver.Resolved.class, outcome ->
                         assertThat(outcome.resolution().returnType()).isEqualTo(
-                                org.weakref.solver.Expression.apply("decimal", org.weakref.solver.Expression.literal(5), org.weakref.solver.Expression.literal(3))));
+                                apply("decimal", literal(5), literal(3))));
     }
 
     @Test

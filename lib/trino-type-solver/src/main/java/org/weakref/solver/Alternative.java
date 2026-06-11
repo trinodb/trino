@@ -16,6 +16,8 @@ package org.weakref.solver;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * One concrete option in a {@link Choice} or {@link Domain}.
@@ -51,7 +53,7 @@ public record Alternative(Expression witness, Set<Constraint> guards, List<Coerc
                 Expression.substitute(witness, substitutions),
                 guards.stream()
                         .map(constraint -> constraint.apply(substitutions))
-                        .collect(java.util.stream.Collectors.toSet()),
+                        .collect(Collectors.toSet()),
                 coercionPlans.stream()
                         .map(plan -> plan.apply(substitutions))
                         .toList());
@@ -63,7 +65,7 @@ public record Alternative(Expression witness, Set<Constraint> guards, List<Coerc
                 Expression.rewrite(witness, mappings),
                 guards.stream()
                         .map(constraint -> constraint.rewrite(mappings))
-                        .collect(java.util.stream.Collectors.toSet()),
+                        .collect(Collectors.toSet()),
                 coercionPlans.stream()
                         .map(plan -> plan.apply(mappings))
                         .toList());
@@ -82,7 +84,7 @@ public record Alternative(Expression witness, Set<Constraint> guards, List<Coerc
         return new Alternative(
                 witness,
                 guards,
-                java.util.stream.Stream.concat(coercionPlans.stream(), other.coercionPlans().stream())
+                Stream.concat(coercionPlans.stream(), other.coercionPlans().stream())
                         .distinct()
                         .toList());
     }
