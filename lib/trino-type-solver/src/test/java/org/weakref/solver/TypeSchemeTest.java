@@ -20,8 +20,10 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.weakref.solver.Expression.anyRow;
+import static org.weakref.solver.Expression.apply;
 import static org.weakref.solver.Expression.field;
 import static org.weakref.solver.Expression.function;
+import static org.weakref.solver.Expression.literal;
 import static org.weakref.solver.Expression.row;
 import static org.weakref.solver.Expression.symbol;
 import static org.weakref.solver.Expression.variable;
@@ -115,6 +117,30 @@ public class TypeSchemeTest
                 function(List.of(symbol("binary")), symbol("boolean")));
 
         assertThat(signature.matchFunctionCallOutcome(List.of(symbol("integer")), TrinoPreset.typeSystem()))
+                .isInstanceOf(TypeScheme.Unsatisfied.class);
+    }
+
+    /**
+     * A ground parametric formal accepts a smaller instance by whole-type widening — varchar(0)
+     * flows into a literal varchar(1) parameter through the varchar coercion rule, not through a
+     * per-parameter 0 <: 1 relation (which no rule covers). The reverse direction must not narrow.
+     */
+    @Test
+    void testGroundParametricFormalCoercesAsWholeType()
+    {
+        TypeScheme codepoint = new TypeScheme(
+                List.of(),
+                List.of(),
+                function(List.of(apply("varchar", literal(1))), symbol("integer")));
+
+        TypeScheme.MatchResult widened = satisfiedMatch(codepoint, List.of(apply("varchar", literal(0))));
+        assertThat(widened.returnType()).isEqualTo(symbol("integer"));
+        assertThat(widened.parameterTypes()).isEqualTo(List.of(apply("varchar", literal(1))));
+
+        TypeScheme.MatchResult exact = satisfiedMatch(codepoint, List.of(apply("varchar", literal(1))));
+        assertThat(exact.returnType()).isEqualTo(symbol("integer"));
+
+        assertThat(codepoint.matchFunctionCallOutcome(List.of(apply("varchar", literal(2))), TrinoPreset.typeSystem()))
                 .isInstanceOf(TypeScheme.Unsatisfied.class);
     }
 

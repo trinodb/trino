@@ -185,7 +185,11 @@ public record TypeScheme(List<Variable> parameters, List<Constraint> constraints
                 actualName.equals(formalName) &&
                 actualArgs.size() == formalArgs.size()) {
             Optional<TypeConstructor> constructor = typeSystem.findConstructor(formalName, formalArgs.size());
-            if (constructor.isPresent()) {
+            // Decomposing into per-parameter constraints is what binds the formal's variables, but
+            // parameter positions are not independently coercible: varchar(0) flows into a ground
+            // varchar(1) formal by whole-type widening, not by a 0 <: 1 relation at the length
+            // position. A fully ground formal binds nothing, so leave it to the coercion rules.
+            if (constructor.isPresent() && !formalArgs.stream().allMatch(Expression::isGround)) {
                 collectValidationConstraints(actual, typeSystem, constraints);
                 collectValidationConstraints(formal, typeSystem, constraints);
                 Map<String, Kind> kinds = parameterKinds(constructor.orElseThrow());
