@@ -79,10 +79,10 @@ public class TestSignatureBinder
         assertThat(function)
                 .boundTo(createDecimalType(2, 1), createDecimalType(1, 0))
                 .produces(new BindingsBuilder()
-                        .setLongVariable("p1", 2L)
-                        .setLongVariable("s1", 1L)
-                        .setLongVariable("p2", 1L)
-                        .setLongVariable("s2", 0L)
+                        .setNumericVariable("p1", 2L)
+                        .setNumericVariable("s1", 1L)
+                        .setNumericVariable("p2", 1L)
+                        .setNumericVariable("s2", 0L)
                         .build());
     }
 
@@ -98,7 +98,7 @@ public class TestSignatureBinder
                 .boundTo(createDecimalType(2, 1))
                 .withCoercion()
                 .produces(new BindingsBuilder()
-                        .setLongVariable("s", 1L)
+                        .setNumericVariable("s", 1L)
                         .build());
 
         function = functionSignature()
@@ -110,20 +110,20 @@ public class TestSignatureBinder
                 .boundTo(createDecimalType(2, 0))
                 .withCoercion()
                 .produces(new BindingsBuilder()
-                        .setLongVariable("p", 3L)
+                        .setNumericVariable("p", 3L)
                         .build());
 
         assertThat(function)
                 .boundTo(createDecimalType(2, 1))
                 .produces(new BindingsBuilder()
-                        .setLongVariable("p", 2L)
+                        .setNumericVariable("p", 2L)
                         .build());
 
         assertThat(function)
                 .boundTo(BIGINT)
                 .withCoercion()
                 .produces(new BindingsBuilder()
-                        .setLongVariable("p", 20L)
+                        .setNumericVariable("p", 20L)
                         .build());
     }
 
@@ -142,16 +142,16 @@ public class TestSignatureBinder
         assertThat(function)
                 .boundTo(createVarcharType(42), createVarcharType(44))
                 .produces(new BindingsBuilder()
-                        .setLongVariable("x", 42L)
-                        .setLongVariable("y", 44L)
+                        .setNumericVariable("x", 42L)
+                        .setNumericVariable("y", 44L)
                         .build());
 
         assertThat(function)
                 .boundTo(UNKNOWN, createVarcharType(44))
                 .withCoercion()
                 .produces(new BindingsBuilder()
-                        .setLongVariable("x", 0L)
-                        .setLongVariable("y", 44L)
+                        .setNumericVariable("x", 0L)
+                        .setNumericVariable("y", 44L)
                         .build());
     }
 
@@ -170,25 +170,25 @@ public class TestSignatureBinder
         assertThat(function)
                 .boundTo(createVarcharType(44), createVarcharType(44))
                 .produces(new BindingsBuilder()
-                        .setLongVariable("x", 44L)
+                        .setNumericVariable("x", 44L)
                         .build());
         assertThat(function)
                 .boundTo(createVarcharType(44), createVarcharType(42))
                 .withCoercion()
                 .produces(new BindingsBuilder()
-                        .setLongVariable("x", 44L)
+                        .setNumericVariable("x", 44L)
                         .build());
         assertThat(function)
                 .boundTo(createVarcharType(42), createVarcharType(44))
                 .withCoercion()
                 .produces(new BindingsBuilder()
-                        .setLongVariable("x", 44L)
+                        .setNumericVariable("x", 44L)
                         .build());
         assertThat(function)
                 .boundTo(UNKNOWN, createVarcharType(44))
                 .withCoercion()
                 .produces(new BindingsBuilder()
-                        .setLongVariable("x", 44L)
+                        .setNumericVariable("x", 44L)
                         .build());
     }
 
@@ -207,29 +207,29 @@ public class TestSignatureBinder
         assertThat(function)
                 .boundTo(createDecimalType(10, 5), createDecimalType(10, 5))
                 .produces(new BindingsBuilder()
-                        .setLongVariable("p", 10L)
-                        .setLongVariable("s", 5L)
+                        .setNumericVariable("p", 10L)
+                        .setNumericVariable("s", 5L)
                         .build());
         assertThat(function)
                 .boundTo(createDecimalType(10, 8), createDecimalType(9, 8))
                 .withCoercion()
                 .produces(new BindingsBuilder()
-                        .setLongVariable("p", 10L)
-                        .setLongVariable("s", 8L)
+                        .setNumericVariable("p", 10L)
+                        .setNumericVariable("s", 8L)
                         .build());
         assertThat(function)
                 .boundTo(createDecimalType(10, 2), createDecimalType(10, 8))
                 .withCoercion()
                 .produces(new BindingsBuilder()
-                        .setLongVariable("p", 16L)
-                        .setLongVariable("s", 8L)
+                        .setNumericVariable("p", 16L)
+                        .setNumericVariable("s", 8L)
                         .build());
         assertThat(function)
                 .boundTo(UNKNOWN, createDecimalType(10, 5))
                 .withCoercion()
                 .produces(new BindingsBuilder()
-                        .setLongVariable("p", 10L)
-                        .setLongVariable("s", 5L)
+                        .setNumericVariable("p", 10L)
+                        .setNumericVariable("s", 5L)
                         .build());
     }
 
@@ -250,14 +250,14 @@ public class TestSignatureBinder
                 .withCoercion()
                 .boundTo(ImmutableList.of(createVarcharType(3), createVarcharType(5)), createVarcharType(5))
                 .produces(new BindingsBuilder()
-                        .setLongVariable("x", 5L)
+                        .setNumericVariable("x", 5L)
                         .build());
 
         assertThat(function)
                 .withCoercion()
                 .boundTo(ImmutableList.of(createVarcharType(3), createVarcharType(5)), createVarcharType(6))
                 .produces(new BindingsBuilder()
-                        .setLongVariable("x", 6L)
+                        .setNumericVariable("x", 6L)
                         .build());
     }
 
@@ -294,8 +294,8 @@ public class TestSignatureBinder
                 .withCoercion()
                 .produces(new BindingsBuilder()
                         .setTypeVariable("T", createDecimalType(2, 1))
-                        .setLongVariable("p", 3L)
-                        .setLongVariable("s", 1L)
+                        .setNumericVariable("p", 3L)
+                        .setNumericVariable("s", 1L)
                         .build());
     }
 
@@ -346,8 +346,8 @@ public class TestSignatureBinder
                 .boundTo(UNKNOWN)
                 .withCoercion()
                 .produces(new BindingsBuilder()
-                        .setLongVariable("p", 1L)
-                        .setLongVariable("s", 0L)
+                        .setNumericVariable("p", 1L)
+                        .setNumericVariable("s", 0L)
                         .build());
     }
 
@@ -491,7 +491,7 @@ public class TestSignatureBinder
         assertThat(function)
                 .boundTo(VARCHAR)
                 .produces(new BindingsBuilder()
-                        .setLongVariable("x", (long) Integer.MAX_VALUE)
+                        .setNumericVariable("x", (long) Integer.MAX_VALUE)
                         .build());
     }
 
@@ -1219,8 +1219,8 @@ public class TestSignatureBinder
                 .setTypeVariable("T1", DOUBLE)
                 .setTypeVariable("T2", BIGINT)
                 .setTypeVariable("T3", createDecimalType(5, 3))
-                .setLongVariable("p", 1L)
-                .setLongVariable("s", 2L)
+                .setNumericVariable("p", 1L)
+                .setNumericVariable("s", 2L)
                 .build();
 
         assertThat("bigint", boundVariables, "bigint");

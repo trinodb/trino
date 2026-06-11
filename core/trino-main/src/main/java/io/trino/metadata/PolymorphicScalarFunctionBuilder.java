@@ -196,7 +196,7 @@ public final class PolymorphicScalarFunctionBuilder
 
         public Long getLiteral(String name)
         {
-            return functionBinding.variables().getLongVariable(name);
+            return functionBinding.variables().getNumericVariable(name);
         }
 
         public List<Type> getParameterTypes()
