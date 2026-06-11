@@ -15,19 +15,28 @@ package io.trino.operator.scalar;
 
 import com.google.common.net.InetAddresses;
 import com.google.common.primitives.Ints;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
+import java.io.IOException;
 import java.math.BigInteger;
 import java.net.Inet4Address;
 import java.net.InetAddress;
+import java.util.OptionalLong;
 import java.util.regex.Pattern;
 
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.StandardTypes.INTEGER;
+import static io.trino.spi.type.StandardTypes.IPADDRESS;
+import static io.trino.spi.type.StandardTypes.VARCHAR;
 
 public final class IpAddressFunctions
 {
@@ -117,5 +126,101 @@ public final class IpAddressFunctions
         }
 
         return bytes;
+    }
+
+    @ScalarFunction("ip_to_bits")
+    @Description("Convert the IP address to its IPv6 128-bit representation")
+    @SqlType(VARCHAR)
+    public static Slice toBits(@SqlType(IPADDRESS) Slice slice)
+    {
+        return toBits(slice, OptionalLong.empty());
+    }
+
+    @ScalarFunction("ip_to_bits")
+    @Description("Convert the IP address to its IPv6 128-bit representation")
+    @SqlType(VARCHAR)
+    public static Slice toBits(@SqlType(IPADDRESS) Slice slice, @SqlType(INTEGER) long subnet)
+    {
+        return toBits(slice, OptionalLong.of(subnet));
+    }
+
+    private static Slice toBits(Slice slice, OptionalLong optionalSubnet)
+    {
+        if (slice.length() != 16) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid IP address binary length, expected 16 but was " + slice.length());
+        }
+
+        boolean isIPv4 = ipVersion(slice) == 4;
+        int totalBits = isIPv4 ? 32 : 128;
+        long subnet = optionalSubnet.orElse(totalBits);
+
+        if (isIPv4) {
+            if (subnet < 0 || subnet > 32) {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Subnet address must be between 0 and 32 for IPv4, but was " + subnet);
+            }
+        }
+        else if (subnet < 0 || subnet > 128) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Subnet address must be between 0 and 128 for IPv6, but was " + subnet);
+        }
+
+        int bit = 0;
+        byte[] result = new byte[totalBits];
+        for (int i = isIPv4 ? 12 : 0; i < 16 && bit < subnet; i++) {
+            int value = slice.getByte(i) & 0xFF;
+            for (int shift = 7; shift >= 0 && bit < subnet; shift--) {
+                result[bit] = (byte) (((value >>> shift) & 1) == 0 ? '0' : '1');
+                bit++;
+            }
+        }
+
+        while (bit < totalBits) {
+            result[bit++] = '0';
+        }
+
+        return Slices.wrappedBuffer(result);
+    }
+
+    @ScalarFunction("ip_from_bits")
+    @Description("Convert a 128-bit binary IP address to an IPADDRESS")
+    @SqlType(IPADDRESS)
+    public static Slice fromBits(@SqlType(VARCHAR) Slice slice)
+    {
+        boolean isIPv4 = slice.length() == 32;
+        if (!isIPv4 && slice.length() != 128) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid IP address bits length, expected 32 or 128 but was " + slice.length());
+        }
+
+        try (SliceOutput output = new DynamicSliceOutput(16)) {
+            if (isIPv4) {
+                output.writeZero(10);
+                output.writeShort(0xFFFF);
+            }
+
+            for (int i = isIPv4 ? 12 : 0, n = 0; i < 16; i++) {
+                int value = 0;
+                for (int j = 0; j < 8; j++, n++) {
+                    int bit = switch (slice.getByte(n)) {
+                        case '0' -> 0;
+                        case '1' -> 1;
+                        default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid IP address bits, expected only '0' and '1'");
+                    };
+                    value <<= 1;
+                    value |= bit;
+                }
+                output.writeByte((byte) value);
+            }
+            return output.slice();
+        }
+        catch (IOException e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
+        }
+    }
+
+    @ScalarFunction("ip_version")
+    @Description("Returns 4 for IPv4 and 6 for IPv6")
+    @SqlType(INTEGER)
+    public static long ipVersion(@SqlType(IPADDRESS) Slice slice)
+    {
+        return slice.getLong(0) == 0 && slice.getInt(8) == 0xFFFF_0000 ? 4 : 6;
     }
 }
