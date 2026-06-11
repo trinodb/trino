@@ -47,8 +47,10 @@ public final class DecimalConversions
             1.0e0f, 1.0e1f, 1.0e2f, 1.0e3f, 1.0e4f, 1.0e5f,
             1.0e6f, 1.0e7f, 1.0e8f, 1.0e9f, 1.0e10f,
     };
-    private static final Int128 MAX_EXACT_DOUBLE = Int128.valueOf((1L << 52) - 1);
-    private static final Int128 MAX_EXACT_FLOAT = Int128.valueOf((1L << 22) - 1);
+    // visible for testing
+    static final Int128 MAX_EXACT_DOUBLE = Int128.valueOf(1L << 53);
+    // visible for testing
+    static final Int128 MAX_EXACT_FLOAT = Int128.valueOf(1L << 24);
 
     private DecimalConversions() {}
 
