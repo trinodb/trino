@@ -61,15 +61,27 @@ public record TypeScheme(List<Variable> parameters, List<Constraint> constraints
 
     public Instantiation instantiate(VariableAllocator allocator)
     {
+        // Renaming must be parallel, not chaining: substitute() follows replacement chains, so a
+        // scheme whose declared names collide with the allocator's fresh names (@v1, @v2 — exactly
+        // what a Trino signature declaring V1, V2 bridges to) would collapse distinct variables
+        // into one (@k -> @v1 -> @v2 -> @v3). Stage the renaming through an intermediate namespace
+        // neither side can collide with, so each substitute() pass is chain-free.
+        Map<String, Expression> toIntermediate = new LinkedHashMap<>();
+        Map<String, Expression> toFresh = new LinkedHashMap<>();
         Map<String, Expression> substitutions = new LinkedHashMap<>();
+        int ordinal = 0;
         for (Variable parameter : parameters) {
-            substitutions.put(parameter.name(), variable(allocator.newVariable()));
+            String intermediate = "@__instantiation" + ordinal++;
+            Expression fresh = variable(allocator.newVariable());
+            toIntermediate.put(parameter.name(), variable(intermediate));
+            toFresh.put(intermediate, fresh);
+            substitutions.put(parameter.name(), fresh);
         }
 
         return new Instantiation(
-                Expression.substitute(type, substitutions),
+                Expression.substitute(Expression.substitute(type, toIntermediate), toFresh),
                 constraints.stream()
-                        .map(constraint -> constraint.apply(substitutions))
+                        .map(constraint -> constraint.apply(toIntermediate).apply(toFresh))
                         .toList(),
                 Map.copyOf(substitutions));
     }

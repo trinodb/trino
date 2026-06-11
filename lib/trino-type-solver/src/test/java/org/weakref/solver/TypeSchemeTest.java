@@ -219,6 +219,29 @@ public class TypeSchemeTest
                 .isEqualTo(apply("varchar", literal(3)));
     }
 
+    /**
+     * Instantiation renames in parallel: a scheme whose declared names collide with the
+     * allocator's fresh namespace (@v1, @v2 — exactly what a Trino signature declaring V1, V2
+     * bridges to) must not chain the renamings and collapse distinct variables into one.
+     */
+    @Test
+    void testInstantiationDoesNotChainCollidingNames()
+    {
+        TypeScheme transformValues = new TypeScheme(
+                List.of(variable("@k"), variable("@v1"), variable("@v2")),
+                List.of(),
+                function(
+                        List.of(
+                                apply("map", variable("@k"), variable("@v1")),
+                                function(List.of(variable("@k"), variable("@v1")), variable("@v2"))),
+                        apply("map", variable("@k"), variable("@v2"))));
+
+        TypeScheme.MatchResult result = satisfiedMatch(transformValues, List.of(
+                apply("map", apply("varchar", literal(1)), symbol("integer")),
+                function(List.of(apply("varchar", literal(1)), symbol("integer")), symbol("bigint"))));
+        assertThat(result.returnType()).isEqualTo(apply("map", apply("varchar", literal(1)), symbol("bigint")));
+    }
+
     private static TypeScheme.MatchResult satisfiedMatch(TypeScheme scheme, List<Expression> arguments)
     {
         return switch (scheme.matchFunctionCallOutcome(arguments, TrinoPreset.typeSystem())) {
