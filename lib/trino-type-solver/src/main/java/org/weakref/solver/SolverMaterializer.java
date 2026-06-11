@@ -396,6 +396,13 @@ final class SolverMaterializer
                     default -> throw new UnsupportedOperationException("Expected arithmetic operator");
                 });
             }
+            case Expression.Conditional(BinaryOperation condition, Expression ifTrue, Expression ifFalse) -> {
+                Optional<Boolean> holds = evaluateBoolean(condition);
+                if (holds.isEmpty()) {
+                    yield OptionalInt.empty();
+                }
+                yield evaluateNumericExpression(holds.orElseThrow() ? ifTrue : ifFalse);
+            }
             default -> OptionalInt.empty();
         };
     }

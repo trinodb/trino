@@ -227,6 +227,22 @@ public sealed interface Expression
         }
     }
 
+    /**
+     * Conditional numeric expression: chooses between two numeric expressions based on a comparison.
+     * The condition must be a {@link BinaryOperation} over a comparison operator. A conditional
+     * evaluates away once its condition is ground; it never participates in structural unification
+     * (it appears only in numeric parameter positions, which bind whole expressions to variables).
+     */
+    record Conditional(BinaryOperation condition, Expression ifTrue, Expression ifFalse)
+            implements Expression
+    {
+        @Override
+        public String toString()
+        {
+            return "if(" + condition + ", " + ifTrue + ", " + ifFalse + ")";
+        }
+    }
+
     enum BinaryOperator
     {
         // Arithmetic
@@ -277,6 +293,10 @@ public sealed interface Expression
             }
             case AnyRow anyRow -> anyRow;
             case BinaryOperation(BinaryOperator operator, Expression left, Expression right) -> operation(operator, instantiate(left, allocator, mappings), instantiate(right, allocator, mappings));
+            case Conditional(BinaryOperation condition, Expression ifTrue, Expression ifFalse) -> new Conditional(
+                    (BinaryOperation) instantiate(condition, allocator, mappings),
+                    instantiate(ifTrue, allocator, mappings),
+                    instantiate(ifFalse, allocator, mappings));
             case Literal literal -> literal;
             case Symbol symbol -> symbol;
             case Variable variable -> new Variable(mappings.computeIfAbsent(variable.name(), _ -> allocator.newVariable()));
@@ -319,6 +339,10 @@ public sealed interface Expression
                 yield mapped;
             }
             case BinaryOperation binary -> operation(binary.operator(), rewrite(binary.left(), mappings), rewrite(binary.right(), mappings));
+            case Conditional(BinaryOperation condition, Expression ifTrue, Expression ifFalse) -> new Conditional(
+                    (BinaryOperation) rewrite(condition, mappings),
+                    rewrite(ifTrue, mappings),
+                    rewrite(ifFalse, mappings));
             case FunctionType functionType -> new FunctionType(
                     functionType.parameterTypes().stream()
                             .map(parameter -> rewrite(parameter, mappings))
@@ -391,6 +415,14 @@ public sealed interface Expression
                 Expression left = substitute(binary.left(), substitutions, activeVariables);
                 Expression right = substitute(binary.right(), substitutions, activeVariables);
                 yield left == binary.left() && right == binary.right() ? binary : operation(binary.operator(), left, right);
+            }
+            case Conditional conditional -> {
+                Expression condition = substitute(conditional.condition(), substitutions, activeVariables);
+                Expression ifTrue = substitute(conditional.ifTrue(), substitutions, activeVariables);
+                Expression ifFalse = substitute(conditional.ifFalse(), substitutions, activeVariables);
+                yield condition == conditional.condition() && ifTrue == conditional.ifTrue() && ifFalse == conditional.ifFalse()
+                        ? conditional
+                        : new Conditional((BinaryOperation) condition, ifTrue, ifFalse);
             }
             case FunctionType functionType -> {
                 List<Expression> parameters = substituteAll(functionType.parameterTypes(), substitutions, activeVariables);
@@ -471,6 +503,11 @@ public sealed interface Expression
         return new BinaryOperation(operator, left, right);
     }
 
+    static Conditional conditional(BinaryOperation condition, Expression ifTrue, Expression ifFalse)
+    {
+        return new Conditional(condition, ifTrue, ifFalse);
+    }
+
     static boolean isGround(Expression expression)
     {
         return switch (expression) {
@@ -479,6 +516,7 @@ public sealed interface Expression
             case Application(Expression head, List<Expression> arguments) -> isGround(head) && arguments.stream().allMatch(Expression::isGround);
             case Row(List<RowField> fields) -> fields.stream().allMatch(field -> isGround(field.type()));
             case BinaryOperation(BinaryOperator _, Expression left, Expression right) -> isGround(left) && isGround(right);
+            case Conditional(BinaryOperation condition, Expression ifTrue, Expression ifFalse) -> isGround(condition) && isGround(ifTrue) && isGround(ifFalse);
             case FunctionType functionType -> functionType.parameterTypes().stream().allMatch(Expression::isGround)
                     && functionType.variadicParameterType().map(Expression::isGround).orElse(true)
                     && isGround(functionType.returnType());
@@ -510,6 +548,23 @@ public sealed interface Expression
                     }
                 }
                 yield new BinaryOperation(operator, leftEvaluated, rightEvaluated);
+            }
+            case Conditional(BinaryOperation condition, Expression ifTrue, Expression ifFalse) -> {
+                Expression conditionLeft = evaluate(condition.left());
+                Expression conditionRight = evaluate(condition.right());
+                if (conditionLeft instanceof Literal(int l) && conditionRight instanceof Literal(int r)) {
+                    boolean holds = switch (condition.operator()) {
+                        case LESS_THAN -> l < r;
+                        case LESS_THAN_OR_EQUAL -> l <= r;
+                        case GREATER_THAN -> l > r;
+                        case GREATER_THAN_OR_EQUAL -> l >= r;
+                        case EQUAL -> l == r;
+                        case NOT_EQUAL -> l != r;
+                        case ADD, SUBTRACT, MULTIPLY, DIVIDE, MIN, MAX -> throw new IllegalArgumentException("Conditional condition must be a comparison: " + condition);
+                    };
+                    yield evaluate(holds ? ifTrue : ifFalse);
+                }
+                yield new Conditional(new BinaryOperation(condition.operator(), conditionLeft, conditionRight), evaluate(ifTrue), evaluate(ifFalse));
             }
             case Application(Expression head, List<Expression> arguments) -> new Application(
                     head,

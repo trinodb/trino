@@ -144,6 +144,7 @@ public class Unifier
             case Application(Expression head, List<Expression> arguments) -> contains(head, variable) || arguments.stream().anyMatch(argument -> contains(argument, variable));
             case Expression.Row(List<Expression.RowField> fields) -> fields.stream().anyMatch(field -> contains(field.type(), variable));
             case Expression.BinaryOperation(Expression.BinaryOperator _, Expression left, Expression right) -> contains(left, variable) || contains(right, variable);
+            case Expression.Conditional(Expression.BinaryOperation condition, Expression ifTrue, Expression ifFalse) -> contains(condition, variable) || contains(ifTrue, variable) || contains(ifFalse, variable);
             case Expression.FunctionType functionType -> functionType.parameterTypes().stream().anyMatch(parameter -> contains(parameter, variable))
                     || functionType.variadicParameterType().map(parameter -> contains(parameter, variable)).orElse(false)
                     || contains(functionType.returnType(), variable);

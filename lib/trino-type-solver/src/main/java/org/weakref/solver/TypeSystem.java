@@ -204,7 +204,7 @@ public class TypeSystem
             // Function types support neither equality nor ordering.
             case FunctionType _ -> false;
             // Non-symbol application head, or a numeric expression in type position: nothing to refute.
-            case Expression.Application _, Expression.Literal _, Expression.BinaryOperation _ -> true;
+            case Expression.Application _, Expression.Literal _, Expression.BinaryOperation _, Expression.Conditional _ -> true;
         };
     }
 
@@ -689,7 +689,7 @@ public class TypeSystem
         }
         return switch (expression) {
             case Variable(String name) -> List.of(new RequireKind(name, kind));
-            case Expression.Literal _, Expression.BinaryOperation _ -> kind == Kind.NUMBER ? List.of() : List.of();
+            case Expression.Literal _, Expression.BinaryOperation _, Expression.Conditional _ -> kind == Kind.NUMBER ? List.of() : List.of();
             case Expression.Symbol _, Expression.Application _, Expression.Row _, Expression.AnyRow _, FunctionType _ -> kind == Kind.TYPE ? List.of() : List.of();
         };
     }

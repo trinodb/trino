@@ -20,12 +20,14 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.weakref.solver.Expression.BinaryOperator.ADD;
+import static org.weakref.solver.Expression.BinaryOperator.GREATER_THAN;
 import static org.weakref.solver.Expression.BinaryOperator.GREATER_THAN_OR_EQUAL;
 import static org.weakref.solver.Expression.BinaryOperator.LESS_THAN_OR_EQUAL;
 import static org.weakref.solver.Expression.BinaryOperator.MIN;
 import static org.weakref.solver.Expression.BinaryOperator.MULTIPLY;
 import static org.weakref.solver.Expression.BinaryOperator.SUBTRACT;
 import static org.weakref.solver.Expression.apply;
+import static org.weakref.solver.Expression.conditional;
 import static org.weakref.solver.Expression.function;
 import static org.weakref.solver.Expression.literal;
 import static org.weakref.solver.Expression.operation;
@@ -169,5 +171,49 @@ public class CalculatedReturnTypeTest
 
         assertThat(outcome).isInstanceOfSatisfying(TypeScheme.Satisfied.class, satisfied ->
                 assertThat(satisfied.result().returnType()).isEqualTo(apply("varchar", literal(Integer.MAX_VALUE))));
+    }
+
+    /**
+     * Trino's decimal multiplication and division clamp their result scale through a conditional:
+     *   p = min(p1 + p2, 38)
+     *   s = min(s1 + s2, if((p1 + p2) - (s1 + s2) > 32, 6, 38 - ((p1 + p2) - (s1 + s2))))
+     * Exercises {@link Expression.Conditional} through return-type materialization on both branches.
+     */
+    @Test
+    void testConditionalReturnTypeEvaluatesChosenBranch()
+    {
+        Expression integerDigits = operation(
+                SUBTRACT,
+                operation(ADD, variable("@p1"), variable("@p2")),
+                operation(ADD, variable("@s1"), variable("@s2")));
+        TypeScheme multiplyDecimal = new TypeScheme(
+                List.of(variable("@p1"), variable("@s1"), variable("@p2"), variable("@s2")),
+                List.of(),
+                function(
+                        List.of(
+                                apply("decimal", variable("@p1"), variable("@s1")),
+                                apply("decimal", variable("@p2"), variable("@s2"))),
+                        apply("decimal",
+                                operation(MIN, operation(ADD, variable("@p1"), variable("@p2")), literal(38)),
+                                operation(MIN,
+                                        operation(ADD, variable("@s1"), variable("@s2")),
+                                        conditional(
+                                                operation(GREATER_THAN, integerDigits, literal(32)),
+                                                literal(6),
+                                                operation(SUBTRACT, literal(38), integerDigits))))));
+
+        // Few integer digits: the condition is false and the scale keeps the un-clamped sum
+        assertThat(multiplyDecimal.matchFunctionCallOutcome(
+                List.of(apply("decimal", literal(2), literal(1)), apply("decimal", literal(3), literal(2))),
+                TrinoPreset.typeSystem()))
+                .isInstanceOfSatisfying(TypeScheme.Satisfied.class, satisfied ->
+                        assertThat(satisfied.result().returnType()).isEqualTo(apply("decimal", literal(5), literal(3))));
+
+        // Integer digits beyond 32: the condition is true and the scale clamps to 6
+        assertThat(multiplyDecimal.matchFunctionCallOutcome(
+                List.of(apply("decimal", literal(25), literal(4)), apply("decimal", literal(20), literal(4))),
+                TrinoPreset.typeSystem()))
+                .isInstanceOfSatisfying(TypeScheme.Satisfied.class, satisfied ->
+                        assertThat(satisfied.result().returnType()).isEqualTo(apply("decimal", literal(38), literal(6))));
     }
 }

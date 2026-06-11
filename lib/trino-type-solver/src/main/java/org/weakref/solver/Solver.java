@@ -434,6 +434,11 @@ public class Solver
                 walkExpression(left, visitor);
                 walkExpression(right, visitor);
             }
+            case Expression.Conditional(BinaryOperation condition, Expression ifTrue, Expression ifFalse) -> {
+                walkExpression(condition, visitor);
+                walkExpression(ifTrue, visitor);
+                walkExpression(ifFalse, visitor);
+            }
             case Expression.FunctionType functionType -> {
                 functionType.parameterTypes().forEach(parameter -> walkExpression(parameter, visitor));
                 functionType.variadicParameterType().ifPresent(parameter -> walkExpression(parameter, visitor));

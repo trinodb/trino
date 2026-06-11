@@ -334,6 +334,22 @@ final class NumericPropagator
                     default -> Optional.empty();
                 };
             }
+            case Expression.Conditional(BinaryOperation condition, Expression ifTrue, Expression ifFalse) -> {
+                // A decided condition narrows to one branch; an undecided one still bounds the
+                // conditional by the union of the branch ranges
+                Optional<Boolean> holds = evaluate(condition, state);
+                if (holds.isPresent()) {
+                    yield evaluateRange(holds.orElseThrow() ? ifTrue : ifFalse, state);
+                }
+                Optional<Range> trueRange = evaluateRange(ifTrue, state);
+                Optional<Range> falseRange = evaluateRange(ifFalse, state);
+                if (trueRange.isEmpty() || falseRange.isEmpty()) {
+                    yield Optional.empty();
+                }
+                yield Optional.of(new Range(
+                        Math.min(trueRange.orElseThrow().min(), falseRange.orElseThrow().min()),
+                        Math.max(trueRange.orElseThrow().max(), falseRange.orElseThrow().max())));
+            }
             default -> Optional.empty();
         };
     }
@@ -367,6 +383,13 @@ final class NumericPropagator
                     case MAX -> Math.max(leftValue.orElseThrow(), rightValue.orElseThrow());
                     default -> throw new UnsupportedOperationException("Expected an arithmetic operator: " + operator);
                 });
+            }
+            case Expression.Conditional(BinaryOperation condition, Expression ifTrue, Expression ifFalse) -> {
+                Optional<Boolean> holds = evaluate(condition, state);
+                if (holds.isEmpty()) {
+                    yield OptionalInt.empty();
+                }
+                yield evaluateValue(holds.orElseThrow() ? ifTrue : ifFalse, state);
             }
             default -> OptionalInt.empty();
         };
