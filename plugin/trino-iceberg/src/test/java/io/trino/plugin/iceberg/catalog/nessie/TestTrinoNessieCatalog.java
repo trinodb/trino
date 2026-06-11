@@ -180,6 +180,14 @@ public class TestTrinoNessieCatalog
 
     @Test
     @Override
+    public void testNamespaceFilter()
+    {
+        assertThatThrownBy(super::testNamespaceFilter)
+                .hasMessageContaining("createView is not supported for Iceberg Nessie catalogs");
+    }
+
+    @Test
+    @Override
     public void testNonLowercaseNamespace()
     {
         TrinoCatalog catalog = createTrinoCatalog(false);

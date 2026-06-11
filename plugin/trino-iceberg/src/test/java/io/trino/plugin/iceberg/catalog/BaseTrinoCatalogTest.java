@@ -93,6 +93,8 @@ public abstract class BaseTrinoCatalogTest
                     .getSessionProperties())
             .build();
 
+    protected abstract void createNamespaceWithProperties(TrinoCatalog catalog, String namespace, Map<String, String> properties);
+
     protected abstract TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
             throws IOException;
 
@@ -469,9 +471,86 @@ public abstract class BaseTrinoCatalogTest
         }
     }
 
-    protected ExtendedRelationType getViewType()
+    @Test
+    public void testNamespaceFilter()
+            throws IOException
     {
-        return TRINO_VIEW;
+        TrinoCatalog catalog = createTrinoCatalog(false);
+        Path tmpDirectory = Files.createTempDirectory("iceberg_catalog_test_namespace_filter_");
+        tmpDirectory.toFile().deleteOnExit();
+
+        String namespace1 = "test_namespace_filter_" + randomNameSuffix();
+        String namespace2 = "test_namespace_filter_" + randomNameSuffix();
+        SchemaTableName schemaTableName1 = new SchemaTableName(namespace1, "viewName1");
+        SchemaTableName schemaTableName2 = new SchemaTableName(namespace2, "viewName2");
+        ConnectorViewDefinition viewDefinition = new ConnectorViewDefinition(
+                "SELECT name FROM local.tiny.nation",
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(
+                        new ConnectorViewDefinition.ViewColumn("name", VarcharType.createUnboundedVarcharType().getTypeId(), Optional.empty())),
+                Optional.empty(),
+                Optional.of(SESSION.getUser()),
+                false,
+                ImmutableList.of());
+
+        try {
+            catalog.createNamespace(SESSION, namespace1, defaultNamespaceProperties(namespace1), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+            catalog.createNamespace(SESSION, namespace2, defaultNamespaceProperties(namespace2), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+            catalog.createView(SESSION, schemaTableName1, viewDefinition, false);
+            catalog.createView(SESSION, schemaTableName2, viewDefinition, false);
+
+            // listTables without a filter returns relations from all namespaces
+            assertThat(catalog.listTables(SESSION, Optional.empty()))
+                    .contains(
+                            new TableInfo(schemaTableName1, getViewType()),
+                            new TableInfo(schemaTableName2, getViewType()));
+
+            // listTables with a filter only returns relations from the requested namespace
+            assertThat(catalog.listTables(SESSION, Optional.of(namespace1)))
+                    .contains(new TableInfo(schemaTableName1, getViewType()))
+                    .doesNotContain(new TableInfo(schemaTableName2, getViewType()));
+
+            // getViews without a filter returns views from all namespaces
+            assertThat(catalog.getViews(SESSION, Optional.empty()))
+                    .containsKeys(schemaTableName1, schemaTableName2);
+
+            // getViews with a filter only returns views from the requested namespace
+            Map<SchemaTableName, ConnectorViewDefinition> filteredViews = catalog.getViews(SESSION, Optional.of(namespace1));
+            assertThat(filteredViews).containsOnlyKeys(schemaTableName1);
+            assertViewDefinition(filteredViews.get(schemaTableName1), viewDefinition);
+
+            // listViews without a filter returns views from all namespaces
+            assertThat(catalog.listViews(SESSION, Optional.empty()))
+                    .contains(schemaTableName1, schemaTableName2);
+
+            // listViews with a filter only returns views from the requested namespace
+            assertThat(catalog.listViews(SESSION, Optional.of(namespace1)))
+                    .contains(schemaTableName1)
+                    .doesNotContain(schemaTableName2);
+
+            // a non-existent namespace filter yields no relations or views
+            assertThat(catalog.listTables(SESSION, Optional.of("non_existing"))).isEmpty();
+            assertThat(catalog.listViews(SESSION, Optional.of("non_existing"))).isEmpty();
+            assertThat(catalog.getViews(SESSION, Optional.of("non_existing"))).isEmpty();
+
+            catalog.dropView(SESSION, schemaTableName1);
+            catalog.dropView(SESSION, schemaTableName2);
+        }
+        finally {
+            try {
+                catalog.dropNamespace(SESSION, namespace1);
+            }
+            catch (Exception e) {
+                LOG.warn("Failed to clean up namespace: %s", namespace1);
+            }
+            try {
+                catalog.dropNamespace(SESSION, namespace2);
+            }
+            catch (Exception e) {
+                LOG.warn("Failed to clean up namespace: %s", namespace2);
+            }
+        }
     }
 
     @Test
@@ -582,7 +661,10 @@ public abstract class BaseTrinoCatalogTest
         }
     }
 
-    protected abstract void createNamespaceWithProperties(TrinoCatalog catalog, String namespace, Map<String, String> properties);
+    protected ExtendedRelationType getViewType()
+    {
+        return TRINO_VIEW;
+    }
 
     protected void createMaterializedView(
             ConnectorSession session,
