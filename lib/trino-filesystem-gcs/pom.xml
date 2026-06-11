@@ -200,6 +200,8 @@
                             <excludes>
                                 <exclude>**/TestGcsFileSystem.java</exclude>
                                 <exclude>**/TestGcsFileSystemWithEncryption.java</exclude>
+                                <exclude>**/TestGcsFileSystemWithConfiguredEncryptionKey.java</exclude>
+                                <exclude>**/TestGcsFileSystemWithEncryptionKeyRotation.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -218,6 +220,8 @@
                             <includes>
                                 <include>**/TestGcsFileSystem.java</include>
                                 <include>**/TestGcsFileSystemWithEncryption.java</include>
+                                <include>**/TestGcsFileSystemWithConfiguredEncryptionKey.java</include>
+                                <include>**/TestGcsFileSystemWithEncryptionKeyRotation.java</include>
                             </includes>
                         </configuration>
                     </plugin>

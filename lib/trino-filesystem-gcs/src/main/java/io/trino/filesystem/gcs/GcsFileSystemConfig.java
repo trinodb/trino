@@ -15,6 +15,7 @@ package io.trino.filesystem.gcs;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -56,6 +57,8 @@ public class GcsFileSystemConfig
     // Note: there is no benefit to setting this much higher as the rpc quota is 1x per second: https://cloud.google.com/storage/docs/retry-strategy#java
     private Duration maxBackoffDelay = new Duration(2000, TimeUnit.MILLISECONDS);
     private String applicationId = "Trino";
+    private String encryptionKey;
+    private String decryptionKey;
 
     @NotNull
     public DataSize getReadBlockSize()
@@ -236,6 +239,34 @@ public class GcsFileSystemConfig
     public GcsFileSystemConfig setApplicationId(String applicationId)
     {
         this.applicationId = applicationId;
+        return this;
+    }
+
+    public Optional<String> getEncryptionKey()
+    {
+        return Optional.ofNullable(encryptionKey);
+    }
+
+    @Config("gcs.encryption-key")
+    @ConfigDescription("Base64-encoded AES-256 customer-supplied encryption key used to encrypt objects written to Google Cloud Storage")
+    @ConfigSecuritySensitive
+    public GcsFileSystemConfig setEncryptionKey(String encryptionKey)
+    {
+        this.encryptionKey = encryptionKey;
+        return this;
+    }
+
+    public Optional<String> getDecryptionKey()
+    {
+        return Optional.ofNullable(decryptionKey);
+    }
+
+    @Config("gcs.decryption-key")
+    @ConfigDescription("Base64-encoded AES-256 customer-supplied encryption key used to decrypt objects read from Google Cloud Storage")
+    @ConfigSecuritySensitive
+    public GcsFileSystemConfig setDecryptionKey(String decryptionKey)
+    {
+        this.decryptionKey = decryptionKey;
         return this;
     }
 
