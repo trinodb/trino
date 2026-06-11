@@ -13,6 +13,7 @@
  */
 package io.trino.typesolver.verifier;
 
+import io.trino.lib.TypeBridge;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;

@@ -13,6 +13,7 @@
  */
 package io.trino.typesolver.verifier;
 
+import io.trino.lib.SignatureBridge;
 import io.trino.lib.TrinoPreset;
 import io.trino.lib.TrinoSpecificity;
 import io.trino.spi.function.FunctionKind;
@@ -24,10 +25,9 @@ import org.weakref.solver.TypeLibrary;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
-import static io.trino.metadata.OperatorNameUtil.isOperatorName;
-import static io.trino.metadata.OperatorNameUtil.unmangleOperator;
 import static org.weakref.solver.Expression.apply;
 import static org.weakref.solver.Expression.literal;
 import static org.weakref.solver.Expression.symbol;
@@ -39,7 +39,7 @@ import static org.weakref.solver.Expression.symbol;
 /// Operators are bridged under the symbols the parser produces. Comparison operators are symmetric
 /// in their argument types, so the flipped forms share the canonical operator's scheme, mirroring
 /// how the analyzer canonicalizes them (`a > b` resolves `LESS_THAN(b, a)`).
-final class CatalogLibrary
+public final class CatalogLibrary
 {
     private static final Map<OperatorType, List<String>> OPERATOR_SYMBOLS = Map.of(
             OperatorType.ADD, List.of("+"),
@@ -52,9 +52,23 @@ final class CatalogLibrary
             OperatorType.LESS_THAN_OR_EQUAL, List.of("<=", ">="),
             OperatorType.SUBSCRIPT, List.of("[]"));
 
+    /// Mirrors the engine's OperatorNameUtil mangling (a trino-main class; replicated so this
+    /// library needs only the SPI).
+    private static final String OPERATOR_PREFIX = "$operator$";
+
     private CatalogLibrary() {}
 
-    static TypeLibrary fromCatalog(Collection<FunctionMetadata> functions)
+    private static boolean isOperatorName(String mangledName)
+    {
+        return mangledName.startsWith(OPERATOR_PREFIX);
+    }
+
+    private static OperatorType unmangleOperator(String mangledName)
+    {
+        return OperatorType.valueOf(mangledName.substring(OPERATOR_PREFIX.length()).toUpperCase(Locale.ENGLISH));
+    }
+
+    public static TypeLibrary fromCatalog(Collection<FunctionMetadata> functions)
     {
         TypeLibrary.Builder builder = TypeLibrary.builder();
         TrinoPreset.typeConstructors().forEach(builder::registerType);

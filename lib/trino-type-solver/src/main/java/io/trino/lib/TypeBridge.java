@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.typesolver.verifier;
+package io.trino.lib;
 
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -53,7 +53,7 @@ public final class TypeBridge
      *
      * @return the solver expression modelling the same type
      */
-    static Expression toExpression(Type type)
+    public static Expression toExpression(Type type)
     {
         return switch (type) {
             case DecimalType decimal -> apply("decimal", literal(decimal.getPrecision()), literal(decimal.getScale()));
@@ -88,7 +88,7 @@ public final class TypeBridge
      *
      * @return a human-readable, structurally faithful rendering of the expression
      */
-    static String render(Expression expression)
+    public static String render(Expression expression)
     {
         return switch (expression) {
             case Expression.Symbol symbol -> symbol.name();

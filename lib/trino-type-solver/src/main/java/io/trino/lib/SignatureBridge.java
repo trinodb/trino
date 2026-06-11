@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.typesolver.verifier;
+package io.trino.lib;
 
 import io.trino.spi.function.NumericVariableConstraint;
 import io.trino.spi.function.Signature;
@@ -64,17 +64,17 @@ import static org.weakref.solver.Expression.variadicFunction;
  * a bridged signature resolves to the same concrete result type Trino computes; the input numeric variables
  * stay free solver variables.
  */
-final class SignatureBridge
+public final class SignatureBridge
 {
     private SignatureBridge() {}
 
-    static boolean isCalculated(Signature signature)
+    public static boolean isCalculated(Signature signature)
     {
         return signature.getVariables().stream()
                 .anyMatch(VariableDeclaration.NumericVariable.class::isInstance);
     }
 
-    static TypeScheme toTypeScheme(Signature signature)
+    public static TypeScheme toTypeScheme(Signature signature)
     {
         // Trino lowercases type-variable references inside templates (array(E) -> array(e)) but keeps the
         // original case in the constraint name; normalize everything to lower case so the same variable is
@@ -183,7 +183,7 @@ final class SignatureBridge
     private static Expression toParameter(TemplateParameter parameter, Set<String> typeVariables, Map<String, NumericExpression> numericVariables)
     {
         return switch (parameter) {
-            case TemplateParameter.TypeArgument(var name, TypeTemplate type) -> toExpression(type, typeVariables, numericVariables);
+            case TemplateParameter.TypeArgument(var _, TypeTemplate type) -> toExpression(type, typeVariables, numericVariables);
             case TemplateParameter.NumericArgument(NumericExpression value) -> toExpression(value, numericVariables);
         };
     }
@@ -242,7 +242,7 @@ final class SignatureBridge
                 arguments.forEach(argument -> collectVariables(argument, names));
             }
             case Expression.Row(List<Expression.RowField> fields) -> fields.forEach(field -> collectVariables(field.type(), names));
-            case Expression.BinaryOperation(Expression.BinaryOperator operator, Expression left, Expression right) -> {
+            case Expression.BinaryOperation(Expression.BinaryOperator _, Expression left, Expression right) -> {
                 collectVariables(left, names);
                 collectVariables(right, names);
             }

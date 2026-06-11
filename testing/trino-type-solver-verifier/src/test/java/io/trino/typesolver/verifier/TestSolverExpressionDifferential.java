@@ -16,6 +16,7 @@ package io.trino.typesolver.verifier;
 import io.trino.Session;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.lib.SignatureBridge;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AllowAllAccessControl;

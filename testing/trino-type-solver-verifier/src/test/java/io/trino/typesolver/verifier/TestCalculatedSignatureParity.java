@@ -14,6 +14,7 @@
 package io.trino.typesolver.verifier;
 
 import io.trino.lib.TrinoPreset;
+import io.trino.lib.TypeBridge;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.Type;
