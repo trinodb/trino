@@ -678,7 +678,7 @@ class TestHiveViewsLegacy
 
         // In legacy mode, MAP function has unexpected parameters
         assertThatThrownBy(() -> executeTrinoWithLegacyMode(env, "SELECT simple_map['Clerk#000000951'] FROM test_map_construction_view WHERE o_orderkey = 1"))
-                .hasMessageContaining("Unexpected parameters (varchar(15), varchar(15)) for function map");
+                .hasMessageContaining("Unexpected parameters (varchar(15), varchar(15)) for function MAP");
 
         env.executeHiveUpdate("DROP VIEW test_map_construction_view");
     }

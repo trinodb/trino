@@ -15,8 +15,8 @@ WITH
       , "w_warehouse_sk"
       , "i_item_sk"
       , "d_moy"
-      , "stddev_samp"("inv_quantity_on_hand") "stdev"
-      , "avg"("inv_quantity_on_hand") "mean"
+      , stddev_samp("inv_quantity_on_hand") "stdev"
+      , avg("inv_quantity_on_hand") "mean"
       FROM
         ${database}.${schema}.inventory
       , ${database}.${schema}.item
@@ -42,8 +42,8 @@ SELECT
 , "inv2"."mean"
 , CAST("inv2"."cov" AS DECIMAL(30, 10)) -- decrease precision to avoid unstable results due to roundings
 FROM
-  inv inv1
-, inv inv2
+  inv "inv1"
+, inv "inv2"
 WHERE ("inv1"."i_item_sk" = "inv2"."i_item_sk")
    AND ("inv1"."w_warehouse_sk" = "inv2"."w_warehouse_sk")
    AND ("inv1"."d_moy" = 1)

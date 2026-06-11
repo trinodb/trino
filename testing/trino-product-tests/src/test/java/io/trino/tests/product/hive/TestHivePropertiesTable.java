@@ -74,7 +74,7 @@ class TestHivePropertiesTable
 
         // Use "contains" method because the table properties for Hive views aren't identical among testing environments
         assertThat(env.executeTrino("SHOW COLUMNS FROM \"test_hive_view_properties$properties\""))
-                .contains(row("transient_lastddltime", "varchar", "", ""));
+                .contains(row("transient_lastDdlTime", "varchar", "", ""));
 
         assertThat(env.executeTrino("SELECT * FROM \"test_hive_view_properties$properties\""))
                 .hasRowsCount(1)

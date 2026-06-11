@@ -545,6 +545,8 @@ public class LanguageFunctionManager
             private SqlRoutineAnalysis analyzeSqlFunction(FunctionContext context)
             {
                 try {
+                    // FIXME: for proper canonicalization with function we use Identity canonicalizer
+                    // plannerContext.setDefaultCanonicalizer(Canonicalizer.IDENTITY_CANONICALIZER);
                     return analyzer.analyze(context.session(), context.accessControl(), functionSpecification);
                 }
                 catch (TrinoException e) {

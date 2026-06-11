@@ -1644,11 +1644,11 @@ class TestIcebergSparkCompatibility
                         row("keep_col", "bigint"),
                         row("drop_and_add_col", "bigint"),
                         row("add_col", "bigint"),
-                        row("casesensitivecol", "bigint"),
+                        row("CaseSensitiveCol", "bigint"),
                         row("a_struct", "row(\"renamed\" bigint, \"keep\" bigint, \"CaseSensitive\" bigint, \"drop_and_add\" bigint, \"added\" bigint)"),
                         row("a_partition", "bigint"));
 
-        assertThat(env.executeTrino(format("SELECT quite_renamed_col, keep_col, drop_and_add_col, add_col, casesensitivecol, a_struct, a_partition FROM %s", trinoTableName)))
+        assertThat(env.executeTrino(format("SELECT quite_renamed_col, keep_col, drop_and_add_col, add_col, CaseSensitiveCol, a_struct, a_partition FROM %s", trinoTableName)))
                 .containsOnly(row(
                         2L, // quite_renamed_col
                         3L, // keep_col
@@ -1671,14 +1671,14 @@ class TestIcebergSparkCompatibility
         // smoke test for dereference
         assertThat(env.executeTrino(format("SELECT a_struct.renamed FROM %s", trinoTableName))).containsOnly(row(11L));
         assertThat(env.executeTrino(format("SELECT a_struct.keep FROM %s", trinoTableName))).containsOnly(row(12L));
-        assertThat(env.executeTrino(format("SELECT a_struct.casesensitive FROM %s", trinoTableName))).containsOnly(row(14L));
+        assertThat(env.executeTrino(format("SELECT a_struct.CaseSensitive FROM %s", trinoTableName))).containsOnly(row(14L));
         assertThat(env.executeTrino(format("SELECT a_struct.drop_and_add FROM %s", trinoTableName))).containsOnly(row((Object) null));
         assertThat(env.executeTrino(format("SELECT a_struct.added FROM %s", trinoTableName))).containsOnly(row((Object) null));
 
         // smoke test for dereference in a predicate
         assertThat(env.executeTrino(format("SELECT keep_col FROM %s WHERE a_struct.renamed = 11", trinoTableName))).containsOnly(row(3L));
         assertThat(env.executeTrino(format("SELECT keep_col FROM %s WHERE a_struct.keep = 12", trinoTableName))).containsOnly(row(3L));
-        assertThat(env.executeTrino(format("SELECT keep_col FROM %s WHERE a_struct.casesensitive = 14", trinoTableName))).containsOnly(row(3L));
+        assertThat(env.executeTrino(format("SELECT keep_col FROM %s WHERE a_struct.CaseSensitive = 14", trinoTableName))).containsOnly(row(3L));
         // make sure predicates are also ID based
         assertThat(env.executeTrino(format("SELECT keep_col FROM %s WHERE a_struct.drop_and_add IS NULL", trinoTableName))).containsOnly(row(3L));
         assertThat(env.executeTrino(format("SELECT keep_col FROM %s WHERE a_struct.added IS NULL", trinoTableName))).containsOnly(row(3L));

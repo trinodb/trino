@@ -31,6 +31,7 @@ import io.trino.metadata.MetadataManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.ResolverManager;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.metadata.TableSchema;
@@ -58,6 +59,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.Resolver;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
@@ -142,6 +144,7 @@ public abstract class BaseDataDefinitionTaskTest
         queryRunner.createCatalog(TEST_CATALOG_NAME, "initial", ImmutableMap.of());
 
         metadata = new MockMetadata(TEST_CATALOG_NAME);
+        metadata.getResolverManager().addResolver(TEST_CATALOG_NAME, ResolverManager.getLowerCaseCanonicalizer());
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
         Map<String, PropertyMetadata<?>> columnProperties = ImmutableMap.of(
                 COLUMN_PROPERTY_NAME, longProperty(COLUMN_PROPERTY_NAME, "column_property 1", COLUMN_PROPERTY_DEFAULT_VALUE, false));
@@ -760,6 +763,18 @@ public abstract class BaseDataDefinitionTaskTest
             MockConnectorTableMetadata table = tables.get(tableName.asSchemaTableName());
             requireNonNull(table, "table is null");
             return table.branches().contains(branch);
+        }
+
+        @Override
+        public ResolverManager getResolverManager()
+        {
+            return delegate.getResolverManager();
+        }
+
+        @Override
+        public Optional<Resolver> getResolver(Session session, String catalog)
+        {
+            return delegate.getResolver(session, catalog);
         }
 
         private static ColumnMetadata withComment(ColumnMetadata tableColumn, Optional<String> comment)

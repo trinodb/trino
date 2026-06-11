@@ -120,6 +120,12 @@ public abstract class BaseOpenSearchConnectorTest
         };
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     /**
      * This method overrides the default values used for the data provider
      * of the test {@link AbstractTestQueries#testLargeIn()} by taking
@@ -138,13 +144,22 @@ public abstract class BaseOpenSearchConnectorTest
     }
 
     @Test
+    @Override
+    public void testCreateTableMixedCaseDelimited()
+    {
+        // FIXME: OpenSearch don't support delimited identifier with space
+        assertThatThrownBy(super::testCreateTableMixedCaseDelimited)
+                .hasMessageContaining("Illegal character in path at index 5: /Test Create MixedCase Delimited");
+    }
+
+    @Test
     public void testWithoutBackpressure()
     {
         String catalogName = getSession().getCatalog().orElseThrow();
-        assertQuerySucceeds("SELECT * FROM orders");
+        assertQuerySucceeds("SELECT * FROM \"orders\"");
         // Check that JMX stats show no sign of backpressure
-        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"%s.client:*name=%s*\" WHERE \"backpressurestats.alltime.count\" > 0", jmxBaseName, catalogName));
-        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"%s.client:*name=%s*\" WHERE \"backpressurestats.alltime.max\" > 0", jmxBaseName, catalogName));
+        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"%s.client:*name=%s*\" WHERE \"BackpressureStats.AllTime.Count\" > 0", jmxBaseName, catalogName));
+        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"%s.client:*name=%s*\" WHERE \"BackpressureStats.AllTime.Max\" > 0", jmxBaseName, catalogName));
     }
 
     @Test
@@ -152,7 +167,10 @@ public abstract class BaseOpenSearchConnectorTest
     public void testSelectAll()
     {
         // List columns explicitly, as there's no defined order in OpenSearch
-        assertQuery("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment FROM orders");
+        assertQuery(
+                """
+                SELECT "orderkey", "custkey", "orderstatus", "totalprice", "orderdate", "orderpriority", "clerk", "shippriority", "comment" FROM "orders"\
+                """);
     }
 
     @Override
@@ -1845,13 +1863,13 @@ public abstract class BaseOpenSearchConnectorTest
         String indexName = "mixed_case";
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("Name", "john")
-                .put("AGE", 32)
+                .put("Age", 32)
                 .buildOrThrow());
 
-        assertThat(query("SELECT name, age FROM mixed_case"))
+        assertThat(query("SELECT Name, Age FROM mixed_case"))
                 .matches("VALUES (VARCHAR 'john', BIGINT '32')");
 
-        assertThat(query("SELECT name, age FROM mixed_case WHERE name = 'john'"))
+        assertThat(query("SELECT Name, Age FROM mixed_case WHERE Name = 'john'"))
                 .matches("VALUES (VARCHAR 'john', BIGINT '32')");
     }
 

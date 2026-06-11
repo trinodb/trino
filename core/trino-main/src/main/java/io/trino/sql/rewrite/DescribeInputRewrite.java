@@ -46,8 +46,8 @@ import static io.trino.execution.ParameterExtractor.extractParameters;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.QueryUtil.aliased;
-import static io.trino.sql.QueryUtil.ascending;
-import static io.trino.sql.QueryUtil.identifier;
+import static io.trino.sql.QueryUtil.delimitedAscending;
+import static io.trino.sql.QueryUtil.delimitedIdentifier;
 import static io.trino.sql.QueryUtil.ordering;
 import static io.trino.sql.QueryUtil.row;
 import static io.trino.sql.QueryUtil.selectList;
@@ -149,7 +149,7 @@ public final class DescribeInputRewrite
         private static Query createDescribeInputQuery(Row[] rows, Optional<Node> limit)
         {
             return simpleQuery(
-                    selectList(identifier("Position"), identifier("Type")),
+                    selectList(delimitedIdentifier("Position"), delimitedIdentifier("Type")),
                     aliased(
                             values(rows),
                             "Parameter Input",
@@ -157,7 +157,7 @@ public final class DescribeInputRewrite
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
-                    Optional.of(ordering(ascending("Position"))),
+                    Optional.of(ordering(delimitedAscending("Position"))),
                     Optional.empty(),
                     limit);
         }

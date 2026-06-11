@@ -157,9 +157,9 @@ public class TestDefaultJdbcMetadata
     {
         // known table
         assertThat(metadata.getColumnHandles(SESSION, tableHandle)).isEqualTo(ImmutableMap.of(
-                "text", new JdbcColumnHandle("TEXT", JDBC_VARCHAR, VARCHAR),
-                "text_short", new JdbcColumnHandle("TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32)),
-                "value", new JdbcColumnHandle("VALUE", JDBC_BIGINT, BIGINT)));
+                "text", new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR),
+                "text_short", new JdbcColumnHandle("text_short", JDBC_VARCHAR, createVarcharType(32)),
+                "value", new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT)));
 
         // unknown table
         unknownTableColumnHandle(new JdbcTableHandle(new SchemaTableName("unknown", "unknown"), new RemoteTableName(Optional.of("unknown"), Optional.of("unknown"), "unknown"), Optional.empty()));
@@ -190,7 +190,7 @@ public class TestDefaultJdbcMetadata
         assertThat(specialTableMetadata.getTable()).isEqualTo(new SchemaTableName("exa_ple", "num_ers"));
         assertThat(specialTableMetadata.getColumns()).isEqualTo(ImmutableList.of(
                 ColumnMetadata.builder().setName("te_t").setType(VARCHAR).setNullable(false).build(), // primary key is not null in H2
-                new ColumnMetadata("va%ue", BIGINT)));
+                new ColumnMetadata("VA%UE", BIGINT)));
 
         // unknown tables should produce null
         unknownTableMetadata(new JdbcTableHandle(new SchemaTableName("u", "numbers"), new RemoteTableName(Optional.empty(), Optional.of("unknown"), "unknown"), Optional.empty()));
@@ -250,7 +250,7 @@ public class TestDefaultJdbcMetadata
     @Test
     public void testCreateAndAlterTable()
     {
-        SchemaTableName table = new SchemaTableName("example", "foo");
+        SchemaTableName table = new SchemaTableName("example", "FOO");
         metadata.createTable(SESSION, new ConnectorTableMetadata(table, ImmutableList.of(new ColumnMetadata("text", VARCHAR))), SaveMode.FAIL);
 
         JdbcTableHandle handle = metadata.getTableHandle(SESSION, table, Optional.empty(), Optional.empty());
@@ -260,20 +260,20 @@ public class TestDefaultJdbcMetadata
         assertThat(layout.getColumns())
                 .containsExactly(new ColumnMetadata("text", VARCHAR));
 
-        metadata.addColumn(SESSION, handle, new ColumnMetadata("x", VARCHAR), new ColumnPosition.Last());
+        metadata.addColumn(SESSION, handle, new ColumnMetadata("X", VARCHAR), new ColumnPosition.Last());
         layout = metadata.getTableMetadata(SESSION, handle);
         assertThat(layout.getColumns())
                 .containsExactly(
                         new ColumnMetadata("text", VARCHAR),
-                        new ColumnMetadata("x", VARCHAR));
+                        new ColumnMetadata("X", VARCHAR));
 
-        JdbcColumnHandle columnHandle = new JdbcColumnHandle("x", JDBC_VARCHAR, VARCHAR);
+        JdbcColumnHandle columnHandle = new JdbcColumnHandle("X", JDBC_VARCHAR, VARCHAR);
         metadata.dropColumn(SESSION, handle, columnHandle);
         layout = metadata.getTableMetadata(SESSION, handle);
         assertThat(layout.getColumns())
                 .containsExactly(new ColumnMetadata("text", VARCHAR));
 
-        SchemaTableName newTableName = new SchemaTableName("example", "bar");
+        SchemaTableName newTableName = new SchemaTableName("example", "BAR");
         metadata.renameTable(SESSION, handle, newTableName);
         handle = metadata.getTableHandle(SESSION, newTableName, Optional.empty(), Optional.empty());
         layout = metadata.getTableMetadata(SESSION, handle);
@@ -354,10 +354,10 @@ public class TestDefaultJdbcMetadata
                         // as firstDomain has been converted into a PreparedQuery
                         Optional.of(ImmutableMap.of(groupByColumn, secondDomain)));
         assertThat(((JdbcQueryRelationHandle) tableHandleWithFilter.getRelationHandle()).getPreparedQuery().query())
-                .isEqualTo("SELECT \"TEXT\", count(*) AS \"_pfgnrtd_0\" " +
-                        "FROM \"" + database.getDatabaseName() + "\".\"EXAMPLE\".\"NUMBERS\" " +
-                        "WHERE \"TEXT\" IN (?,?) " +
-                        "GROUP BY \"TEXT\"");
+                .isEqualTo("SELECT \"text\", count(*) AS \"_pfgnrtd_0\" " +
+                        "FROM \"" + database.getDatabaseName() + "\".\"example\".\"numbers\" " +
+                        "WHERE \"text\" IN (?,?) " +
+                        "GROUP BY \"text\"");
     }
 
     @Test
@@ -380,9 +380,9 @@ public class TestDefaultJdbcMetadata
                 new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(nonGroupByColumn, domain))));
         assertThat(tableHandleWithFilter.getConstraint().getDomains()).isEqualTo(Optional.of(ImmutableMap.of(nonGroupByColumn, domain)));
         assertThat(((JdbcQueryRelationHandle) tableHandleWithFilter.getRelationHandle()).getPreparedQuery().query())
-                .isEqualTo("SELECT \"TEXT\", count(*) AS \"_pfgnrtd_0\" " +
-                        "FROM \"" + database.getDatabaseName() + "\".\"EXAMPLE\".\"NUMBERS\" " +
-                        "GROUP BY \"TEXT\"");
+                .isEqualTo("SELECT \"text\", count(*) AS \"_pfgnrtd_0\" " +
+                        "FROM \"" + database.getDatabaseName() + "\".\"example\".\"numbers\" " +
+                        "GROUP BY \"text\"");
     }
 
     @Test
@@ -406,9 +406,9 @@ public class TestDefaultJdbcMetadata
                 new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(valueColumn, domain))));
         assertThat(tableHandleWithFilter.getConstraint().getDomains()).isEqualTo(Optional.of(ImmutableMap.of(valueColumn, domain)));
         assertThat(((JdbcQueryRelationHandle) tableHandleWithFilter.getRelationHandle()).getPreparedQuery().query())
-                .isEqualTo("SELECT \"TEXT\", \"VALUE\", count(*) AS \"_pfgnrtd_0\" " +
-                        "FROM \"" + database.getDatabaseName() + "\".\"EXAMPLE\".\"NUMBERS\" " +
-                        "GROUP BY GROUPING SETS ((\"TEXT\", \"VALUE\"), (\"TEXT\"))");
+                .isEqualTo("SELECT \"text\", \"value\", count(*) AS \"_pfgnrtd_0\" " +
+                        "FROM \"" + database.getDatabaseName() + "\".\"example\".\"numbers\" " +
+                        "GROUP BY GROUPING SETS ((\"text\", \"value\"), (\"text\"))");
     }
 
     @Test

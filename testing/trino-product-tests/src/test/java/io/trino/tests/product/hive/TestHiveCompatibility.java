@@ -243,7 +243,7 @@ class TestHiveCompatibility
                 String.format("CREATE TABLE %s (testInteger INTEGER, testLong BIGINT, testString VARCHAR, testDouble DOUBLE, testFloat REAL) ", trinoTableNameWithBloomFilter) +
                         "WITH (" +
                         "format = 'PARQUET'," +
-                        "parquet_bloom_filter_columns = ARRAY['testInteger', 'testLong', 'testString', 'testDouble', 'testFloat']" +
+                        "parquet_bloom_filter_columns = ARRAY['test_integer', 'test_long', 'test_string', 'test_double', 'test_float']" +
                         ")");
         env.executeTrinoUpdate(
                 String.format("CREATE TABLE %s (testInteger INTEGER, testLong BIGINT, testString VARCHAR, testDouble DOUBLE, testFloat REAL) WITH (FORMAT = 'PARQUET')", trioTableNameNoBloomFilter));
@@ -252,12 +252,12 @@ class TestHiveCompatibility
         for (String trinoTable : tables) {
             env.executeTrinoUpdate(format(
                     "INSERT INTO %s " +
-                            "SELECT testInteger, testLong, testString, testDouble, testFloat FROM (VALUES " +
+                            "SELECT test_integer, test_long, test_string, test_double, test_float FROM (VALUES " +
                             "  (-999999, -999999, 'aaaaaaaaaaa', DOUBLE '-9999999999.99', REAL '-9999999.9999')" +
                             ", (3, 30, 'fdsvxxbv33cb', DOUBLE '97662.2', REAL '98862.2')" +
                             ", (5324, 2466, 'refgfdfrexx', DOUBLE '8796.1', REAL '-65496.1')" +
                             ", (999999, 9999999999999, 'zzzzzzzzzzz', DOUBLE '9999999999.99', REAL '-9999999.9999')" +
-                            ", (9444, 4132455, 'ff34322vxff', DOUBLE '32137758.7892', REAL '9978.129887')) AS DATA(testInteger, testLong, testString, testDouble, testFloat)",
+                            ", (9444, 4132455, 'ff34322vxff', DOUBLE '32137758.7892', REAL '9978.129887')) AS DATA(test_integer, test_long, test_string, test_double, test_float)",
                     trinoTable));
         }
 

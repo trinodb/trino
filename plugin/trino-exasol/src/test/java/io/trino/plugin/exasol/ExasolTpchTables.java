@@ -42,14 +42,14 @@ final class ExasolTpchTables
         Path tempFile = createCsvFile(rows, tableName);
         ImmutableList.Builder<String> columnDefinitions = ImmutableList.builderWithExpectedSize(rows.getTypes().size());
         for (int i = 0; i < rows.getTypes().size(); i++) {
-            columnDefinitions.add(rows.getColumnNames().get(i) + " " + convertType(tableName, rows.getColumnNames().get(i), rows.getTypes().get(i)));
+            columnDefinitions.add(format("\"%s\" %s", rows.getColumnNames().get(i), convertType(tableName, rows.getColumnNames().get(i), rows.getTypes().get(i))));
         }
-        String createTableStatement = format("CREATE TABLE %s.%s (%s)", TEST_SCHEMA, tableName, String.join(",", columnDefinitions.build()));
+        String createTableStatement = format("CREATE TABLE %s.\"%s\" (%s)", TEST_SCHEMA, tableName, String.join(",", columnDefinitions.build()));
         log.info("Creating table %s using definition '%s'", tableName, createTableStatement);
         server.execute(createTableStatement);
         String importStatement = format(
                 """
-                IMPORT INTO %s.%s
+                IMPORT INTO %s."%s"
                 FROM LOCAL CSV FILE '%s'
                 ROW SEPARATOR = 'LF'
                 COLUMN SEPARATOR = ','
