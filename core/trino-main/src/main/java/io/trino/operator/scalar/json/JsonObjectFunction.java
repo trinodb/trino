@@ -69,7 +69,7 @@ public class JsonObjectFunction
                         .typeVariable("K")
                         .typeVariable("V")
                         .returnType(type(JSON_2016))
-                        .argumentTypes(ImmutableList.of(typeVariable("K"), typeVariable("V"), type(BOOLEAN), type(BOOLEAN)))
+                        .argumentTypes(typeVariable("K"), typeVariable("V"), type(BOOLEAN), type(BOOLEAN))
                         .build())
                 .argumentNullability(true, true, false, false)
                 .hidden()

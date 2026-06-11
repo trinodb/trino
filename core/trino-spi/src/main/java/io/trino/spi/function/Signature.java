@@ -13,15 +13,20 @@
  */
 package io.trino.spi.function;
 
+import io.trino.spi.type.NumericExpression;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.Set;
 
+import static java.util.Collections.unmodifiableSet;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toUnmodifiableList;
@@ -42,21 +47,18 @@ public class Signature
         }
     }
 
-    private final List<TypeVariableConstraint> typeVariableConstraints;
-    private final List<NumericVariableConstraint> numericVariableConstraints;
+    private final Set<VariableDeclaration> variables;
     private final TypeSignature returnType;
     private final List<Argument> arguments;
     private final boolean variableArity;
 
     private Signature(
-            List<TypeVariableConstraint> typeVariableConstraints,
-            List<NumericVariableConstraint> numericVariableConstraints,
+            List<VariableDeclaration> variables,
             TypeSignature returnType,
             List<Argument> arguments,
             boolean variableArity)
     {
-        this.typeVariableConstraints = List.copyOf(typeVariableConstraints);
-        this.numericVariableConstraints = List.copyOf(numericVariableConstraints);
+        this.variables = unmodifiableSet(new LinkedHashSet<>(variables));
         this.returnType = requireNonNull(returnType, "returnType is null");
         this.arguments = List.copyOf(arguments);
         this.variableArity = variableArity;
@@ -89,23 +91,37 @@ public class Signature
      */
     public boolean isGeneric()
     {
-        return !typeVariableConstraints.isEmpty();
+        return variables.stream().anyMatch(VariableDeclaration.TypeVariable.class::isInstance);
     }
 
+    /// The type and numeric variables declared by this signature.
+    public List<VariableDeclaration> getVariables()
+    {
+        return List.copyOf(variables);
+    }
+
+    /// The type-variable constraints, as a view over [#getVariables()].
     public List<TypeVariableConstraint> getTypeVariableConstraints()
     {
-        return typeVariableConstraints;
+        return variables.stream()
+                .filter(VariableDeclaration.TypeVariable.class::isInstance)
+                .map(variable -> ((VariableDeclaration.TypeVariable) variable).constraint())
+                .collect(toUnmodifiableList());
     }
 
+    /// The numeric-variable constraints, as a view over [#getVariables()].
     public List<NumericVariableConstraint> getNumericVariableConstraints()
     {
-        return numericVariableConstraints;
+        return variables.stream()
+                .filter(VariableDeclaration.NumericVariable.class::isInstance)
+                .map(variable -> ((VariableDeclaration.NumericVariable) variable).constraint())
+                .collect(toUnmodifiableList());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(typeVariableConstraints, numericVariableConstraints, returnType, arguments, variableArity);
+        return Objects.hash(variables, returnType, arguments, variableArity);
     }
 
     @Override
@@ -117,8 +133,7 @@ public class Signature
         if (!(obj instanceof Signature other)) {
             return false;
         }
-        return Objects.equals(this.typeVariableConstraints, other.typeVariableConstraints) &&
-                Objects.equals(this.numericVariableConstraints, other.numericVariableConstraints) &&
+        return Objects.equals(this.variables, other.variables) &&
                 Objects.equals(this.returnType, other.returnType) &&
                 Objects.equals(this.arguments, other.arguments) &&
                 this.variableArity == other.variableArity;
@@ -127,12 +142,14 @@ public class Signature
     @Override
     public String toString()
     {
-        List<String> allConstraints = concat(
-                typeVariableConstraints.stream().map(TypeVariableConstraint::toString),
-                numericVariableConstraints.stream().map(NumericVariableConstraint::toString))
-                .collect(Collectors.toList());
+        String constraints = variables.stream()
+                .map(variable -> switch (variable) {
+                    case VariableDeclaration.TypeVariable typeVariable -> typeVariable.constraint().toString();
+                    case VariableDeclaration.NumericVariable numericVariable -> numericVariable.constraint().toString();
+                })
+                .collect(joining(",", "<", ">"));
 
-        return (allConstraints.isEmpty() ? "" : allConstraints.stream().collect(joining(",", "<", ">"))) +
+        return (variables.isEmpty() ? "" : constraints) +
                 arguments.stream().map(Argument::type).map(Objects::toString).collect(joining(",", "(", ")")) +
                 ":" + returnType;
     }
@@ -145,8 +162,7 @@ public class Signature
     public static Builder builder(Signature base)
     {
         Builder builder = new Builder()
-                .typeVariableConstraints(base.typeVariableConstraints)
-                .numericVariableConstraints(base.numericVariableConstraints)
+                .variables(base.variables)
                 .returnType(base.returnType)
                 .arguments(base.arguments);
         if (base.variableArity) {
@@ -157,8 +173,7 @@ public class Signature
 
     public static final class Builder
     {
-        private final List<TypeVariableConstraint> typeVariableConstraints = new ArrayList<>();
-        private final List<NumericVariableConstraint> numericVariableConstraints = new ArrayList<>();
+        private final List<VariableDeclaration> variables = new ArrayList<>();
         private TypeSignature returnType;
         private final List<Argument> arguments = new ArrayList<>();
         private boolean variableArity;
@@ -167,59 +182,53 @@ public class Signature
 
         public Builder typeVariable(String name)
         {
-            typeVariableConstraints.add(TypeVariableConstraint.builder(name).build());
-            return this;
+            return typeVariableConstraint(TypeVariableConstraint.builder(name).build());
         }
 
         public Builder comparableTypeParameter(String name)
         {
-            typeVariableConstraints.add(TypeVariableConstraint.builder(name)
+            return typeVariableConstraint(TypeVariableConstraint.builder(name)
                     .comparableRequired()
                     .build());
-            return this;
         }
 
         public Builder orderableTypeParameter(String name)
         {
-            typeVariableConstraints.add(TypeVariableConstraint.builder(name)
+            return typeVariableConstraint(TypeVariableConstraint.builder(name)
                     .orderableRequired()
                     .build());
-            return this;
         }
 
         public Builder castableToTypeParameter(String name, TypeSignature toType)
         {
-            typeVariableConstraints.add(TypeVariableConstraint.builder(name)
+            return typeVariableConstraint(TypeVariableConstraint.builder(name)
                     .castableTo(toType)
                     .build());
-            return this;
         }
 
         public Builder castableFromTypeParameter(String name, TypeSignature fromType)
         {
-            typeVariableConstraints.add(TypeVariableConstraint.builder(name)
+            return typeVariableConstraint(TypeVariableConstraint.builder(name)
                     .castableFrom(fromType)
                     .build());
-            return this;
         }
 
         public Builder rowTypeParameter(String name)
         {
-            typeVariableConstraints.add(TypeVariableConstraint.builder(name)
+            return typeVariableConstraint(TypeVariableConstraint.builder(name)
                     .rowType()
                     .build());
-            return this;
         }
 
         public Builder typeVariableConstraint(TypeVariableConstraint typeVariableConstraint)
         {
-            this.typeVariableConstraints.add(requireNonNull(typeVariableConstraint, "typeVariableConstraint is null"));
+            variables.add(new VariableDeclaration.TypeVariable(typeVariableConstraint));
             return this;
         }
 
         public Builder typeVariableConstraints(List<TypeVariableConstraint> typeVariableConstraints)
         {
-            this.typeVariableConstraints.addAll(requireNonNull(typeVariableConstraints, "typeVariableConstraints is null"));
+            requireNonNull(typeVariableConstraints, "typeVariableConstraints is null").forEach(this::typeVariableConstraint);
             return this;
         }
 
@@ -234,21 +243,32 @@ public class Signature
             return this;
         }
 
-        public Builder numericVariable(String name, String expression)
+        public Builder numericVariable(String name, NumericExpression expression)
         {
-            this.numericVariableConstraints.add(new NumericVariableConstraint(name, expression));
+            variables.add(new VariableDeclaration.NumericVariable(new NumericVariableConstraint(name, expression)));
             return this;
         }
 
         public Builder numericVariable(String name)
         {
-            this.numericVariableConstraints.add(new NumericVariableConstraint(name, name));
-            return this;
+            return numericVariable(name, new NumericExpression.Variable(name));
         }
 
         public Builder numericVariableConstraints(List<NumericVariableConstraint> numericVariableConstraints)
         {
-            this.numericVariableConstraints.addAll(numericVariableConstraints);
+            numericVariableConstraints.forEach(constraint -> variables.add(new VariableDeclaration.NumericVariable(constraint)));
+            return this;
+        }
+
+        public Builder variable(VariableDeclaration variable)
+        {
+            variables.add(requireNonNull(variable, "variable is null"));
+            return this;
+        }
+
+        public Builder variables(Collection<VariableDeclaration> variables)
+        {
+            this.variables.addAll(requireNonNull(variables, "variables is null"));
             return this;
         }
 
@@ -282,6 +302,14 @@ public class Signature
             return this;
         }
 
+        public Builder argumentTypes(TypeSignature... argumentTypes)
+        {
+            for (TypeSignature argumentType : argumentTypes) {
+                argumentType(argumentType);
+            }
+            return this;
+        }
+
         public Builder arguments(List<Argument> arguments)
         {
             this.arguments.clear();
@@ -297,7 +325,16 @@ public class Signature
 
         public Signature build()
         {
-            return new Signature(typeVariableConstraints, numericVariableConstraints, returnType, arguments, variableArity);
+            // Canonicalize the declaration order: type variables before numeric variables, each kind
+            // sorted by name. Equality and hashCode are set-based, so they do not depend on the order
+            // the builder methods were called in; sorting here makes toString -- and the FunctionId
+            // derived from it -- independent of that order too, so equal signatures always render alike.
+            List<VariableDeclaration> orderedVariables = concat(
+                    variables.stream().filter(VariableDeclaration.TypeVariable.class::isInstance).sorted(comparing(VariableDeclaration::name)),
+                    variables.stream().filter(VariableDeclaration.NumericVariable.class::isInstance).sorted(comparing(VariableDeclaration::name)))
+                    .collect(toUnmodifiableList());
+
+            return new Signature(orderedVariables, returnType, arguments, variableArity);
         }
     }
 }

@@ -63,7 +63,7 @@ public class JsonArrayFunction
                 .signature(Signature.builder()
                         .typeVariable("E")
                         .returnType(type(JSON_2016))
-                        .argumentTypes(ImmutableList.of(typeVariable("E"), type(BOOLEAN)))
+                        .argumentTypes(typeVariable("E"), type(BOOLEAN))
                         .build())
                 .argumentNullability(true, false)
                 .hidden()

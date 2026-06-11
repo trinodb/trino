@@ -13,6 +13,7 @@
  */
 package io.trino.type;
 
+import io.trino.spi.type.NumericExpression;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.type.TypeCalculationParser.ArithmeticBinaryContext;
@@ -72,6 +73,108 @@ public final class TypeCalculation
         }
         catch (StackOverflowError e) {
             throw new ParsingException("Type calculation is too large (stack overflow while parsing)", new NodeLocation(1, 1));
+        }
+    }
+
+    /// Parses a calculated type-parameter expression (e.g. `min(38, x + y)`) into a structured
+    /// [NumericExpression], so it can be evaluated without re-parsing the string at every bind.
+    public static NumericExpression parseNumericExpression(String calculation)
+    {
+        try {
+            return new BuildNumericExpressionVisitor().visit(parseTypeCalculation(calculation));
+        }
+        catch (StackOverflowError e) {
+            throw new ParsingException("Type calculation is too large (stack overflow while parsing)", new NodeLocation(1, 1));
+        }
+    }
+
+    private static class BuildNumericExpressionVisitor
+            extends TypeCalculationBaseVisitor<NumericExpression>
+    {
+        @Override
+        public NumericExpression visitTypeCalculation(TypeCalculationContext context)
+        {
+            return visit(context.expression());
+        }
+
+        @Override
+        public NumericExpression visitArithmeticBinary(ArithmeticBinaryContext context)
+        {
+            NumericExpression left = visit(context.left);
+            NumericExpression right = visit(context.right);
+            return switch (context.operator.getType()) {
+                case PLUS -> new NumericExpression.Operation(NumericExpression.Operator.ADD, left, right);
+                case MINUS -> new NumericExpression.Operation(NumericExpression.Operator.SUBTRACT, left, right);
+                case ASTERISK -> new NumericExpression.Operation(NumericExpression.Operator.MULTIPLY, left, right);
+                case SLASH -> new NumericExpression.Operation(NumericExpression.Operator.DIVIDE, left, right);
+                default -> throw new IllegalArgumentException("Unsupported binary operator " + context.operator.getText());
+            };
+        }
+
+        @Override
+        public NumericExpression visitArithmeticUnary(ArithmeticUnaryContext context)
+        {
+            NumericExpression value = visit(context.expression());
+            return switch (context.operator.getType()) {
+                case PLUS -> value;
+                case MINUS -> new NumericExpression.Operation(NumericExpression.Operator.SUBTRACT, new NumericExpression.Literal(0), value);
+                default -> throw new IllegalArgumentException("Unsupported unary operator " + context.operator.getText());
+            };
+        }
+
+        @Override
+        public NumericExpression visitBinaryFunction(BinaryFunctionContext context)
+        {
+            NumericExpression left = visit(context.left);
+            NumericExpression right = visit(context.right);
+            return switch (context.binaryFunctionName().name.getType()) {
+                case MIN -> new NumericExpression.Operation(NumericExpression.Operator.MIN, left, right);
+                case MAX -> new NumericExpression.Operation(NumericExpression.Operator.MAX, left, right);
+                default -> throw new IllegalArgumentException("Unsupported binary function " + context.binaryFunctionName().getText());
+            };
+        }
+
+        @Override
+        public NumericExpression visitNumericLiteral(NumericLiteralContext context)
+        {
+            return new NumericExpression.Literal(Long.parseLong(context.INTEGER_VALUE().getText()));
+        }
+
+        @Override
+        public NumericExpression visitNullLiteral(NullLiteralContext context)
+        {
+            // Mirror the legacy calculator, which treats NULL as 0 in a type calculation.
+            return new NumericExpression.Literal(0);
+        }
+
+        @Override
+        public NumericExpression visitIdentifier(IdentifierContext context)
+        {
+            return new NumericExpression.Variable(context.getText());
+        }
+
+        @Override
+        public NumericExpression visitParenthesizedExpression(ParenthesizedExpressionContext context)
+        {
+            return visit(context.expression());
+        }
+
+        @Override
+        public NumericExpression visitIfExpression(TypeCalculationParser.IfExpressionContext context)
+        {
+            NumericExpression.ComparisonOperator operator = switch (context.operator.getText()) {
+                case ">" -> NumericExpression.ComparisonOperator.GREATER_THAN;
+                case "<" -> NumericExpression.ComparisonOperator.LESS_THAN;
+                case ">=" -> NumericExpression.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+                case "<=" -> NumericExpression.ComparisonOperator.LESS_THAN_OR_EQUAL;
+                case "=" -> NumericExpression.ComparisonOperator.EQUAL;
+                case "!=" -> NumericExpression.ComparisonOperator.NOT_EQUAL;
+                default -> throw new IllegalArgumentException("Unsupported comparison operator " + context.operator.getText());
+            };
+            return new NumericExpression.Conditional(
+                    new NumericExpression.Comparison(operator, visit(context.left), visit(context.right)),
+                    visit(context.ifTrue),
+                    visit(context.ifFalse));
         }
     }
 

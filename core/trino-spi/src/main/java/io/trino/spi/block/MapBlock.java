@@ -31,6 +31,7 @@ import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.compactOffsets;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
+import static io.trino.spi.block.BlockUtil.hasNullValue;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static io.trino.spi.block.MapHashTables.HashBuildMode.DUPLICATE_NOT_CHECKED;
 import static java.lang.String.format;
@@ -238,15 +239,7 @@ public final class MapBlock
     @Override
     public boolean hasNull()
     {
-        if (mapIsNull == null) {
-            return false;
-        }
-        for (int i = 0; i < positionCount; i++) {
-            if (mapIsNull[i + startOffset]) {
-                return true;
-            }
-        }
-        return false;
+        return hasNullValue(mapIsNull, startOffset, positionCount);
     }
 
     @Override

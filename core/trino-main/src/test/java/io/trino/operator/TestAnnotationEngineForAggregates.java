@@ -98,6 +98,7 @@ import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.type.TypeCalculation.parseNumericExpression;
 import static java.lang.invoke.MethodType.methodType;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -970,7 +971,7 @@ public class TestAnnotationEngineForAggregates
     public void testLongConstraintAggregateFunctionParse()
     {
         Signature expectedSignature = Signature.builder()
-                .numericVariable("z", "x + y")
+                .numericVariable("z", parseNumericExpression("x + y"))
                 .returnType(new TypeSignature("varchar", numericVariable("z")))
                 .argumentType(new TypeSignature("varchar", numericVariable("x")))
                 .argumentType(new TypeSignature("varchar", numericVariable("y")))
