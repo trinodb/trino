@@ -114,9 +114,17 @@ public final class SolverShadow
             candidates.add(scheme.get());
         }
 
-        List<Expression> arguments = actualArgumentTypes.stream()
-                .map(TypeBridge::toExpression)
-                .toList();
+        List<Expression> arguments;
+        try {
+            arguments = actualArgumentTypes.stream()
+                    .map(TypeBridge::toExpression)
+                    .toList();
+        }
+        catch (RuntimeException _) {
+            // An actual type the bridge cannot express is out of scope, same as an
+            // unbridgeable candidate signature
+            return;
+        }
 
         switch (RESOLVER.get().resolveOutcome(candidates, arguments)) {
             case FunctionResolver.Resolved resolved -> verifySignature(name, arguments, signature, resolved.resolution());

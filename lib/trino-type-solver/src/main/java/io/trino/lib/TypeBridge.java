@@ -25,11 +25,15 @@ import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.VarcharType;
 import org.weakref.solver.Expression;
 
 import java.util.List;
+import java.util.Optional;
 
+import static java.lang.Math.toIntExact;
 import static java.util.Locale.ROOT;
 import static java.util.stream.Collectors.joining;
 import static org.weakref.solver.Expression.anonymousField;
@@ -77,16 +81,46 @@ public final class TypeBridge
                             .map(name -> field(name, toExpression(rowField.getType())))
                             .orElseGet(() -> anonymousField(toExpression(rowField.getType()))))
                     .toArray(Expression.RowField[]::new));
-            default -> symbol(symbolName(type));
+            // Types without a dedicated structural mapping (including plugin-provided parametric
+            // types like trino-ml's classifier(T)) translate through their ground descriptor, so
+            // type parameters survive the round trip instead of collapsing to a bare base name
+            default -> toExpression(type.getTypeDescriptor());
         };
     }
 
-    private static String symbolName(Type type)
+    /**
+     * Convert a ground type descriptor to the equivalent solver expression. This is the
+     * fallback for types without a dedicated structural mapping, so it covers simple and
+     * parametric shapes; named (row-style) parameters are rejected — the engine types that
+     * use them have structural mappings above.
+     */
+    public static Expression toExpression(TypeDescriptor descriptor)
     {
-        // Zero-argument types map by lower-cased base name (programmatically declared bases like
-        // JoniRegExp keep their case in the descriptor, parsed ones are already lower case);
-        // multi-word names (interval / with time zone) use underscores in the solver preset.
-        return type.getTypeDescriptor().getBase().toLowerCase(ROOT).replace(' ', '_');
+        String base = symbolName(descriptor.getBase());
+        if (descriptor.getParameters().isEmpty()) {
+            return symbol(base);
+        }
+        // Unbounded varchar's descriptor spells the length out as Integer.MAX_VALUE; the
+        // bridge canonicalizes that to the bare symbol, same as the Type-level mapping
+        if (base.equals("varchar")
+                && descriptor.getParameters().equals(List.of(TypeParameter.numericParameter(Integer.MAX_VALUE)))) {
+            return symbol(base);
+        }
+        return apply(base, descriptor.getParameters().stream()
+                .map(parameter -> switch (parameter) {
+                    case TypeParameter.Type(Optional<String> name, TypeDescriptor type) when name.isEmpty() -> toExpression(type);
+                    case TypeParameter.Numeric(long value) -> literal(toIntExact(value));
+                    default -> throw new IllegalArgumentException("Unsupported type parameter: " + parameter);
+                })
+                .toList());
+    }
+
+    private static String symbolName(String base)
+    {
+        // Bases map lower-cased (programmatically declared bases like JoniRegExp keep their case
+        // in the descriptor, parsed ones are already lower case); multi-word names
+        // (interval / with time zone) use underscores in the solver preset.
+        return base.toLowerCase(ROOT).replace(' ', '_');
     }
 
     /**

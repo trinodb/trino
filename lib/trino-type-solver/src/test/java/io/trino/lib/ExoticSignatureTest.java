@@ -13,12 +13,16 @@
  */
 package io.trino.lib;
 
+import io.trino.spi.function.Signature;
 import org.junit.jupiter.api.Test;
 import org.weakref.solver.FunctionResolver;
 import org.weakref.solver.TypeLibrary;
+import org.weakref.solver.TypeScheme;
 
 import java.util.List;
 
+import static io.trino.spi.type.TypeTemplates.mapType;
+import static io.trino.spi.type.TypeTemplates.type;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.weakref.solver.Expression.apply;
 import static org.weakref.solver.Expression.function;
@@ -141,5 +145,30 @@ public class ExoticSignatureTest
                                 List.of(symbol("varchar"), symbol("integer"), symbol("bigint")),
                                 symbol("double")))))
                 .isNotInstanceOf(FunctionResolver.Resolved.class);
+    }
+
+    @Test
+    void testUnregisteredParametricTypeResolvesByExactMatch()
+    {
+        // trino-ml's classify comes in two ground overloads over a plugin-provided parametric
+        // type the preset never registered: classifier(bigint) and classifier(varchar). The
+        // solver must still tell the overloads apart by exact match on the actual's parameters.
+        TypeScheme bigintClassify = SignatureBridge.toTypeScheme(Signature.builder()
+                .argumentTypes(mapType(type("bigint"), type("double")), type("Classifier", type("bigint")))
+                .returnType(type("bigint"))
+                .build());
+        TypeScheme varcharClassify = SignatureBridge.toTypeScheme(Signature.builder()
+                .argumentTypes(mapType(type("bigint"), type("double")), type("Classifier", type("varchar")))
+                .returnType(type("varchar"))
+                .build());
+
+        FunctionResolver resolver = new FunctionResolver(LIBRARY.typeSystem());
+        assertThat(resolver.resolveOutcome(
+                List.of(bigintClassify, varcharClassify),
+                List.of(
+                        apply("map", symbol("bigint"), symbol("double")),
+                        apply("classifier", symbol("varchar")))))
+                .isInstanceOfSatisfying(FunctionResolver.Resolved.class, r ->
+                        assertThat(r.resolution().returnType()).isEqualTo(symbol("varchar")));
     }
 }
