@@ -16,14 +16,18 @@ package io.trino.plugin.httpquery;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
+import java.nio.file.Path;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @DefunctConfig("http-event-listener.log-split")
@@ -37,6 +41,7 @@ public class HttpEventListenerConfig
     private String ingestUri;
     private HttpEventListenerHttpMethod httpMethod = HttpEventListenerHttpMethod.POST;
     private Map<String, String> httpHeaders = ImmutableMap.of();
+    private Optional<Path> httpHeadersFile = Optional.empty();
 
     @ConfigDescription("Will log io.trino.spi.eventlistener.QueryCreatedEvent")
     @Config("http-event-listener.log-created")
@@ -101,7 +106,8 @@ public class HttpEventListenerConfig
         return httpHeaders;
     }
 
-    @ConfigDescription("List of custom custom HTTP headers provided as: \"Header-Name-1: header value 1, Header-Value-2: header value 2, ...\" ")
+    @ConfigDescription("List of custom HTTP headers provided as: \"Header-Name-1: header value 1, Header-Name-2: header value 2, ...\"")
+    @ConfigSecuritySensitive
     @Config("http-event-listener.connect-http-headers")
     public HttpEventListenerConfig setHttpHeaders(List<String> httpHeaders)
     {
@@ -112,8 +118,21 @@ public class HttpEventListenerConfig
         }
         catch (IndexOutOfBoundsException e) {
             throw new IllegalArgumentException(String.format("Cannot parse http headers from property http-event-listener.connect-http-headers; value provided was %s, " +
-                    "expected format is \"Header-Name-1: header value 1, Header-Value-2: header value 2, ...\"", String.join(", ", httpHeaders)), e);
+                    "expected format is \"Header-Name-1: header value 1, Header-Name-2: header value 2, ...\"", String.join(", ", httpHeaders)), e);
         }
+        return this;
+    }
+
+    public Optional<@FileExists Path> getHttpHeadersFile()
+    {
+        return httpHeadersFile;
+    }
+
+    @ConfigDescription("Properties file containing custom HTTP headers to be sent along with the events")
+    @Config("http-event-listener.connect-http-headers-file")
+    public HttpEventListenerConfig setHttpHeadersFile(Path httpHeadersFile)
+    {
+        this.httpHeadersFile = Optional.ofNullable(httpHeadersFile);
         return this;
     }
 

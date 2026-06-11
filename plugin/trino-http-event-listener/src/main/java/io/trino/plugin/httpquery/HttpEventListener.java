@@ -31,8 +31,11 @@ import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
 import jakarta.annotation.PreDestroy;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -41,6 +44,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
@@ -97,7 +101,7 @@ public class HttpEventListener
         this.maxDelay = config.getMaxDelay();
         this.backoffBase = config.getBackoffBase();
         this.httpMethod = config.getHttpMethod();
-        this.httpHeaders = ImmutableMap.copyOf(config.getHttpHeaders())
+        this.httpHeaders = loadHttpHeaders(config)
                 .entrySet()
                 .stream()
                 .collect(toImmutableMap(entry -> HeaderName.of(entry.getKey()), Map.Entry::getValue));
@@ -268,5 +272,24 @@ public class HttpEventListener
     public void shutdown()
     {
         lifecycleManager.stop();
+    }
+
+    private static Map<String, String> loadHttpHeaders(HttpEventListenerConfig config)
+    {
+        ImmutableMap.Builder<String, String> httpHeaders = ImmutableMap.builder();
+        config.getHttpHeadersFile()
+                .ifPresent(path -> httpHeaders.putAll(loadHttpHeadersFromFile(path)));
+        httpHeaders.putAll(config.getHttpHeaders());
+        return httpHeaders.buildOrThrow();
+    }
+
+    private static Map<String, String> loadHttpHeadersFromFile(Path path)
+    {
+        try {
+            return loadPropertiesFrom(path.toString());
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Error reading HTTP event listener headers file " + path, e);
+        }
     }
 }
