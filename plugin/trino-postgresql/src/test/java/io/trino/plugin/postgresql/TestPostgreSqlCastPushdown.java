@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static java.util.Arrays.asList;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestPostgreSqlCastPushdown
@@ -55,6 +56,12 @@ final class TestPostgreSqlCastPushdown
     protected SqlExecutor onRemoteDatabase()
     {
         return postgreSqlServer::execute;
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @BeforeAll

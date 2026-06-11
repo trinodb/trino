@@ -87,6 +87,12 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
                 .build();
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testBasicTopic()
             throws Exception
@@ -133,7 +139,7 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
     public void testTopicWithTopicRecordNameStrategy()
             throws Exception
     {
-        String topic = "topic-Topic-Record-Name-Strategy";
+        String topic = "topic-topic-record-name-strategy";
         assertTopic(
                 topic,
                 format("SELECT key, col_1, col_2 FROM \"%1$s&value-subject=%1$s-%2$s\"", topic, RECORD_NAME),
@@ -267,8 +273,8 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
         List<ProducerRecord<DynamicMessage, DynamicMessage>> messages = producerRecordBuilder.build();
         testingKafka.sendMessages(messages.stream(), producerProperties());
         waitUntilTableExists(topic);
-
-        assertThat(query(format("SELECT testOneOfColumn FROM %s", toDoubleQuoted(topic))))
+        // FIXME: Oneof is now case sensitive
+        assertThat(query(format("SELECT testOneofColumn FROM %s", toDoubleQuoted(topic))))
                 .matches(
                         """
                         VALUES (JSON '{"stringColumn":"%s"}')

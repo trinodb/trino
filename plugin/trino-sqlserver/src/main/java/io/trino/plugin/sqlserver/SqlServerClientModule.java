@@ -20,6 +20,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
+import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.ptf.Procedure;
@@ -42,6 +43,7 @@ public class SqlServerClientModule
         configBinder(binder).bindConfig(SqlServerConfig.class);
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(SqlServerClient.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(SqlServerMetadataFactory.class).in(Scopes.SINGLETON);
         bindTablePropertiesProvider(binder, SqlServerTableProperties.class);
         bindSessionPropertiesProvider(binder, SqlServerSessionProperties.class);
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(SQL_SERVER_MAX_LIST_EXPRESSIONS);

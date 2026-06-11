@@ -117,6 +117,12 @@ public class MemoryMetadata
     }
 
     @Override
+    public String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     public synchronized List<String> listSchemaNames(ConnectorSession session)
     {
         return ImmutableList.copyOf(schemas);

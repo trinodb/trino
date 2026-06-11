@@ -70,6 +70,12 @@ public class TestMongoDynamicFiltering
                 .build();
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     @Timeout(30)
     public void testIncompleteDynamicFilterTimeout()

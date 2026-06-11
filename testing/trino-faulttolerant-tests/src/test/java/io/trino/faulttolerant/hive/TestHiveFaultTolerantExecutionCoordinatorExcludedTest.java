@@ -62,13 +62,14 @@ public class TestHiveFaultTolerantExecutionCoordinatorExcludedTest
     public void testInsert()
     {
         String query = "SELECT name, nationkey, regionkey FROM nation";
+        String expectedQuery = "SELECT \"name\", \"nationkey\", \"regionkey\" FROM \"nation\"";
 
         try (TestTable table = newTrinoTable("test_insert_", "AS " + query + " WITH NO DATA")) {
             assertQuery("SELECT count(*) FROM " + table.getName(), "SELECT 0");
 
             assertUpdate("INSERT INTO " + table.getName() + " " + query, 25);
 
-            assertQuery("SELECT * FROM " + table.getName(), query);
+            assertQuery("SELECT * FROM " + table.getName(), expectedQuery);
 
             assertUpdate("INSERT INTO " + table.getName() + " (nationkey) VALUES (-1)", 1);
             assertUpdate("INSERT INTO " + table.getName() + " (nationkey) VALUES (null)", 1);
@@ -77,7 +78,7 @@ public class TestHiveFaultTolerantExecutionCoordinatorExcludedTest
             assertUpdate("INSERT INTO " + table.getName() + " (name, nationkey) VALUES ('name-dummy-3', -3)", 1);
             assertUpdate("INSERT INTO " + table.getName() + " (regionkey) VALUES (1234)", 1);
 
-            assertQuery("SELECT * FROM " + table.getName(), query
+            assertQuery("SELECT * FROM " + table.getName(), expectedQuery
                     + " UNION ALL SELECT null, -1, null"
                     + " UNION ALL SELECT null, null, null"
                     + " UNION ALL SELECT 'name-dummy-1', null, null"
@@ -101,7 +102,7 @@ public class TestHiveFaultTolerantExecutionCoordinatorExcludedTest
     {
         String tableName = "test_ctas" + randomNameSuffix();
 
-        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT name, regionkey FROM nation", "SELECT count(*) FROM nation");
+        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT name, regionkey FROM nation", "SELECT count(*) FROM \"nation\"");
         assertTableColumnNames(tableName, "name", "regionkey");
         assertUpdate("DROP TABLE " + tableName);
 
@@ -111,8 +112,8 @@ public class TestHiveFaultTolerantExecutionCoordinatorExcludedTest
 
         Session session = getSession();
         String table = "test_ctas_" + randomNameSuffix();
-        assertUpdate(session, "CREATE TABLE " + table + " AS " + "SELECT nationkey, name, regionkey FROM nation", "SELECT count(*) FROM nation");
-        assertQuery(session, "SELECT * FROM " + table, "SELECT nationkey, name, regionkey FROM nation");
+        assertUpdate(session, "CREATE TABLE " + table + " AS " + "SELECT nationkey, name, regionkey FROM nation", "SELECT count(*) FROM \"nation\"");
+        assertQuery(session, "SELECT * FROM " + table, "SELECT \"nationkey\", \"name\", \"regionkey\" FROM \"nation\"");
         assertUpdate(session, "DROP TABLE " + table);
 
         assertThat(getQueryRunner().tableExists(session, table)).isFalse();

@@ -60,7 +60,7 @@ public class TestTpchTableScanRedirection
     @Timeout(20)
     public void testTableScanRedirectionWithCoercion()
     {
-        assertUpdate("CREATE TABLE memory.test.nation AS SELECT * FROM (VALUES '42') t(nationkey)", 1L);
+        assertUpdate("CREATE TABLE memory.test.\"nation\" AS SELECT * FROM (VALUES '42') t(\"nationkey\")", 1L);
         assertQuery("SELECT nationkey FROM tpch.tiny.nation", "VALUES 42");
     }
 }

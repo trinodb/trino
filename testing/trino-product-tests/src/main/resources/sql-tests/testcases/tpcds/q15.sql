@@ -1,7 +1,7 @@
 -- database: trino_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 SELECT
   "ca_zip"
-, "sum"("cs_sales_price")
+, sum("cs_sales_price")
 FROM
   catalog_sales
 , customer

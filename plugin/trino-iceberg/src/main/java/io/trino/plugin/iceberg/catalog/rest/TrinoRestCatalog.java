@@ -104,7 +104,6 @@ import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.ICEBERG_VIEW_RUN_AS_OWNER;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.apache.iceberg.CatalogUtil.dropTableData;
@@ -1092,6 +1091,6 @@ public class TrinoRestCatalog
 
     private static Namespace toTrinoNamespace(Namespace namespace)
     {
-        return Namespace.of(Arrays.stream(namespace.levels()).map(level -> level.toLowerCase(ENGLISH)).toArray(String[]::new));
+        return Namespace.of(Arrays.stream(namespace.levels()).toArray(String[]::new));
     }
 }

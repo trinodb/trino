@@ -19,7 +19,6 @@ import java.util.Objects;
 import java.util.StringJoiner;
 
 import static io.trino.spi.connector.SchemaUtil.checkNotEmpty;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class ColumnSchema
@@ -33,7 +32,7 @@ public final class ColumnSchema
         checkNotEmpty(name, "name");
         requireNonNull(type, "type is null");
 
-        this.name = name.toLowerCase(ENGLISH);
+        this.name = name;
         this.type = type;
         this.hidden = hidden;
     }

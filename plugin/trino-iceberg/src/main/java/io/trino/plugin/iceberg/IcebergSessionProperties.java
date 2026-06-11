@@ -57,7 +57,6 @@ import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class IcebergSessionProperties
@@ -398,7 +397,6 @@ public final class IcebergSessionProperties
                                         throw new TrinoException(INVALID_SESSION_PROPERTY, format("Invalid null or empty value in %s property", QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS));
                                     }
                                 })
-                                .map(schema -> schema.toLowerCase(ENGLISH))
                                 .collect(toImmutableSet()),
                         value -> value))
                 .add(booleanProperty(

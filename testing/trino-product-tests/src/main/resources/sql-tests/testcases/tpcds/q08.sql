@@ -1,7 +1,7 @@
 -- database: trino_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 SELECT
   "s_store_name"
-, "sum"("ss_net_profit")
+, sum("ss_net_profit")
 FROM
   store_sales
 , date_dim
@@ -11,10 +11,10 @@ FROM
    FROM
      (
 (
-         SELECT "substr"("ca_zip", 1, 5) "ca_zip"
+         SELECT substr("ca_zip", 1, 5) "ca_zip"
          FROM
            customer_address
-         WHERE ("substr"("ca_zip", 1, 5) IN (
+         WHERE (substr("ca_zip", 1, 5) IN (
                 '24128'
               , '57834'
               , '13354'
@@ -420,15 +420,15 @@ FROM
          FROM
            (
             SELECT
-              "substr"("ca_zip", 1, 5) "ca_zip"
-            , "count"(*) "cnt"
+              substr("ca_zip", 1, 5) "ca_zip"
+            , count(*) "cnt"
             FROM
               customer_address
             , customer
             WHERE ("ca_address_sk" = "c_current_addr_sk")
                AND ("c_preferred_cust_flag" = 'Y')
             GROUP BY "ca_zip"
-            HAVING ("count"(*) > 10)
+            HAVING (count(*) > 10)
          )  a1
       )    )  a2
 )  v1
@@ -436,7 +436,7 @@ WHERE ("ss_store_sk" = "s_store_sk")
    AND ("ss_sold_date_sk" = "d_date_sk")
    AND ("d_qoy" = 2)
    AND ("d_year" = 1998)
-   AND ("substr"("s_zip", 1, 2) = "substr"("v1"."ca_zip", 1, 2))
+   AND (substr("s_zip", 1, 2) = substr("v1"."ca_zip", 1, 2))
 GROUP BY "s_store_name"
 ORDER BY "s_store_name" ASC
 LIMIT 100

@@ -67,6 +67,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static java.time.temporal.ChronoUnit.MINUTES;
+import static java.util.Locale.ENGLISH;
 import static java.util.regex.Pattern.quote;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
@@ -134,6 +135,12 @@ abstract class BaseTestHiveOnDataLake
             throws Exception
     {
         hiveMinioDataLake.close();
+    }
+
+    @Override
+    public String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Test

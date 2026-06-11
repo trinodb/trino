@@ -2,7 +2,7 @@ WITH
   ss AS (
    SELECT
      "i_item_id"
-   , "sum"("ss_ext_sales_price") "total_sales"
+   , sum("ss_ext_sales_price") "total_sales"
    FROM
      ${database}.${schema}.store_sales
    , ${database}.${schema}.date_dim
@@ -25,7 +25,7 @@ WITH
 , cs AS (
    SELECT
      "i_item_id"
-   , "sum"("cs_ext_sales_price") "total_sales"
+   , sum("cs_ext_sales_price") "total_sales"
    FROM
      ${database}.${schema}.catalog_sales
    , ${database}.${schema}.date_dim

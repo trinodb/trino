@@ -328,8 +328,9 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_join as " +
                 "select t2._bigint, _varchar, t1._date from base_table1 t1, base_table2 t2 where t1._date = t2._date");
         // A partitioned join materialized view
+        // FIXME: try to find why _bigint and _date must be cotted?
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_join_part WITH (partitioning = ARRAY['_date', '_bigint']) as " +
-                "select t1._bigint, _varchar, t2._date, sum(1) as my_sum from base_table1 t1, base_table2 t2 where t1._date = t2._date group by 1, 2, 3 order by 1, 2");
+                "select t1.\"_bigint\", _varchar, t2.\"_date\", sum(1) as my_sum from base_table1 t1, base_table2 t2 where t1._date = t2._date group by 1, 2, 3 order by 1, 2");
 
         // The tests here follow the pattern:
         // 1. Select the data from unrefreshed materialized view, verify the number of rows in the result
@@ -399,8 +400,9 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_join_stale as " +
                 "SELECT t2._bigint, _varchar, t1._date FROM base_table3 t1, base_table4 t2 WHERE t1._date = t2._date");
         // A partitioned join materialized view
+        // FIXME: try to find why _bigint and _date must be cotted?
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_join_part_stale WITH (partitioning = ARRAY['_date', '_bigint']) as " +
-                "SELECT t1._bigint, _varchar, t2._date, sum(1) AS my_sum FROM base_table3 t1, base_table4 t2 WHERE t1._date = t2._date GROUP BY 1, 2, 3 ORDER BY 1, 2");
+                "SELECT t1.\"_bigint\", _varchar, t2.\"_date\", sum(1) AS my_sum FROM base_table3 t1, base_table4 t2 WHERE t1._date = t2._date GROUP BY 1, 2, 3 ORDER BY 1, 2");
 
         // Ensure that when data is inserted into base table, materialized view is rendered stale. Note that, currently updates and deletes to/from iceberg tables is not supported.
         assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_part_stale", 2);
@@ -796,7 +798,8 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("CREATE TABLE base_table5(_bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'])");
         assertUpdate("INSERT INTO base_table5 VALUES (0, DATE '2019-09-08'), (1, DATE '2019-09-09'), (2, DATE '2019-09-09')", 3);
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_level1 WITH (partitioning = ARRAY['_date']) as select _date, count(_date) as num_dates from base_table5 group by 1");
-        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_level2 WITH (partitioning = ARRAY['_date']) as select _date, num_dates from materialized_view_level1");
+        // FIXME: try to find why _date must be cotted?
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_level2 WITH (partitioning = ARRAY['_date']) as select \"_date\", num_dates from materialized_view_level1");
 
         // Unrefreshed 2nd level materialized view .. resolves to base table
         assertThat(getExplainPlan("SELECT * FROM materialized_view_level2", ExplainType.Type.IO))
@@ -845,7 +848,7 @@ public abstract class BaseIcebergMaterializedViewTest
         assertThat(query("SELECT " + exampleValue))
                 .matches("SELECT CAST(%s AS %S)".formatted(exampleValue, dataType));
 
-        assertUpdate("CREATE MATERIALIZED VIEW test_bucket_partitioning WITH (partitioning=ARRAY['bucket(col, 4)']) AS SELECT * FROM (VALUES CAST(NULL AS %s), %s) t(col)"
+        assertUpdate("CREATE MATERIALIZED VIEW test_bucket_partitioning WITH (partitioning=ARRAY['bucket(col, 4)']) AS SELECT * FROM (VALUES CAST(NULL AS %s), %s) t(\"col\")"
                 .formatted(dataType, exampleValue));
         try {
             TableMetadata storageMetadata = getStorageTableMetadata("test_bucket_partitioning");
@@ -878,7 +881,7 @@ public abstract class BaseIcebergMaterializedViewTest
         assertThat(query("SELECT " + exampleValue))
                 .matches("SELECT CAST(%s AS %S)".formatted(exampleValue, dataType));
 
-        assertUpdate("CREATE MATERIALIZED VIEW test_truncate_partitioning WITH (partitioning=ARRAY['truncate(col, 4)']) AS SELECT * FROM (VALUES CAST(NULL AS %s), %s) t(col)"
+        assertUpdate("CREATE MATERIALIZED VIEW test_truncate_partitioning WITH (partitioning=ARRAY['truncate(col, 4)']) AS SELECT * FROM (VALUES CAST(NULL AS %s), %s) t(\"col\")"
                 .formatted(dataType, exampleValue));
         try {
             TableMetadata storageMetadata = getStorageTableMetadata("test_truncate_partitioning");
@@ -917,7 +920,7 @@ public abstract class BaseIcebergMaterializedViewTest
         assertThat(query("SELECT " + exampleValue))
                 .matches("SELECT CAST(%s AS %S)".formatted(exampleValue, dataType));
 
-        assertUpdate("CREATE MATERIALIZED VIEW test_temporal_partitioning WITH (partitioning=ARRAY['%s(col)']) AS SELECT * FROM (VALUES CAST(NULL AS %s), %s) t(col)"
+        assertUpdate("CREATE MATERIALIZED VIEW test_temporal_partitioning WITH (partitioning=ARRAY['%s(col)']) AS SELECT * FROM (VALUES CAST(NULL AS %s), %s) t(\"col\")"
                 .formatted(partitioning, dataType, exampleValue));
         try {
             TableMetadata storageMetadata = getStorageTableMetadata("test_temporal_partitioning");

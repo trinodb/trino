@@ -87,7 +87,6 @@ import static io.trino.plugin.cassandra.util.CassandraCqlUtils.validTableName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Comparator.comparing;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -172,7 +171,7 @@ public class CassandraSession
 
     public String getCaseSensitiveSchemaName(String caseInsensitiveSchemaName)
     {
-        return getKeyspaceByCaseInsensitiveName(caseInsensitiveSchemaName).getName().asInternal();
+        return getKeyspaceByCaseSensitiveName(caseInsensitiveSchemaName).getName().asInternal();
     }
 
     public List<String> getCaseSensitiveSchemaNames()
@@ -188,7 +187,7 @@ public class CassandraSession
     public List<String> getCaseSensitiveTableNames(String caseInsensitiveSchemaName)
             throws SchemaNotFoundException
     {
-        KeyspaceMetadata keyspace = getKeyspaceByCaseInsensitiveName(caseInsensitiveSchemaName);
+        KeyspaceMetadata keyspace = getKeyspaceByCaseSensitiveName(caseInsensitiveSchemaName);
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (TableMetadata table : keyspace.getTables().values()) {
             builder.add(table.getName().asInternal());
@@ -202,7 +201,7 @@ public class CassandraSession
     public List<CassandraTable> listTables(String caseInsensitiveSchemaName)
             throws SchemaNotFoundException
     {
-        KeyspaceMetadata keyspace = getKeyspaceByCaseInsensitiveName(caseInsensitiveSchemaName);
+        KeyspaceMetadata keyspace = getKeyspaceByCaseSensitiveName(caseInsensitiveSchemaName);
         ImmutableList.Builder<CassandraTable> tables = ImmutableList.builder();
         keyspace.getTables().values().forEach(table -> tables.add(getTable(table)));
         keyspace.getViews().values().forEach(view -> tables.add(getTable(view)));
@@ -212,7 +211,7 @@ public class CassandraSession
     public CassandraTable getTable(SchemaTableName schemaTableName)
             throws TableNotFoundException
     {
-        KeyspaceMetadata keyspace = getKeyspaceByCaseInsensitiveName(schemaTableName.getSchemaName());
+        KeyspaceMetadata keyspace = getKeyspaceByCaseSensitiveName(schemaTableName.getSchemaName());
         return getTable(getTableMetadata(keyspace, schemaTableName.getTableName()));
     }
 
@@ -287,7 +286,7 @@ public class CassandraSession
         return new CassandraTable(tableHandle, sortedColumnHandles);
     }
 
-    private KeyspaceMetadata getKeyspaceByCaseInsensitiveName(String caseInsensitiveSchemaName)
+    private KeyspaceMetadata getKeyspaceByCaseSensitiveName(String caseSensitiveSchemaName)
             throws SchemaNotFoundException
     {
         Collection<KeyspaceMetadata> keyspaces = executeWithSession(session -> session.getMetadata().getKeyspaces()).values();
@@ -297,12 +296,12 @@ public class CassandraSession
                 .sorted(Comparator.comparing(keyspaceMetadata -> keyspaceMetadata.getName().asInternal()))
                 .collect(toImmutableList());
         for (KeyspaceMetadata keyspace : sortedKeyspaces) {
-            if (keyspace.getName().asInternal().equalsIgnoreCase(caseInsensitiveSchemaName)) {
+            if (keyspace.getName().asInternal().equals(caseSensitiveSchemaName)) {
                 if (result != null) {
                     throw new TrinoException(
                             NOT_SUPPORTED,
                             format("More than one keyspace has been found for the case insensitive schema name: %s -> (%s, %s)",
-                                    caseInsensitiveSchemaName,
+                                    caseSensitiveSchemaName,
                                     result.getName(),
                                     keyspace.getName()));
                 }
@@ -310,7 +309,7 @@ public class CassandraSession
             }
         }
         if (result == null) {
-            throw new SchemaNotFoundException(caseInsensitiveSchemaName);
+            throw new SchemaNotFoundException(caseSensitiveSchemaName);
         }
         return result;
     }
@@ -341,24 +340,24 @@ public class CassandraSession
 
     public boolean isMaterializedView(SchemaTableName schemaTableName)
     {
-        KeyspaceMetadata keyspace = getKeyspaceByCaseInsensitiveName(schemaTableName.getSchemaName());
+        KeyspaceMetadata keyspace = getKeyspaceByCaseSensitiveName(schemaTableName.getSchemaName());
         return keyspace.getView(validTableName(schemaTableName.getTableName())).isPresent();
     }
 
     private static void checkColumnNames(Collection<ColumnMetadata> columns)
     {
-        Map<String, ColumnMetadata> lowercaseNameToColumnMap = new HashMap<>();
+        Map<String, ColumnMetadata> columnNames = new HashMap<>();
         for (ColumnMetadata column : columns) {
-            String lowercaseName = column.getName().asInternal().toLowerCase(ENGLISH);
-            if (lowercaseNameToColumnMap.containsKey(lowercaseName)) {
+            String columnName = column.getName().asInternal();
+            if (columnNames.containsKey(columnName)) {
                 throw new TrinoException(
                         NOT_SUPPORTED,
                         format("More than one column has been found for the case insensitive column name: %s -> (%s, %s)",
-                                lowercaseName,
-                                lowercaseNameToColumnMap.get(lowercaseName).getName(),
+                                columnName,
+                                columnNames.get(columnName).getName(),
                                 column.getName()));
             }
-            lowercaseNameToColumnMap.put(lowercaseName, column);
+            columnNames.put(columnName, column);
         }
     }
 

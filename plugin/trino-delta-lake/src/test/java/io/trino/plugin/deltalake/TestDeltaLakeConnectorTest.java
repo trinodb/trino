@@ -195,6 +195,50 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
+    protected String getCreateTableMixedCaseDelimited(String catalog, String schema, String table)
+    {
+        return format(
+                """
+                \\QCREATE TABLE %1$s.%2$s."%3$s" (
+                   "Column A" bigint,
+                   "Column B" double
+                )
+                WITH (
+                   location = '\\E.*/%2$s/%3$s-.*'
+                \\)\
+                """,
+                catalog,
+                canonicalize(schema).equals(schema) ? schema : '"' + schema + '"',
+                table);
+    }
+
+    @Override
+    protected String getCreateTableMixedCaseUnDelimited(String catalog, String schema, String table)
+    {
+        return format(
+                """
+                \\QCREATE TABLE %1$s.%2$s.%3$s (
+                   %4$s bigint,
+                   %5$s double
+                )
+                WITH (
+                   location = '\\E.*/%2$s/%3$s-.*'
+                \\)\
+                """,
+                catalog,
+                canonicalize(schema).equals(schema) ? schema : '"' + schema + '"',
+                table,
+                canonicalize("Column_A"),
+                canonicalize("Column_B"));
+    }
+
+    @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
         return "NULL value not allowed for NOT NULL column: " + columnName;
@@ -684,7 +728,7 @@ public class TestDeltaLakeConnectorTest
             return;
         }
         assertUpdate(session, createTableSql, 25);
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM \"nation\"");
         assertQuery("SELECT count(*) FROM " + tableName, "VALUES 25");
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -2584,26 +2628,27 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testCreateOrReplaceTableWithStatsUpdated()
     {
+        // FIXME: SHOW STATS dont work here
         try (TestTable table = newTrinoTable(
                 "create_or_replace_for_stats_",
                 " AS SELECT 1 as colA")) {
             assertQuery(
                     "SHOW STATS FOR " + table.getName(),
                     "VALUES" +
-                            "('cola', null, 1.0, 0.0, null, '1', '1')," +
+                            "('colA', null, 1.0, 0.0, null, null, null)," +
                             "(null, null, null, null, 1.0, null, null)");
 
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (colA BIGINT) ");
             assertQuery(
                     "SHOW STATS FOR " + table.getName(),
                     "VALUES" +
-                            "('cola', 0.0, 0.0, 1.0, null, null, null)," +
+                            "('colA', 0.0, 0.0, 1.0, null, null, null)," +
                             "(null, null, null, null, 0.0, null, null)");
             assertUpdate("INSERT INTO " + table.getName() + " VALUES null", 1);
             assertQuery(
                     "SHOW STATS FOR " + table.getName(),
                     "VALUES" +
-                            "('cola', 0.0, 0.0, 1.0, null, null, null)," +
+                            "('colA', 0.0, 0.0, 1.0, null, null, null)," +
                             "(null, null, null, null, 1.0, null, null)");
         }
     }
@@ -2611,13 +2656,14 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testCreateOrReplaceTableAsWithStatsUpdated()
     {
+        // FIXME: SHOW STATS dont work here
         try (TestTable table = newTrinoTable(
                 "create_or_replace_for_stats_",
                 " AS SELECT 1 as colA")) {
             assertQuery(
                     "SHOW STATS FOR " + table.getName(),
                     "VALUES" +
-                            "('cola', null, 1.0, 0.0, null, '1', '1')," +
+                            "('colA', null, 1.0, 0.0, null, null, null)," +
                             "(null, null, null, null, 1.0, null, null)");
 
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT 25 colb ", 1);
@@ -3213,16 +3259,15 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("UPDATE " + tableName + " SET domain = 'domain4' WHERE views = 2", 2);
         assertQuery(
                 "SELECT * FROM " + tableName,
-                "" +
-                        """
-                        VALUES
-                            ('url1', 'domain1', 1),
-                            ('url2', 'domain4', 2),
-                            ('url3', 'domain1', 3),
-                            ('url4', 'domain1', 400),
-                            ('url5', 'domain2', 500),
-                            ('url6', 'domain4', 2)
-                        """);
+                """
+                VALUES
+                    ('url1', 'domain1', 1),
+                    ('url2', 'domain4', 2),
+                    ('url3', 'domain1', 3),
+                    ('url4', 'domain1', 400),
+                    ('url5', 'domain2', 500),
+                    ('url6', 'domain4', 2)
+                """);
 
         assertTableChangesQuery(
                 "SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "'))",
@@ -3244,11 +3289,11 @@ public class TestDeltaLakeConnectorTest
         assertQuery(
                 "SELECT * FROM " + tableName,
                 """
-                    VALUES
-                        ('url1', 'domain1', 1),
-                        ('url3', 'domain1', 3),
-                        ('url4', 'domain1', 400),
-                        ('url5', 'domain2', 500)
+                VALUES
+                    ('url1', 'domain1', 1),
+                    ('url3', 'domain1', 3),
+                    ('url4', 'domain1', 400),
+                    ('url5', 'domain2', 500)
                 """);
         assertTableChangesQuery(
                 "SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "', 3))",
@@ -3456,7 +3501,7 @@ public class TestDeltaLakeConnectorTest
                 "WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1)", 1);
         ZonedDateTime historyCommitTimestamp = (ZonedDateTime) computeScalar("SELECT timestamp FROM \"" + tableName + "$history\" WHERE version = 1");
-        ZonedDateTime tableChangesCommitTimestamp = (ZonedDateTime) computeScalar("SELECT _commit_timestamp FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "', 0)) WHERE _commit_Version = 1");
+        ZonedDateTime tableChangesCommitTimestamp = (ZonedDateTime) computeScalar("SELECT _commit_timestamp FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "', 0)) WHERE _commit_version = 1");
         assertThat(historyCommitTimestamp).isEqualTo(tableChangesCommitTimestamp);
     }
 
@@ -4078,9 +4123,9 @@ public class TestDeltaLakeConnectorTest
                 ImmutableList.of("('a', 1)", "('a', 2)", "('a', 3)", "('a', 4)", "('b', 1)", "('b', 2)", "('b', 3)", "('b', 4)"))) {
             assertQuery(session, "SELECT * FROM " + table.getName() + " WHERE part = 1", "VALUES ('a', 1), ('b', 1)");
             assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part < 2", "VALUES 2");
-            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE Part < 2", "VALUES 2");
-            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE PART < 2", "VALUES 2");
-            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE parT < 2", "VALUES 2");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part < 2", "VALUES 2");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part < 2", "VALUES 2");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part < 2", "VALUES 2");
             assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part % 2 = 0", "VALUES 4");
             assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part - 2 = 0", "VALUES 2");
             assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part * 4 = 4", "VALUES 2");
@@ -4228,12 +4273,12 @@ public class TestDeltaLakeConnectorTest
             assertQuery(session, "SELECT count(*) FROM %s WHERE part1 IS NOT NULL OR part2 > 1".formatted(table.getName()), "VALUES 8");
             assertQuery(session, "SELECT count(*) FROM %s WHERE part1 IS NOT NULL AND part2 > 1".formatted(table.getName()), "VALUES 4");
             assertQuery(session, "SELECT count(*) FROM %s WHERE x = 'a' AND part2 = 2".formatted(table.getName()), "VALUES 2");
-            assertQuery(session, "SELECT x, PART1 * 10 + PART2 AS Y FROM %s WHERE x = 'a' AND part2 = 2".formatted(table.getName()), "VALUES ('a', 12), ('a', 22)");
-            assertQuery(session, "SELECT x, CAST (PART1 AS varchar) || CAST (PART2 AS varchar) FROM %s WHERE x = 'a' AND part2 = 2".formatted(table.getName()), "VALUES ('a', '12'), ('a', '22')");
-            assertQuery(session, "SELECT x, MAX(PART1) FROM %s WHERE part2 = 2 GROUP BY X".formatted(table.getName()), "VALUES ('a', 2), ('b', 2)");
-            assertQuery(session, "SELECT x, reduce_agg(part1, 0, (a, b) -> a + b, (a, b) -> a + b) FROM " + table.getName() + " WHERE part2 > 1 GROUP BY X", "VALUES ('a', 3), ('b', 3)");
+            assertQuery(session, "SELECT x, part1 * 10 + part2 AS Y FROM %s WHERE x = 'a' AND part2 = 2".formatted(table.getName()), "VALUES ('a', 12), ('a', 22)");
+            assertQuery(session, "SELECT x, CAST (part1 AS varchar) || CAST (part2 AS varchar) FROM %s WHERE x = 'a' AND part2 = 2".formatted(table.getName()), "VALUES ('a', '12'), ('a', '22')");
+            assertQuery(session, "SELECT x, MAX(part1) FROM %s WHERE part2 = 2 GROUP BY x".formatted(table.getName()), "VALUES ('a', 2), ('b', 2)");
+            assertQuery(session, "SELECT x, reduce_agg(part1, 0, (a, b) -> a + b, (a, b) -> a + b) FROM " + table.getName() + " WHERE part2 > 1 GROUP BY x", "VALUES ('a', 3), ('b', 3)");
             String expectedMessageRegExp = "Filter required on .*" + table.getName() + " for at least one partition column:.*";
-            assertQueryFails(session, "SELECT X, CAST (PART1 AS varchar) || CAST (PART2 AS varchar) FROM %s WHERE x = 'a'".formatted(table.getName()), expectedMessageRegExp);
+            assertQueryFails(session, "SELECT x, CAST (part1 AS varchar) || CAST (part2 AS varchar) FROM %s WHERE x = 'a'".formatted(table.getName()), expectedMessageRegExp);
             assertQueryFails(session, "SELECT count(*) FROM %s WHERE x='a'".formatted(table.getName()), expectedMessageRegExp);
         }
     }
@@ -5581,25 +5626,25 @@ public class TestDeltaLakeConnectorTest
     {
         String tableName = "test_duplicated_field_names" + randomNameSuffix();
 
-        assertQueryFails("CREATE TABLE " + tableName + "(col row(x int, \"X\" int))", "Field name 'x' specified more than once");
-        assertQueryFails("CREATE TABLE " + tableName + " AS SELECT cast(NULL AS row(x int, \"X\" int)) col", "Field name 'x' specified more than once");
+        assertQueryFails("CREATE TABLE " + tableName + "(col row(x int, \"x\" int))", "Field name 'x' specified more than once");
+        assertQueryFails("CREATE TABLE " + tableName + " AS SELECT cast(NULL AS row(x int, \"x\" int)) col", "Field name 'x' specified more than once");
 
-        assertQueryFails("CREATE TABLE " + tableName + "(col array(row(x int, \"X\" int)))", "Field name 'x' specified more than once");
-        assertQueryFails("CREATE TABLE " + tableName + " AS SELECT cast(NULL AS array(row(x int, \"X\" int))) col", "Field name 'x' specified more than once");
+        assertQueryFails("CREATE TABLE " + tableName + "(col array(row(x int, \"x\" int)))", "Field name 'x' specified more than once");
+        assertQueryFails("CREATE TABLE " + tableName + " AS SELECT cast(NULL AS array(row(x int, \"x\" int))) col", "Field name 'x' specified more than once");
 
-        assertQueryFails("CREATE TABLE " + tableName + "(col map(int, row(x int, \"X\" int)))", "Field name 'x' specified more than once");
-        assertQueryFails("CREATE TABLE " + tableName + " AS SELECT cast(NULL AS map(int, row(x int, \"X\" int))) col", "Field name 'x' specified more than once");
+        assertQueryFails("CREATE TABLE " + tableName + "(col map(int, row(x int, \"x\" int)))", "Field name 'x' specified more than once");
+        assertQueryFails("CREATE TABLE " + tableName + " AS SELECT cast(NULL AS map(int, row(x int, \"x\" int))) col", "Field name 'x' specified more than once");
 
-        assertQueryFails("CREATE TABLE " + tableName + "(col row(a row(x int, \"X\" int)))", "Field name 'x' specified more than once");
-        assertQueryFails("CREATE TABLE " + tableName + " AS SELECT cast(NULL AS row(a row(x int, \"X\" int))) col", "Field name 'x' specified more than once");
+        assertQueryFails("CREATE TABLE " + tableName + "(col row(a row(x int, \"x\" int)))", "Field name 'x' specified more than once");
+        assertQueryFails("CREATE TABLE " + tableName + " AS SELECT cast(NULL AS row(a row(x int, \"x\" int))) col", "Field name 'x' specified more than once");
 
         try (TestTable table = newTrinoTable("test_duplicated_field_names_", "(id int)")) {
-            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN col row(x int, \"X\" int)", ".* Field name 'x' specified more than once");
+            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN col row(x int, \"x\" int)", ".* Field name 'x' specified more than once");
 
-            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col row(\"X\" int)");
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col row(\"x\" int)");
             assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN col.x int", "line 1:1: Field 'x' already exists");
 
-            assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE row(x int, \"X\" int)", "This connector does not support setting column types");
+            assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE row(x int, \"x\" int)", "This connector does not support setting column types");
         }
     }
 

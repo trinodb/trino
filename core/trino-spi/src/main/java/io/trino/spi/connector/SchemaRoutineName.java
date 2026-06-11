@@ -15,8 +15,6 @@ package io.trino.spi.connector;
 
 import java.util.Objects;
 
-import static java.util.Locale.ENGLISH;
-
 public final class SchemaRoutineName
 {
     private final String schemaName;
@@ -24,8 +22,8 @@ public final class SchemaRoutineName
 
     public SchemaRoutineName(String schemaName, String routineName)
     {
-        this.schemaName = schemaName.toLowerCase(ENGLISH);
-        this.routineName = routineName.toLowerCase(ENGLISH);
+        this.schemaName = schemaName;
+        this.routineName = routineName;
     }
 
     public String getSchemaName()

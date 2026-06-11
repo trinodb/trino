@@ -86,6 +86,7 @@ import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.planner.PartitioningHandle;
+import io.trino.sql.tree.Resolver;
 
 import java.util.Collection;
 import java.util.List;
@@ -965,4 +966,8 @@ public interface Metadata
      * or {@link Optional#empty} if there are no credentials.
      */
     Optional<ConnectorTableCredentials> getTableCredentials(Session session, CatalogHandle catalogHandle, ConnectorTableFunctionHandle tableHandle);
+
+    ResolverManager getResolverManager();
+
+    Optional<Resolver> getResolver(Session session, String catalog);
 }

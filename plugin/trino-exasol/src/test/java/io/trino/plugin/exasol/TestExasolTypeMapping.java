@@ -423,7 +423,7 @@ final class TestExasolTypeMapping
 
     private DataSetup exasolCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(exasolServer.getSqlExecutor(), tableNamePrefix);
+        return new CreateAndInsertDataSetup(exasolServer.getSqlExecutor(), tableNamePrefix, this::canonicalize);
     }
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)

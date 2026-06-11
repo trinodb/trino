@@ -9,8 +9,8 @@ FROM
    , "s_store_name"
    , "s_company_name"
    , "d_moy"
-   , "sum"("ss_sales_price") "sum_sales"
-   , "avg"("sum"("ss_sales_price")) OVER (PARTITION BY "i_category", "i_brand", "s_store_name", "s_company_name") "avg_monthly_sales"
+   , sum("ss_sales_price") "sum_sales"
+   , "avg"(sum("ss_sales_price")) OVER (PARTITION BY "i_category", "i_brand", "s_store_name", "s_company_name") "avg_monthly_sales"
    FROM
      item
    , store_sales
@@ -26,6 +26,6 @@ FROM
             AND ("i_class" IN ('shirts'         , 'birdal'         , 'dresses'))))
    GROUP BY "i_category", "i_class", "i_brand", "s_store_name", "s_company_name", "d_moy"
 )  tmp1
-WHERE ((CASE WHEN ("avg_monthly_sales" <> 0) THEN ("abs"(("sum_sales" - "avg_monthly_sales")) / "avg_monthly_sales") ELSE null END) > DECIMAL '0.1')
+WHERE ((CASE WHEN ("avg_monthly_sales" <> 0) THEN (abs(("sum_sales" - "avg_monthly_sales")) / "avg_monthly_sales") ELSE null END) > DECIMAL '0.1')
 ORDER BY ("sum_sales" - "avg_monthly_sales") ASC, "s_store_name" ASC
 LIMIT 100

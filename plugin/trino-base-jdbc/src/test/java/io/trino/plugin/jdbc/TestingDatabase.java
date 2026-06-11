@@ -47,11 +47,11 @@ final class TestingDatabase
                 DriverConnectionFactory.builder(new Driver(), connectionUrl, new EmptyCredentialProvider()).build());
 
         connection = DriverManager.getConnection(connectionUrl);
-        connection.createStatement().execute("CREATE SCHEMA example");
+        connection.createStatement().execute("CREATE SCHEMA \"example\"");
 
-        connection.createStatement().execute("CREATE TABLE example.numbers(text varchar primary key, text_short varchar(32), value bigint)");
-        connection.createStatement().execute("CREATE TABLE example.timestamps(ts_3 timestamp(3) primary key, ts_6 timestamp(6), ts_9 timestamp(9))");
-        connection.createStatement().execute("INSERT INTO example.numbers(text, text_short, value) VALUES " +
+        connection.createStatement().execute("CREATE TABLE \"example\".\"numbers\"(\"text\" varchar primary key, \"text_short\" varchar(32), \"value\" bigint)");
+        connection.createStatement().execute("CREATE TABLE \"example\".\"timestamps\"(\"ts_3\" timestamp(3) primary key, \"ts_6\" timestamp(6), \"ts_9\" timestamp(9))");
+        connection.createStatement().execute("INSERT INTO \"example\".\"numbers\"(\"text\", \"text_short\", \"value\") VALUES " +
                 "('one', 'one', 1)," +
                 "('two', 'two', 2)," +
                 "('three', 'three', 3)," +
@@ -59,15 +59,15 @@ final class TestingDatabase
                 "('eleven', 'eleven', 11)," +
                 "('twelve', 'twelve', 12)" +
                 "");
-        connection.createStatement().execute("CREATE TABLE example.view_source(id varchar primary key)");
-        connection.createStatement().execute("CREATE VIEW example.view AS SELECT id FROM example.view_source");
-        connection.createStatement().execute("CREATE SCHEMA tpch");
-        connection.createStatement().execute("CREATE TABLE tpch.orders(orderkey bigint primary key, custkey bigint)");
-        connection.createStatement().execute("CREATE TABLE tpch.lineitem(orderkey bigint primary key, partkey bigint)");
+        connection.createStatement().execute("CREATE TABLE \"example\".\"view_source\"(\"id\" varchar primary key)");
+        connection.createStatement().execute("CREATE VIEW \"example\".\"view\" AS SELECT \"id\" FROM \"example\".\"view_source\"");
+        connection.createStatement().execute("CREATE SCHEMA \"tpch\"");
+        connection.createStatement().execute("CREATE TABLE \"tpch\".\"orders\"(\"orderkey\" bigint primary key, \"custkey\" bigint)");
+        connection.createStatement().execute("CREATE TABLE \"tpch\".\"lineitem\"(\"orderkey\" bigint primary key, \"partkey\" bigint)");
 
-        connection.createStatement().execute("CREATE SCHEMA exa_ple");
-        connection.createStatement().execute("CREATE TABLE exa_ple.num_ers(te_t varchar primary key, \"VA%UE\" bigint)");
-        connection.createStatement().execute("CREATE TABLE exa_ple.table_with_float_col(col1 bigint, col2 double, col3 float, col4 real)");
+        connection.createStatement().execute("CREATE SCHEMA \"exa_ple\"");
+        connection.createStatement().execute("CREATE TABLE \"exa_ple\".\"num_ers\"(\"te_t\" varchar primary key, \"VA%UE\" bigint)");
+        connection.createStatement().execute("CREATE TABLE \"exa_ple\".\"table_with_float_col\"(\"col1\" bigint, \"col2\" double, \"col3\" float, \"col4\" real)");
 
         connection.commit();
     }

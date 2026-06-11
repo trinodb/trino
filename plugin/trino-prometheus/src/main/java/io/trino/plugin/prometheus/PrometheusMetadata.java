@@ -57,6 +57,12 @@ public class PrometheusMetadata
     }
 
     @Override
+    public String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return listSchemaNames();
@@ -98,8 +104,11 @@ public class PrometheusMetadata
                 .orElseGet(() -> ImmutableSet.copyOf(ImmutableSet.of("default")));
 
         return schemaNames.stream()
+                .map(this::canonicalize)
                 .flatMap(schemaName ->
-                        prometheusClient.getTableNames(schemaName).stream().map(tableName -> new SchemaTableName(schemaName, tableName)))
+                        prometheusClient.getTableNames(schemaName).stream()
+                                .map(tableName -> canonicalize(tableName, false))
+                                .map(tableName -> new SchemaTableName(schemaName, tableName)))
                 .collect(toImmutableList());
     }
 

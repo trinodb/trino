@@ -23,6 +23,7 @@ import io.trino.cost.RuntimeInfoProvider;
 import io.trino.cost.StaticRuntimeInfoProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolverManager;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.sql.planner.LogicalPlanner;
 import io.trino.sql.planner.Plan;
@@ -97,10 +98,12 @@ public class BasePlanTest
 
         PlanTester planTester = PlanTester.create(sessionBuilder.build());
 
+        String catalog = planTester.getDefaultSession().getCatalog().orElseThrow();
         planTester.createCatalog(
-                planTester.getDefaultSession().getCatalog().get(),
+                catalog,
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
+        planTester.getPlannerContext().getMetadata().getResolverManager().addResolver(catalog, ResolverManager.getLowerCaseCanonicalizer());
         return planTester;
     }
 

@@ -90,6 +90,7 @@ import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -292,6 +293,12 @@ public abstract class AbstractTestQueryFramework
     protected Session getSession()
     {
         return queryRunner.getDefaultSession();
+    }
+
+    protected String quoted(String identifier)
+    {
+        String delimiter = "\"";
+        return delimiter + identifier.replace(delimiter, delimiter + delimiter) + delimiter;
     }
 
     protected final int getNodeCount()
@@ -528,7 +535,7 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertTableColumnNames(String tableName, String... columnNames)
     {
-        MaterializedResult result = computeActual("DESCRIBE " + tableName);
+        MaterializedResult result = computeActual("DESCRIBE " + quoted(tableName));
         List<String> actual = result.getMaterializedRows().stream()
                 .map(row -> (String) row.getField(0))
                 .collect(toImmutableList());
@@ -779,8 +786,11 @@ public abstract class AbstractTestQueryFramework
 
     protected String getTableComment(String catalogName, String schemaName, String tableName)
     {
-        return (String) computeScalar("SELECT comment FROM system.metadata.table_comments " +
-                "WHERE catalog_name = '" + catalogName + "' AND schema_name = '" + schemaName + "' AND table_name = '" + tableName + "'");
+        String sql = """
+                SELECT comment FROM system.metadata.table_comments \
+                WHERE catalog_name = '%s' AND schema_name = '%s' AND table_name = '%s'\
+                """.formatted(catalogName, schemaName, tableName);
+        return (String) computeScalar(sql);
     }
 
     private <T> T inTransaction(Session session, Function<Session, T> transactionSessionConsumer)
@@ -799,5 +809,41 @@ public abstract class AbstractTestQueryFramework
                         "In particular, make sure you do not allocate any resources in a test class constructor, " +
                         "as this can easily lead to OutOfMemoryErrors and other types of test flakiness.");
         return afterClassCloser.register(resource);
+    }
+
+    protected String canonicalize(String value, boolean delimited)
+    {
+        return delimited ? value : canonicalize(value);
+    }
+
+    protected String canonicalize(String value)
+    {
+        // FIXME: trino-base-jdbc use H2 has connector. For other connectors, this method needs to be overridden.
+        return value.toUpperCase(ENGLISH);
+    }
+
+    protected String sqlCanonicalize(String value)
+    {
+        return value.toUpperCase(ENGLISH);
+    }
+
+    protected String memoryCanonicalize(String value)
+    {
+        return value;
+    }
+
+    protected String withCanonicalize(String value)
+    {
+        return value.toUpperCase(ENGLISH);
+    }
+
+    protected boolean requiresDelimiters(String value)
+    {
+        return !value.equals(canonicalize(value));
+    }
+
+    protected String compareColumn(String value)
+    {
+        return value;
     }
 }

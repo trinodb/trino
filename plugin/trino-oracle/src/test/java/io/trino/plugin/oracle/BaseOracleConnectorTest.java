@@ -33,6 +33,7 @@ import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -141,7 +142,8 @@ public abstract class BaseOracleConnectorTest
             String expectedValues = "VALUES CAST(0.123 AS DOUBLE), CAST(456.789 AS DOUBLE), CAST(NULL as DOUBLE)";
             assertThat(query("SELECT y FROM " + tableName))
                     .matches(expectedValues);
-            assertThat(query("SELECT y FROM TABLE(system.query('SELECT * FROM " + tableName + "'))"))
+            // FIXME: Should the FROM TABLE clause inherit the canonicalizer from the inner SELECT clause?
+            assertThat(query("SELECT Y FROM TABLE(system.query('SELECT * FROM " + tableName + "'))"))
                     .matches(expectedValues);
         }
     }
@@ -150,7 +152,7 @@ public abstract class BaseOracleConnectorTest
     @Override
     public void testShowColumns()
     {
-        assertThat(query("SHOW COLUMNS FROM orders")).result().matches(getDescribeOrdersResult());
+        assertThat(query("SHOW COLUMNS FROM \"orders\"")).result().matches(getDescribeOrdersResult());
     }
 
     @Test
@@ -158,10 +160,10 @@ public abstract class BaseOracleConnectorTest
     public void testInformationSchemaFiltering()
     {
         assertQuery(
-                "SELECT table_name FROM information_schema.tables WHERE table_name = 'orders' LIMIT 1",
+                "SELECT \"table_name\" FROM \"information_schema\".\"tables\" WHERE \"table_name\" = 'orders' LIMIT 1",
                 "SELECT 'orders' table_name");
         assertQuery(
-                "SELECT table_name FROM information_schema.columns WHERE data_type = 'decimal(19,0)' AND table_name = 'customer' AND column_name = 'custkey' LIMIT 1",
+                "SELECT \"table_name\" FROM \"information_schema\".\"columns\" WHERE \"data_type\" = 'decimal(19,0)' AND \"table_name\" = 'customer' AND \"column_name\" = 'custkey' LIMIT 1",
                 "SELECT 'customer' table_name");
     }
 
@@ -193,20 +195,81 @@ public abstract class BaseOracleConnectorTest
 
     @Test
     @Override
+    public void testCreateTableMixedCaseDelimited()
+    {
+        String table = "Test Create MixedCase Delimited " + randomNameSuffix();
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            assertQueryFails("CREATE TABLE \"" + table + "\" (\"Column A\" bigint, \"Column B\" double)", "This connector does not support creating tables");
+            return;
+        }
+
+        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()) // prime the cache, if any
+                .doesNotContain(table);
+        assertUpdate("CREATE TABLE \"" + table + "\" (\"Column A\" bigint, \"Column B\" double)");
+        assertThat(getQueryRunner().tableExists(getSession(), canonicalize(table, true))).isTrue();
+
+        assertThat(query("SHOW COLUMNS FROM \"" + table + "\""))
+                .result().matches(resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                        .row(canonicalize("Column A", true), "decimal(19,0)", "", "")
+                        .row(canonicalize("Column B", true), "double", "", "")
+                        .build());
+
+        String catalog = getSession().getCatalog().orElseThrow();
+        String schema = getSession().getSchema().orElseThrow();
+        assertThat(computeActual("SHOW CREATE TABLE \"" + table + "\"").getOnlyValue())
+                // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
+                .asString().matches(getCreateTableMixedCaseDelimited(catalog, schema, table));
+        assertThat(getQueryRunner().tableExists(getSession(), canonicalize(table, true))).isTrue();
+        assertUpdate("DROP TABLE \"" + table + "\"");
+        assertThat(getQueryRunner().tableExists(getSession(), canonicalize(table, true))).isFalse();
+    }
+
+    @Override
+    protected String getCreateTableMixedCaseDelimited(String catalog, String schema, String table)
+    {
+        return format(
+                """
+                \\QCREATE TABLE %s.%s."%s" (
+                   "Column A" decimal(19,0),
+                   "Column B" double
+                )\\E\
+                """,
+                catalog,
+                canonicalize(schema).equals(schema) ? schema : '"' + schema + '"',
+                table);
+    }
+
+    @Test
+    @Override
     public void testShowCreateTable()
     {
-        assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+        assertThat((String) computeActual("SHOW CREATE TABLE \"orders\"").getOnlyValue())
                 // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
-                .matches("CREATE TABLE \\w+\\.\\w+\\.orders \\Q(\n" +
-                        "   orderkey decimal(19, 0),\n" +
-                        "   custkey decimal(19, 0),\n" +
-                        "   orderstatus varchar(1),\n" +
-                        "   totalprice double,\n" +
-                        "   orderdate timestamp(0),\n" +
-                        "   orderpriority varchar(15),\n" +
-                        "   clerk varchar(15),\n" +
-                        "   shippriority decimal(10, 0),\n" +
-                        "   comment varchar(79)\n" +
+                .matches("""
+                        CREATE TABLE \\w+\\.\\w+\\.%s \\Q(
+                           "orderkey" decimal(19, 0),
+                           "custkey" decimal(19, 0),
+                           "orderstatus" varchar(1),
+                           "totalprice" double,
+                           "orderdate" timestamp(0),
+                           "orderpriority" varchar(15),
+                           "clerk" varchar(15),
+                           "shippriority" decimal(10, 0),
+                           "comment" varchar(79)
+                        )""".formatted("orders".equals(canonicalize("orders")) ? "orders" : "\"orders\""));
+    }
+
+    @Test
+    @Override
+    public void testShowCreateInformationSchemaTable()
+    {
+        assertQueryFails("SHOW CREATE VIEW \"information_schema\".\"schemata\"", "line 1:1: Relation '\\w+.\"information_schema\".\"schemata\"' is a table, not a view");
+        assertQueryFails("SHOW CREATE MATERIALIZED VIEW \"information_schema\".\"schemata\"", "line 1:1: Relation '\\w+.\"information_schema\".\"schemata\"' is a table, not a materialized view");
+
+        assertThat((String) computeScalar("SHOW CREATE TABLE \"information_schema\".\"schemata\""))
+                .isEqualTo("CREATE TABLE " + getSession().getCatalog().orElseThrow() + ".\"information_schema\".\"schemata\" (\n" +
+                        "   \"catalog_name\" varchar,\n" +
+                        "   \"schema_name\" varchar\n" +
                         ")");
     }
 
@@ -217,7 +280,7 @@ public abstract class BaseOracleConnectorTest
 
         assertUpdate("CREATE TABLE " + tableName + " (t timestamp(12))");
 
-        assertThat(getColumnType(tableName, "t"))
+        assertThat(getColumnType(canonicalize(tableName), canonicalize("t")))
                 .isEqualTo("timestamp(9)");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -282,15 +345,15 @@ public abstract class BaseOracleConnectorTest
     {
         // Overridden because for approx_set(bigint) a ProjectNode is present above table scan because Oracle doesn't support bigint
         // array_agg returns array, which is not supported
-        assertThat(query("SELECT array_agg(nationkey) FROM nation"))
+        assertThat(query("SELECT array_agg(\"nationkey\") FROM \"nation\""))
                 .skipResultsCorrectnessCheckForPushdown() // array_agg doesn't have a deterministic order of elements in result array
                 .isNotFullyPushedDown(AggregationNode.class);
         // histogram returns map, which is not supported
-        assertThat(query("SELECT histogram(regionkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+        assertThat(query("SELECT histogram(\"regionkey\") FROM \"nation\"")).isNotFullyPushedDown(AggregationNode.class);
         // multimap_agg returns multimap, which is not supported
-        assertThat(query("SELECT multimap_agg(regionkey, nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+        assertThat(query("SELECT multimap_agg(\"regionkey\", \"nationkey\") FROM \"nation\"")).isNotFullyPushedDown(AggregationNode.class);
         // approx_set returns HyperLogLog, which is not supported
-        assertThat(query("SELECT approx_set(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class, ProjectNode.class);
+        assertThat(query("SELECT approx_set(\"nationkey\") FROM \"nation\"")).isNotFullyPushedDown(AggregationNode.class, ProjectNode.class);
     }
 
     @Override
@@ -327,32 +390,32 @@ public abstract class BaseOracleConnectorTest
     public void testPredicatePushdown()
     {
         // varchar equality
-        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'ROMANIA'"))
+        assertThat(query("SELECT \"regionkey\", \"nationkey\", \"name\" FROM \"nation\" WHERE \"name\" = 'ROMANIA'"))
                 .matches("VALUES (CAST(3 AS DECIMAL(19,0)), CAST(19 AS DECIMAL(19,0)), CAST('ROMANIA' AS varchar(25)))")
                 .isFullyPushedDown();
 
         // varchar range
-        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name BETWEEN 'POLAND' AND 'RPA'"))
+        assertThat(query("SELECT \"regionkey\", \"nationkey\", \"name\" FROM \"nation\" WHERE \"name\" BETWEEN 'POLAND' AND 'RPA'"))
                 .matches("VALUES (CAST(3 AS DECIMAL(19,0)), CAST(19 AS DECIMAL(19,0)), CAST('ROMANIA' AS varchar(25)))")
                 .isFullyPushedDown();
 
         // varchar different case
-        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'romania'"))
+        assertThat(query("SELECT \"regionkey\", \"nationkey\", \"name\" FROM \"nation\" WHERE \"name\" = 'romania'"))
                 .returnsEmptyResult()
                 .isFullyPushedDown();
 
         // date equality
-        assertThat(query("SELECT orderkey FROM orders WHERE orderdate = DATE '1992-09-29'"))
+        assertThat(query("SELECT \"orderkey\" FROM \"orders\" WHERE \"orderdate\" = DATE '1992-09-29'"))
                 .matches("VALUES CAST(1250 AS DECIMAL(19,0)), 34406, 38436, 57570")
                 .isFullyPushedDown();
 
         // predicate over aggregation key (likely to be optimized before being pushed down into the connector)
-        assertThat(query("SELECT * FROM (SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey) WHERE regionkey = 3"))
+        assertThat(query("SELECT * FROM (SELECT \"regionkey\", sum(\"nationkey\") FROM \"nation\" GROUP BY \"regionkey\") WHERE \"regionkey\" = 3"))
                 .matches("VALUES (CAST(3 AS decimal(19,0)), CAST(77 AS decimal(38,0)))")
                 .isFullyPushedDown();
 
         // predicate over aggregation result
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey HAVING sum(nationkey) = 77"))
+        assertThat(query("SELECT \"regionkey\", sum(\"nationkey\") FROM \"nation\" GROUP BY \"regionkey\" HAVING sum(\"nationkey\") = 77"))
                 .matches("VALUES (CAST(3 AS decimal(19,0)), CAST(77 AS decimal(38,0)))")
                 .isFullyPushedDown();
     }
@@ -403,16 +466,15 @@ public abstract class BaseOracleConnectorTest
                 Session.builder(getSession())
                         .setCatalogSessionProperty("oracle", "domain_compaction_threshold", "10000")
                         .build(),
-                "SELECT * from nation",
-                "Domain compaction threshold \\(10000\\) cannot exceed 1000");
+                "SELECT * from \"nation\"", "Domain compaction threshold \\(10000\\) cannot exceed 1000");
     }
 
     @Test
     @Override // Override because Oracle allows SELECT query in execute procedure
     public void testExecuteProcedureWithInvalidQuery()
     {
-        assertUpdate("CALL system.execute('SELECT 1')");
-        assertQueryFails("CALL system.execute('invalid')", "(?s)Failed to execute query.*");
+        assertUpdate("CALL \"system\".\"execute\"('SELECT 1')");
+        assertQueryFails("CALL \"system\".\"execute\"('invalid')", "(?s)Failed to execute query.*");
     }
 
     @Test
