@@ -31,7 +31,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.regex.Pattern.CASE_INSENSITIVE;
 
 public final class PartitionFields
@@ -229,7 +228,7 @@ public final class PartitionFields
 
     public static String quotedName(String name)
     {
-        if (UNQUOTED_IDENTIFIER_PATTERN.matcher(name).matches() && name.toLowerCase(ENGLISH).equals(name)) {
+        if (UNQUOTED_IDENTIFIER_PATTERN.matcher(name).matches()) {
             return name;
         }
         return '"' + name.replace("\"", "\"\"") + '"';

@@ -470,7 +470,7 @@ public class TrinoRestCatalog
     @Override
     public void registerTable(ConnectorSession session, SchemaTableName tableName, TableMetadata tableMetadata)
     {
-        TableIdentifier tableIdentifier = TableIdentifier.of(toRemoteNamespace(session, toNamespace(tableName.getSchemaName())), tableName.getTableName().toLowerCase(ENGLISH));
+        TableIdentifier tableIdentifier = TableIdentifier.of(toRemoteNamespace(session, toNamespace(tableName.getSchemaName())), tableName.getTableName());
         try {
             restSessionCatalog.registerTable(convert(session), tableIdentifier, tableMetadata.metadataFileLocation());
         }

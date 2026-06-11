@@ -238,15 +238,6 @@ public class TestDeltaLakeConnectorTest
                 canonicalize("Column_B"));
     }
 
-    @Test
-    @Override
-    public void testAddColumn()
-    {
-        // FIXME: cant have this test working?
-        assertThatThrownBy(super::testAddColumn)
-                .hasStackTraceContaining("Unsupported Trino column type (bigint) for Parquet column ([x] optional binary x (STRING))");
-    }
-
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {

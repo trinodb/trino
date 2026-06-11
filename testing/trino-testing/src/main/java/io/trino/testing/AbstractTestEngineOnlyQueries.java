@@ -5645,29 +5645,31 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testShowInformationSchemaTables()
     {
-        assertThat(computeActual("SHOW TABLES FROM information_schema").getOnlyColumnAsSet())
+        assertThat(computeActual("SHOW TABLES FROM \"information_schema\"").getOnlyColumnAsSet())
                 .isEqualTo(Set.of("applicable_roles", "columns", "enabled_roles", "roles", "schemata", "table_privileges", "tables", "views"));
     }
 
     @Test
     public void testShowCreateInformationSchema()
     {
-        assertThat(query("SHOW CREATE SCHEMA information_schema"))
+        assertThat(query("SHOW CREATE SCHEMA \"information_schema\""))
                 .skippingTypesCheck()
-                .matches(format("VALUES 'CREATE SCHEMA %s.information_schema'", getSession().getCatalog().orElseThrow()));
+                .matches(format("VALUES 'CREATE SCHEMA %s.\"information_schema\"'", getSession().getCatalog().orElseThrow()));
     }
 
     @Test
     public void testShowCreateInformationSchemaTable()
     {
-        assertQueryFails("SHOW CREATE VIEW information_schema.schemata", "line 1:1: Relation '\\w+.information_schema.schemata' is a table, not a view");
-        assertQueryFails("SHOW CREATE MATERIALIZED VIEW information_schema.schemata", "line 1:1: Relation '\\w+.information_schema.schemata' is a table, not a materialized view");
+        assertQueryFails("SHOW CREATE VIEW \"information_schema\".\"schemata\"", "line 1:1: Relation '\\w+.\"information_schema\".\"schemata\"' is a table, not a view");
+        assertQueryFails("SHOW CREATE MATERIALIZED VIEW \"information_schema\".\"schemata\"", "line 1:1: Relation '\\w+.\"information_schema\".\"schemata\"' is a table, not a materialized view");
 
-        assertThat((String) computeScalar("SHOW CREATE TABLE information_schema.schemata"))
-                .isEqualTo("CREATE TABLE " + getSession().getCatalog().orElseThrow() + ".information_schema.schemata (\n" +
-                        "   catalog_name varchar,\n" +
-                        "   schema_name varchar\n" +
-                        ")");
+        assertThat((String) computeScalar("SHOW CREATE TABLE \"information_schema\".\"schemata\""))
+                .isEqualTo("""
+                        CREATE TABLE %s."information_schema"."schemata" (
+                           "catalog_name" varchar,
+                           "schema_name" varchar
+                        )\
+                        """.formatted(getSession().getCatalog().orElseThrow()));
     }
 
     @Test
@@ -5861,7 +5863,7 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testUnionAllAboveBroadcastJoin()
     {
-        assertQuery("SELECT COUNT(*) FROM region r JOIN (SELECT nationkey FROM nation UNION ALL SELECT nationkey as key FROM nation) n ON r.regionkey = n.nationkey", "VALUES 10");
+        assertQuery("SELECT COUNT(*) FROM \"region\" r JOIN (SELECT \"nationkey\" FROM \"nation\" UNION ALL SELECT \"nationkey\" as key FROM \"nation\") n ON r.\"regionkey\" = n.\"nationkey\"", "VALUES 10");
     }
 
     @Test

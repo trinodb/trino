@@ -5571,11 +5571,11 @@ public abstract class BaseConnectorTest
                     "DELETE FROM " + table.getName() + "\n" +
                             "WHERE (\"orderkey\" IN (SELECT CASE WHEN \"orderkey\" % 3 = 0 THEN NULL ELSE \"orderkey\" END FROM tpch.tiny.lineitem)) IS NULL\n",
                     "SELECT count(*) FROM \"orders\"\n" +
-                            "WHERE (\"orderkey\" IN (SELECT CASE WHEN \"orderkey\" % 3 = 0 THEN NULL ELSE \"orderkey\" END FROM lineitem)) IS NULL\n");
+                            "WHERE (\"orderkey\" IN (SELECT CASE WHEN \"orderkey\" % 3 = 0 THEN NULL ELSE \"orderkey\" END FROM \"lineitem\")) IS NULL\n");
             assertQuery(
                     "SELECT * FROM " + table.getName(),
                     "SELECT * FROM \"orders\"\n" +
-                            "WHERE (\"orderkey\" IN (SELECT CASE WHEN \"orderkey\" % 3 = 0 THEN NULL ELSE \"orderkey\" END FROM lineitem)) IS NOT NULL\n");
+                            "WHERE (\"orderkey\" IN (SELECT CASE WHEN \"orderkey\" % 3 = 0 THEN NULL ELSE \"orderkey\" END FROM \"lineitem\")) IS NOT NULL\n");
         }
     }
 
@@ -7337,17 +7337,18 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_MERGE));
 
         String targetTable = "merge_strange_capitalization_" + randomNameSuffix();
-        createTableForWrites("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable, Optional.of("customer"));
+        createTableForWrites("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable, Optional.of(canonicalize("customer")));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
 
-        assertUpdate(
-                format("MERGE INTO %s t USING ", targetTable.toUpperCase(ENGLISH)) +
-                        "(VALUES ('Aaron', 6, 'Arches'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire'), ('Ed', 7, 'Etherville')) AS s(customer, purchases, address)" +
-                        "ON (t.customer = s.customer)" +
-                        "    WHEN MATCHED AND s.address = 'Centreville' THEN DELETE" +
-                        "    WHEN MATCHED THEN UPDATE SET purCHases = s.PurchaseS + t.pUrchases, aDDress = s.addrESs" +
-                        "    WHEN NOT MATCHED THEN INSERT (CUSTOMER, purchases, addRESS) VALUES(s.custoMer, s.Purchases, s.ADDress)",
+        assertUpdate("""
+                MERGE INTO %s t USING \
+                    (VALUES ('Aaron', 6, 'Arches'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire'), ('Ed', 7, 'Etherville')) AS s(customer, purchases, address) \
+                        ON (t.customer = s.customer) \
+                            WHEN MATCHED AND s.address = 'Centreville' THEN DELETE \
+                            WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases, address = s.address \
+                            WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)\
+                """.formatted(targetTable),
                 4);
 
         assertQuery("SELECT * FROM " + targetTable, "VALUES ('Aaron', 11, 'Arches'), ('Bill', 7, 'Buena'), ('Dave', 22, 'Darbyshire'), ('Ed', 7, 'Etherville')");
@@ -7362,7 +7363,7 @@ public abstract class BaseConnectorTest
 
         String targetTable = "test_without_aliases_target_" + randomNameSuffix();
         String sourceTable = "test_without_aliases_source_" + randomNameSuffix();
-        createTableForWrites("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable, Optional.of("customer"));
+        createTableForWrites("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable, Optional.of(canonicalize("customer")));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
 
@@ -7370,12 +7371,13 @@ public abstract class BaseConnectorTest
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire')", sourceTable), 4);
 
-        assertUpdate(
-                format("MERGE INTO %s USING %s", targetTable, sourceTable) +
-                        format(" ON (%s.customer = %s.customer)", targetTable, sourceTable) +
-                        format("    WHEN MATCHED AND %s.address = 'Centreville' THEN DELETE", sourceTable) +
-                        format("    WHEN MATCHED THEN UPDATE SET purchases = %s.pURCHases + %s.pUrchases, aDDress = %s.addrESs", sourceTable, targetTable, sourceTable) +
-                        format("    WHEN NOT MATCHED THEN INSERT (cusTomer, purchases, addRESS) VALUES(%s.custoMer, %s.Purchases, %s.ADDress)", sourceTable, sourceTable, sourceTable),
+        assertUpdate("""
+                MERGE INTO %1$s USING %2$s \
+                    ON (%1$s.customer = %2$s.customer) \
+                        WHEN MATCHED AND %2$s.address = 'Centreville' THEN DELETE \
+                        WHEN MATCHED THEN UPDATE SET purchases = %2$s.purchases + %1$s.purchases, address = %2$s.address \
+                        WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(%2$s.customer, %2$s.purchases, %2$s.address)\
+                """.formatted(targetTable, sourceTable),
                 4);
 
         assertQuery("SELECT * FROM " + targetTable, "VALUES ('Aaron', 11, 'Arches'), ('Bill', 7, 'Buena'), ('Dave', 22, 'Darbyshire'), ('Ed', 7, 'Etherville')");
