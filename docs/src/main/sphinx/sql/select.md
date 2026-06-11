@@ -1391,6 +1391,34 @@ LEFT JOIN UNNEST(checkpoints) AS t(checkpoint) ON TRUE;
 
 Note that in case of using `LEFT JOIN` the only condition supported by the current implementation is `ON TRUE`.
 
+`UNNEST` on an array of rows requires all row fields to be specified in the 
+expression:
+```sql
+SELECT
+   d.greeting, d.planet
+FROM UNNEST(
+   CAST(ARRAY[ROW('hello', 'world'), ROW('goodbye', 'mars')]
+      AS ARRAY(ROW(greeting VARCHAR, planet VARCHAR)))) 
+   AS d(greeting, planet);
+```
+
+```text
+ greeting | planet 
+----------+--------
+ hello    | world  
+ goodbye  | mars   
+(2 rows)
+```
+
+Note that field names like the ones in `d(greeting, planet)` can be generated 
+with the following query for column `data`.
+```sql
+SELECT concat_ws(', ', row::fields(array_first(data.some.nested.array)));
+-- field1, field2, field3, field4, field5, field6, field7
+
+SELECT * FROM UNNEST(data.some.nested.array) AS d(field1, field2, field3, field4, field5, field6, field7);
+```
+
 (select-json-table)=
 ## JSON_TABLE
 
