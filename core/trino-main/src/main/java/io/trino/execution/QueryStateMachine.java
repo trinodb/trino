@@ -329,7 +329,13 @@ public class QueryStateMachine
             // TODO: make autocommit isolation level a session parameter
             TransactionId transactionId = existingTransactionId
                     .orElseGet(() -> transactionManager.beginTransaction(true));
-            session = session.beginTransactionId(transactionId, transactionManager, accessControl);
+            if (transactionControl) {
+                // For COMMIT/ROLLBACK, skip catalog property validation to allow execution even on aborted transactions
+                session = session.withTransactionId(transactionId);
+            }
+            else {
+                session = session.beginTransactionId(transactionId, transactionManager, accessControl);
+            }
         }
 
         if (getRetryPolicy(session) == TASK && externalExchangeEncryptionEnabled) {
