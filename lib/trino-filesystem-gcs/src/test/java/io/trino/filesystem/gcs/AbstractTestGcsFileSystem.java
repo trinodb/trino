@@ -55,12 +55,17 @@ public abstract class AbstractTestGcsFileSystem
     protected void initialize(String gcpCredentialKey)
             throws IOException
     {
+        initialize(gcpCredentialKey, new GcsFileSystemConfig());
+    }
+
+    protected void initialize(String gcpCredentialKey, GcsFileSystemConfig config)
+            throws IOException
+    {
         // Note: the account needs the following permissions:
         // create/get/delete bucket
         // create/get/list/delete blob
         // For gcp testing this corresponds to the Cluster Storage Admin and Cluster Storage Object Admin roles
         byte[] jsonKeyBytes = Base64.getDecoder().decode(gcpCredentialKey);
-        GcsFileSystemConfig config = new GcsFileSystemConfig();
         GcsServiceAccountAuthConfig authConfig = new GcsServiceAccountAuthConfig().setJsonKey(new String(jsonKeyBytes, UTF_8));
         GcsStorageFactory storageFactory = new GcsStorageFactory(config, new GcsServiceAccountAuth(authConfig));
         this.gcsFileSystemFactory = new GcsFileSystemFactory(config, storageFactory);
@@ -127,6 +132,11 @@ public abstract class AbstractTestGcsFileSystem
     protected Location getRootLocation()
     {
         return rootLocation;
+    }
+
+    protected Storage getStorage()
+    {
+        return storage;
     }
 
     @Override
