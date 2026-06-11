@@ -1169,6 +1169,25 @@ public final class SortedRangeSet
                 }
                 thisRangeView = this.getRangeView(thisRangeIndex);
             }
+            if (thisRangeView.contains(thatRangeView)) {
+                continue;
+            }
+            // For discrete types (e.g. bigint, date), `{[3,3], [4,4]}` semantically equals `[3,4]`
+            // even though SortedRangeSet keeps them as separate ranges. Try to coalesce consecutive
+            // value-adjacent ranges in `this` to cover `thatRangeView`. Only entered when the cheap
+            // structural check fails, so the common case pays no extra cost.
+            while (thisRangeIndex + 1 < thisRangeCount) {
+                RangeView next = this.getRangeView(thisRangeIndex + 1);
+                Optional<RangeView> coalesced = thisRangeView.tryCoalesceValueAdjacent(next);
+                if (coalesced.isEmpty()) {
+                    return false;
+                }
+                thisRangeView = coalesced.get();
+                thisRangeIndex++;
+                if (thisRangeView.contains(thatRangeView)) {
+                    break;
+                }
+            }
             if (!thisRangeView.contains(thatRangeView)) {
                 // thisRange partially overlaps with thatRange, or it's fully after thatRange
                 return false;
@@ -1661,6 +1680,47 @@ public final class SortedRangeSet
             }
 
             return Optional.empty();
+        }
+
+        /**
+         * Returns a merged range covering {@code this} and {@code next} when they are adjacent in
+         * the type's value space (i.e. {@code Type#getNextValue(this.high) == next.low}). For
+         * example, on {@code bigint} ranges {@code [3,3]} and {@code [4,4]} are value-adjacent and
+         * coalesce to {@code [3,4]}, even though their bounds do not touch structurally.
+         *
+         * <p>Only handles the case where {@code this.high} and {@code next.low} are inclusive: that
+         * matches the canonical representation used for discrete value sets (e.g. {@code IN} lists
+         * extracted to a domain) which are the practically relevant inputs.
+         */
+        private Optional<RangeView> tryCoalesceValueAdjacent(RangeView next)
+        {
+            if (!this.highInclusive || !next.lowInclusive) {
+                return Optional.empty();
+            }
+            if (this.isHighUnbounded() || next.isLowUnbounded()) {
+                return Optional.empty();
+            }
+            Object highValue = readNativeValue(type, this.highValueBlock, this.highValuePosition);
+            Optional<Object> nextOfHigh = type.getNextValue(highValue);
+            if (nextOfHigh.isEmpty()) {
+                return Optional.empty();
+            }
+            BlockBuilder builder = type.createBlockBuilder(null, 1);
+            writeNativeValue(type, builder, nextOfHigh.get());
+            Block nextOfHighBlock = builder.build();
+            if (compareValues(comparisonOperator, nextOfHighBlock, 0, next.lowValueBlock, next.lowValuePosition) != 0) {
+                return Optional.empty();
+            }
+            return Optional.of(new RangeView(
+                    this.type,
+                    this.comparisonOperator,
+                    this.rangeComparisonOperator,
+                    this.lowInclusive,
+                    this.lowValueBlock,
+                    this.lowValuePosition,
+                    next.highInclusive,
+                    next.highValueBlock,
+                    next.highValuePosition));
         }
 
         public boolean isLowUnbounded()

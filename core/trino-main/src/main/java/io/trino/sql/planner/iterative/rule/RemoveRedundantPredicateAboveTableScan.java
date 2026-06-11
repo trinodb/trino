@@ -126,8 +126,11 @@ public class RemoveRedundantPredicateAboveTableScan
             return predicateColumnDomain.intersect(enforcedColumnDomain);
         });
 
-        if (unenforcedDomain.equals(predicateDomain)) {
-            // no change in filter predicate
+        if (isEquivalent(unenforcedDomain, predicateDomain)) {
+            // no change in filter predicate. Use value-based equivalence rather than equals because
+            // SortedRangeSet represents `[3,4]` and `{[3], [4]}` differently for discrete types
+            // even though they accept the same values, and a structural compare would trigger
+            // an infinite rule loop (see issue #23147).
             return Result.empty();
         }
 
@@ -160,5 +163,18 @@ public class RemoveRedundantPredicateAboveTableScan
                         extractedPredicates.getOrDefault(FALSE, ImmutableList.of()).stream()
                                 .map(ExtractionResult::getRemainingExpression)
                                 .collect(toImmutableList())));
+    }
+
+    /**
+     * Value-based equivalence of two TupleDomains: true if they accept the same set of tuples.
+     * Equivalent to {@code a.contains(b) && b.contains(a)}. Cheaper to check than the bidirectional
+     * containment when both sides are structurally equal, hence the {@code equals} fast-path.
+     */
+    private static boolean isEquivalent(TupleDomain<ColumnHandle> a, TupleDomain<ColumnHandle> b)
+    {
+        if (a.equals(b)) {
+            return true;
+        }
+        return a.contains(b) && b.contains(a);
     }
 }
