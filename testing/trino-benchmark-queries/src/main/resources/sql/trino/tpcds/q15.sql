@@ -1,6 +1,6 @@
 SELECT
   "ca_zip"
-, "sum"("cs_sales_price")
+, sum("cs_sales_price")
 FROM
   ${database}.${schema}.catalog_sales
 , ${database}.${schema}.customer

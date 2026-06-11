@@ -29,14 +29,14 @@ public class TestIgnite
     @Test(groups = {IGNITE, PROFILE_SPECIFIC_TESTS})
     public void testCreateTableAsSelect()
     {
-        QueryResult result = onTrino().executeQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
+        QueryResult result = onTrino().executeQuery("CREATE TABLE \"nation\" AS SELECT * FROM tpch.tiny.nation");
         try {
             assertThat(result).updatedRowsCountIsEqualTo(25);
-            assertThat(onTrino().executeQuery("SELECT COUNT(*) FROM nation"))
+            assertThat(onTrino().executeQuery("SELECT COUNT(*) FROM \"nation\""))
                     .containsOnly(row(25));
         }
         finally {
-            onTrino().executeQuery("DROP TABLE nation");
+            onTrino().executeQuery("DROP TABLE \"nation\"");
         }
     }
 }

@@ -3,7 +3,7 @@ WITH
   ss_items AS (
    SELECT
      "i_item_id" "item_id"
-   , "sum"("ss_ext_sales_price") "ss_item_rev"
+   , sum("ss_ext_sales_price") "ss_item_rev"
    FROM
      store_sales
    , item
@@ -26,7 +26,7 @@ WITH
 , cs_items AS (
    SELECT
      "i_item_id" "item_id"
-   , "sum"("cs_ext_sales_price") "cs_item_rev"
+   , sum("cs_ext_sales_price") "cs_item_rev"
    FROM
      catalog_sales
    , item
@@ -49,7 +49,7 @@ WITH
 , ws_items AS (
    SELECT
      "i_item_id" "item_id"
-   , "sum"("ws_ext_sales_price") "ws_item_rev"
+   , sum("ws_ext_sales_price") "ws_item_rev"
    FROM
      web_sales
    , item
@@ -70,7 +70,7 @@ WITH
    GROUP BY "i_item_id"
 )
 SELECT
-  "ss_items"."item_id"
+  ss_items."item_id"
 , "ss_item_rev"
 , CAST(((("ss_item_rev" / ((CAST("ss_item_rev" AS DECIMAL(16,7)) + "cs_item_rev") + "ws_item_rev")) / 3) * 100) AS DECIMAL(7,2)) "ss_dev"
 , "cs_item_rev"
@@ -82,13 +82,13 @@ FROM
   ss_items
 , cs_items
 , ws_items
-WHERE ("ss_items"."item_id" = "cs_items"."item_id")
-   AND ("ss_items"."item_id" = "ws_items"."item_id")
+WHERE (ss_items."item_id" = cs_items."item_id")
+   AND (ss_items."item_id" = ws_items."item_id")
    AND ("ss_item_rev" BETWEEN (DECIMAL '0.9' * "cs_item_rev") AND (DECIMAL '1.1' * "cs_item_rev"))
    AND ("ss_item_rev" BETWEEN (DECIMAL '0.9' * "ws_item_rev") AND (DECIMAL '1.1' * "ws_item_rev"))
    AND ("cs_item_rev" BETWEEN (DECIMAL '0.9' * "ss_item_rev") AND (DECIMAL '1.1' * "ss_item_rev"))
    AND ("cs_item_rev" BETWEEN (DECIMAL '0.9' * "ws_item_rev") AND (DECIMAL '1.1' * "ws_item_rev"))
    AND ("ws_item_rev" BETWEEN (DECIMAL '0.9' * "ss_item_rev") AND (DECIMAL '1.1' * "ss_item_rev"))
    AND ("ws_item_rev" BETWEEN (DECIMAL '0.9' * "cs_item_rev") AND (DECIMAL '1.1' * "cs_item_rev"))
-ORDER BY "ss_items"."item_id" ASC, "ss_item_rev" ASC
+ORDER BY ss_items."item_id" ASC, "ss_item_rev" ASC
 LIMIT 100

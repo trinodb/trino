@@ -76,6 +76,12 @@ public abstract class BaseDeltaFailureRecoveryTest
     }
 
     @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     protected boolean areWriteRetriesSupported()
     {
         return true;
@@ -88,9 +94,9 @@ public abstract class BaseDeltaFailureRecoveryTest
         // Test method is overridden because method from superclass assumes more complex plan for `DELETE` query.
         // Assertions do not play well if plan consists of just two fragments.
 
-        Optional<String> setupQuery = Optional.of("CREATE TABLE <table> AS SELECT * FROM orders");
+        Optional<String> setupQuery = Optional.of("CREATE TABLE <table> AS SELECT * FROM \"orders\"");
         Optional<String> cleanupQuery = Optional.of("DROP TABLE <table>");
-        String deleteQuery = "DELETE FROM <table> WHERE orderkey = 1";
+        String deleteQuery = "DELETE FROM <table> WHERE \"orderkey\" = 1";
 
         if (getRetryPolicy() == TASK) {
             assertThatQuery(deleteQuery)
@@ -193,9 +199,9 @@ public abstract class BaseDeltaFailureRecoveryTest
         // Test method is overridden because method from superclass assumes more complex plan for `UPDATE` query.
         // Assertions do not play well if plan consists of just two fragments.
 
-        Optional<String> setupQuery = Optional.of("CREATE TABLE <table> AS SELECT * FROM orders");
+        Optional<String> setupQuery = Optional.of("CREATE TABLE <table> AS SELECT * FROM \"orders\"");
         Optional<String> cleanupQuery = Optional.of("DROP TABLE <table>");
-        String updateQuery = "UPDATE <table> SET shippriority = 101 WHERE custkey = 1";
+        String updateQuery = "UPDATE <table> SET \"shippriority\" = 101 WHERE \"custkey\" = 1";
 
         if (getRetryPolicy() == TASK) {
             assertThatQuery(updateQuery)
@@ -305,7 +311,7 @@ public abstract class BaseDeltaFailureRecoveryTest
     {
         testTableModification(
                 Optional.empty(),
-                "CREATE TABLE <table> WITH (partitioned_by = ARRAY['p']) AS SELECT *, 'partition1' p FROM orders",
+                "CREATE TABLE <table> WITH (partitioned_by = ARRAY['p']) AS SELECT *, 'partition1' \"p\" FROM \"orders\"",
                 Optional.of("DROP TABLE <table>"));
     }
 
@@ -313,8 +319,8 @@ public abstract class BaseDeltaFailureRecoveryTest
     protected void testInsertIntoNewPartition()
     {
         testTableModification(
-                Optional.of("CREATE TABLE <table> WITH (partitioned_by = ARRAY['p']) AS SELECT *, 'partition1' p FROM orders"),
-                "INSERT INTO <table> SELECT *, 'partition2' p FROM orders",
+                Optional.of("CREATE TABLE <table> WITH (partitioned_by = ARRAY['p']) AS SELECT *, 'partition1' \"p\" FROM \"orders\""),
+                "INSERT INTO <table> SELECT *, 'partition2' \"p\" FROM \"orders\"",
                 Optional.of("DROP TABLE <table>"));
     }
 
@@ -322,8 +328,8 @@ public abstract class BaseDeltaFailureRecoveryTest
     protected void testInsertIntoExistingPartition()
     {
         testTableModification(
-                Optional.of("CREATE TABLE <table> WITH (partitioned_by = ARRAY['p']) AS SELECT *, 'partition1' p FROM orders"),
-                "INSERT INTO <table> SELECT *, 'partition1' p FROM orders",
+                Optional.of("CREATE TABLE <table> WITH (partitioned_by = ARRAY['p']) AS SELECT *, 'partition1' \"p\" FROM \"orders\""),
+                "INSERT INTO <table> SELECT *, 'partition1' \"p\" FROM \"orders\"",
                 Optional.of("DROP TABLE <table>"));
     }
 }

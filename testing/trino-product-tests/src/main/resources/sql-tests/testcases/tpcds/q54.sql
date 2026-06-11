@@ -26,14 +26,14 @@ UNION ALL       SELECT
       AND ("item_sk" = "i_item_sk")
       AND ("i_category" = 'Women')
       AND ("i_class" = 'maternity')
-      AND ("c_customer_sk" = "cs_or_ws_sales"."customer_sk")
+      AND ("c_customer_sk" = cs_or_ws_sales."customer_sk")
       AND ("d_moy" = 12)
       AND ("d_year" = 1998)
 )
 , my_revenue AS (
    SELECT
      "c_customer_sk"
-   , "sum"("ss_ext_sales_price") "revenue"
+   , sum("ss_ext_sales_price") "revenue"
    FROM
      my_customers
    , store_sales
@@ -67,7 +67,7 @@ UNION ALL       SELECT
 )
 SELECT
   "segment"
-, "count"(*) "num_customers"
+, count(*) "num_customers"
 , ("segment" * 50) "segment_base"
 FROM
   segments

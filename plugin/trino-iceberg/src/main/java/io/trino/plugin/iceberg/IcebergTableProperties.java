@@ -184,7 +184,6 @@ public class IcebergTableProperties
                         false,
                         value -> ((List<?>) value).stream()
                                 .map(String.class::cast)
-                                .map(name -> name.toLowerCase(ENGLISH))
                                 .collect(toImmutableList()),
                         value -> value))
                 .add(doubleProperty(
@@ -202,7 +201,6 @@ public class IcebergTableProperties
                         false,
                         value -> ((List<?>) value).stream()
                                 .map(String.class::cast)
-                                .map(name -> name.toLowerCase(ENGLISH))
                                 .collect(toImmutableList()),
                         value -> value))
                 .add(new PropertyMetadata<>(

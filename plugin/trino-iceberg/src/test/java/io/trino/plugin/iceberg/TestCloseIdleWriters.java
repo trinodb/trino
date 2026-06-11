@@ -70,7 +70,7 @@ public class TestCloseIdleWriters
                     CASE
                         WHEN shipmode IN (%s) THEN 0
                         WHEN shipmode IN (%s) THEN 1
-                    END AS shipmodeVal
+                    END AS "shipmodeVal"
                     FROM %s
                     WHERE shipmode IN (%s)
                     ORDER BY shipmode

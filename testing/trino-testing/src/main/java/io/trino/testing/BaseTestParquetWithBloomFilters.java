@@ -64,17 +64,18 @@ public abstract class BaseTestParquetWithBloomFilters
 
     protected void testBloomFilterRowGroupPruning(CatalogSchemaTableName tableName, String columnName)
     {
+        String query = "SELECT \"%s\" FROM %s".formatted(columnName, tableName);
         // assert table is populated with data
         assertQueryStats(
                 getSession(),
-                "SELECT " + columnName + " FROM " + tableName,
+                query,
                 _ -> {},
                 results -> assertThat(results.getOnlyColumnAsSet()).isEqualTo(ImmutableSet.copyOf(TEST_VALUES)));
 
         // When reading bloom filter is enabled, row groups are pruned when searching for a missing value
         assertQueryStats(
                 getSession(),
-                "SELECT " + columnName + " FROM " + tableName + " WHERE " + columnName + " = " + MISSING_VALUE,
+                "%s WHERE \"%s\" = %s".formatted(query, columnName, MISSING_VALUE),
                 queryStats -> {
                     assertThat(queryStats.getPhysicalInputPositions()).isEqualTo(0);
                     assertThat(queryStats.getProcessedInputPositions()).isEqualTo(0);
@@ -84,7 +85,7 @@ public abstract class BaseTestParquetWithBloomFilters
         // When reading bloom filter is enabled, row groups are not pruned when searching for a value present in the file
         assertQueryStats(
                 getSession(),
-                "SELECT " + columnName + " FROM " + tableName + " WHERE " + columnName + " = " + TEST_VALUES.get(0),
+                "%s WHERE \"%s\" = %s".formatted(query, columnName,TEST_VALUES.get(0)),
                 queryStats -> {
                     assertThat(queryStats.getPhysicalInputPositions()).isGreaterThan(0);
                     assertThat(queryStats.getProcessedInputPositions()).isEqualTo(queryStats.getPhysicalInputPositions());
@@ -94,7 +95,7 @@ public abstract class BaseTestParquetWithBloomFilters
         // When reading bloom filter is disabled, row groups are not pruned when searching for a missing value
         assertQueryStats(
                 bloomFiltersDisabled(getSession()),
-                "SELECT " + columnName + " FROM " + tableName + " WHERE " + columnName + " = " + MISSING_VALUE,
+                "%s WHERE \"%s\" = %s".formatted(query, columnName, MISSING_VALUE),
                 queryStats -> {
                     assertThat(queryStats.getPhysicalInputPositions()).isGreaterThan(0);
                     assertThat(queryStats.getProcessedInputPositions()).isEqualTo(queryStats.getPhysicalInputPositions());

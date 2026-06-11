@@ -42,6 +42,7 @@ import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.REGION;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 // TODO: Implement dedicated test to count number of queries executed.
@@ -78,6 +79,12 @@ public class TestPostgreSqlJdbcConnectionAccesses
         return queryRunner;
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
     private static ConnectionCountingConnectionFactory getConnectionCountingConnectionFactory(TestingPostgreSqlServer postgreSqlServer)
     {
         Properties connectionProperties = new Properties();
@@ -93,10 +100,10 @@ public class TestPostgreSqlJdbcConnectionAccesses
     @Test
     public void testJdbcConnectionCreations()
     {
-        assertJdbcConnections("SELECT * FROM nation LIMIT 1", 5, Optional.empty());
-        assertJdbcConnections("SELECT * FROM nation ORDER BY nationkey LIMIT 1", 5, Optional.empty());
-        assertJdbcConnections("SELECT * FROM nation WHERE nationkey = 1", 5, Optional.empty());
-        assertJdbcConnections("SELECT avg(nationkey) FROM nation", 4, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation LIMIT 1", 3, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation ORDER BY nationkey LIMIT 1", 3, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation WHERE nationkey = 1", 3, Optional.empty());
+        assertJdbcConnections("SELECT avg(nationkey) FROM nation", 3, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation, region", 6, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation n, region r WHERE n.regionkey = r.regionkey", 9, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation JOIN region USING(regionkey)", 10, Optional.empty());
@@ -107,13 +114,13 @@ public class TestPostgreSqlJdbcConnectionAccesses
         assertJdbcConnections("SELECT * FROM TABLE (system.query(query => 'SELECT * FROM tpch.nation'))", 2, Optional.empty());
         assertJdbcConnections("CREATE TABLE copy_of_nation AS SELECT * FROM nation", 15, Optional.empty());
         assertJdbcConnections("INSERT INTO copy_of_nation SELECT * FROM nation", 13, Optional.empty());
-        assertJdbcConnections("UPDATE copy_of_nation SET name = 'POLAND' WHERE nationkey = 1", 6, Optional.empty());
-        assertJdbcConnections("DELETE FROM copy_of_nation WHERE nationkey = 3", 6, Optional.empty());
+        assertJdbcConnections("UPDATE copy_of_nation SET name = 'POLAND' WHERE nationkey = 1", 5, Optional.empty());
+        assertJdbcConnections("DELETE FROM copy_of_nation WHERE nationkey = 3", 5, Optional.empty());
         assertJdbcConnections("DROP TABLE copy_of_nation", 2, Optional.empty());
         assertJdbcConnections("SHOW SCHEMAS", 1, Optional.empty());
         assertJdbcConnections("SHOW TABLES", 2, Optional.empty());
         assertJdbcConnections("SHOW STATS FOR nation", 4, Optional.empty());
-        assertJdbcConnections("SELECT * FROM system.jdbc.columns WHERE table_cat = 'counting_postgresql'", 7, Optional.empty());
+        assertJdbcConnections("SELECT * FROM system.jdbc.columns WHERE \"TABLE_CAT\" = 'counting_postgresql'", 7, Optional.empty());
 
         testJdbcMergeConnectionCreations();
     }

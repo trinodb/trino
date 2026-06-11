@@ -21,7 +21,10 @@ import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
 
+import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -29,7 +32,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.metadata.MetadataUtil.checkObjectName;
 import static java.util.Objects.requireNonNull;
 
-public record QualifiedObjectName(String catalogName, String schemaName, String objectName)
+public record QualifiedObjectName(String catalogName, String schemaName, String objectName, Optional<Predicate<String>> predicate)
 {
     private static final Pattern UNQUOTED_COMPONENT = Pattern.compile("[a-zA-Z0-9_]+");
     private static final String COMPONENT = UNQUOTED_COMPONENT.pattern() + "|\"([^\"]|\"\")*\"";
@@ -46,7 +49,23 @@ public record QualifiedObjectName(String catalogName, String schemaName, String 
 
     public QualifiedObjectName
     {
-        checkObjectName(catalogName, schemaName, objectName);
+        checkObjectName(catalogName, schemaName, objectName, predicate);
+    }
+
+    public QualifiedObjectName(String catalogName, String schemaName, String objectName)
+    {
+        this(catalogName, schemaName, objectName, Optional.empty());
+    }
+
+    public QualifiedObjectName asResolvedQualifiedObjectName(Predicate<String> predicate)
+    {
+        return asResolvedQualifiedObjectName(Optional.of(predicate));
+    }
+
+    public QualifiedObjectName asResolvedQualifiedObjectName(Optional<Predicate<String>> predicate)
+    {
+        requireNonNull(predicate, "predicate is null");
+        return new QualifiedObjectName(catalogName, schemaName, objectName, predicate);
     }
 
     public SchemaTableName asSchemaTableName()
@@ -83,7 +102,7 @@ public record QualifiedObjectName(String catalogName, String schemaName, String 
     @Override
     public String toString()
     {
-        return quoteIfNeeded(catalogName) + '.' + quoteIfNeeded(schemaName) + '.' + quoteIfNeeded(objectName);
+        return quoteIfNeeded(catalogName, Optional.empty()) + '.' + quoteIfNeeded(schemaName, predicate) + '.' + quoteIfNeeded(objectName, predicate);
     }
 
     public static Function<SchemaTableName, QualifiedObjectName> convertFromSchemaTableName(String catalogName)
@@ -100,11 +119,32 @@ public record QualifiedObjectName(String catalogName, String schemaName, String 
         return name.substring(1, name.length() - 1).replace("\"\"", "\"");
     }
 
-    private static String quoteIfNeeded(String name)
+    private static String quoteIfNeeded(String name, Optional<Predicate<String>> predicate)
     {
-        if (UNQUOTED_COMPONENT.matcher(name).matches()) {
+        if (UNQUOTED_COMPONENT.matcher(name).matches() && !predicate.map(p -> p.test(name)).orElse(false)) {
             return name;
         }
         return "\"" + name.replace("\"", "\"\"") + "\"";
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(catalogName, schemaName, objectName);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        QualifiedObjectName other = (QualifiedObjectName) obj;
+        return Objects.equals(this.catalogName, other.catalogName) &&
+                Objects.equals(this.schemaName, other.schemaName) &&
+                Objects.equals(this.objectName, other.objectName);
     }
 }

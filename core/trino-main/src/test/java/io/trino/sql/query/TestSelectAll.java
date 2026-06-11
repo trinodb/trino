@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -35,6 +36,11 @@ public class TestSelectAll
     public void teardown()
     {
         assertions.close();
+    }
+
+    private String canonicalize(String value)
+    {
+        return value.toUpperCase(ENGLISH);
     }
 
     @Test
@@ -62,7 +68,7 @@ public class TestSelectAll
         assertThat(assertions.query("SELECT (ROW (1, 'a')).*")).matches("SELECT 1, 'a'");
 
         // wildcard from nested row
-        assertThat(assertions.query("SELECT a.b.* FROM (VALUES (ROW (ROW (1, 2, 3)))) A (b)")).matches("SELECT 1, 2, 3");
+        assertThat(assertions.query("SELECT a.b.* FROM (VALUES (ROW (ROW (1, 2, 3)))) a (b)")).matches("SELECT 1, 2, 3");
         assertThat(assertions.query("SELECT b[1][1].* FROM (VALUES (ROW (ROW (ROW ( ROW (1, 2, 3)))))) A (b)")).matches("SELECT 1, 2, 3");
 
         // mixed select items
@@ -123,14 +129,14 @@ public class TestSelectAll
                 .matches("VALUES 2, 1");
         assertThat(assertions.query(
                 "SELECT t.r.* FROM (VALUES ROW(CAST(ROW(1) AS ROW(f1 integer))), ROW(CAST(ROW(2) AS ROW(f2 integer)))) t(r) ORDER BY f1 DESC"))
-                .failure().hasMessageMatching(".*Column 'f1' cannot be resolved");
+                .failure().hasMessageMatching(".*Column 'f1' cannot be resolved, .*");
         assertThat(assertions.query(
                 "SELECT t.r.* AS (f1) FROM (VALUES ROW(CAST(ROW(1) AS ROW(f1 integer))), ROW(CAST(ROW(2) AS ROW(f2 integer)))) t(r) ORDER BY f1 DESC"))
                 .ordered()
                 .matches("VALUES 2, 1");
         assertThat(assertions.query(
                 "SELECT t.r.* AS (x) FROM (VALUES ROW(CAST(ROW(1) AS ROW(f1 bigint))), ROW(CAST(ROW(2) AS ROW(f1 bigint)))) t(r) ORDER BY f1 DESC"))
-                .failure().hasMessageMatching(".*Column 'f1' cannot be resolved");
+                .failure().hasMessageMatching(".*Column 'f1' cannot be resolved, .*");
 
         // order by row
         assertThat(assertions.query(
@@ -195,9 +201,11 @@ public class TestSelectAll
         assertThat(assertions.query("SELECT (SELECT t.* FROM (VALUES 0)) FROM (SELECT * FROM (VALUES 1, 1, 1) LIMIT 2) t(a)")).matches("VALUES 1, 1");
         assertThat(assertions.query(
                 "SELECT (SELECT t.* FROM (VALUES 0)) FROM (VALUES (1, 1), (2, 2)) t(a, b)"))
-                .matches("VALUES " +
-                        "CAST(ROW(ROW(1, 1)) AS row(row(a integer, b integer))), " +
-                        "CAST(ROW(ROW(2, 2)) AS row(row(a integer, b integer)))");
+                .matches("""
+                        VALUES \
+                            CAST(ROW(ROW(1, 1)) AS row(row("%1$s" integer, "%2$s" integer))), \
+                            CAST(ROW(ROW(2, 2)) AS row(row("%1$s" integer, "%2$s" integer)))\
+                        """.formatted(canonicalize("a"), canonicalize("b")));
         // the following query should fail due to multiple rows returned from subquery, but instead fails to decorrelate
         assertThat(assertions.query("SELECT (SELECT t.* FROM (VALUES 0, 1)) FROM (VALUES 2) t(a)")).failure().hasMessageMatching(UNSUPPORTED_DECORRELATION_MESSAGE);
         // filter in subquery

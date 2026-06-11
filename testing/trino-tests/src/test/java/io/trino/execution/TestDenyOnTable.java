@@ -38,6 +38,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.EnumSet;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;

@@ -69,9 +69,9 @@ public class TestIcebergOrcWithBloomFilters
     void testBloomFilterPropertiesArePersistedDuringSetProperties()
     {
         String tableName = "test_metadata_write_properties_" + randomNameSuffix();
-        assertQuerySucceeds("CREATE TABLE " + tableName + "(A bigint, b bigint, c bigint)");
+        assertQuerySucceeds("CREATE TABLE " + tableName + "(a bigint, b bigint, c bigint)");
 
-        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES orc_bloom_filter_columns = ARRAY['a','B']");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES orc_bloom_filter_columns = ARRAY['a','b']");
         assertThat(getTableProperties(tableName))
                 .containsEntry("write.orc.bloom.filter.columns", "a,b");
 

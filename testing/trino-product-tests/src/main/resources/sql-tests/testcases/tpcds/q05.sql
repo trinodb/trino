@@ -3,10 +3,10 @@ WITH
   ssr AS (
    SELECT
      "s_store_id"
-   , "sum"("sales_price") "sales"
-   , "sum"("profit") "profit"
-   , "sum"("return_amt") "returns"
-   , "sum"("net_loss") "profit_loss"
+   , sum("sales_price") "sales"
+   , sum("profit") "profit"
+   , sum("return_amt") "returns"
+   , sum("net_loss") "profit_loss"
    FROM
      (
       SELECT
@@ -38,10 +38,10 @@ UNION ALL       SELECT
 , csr AS (
    SELECT
      "cp_catalog_page_id"
-   , "sum"("sales_price") "sales"
-   , "sum"("profit") "profit"
-   , "sum"("return_amt") "returns"
-   , "sum"("net_loss") "profit_loss"
+   , sum("sales_price") "sales"
+   , sum("profit") "profit"
+   , sum("return_amt") "returns"
+   , sum("net_loss") "profit_loss"
    FROM
      (
       SELECT
@@ -73,10 +73,10 @@ UNION ALL       SELECT
 , wsr AS (
    SELECT
      "web_site_id"
-   , "sum"("sales_price") "sales"
-   , "sum"("profit") "profit"
-   , "sum"("return_amt") "returns"
-   , "sum"("net_loss") "profit_loss"
+   , sum("sales_price") "sales"
+   , sum("profit") "profit"
+   , sum("return_amt") "returns"
+   , sum("net_loss") "profit_loss"
    FROM
      (
       SELECT
@@ -110,14 +110,14 @@ UNION ALL       SELECT
 SELECT
   "channel"
 , "id"
-, "sum"("sales") "sales"
-, "sum"("returns") "returns"
-, "sum"("profit") "profit"
+, sum("sales") "sales"
+, sum("returns") "returns"
+, sum("profit") "profit"
 FROM
   (
    SELECT
      'store channel' "channel"
-   , "concat"('store', "s_store_id") "id"
+   , concat('store', "s_store_id") "id"
    , "sales"
    , "returns"
    , ("profit" - "profit_loss") "profit"
@@ -125,7 +125,7 @@ FROM
      ssr
 UNION ALL    SELECT
      'catalog channel' "channel"
-   , "concat"('catalog_page', "cp_catalog_page_id") "id"
+   , concat('catalog_page', "cp_catalog_page_id") "id"
    , "sales"
    , "returns"
    , ("profit" - "profit_loss") "profit"
@@ -133,13 +133,13 @@ UNION ALL    SELECT
      csr
 UNION ALL    SELECT
      'web channel' "channel"
-   , "concat"('web_site', "web_site_id") "id"
+   , concat('web_site', "web_site_id") "id"
    , "sales"
    , "returns"
    , ("profit" - "profit_loss") "profit"
    FROM
      wsr
 )  x
-GROUP BY ROLLUP (channel, id)
+GROUP BY ROLLUP ("channel", "id")
 ORDER BY "channel" ASC, "id" ASC
 LIMIT 100

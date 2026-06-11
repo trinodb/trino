@@ -129,7 +129,8 @@ public class FunctionResolver
             warningCollector.add(new TrinoWarning(DEPRECATED_FUNCTION, "Use of deprecated function: %s: %s".formatted(name, functionMetadata.getDescription())));
         }
 
-        return resolve(session, catalogFunctionBinding, accessControl);
+        ResolvedFunction resolvedFunction = resolve(session, catalogFunctionBinding, accessControl);
+        return resolvedFunction;
     }
 
     public ResolvedFunction resolveStaticMethod(

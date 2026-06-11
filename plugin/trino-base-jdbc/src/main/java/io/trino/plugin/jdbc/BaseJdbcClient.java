@@ -1135,7 +1135,7 @@ public abstract class BaseJdbcClient
         String pageSinkInsertSql = format(
                 "INSERT INTO %s (%s) VALUES (?)",
                 quoted(pageSinkTable),
-                pageSinkIdColumnName);
+                quoted(pageSinkIdColumnName));
         pageSinkInsertSql = queryModifier.apply(session, pageSinkInsertSql);
         LongWriteFunction pageSinkIdWriter = (LongWriteFunction) toWriteMapping(session, TRINO_PAGE_SINK_ID_COLUMN_TYPE).getWriteFunction();
 
@@ -1182,6 +1182,7 @@ public abstract class BaseJdbcClient
 
         try (Connection connection = getConnection(session, handle)) {
             verify(connection.getAutoCommit());
+
             String columns = handle.getColumnNames().stream()
                     .map(this::quoted)
                     .collect(joining(", "));
@@ -1194,13 +1195,15 @@ public abstract class BaseJdbcClient
                     quoted(temporaryTable));
 
             if (handle.getPageSinkIdColumnName().isPresent()) {
+                // Case sensitive column support now requires delimiting the PageSinkIdColumnName column
+                String pageSinkIdColumnName = quoted(handle.getPageSinkIdColumnName().get());
                 RemoteTableName pageSinkTable = constructPageSinkIdsTable(session, connection, handle, pageSinkIds, closer);
 
                 insertSql += format(
                         " WHERE EXISTS (SELECT 1 FROM %s page_sink_table WHERE page_sink_table.%s = temp_table.%s)",
                         quoted(pageSinkTable),
-                        handle.getPageSinkIdColumnName().get(),
-                        handle.getPageSinkIdColumnName().get());
+                        pageSinkIdColumnName,
+                        pageSinkIdColumnName);
             }
 
             execute(session, connection, insertSql);

@@ -18,6 +18,8 @@ import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import static java.util.Locale.ENGLISH;
+
 public class TestPostgreSqlAutomaticJoinPushdown
         extends BaseAutomaticJoinPushdownTest
 {
@@ -30,6 +32,12 @@ public class TestPostgreSqlAutomaticJoinPushdown
         this.postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer());
         return PostgreSqlQueryRunner.builder(postgreSqlServer)
                 .build();
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Test

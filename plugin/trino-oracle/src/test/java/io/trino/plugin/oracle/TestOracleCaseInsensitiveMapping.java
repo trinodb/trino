@@ -25,6 +25,7 @@ import static io.trino.plugin.base.mapping.testing.RuleBasedIdentifierMappingUti
 import static io.trino.plugin.base.mapping.testing.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 // With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
@@ -59,7 +60,7 @@ public class TestOracleCaseInsensitiveMapping
     @Override
     protected Optional<String> optionalFromDual()
     {
-        return Optional.of("FROM dual");
+        return Optional.of(" FROM dual");
     }
 
     @Override

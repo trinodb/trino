@@ -45,10 +45,12 @@ public abstract class BaseJdbcTableStatisticsTest
 
     private void setUpTableFromTpch(String tableName)
     {
+        String sqlTableName = "\"" + tableName + "\"";
         // Create the table. Some subclasses use shared resources, so the table may actually exist.
-        computeActual("CREATE TABLE IF NOT EXISTS " + tableName + " AS TABLE tpch.tiny." + tableName);
+        //assertThat(query("DROP TABLE IF EXISTS " + sqlTableName)).succeeds();
+        computeActual("CREATE TABLE " + sqlTableName + " AS TABLE tpch.tiny." + tableName);
         // Sanity check on state of the  table in case it already existed.
-        assertThat(query("SELECT count(*) FROM " + tableName))
+        assertThat(query("SELECT count(*) FROM " + sqlTableName))
                 .matches("SELECT count(*) FROM tpch.tiny." + tableName);
 
         try {
@@ -77,7 +79,7 @@ public abstract class BaseJdbcTableStatisticsTest
     public void testEmptyTable()
     {
         String tableName = "test_stats_table_empty_" + randomNameSuffix();
-        computeActual(format("CREATE TABLE %s AS SELECT orderkey, custkey, orderpriority, comment FROM tpch.tiny.orders WHERE false", tableName));
+        computeActual(format("CREATE TABLE %s AS SELECT \"orderkey\", \"custkey\", \"orderpriority\", \"comment\" FROM tpch.tiny.orders WHERE false", tableName));
         try {
             gatherStats(tableName);
             checkEmptyTableStats(tableName);
@@ -137,7 +139,7 @@ public abstract class BaseJdbcTableStatisticsTest
     public void testStatsWithPredicatePushdown()
     {
         // Predicate on a numeric column. Should be eligible for pushdown.
-        String query = "SELECT * FROM nation WHERE regionkey = 1";
+        String query = "SELECT * FROM \"nation\" WHERE \"regionkey\" = 1";
 
         // Verify query can be pushed down, that's the situation we want to test for.
         assertThat(query(query)).isFullyPushedDown();
@@ -159,7 +161,7 @@ public abstract class BaseJdbcTableStatisticsTest
     public void testStatsWithVarcharPredicatePushdown()
     {
         // Predicate on a varchar column. May or may not be pushed down, may or may not be subsumed.
-        assertThat(query("SHOW STATS FOR (SELECT * FROM nation WHERE name = 'PERU')"))
+        assertThat(query("SHOW STATS FOR (SELECT * FROM \"nation\" WHERE \"name\" = 'PERU')"))
                 .result()
                 // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
                 .exceptColumns("data_size", "low_value", "high_value")
@@ -174,10 +176,10 @@ public abstract class BaseJdbcTableStatisticsTest
         try (TestTable table = newTrinoTable(
                 "varchar_duplicates",
                 // each letter A-E repeated 5 times
-                " AS SELECT nationkey, chr(codepoint('A') + nationkey / 5) fl FROM  tpch.tiny.nation")) {
+                " AS SELECT \"nationkey\", chr(codepoint('A') + \"nationkey\" / 5) \"fl\" FROM tpch.tiny.\"nation\"")) {
             gatherStats(table.getName());
 
-            assertThat(query("SHOW STATS FOR (SELECT * FROM " + table.getName() + " WHERE fl = 'B')"))
+            assertThat(query("SHOW STATS FOR (SELECT * FROM " + table.getName() + " WHERE \"fl\" = 'B')"))
                     .result()
                     .exceptColumns("data_size", "low_value", "high_value")
                     .skippingTypesCheck()
@@ -196,7 +198,7 @@ public abstract class BaseJdbcTableStatisticsTest
     public void testStatsWithPredicatePushdownWithStatsPrecalculationDisabled()
     {
         // Predicate on a numeric column. Should be eligible for pushdown.
-        String query = "SELECT * FROM nation WHERE regionkey = 1";
+        String query = "SELECT * FROM \"nation\" WHERE \"regionkey\" = 1";
         Session session = Session.builder(getSession())
                 .setSystemProperty(SystemSessionProperties.STATISTICS_PRECALCULATION_FOR_PUSHDOWN_ENABLED, "false")
                 .build();
@@ -221,7 +223,7 @@ public abstract class BaseJdbcTableStatisticsTest
     public void testStatsWithLimitPushdown()
     {
         // Just limit, should be eligible for pushdown.
-        String query = "SELECT regionkey, nationkey FROM nation LIMIT 2";
+        String query = "SELECT \"regionkey\", \"nationkey\" FROM \"nation\" LIMIT 2";
 
         // Verify query can be pushed down, that's the situation we want to test for.
         // it's important that we test with LIMIT value smaller than table row count, hence need to skip results check
@@ -242,7 +244,7 @@ public abstract class BaseJdbcTableStatisticsTest
     public void testStatsWithTopNPushdown()
     {
         // TopN on a numeric column, should be eligible for pushdown.
-        String query = "SELECT regionkey, nationkey FROM nation ORDER BY regionkey LIMIT 2";
+        String query = "SELECT \"regionkey\", \"nationkey\" FROM \"nation\" ORDER BY \"regionkey\" LIMIT 2";
 
         // Verify query can be pushed down, that's the situation we want to test for.
         // it's important that we test with LIMIT value smaller than table row count and we intentionally sort on a non-unique regionkey, hence need to skip results check.
@@ -263,7 +265,7 @@ public abstract class BaseJdbcTableStatisticsTest
     public void testStatsWithDistinctPushdown()
     {
         // Just distinct, should be eligible for pushdown.
-        String query = "SELECT DISTINCT regionkey FROM nation";
+        String query = "SELECT DISTINCT \"regionkey\" FROM \"nation\"";
 
         // Verify query can be pushed down, that's the situation we want to test for.
         assertThat(query(query)).isFullyPushedDown();
@@ -282,7 +284,8 @@ public abstract class BaseJdbcTableStatisticsTest
     public void testStatsWithDistinctLimitPushdown()
     {
         // Distinct with limit (DistinctLimitNode), should be eligible for pushdown.
-        String query = "SELECT DISTINCT regionkey FROM nation LIMIT 3";
+        String query = """
+                SELECT DISTINCT "regionkey" FROM "nation" LIMIT 3""";
 
         // Verify query can be pushed down, that's the situation we want to test for.
         // it's important that we test with LIMIT value smaller than count(DISTINCT regionkey), hence need to skip results check
@@ -293,16 +296,20 @@ public abstract class BaseJdbcTableStatisticsTest
                 // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
                 .exceptColumns("data_size", "low_value", "high_value")
                 .skippingTypesCheck()
-                .matches("VALUES " +
-                        "('regionkey', 3e0, 0e0, null)," +
-                        "(null, null, null, 3e0)");
+                .matches("""
+                        VALUES \
+                        ('regionkey', 3e0, 0e0, null), \
+                        (null, null, null, 3e0)\
+                        """);
     }
 
     @Test
     public void testStatsWithAggregationPushdown()
     {
         // Simple aggregation, should be eligible for pushdown.
-        String query = "SELECT regionkey, max(nationkey) max_nationkey, count(*) c FROM nation GROUP BY regionkey";
+        String query = """
+                SELECT "regionkey", max("nationkey") "max_nationkey", count(*) "c" FROM "nation" GROUP BY "regionkey"\
+                """;
 
         // Verify query can be pushed down, that's the situation we want to test for.
         assertThat(query(query)).isFullyPushedDown();
@@ -323,7 +330,9 @@ public abstract class BaseJdbcTableStatisticsTest
     public void testStatsWithSimpleJoinPushdown()
     {
         // Simple filtering join with no predicates, should be eligible for pushdown.
-        String query = "SELECT n.name n_name FROM nation n JOIN region r ON n.nationkey = r.regionkey";
+        String query = """
+                SELECT n."name" "n_name" FROM "nation" n JOIN "region" r ON n."nationkey" = r."regionkey"\
+                """;
 
         // Verify query can be pushed down, that's the situation we want to test for.
         assertThat(query(query)).isFullyPushedDown();
@@ -333,16 +342,20 @@ public abstract class BaseJdbcTableStatisticsTest
                 // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
                 .exceptColumns("data_size", "low_value", "high_value")
                 .skippingTypesCheck()
-                .matches("VALUES " +
-                        "('n_name', 5e0, 0e0, null)," +
-                        "(null, null, null, 5e0)");
+                .matches("""
+                        VALUES \
+                        ('n_name', 5e0, 0e0, null), \
+                        (null, null, null, 5e0)\
+                        """);
     }
 
     @Test
     public void testStatsWithJoinPushdown()
     {
         // Simple join with heavily filtered side, should be eligible for pushdown.
-        String query = "SELECT r.regionkey regionkey, r.name r_name, n.name n_name FROM region r JOIN nation n ON r.regionkey = n.regionkey WHERE n.nationkey = 5";
+        String query = """
+                SELECT "r"."regionkey" "regionkey", "r"."name" "r_name", "n"."name" "n_name" FROM "region" "r" JOIN "nation" "n" ON "r"."regionkey" = "n"."regionkey" WHERE "n"."nationkey" = 5\
+                """;
 
         // Verify query can be pushed down, that's the situation we want to test for.
         assertThat(query(query)).isFullyPushedDown();

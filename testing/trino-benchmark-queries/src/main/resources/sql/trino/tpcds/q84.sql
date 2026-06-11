@@ -1,6 +1,6 @@
 SELECT
   "c_customer_id" "customer_id"
-, "concat"("concat"("c_last_name", ', '), "c_first_name") "${database}.${schema}.customername"
+, concat(concat("c_last_name", ', '), "c_first_name") "${database}.${schema}.customername"
 FROM
   ${database}.${schema}.customer
 , ${database}.${schema}.customer_address

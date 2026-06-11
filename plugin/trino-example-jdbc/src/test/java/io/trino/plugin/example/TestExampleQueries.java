@@ -31,15 +31,14 @@ public class TestExampleQueries
     @Test
     public void showTables()
     {
-        assertQuery("SHOW SCHEMAS FROM example", "VALUES 'information_schema', 'public'");
-        assertQuery("SHOW TABLES FROM example.public", "VALUES 'test'");
+        assertQuery("SHOW SCHEMAS FROM example", "VALUES 'information_schema', 'PUBLIC'");
+        assertQuery("SHOW TABLES FROM example.PUBLIC", "VALUES 'TEST'");
     }
 
     @Test
     public void selectFromTable()
     {
-        assertQuery(
-                "SELECT name FROM example.public.test",
+        assertQuery("SELECT name FROM example.PUBLIC.TEST",
                 "VALUES 'one', 'two'");
     }
 }

@@ -105,6 +105,7 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
                     .withSessionProperties(TEST_CATALOG_PROPERTIES)
                     .build()));
             queryRunner.createCatalog(TESTING_CATALOG, "mock");
+            //queryRunner.getPlannerContext().getResolverManager().setResolver(TESTING_CATALOG, ResolverManager.getIdentityCanonicalizer());
         }
         catch (RuntimeException e) {
             throw closeAllSuppress(e, queryRunner);
@@ -116,11 +117,11 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
     public void testSpoolingDisabledForNonSelectQueries()
     {
         // Ensure that spooling is enabled for SELECT queries
-        assertThat(computeActual("SELECT * FROM nation").getQueryDataEncoding())
+        assertThat(computeActual("SELECT * FROM \"nation\"").getQueryDataEncoding())
                 .hasValue(encoding());
 
         // The rest of the cases are not meant to cover all possible query shapes
-        assertThat(computeActual("EXPLAIN SELECT * FROM nation").getQueryDataEncoding())
+        assertThat(computeActual("EXPLAIN SELECT * FROM \"nation\"").getQueryDataEncoding())
                 .isEmpty();
 
         assertThat(computeActual("CREATE TABLE spooling_test (col INT)").getQueryDataEncoding())

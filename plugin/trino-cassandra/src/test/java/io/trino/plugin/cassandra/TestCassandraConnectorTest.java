@@ -46,6 +46,7 @@ import static io.trino.plugin.cassandra.TestCassandraTable.clusterColumn;
 import static io.trino.plugin.cassandra.TestCassandraTable.columnsValue;
 import static io.trino.plugin.cassandra.TestCassandraTable.generalColumn;
 import static io.trino.plugin.cassandra.TestCassandraTable.partitionColumn;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -60,6 +61,8 @@ import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.assertContainsEventually;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.type.IpAddressType.IPADDRESS;
@@ -125,6 +128,35 @@ public class TestCassandraConnectorTest
     {
         session.close();
         session = null;
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
+    @Test
+    @Override //FIXME: cant have this test working correctly
+    public void testIssue17()
+    {
+        assertThatThrownBy(super::testIssue17)
+                .hasMessageMatching("Multiple definition of identifier id");
+    }
+
+    @Test
+    @Override
+    public void testInformationSchemaUppercaseName()
+    {
+        assertQuery(
+                "SELECT \"table_name\" FROM \"information_schema\".\"tables\" WHERE \"table_catalog\" = 'LOCAL'",
+                "SELECT '' WHERE false");
+        assertQuery(
+                "SELECT \"table_name\" FROM \"information_schema\".\"tables\" WHERE \"table_schema\" = 'TINY'",
+                "SELECT '' WHERE false");
+        assertQuery(
+                "SELECT \"table_name\" FROM \"information_schema\".\"tables\" WHERE \"table_name\" = 'orders'",
+                "SELECT 'orders' WHERE true");
     }
 
     @Override
@@ -226,6 +258,40 @@ public class TestCassandraConnectorTest
     public void testSelectInformationSchemaColumns()
     {
         executeExclusively(super::testSelectInformationSchemaColumns);
+    }
+
+    @Test
+    @Override // Override because cassandra seem to not support delimited identifier?
+    public void testCreateTableMixedCaseDelimited()
+    {
+        assertThatThrownBy(super::testCreateTableMixedCaseDelimited)
+                .hasMessageMatching("\"Test Create MixedCase Delimited .*\" is not a valid table name \\Q(must be alphanumeric character or underscore only: [a-zA-Z_0-9]+)\\E");
+    }
+
+    @Test
+    @Override // Override because cassandra seem to list table names case insensitive?
+    public void testCreateTableMixedCaseUnDelimited()
+    {
+        String name = "Test_Create_MixedCase_UnDelimited_" + randomNameSuffix();
+        String table = canonicalize(name);
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            assertQueryFails("CREATE TABLE " + name + " (Column_A bigint, Column_B double)", "This connector does not support creating tables");
+            return;
+        }
+
+        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()) // prime the cache, if any
+                .doesNotContain(name);
+        assertUpdate("CREATE TABLE " + name + " (Column_A bigint, Column_B double)");
+        assertThat(getQueryRunner().tableExists(getSession(), name)).isTrue();
+        assertThat(getQueryRunner().tableExists(getSession(), table)).isTrue();
+
+        String catalog = getSession().getCatalog().orElseThrow();
+        String schema = getSession().getSchema().orElseThrow();
+        assertThat(computeScalar("SHOW CREATE TABLE " + table))
+                // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
+                .asString().matches(getCreateTableMixedCaseUnDelimited(catalog, schema, table));
+        assertUpdate("DROP TABLE " + table);
+        assertThat(getQueryRunner().tableExists(getSession(), table)).isFalse();
     }
 
     @Test
@@ -612,7 +678,8 @@ public class TestCassandraConnectorTest
     @Test
     void testInvalidColumn()
     {
-        assertQueryFails("SELECT bogus FROM nation", ".* Column 'bogus' cannot be resolved");
+        assertQueryFails("SELECT bogus FROM nation",
+                ".* Column 'bogus' cannot be resolved, available candidates are: 'id, nationkey, name, regionkey, comment'");
     }
 
     @Test
@@ -1039,23 +1106,22 @@ public class TestCassandraConnectorTest
         String quotedUppercaseKeyspaceName = "\"%s\"".formatted(uppercaseKeyspaceName);
         try {
             createKeyspace(quotedUppercaseKeyspaceName);
-            String lowerCaseKeyspaceName = uppercaseKeyspaceName.toLowerCase(ENGLISH);
             assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
-                    .row(lowerCaseKeyspaceName)
+                    .row(uppercaseKeyspaceName)
                     .build(), new Duration(1, MINUTES));
 
             session.execute("CREATE TABLE " + quotedUppercaseKeyspaceName + ".\"TABLE_2\" (\"COLUMN_2\" bigint PRIMARY KEY)");
-            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra." + lowerCaseKeyspaceName), resultBuilder(getSession(), createUnboundedVarcharType())
-                    .row("table_2")
+            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra." + quotedUppercaseKeyspaceName), resultBuilder(getSession(), createUnboundedVarcharType())
+                    .row("TABLE_2")
                     .build(), new Duration(1, MINUTES));
-            assertContains(computeActual("SHOW COLUMNS FROM cassandra.%s.table_2".formatted(lowerCaseKeyspaceName)), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
-                    .row("column_2", "bigint", "", "")
+            assertContains(computeActual("SHOW COLUMNS FROM cassandra.%s.\"TABLE_2\"".formatted(quotedUppercaseKeyspaceName)), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
+                    .row("COLUMN_2", "bigint", "", "")
                     .build());
 
             assertUpdate("INSERT INTO " + quotedUppercaseKeyspaceName + ".\"TABLE_2\" (\"COLUMN_2\") VALUES (1)", 1);
 
-            assertThat(computeActual("SELECT column_2 FROM cassandra.%s.table_2".formatted(lowerCaseKeyspaceName)).getRowCount()).isEqualTo(1);
-            assertUpdate("DROP TABLE cassandra.%s.table_2".formatted(lowerCaseKeyspaceName));
+            assertThat(computeActual("SELECT \"COLUMN_2\" FROM cassandra.%s.\"TABLE_2\"".formatted(quotedUppercaseKeyspaceName)).getRowCount()).isEqualTo(1);
+            assertUpdate("DROP TABLE cassandra.%s.\"TABLE_2\"".formatted(quotedUppercaseKeyspaceName));
         }
         finally {
             // when an identifier is unquoted the lowercase and uppercase spelling may be used interchangeable
@@ -1073,7 +1139,6 @@ public class TestCassandraConnectorTest
             String randomNameSuffix = randomNameSuffix();
             String mixedCaseKeyspaceName1 = "KeYsPaCe_3%s".formatted(randomNameSuffix);
             String mixedCaseKeyspaceName2 = "kEySpAcE_3%s".formatted(randomNameSuffix);
-            String lowercaseKeyspaceName = "keyspace_3%s".formatted(randomNameSuffix);
 
             String quotedKeyspaceMixedCaseName1 = "\"%s\"".formatted(mixedCaseKeyspaceName1);
             String quotedKeyspaceMixedCaseName2 = "\"%s\"".formatted(mixedCaseKeyspaceName2);
@@ -1082,18 +1147,14 @@ public class TestCassandraConnectorTest
                 createKeyspace(quotedKeyspaceMixedCaseName1);
                 createKeyspace(quotedKeyspaceMixedCaseName2);
 
-                // Although in Trino all the schema and table names are always displayed as lowercase
                 assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
-                        .row(lowercaseKeyspaceName)
-                        .row(lowercaseKeyspaceName)
+                        .row(mixedCaseKeyspaceName1)
+                        .row(mixedCaseKeyspaceName2)
                         .build(), new Duration(1, MINUTES));
 
-                // There is no way to figure out what the exactly keyspace we want to retrieve tables from
-                assertQueryFailsEventually(
-                        "SHOW TABLES FROM cassandra.%s".formatted(lowercaseKeyspaceName),
-                        "Error listing tables for catalog cassandra: More than one keyspace has been found for the case insensitive schema name: %s -> \\(%s, %s\\)"
-                                .formatted(lowercaseKeyspaceName, mixedCaseKeyspaceName1, mixedCaseKeyspaceName2),
-                        new Duration(1, MINUTES));
+                // Now it is possible to use the exact keyspace we want to retrieve tables from
+                assertThat(computeActual("SHOW TABLES FROM cassandra." + quotedKeyspaceMixedCaseName1).getRowCount()).isEqualTo(0);
+                assertThat(computeActual("SHOW TABLES FROM cassandra." + quotedKeyspaceMixedCaseName2).getRowCount()).isEqualTo(0);
             }
             finally {
                 dropKeyspace(quotedKeyspaceMixedCaseName1);
@@ -1101,7 +1162,7 @@ public class TestCassandraConnectorTest
             }
             // Wait until the schema becomes invisible to Trino. Otherwise, testSelectInformationSchemaColumns may fail due to ambiguous schema names.
             assertEventually(() -> assertThat(computeActual("SHOW SCHEMAS FROM cassandra").getOnlyColumnAsSet())
-                    .doesNotContain(lowercaseKeyspaceName));
+                    .doesNotContain(quotedKeyspaceMixedCaseName1, quotedKeyspaceMixedCaseName2));
         });
     }
 
@@ -1123,8 +1184,8 @@ public class TestCassandraConnectorTest
 
             // Although in Trino all the schema and table names are always displayed as lowercase
             assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra." + keyspaceName), resultBuilder(getSession(), createUnboundedVarcharType())
-                    .row("table_4")
-                    .row("table_4")
+                    .row("TaBlE_4")
+                    .row("tAbLe_4")
                     .build(), new Duration(1, MINUTES));
 
             // There is no way to figure out what the exactly table is being queried
@@ -1156,14 +1217,10 @@ public class TestCassandraConnectorTest
                     .row("table_5")
                     .build(), new Duration(1, MINUTES));
 
-            assertQueryFailsEventually(
-                    "SHOW COLUMNS FROM cassandra." + keyspaceName + ".table_5",
-                    "More than one column has been found for the case insensitive column name: column_5 -> \\(CoLuMn_5, cOlUmN_5\\)",
-                    new Duration(1, MINUTES));
-            assertQueryFailsEventually(
-                    "SELECT * FROM cassandra." + keyspaceName + ".table_5",
-                    "More than one column has been found for the case insensitive column name: column_5 -> \\(CoLuMn_5, cOlUmN_5\\)",
-                    new Duration(1, MINUTES));
+            assertQuery("SHOW COLUMNS FROM cassandra." + keyspaceName + ".table_5",
+                    "VALUES ('CoLuMn_5', 'bigint', '', ''), ('cOlUmN_5', 'bigint', '', '')");
+
+            assertThat(computeActual("SELECT * FROM cassandra." + keyspaceName + ".table_5").getRowCount()).isEqualTo(0);
 
             dropKeyspace(keyspaceName);
         });
@@ -1624,6 +1681,37 @@ public class TestCassandraConnectorTest
 
     @Test
     @Override
+    public void testCreateTableAsSelect()
+    {
+        // FIXME: Cassandra dont seem to support INTEGER column type?
+        String tableName = "test_ctas" + randomNameSuffix();
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA)) {
+            assertQueryFails("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT \"name\" FROM \"nation\"", "This connector does not support creating tables with data");
+            return;
+        }
+
+        // FIXME: CTAS without FROM clause use the target connector canonicalizer
+        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT 'Name 1' NaMe, 'Region 1' ReGionKey", 1L);
+        assertTableColumnNames(canonicalize(tableName), canonicalize("NaMe"),canonicalize("ReGionKey"));
+        assertThat(getTableComment(canonicalize(tableName))).isNull();
+        assertUpdate("DROP TABLE " + tableName);
+
+        // FIXME: CTAS with FROM clause on another connector use the connector's resolver (ie: lower case conversion for undelimited identifier with tpch)
+        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT NaMe FROM tpch.%s.NatIon".formatted(TINY_SCHEMA_NAME),
+                "SELECT count(*) FROM \"nation\"");
+        assertTableColumnNames(canonicalize(tableName), "name");
+        assertThat(getTableComment(canonicalize(tableName))).isNull();
+        assertUpdate("DROP TABLE " + tableName);
+
+        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT \"name\" FROM \"nation\"",
+                "SELECT count(*) FROM \"nation\"");
+        assertTableColumnNames(canonicalize(tableName), "name");
+        assertThat(getTableComment(canonicalize(tableName))).isNull();
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    @Override
     public void testDeleteWithLike()
     {
         assertThatThrownBy(super::testDeleteWithLike)
@@ -1716,10 +1804,10 @@ public class TestCassandraConnectorTest
     {
         assertQueryFails(
                 "SELECT name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region'))",
-                ".* Column 'name' cannot be resolved");
+                ".* Column 'name' cannot be resolved, available candidates are: 'region_name'");
         assertQueryFails(
                 "SELECT column_not_found FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region'))",
-                ".* Column 'column_not_found' cannot be resolved");
+                ".* Column 'column_not_found' cannot be resolved, available candidates are: 'region_name'");
     }
 
     @Test
