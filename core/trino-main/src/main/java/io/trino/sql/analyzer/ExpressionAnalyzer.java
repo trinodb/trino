@@ -1951,6 +1951,18 @@ public class ExpressionAnalyzer
             resolvedFunctions.put(NodeRef.of(node), function);
             argumentBindings.put(NodeRef.<Expression>of(node), argumentBinding);
 
+            if (SolverShadow.isEnabled()) {
+                ImmutableList.Builder<Type> actualTypes = ImmutableList.builder();
+                for (int i = 0; i < argumentTypes.size(); i++) {
+                    // A lambda was typed against the chosen formal, so its actual IS the formal;
+                    // every other argument carries its pre-coercion type
+                    actualTypes.add(argumentTypes.get(i).hasDependency()
+                            ? signature.getArgumentTypes().get(i)
+                            : plannerContext.getTypeManager().getType(argumentTypes.get(i).getTypeDescriptor()));
+                }
+                SolverShadow.verifyResolution(session, plannerContext.getMetadata(), function, actualTypes.build());
+            }
+
             // must run after arguments are processed and labels are recorded
             if (context.isPatternRecognition() && isAggregation) {
                 analyzePatternAggregation(node, function);
