@@ -15,10 +15,12 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 
 public final class HyperLogLogOperators
@@ -36,6 +38,12 @@ public final class HyperLogLogOperators
     @SqlType(StandardTypes.HYPER_LOG_LOG)
     public static Slice castFromVarbinary(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
+        try {
+            HyperLogLog.newInstance(slice);
+        }
+        catch (IllegalArgumentException | IndexOutOfBoundsException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast to HyperLogLog: " + e.getMessage(), e);
+        }
         return slice;
     }
 
