@@ -16,6 +16,7 @@ package org.weakref.solver;
 import io.trino.lib.TrinoPreset;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -151,6 +152,42 @@ public class TypeSystemTest
                 anonymousField(row(anonymousField(symbol("bigint")), anonymousField(symbol("bigint")))));
         assertThat(typeSystem.getCommonSupertype(nestedNamed, nestedAnonymous)).contains(nestedExpected);
         assertThat(typeSystem.getCommonSupertype(nestedAnonymous, nestedNamed)).contains(nestedExpected);
+    }
+
+    @Test
+    void testRowCoercionDomainStaysSymbolic()
+    {
+        TypeSystem typeSystem = TrinoPreset.typeSystem();
+
+        // The coercion domain of a covariant type is one symbolic witness per direction, not the
+        // cartesian product of its components' candidates — the product grows exponentially with
+        // width (a wide row would materialize millions of witnesses and exhaust the heap)
+        Expression.RowField[] fields = new Expression.RowField[12];
+        Arrays.fill(fields, anonymousField(symbol("integer")));
+        assertThat(typeSystem.coercionsFrom(row(fields), new VariableAllocator()))
+                .hasSizeLessThan(8)
+                .anySatisfy(result -> assertThat(result.type()).isInstanceOf(Expression.Row.class));
+    }
+
+    @Test
+    void testWideRowCommonSupertypeResolvesFieldwise()
+    {
+        TypeSystem typeSystem = TrinoPreset.typeSystem();
+
+        // The symbolic domain must still produce the fieldwise least upper bound a narrow row
+        // would: every field pair resolves independently through the scalar machinery
+        Expression.RowField[] left = new Expression.RowField[12];
+        Expression.RowField[] right = new Expression.RowField[12];
+        Expression.RowField[] expected = new Expression.RowField[12];
+        Arrays.fill(left, anonymousField(symbol("integer")));
+        Arrays.fill(right, anonymousField(symbol("bigint")));
+        Arrays.fill(expected, anonymousField(symbol("bigint")));
+        left[5] = anonymousField(apply("varchar", literal(5)));
+        right[5] = anonymousField(apply("varchar", literal(10)));
+        expected[5] = anonymousField(apply("varchar", literal(10)));
+
+        assertThat(typeSystem.getCommonSupertype(row(left), row(right)))
+                .contains(row(expected));
     }
 
     @Test

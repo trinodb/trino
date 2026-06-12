@@ -203,6 +203,9 @@ final class SolverMaterializer
         String variable = variables.get(index);
         TypeVariableState typeState = typeStates.get(variable);
         for (Alternative alternative : orderedAlternatives(typeState)) {
+            if (!subtypeGuardsFeasible(alternative)) {
+                continue;
+            }
             selections.put(variable, alternative);
             try {
                 materializeNumericValues(selectedConstraints(Optional.of(selections)));
@@ -225,8 +228,38 @@ final class SolverMaterializer
         return alternatives;
     }
 
+    /**
+     * Whether the alternative's component obligations allow committing to it. A symbolic
+     * covariant witness carries per-component {@link Subtype} guards: while they still mention
+     * fresh variables the alternative is only a shape, not a selectable value — those variables
+     * have no resolution path after solving — and once domain intersection grounds them, the
+     * subtype either holds or refutes the alternative outright.
+     */
+    private boolean subtypeGuardsFeasible(Alternative alternative)
+    {
+        for (Constraint guard : alternative.guards()) {
+            if (guard instanceof Subtype(Expression left, Expression right)) {
+                if (!Expression.isGround(left) || !Expression.isGround(right)) {
+                    return false;
+                }
+                if (subtypeOracle.classify(left, right) == SubtypeOracle.Relation.UNSATISFIED) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     private int compareAlternatives(TypeVariableState typeState, Alternative left, Alternative right)
     {
+        // A committable alternative (all subtype obligations ground) always ranks ahead of a
+        // symbolic shape whose components are still open
+        boolean leftCommittable = subtypeGuardsFeasible(left);
+        boolean rightCommittable = subtypeGuardsFeasible(right);
+        if (leftCommittable != rightCommittable) {
+            return leftCommittable ? -1 : 1;
+        }
+
         Preference preference = preference(typeState);
         if (preference != Preference.NONE) {
             boolean leftSubtypeRight = subtypeOracle.isSubtype(left.witness(), right.witness());

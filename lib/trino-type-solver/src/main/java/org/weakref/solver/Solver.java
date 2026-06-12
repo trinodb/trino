@@ -52,6 +52,7 @@ import java.util.function.Predicate;
 public class Solver
 {
     private final TypeSystem typeSystem;
+    private final SubtypeOracle subtypeOracle;
     private final DomainRefiner domainRefiner;
     private final ChoiceSimplifier choiceSimplifier;
 
@@ -63,6 +64,7 @@ public class Solver
     Solver(TypeSystem typeSystem, SubtypeOracle subtypeOracle)
     {
         this.typeSystem = typeSystem;
+        this.subtypeOracle = subtypeOracle;
         this.domainRefiner = new DomainRefiner(subtypeOracle);
         this.choiceSimplifier = new ChoiceSimplifier(subtypeOracle);
     }
@@ -772,7 +774,7 @@ public class Solver
         enqueueValidationConstraints(alternative.witness(), state);
     }
 
-    private static Feasibility guardsStatus(Set<Constraint> guards, SolverState state)
+    private Feasibility guardsStatus(Set<Constraint> guards, SolverState state)
     {
         boolean unknown = false;
         for (Constraint guard : guards) {
@@ -784,6 +786,20 @@ public class Solver
                 }
                 if (satisfied.isEmpty()) {
                     unknown = true;
+                }
+            }
+            // Symbolic covariant witnesses carry per-component Subtype guards, and domain
+            // intersection can ground them (unifying a symbolic witness with a concrete one
+            // substitutes the components) — a ground component obligation that fails refutes
+            // the alternative
+            if (substituted instanceof Subtype(Expression left, Expression right) &&
+                    Expression.isGround(left) && Expression.isGround(right)) {
+                switch (subtypeOracle.classify(left, right)) {
+                    case UNSATISFIED -> {
+                        return Feasibility.INFEASIBLE;
+                    }
+                    case INCOMPLETE -> unknown = true;
+                    case SATISFIED -> {}
                 }
             }
         }

@@ -24,7 +24,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.SequencedSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -514,10 +513,22 @@ public class TypeSystem
         return result;
     }
 
+    /// Lift component-wise coercions to a covariant type (a row, or a parametric type whose
+    /// arguments coerce covariantly). The type's coercion targets (or sources) form the cartesian
+    /// product of its components' candidates, which grows exponentially with width — a six-field
+    /// row already yields millions of combinations. Instead of enumerating them, return a single
+    /// symbolic witness: the same shape over fresh variables, guarded by one [Subtype] per
+    /// component. Discharging a guard runs the component through the same machinery that built
+    /// this domain, so the solver tracks every component independently and the product becomes a
+    /// sum; the witness's coercion plan is recovered pairwise from the materialized types.
     private List<CoercionResult> liftCovariantCoercions(Expression type, VariableAllocator allocator, boolean fromDirection)
     {
         if (type instanceof Expression.Row(List<Expression.RowField> fields)) {
-            return liftRowCoercions(fields, allocator, fromDirection);
+            return symbolicCovariantCoercion(
+                    fields.stream().map(Expression.RowField::type).toList(),
+                    variables -> new Expression.Row(namedFields(fields, variables)),
+                    allocator,
+                    fromDirection);
         }
 
         if (!(type instanceof Expression.Application(Expression.Symbol(String name), List<Expression> arguments))) {
@@ -526,99 +537,45 @@ public class TypeSystem
         if (!isCovariantType(name)) {
             return List.of();
         }
-
-        List<List<CoercionResult>> argumentCandidates = arguments.stream()
-                .map(argument -> fromDirection ? coercionsFrom(argument, allocator) : coercionsTo(argument, allocator))
-                .toList();
-
-        if (argumentCandidates.stream().anyMatch(List::isEmpty)) {
-            return List.of();
-        }
-
-        LinkedHashSet<CoercionResult> results = new LinkedHashSet<>();
-        buildCovariantWitnesses(name, argumentCandidates, 0, new ArrayList<>(), new ArrayList<>(), new LinkedHashSet<>(), results);
-        return List.copyOf(results);
+        return symbolicCovariantCoercion(
+                arguments,
+                variables -> apply(name, variables.toArray(Expression[]::new)),
+                allocator,
+                fromDirection);
     }
 
-    private List<CoercionResult> liftRowCoercions(List<Expression.RowField> fields, VariableAllocator allocator, boolean fromDirection)
+    private List<CoercionResult> symbolicCovariantCoercion(
+            List<Expression> components,
+            Function<List<Expression>, Expression> witnessBuilder,
+            VariableAllocator allocator,
+            boolean fromDirection)
     {
-        List<List<CoercionResult>> fieldCandidates = fields.stream()
-                .map(Expression.RowField::type)
-                .map(fieldType -> fromDirection ? coercionsFrom(fieldType, allocator) : coercionsTo(fieldType, allocator))
-                .toList();
-
-        if (fieldCandidates.stream().anyMatch(List::isEmpty)) {
-            return List.of();
+        // A component with no coercion candidates of its own admits no lifted witnesses
+        for (Expression component : components) {
+            List<CoercionResult> candidates = fromDirection ? coercionsFrom(component, allocator) : coercionsTo(component, allocator);
+            if (candidates.isEmpty()) {
+                return List.of();
+            }
         }
 
-        LinkedHashSet<CoercionResult> results = new LinkedHashSet<>();
-        buildRowWitnesses(fields, fieldCandidates, 0, new ArrayList<>(), new ArrayList<>(), new LinkedHashSet<>(), results);
-        return List.copyOf(results);
+        List<Expression> variables = new ArrayList<>(components.size());
+        LinkedHashSet<Constraint> guards = new LinkedHashSet<>();
+        for (Expression component : components) {
+            Variable variable = new Variable(allocator.newVariable());
+            variables.add(variable);
+            guards.add(fromDirection ? new Subtype(component, variable) : new Subtype(variable, component));
+        }
+        Expression witness = witnessBuilder.apply(variables);
+        return List.of(new CoercionResult(witness, Set.copyOf(guards), CoercionPlan.exact(witness, witness)));
     }
 
-    private void buildCovariantWitnesses(
-            String name,
-            List<List<CoercionResult>> argumentCandidates,
-            int index,
-            List<Expression> arguments,
-            List<CoercionPlan> plans,
-            SequencedSet<Constraint> guards,
-            Set<CoercionResult> results)
+    private static List<Expression.RowField> namedFields(List<Expression.RowField> fields, List<Expression> types)
     {
-        if (index == argumentCandidates.size()) {
-            Expression witness = apply(name, arguments.toArray(Expression[]::new));
-            List<CoercionPlan> children = plans.stream()
-                    .filter(plan -> !plan.isExact())
-                    .toList();
-            CoercionPlan plan = children.isEmpty()
-                    ? CoercionPlan.exact(witness, witness)
-                    : CoercionPlan.derived(witness, witness, List.of(new CoercionPlan.Structural(name, children)));
-            results.add(new CoercionResult(witness, Set.copyOf(guards), plan));
-            return;
+        List<Expression.RowField> result = new ArrayList<>(fields.size());
+        for (int index = 0; index < fields.size(); index++) {
+            result.add(new Expression.RowField(fields.get(index).name(), types.get(index)));
         }
-
-        for (CoercionResult candidate : argumentCandidates.get(index)) {
-            arguments.add(candidate.type());
-            plans.add(candidate.plan());
-            LinkedHashSet<Constraint> nextGuards = new LinkedHashSet<>(guards);
-            nextGuards.addAll(candidate.guards());
-            buildCovariantWitnesses(name, argumentCandidates, index + 1, arguments, plans, nextGuards, results);
-            arguments.removeLast();
-            plans.removeLast();
-        }
-    }
-
-    private void buildRowWitnesses(
-            List<Expression.RowField> sourceFields,
-            List<List<CoercionResult>> fieldCandidates,
-            int index,
-            List<Expression.RowField> fields,
-            List<CoercionPlan> plans,
-            SequencedSet<Constraint> guards,
-            Set<CoercionResult> results)
-    {
-        if (index == fieldCandidates.size()) {
-            Expression.Row witness = new Expression.Row(List.copyOf(fields));
-            List<CoercionPlan> children = plans.stream()
-                    .filter(plan -> !plan.isExact())
-                    .toList();
-            CoercionPlan plan = children.isEmpty()
-                    ? CoercionPlan.exact(witness, witness)
-                    : CoercionPlan.derived(witness, witness, List.of(new CoercionPlan.Structural("row", children)));
-            results.add(new CoercionResult(witness, Set.copyOf(guards), plan));
-            return;
-        }
-
-        Expression.RowField sourceField = sourceFields.get(index);
-        for (CoercionResult candidate : fieldCandidates.get(index)) {
-            fields.add(new Expression.RowField(sourceField.name(), candidate.type()));
-            plans.add(candidate.plan());
-            LinkedHashSet<Constraint> nextGuards = new LinkedHashSet<>(guards);
-            nextGuards.addAll(candidate.guards());
-            buildRowWitnesses(sourceFields, fieldCandidates, index + 1, fields, plans, nextGuards, results);
-            fields.removeLast();
-            plans.removeLast();
-        }
+        return List.copyOf(result);
     }
 
     private boolean isCovariantType(String name)
