@@ -68,6 +68,7 @@ public final class JsonOperators
 
     private JsonOperators() {}
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlNullable
     @LiteralParameters("x")
@@ -88,6 +89,7 @@ public final class JsonOperators
         throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", json.toStringUtf8(), x));
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlNullable
     @SqlType(BIGINT)
@@ -104,6 +106,7 @@ public final class JsonOperators
         }
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlNullable
     @SqlType(INTEGER)
@@ -120,6 +123,7 @@ public final class JsonOperators
         }
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlNullable
     @SqlType(SMALLINT)
@@ -136,6 +140,7 @@ public final class JsonOperators
         }
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlNullable
     @SqlType(TINYINT)
@@ -152,6 +157,7 @@ public final class JsonOperators
         }
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlNullable
     @SqlType(DOUBLE)
@@ -168,6 +174,7 @@ public final class JsonOperators
         }
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlNullable
     @SqlType(REAL)
@@ -184,6 +191,7 @@ public final class JsonOperators
         }
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlNullable
     @SqlType(NUMBER)
@@ -200,6 +208,7 @@ public final class JsonOperators
         }
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlNullable
     @SqlType(BOOLEAN)
@@ -216,7 +225,7 @@ public final class JsonOperators
         }
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @LiteralParameters("x")
     @SqlType(JSON)
     public static Slice castFromVarchar(@SqlType("varchar(x)") Slice value)
@@ -234,28 +243,28 @@ public final class JsonOperators
         }
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(JSON)
     public static Slice castFromTinyInt(@SqlType(TINYINT) long value)
     {
         return internalCastFromLong(value, 4);
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(JSON)
     public static Slice castFromSmallInt(@SqlType(SMALLINT) long value)
     {
         return internalCastFromLong(value, 8);
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(JSON)
     public static Slice castFromInteger(@SqlType(INTEGER) long value)
     {
         return internalCastFromLong(value, 12);
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(JSON)
     public static Slice castFromBigint(@SqlType(BIGINT) long value)
     {
@@ -277,7 +286,7 @@ public final class JsonOperators
         }
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(JSON)
     public static Slice castFromDouble(@SqlType(DOUBLE) double value)
     {
@@ -294,7 +303,7 @@ public final class JsonOperators
         }
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(JSON)
     public static Slice castFromReal(@SqlType(REAL) long value)
     {
@@ -311,7 +320,7 @@ public final class JsonOperators
         }
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(JSON)
     public static Slice castFromNumber(@SqlType(NUMBER) TrinoNumber value)
     {
@@ -332,7 +341,7 @@ public final class JsonOperators
         }
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(JSON)
     public static Slice castFromBoolean(@SqlType(BOOLEAN) boolean value)
     {
@@ -349,7 +358,7 @@ public final class JsonOperators
         }
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(JSON)
     public static Slice castFromDate(@SqlType(DATE) long value)
     {
