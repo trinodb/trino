@@ -1068,6 +1068,24 @@ public class TestDecimalOperators
 
         assertThat(assertions.operator(EQUAL, "DECIMAL '-00000000038.0000000000000000000000'", "DECIMAL '00000000038.0000000000000000000000'"))
                 .isEqualTo(false);
+
+        // short decimal (precision <= 18 → ShortDecimalType)
+        assertThat(assertions.expression("a = b")
+                .binding("a", "DECIMAL '37'")
+                .binding("b", "DECIMAL '37'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "DECIMAL '37'", "DECIMAL '37'"))
+                .neverFails();
+
+        // long decimal (precision > 18 → LongDecimalType)
+        assertThat(assertions.expression("a = b")
+                .binding("a", "DECIMAL '1234567890123456789'")
+                .binding("b", "DECIMAL '1234567890123456789'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "DECIMAL '1234567890123456789'", "DECIMAL '1234567890123456789'"))
+                .neverFails();
     }
 
     @Test
@@ -1367,6 +1385,16 @@ public class TestDecimalOperators
 
         assertThat(assertions.operator(LESS_THAN, "DECIMAL '-00000000000100.000000000000'", "DECIMAL '0000000020.0000000000000'"))
                 .isEqualTo(true);
+
+        // short decimal (precision <= 18 → ShortDecimalType)
+        assertThat(assertions.expression("a < b")
+                .binding("a", "DECIMAL '37'")
+                .binding("b", "DECIMAL '37'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "DECIMAL '37'", "DECIMAL '37'"))
+                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
+                .couldFail();
     }
 
     @Test
@@ -1699,6 +1727,16 @@ public class TestDecimalOperators
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "DECIMAL '-00000000000100.000000000000'", "DECIMAL '0000000020.0000000000000'"))
                 .isEqualTo(true);
+
+        // short decimal (precision <= 18 → ShortDecimalType)
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "DECIMAL '37'")
+                .binding("b", "DECIMAL '37'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "DECIMAL '37'", "DECIMAL '37'"))
+                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
+                .couldFail();
     }
 
     @Test
