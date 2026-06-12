@@ -740,7 +740,7 @@ public class DeltaLakeMetadata
         return getTableCredentials(VendedCredentialsHandle.of(table));
     }
 
-    private Optional<DeltaLakeTableCredentials> getTableCredentials(VendedCredentialsHandle vendedCredentialsHandle)
+    public Optional<DeltaLakeTableCredentials> getTableCredentials(VendedCredentialsHandle vendedCredentialsHandle)
     {
         Optional<DeltaLakeTableCredentials> credentials = tableCredentialsMap.computeIfAbsent(vendedCredentialsHandle, tableCredentialsProvider::getTableCredentials);
         if (credentials.isPresent() && !credentials.get().fileSystemCredentials().isValid()) {
