@@ -157,6 +157,17 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
         }
     }
 
+    @Test
+    void testCreateViewWithUnsupportedLocation()
+    {
+        String viewName = "test_create_view_with_unsupported_location_" + randomNameSuffix();
+        String viewLocation = schemaPath() + "/" + viewName;
+
+        assertQueryFails(
+                "CREATE OR REPLACE VIEW " + viewName + " WITH (location = '" + viewLocation + "_changed') AS SELECT * FROM nation",
+                "Glue catalog does not support creating views with properties");
+    }
+
     private Table getGlueTable(String tableName)
     {
         return glueClient.getTable(x -> x.databaseName(schemaName).name(tableName)).table();

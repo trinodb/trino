@@ -300,7 +300,7 @@ public class TestTrinoRestCatalog
 
         catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
 
-        catalog.createView(SESSION, viewName, viewDefinition, false);
+        catalog.createView(SESSION, viewName, viewDefinition, ImmutableMap.of(), false);
         assertViewDefinition(catalog.getView(SESSION, viewName).orElseThrow(), viewDefinition);
 
         View initialView = catalog.getIcebergView(SESSION, viewName, false).orElse(null);
@@ -313,7 +313,7 @@ public class TestTrinoRestCatalog
                 new ViewColumn("name", VARCHAR.getTypeId(), Optional.empty()),
                 new ViewColumn("comment", VARCHAR.getTypeId(), Optional.empty()));
 
-        catalog.createView(SESSION, viewName, updatedViewDefinition, true);
+        catalog.createView(SESSION, viewName, updatedViewDefinition, ImmutableMap.of(), true);
         assertViewDefinition(catalog.getView(SESSION, viewName).orElseThrow(), updatedViewDefinition);
 
         View updatedView = catalog.getIcebergView(SESSION, viewName, false).orElse(null);
