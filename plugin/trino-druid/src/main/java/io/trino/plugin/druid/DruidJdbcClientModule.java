@@ -29,7 +29,11 @@ import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import org.apache.calcite.avatica.remote.Driver;
 
+import java.util.Properties;
+
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 
 public class DruidJdbcClientModule
         implements Module
@@ -38,6 +42,8 @@ public class DruidJdbcClientModule
     public void configure(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(DruidJdbcClient.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(DruidConfig.class);
+        bindSessionPropertiesProvider(binder, DruidSessionProperties.class);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
@@ -46,8 +52,14 @@ public class DruidJdbcClientModule
     @ForBaseJdbc
     public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, OpenTelemetry openTelemetry)
     {
+        Properties connectionProperties = new Properties();
+
+        // Druid can be configured to approximate `count_distinct()` function calls.
+        // This behavior could be confusing - we can force Druid to never approximate.
+        connectionProperties.setProperty("useApproximateCountDistinct", "false");
         return DriverConnectionFactory.builder(new Driver(), config.getConnectionUrl(), credentialProvider)
                 .setOpenTelemetry(openTelemetry)
+                .setConnectionProperties(connectionProperties)
                 .build();
     }
 }
