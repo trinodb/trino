@@ -562,6 +562,7 @@ public class DeltaLakeMetadata
                 () -> transactionLogAccess.loadSnapshot(
                         session,
                         metastoreTable,
+                        getTableCredentials(metastoreTable),
                         atVersion,
                         resolveLastCheckpoint(tableName, fileSystemFactory.create(session, tableCredentials), metastoreTable.location())));
     }
@@ -575,6 +576,7 @@ public class DeltaLakeMetadata
                 () -> transactionLogAccess.loadSnapshot(
                         session,
                         tableHandle,
+                        getTableCredentials(tableHandle.toCredentialsHandle()),
                         atVersion,
                         resolveLastCheckpoint(
                                 tableName,
@@ -1530,7 +1532,7 @@ public class DeltaLakeMetadata
                 if (replaceExistingTable) {
                     commitVersion = getMandatoryCurrentVersion(fileSystem, location, tableHandle.getReadVersion()) + 1;
                     transactionLogWriter = transactionLogWriterFactory.createWriter(session, tableHandle, getTableCredentials(session, tableHandle).map(DeltaLakeTableCredentials.class::cast));
-                    try (Stream<AddFileEntry> activeFiles = transactionLogAccess.getActiveFiles(session, tableHandle, getSnapshot(session, tableHandle))) {
+                    try (Stream<AddFileEntry> activeFiles = transactionLogAccess.getActiveFiles(session, tableHandle, getTableCredentials(tableHandle.toCredentialsHandle()), getSnapshot(session, tableHandle))) {
                         Iterator<AddFileEntry> addFileEntryIterator = activeFiles.iterator();
                         while (addFileEntryIterator.hasNext()) {
                             long writeTimestamp = Instant.now().toEpochMilli();
@@ -1933,7 +1935,7 @@ public class DeltaLakeMetadata
             if (handle.readVersion().isPresent()) {
                 long writeTimestamp = Instant.now().toEpochMilli();
                 DeltaLakeTableHandle deltaLakeTableHandle = (DeltaLakeTableHandle) getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty());
-                try (Stream<AddFileEntry> activeFiles = transactionLogAccess.getActiveFiles(session, deltaLakeTableHandle, getSnapshot(session, deltaLakeTableHandle))) {
+                try (Stream<AddFileEntry> activeFiles = transactionLogAccess.getActiveFiles(session, deltaLakeTableHandle, getTableCredentials(deltaLakeTableHandle.toCredentialsHandle()), getSnapshot(session, deltaLakeTableHandle))) {
                     Iterator<AddFileEntry> addFileEntryIterator = activeFiles.iterator();
                     while (addFileEntryIterator.hasNext()) {
                         AddFileEntry addFileEntry = addFileEntryIterator.next();
@@ -2124,6 +2126,7 @@ public class DeltaLakeMetadata
             try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(
                     session,
                     handle,
+                    getTableCredentials(handle.toCredentialsHandle()),
                     getSnapshot(session, handle),
                     TupleDomain.all(),
                     alwaysFalse())) {
@@ -2846,7 +2849,7 @@ public class DeltaLakeMetadata
         }
 
         ImmutableMap.Builder<String, DeletionVectorEntry> deletionVectors = ImmutableMap.builder();
-        try (Stream<AddFileEntry> activeFiles = transactionLogAccess.getActiveFiles(session, handle, getSnapshot(session, handle))) {
+        try (Stream<AddFileEntry> activeFiles = transactionLogAccess.getActiveFiles(session, handle, getTableCredentials(handle.toCredentialsHandle()), getSnapshot(session, handle))) {
             Iterator<AddFileEntry> addFileEntryIterator = activeFiles.iterator();
             while (addFileEntryIterator.hasNext()) {
                 AddFileEntry addFileEntry = addFileEntryIterator.next();
@@ -4215,6 +4218,7 @@ public class DeltaLakeMetadata
         try (Stream<AddFileEntry> activeFiles = transactionLogAccess.getActiveFiles(
                 session,
                 tableHandle,
+                getTableCredentials(tableHandle.toCredentialsHandle()),
                 getSnapshot(session, tableHandle),
                 TupleDomain.all(),
                 alwaysTrue())) {
@@ -4658,7 +4662,7 @@ public class DeltaLakeMetadata
     private Stream<AddFileEntry> getAddFileEntriesMatchingEnforcedPartitionConstraint(ConnectorSession session, DeltaLakeTableHandle tableHandle)
     {
         TableSnapshot tableSnapshot = getSnapshot(session, tableHandle);
-        Stream<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(session, tableHandle, tableSnapshot);
+        Stream<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(session, tableHandle, getTableCredentials(tableHandle.toCredentialsHandle()), tableSnapshot);
         TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint = tableHandle.getEnforcedPartitionConstraint();
         if (enforcedPartitionConstraint.isAll()) {
             return validDataFiles;

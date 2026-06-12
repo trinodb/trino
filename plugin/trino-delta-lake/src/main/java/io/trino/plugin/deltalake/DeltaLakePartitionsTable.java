@@ -98,7 +98,7 @@ public class DeltaLakePartitionsTable
         this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
 
         try {
-            this.tableSnapshot = transactionLogAccess.loadSnapshot(session, table, Optional.empty());
+            this.tableSnapshot = transactionLogAccess.loadSnapshot(session, table, tableCredentials, Optional.empty());
         }
         catch (IOException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error getting snapshot from location: " + table.location(), e);

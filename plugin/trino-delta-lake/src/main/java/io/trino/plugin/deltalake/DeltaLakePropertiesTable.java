@@ -85,9 +85,10 @@ public class DeltaLakePropertiesTable
         MetadataEntry metadataEntry;
         ProtocolEntry protocolEntry;
 
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentialsProvider.getTableCredentials(table));
+        Optional<DeltaLakeTableCredentials> tableCredentials = tableCredentialsProvider.getTableCredentials(table);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
         try {
-            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, table, Optional.empty());
+            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, table, tableCredentials, Optional.empty());
             metadataEntry = transactionLogAccess.getMetadataEntry(session, fileSystem, tableSnapshot);
             protocolEntry = transactionLogAccess.getProtocolEntry(session, fileSystem, tableSnapshot);
         }

@@ -29,7 +29,7 @@ import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
 import io.trino.plugin.deltalake.DeltaLakeSessionProperties;
-import io.trino.plugin.deltalake.DeltaLakeTableCredentialsProvider;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
@@ -101,21 +101,18 @@ public class VacuumProcedure
     private final DeltaLakeFileSystemFactory fileSystemFactory;
     private final DeltaLakeMetadataFactory metadataFactory;
     private final TransactionLogAccess transactionLogAccess;
-    private final DeltaLakeTableCredentialsProvider tableCredentialsProvider;
 
     @Inject
     public VacuumProcedure(
             CatalogName catalogName,
             DeltaLakeFileSystemFactory fileSystemFactory,
             DeltaLakeMetadataFactory metadataFactory,
-            TransactionLogAccess transactionLogAccess,
-            DeltaLakeTableCredentialsProvider tableCredentialsProvider)
+            TransactionLogAccess transactionLogAccess)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
-        this.tableCredentialsProvider = requireNonNull(tableCredentialsProvider, "tableCredentialsProvider is null");
     }
 
     @Override
@@ -212,7 +209,8 @@ public class VacuumProcedure
             TableSnapshot tableSnapshot = metadata.getSnapshot(session, handle, Optional.of(handle.getReadVersion()));
             String tableLocation = tableSnapshot.getTableLocation();
             String transactionLogDir = getTransactionLogDir(tableLocation);
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentialsProvider.getTableCredentials(handle.toCredentialsHandle()));
+            Optional<DeltaLakeTableCredentials> tableCredentials = metadata.getTableCredentials(session, handle).map(DeltaLakeTableCredentials.class::cast);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
             String commonPathPrefix = tableLocation.endsWith("/") ? tableLocation : tableLocation + "/";
             String queryId = session.getQueryId();
 
@@ -223,6 +221,7 @@ public class VacuumProcedure
             try (Stream<AddFileEntry> activeAddEntries = transactionLogAccess.getActiveFiles(
                     session,
                     handle,
+                    tableCredentials,
                     tableSnapshot,
                     TupleDomain.all(),
                     alwaysFalse())) {

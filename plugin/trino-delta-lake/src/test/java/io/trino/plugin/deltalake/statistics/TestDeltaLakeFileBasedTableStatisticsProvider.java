@@ -98,8 +98,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY, new NoOpTableCredentialsProvider()),
                 new ParquetReaderConfig(),
                 newDirectExecutorService(),
-                transactionLogReaderFactory,
-                new NoOpTableCredentialsProvider());
+                transactionLogReaderFactory);
 
         statistics = new CachingExtendedStatisticsAccess(new MetaDirStatisticsAccess(new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY, new NoOpTableCredentialsProvider()), new JsonCodecFactory().jsonCodec(ExtendedStatistics.class)));
         tableStatisticsProvider = new FileBasedTableStatisticsProvider(
@@ -119,7 +118,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         SchemaTableName schemaTableName = new SchemaTableName("db_name", tableName);
         TableSnapshot tableSnapshot;
         try {
-            tableSnapshot = transactionLogAccess.loadSnapshot(SESSION, createTable(schemaTableName, tableLocation), Optional.empty());
+            tableSnapshot = transactionLogAccess.loadSnapshot(SESSION, createTable(schemaTableName, tableLocation), Optional.empty(), Optional.empty());
         }
         catch (IOException e) {
             throw new RuntimeException(e);
@@ -479,7 +478,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
     {
         TableSnapshot tableSnapshot;
         try {
-            tableSnapshot = transactionLogAccess.loadSnapshot(session, tableHandle, Optional.empty());
+            tableSnapshot = transactionLogAccess.loadSnapshot(session, tableHandle, Optional.empty(), Optional.empty());
         }
         catch (IOException e) {
             throw new RuntimeException(e);

@@ -157,9 +157,10 @@ public class DeltaLakeSplitManager
             Set<ColumnHandle> columnsCoveredByDynamicFilter,
             Constraint constraint)
     {
-        TableSnapshot tableSnapshot = deltaLakeTransactionManager.get(transaction, session.getIdentity())
-                .getSnapshot(session, tableHandle, Optional.of(tableHandle.getReadVersion()));
-        Stream<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(session, tableHandle, tableSnapshot);
+        DeltaLakeMetadata deltaLakeMetadata = deltaLakeTransactionManager.get(transaction, session.getIdentity());
+        TableSnapshot tableSnapshot = deltaLakeMetadata.getSnapshot(session, tableHandle, Optional.of(tableHandle.getReadVersion()));
+        Optional<DeltaLakeTableCredentials> tableCredentials = deltaLakeMetadata.getTableCredentials(session, tableHandle).map(DeltaLakeTableCredentials.class::cast);
+        Stream<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(session, tableHandle, tableCredentials, tableSnapshot);
         TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint = tableHandle.getEnforcedPartitionConstraint();
         TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint = tableHandle.getNonPartitionConstraint();
         Domain pathDomain = getPathDomain(nonPartitionConstraint);

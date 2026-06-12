@@ -153,8 +153,7 @@ public class TestTableSnapshot
                 tracingFileSystemFactory,
                 new ParquetReaderConfig(),
                 executorService,
-                new FileSystemTransactionLogReaderFactory(tracingFileSystemFactory, new NoOpTableCredentialsProvider()),
-                new NoOpTableCredentialsProvider());
+                new FileSystemTransactionLogReaderFactory(tracingFileSystemFactory, new NoOpTableCredentialsProvider()));
         TrinoFileSystem fileSystem = tracingFileSystemFactory.create(SESSION, tableLocation);
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, fileSystem, tableSnapshot);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, fileSystem, tableSnapshot);

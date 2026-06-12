@@ -90,7 +90,7 @@ public abstract class BaseTransactionsTable
         long snapshotVersion;
         try {
             // Verify the transaction log is readable
-            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, table, Optional.empty());
+            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, table, tableCredentials, Optional.empty());
             snapshotVersion = tableSnapshot.getVersion();
             transactionLogAccess.getMetadataEntry(session, fileSystem, tableSnapshot);
         }

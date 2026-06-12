@@ -193,13 +193,13 @@ public class TestDeltaLakeSplitManager
                 fileSystemFactory,
                 new ParquetReaderConfig(),
                 newDirectExecutorService(),
-                new FileSystemTransactionLogReaderFactory(fileSystemFactory, new NoOpTableCredentialsProvider()),
-                new NoOpTableCredentialsProvider())
+                new FileSystemTransactionLogReaderFactory(fileSystemFactory, new NoOpTableCredentialsProvider()))
         {
             @Override
             public Stream<AddFileEntry> getActiveFiles(
                     ConnectorSession session,
                     DeltaLakeTableHandle tableHandle,
+                    Optional<DeltaLakeTableCredentials> tableCredentials,
                     TableSnapshot tableSnapshot)
             {
                 return addFileEntries.stream();

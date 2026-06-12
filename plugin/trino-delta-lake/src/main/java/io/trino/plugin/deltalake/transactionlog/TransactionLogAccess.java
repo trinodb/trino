@@ -37,7 +37,6 @@ import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
-import io.trino.plugin.deltalake.DeltaLakeTableCredentialsProvider;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
 import io.trino.plugin.deltalake.ForDeltaLakeMetadata;
 import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
@@ -117,7 +116,6 @@ public class TransactionLogAccess
     private final CheckpointSchemaManager checkpointSchemaManager;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final DeltaLakeFileSystemFactory fileSystemFactory;
-    private final DeltaLakeTableCredentialsProvider tableCredentialsProvider;
     private final ParquetReaderOptions parquetReaderOptions;
     private final ExecutorService executorService;
     private final boolean checkpointRowStatisticsWritingEnabled;
@@ -138,14 +136,12 @@ public class TransactionLogAccess
             DeltaLakeFileSystemFactory fileSystemFactory,
             ParquetReaderConfig parquetReaderConfig,
             @ForDeltaLakeMetadata ExecutorService executorService,
-            TransactionLogReaderFactory transactionLogReaderFactory,
-            DeltaLakeTableCredentialsProvider tableCredentialsProvider)
+            TransactionLogReaderFactory transactionLogReaderFactory)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checkpointSchemaManager = requireNonNull(checkpointSchemaManager, "checkpointSchemaManager is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.tableCredentialsProvider = requireNonNull(tableCredentialsProvider, "tableCredentialsProvider is null");
         this.parquetReaderOptions = ParquetReaderOptions.builder(parquetReaderConfig.toParquetReaderOptions()).withBloomFilter(false).build();
         this.executorService = requireNonNull(executorService, "ExecutorService is null");
         this.checkpointRowStatisticsWritingEnabled = deltaLakeConfig.isCheckpointRowStatisticsWritingEnabled();
@@ -192,31 +188,41 @@ public class TransactionLogAccess
         return uncheckedCacheGet(tableDescriptors, new TableDescriptorCacheKey(tableName, tableLocation, version), loader);
     }
 
-    public TableSnapshot loadSnapshot(ConnectorSession session, DeltaMetastoreTable table, Optional<Long> endVersion)
+    public TableSnapshot loadSnapshot(ConnectorSession session, DeltaMetastoreTable table, Optional<DeltaLakeTableCredentials> tableCredentials, Optional<Long> endVersion)
             throws IOException
     {
-        Optional<DeltaLakeTableCredentials> tableCredentials = tableCredentialsProvider.getTableCredentials(table);
-        return loadSnapshot(session, table, endVersion, readLastCheckpoint(fileSystemFactory.create(session, tableCredentials), table.location()));
+        return loadSnapshot(session, table, tableCredentials, endVersion, readLastCheckpoint(fileSystemFactory.create(session, tableCredentials), table.location()));
     }
 
-    public TableSnapshot loadSnapshot(ConnectorSession session, DeltaMetastoreTable table, Optional<Long> endVersion, Optional<LastCheckpoint> lastCheckpoint)
+    public TableSnapshot loadSnapshot(
+            ConnectorSession session,
+            DeltaMetastoreTable table,
+            Optional<DeltaLakeTableCredentials> tableCredentials,
+            Optional<Long> endVersion,
+            Optional<LastCheckpoint> lastCheckpoint)
             throws IOException
     {
-        Optional<DeltaLakeTableCredentials> tableCredentials = tableCredentialsProvider.getTableCredentials(table);
         return loadSnapshot(session, transactionLogReaderFactory.createReader(table), table.schemaTableName(), table.location(), endVersion, tableCredentials, lastCheckpoint);
     }
 
-    public TableSnapshot loadSnapshot(ConnectorSession session, DeltaLakeTableHandle tableHandle, Optional<Long> endVersion)
+    public TableSnapshot loadSnapshot(
+            ConnectorSession session,
+            DeltaLakeTableHandle tableHandle,
+            Optional<DeltaLakeTableCredentials> tableCredentials,
+            Optional<Long> endVersion)
             throws IOException
     {
-        Optional<DeltaLakeTableCredentials> tableCredentials = tableCredentialsProvider.getTableCredentials(tableHandle.toCredentialsHandle());
-        return loadSnapshot(session, tableHandle, endVersion, readLastCheckpoint(fileSystemFactory.create(session, tableCredentials), tableHandle.getLocation()));
+        return loadSnapshot(session, tableHandle, tableCredentials, endVersion, readLastCheckpoint(fileSystemFactory.create(session, tableCredentials), tableHandle.getLocation()));
     }
 
-    public TableSnapshot loadSnapshot(ConnectorSession session, DeltaLakeTableHandle tableHandle, Optional<Long> endVersion, Optional<LastCheckpoint> lastCheckpoint)
+    public TableSnapshot loadSnapshot(
+            ConnectorSession session,
+            DeltaLakeTableHandle tableHandle,
+            Optional<DeltaLakeTableCredentials> tableCredentials,
+            Optional<Long> endVersion,
+            Optional<LastCheckpoint> lastCheckpoint)
             throws IOException
     {
-        Optional<DeltaLakeTableCredentials> tableCredentials = tableCredentialsProvider.getTableCredentials(tableHandle.toCredentialsHandle());
         return loadSnapshot(session, transactionLogReaderFactory.createReader(tableHandle), tableHandle.getSchemaTableName(), tableHandle.getLocation(), endVersion, tableCredentials, lastCheckpoint);
     }
 
@@ -225,8 +231,8 @@ public class TransactionLogAccess
      * <p>
      * Direct usage of this method is discouraged. Prefer using one of the higher-level alternatives:
      * <ul>
-     *   <li>{@link #loadSnapshot(ConnectorSession, DeltaMetastoreTable, Optional)}</li>
-     *   <li>{@link #loadSnapshot(ConnectorSession, DeltaLakeTableHandle, Optional)}</li>
+     *   <li>{@link #loadSnapshot(ConnectorSession, DeltaMetastoreTable, Optional, Optional)}</li>
+     *   <li>{@link #loadSnapshot(ConnectorSession, DeltaLakeTableHandle, Optional, Optional)}</li>
      * </ul>
      */
     public TableSnapshot loadSnapshot(
@@ -415,7 +421,11 @@ public class TransactionLogAccess
                 .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableSnapshot.getTable()));
     }
 
-    public Stream<AddFileEntry> getActiveFiles(ConnectorSession session, DeltaLakeTableHandle tableHandle, TableSnapshot tableSnapshot)
+    public Stream<AddFileEntry> getActiveFiles(
+            ConnectorSession session,
+            DeltaLakeTableHandle tableHandle,
+            Optional<DeltaLakeTableCredentials> tableCredentials,
+            TableSnapshot tableSnapshot)
     {
         Set<String> baseColumnNames = tableHandle.getProjectedColumns().orElse(ImmutableSet.of()).stream()
                 .filter(DeltaLakeColumnHandle::isBaseColumn) // Only base column stats are supported
@@ -424,6 +434,7 @@ public class TransactionLogAccess
         return getActiveFiles(
                 session,
                 tableHandle,
+                tableCredentials,
                 tableSnapshot,
                 tableHandle.getEnforcedPartitionConstraint(),
                 baseColumnNames::contains);
@@ -432,6 +443,7 @@ public class TransactionLogAccess
     public Stream<AddFileEntry> getActiveFiles(
             ConnectorSession session,
             DeltaLakeTableHandle tableHandle,
+            Optional<DeltaLakeTableCredentials> tableCredentials,
             TableSnapshot tableSnapshot,
             TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
             Predicate<String> addStatsMinMaxColumnFilter)
@@ -443,7 +455,7 @@ public class TransactionLogAccess
                 tableHandle.getProtocolEntry(),
                 partitionConstraint,
                 addStatsMinMaxColumnFilter,
-                tableCredentialsProvider.getTableCredentials(tableHandle.toCredentialsHandle()));
+                tableCredentials);
     }
 
     private Stream<AddFileEntry> getActiveFiles(
