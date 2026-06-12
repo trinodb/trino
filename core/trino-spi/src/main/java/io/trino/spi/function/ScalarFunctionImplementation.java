@@ -13,6 +13,8 @@
  */
 package io.trino.spi.function;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
@@ -60,18 +62,21 @@ public class ScalarFunctionImplementation
 
         private Builder() {}
 
+        @CanIgnoreReturnValue
         public Builder methodHandle(MethodHandle methodHandle)
         {
             this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder instanceFactory(MethodHandle instanceFactory)
         {
             this.instanceFactory = requireNonNull(instanceFactory, "instanceFactory is null");
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder lambdaInterfaces(List<Class<?>> lambdaInterfaces)
         {
             this.lambdaInterfaces = List.copyOf(requireNonNull(lambdaInterfaces, "lambdaInterfaces is null"));
