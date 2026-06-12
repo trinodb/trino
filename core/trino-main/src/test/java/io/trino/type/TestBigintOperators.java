@@ -208,6 +208,14 @@ public class TestBigintOperators
 
         assertThat(assertions.operator(EQUAL, "100000000017", "100000000017"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a = b")
+                .binding("a", "100000000017")
+                .binding("b", "100000000017"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "100000000017", "100000000017"))
+                .neverFails();
     }
 
     @Test
@@ -252,6 +260,11 @@ public class TestBigintOperators
         assertThat(assertions.operator(LESS_THAN, "100000000017", "100000000017"))
                 // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
                 .couldFail();
+
+        assertThat(assertions.expression("a < b")
+                .binding("a", "100000000017")
+                .binding("b", "100000000017"))
+                .neverFails();
     }
 
     @Test
@@ -272,6 +285,11 @@ public class TestBigintOperators
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "100000000017", "100000000017"))
                 // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
                 .couldFail();
+
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "100000000017")
+                .binding("b", "100000000017"))
+                .neverFails();
     }
 
     @Test
