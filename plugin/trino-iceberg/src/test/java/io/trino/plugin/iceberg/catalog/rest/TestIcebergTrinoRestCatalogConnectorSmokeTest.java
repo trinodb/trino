@@ -291,12 +291,13 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
         // synthesised location, TrinoRestCatalog.defaultTableLocation returns null, triggering
         // the non-staged create path that was previously broken.
         fileBackend.createNamespace(Namespace.of(schemaName), ImmutableMap.of());
+        String fullTableName = "%s.%s.%s".formatted(catalogName, schemaName, tableName);
         try {
-            assertUpdate("CREATE TABLE " + catalogName + "." + schemaName + "." + tableName + " (col INTEGER)");
-            assertQueryReturnsEmptyResult("SELECT * FROM " + catalogName + "." + schemaName + "." + tableName);
+            assertUpdate("CREATE TABLE %s (col INTEGER)".formatted(fullTableName));
+            assertQueryReturnsEmptyResult("SELECT * FROM %s".formatted(fullTableName));
         }
         finally {
-            assertUpdate("DROP TABLE IF EXISTS " + catalogName + "." + schemaName + "." + tableName);
+            assertUpdate("DROP TABLE IF EXISTS %s".formatted(fullTableName));
             fileBackend.dropNamespace(Namespace.of(schemaName));
         }
     }
