@@ -44,6 +44,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.StandaloneQueryRunner;
 import io.trino.testing.assertions.TrinoExceptionAssert;
+import jakarta.annotation.Nullable;
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.AbstractCollectionAssert;
 import org.assertj.core.api.AbstractIntegerAssert;
@@ -880,7 +881,13 @@ public class QueryAssertions
                     .withRepresentation(ExpressionAssert.TYPE_RENDERER);
         }
 
-        public record Result(Type type, Object value) {}
+        public record Result(Type type, @Nullable Object value)
+        {
+            public Result
+            {
+                requireNonNull(type, "type is null");
+            }
+        }
     }
 
     public static class ExpressionAssert
@@ -927,12 +934,12 @@ public class QueryAssertions
         private final Session session;
         private final Type actualType;
 
-        public ExpressionAssert(QueryRunner runner, Session session, Object actual, Type actualType)
+        public ExpressionAssert(QueryRunner runner, Session session, @Nullable Object actual, Type actualType)
         {
             super(actual, Object.class);
-            this.runner = runner;
-            this.session = session;
-            this.actualType = actualType;
+            this.runner = requireNonNull(runner, "runner is null");
+            this.session = requireNonNull(session, "session is null");
+            this.actualType = requireNonNull(actualType, "actualType is null");
         }
 
         public ExpressionAssert isEqualTo(BiFunction<Session, QueryRunner, Object> evaluator)
