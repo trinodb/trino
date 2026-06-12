@@ -1647,6 +1647,14 @@ public class TestNumberOperators
 
         assertThat(assertions.operator(EQUAL, "NUMBER 'NaN'", "NUMBER 'NaN'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a = b")
+                .binding("a", "NUMBER '37'")
+                .binding("b", "NUMBER '37'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "NUMBER '37'", "NUMBER '37'"))
+                .neverFails();
     }
 
     @Test
@@ -2082,6 +2090,15 @@ public class TestNumberOperators
 
         assertThat(assertions.operator(LESS_THAN, "NUMBER 'NaN'", "NUMBER 'NaN'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a < b")
+                .binding("a", "NUMBER '37'")
+                .binding("b", "NUMBER '37'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "NUMBER '37'", "NUMBER '37'"))
+                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
+                .couldFail();
     }
 
     @Test
@@ -2550,6 +2567,15 @@ public class TestNumberOperators
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER 'NaN'", "NUMBER 'NaN'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "NUMBER '37'")
+                .binding("b", "NUMBER '37'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER '37'", "NUMBER '37'"))
+                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
+                .couldFail();
     }
 
     @Test
