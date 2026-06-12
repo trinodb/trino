@@ -28,4 +28,10 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 public @interface ScalarOperator
 {
     OperatorType value();
+
+    /**
+     * Describes whether the operator never throws any exception
+     * for any possible combination of input arguments.
+     */
+    boolean neverFails() default false;
 }
