@@ -265,6 +265,9 @@ public class TestIpAddressOperators
 
         assertThat(assertions.operator(EQUAL, "CAST('1.2.3.4' AS IPADDRESS)", "IPADDRESS '1.2.3.5'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "CAST('1.2.3.4' AS IPADDRESS)", "IPADDRESS '1.2.3.5'"))
+                .neverFails();
     }
 
     @Test
