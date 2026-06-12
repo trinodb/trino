@@ -29,6 +29,7 @@ import io.trino.spi.type.TrinoNumber;
 import io.trino.util.JsonCastException;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 
 import static io.airlift.slice.SliceUtf8.countCodePoints;
@@ -228,7 +229,8 @@ public final class JsonOperators
             return output.slice();
         }
         catch (IOException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value.toStringUtf8(), JSON));
+            // Should never happen
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -270,7 +272,8 @@ public final class JsonOperators
             return output.slice();
         }
         catch (IOException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
+            // Should never happen
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -286,7 +289,8 @@ public final class JsonOperators
             return output.slice();
         }
         catch (IOException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
+            // Should never happen
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -302,7 +306,8 @@ public final class JsonOperators
             return output.slice();
         }
         catch (IOException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
+            // Should never happen
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -322,7 +327,8 @@ public final class JsonOperators
             return output.slice();
         }
         catch (IOException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast NUMBER '%s' to %s", value.toBigDecimal(), JSON), e);
+            // Should never happen
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -338,7 +344,8 @@ public final class JsonOperators
             return output.slice();
         }
         catch (IOException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
+            // Should never happen
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -354,7 +361,8 @@ public final class JsonOperators
             return output.slice();
         }
         catch (IOException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
+            // Should never happen
+            throw new UncheckedIOException(e);
         }
     }
 }
