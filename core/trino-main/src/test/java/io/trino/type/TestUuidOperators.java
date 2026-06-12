@@ -180,6 +180,10 @@ public class TestUuidOperators
         assertThat(assertions.expression("cast(a as VARBINARY)")
                 .binding("a", "UUID '6b5f5b65-67e4-43b0-8ee3-586cd49f58a0'"))
                 .isEqualTo(sqlVarbinaryFromHex("6B5F5B6567E443B08EE3586CD49F58A0"));
+
+        assertThat(assertions.expression("cast(a as VARBINARY)")
+                .binding("a", "UUID '6b5f5b65-67e4-43b0-8ee3-586cd49f58a0'"))
+                .neverFails();
     }
 
     @Test
