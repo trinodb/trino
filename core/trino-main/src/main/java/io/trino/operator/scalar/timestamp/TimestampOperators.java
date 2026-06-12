@@ -37,6 +37,7 @@ public final class TimestampOperators
 {
     private TimestampOperators() {}
 
+    // fallible
     @ScalarOperator(ADD)
     public static final class TimestampPlusIntervalDayToSecond
     {
@@ -66,6 +67,7 @@ public final class TimestampOperators
         }
     }
 
+    // fallible
     @ScalarOperator(ADD)
     public static final class IntervalDayToSecondPlusTimestamp
     {
@@ -170,6 +172,7 @@ public final class TimestampOperators
         }
     }
 
+    // fallible
     @ScalarOperator(SUBTRACT)
     public static final class TimestampMinusIntervalDayToSecond
     {
