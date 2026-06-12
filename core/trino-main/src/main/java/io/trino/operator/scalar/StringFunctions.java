@@ -323,9 +323,9 @@ public final class StringFunctions
     @ScalarFunction(value = "substring", alias = "substr", neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice charSubstring(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
+    public static Slice charSubstring(@LiteralParameter("x") long x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
     {
-        return substring(padSpaces(utf8, x.intValue()), start);
+        return substring(padSpaces(utf8, toIntExact(x)), start);
     }
 
     @Description("Substring of given length starting at an index")
@@ -381,9 +381,9 @@ public final class StringFunctions
     @ScalarFunction(value = "substring", alias = "substr", neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice charSubstr(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
+    public static Slice charSubstr(@LiteralParameter("x") long x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
     {
-        return substring(padSpaces(utf8, x.intValue()), start, length);
+        return substring(padSpaces(utf8, toIntExact(x)), start, length);
     }
 
     @ScalarFunction
@@ -600,9 +600,9 @@ public final class StringFunctions
     @ScalarOperator(OperatorType.CAST)
     @SqlType(CodePointsType.NAME)
     @LiteralParameters("x")
-    public static int[] castCharToCodePoints(@LiteralParameter("x") Long charLength, @SqlType("char(x)") Slice slice)
+    public static int[] castCharToCodePoints(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
     {
-        return castToCodePoints(padSpaces(slice, charLength.intValue()));
+        return castToCodePoints(padSpaces(slice, toIntExact(x)));
     }
 
     private static int[] castToCodePoints(Slice slice)
@@ -915,14 +915,14 @@ public final class StringFunctions
     @LiteralParameters({"x", "y", "u"})
     @Constraint(variable = "u", expression = "x + y")
     @SqlType("char(u)")
-    public static Slice concat(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice left, @SqlType("char(y)") Slice right)
+    public static Slice concat(@LiteralParameter("x") long x, @SqlType("char(x)") Slice left, @SqlType("char(y)") Slice right)
     {
         int rightLength = right.length();
         if (rightLength == 0) {
             return left;
         }
 
-        Slice paddedLeft = padSpaces(left, x.intValue());
+        Slice paddedLeft = padSpaces(left, toIntExact(x));
         int leftLength = paddedLeft.length();
 
         Slice result = Slices.allocate(leftLength + rightLength);
