@@ -115,6 +115,9 @@ public class TestRealOperators
 
         assertThat(assertions.operator(ADD, "REAL 'NaN'", "REAL '-NaN'"))
                 .isEqualTo(Float.NaN);
+
+        assertThat(assertions.operator(ADD, "REAL '12.34'", "REAL '56.78'"))
+                .neverFails();
     }
 
     @Test
@@ -140,6 +143,9 @@ public class TestRealOperators
 
         assertThat(assertions.operator(SUBTRACT, "REAL 'NaN'", "REAL 'NaN'"))
                 .isEqualTo(Float.NaN);
+
+        assertThat(assertions.operator(SUBTRACT, "REAL '12.34'", "REAL '56.78'"))
+                .neverFails();
     }
 
     @Test
@@ -168,6 +174,9 @@ public class TestRealOperators
 
         assertThat(assertions.operator(MULTIPLY, "REAL 'NaN'", "REAL '-NaN'"))
                 .isEqualTo(Float.NaN);
+
+        assertThat(assertions.operator(MULTIPLY, "REAL '12.34'", "REAL '56.78'"))
+                .neverFails();
     }
 
     @Test
@@ -196,6 +205,12 @@ public class TestRealOperators
 
         assertThat(assertions.operator(DIVIDE, "REAL 'NaN'", "REAL '-NaN'"))
                 .isEqualTo(Float.NaN);
+
+        assertThat(assertions.operator(DIVIDE, "REAL '12.34'", "REAL '56.78'"))
+                .neverFails();
+
+        assertThat(assertions.operator(DIVIDE, "REAL '12.34'", "REAL '0.0'"))
+                .neverFails();
     }
 
     @Test
@@ -224,6 +239,12 @@ public class TestRealOperators
 
         assertThat(assertions.operator(MODULO, "REAL 'NaN'", "REAL 'NaN'"))
                 .isEqualTo(Float.NaN);
+
+        assertThat(assertions.operator(MODULO, "REAL '12.34'", "REAL '56.78'"))
+                .neverFails();
+
+        assertThat(assertions.operator(MODULO, "REAL '12.34'", "REAL '0.0'"))
+                .neverFails();
     }
 
     @Test
@@ -243,6 +264,9 @@ public class TestRealOperators
 
         assertThat(assertions.operator(NEGATION, "REAL '-NaN'"))
                 .isEqualTo(Float.NaN);
+
+        assertThat(assertions.operator(NEGATION, "REAL '12.34'"))
+                .neverFails();
     }
 
     @Test
@@ -808,6 +832,10 @@ public class TestRealOperators
         assertThat(assertions.expression("cast(a as DOUBLE)")
                 .binding("a", "REAL '-Infinity'"))
                 .isEqualTo(Double.NEGATIVE_INFINITY);
+
+        assertThat(assertions.expression("cast(a as DOUBLE)")
+                .binding("a", "REAL '754.1985'"))
+                .neverFails();
     }
 
     @Test
@@ -844,6 +872,10 @@ public class TestRealOperators
         assertThat(assertions.expression("cast(a as number)")
                 .binding("a", "REAL '-Infinity'"))
                 .isEqualTo(new SqlNumber(new TrinoNumber.Infinity(true)));
+
+        assertThat(assertions.expression("cast(a as number)")
+                .binding("a", "REAL '3.14159'"))
+                .neverFails();
     }
 
     @Test
@@ -851,7 +883,7 @@ public class TestRealOperators
     {
         assertThat(assertions.expression("cast(a as BOOLEAN)")
                 .binding("a", "REAL '754.1985'"))
-                .couldFail()
+                .neverFails()
                 .isEqualTo(true);
 
         assertThat(assertions.expression("cast(a as BOOLEAN)")
