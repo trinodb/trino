@@ -221,7 +221,7 @@ public final class CharType
         return (length * 31) + getClass().hashCode();
     }
 
-    @ScalarOperator(COMPARISON_UNORDERED_LAST)
+    @ScalarOperator(value = COMPARISON_UNORDERED_LAST, neverFails = true)
     private static long comparisonOperator(Slice left, Slice right)
     {
         return compareChars(left, right);
