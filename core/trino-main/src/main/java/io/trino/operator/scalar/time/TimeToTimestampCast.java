@@ -30,6 +30,7 @@ import static io.trino.spi.type.Timestamps.SECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.round;
 import static java.lang.Math.multiplyExact;
 
+// TODO this likely can be declared as neverFails=true
 @ScalarOperator(CAST)
 public final class TimeToTimestampCast
 {
