@@ -28,7 +28,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.types.Types.StructType;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -40,12 +39,10 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
-import static io.trino.plugin.iceberg.IcebergUtil.structTypeFromHandles;
 import static java.util.Objects.requireNonNull;
 
 public final class FlatEqualityDeleteFilter
@@ -63,28 +60,23 @@ public final class FlatEqualityDeleteFilter
     @Override
     public PageFilter createPageFilter(List<IcebergColumnHandle> columns, long splitDataSequenceNumber)
     {
-        StructType fileStructType = structTypeFromHandles(columns.stream()
-                .filter(column -> !isMetadataColumnId(column.getId())) // equality deletes don't apply to metadata columns
-                .collect(toImmutableList()));
-        if (deleteSchema.columns().stream().anyMatch(column -> fileStructType.field(column.fieldId()) == null)) {
-            throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, "columns list doesn't contain all equality delete columns");
-        }
-
-        Map<Integer, Integer> dataChannelsByFieldId = new HashMap<>();
-        for (int channel = 0; channel < fileStructType.fields().size(); channel++) {
-            int fieldId = fileStructType.fields().get(channel).fieldId();
-            verify(dataChannelsByFieldId.put(fieldId, channel) == null,
-                    "duplicate column for field ID %s",
-                    fieldId);
+        // Deduplicate by base column ID to handle nested field projections where multiple
+        // nested fields from the same base struct appear (e.g., root.a, root.b both reference base column "root")
+        Map<Integer, Integer> dataChannelsByBaseId = new HashMap<>();
+        for (int channel = 0; channel < columns.size(); channel++) {
+            IcebergColumnHandle column = columns.get(channel);
+            if (!isMetadataColumnId(column.getId())) {
+                dataChannelsByBaseId.putIfAbsent(column.getBaseColumnIdentity().getId(), channel);
+            }
         }
         // map from delete schema channel to data page channel
         int[] channels = new int[deleteSchema.columns().size()];
         for (int deleteChannel = 0; deleteChannel < deleteSchema.columns().size(); deleteChannel++) {
             int fieldId = deleteSchema.columns().get(deleteChannel).fieldId();
-            Integer channel = dataChannelsByFieldId.get(fieldId);
-            verify(channel != null,
-                    "columns list doesn't contain equality delete field ID %s",
-                    fieldId);
+            Integer channel = dataChannelsByBaseId.get(fieldId);
+            if (channel == null) {
+                throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, "columns list doesn't contain equality delete field ID %s".formatted(fieldId));
+            }
             channels[deleteChannel] = channel;
         }
         return new EqualityDeletePageFilter(channels, index, splitDataSequenceNumber);
