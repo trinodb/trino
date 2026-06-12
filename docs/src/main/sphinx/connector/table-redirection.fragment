@@ -70,4 +70,11 @@ Trino offers table redirection support for the following operations:
   - {doc}`/sql/drop-table`
   - {doc}`/sql/comment`
 
-Trino does not offer view redirection support.
+Trino also offers view redirection support for the following operations:
+
+- {doc}`/sql/select`
+- {doc}`/sql/show-create-view`
+- {doc}`/sql/create-view`
+- {doc}`/sql/drop-view`
+- {doc}`/sql/alter-view`
+- {doc}`/sql/comment`

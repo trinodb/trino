@@ -589,13 +589,16 @@ public final class ShowQueriesRewrite
                 throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a view", objectName);
             }
 
-            Optional<ViewDefinition> viewDefinition = metadata.getView(session, objectName);
+            // Check for view redirection
+            QualifiedObjectName targetViewName = metadata.getRedirectedViewName(session, objectName).orElse(objectName);
+
+            Optional<ViewDefinition> viewDefinition = metadata.getView(session, targetViewName);
 
             if (viewDefinition.isEmpty()) {
-                if (metadata.getTableHandle(session, objectName).isPresent()) {
-                    throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a view", objectName);
+                if (metadata.getTableHandle(session, targetViewName).isPresent()) {
+                    throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a view", targetViewName);
                 }
-                throw semanticException(TABLE_NOT_FOUND, node, "View '%s' does not exist", objectName);
+                throw semanticException(TABLE_NOT_FOUND, node, "View '%s' does not exist", targetViewName);
             }
 
             Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);

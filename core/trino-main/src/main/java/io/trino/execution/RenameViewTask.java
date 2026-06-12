@@ -24,6 +24,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RenameView;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -62,7 +63,12 @@ public class RenameViewTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource());
+        QualifiedObjectName originalViewName = createQualifiedObjectName(session, statement, statement.getSource());
+
+        // Resolve view redirection
+        Optional<QualifiedObjectName> redirectedViewName = metadata.getRedirectedViewName(session, originalViewName);
+        QualifiedObjectName viewName = redirectedViewName.orElse(originalViewName);
+
         if (metadata.isMaterializedView(session, viewName)) {
             throw semanticException(
                     TABLE_NOT_FOUND,
@@ -86,6 +92,10 @@ public class RenameViewTask
         }
 
         QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget());
+        // If the source was redirected, adjust the target to use the same (redirected) catalog
+        if (redirectedViewName.isPresent() && target.catalogName().equals(originalViewName.catalogName())) {
+            target = new QualifiedObjectName(viewName.catalogName(), target.schemaName(), target.objectName());
+        }
         if (metadata.getCatalogHandle(session, target.catalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' not found", target.catalogName());
         }
