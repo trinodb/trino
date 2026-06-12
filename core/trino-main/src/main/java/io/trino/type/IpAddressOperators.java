@@ -99,6 +99,6 @@ public final class IpAddressOperators
     @SqlType(StandardTypes.VARBINARY)
     public static Slice castFromIpAddressToVarbinary(@SqlType(StandardTypes.IPADDRESS) Slice slice)
     {
-        return wrappedBuffer(slice.getBytes());
+        return slice;
     }
 }
