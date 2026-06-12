@@ -663,6 +663,10 @@ public class TestCharOperators
                 .hasType(VARBINARY)
                 .matches("X'616263'");
 
+        assertThat(assertions.expression("CAST(CAST('abc' AS char(5)) AS VARBINARY)"))
+                .hasType(VARBINARY)
+                .matches("X'6162632020'");
+
         // cast to number
         assertThat(assertions.expression("CAST(CHAR '13.37' AS NUMBER)"))
                 .hasType(NUMBER)

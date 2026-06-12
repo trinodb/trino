@@ -15,6 +15,7 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
@@ -25,7 +26,9 @@ import java.math.BigDecimal;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.type.Reals.toReal;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public final class CharOperators
@@ -140,8 +143,8 @@ public final class CharOperators
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice castToBinary(@SqlType("char(x)") Slice slice)
+    public static Slice castToBinary(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
     {
-        return slice;
+        return padSpaces(slice, toIntExact(x));
     }
 }
