@@ -463,6 +463,22 @@ public class TestJsonOperators
                 .binding("a", "TINYINT '127'"))
                 .hasType(JSON)
                 .isEqualTo("127");
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "128"))
+                .neverFails();
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "BIGINT '128'"))
+                .neverFails();
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "SMALLINT '128'"))
+                .neverFails();
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "TINYINT '127'"))
+                .neverFails();
     }
 
     @Test
@@ -575,6 +591,10 @@ public class TestJsonOperators
                 .binding("a", "-infinity()"))
                 .hasType(JSON)
                 .isEqualTo("\"-Infinity\"");
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "3.14E0"))
+                .neverFails();
     }
 
     @Test
@@ -603,6 +623,10 @@ public class TestJsonOperators
                 .binding("a", "cast(-infinity() as REAL)"))
                 .hasType(JSON)
                 .isEqualTo("\"-Infinity\"");
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "REAL '3.14'"))
+                .neverFails();
     }
 
     @Test
@@ -858,6 +882,10 @@ public class TestJsonOperators
                 .binding("a", "FALSE"))
                 .hasType(JSON)
                 .isEqualTo("false");
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "TRUE"))
+                .neverFails();
     }
 
     @Test
@@ -1107,6 +1135,10 @@ public class TestJsonOperators
                 .binding("a", "'\"a\":2'"))
                 .hasType(JSON)
                 .isEqualTo("\"\\\"a\\\":2\"");
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "'abc'"))
+                .neverFails();
     }
 
     @Test
@@ -1120,6 +1152,10 @@ public class TestJsonOperators
                 .binding("a", "TIMESTAMP '1970-01-01 00:00:01'"))
                 .hasType(JSON)
                 .isEqualTo(format("\"%s\"", sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0)));
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "TIMESTAMP '1970-01-01 00:00:01'"))
+                .neverFails();
     }
 
     @Test
@@ -1364,5 +1400,26 @@ public class TestJsonOperators
                 .binding("a", "NUMBER '-Infinity'"))
                 .hasType(JSON)
                 .isEqualTo("\"-Infinity\"");
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "NUMBER '3.14'"))
+                .neverFails();
+    }
+
+    @Test
+    public void testCastFromDate()
+    {
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "cast(null as date)"))
+                .isNull(JSON);
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "DATE '2024-01-01'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-01\"");
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "DATE '2024-01-01'"))
+                .neverFails();
     }
 }
