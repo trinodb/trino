@@ -397,6 +397,10 @@ public class TestSmallintOperators
         assertThat(assertions.expression("cast(a as bigint)")
                 .binding("a", "SMALLINT '17'"))
                 .isEqualTo(17L);
+
+        assertThat(assertions.expression("cast(a as bigint)")
+                .binding("a", "SMALLINT '17'"))
+                .neverFails();
     }
 
     @Test
@@ -409,6 +413,10 @@ public class TestSmallintOperators
         assertThat(assertions.expression("cast(a as integer)")
                 .binding("a", "SMALLINT '17'"))
                 .isEqualTo(17);
+
+        assertThat(assertions.expression("cast(a as integer)")
+                .binding("a", "SMALLINT '17'"))
+                .neverFails();
     }
 
     @Test
@@ -421,6 +429,11 @@ public class TestSmallintOperators
         assertThat(assertions.expression("cast(a as tinyint)")
                 .binding("a", "SMALLINT '17'"))
                 .isEqualTo((byte) 17);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as tinyint)")
+                .binding("a", "SMALLINT '" + Short.MAX_VALUE + "'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Out of range for tinyint: 32767");
     }
 
     @Test
@@ -464,6 +477,10 @@ public class TestSmallintOperators
         assertThat(assertions.expression("cast(a as double)")
                 .binding("a", "SMALLINT '17'"))
                 .isEqualTo(17.0);
+
+        assertThat(assertions.expression("cast(a as double)")
+                .binding("a", "SMALLINT '17'"))
+                .neverFails();
     }
 
     @Test
@@ -480,6 +497,10 @@ public class TestSmallintOperators
         assertThat(assertions.expression("cast(a as real)")
                 .binding("a", "SMALLINT '0'"))
                 .isEqualTo(0.0f);
+
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "SMALLINT '0'"))
+                .neverFails();
     }
 
     @Test
@@ -496,6 +517,10 @@ public class TestSmallintOperators
         assertThat(assertions.expression("CAST(a AS number)")
                 .binding("a", "SMALLINT '0'"))
                 .isEqualTo(new SqlNumber("0"));
+
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "SMALLINT '0'"))
+                .neverFails();
     }
 
     @Test
@@ -503,7 +528,7 @@ public class TestSmallintOperators
     {
         assertThat(assertions.expression("cast(a as boolean)")
                 .binding("a", "SMALLINT '37'"))
-                .couldFail()
+                .neverFails()
                 .isEqualTo(true);
 
         assertThat(assertions.expression("cast(a as boolean)")
