@@ -32,6 +32,9 @@ import java.util.function.BiFunction;
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -2072,6 +2075,36 @@ public class TestTime
         assertThat(assertions.expression("TIME '12:34:56.1234567891' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '09:34:56.1234567891+10:00'");
         assertThat(assertions.expression("TIME '12:34:56.12345678912' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '09:34:56.12345678912+10:00'");
         assertThat(assertions.expression("TIME '12:34:56.123456789123' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '09:34:56.123456789123+10:00'");
+    }
+
+    @Test
+    public void testComparisonOperators()
+    {
+        assertThat(assertions.expression("a = b")
+                .binding("a", "TIME '12:34:56'")
+                .binding("b", "TIME '12:34:56'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "TIME '12:34:56'", "TIME '12:34:56'"))
+                .neverFails();
+
+        assertThat(assertions.expression("a < b")
+                .binding("a", "TIME '12:34:56'")
+                .binding("b", "TIME '12:34:56'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "TIME '12:34:56'", "TIME '12:34:56'"))
+                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
+                .couldFail();
+
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "TIME '12:34:56'")
+                .binding("b", "TIME '12:34:56'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIME '12:34:56'", "TIME '12:34:56'"))
+                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
+                .couldFail();
     }
 
     private static BiFunction<Session, QueryRunner, Object> time(int precision, int hour, int minute, int second, long picoOfSecond)
