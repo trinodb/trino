@@ -303,6 +303,14 @@ public class TestDoubleOperators
 
         assertThat(assertions.operator(EQUAL, "DOUBLE 'NaN'", "DOUBLE 'NaN'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a = b")
+                .binding("a", "37.7E0")
+                .binding("b", "37.7E0"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "37.7E0", "37.7E0"))
+                .neverFails();
     }
 
     @Test
@@ -367,6 +375,15 @@ public class TestDoubleOperators
 
         assertThat(assertions.operator(LESS_THAN, "DOUBLE 'NaN'", "DOUBLE 'NaN'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a < b")
+                .binding("a", "37.7E0")
+                .binding("b", "37.7E0"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "37.7E0", "37.7E0"))
+                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
+                .couldFail();
     }
 
     @Test
@@ -392,6 +409,15 @@ public class TestDoubleOperators
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "DOUBLE 'NaN'", "DOUBLE 'NaN'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "37.7E0")
+                .binding("b", "37.7E0"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "37.7E0", "37.7E0"))
+                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
+                .couldFail();
     }
 
     @Test
@@ -892,6 +918,14 @@ public class TestDoubleOperators
 
         assertThat(assertions.operator(IDENTICAL, "nan()", "nan()"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a IS NOT DISTINCT FROM b")
+                .binding("a", "37.7E0")
+                .binding("b", "37.7E0"))
+                .neverFails();
+
+        assertThat(assertions.operator(IDENTICAL, "37.7E0", "37.7E0"))
+                .neverFails();
     }
 
     @Test
