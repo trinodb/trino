@@ -39,6 +39,7 @@ import static io.trino.type.DateTimes.longTimestamp;
 import static io.trino.type.DateTimes.rescale;
 import static java.time.ZoneOffset.UTC;
 
+// fallible
 @ScalarOperator(CAST)
 public final class VarcharToTimestampCast
 {
