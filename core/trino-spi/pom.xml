@@ -328,6 +328,30 @@
                                     <justification>Removed deprecated method without ConnectorTableCredentials parameter</justification>
                                 </item>
                                 <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method long io.trino.spi.type.DoubleType::xxHash64(double)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method boolean io.trino.spi.type.TimeType::equalOperator(long, long)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method long io.trino.spi.type.TimeType::hashCodeOperator(long)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method boolean io.trino.spi.type.TimeType::lessThan(long, long)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method boolean io.trino.spi.type.TimeType::lessThanOrEqual(long, long)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method long io.trino.spi.type.TimeType::xxHash64Operator(long)</old>
+                                </item>
+                                <item>
                                     <ignore>true</ignore>
                                     <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
                                     <old>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, boolean[])</old>
