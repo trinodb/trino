@@ -86,7 +86,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public final class DecimalCasts
 {
     public static final SqlScalarFunction DECIMAL_TO_BOOLEAN_CAST = castFunctionFromDecimalTo(BOOLEAN.getTypeSignature(), true, "shortDecimalToBoolean", "longDecimalToBoolean");
-    public static final SqlScalarFunction BOOLEAN_TO_DECIMAL_CAST = castFunctionToDecimalFrom(BOOLEAN.getTypeSignature(), true, "booleanToShortDecimal", "booleanToLongDecimal");
+    public static final SqlScalarFunction BOOLEAN_TO_DECIMAL_CAST = castFunctionToDecimalFrom(BOOLEAN.getTypeSignature(), false, "booleanToShortDecimal", "booleanToLongDecimal");
     public static final SqlScalarFunction DECIMAL_TO_BIGINT_CAST = castFunctionFromDecimalTo(BIGINT.getTypeSignature(), false, "shortDecimalToBigint", "longDecimalToBigint");
     public static final SqlScalarFunction BIGINT_TO_DECIMAL_CAST = castFunctionToDecimalFrom(BIGINT.getTypeSignature(), false, "bigintToShortDecimal", "bigintToLongDecimal");
     public static final SqlScalarFunction INTEGER_TO_DECIMAL_CAST = castFunctionToDecimalFrom(INTEGER.getTypeSignature(), false, "integerToShortDecimal", "integerToLongDecimal");
@@ -212,12 +212,18 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static long booleanToShortDecimal(boolean value, long precision, long scale, long tenToScale)
     {
+        if (value && precision == scale) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast BOOLEAN '%s' to DECIMAL(%s, %s)", value, precision, scale));
+        }
         return value ? tenToScale : 0;
     }
 
     @UsedByGeneratedCode
     public static Int128 booleanToLongDecimal(boolean value, long precision, long scale, Int128 tenToScale)
     {
+        if (value && precision == scale) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast BOOLEAN '%s' to DECIMAL(%s, %s)", value, precision, scale));
+        }
         return value ? tenToScale : ZERO;
     }
 
