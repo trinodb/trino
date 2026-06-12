@@ -944,7 +944,7 @@ public abstract class AbstractMockMetadata
                         .signature(Signature.builder().returnType(DOUBLE).build())
                         .alias(RAND_NAME.functionName())
                         .nondeterministic()
-                        .noDescription()
+                        .description("")
                         .build()));
     }
 

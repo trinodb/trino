@@ -41,7 +41,7 @@ public final class JsonStringToArrayCast
                         .build())
                 .nullable()
                 .hidden()
-                .noDescription()
+                .description("")
                 .build());
     }
 

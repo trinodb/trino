@@ -135,14 +135,8 @@ public final class PolymorphicScalarFunctionBuilder
         checkState(argumentNullability != null, "argumentNullability is null");
 
         FunctionMetadata.Builder functionMetadata = FunctionMetadata.scalarBuilder(name)
-                .signature(signature);
-
-        if (description != null) {
-            functionMetadata.description(description);
-        }
-        else {
-            functionMetadata.noDescription();
-        }
+                .signature(signature)
+                .description(Optional.ofNullable(description).orElse(""));
 
         if (hidden) {
             functionMetadata.hidden();

@@ -71,7 +71,7 @@ public final class JsonStringArrayExtractScalar
                         .build())
                 .nullable()
                 .hidden()
-                .noDescription()
+                .description("")
                 .build());
     }
 

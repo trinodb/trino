@@ -60,16 +60,10 @@ public class ParametricScalar
     private static FunctionMetadata createFunctionMetadata(Signature signature, ScalarHeader details, boolean deprecated, FunctionNullability functionNullability)
     {
         FunctionMetadata.Builder functionMetadata = FunctionMetadata.scalarBuilder(details.getName())
-                .signature(signature);
+                .signature(signature)
+                .description(details.getDescription().orElse(""));
 
         details.getAliases().forEach(functionMetadata::alias);
-
-        if (details.getDescription().isPresent()) {
-            functionMetadata.description(details.getDescription().get());
-        }
-        else {
-            functionMetadata.noDescription();
-        }
 
         if (details.isHidden()) {
             functionMetadata.hidden();
