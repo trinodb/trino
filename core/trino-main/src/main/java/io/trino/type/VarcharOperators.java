@@ -90,7 +90,7 @@ public final class VarcharOperators
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.REAL)
-    public static long castToFloat(@SqlType("varchar(x)") Slice slice)
+    public static long castToReal(@SqlType("varchar(x)") Slice slice)
     {
         try {
             return toReal(Float.parseFloat(slice.toStringUtf8().trim()));

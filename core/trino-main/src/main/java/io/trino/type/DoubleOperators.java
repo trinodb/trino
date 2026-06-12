@@ -227,7 +227,7 @@ public final class DoubleOperators
 
     @ScalarOperator(SATURATED_FLOOR_CAST)
     @SqlType(StandardTypes.REAL)
-    public static long saturatedFloorCastToFloat(@SqlType(StandardTypes.DOUBLE) double value)
+    public static long saturatedFloorCastToReal(@SqlType(StandardTypes.DOUBLE) double value)
     {
         if (Double.isNaN(value)) {
             return toReal(Float.NaN);
