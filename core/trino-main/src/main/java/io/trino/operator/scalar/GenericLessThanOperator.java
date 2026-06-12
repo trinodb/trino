@@ -42,7 +42,6 @@ public class GenericLessThanOperator
                         .argumentType(typeVariable("T"))
                         .argumentType(typeVariable("T"))
                         .build())
-                .neverFails()
                 .build());
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
     }
