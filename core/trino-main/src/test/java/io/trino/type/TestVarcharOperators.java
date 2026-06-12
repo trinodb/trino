@@ -402,6 +402,53 @@ public class TestVarcharOperators
                 .isEqualTo(false);
     }
 
+    @Test
+    public void testCastToVarbinary()
+    {
+        assertThat(assertions.expression("CAST(a AS varbinary)")
+                .binding("a", "'abc'"))
+                .neverFails();
+    }
+
+    @Test
+    public void testCastFromVarcharFailures()
+    {
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS boolean)")
+                .binding("a", "'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast 'abc' to BOOLEAN");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS double)")
+                .binding("a", "'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast 'abc' to DOUBLE");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS real)")
+                .binding("a", "'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast 'abc' to REAL");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS bigint)")
+                .binding("a", "'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast 'abc' to BIGINT");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS integer)")
+                .binding("a", "'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast 'abc' to INT");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS smallint)")
+                .binding("a", "'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast 'abc' to SMALLINT");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS tinyint)")
+                .binding("a", "'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast 'abc' to TINYINT");
+    }
+
     /**
      * Test {@link VarcharOperators#castToNumber}. More coverage is provided also by {@link TestNumberOperators}.
      */
