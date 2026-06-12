@@ -55,12 +55,17 @@ final class AzureVendedCredentialsProvider
 
     private static AzureVendedCredentials parseAzureVendedCredentials(Iterable<Entry<String, String>> properties)
     {
+        // Vending catalogs may suffix the SAS token key with the full host (e.g. "account.dfs.core.windows.net"),
+        // but AzureFileSystem looks up SAS tokens by the bare storage account name.
         ImmutableMap.Builder<String, String> sasTokensBuilder = ImmutableMap.builder();
         Instant earliest = null;
         for (Entry<String, String> entry : properties) {
             if (entry.getKey().startsWith(ADLS_SAS_TOKEN_PREFIX)) {
-                String account = entry.getKey().substring(ADLS_SAS_TOKEN_PREFIX.length());
-                sasTokensBuilder.put(account, entry.getValue());
+                String host = entry.getKey().substring(ADLS_SAS_TOKEN_PREFIX.length());
+                String account = host.contains(".") ? host.substring(0, host.indexOf('.')) : host;
+                if (!account.isEmpty() && !entry.getValue().isEmpty()) {
+                    sasTokensBuilder.put(account, entry.getValue());
+                }
             }
             if (entry.getKey().startsWith(ADLS_SAS_TOKEN_EXPIRES_AT_MS_PREFIX)) {
                 Instant expiresAt = Instant.ofEpochMilli(Long.parseLong(entry.getValue()));
@@ -69,6 +74,6 @@ final class AzureVendedCredentialsProvider
                 }
             }
         }
-        return new AzureVendedCredentials(sasTokensBuilder.buildOrThrow(), Optional.ofNullable(earliest));
+        return new AzureVendedCredentials(sasTokensBuilder.buildKeepingLast(), Optional.ofNullable(earliest));
     }
 }
