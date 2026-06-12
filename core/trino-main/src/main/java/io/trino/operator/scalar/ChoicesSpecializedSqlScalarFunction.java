@@ -117,11 +117,11 @@ public final class ChoicesSpecializedSqlScalarFunction
                 boundSignature.getArgumentTypes(),
                 bestChoice.getInvocationConvention(),
                 invocationConvention);
-        ScalarFunctionImplementation.Builder builder = ScalarFunctionImplementation.builder()
-                .methodHandle(methodHandle);
-        bestChoice.getInstanceFactory().ifPresent(builder::instanceFactory);
-        builder.lambdaInterfaces(bestChoice.getLambdaInterfaces());
-        return builder.build();
+        return ScalarFunctionImplementation.builder()
+                .methodHandle(methodHandle)
+                .instanceFactory(bestChoice.getInstanceFactory())
+                .lambdaInterfaces(bestChoice.getLambdaInterfaces())
+                .build();
     }
 
     public static class ScalarImplementationChoice

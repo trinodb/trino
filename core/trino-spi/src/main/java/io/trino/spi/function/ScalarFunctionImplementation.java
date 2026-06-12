@@ -57,7 +57,7 @@ public class ScalarFunctionImplementation
     public static class Builder
     {
         private MethodHandle methodHandle;
-        private MethodHandle instanceFactory;
+        private Optional<MethodHandle> instanceFactory = Optional.empty();
         private List<Class<?>> lambdaInterfaces = List.of();
 
         private Builder() {}
@@ -72,6 +72,13 @@ public class ScalarFunctionImplementation
         @CanIgnoreReturnValue
         public Builder instanceFactory(MethodHandle instanceFactory)
         {
+            this.instanceFactory = Optional.of(requireNonNull(instanceFactory, "instanceFactory is null"));
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public Builder instanceFactory(Optional<MethodHandle> instanceFactory)
+        {
             this.instanceFactory = requireNonNull(instanceFactory, "instanceFactory is null");
             return this;
         }
@@ -85,7 +92,7 @@ public class ScalarFunctionImplementation
 
         public ScalarFunctionImplementation build()
         {
-            return new ScalarFunctionImplementation(methodHandle, Optional.ofNullable(instanceFactory), lambdaInterfaces);
+            return new ScalarFunctionImplementation(methodHandle, instanceFactory, lambdaInterfaces);
         }
     }
 }
