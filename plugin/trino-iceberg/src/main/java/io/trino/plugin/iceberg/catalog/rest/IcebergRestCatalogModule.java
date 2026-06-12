@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog.rest;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.filesystem.s3.S3SecurityMappingProvider;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
@@ -45,8 +46,14 @@ public class IcebergRestCatalogModule
 
         IcebergConfig icebergConfig = buildConfigObject(IcebergConfig.class);
         IcebergRestCatalogConfig restCatalogConfig = buildConfigObject(IcebergRestCatalogConfig.class);
-        if (restCatalogConfig.isVendedCredentialsEnabled() && icebergConfig.isRegisterTableProcedureEnabled()) {
-            throw new TrinoException(NOT_SUPPORTED, "Using the `register_table` procedure with vended credentials is currently not supported");
+        if (restCatalogConfig.isVendedCredentialsEnabled()) {
+            if (icebergConfig.isRegisterTableProcedureEnabled()) {
+                throw new TrinoException(NOT_SUPPORTED, "Using the `register_table` procedure with vended credentials is currently not supported");
+            }
+            newOptionalBinder(binder, S3SecurityMappingProvider.class)
+                    .setBinding()
+                    .to(VendedCredentialsS3SecurityMappingProvider.class)
+                    .in(Scopes.SINGLETON);
         }
     }
 }
