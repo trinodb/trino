@@ -1523,7 +1523,7 @@ public abstract class BaseIcebergMaterializedViewTest
     {
         public SequenceTableFunction()
         {
-            super("system", "sequence_function", List.of(), GENERIC_TABLE);
+            super("system", "sequence_function", List.of(), GENERIC_TABLE, "");
         }
 
         @Override
