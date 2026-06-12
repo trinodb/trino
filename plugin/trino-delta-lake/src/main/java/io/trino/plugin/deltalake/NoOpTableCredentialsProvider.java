@@ -11,9 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.deltalake.metastore;
+package io.trino.plugin.deltalake;
 
-public interface VendedCredentialsProvider
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
+
+import java.util.Optional;
+
+public class NoOpTableCredentialsProvider
+        implements DeltaLakeTableCredentialsProvider
 {
-    VendedCredentialsHandle getFreshCredentials(VendedCredentialsHandle handle);
+    @Override
+    public Optional<DeltaLakeTableCredentials> getTableCredentials(VendedCredentialsHandle credentialsHandle)
+    {
+        return Optional.empty();
+    }
 }

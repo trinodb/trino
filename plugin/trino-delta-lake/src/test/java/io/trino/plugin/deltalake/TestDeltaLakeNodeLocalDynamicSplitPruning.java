@@ -26,7 +26,6 @@ import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
-import io.trino.plugin.deltalake.metastore.NoOpVendedCredentialsProvider;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.hive.HiveTransactionHandle;
@@ -317,7 +316,7 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
     {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         DeltaLakePageSourceProvider provider = new DeltaLakePageSourceProvider(
-                new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY, new NoOpVendedCredentialsProvider()),
+                new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY, new NoOpTableCredentialsProvider()),
                 stats,
                 PARQUET_READER_CONFIG,
                 deltaLakeConfig,

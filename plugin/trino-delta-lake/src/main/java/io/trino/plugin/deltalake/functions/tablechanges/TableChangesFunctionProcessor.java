@@ -23,6 +23,7 @@ import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakePageSourceProvider;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -81,6 +82,7 @@ public class TableChangesFunctionProcessor
             FileFormatDataSourceStats fileFormatDataSourceStats,
             ParquetReaderOptions parquetReaderOptions,
             TableChangesTableFunctionHandle handle,
+            Optional<DeltaLakeTableCredentials> tableCredentials,
             TableChangesSplit tableChangesSplit)
     {
         requireNonNull(session, "session is null");
@@ -89,6 +91,7 @@ public class TableChangesFunctionProcessor
         requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
         requireNonNull(handle, "handle is null");
+        requireNonNull(tableCredentials, "tableCredentials is null");
         requireNonNull(tableChangesSplit, "tableChangesSplit is null");
 
         this.fileType = tableChangesSplit.fileType();
@@ -100,6 +103,7 @@ public class TableChangesFunctionProcessor
                 fileFormatDataSourceStats,
                 parquetReaderOptions,
                 handle,
+                tableCredentials,
                 tableChangesSplit);
         this.currentVersionAsBlock = writeNativeValue(BIGINT, tableChangesSplit.currentVersion());
         this.currentVersionCommitTimestampAsBlock = writeNativeValue(
@@ -168,9 +172,10 @@ public class TableChangesFunctionProcessor
             FileFormatDataSourceStats fileFormatDataSourceStats,
             ParquetReaderOptions parquetReaderOptions,
             TableChangesTableFunctionHandle handle,
+            Optional<DeltaLakeTableCredentials> tableCredentials,
             TableChangesSplit split)
     {
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session, handle.credentialsHandle());
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
         TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(split.path()), split.fileSize());
         Map<String, Optional<String>> partitionKeys = split.partitionKeys();
 

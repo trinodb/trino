@@ -65,6 +65,7 @@ public class DeltaLakeMetadataFactory
     private final boolean usingSystemSecurity;
     private final String trinoVersion;
     private final TransactionLogReaderFactory transactionLogReaderFactory;
+    private final DeltaLakeTableCredentialsProvider tableCredentialsProvider;
 
     @Inject
     public DeltaLakeMetadataFactory(
@@ -84,7 +85,8 @@ public class DeltaLakeMetadataFactory
             NodeVersion nodeVersion,
             DeltaLakeTableMetadataScheduler metadataScheduler,
             @ForDeltaLakeMetadata ExecutorService executorService,
-            TransactionLogReaderFactory transactionLogReaderFactory)
+            TransactionLogReaderFactory transactionLogReaderFactory,
+            DeltaLakeTableCredentialsProvider tableCredentialsProvider)
     {
         this.hiveMetastoreFactory = requireNonNull(hiveMetastoreFactory, "hiveMetastore is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -113,6 +115,7 @@ public class DeltaLakeMetadataFactory
             this.metadataFetchingExecutor = new BoundedExecutor(executorService, deltaLakeConfig.getMetadataParallelism());
         }
         this.transactionLogReaderFactory = requireNonNull(transactionLogReaderFactory, "transactionLogLoaderFactory is null");
+        this.tableCredentialsProvider = requireNonNull(tableCredentialsProvider, "tableCredentialsProvider is null");
     }
 
     public DeltaLakeMetadata create(ConnectorIdentity identity)
@@ -151,6 +154,7 @@ public class DeltaLakeMetadataFactory
                 useUniqueTableLocation,
                 allowManagedTableRename,
                 metadataFetchingExecutor,
-                transactionLogReaderFactory);
+                transactionLogReaderFactory,
+                tableCredentialsProvider);
     }
 }
