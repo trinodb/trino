@@ -66,6 +66,7 @@ public final class SolverShadow
 {
     private static final AtomicBoolean ENABLED = new AtomicBoolean(Boolean.getBoolean("trino.solver-shadow"));
     private static final Map<FunctionId, Optional<TypeScheme>> SCHEMES = new ConcurrentHashMap<>();
+    private static final Supplier<TypeLibrary> LIBRARY = Suppliers.memoize(SolverShadow::createLibrary);
     private static final Supplier<FunctionResolver> RESOLVER = Suppliers.memoize(SolverShadow::createResolver);
 
     private SolverShadow() {}
@@ -104,7 +105,7 @@ public final class SolverShadow
                 // mixed or non-scalar name: out of the shadow's scope
                 return;
             }
-            Optional<TypeScheme> scheme = SCHEMES.computeIfAbsent(candidateMetadata.getFunctionId(), _ -> bridge(candidateMetadata));
+            Optional<TypeScheme> scheme = scheme(candidateMetadata);
             if (scheme.isEmpty()) {
                 // A candidate the bridge cannot express could have changed the resolution
                 // outcome; verifying against a partial candidate set would report false
@@ -175,6 +176,26 @@ public final class SolverShadow
         return TypeBridge.render(TypeBridge.toExpression(signature.getReturnType()));
     }
 
+    /// The function's scheme, bridged once per [FunctionId] and memoized; empty when the bridge
+    /// cannot express the signature.
+    static Optional<TypeScheme> scheme(FunctionMetadata metadata)
+    {
+        return SCHEMES.computeIfAbsent(metadata.getFunctionId(), _ -> bridge(metadata));
+    }
+
+    /// The shared rule library — types, coercions, casts, no functions (candidates come from
+    /// catalog metadata) — the shadow components resolve against.
+    static TypeLibrary library()
+    {
+        return LIBRARY.get();
+    }
+
+    /// The shared resolver, ranking candidates the way the engine's FunctionBinder does.
+    static FunctionResolver resolver()
+    {
+        return RESOLVER.get();
+    }
+
     private static Optional<TypeScheme> bridge(FunctionMetadata metadata)
     {
         try {
@@ -185,7 +206,7 @@ public final class SolverShadow
         }
     }
 
-    private static FunctionResolver createResolver()
+    private static TypeLibrary createLibrary()
     {
         TypeLibrary.Builder builder = TypeLibrary.builder();
         TrinoPreset.typeConstructors().forEach(builder::registerType);
@@ -195,7 +216,11 @@ public final class SolverShadow
         // in for unbounded — re-encoded exactly, not coerced, so overload selection matches the
         // engine's preference for varchar forms over genuinely converting candidates
         builder.registerCoercion(new UnboundedVarcharSentinelCoercion());
-        TypeLibrary library = builder.build();
-        return new FunctionResolver(library.typeSystem(), Specificity.BY_COERCION_COUNT.then(new TrinoSpecificity(library.typeSystem())));
+        return builder.build();
+    }
+
+    private static FunctionResolver createResolver()
+    {
+        return new FunctionResolver(library().typeSystem(), Specificity.BY_COERCION_COUNT.then(new TrinoSpecificity(library().typeSystem())));
     }
 }
