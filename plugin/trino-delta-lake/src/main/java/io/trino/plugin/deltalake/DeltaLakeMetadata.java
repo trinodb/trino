@@ -4492,7 +4492,10 @@ public class DeltaLakeMetadata
                 DeltaMetastoreTable transactionsTable = table.orElseThrow();
                 yield Optional.of(new DeltaLakeTransactionsTable(transactionsTable, fileSystemFactory, transactionLogAccess, typeManager, getTableCredentials(transactionsTable)));
             }
-            case PROPERTIES -> Optional.of(new DeltaLakePropertiesTable(fileSystemFactory, table.orElseThrow(), transactionLogAccess, tableCredentialsProvider));
+            case PROPERTIES -> {
+                DeltaMetastoreTable propertiesTable = table.orElseThrow();
+                yield Optional.of(new DeltaLakePropertiesTable(fileSystemFactory, table.orElseThrow(), transactionLogAccess, getTableCredentials(propertiesTable)));
+            }
             case PARTITIONS -> {
                 DeltaMetastoreTable partitionsTable = table.orElseThrow();
                 yield Optional.of(new DeltaLakePartitionsTable(session, fileSystemFactory, partitionsTable, transactionLogAccess, typeManager, getTableCredentials(partitionsTable)));

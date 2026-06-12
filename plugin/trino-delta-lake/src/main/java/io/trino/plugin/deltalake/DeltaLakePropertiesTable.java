@@ -56,15 +56,15 @@ public class DeltaLakePropertiesTable
     private final DeltaMetastoreTable table;
     private final TransactionLogAccess transactionLogAccess;
     private final ConnectorTableMetadata tableMetadata;
-    private final DeltaLakeTableCredentialsProvider tableCredentialsProvider;
+    private final Optional<DeltaLakeTableCredentials> tableCredentials;
 
-    public DeltaLakePropertiesTable(DeltaLakeFileSystemFactory fileSystemFactory, DeltaMetastoreTable table, TransactionLogAccess transactionLogAccess, DeltaLakeTableCredentialsProvider tableCredentialsProvider)
+    public DeltaLakePropertiesTable(DeltaLakeFileSystemFactory fileSystemFactory, DeltaMetastoreTable table, TransactionLogAccess transactionLogAccess, Optional<DeltaLakeTableCredentials> tableCredentials)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.table = requireNonNull(table, "table is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.tableMetadata = new ConnectorTableMetadata(requireNonNull(table.schemaTableName(), "tableName is null"), COLUMNS);
-        this.tableCredentialsProvider = requireNonNull(tableCredentialsProvider, "tableCredentialsProvider is null");
+        this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
     }
 
     @Override
@@ -85,7 +85,6 @@ public class DeltaLakePropertiesTable
         MetadataEntry metadataEntry;
         ProtocolEntry protocolEntry;
 
-        Optional<DeltaLakeTableCredentials> tableCredentials = tableCredentialsProvider.getTableCredentials(table);
         TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
         try {
             TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, table, tableCredentials, Optional.empty());
