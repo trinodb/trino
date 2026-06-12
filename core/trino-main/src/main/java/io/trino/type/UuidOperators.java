@@ -46,6 +46,7 @@ public final class UuidOperators
         return javaUuidToTrinoUuid(uuid);
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.UUID)
@@ -63,6 +64,7 @@ public final class UuidOperators
         }
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -76,6 +78,7 @@ public final class UuidOperators
         throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", varchar.toStringUtf8(), x));
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.UUID)
     public static Slice castFromVarbinaryToUuid(@SqlType("varbinary") Slice slice)
@@ -86,7 +89,7 @@ public final class UuidOperators
         throw new TrinoException(INVALID_CAST_ARGUMENT, "Invalid UUID binary length: " + slice.length());
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.VARBINARY)
     public static Slice castFromUuidToVarbinary(@SqlType(StandardTypes.UUID) Slice slice)
     {
