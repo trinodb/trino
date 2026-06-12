@@ -227,6 +227,14 @@ public class TestTinyintOperators
 
         assertThat(assertions.operator(EQUAL, "TINYINT '17'", "TINYINT '17'"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a = b")
+                .binding("a", "TINYINT '17'")
+                .binding("b", "TINYINT '17'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "TINYINT '17'", "TINYINT '17'"))
+                .neverFails();
     }
 
     @Test
@@ -267,6 +275,15 @@ public class TestTinyintOperators
 
         assertThat(assertions.operator(LESS_THAN, "TINYINT '17'", "TINYINT '17'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a < b")
+                .binding("a", "TINYINT '17'")
+                .binding("b", "TINYINT '17'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "TINYINT '17'", "TINYINT '17'"))
+                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
+                .couldFail();
     }
 
     @Test
@@ -283,6 +300,15 @@ public class TestTinyintOperators
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TINYINT '17'", "TINYINT '17'"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "TINYINT '17'")
+                .binding("b", "TINYINT '17'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TINYINT '17'", "TINYINT '17'"))
+                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
+                .couldFail();
     }
 
     @Test
