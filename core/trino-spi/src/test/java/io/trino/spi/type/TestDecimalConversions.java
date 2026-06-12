@@ -24,6 +24,8 @@ import static io.trino.spi.type.DecimalConversions.MAX_EXACT_DOUBLE;
 import static io.trino.spi.type.DecimalConversions.MAX_EXACT_FLOAT;
 import static io.trino.spi.type.DecimalConversions.longDecimalToDouble;
 import static io.trino.spi.type.DecimalConversions.longDecimalToReal;
+import static io.trino.spi.type.DecimalConversions.shortDecimalToDouble;
+import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -37,6 +39,25 @@ class TestDecimalConversions
             for (int scale = 0; scale <= 38; scale++) {
                 assertThat(longDecimalToDouble(unscaledInt128, scale))
                         .as("longDecimalToDouble(%s, %d)", unscaledInt128, scale)
+                        .isEqualTo(new BigDecimal(unscaledValue, scale).doubleValue());
+            }
+        }
+    }
+
+    @Test
+    void testShortDecimalToDouble()
+    {
+        BigInteger shortDecimalBound = BigInteger.TEN.pow(MAX_SHORT_PRECISION);
+        for (BigInteger unscaledValue : testValues()) {
+            if (unscaledValue.abs().compareTo(shortDecimalBound) >= 0) {
+                // does not fit in a short decimal
+                continue;
+            }
+            long unscaled = unscaledValue.longValueExact();
+            for (int scale = 0; scale <= MAX_SHORT_PRECISION; scale++) {
+                long tenToScale = BigInteger.TEN.pow(scale).longValueExact();
+                assertThat(shortDecimalToDouble(unscaled, tenToScale))
+                        .as("shortDecimalToDouble(%s, scale=%d)", unscaled, scale)
                         .isEqualTo(new BigDecimal(unscaledValue, scale).doubleValue());
             }
         }
