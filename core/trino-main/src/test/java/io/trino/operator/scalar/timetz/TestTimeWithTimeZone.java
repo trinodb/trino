@@ -31,6 +31,9 @@ import java.util.function.BiFunction;
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -2397,6 +2400,64 @@ public class TestTimeWithTimeZone
         assertThat(assertions.expression("TIME '12:34:56.1234567891-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:43:56.1234567891 +10:00'");
         assertThat(assertions.expression("TIME '12:34:56.12345678912-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:43:56.12345678912 +10:00'");
         assertThat(assertions.expression("TIME '12:34:56.123456789123-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:43:56.123456789123 +10:00'");
+    }
+
+    @Test
+    public void testComparisonOperators()
+    {
+        // short (precision <= 9 → ShortTimeWithTimeZoneType)
+        assertThat(assertions.expression("a = b")
+                .binding("a", "TIME '12:34:56+08:35'")
+                .binding("b", "TIME '12:34:56+08:35'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "TIME '12:34:56+08:35'", "TIME '12:34:56+08:35'"))
+                .neverFails();
+
+        assertThat(assertions.expression("a < b")
+                .binding("a", "TIME '12:34:56+08:35'")
+                .binding("b", "TIME '12:34:56+08:35'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "TIME '12:34:56+08:35'", "TIME '12:34:56+08:35'"))
+                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
+                .couldFail();
+
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "TIME '12:34:56+08:35'")
+                .binding("b", "TIME '12:34:56+08:35'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIME '12:34:56+08:35'", "TIME '12:34:56+08:35'"))
+                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
+                .couldFail();
+
+        // long (precision > 9 → LongTimeWithTimeZoneType)
+        assertThat(assertions.expression("a = b")
+                .binding("a", "TIME '12:34:56.1234567891+08:35'")
+                .binding("b", "TIME '12:34:56.1234567891+08:35'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "TIME '12:34:56.1234567891+08:35'", "TIME '12:34:56.1234567891+08:35'"))
+                .neverFails();
+
+        assertThat(assertions.expression("a < b")
+                .binding("a", "TIME '12:34:56.1234567891+08:35'")
+                .binding("b", "TIME '12:34:56.1234567891+08:35'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "TIME '12:34:56.1234567891+08:35'", "TIME '12:34:56.1234567891+08:35'"))
+                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
+                .couldFail();
+
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "TIME '12:34:56.1234567891+08:35'")
+                .binding("b", "TIME '12:34:56.1234567891+08:35'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIME '12:34:56.1234567891+08:35'", "TIME '12:34:56.1234567891+08:35'"))
+                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
+                .couldFail();
     }
 
     private static BiFunction<Session, QueryRunner, Object> timeWithTimeZone(int precision, int hour, int minute, int second, long picoOfSecond, int offsetMinutes)
