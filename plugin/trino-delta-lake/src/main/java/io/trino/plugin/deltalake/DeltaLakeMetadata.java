@@ -1308,7 +1308,7 @@ public class DeltaLakeMetadata
                     continue;
                 }
 
-                TransactionLogReader transactionLogReader = transactionLogReaderFactory.createReader(deltaMetastoreTable);
+                TransactionLogReader transactionLogReader = transactionLogReaderFactory.createReader(deltaMetastoreTable, getTableCredentials(deltaMetastoreTable));
                 TableSnapshot snapshot = transactionLogAccess.loadSnapshot(session, transactionLogReader, tableName, tableLocation, Optional.empty(), tableCredentials);
                 MetadataEntry metadata = transactionLogAccess.getMetadataEntry(session, fileSystem, snapshot);
                 ProtocolEntry protocol = transactionLogAccess.getProtocolEntry(session, fileSystem, snapshot);
@@ -2789,11 +2789,12 @@ public class DeltaLakeMetadata
 
     private Optional<String> findShallowCloneSourceTableLocation(ConnectorSession session, DeltaLakeTableHandle handle)
     {
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session, getTableCredentials(session, handle).map(DeltaLakeTableCredentials.class::cast));
+        Optional<DeltaLakeTableCredentials> tableCredentials = getTableCredentials(handle.toCredentialsHandle());
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
         String sourceTableName;
         try {
             // The clone commit is the first commit of the cloned table, so set the endVersion to 0
-            TransactionLogReader transactionLogReader = transactionLogReaderFactory.createReader(handle);
+            TransactionLogReader transactionLogReader = transactionLogReaderFactory.createReader(handle, tableCredentials);
             TransactionLogTail transactionLogTail = transactionLogReader.loadNewTail(session, Optional.empty(), Optional.of(0L), DataSize.ofBytes(0));
             List<Transaction> transactions = transactionLogTail.getTransactions();
             if (transactions.isEmpty()) {

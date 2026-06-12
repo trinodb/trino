@@ -193,7 +193,7 @@ public class TestDeltaLakeSplitManager
                 fileSystemFactory,
                 new ParquetReaderConfig(),
                 newDirectExecutorService(),
-                new FileSystemTransactionLogReaderFactory(fileSystemFactory, new NoOpTableCredentialsProvider()))
+                new FileSystemTransactionLogReaderFactory(fileSystemFactory))
         {
             @Override
             public Stream<AddFileEntry> getActiveFiles(
@@ -217,7 +217,7 @@ public class TestDeltaLakeSplitManager
                 new DeltaLakeConfig(),
                 newDirectExecutorService());
 
-        TransactionLogReaderFactory transactionLogReaderFactory = new FileSystemTransactionLogReaderFactory(fileSystemFactory, new NoOpTableCredentialsProvider());
+        TransactionLogReaderFactory transactionLogReaderFactory = new FileSystemTransactionLogReaderFactory(fileSystemFactory);
         HiveMetastoreFactory hiveMetastoreFactory = HiveMetastoreFactory.ofInstance(createTestingFileHiveMetastore(new MemoryFileSystemFactory(), Location.of("memory:///")), false);
         DeltaLakeMetadataFactory metadataFactory = new DeltaLakeMetadataFactory(
                 hiveMetastoreFactory,

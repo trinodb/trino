@@ -202,7 +202,7 @@ public class TransactionLogAccess
             Optional<LastCheckpoint> lastCheckpoint)
             throws IOException
     {
-        return loadSnapshot(session, transactionLogReaderFactory.createReader(table), table.schemaTableName(), table.location(), endVersion, tableCredentials, lastCheckpoint);
+        return loadSnapshot(session, transactionLogReaderFactory.createReader(table, tableCredentials), table.schemaTableName(), table.location(), endVersion, tableCredentials, lastCheckpoint);
     }
 
     public TableSnapshot loadSnapshot(
@@ -223,7 +223,7 @@ public class TransactionLogAccess
             Optional<LastCheckpoint> lastCheckpoint)
             throws IOException
     {
-        return loadSnapshot(session, transactionLogReaderFactory.createReader(tableHandle), tableHandle.getSchemaTableName(), tableHandle.getLocation(), endVersion, tableCredentials, lastCheckpoint);
+        return loadSnapshot(session, transactionLogReaderFactory.createReader(tableHandle, tableCredentials), tableHandle.getSchemaTableName(), tableHandle.getLocation(), endVersion, tableCredentials, lastCheckpoint);
     }
 
     /**

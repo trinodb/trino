@@ -144,7 +144,7 @@ public class TestTransactionLogAccess
                 tracingFileSystemFactory,
                 new ParquetReaderConfig(),
                 newDirectExecutorService(),
-                new FileSystemTransactionLogReaderFactory(tracingFileSystemFactory, new NoOpTableCredentialsProvider()));
+                new FileSystemTransactionLogReaderFactory(tracingFileSystemFactory));
 
         tableSnapshot = transactionLogAccess.loadSnapshot(SESSION, createTable(new SchemaTableName("schema", tableName), tableLocation), Optional.empty(), endVersion);
         this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
