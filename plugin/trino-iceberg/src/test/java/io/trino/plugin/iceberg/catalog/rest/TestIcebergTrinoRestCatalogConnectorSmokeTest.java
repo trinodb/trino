@@ -44,6 +44,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
+import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalogWithoutNamespaceLocation;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.apache.iceberg.FileFormat.PARQUET;
@@ -248,6 +249,57 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     {
         assertThatThrownBy(super::testDropTableWithNonExistentTableLocation)
                 .hasMessageMatching("Failed to load table: (.*)");
+    }
+
+    @Test
+    void testCreateTableInNamespaceWithoutLocation()
+            throws Exception
+    {
+        // Some REST catalog servers do not assign a location to every namespace. When
+        // a namespace has no location, TrinoRestCatalog.defaultTableLocation returns null
+        // and TrinoRestCatalog.newCreateTableTransaction falls back to a non-staged
+        // create (tableBuilder.create().newTransaction()). Iceberg then writes initial metadata
+        // files to the table location before IcebergMetadata.beginCreateTable has a chance to
+        // check whether the location is empty, which can cause a spurious "Cannot create a table
+        // on a non-empty location" error if the condition for the check is incorrect.
+        String catalogName = "iceberg_file_" + randomNameSuffix();
+        String schemaName = "test_no_ns_loc_" + randomNameSuffix();
+        String tableName = "test_table_" + randomNameSuffix();
+
+        Path fileSchemeWarehouse = Files.createTempDirectory(null);
+        closeAfterClass(() -> deleteRecursively(fileSchemeWarehouse, ALLOW_INSECURE));
+
+        JdbcCatalog fileBackend = closeAfterClass(backendCatalogWithoutNamespaceLocation(fileSchemeWarehouse));
+
+        DelegatingRestSessionCatalog fileBackendCatalog = DelegatingRestSessionCatalog.builder()
+                .delegate(fileBackend)
+                .build();
+        TestingHttpServer fileBackendServer = fileBackendCatalog.testServer();
+        fileBackendServer.start();
+        closeAfterClass(fileBackendServer::stop);
+
+        getDistributedQueryRunner().createCatalog(
+                catalogName,
+                "iceberg",
+                ImmutableMap.<String, String>builder()
+                        .put("iceberg.catalog.type", "rest")
+                        .put("iceberg.rest-catalog.uri", fileBackendServer.getBaseUrl().toString())
+                        .put("fs.hadoop.enabled", "true")
+                        .buildOrThrow());
+
+        // Create the namespace without a location property. Because the backend strips the
+        // synthesised location, TrinoRestCatalog.defaultTableLocation returns null, triggering
+        // the non-staged create path that was previously broken.
+        fileBackend.createNamespace(Namespace.of(schemaName), ImmutableMap.of());
+        String fullTableName = "%s.%s.%s".formatted(catalogName, schemaName, tableName);
+        try {
+            assertUpdate("CREATE TABLE %s (col INTEGER)".formatted(fullTableName));
+            assertQueryReturnsEmptyResult("SELECT * FROM %s".formatted(fullTableName));
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS %s".formatted(fullTableName));
+            fileBackend.dropNamespace(Namespace.of(schemaName));
+        }
     }
 
     @Override
