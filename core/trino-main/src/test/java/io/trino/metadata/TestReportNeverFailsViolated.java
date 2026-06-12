@@ -15,6 +15,7 @@ package io.trino.metadata;
 
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.sql.query.QueryAssertions;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.function.OperatorType.NEGATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -72,6 +74,16 @@ public class TestReportNeverFailsViolated
         return 0;
     }
 
+    @ScalarOperator(value = NEGATION, neverFails = true)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean lyingNeverFailsOperator(@SqlType(StandardTypes.BOOLEAN) boolean fail)
+    {
+        if (fail) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "lying_never_fails_operator: caller asked to fail");
+        }
+        return false;
+    }
+
     @Test
     void testIncorrectNeverFails()
     {
@@ -92,5 +104,16 @@ public class TestReportNeverFailsViolated
         assertThatThrownBy(assertions.expression("lying_non_deterministic_never_fails(true)")::evaluate)
                 .hasMessage("Function system.builtin.lying_non_deterministic_never_fails(boolean):bigint declared as never failing threw io.trino.spi.TrinoException: lying_non_deterministic_never_fails: caller asked to fail")
                 .hasStackTraceContaining("lying_non_deterministic_never_fails: caller asked to fail");
+    }
+
+    @Test
+    void testIncorrectNeverFailsOperator()
+    {
+        assertThat(assertions.expression("-CAST(false AS boolean)"))
+                .matches("false");
+
+        assertThatThrownBy(assertions.expression("-CAST(true AS boolean)")::evaluate)
+                .hasMessage("Function system.builtin.$operator$negation(boolean):boolean declared as never failing threw io.trino.spi.TrinoException: lying_never_fails_operator: caller asked to fail")
+                .hasStackTraceContaining("lying_never_fails_operator: caller asked to fail");
     }
 }
