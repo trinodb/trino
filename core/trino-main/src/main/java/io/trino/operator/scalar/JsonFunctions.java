@@ -64,6 +64,7 @@ public final class JsonFunctions
 
     private JsonFunctions() {}
 
+    // fallible
     @ScalarOperator(OperatorType.CAST)
     @SqlType(JsonPathType.NAME)
     @LiteralParameters("x")
@@ -72,6 +73,7 @@ public final class JsonFunctions
         return new JsonPath(pattern.toStringUtf8());
     }
 
+    // fallible
     @ScalarOperator(OperatorType.CAST)
     @LiteralParameters("x")
     @SqlType(JsonPathType.NAME)
