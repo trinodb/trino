@@ -248,6 +248,10 @@ public class TestBigintOperators
 
         assertThat(assertions.operator(LESS_THAN, "100000000017", "100000000017"))
                 .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "100000000017", "100000000017"))
+                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
+                .couldFail();
     }
 
     @Test
@@ -264,6 +268,10 @@ public class TestBigintOperators
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "100000000017", "100000000017"))
                 .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "100000000017", "100000000017"))
+                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
+                .couldFail();
     }
 
     @Test
@@ -288,6 +296,11 @@ public class TestBigintOperators
                 .binding("a", "100000000017")
                 .binding("b", "100000000017"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "100000000017")
+                .binding("b", "100000000017"))
+                .neverFails();
     }
 
     @Test
@@ -312,6 +325,11 @@ public class TestBigintOperators
                 .binding("a", "100000000017")
                 .binding("b", "100000000017"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "100000000017")
+                .binding("b", "100000000017"))
+                .neverFails();
     }
 
     @Test
@@ -364,6 +382,12 @@ public class TestBigintOperators
                 .binding("low", "100000000017")
                 .binding("high", "100000000017"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "100000000017")
+                .binding("low", "100000000017")
+                .binding("high", "100000000017"))
+                .neverFails();
     }
 
     @Test
@@ -406,6 +430,10 @@ public class TestBigintOperators
                 .evaluate())
                 .hasMessage("Value 100000000017 cannot be represented as varchar(2)")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertThat(assertions.expression("cast(a as varchar(50))")
+                .binding("a", "100000000017"))
+                .couldFail();
     }
 
     @Test
@@ -418,6 +446,10 @@ public class TestBigintOperators
         assertThat(assertions.expression("cast(a as double)")
                 .binding("a", "100000000017"))
                 .isEqualTo(100000000017.0);
+
+        assertThat(assertions.expression("cast(a as double)")
+                .binding("a", "100000000017"))
+                .neverFails();
     }
 
     @Test
@@ -434,6 +466,10 @@ public class TestBigintOperators
         assertThat(assertions.expression("cast(a as real)")
                 .binding("a", "BIGINT '0'"))
                 .isEqualTo(0.0f);
+
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "BIGINT '0'"))
+                .neverFails();
     }
 
     @Test
@@ -450,6 +486,10 @@ public class TestBigintOperators
         assertThat(assertions.expression("CAST(a AS number)")
                 .binding("a", "BIGINT '0'"))
                 .isEqualTo(new SqlNumber("0"));
+
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "BIGINT '0'"))
+                .neverFails();
     }
 
     @Test
@@ -466,6 +506,10 @@ public class TestBigintOperators
         assertThat(assertions.expression("cast(a as boolean)")
                 .binding("a", "BIGINT '0'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("cast(a as boolean)")
+                .binding("a", "BIGINT '0'"))
+                .couldFail();
     }
 
     @Test
@@ -478,6 +522,10 @@ public class TestBigintOperators
         assertThat(assertions.expression("cast(a as bigint)")
                 .binding("a", "'100000000017'"))
                 .isEqualTo(100000000017L);
+
+        assertThat(assertions.expression("cast(a as bigint)")
+                .binding("a", "'100000000017'"))
+                .couldFail();
     }
 
     @Test
@@ -497,6 +545,9 @@ public class TestBigintOperators
 
         assertThat(assertions.operator(IDENTICAL, "100000000037", "NULL"))
                 .isEqualTo(false);
+
+        assertThat(assertions.operator(IDENTICAL, "100000000037", "NULL"))
+                .neverFails();
     }
 
     @Test
