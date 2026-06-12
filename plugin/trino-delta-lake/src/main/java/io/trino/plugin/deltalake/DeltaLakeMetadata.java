@@ -488,6 +488,7 @@ public class DeltaLakeMetadata
     private final Executor metadataFetchingExecutor;
     private final TransactionLogReaderFactory transactionLogReaderFactory;
     private final DeltaLakeTableCredentialsProvider tableCredentialsProvider;
+    private final Map<VendedCredentialsHandle, Optional<DeltaLakeTableCredentials>> tableCredentialsMap = new ConcurrentHashMap<>();
 
     private record QueriedTable(SchemaTableName schemaTableName, long version)
     {
@@ -554,7 +555,7 @@ public class DeltaLakeMetadata
     public TableSnapshot getSnapshot(ConnectorSession session, DeltaMetastoreTable metastoreTable, Optional<Long> atVersion)
     {
         SchemaTableName tableName = metastoreTable.schemaTableName();
-        Optional<DeltaLakeTableCredentials> tableCredentials = tableCredentialsProvider.getTableCredentials(metastoreTable);
+        Optional<DeltaLakeTableCredentials> tableCredentials = getTableCredentials(metastoreTable);
         return getSnapshot(
                 tableName,
                 atVersion,
@@ -704,7 +705,7 @@ public class DeltaLakeMetadata
             case CorruptedDeltaLakeTableHandle corruptedDeltaLakeTableHandle -> corruptedDeltaLakeTableHandle.toCredentialsHandle();
             default -> throw new IllegalArgumentException("Unsupported ConnectorTableHandle type: " + tableHandle.getClass().getName());
         };
-        return tableCredentialsProvider.getTableCredentials(vendedCredentialsHandle).map(Function.identity());
+        return getTableCredentials(vendedCredentialsHandle).map(Function.identity());
     }
 
     @Override
@@ -720,16 +721,31 @@ public class DeltaLakeMetadata
             default -> throw new IllegalArgumentException("Unsupported ConnectorWritableTableHandle type: " + tableHandle.getClass().getName());
         };
 
-        return tableCredentialsProvider.getTableCredentials(vendedCredentialsHandle).map(Function.identity());
+        return getTableCredentials(vendedCredentialsHandle).map(Function.identity());
     }
 
     @Override
     public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableFunctionHandle tableFunctionHandle)
     {
         if (tableFunctionHandle instanceof TableChangesTableFunctionHandle handle) {
-            return tableCredentialsProvider.getTableCredentials(handle.credentialsHandle()).map(Function.identity());
+            return getTableCredentials(handle.credentialsHandle()).map(Function.identity());
         }
         throw new IllegalArgumentException("Unsupported ConnectorTableFunctionHandle type: " + tableFunctionHandle.getClass().getName());
+    }
+
+    private Optional<DeltaLakeTableCredentials> getTableCredentials(DeltaMetastoreTable table)
+    {
+        return getTableCredentials(VendedCredentialsHandle.of(table));
+    }
+
+    private Optional<DeltaLakeTableCredentials> getTableCredentials(VendedCredentialsHandle vendedCredentialsHandle)
+    {
+        Optional<DeltaLakeTableCredentials> credentials = tableCredentialsMap.computeIfAbsent(vendedCredentialsHandle, tableCredentialsProvider::getTableCredentials);
+        if (credentials.isPresent() && !credentials.get().fileSystemCredentials().isValid()) {
+            tableCredentialsMap.remove(vendedCredentialsHandle, credentials);
+            return tableCredentialsMap.computeIfAbsent(vendedCredentialsHandle, tableCredentialsProvider::getTableCredentials);
+        }
+        return credentials;
     }
 
     @Override
@@ -799,7 +815,7 @@ public class DeltaLakeMetadata
         boolean managed = table.managed();
 
         String tableLocation = table.location();
-        Optional<DeltaLakeTableCredentials> tableCredentials = tableCredentialsProvider.getTableCredentials(table);
+        Optional<DeltaLakeTableCredentials> tableCredentials = getTableCredentials(table);
         TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
 
         DeltaLakeTableDescriptor descriptor;
@@ -1197,7 +1213,7 @@ public class DeltaLakeMetadata
 
             DeltaMetastoreTable deltaMetastoreTable = convertToDeltaMetastoreTable(table);
             String tableLocation = deltaMetastoreTable.location();
-            Optional<DeltaLakeTableCredentials> deltaTableCredentials = tableCredentialsProvider.getTableCredentials(deltaMetastoreTable);
+            Optional<DeltaLakeTableCredentials> deltaTableCredentials = getTableCredentials(deltaMetastoreTable);
             TrinoFileSystem fileSystem = fileSystemFactory.create(session, deltaTableCredentials);
             if (canUseTableParametersFromMetastore(session, fileSystem, table, tableLocation)) {
                 // Don't check TABLE_COMMENT existence because it's not stored in case of null comment
@@ -1282,7 +1298,7 @@ public class DeltaLakeMetadata
 
                 String tableLocation = HiveMetastoreBackedDeltaLakeMetastore.getTableLocation(table);
                 DeltaMetastoreTable deltaMetastoreTable = convertToDeltaMetastoreTable(table);
-                Optional<DeltaLakeTableCredentials> tableCredentials = tableCredentialsProvider.getTableCredentials(deltaMetastoreTable);
+                Optional<DeltaLakeTableCredentials> tableCredentials = getTableCredentials(deltaMetastoreTable);
                 TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
                 if (containsSchemaString(table) && canUseTableParametersFromMetastore(session, fileSystem, table, tableLocation)) {
                     List<ColumnMetadata> columnsMetadata = metadataScheduler.getColumnsMetadata(table);
@@ -1509,7 +1525,7 @@ public class DeltaLakeMetadata
                         "Using CREATE [OR REPLACE] TABLE with an existing table content is disallowed, instead use the system.register_table() procedure.");
             }
             else {
-                TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriterWithoutTransactionIsolation(session, location, tableCredentialsProvider.getTableCredentials(VendedCredentialsHandle.empty(location)));
+                TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriterWithoutTransactionIsolation(session, location, getTableCredentials(VendedCredentialsHandle.empty(location)));
                 ProtocolEntry protocolEntry;
                 if (replaceExistingTable) {
                     commitVersion = getMandatoryCurrentVersion(fileSystem, location, tableHandle.getReadVersion()) + 1;
@@ -1888,7 +1904,7 @@ public class DeltaLakeMetadata
             if (handle.readVersion().isEmpty()) {
                 // For CTAS there is no risk of multiple writers racing. Using writer without transaction isolation so we are not limiting support for CTAS to
                 // filesystems for which we have proper implementations of TransactionLogSynchronizers.
-                transactionLogWriter = transactionLogWriterFactory.newWriterWithoutTransactionIsolation(session, handle.location(), tableCredentialsProvider.getTableCredentials(VendedCredentialsHandle.empty(handle.location())));
+                transactionLogWriter = transactionLogWriterFactory.newWriterWithoutTransactionIsolation(session, handle.location(), getTableCredentials(VendedCredentialsHandle.empty(handle.location())));
             }
             else {
                 TrinoFileSystem fileSystem = fileSystemFactory.create(session, location);
@@ -1899,7 +1915,7 @@ public class DeltaLakeMetadata
                             handle.readVersion().getAsLong(),
                             commitVersion - 1));
                 }
-                transactionLogWriter = transactionLogWriterFactory.createFileSystemWriter(session, location, tableCredentialsProvider.getTableCredentials(VendedCredentialsHandle.empty(location)));
+                transactionLogWriter = transactionLogWriterFactory.createFileSystemWriter(session, location, getTableCredentials(VendedCredentialsHandle.empty(location)));
             }
             appendTableEntries(
                     commitVersion,
@@ -4087,7 +4103,7 @@ public class DeltaLakeMetadata
             LocatedTableHandle table = getTableHandle(session, tableMetadata.getTable(), Optional.empty(), Optional.empty());
             Optional<DeltaLakeTableCredentials> tableCredentials = Optional.ofNullable(table)
                     .flatMap(locatedTableHandle -> getTableCredentials(session, locatedTableHandle))
-                    .or(() -> tableCredentialsProvider.getTableCredentials(VendedCredentialsHandle.empty(tableLocation)))
+                    .or(() -> getTableCredentials(VendedCredentialsHandle.empty(tableLocation)))
                     .map(DeltaLakeTableCredentials.class::cast);
             existingStatistics = statisticsAccess.readExtendedStatistics(session, tableMetadata.getTable(), tableLocation, tableCredentials);
             analyzeColumnNames = existingStatistics.flatMap(ExtendedStatistics::getAnalyzedColumns);
@@ -4465,16 +4481,16 @@ public class DeltaLakeMetadata
             case DATA -> throw new VerifyException("Unexpected DATA table type"); // Handled above.
             case HISTORY -> {
                 DeltaMetastoreTable historyTable = table.orElseThrow();
-                yield Optional.of(new DeltaLakeHistoryTable(historyTable, fileSystemFactory, transactionLogAccess, typeManager, tableCredentialsProvider.getTableCredentials(historyTable)));
+                yield Optional.of(new DeltaLakeHistoryTable(historyTable, fileSystemFactory, transactionLogAccess, typeManager, getTableCredentials(historyTable)));
             }
             case TRANSACTIONS -> {
                 DeltaMetastoreTable transactionsTable = table.orElseThrow();
-                yield Optional.of(new DeltaLakeTransactionsTable(transactionsTable, fileSystemFactory, transactionLogAccess, typeManager, tableCredentialsProvider.getTableCredentials(transactionsTable)));
+                yield Optional.of(new DeltaLakeTransactionsTable(transactionsTable, fileSystemFactory, transactionLogAccess, typeManager, getTableCredentials(transactionsTable)));
             }
             case PROPERTIES -> Optional.of(new DeltaLakePropertiesTable(fileSystemFactory, table.orElseThrow(), transactionLogAccess, tableCredentialsProvider));
             case PARTITIONS -> {
                 DeltaMetastoreTable partitionsTable = table.orElseThrow();
-                yield Optional.of(new DeltaLakePartitionsTable(session, fileSystemFactory, partitionsTable, transactionLogAccess, typeManager, tableCredentialsProvider.getTableCredentials(partitionsTable)));
+                yield Optional.of(new DeltaLakePartitionsTable(session, fileSystemFactory, partitionsTable, transactionLogAccess, typeManager, getTableCredentials(partitionsTable)));
             }
         };
     }
