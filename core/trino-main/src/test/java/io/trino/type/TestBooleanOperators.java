@@ -87,6 +87,14 @@ public class TestBooleanOperators
 
         assertThat(assertions.operator(EQUAL, "false", "false"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a = b")
+                .binding("a", "false")
+                .binding("b", "false"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "false", "false"))
+                .neverFails();
     }
 
     @Test
@@ -127,6 +135,15 @@ public class TestBooleanOperators
 
         assertThat(assertions.operator(LESS_THAN, "false", "false"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a < b")
+                .binding("a", "false")
+                .binding("b", "false"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "false", "false"))
+                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
+                .couldFail();
     }
 
     @Test
@@ -143,6 +160,15 @@ public class TestBooleanOperators
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "false", "false"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "false")
+                .binding("b", "false"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "false", "false"))
+                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
+                .couldFail();
     }
 
     @Test
