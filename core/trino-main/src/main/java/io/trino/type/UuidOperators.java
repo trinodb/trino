@@ -26,7 +26,6 @@ import io.trino.spi.type.StandardTypes;
 import java.util.UUID;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
@@ -91,6 +90,6 @@ public final class UuidOperators
     @SqlType(StandardTypes.VARBINARY)
     public static Slice castFromUuidToVarbinary(@SqlType(StandardTypes.UUID) Slice slice)
     {
-        return wrappedBuffer(slice.getBytes());
+        return slice;
     }
 }
