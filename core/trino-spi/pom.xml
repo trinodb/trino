@@ -436,6 +436,11 @@
                                     <old>method long io.trino.spi.type.Timestamps::truncateEpochMicrosToMillis(long)</old>
                                 </item>
                                 <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.function.FunctionMetadata::isNeverFails()</old>
+                                    <justification>Replaced with getNeverFails() returning Predicate&lt;BoundSignature&gt; so per-binding (e.g., decimal precision/scale) infallibility can be expressed and is type-enforced at the read side.</justification>
+                                </item>
+                                <item>
                                     <code>java.method.addedToInterface</code>
                                     <new>method boolean io.trino.spi.type.TypeManager::isTypeRegistered(java.lang.String)</new>
                                     <justification>Required for resolving static method calls on parametric type bases (array, row, map). Cannot be a default that calls getType because parametric bases require parameters and would force exception-driven control flow.</justification>
