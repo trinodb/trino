@@ -13,19 +13,11 @@
  */
 package io.trino.plugin.deltalake;
 
-import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 
 import java.util.Optional;
 
-import static java.util.Objects.requireNonNull;
-
 public interface DeltaLakeTableCredentialsProvider
 {
-    default Optional<DeltaLakeTableCredentials> getTableCredentials(DeltaMetastoreTable table)
-    {
-        return getTableCredentials(VendedCredentialsHandle.of(requireNonNull(table, "table is null")));
-    }
-
     Optional<DeltaLakeTableCredentials> getTableCredentials(VendedCredentialsHandle credentialsHandle);
 }
