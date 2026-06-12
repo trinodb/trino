@@ -105,6 +105,15 @@ public class TestDecimalCasts
         assertThat(assertions.expression("cast(a as DECIMAL(30, 20))")
                 .binding("a", "false"))
                 .isEqualTo(decimal("0000000000.00000000000000000000", createDecimalType(30, 20)));
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as DECIMAL(2, 2))")
+                .binding("a", "true")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Cannot cast BOOLEAN 'true' to DECIMAL(2, 2)");
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as DECIMAL(38, 38))")
+                .binding("a", "true")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Cannot cast BOOLEAN 'true' to DECIMAL(38, 38)");
     }
 
     @Test
