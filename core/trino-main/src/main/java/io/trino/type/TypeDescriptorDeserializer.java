@@ -14,17 +14,24 @@
 package io.trino.type;
 
 import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.KeyDeserializer;
-import com.google.common.collect.ImmutableSet;
+import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
+import com.google.inject.Inject;
+import io.trino.spi.type.TypeDescriptor;
 
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeDescriptor;
 
-public final class TypeSignatureKeyDeserializer
-        extends KeyDeserializer
+public final class TypeDescriptorDeserializer
+        extends FromStringDeserializer<TypeDescriptor>
 {
-    @Override
-    public Object deserializeKey(String key, DeserializationContext context)
+    @Inject
+    public TypeDescriptorDeserializer()
     {
-        return parseTypeSignature(key, ImmutableSet.of());
+        super(TypeDescriptor.class);
+    }
+
+    @Override
+    protected TypeDescriptor _deserialize(String value, DeserializationContext context)
+    {
+        return parseTypeDescriptor(value);
     }
 }

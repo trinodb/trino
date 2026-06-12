@@ -33,7 +33,7 @@ import static io.trino.metadata.InternalFunctionBundle.extractFunctions;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestConcreteAggregationStateTypeParameters
@@ -45,8 +45,8 @@ public class TestConcreteAggregationStateTypeParameters
     public void testConcreteMapAggregationStateTypeParameters()
     {
         TestingAggregationFunction function = FUNCTION_RESOLUTION.getAggregateFunction("test_fixed_map_agg", fromTypes(BIGINT, BIGINT));
-        assertThat(function.getFinalType().getTypeSignature().toString()).isEqualTo("map(varchar,bigint)");
-        assertThat(function.getIntermediateType().getTypeSignature().toString()).isEqualTo("map(varchar,bigint)");
+        assertThat(function.getFinalType().getTypeDescriptor().toString()).isEqualTo("map(varchar,bigint)");
+        assertThat(function.getIntermediateType().getTypeDescriptor().toString()).isEqualTo("map(varchar,bigint)");
 
         assertAggregation(
                 FUNCTION_RESOLUTION,

@@ -33,7 +33,7 @@ public class QuantileDigestType
     @JsonCreator
     public QuantileDigestType(Type valueType)
     {
-        super(new TypeSignature(NAME, TypeParameter.typeParameter(valueType.getTypeSignature())), Slice.class);
+        super(new TypeDescriptor(NAME, TypeParameter.typeParameter(valueType.getTypeDescriptor())), Slice.class);
         this.valueType = valueType;
     }
 

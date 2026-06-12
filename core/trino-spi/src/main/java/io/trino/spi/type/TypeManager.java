@@ -22,7 +22,7 @@ public interface TypeManager
      *
      * @throws TypeNotFoundException if not found
      */
-    Type getType(TypeSignature signature);
+    Type getType(TypeDescriptor signature);
 
     /**
      * Gets a type given it's SQL representation
@@ -41,7 +41,7 @@ public interface TypeManager
      */
     default Type getParameterizedType(String baseTypeName, List<TypeParameter> typeParameters)
     {
-        return getType(new TypeSignature(baseTypeName, typeParameters));
+        return getType(new TypeDescriptor(baseTypeName, typeParameters));
     }
 
     /**

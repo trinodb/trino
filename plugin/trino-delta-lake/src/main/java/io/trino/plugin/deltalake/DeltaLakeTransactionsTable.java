@@ -25,8 +25,8 @@ import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 
@@ -54,7 +54,7 @@ public class DeltaLakeTransactionsTable
                         requireNonNull(table.schemaTableName(), "tableName is null"),
                         ImmutableList.<ColumnMetadata>builder()
                                 .add(new ColumnMetadata("version", BIGINT))
-                                .add(new ColumnMetadata("transaction", typeManager.getType(new TypeSignature(JSON))))
+                                .add(new ColumnMetadata("transaction", typeManager.getType(new TypeDescriptor(JSON))))
                                 .build()));
     }
 

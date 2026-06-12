@@ -127,7 +127,10 @@ public final class ScalarFromAnnotationsParser
         Signature scalarSignature = implementations.getSignature();
 
         scalar.header().getOperatorType().ifPresent(operatorType ->
-                validateOperator(operatorType, scalarSignature.getReturnType(), scalarSignature.getArgumentTypes()));
+                validateOperator(
+                        operatorType,
+                        scalarSignature.getReturnType(),
+                        scalarSignature.getArgumentTypes()));
 
         return new ParametricScalar(scalarSignature, scalar.header(), implementations, deprecated);
     }

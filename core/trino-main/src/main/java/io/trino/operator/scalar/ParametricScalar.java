@@ -143,7 +143,7 @@ public class ParametricScalar
             Optional<SpecializedSqlScalarFunction> scalarFunctionImplementation = exactImplementation.specialize(functionBinding, functionDependencies);
             if (scalarFunctionImplementation.isEmpty()) {
                 String expectedTypes = boundSignature.getArgumentTypes().stream()
-                        .map(type -> "@SqlType(%s) %s".formatted(type.getTypeSignature().toString().toUpperCase(ENGLISH), type.getJavaType().getSimpleName()))
+                        .map(type -> "@SqlType(%s) %s".formatted(type.getTypeDescriptor().toString().toUpperCase(ENGLISH), type.getJavaType().getSimpleName()))
                         .collect(joining(", "));
                 throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Expected implementation %s(%s):%s but java types do not match".formatted(
                         boundSignature.getName(), expectedTypes, boundSignature.getReturnType().getJavaType().getSimpleName()));

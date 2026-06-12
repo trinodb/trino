@@ -23,7 +23,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 /**
  * Marks a scalar function as a static method of the named type, invocable
  * via SQL:2023 {@code <static method invocation>} syntax: {@code T::method(args)}.
- * The value is a Trino type signature (e.g. {@code "bigint"}, {@code "varchar"}).
+ * The value is a Trino type descriptor (e.g. {@code "bigint"}, {@code "varchar"}).
  */
 @Retention(RUNTIME)
 @Target({METHOD, TYPE})

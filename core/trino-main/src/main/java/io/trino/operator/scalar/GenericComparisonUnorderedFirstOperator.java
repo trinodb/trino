@@ -25,7 +25,7 @@ import java.lang.invoke.MethodHandle;
 
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.TypeSignature.typeVariable;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static java.util.Objects.requireNonNull;
 
 public class GenericComparisonUnorderedFirstOperator

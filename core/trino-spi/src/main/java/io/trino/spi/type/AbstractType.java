@@ -23,11 +23,11 @@ import java.util.List;
 public abstract class AbstractType
         implements Type
 {
-    private final TypeSignature signature;
+    private final TypeDescriptor signature;
     private final Class<?> javaType;
     private final Class<? extends ValueBlock> valueBlockType;
 
-    protected AbstractType(TypeSignature signature, Class<?> javaType, Class<? extends ValueBlock> valueBlockType)
+    protected AbstractType(TypeDescriptor signature, Class<?> javaType, Class<? extends ValueBlock> valueBlockType)
     {
         this.signature = signature;
         this.javaType = javaType;
@@ -35,7 +35,7 @@ public abstract class AbstractType
     }
 
     @Override
-    public final TypeSignature getTypeSignature()
+    public final TypeDescriptor getTypeDescriptor()
     {
         return signature;
     }
@@ -152,7 +152,7 @@ public abstract class AbstractType
             return false;
         }
 
-        return this.getTypeSignature().equals(((Type) o).getTypeSignature());
+        return this.getTypeDescriptor().equals(((Type) o).getTypeDescriptor());
     }
 
     @Override

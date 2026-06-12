@@ -14,46 +14,28 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.parser.ParsingException;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.spi.type.TypeParameter.namedField;
 import static io.trino.spi.type.TypeParameter.numericParameter;
-import static io.trino.spi.type.TypeParameter.numericVariable;
-import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.spi.type.TypeSignature.mapType;
-import static io.trino.spi.type.TypeSignature.rowType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeDescriptor;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestTypeSignature
+public class TestTypeDescriptor
 {
-    @Test
-    public void parseSignatureWithLiterals()
-    {
-        TypeSignature result = new TypeSignature("decimal", numericVariable("X"), numericParameter(42));
-        assertThat(result.getParameters()).hasSize(2);
-        assertThat(result.getParameters().get(0)).isInstanceOf(TypeParameter.Variable.class);
-        assertThat(result.getParameters().get(1)).isInstanceOf(TypeParameter.Numeric.class);
-    }
-
     @Test
     public void parseRowSignature()
     {
@@ -79,10 +61,6 @@ public class TestTypeSignature
                 "row(col0 array(row(col0 bigint,col1 double)))",
                 rowSignature(namedParameter("col0", array(
                         rowSignature(namedParameter("col0", signature("bigint")), namedParameter("col1", signature("double")))))));
-        assertRowSignature(
-                "row(a decimal(p1,s1),b decimal(p2,s2))",
-                ImmutableSet.of("p1", "s1", "p2", "s2"),
-                rowSignature(namedParameter("a", decimal("p1", "s1")), namedParameter("b", decimal("p2", "s2"))));
 
         // row with mixed fields
         assertRowSignature(
@@ -106,10 +84,6 @@ public class TestTypeSignature
                 "row(col0 array(row(bigint,double)))",
                 rowSignature(namedParameter("col0", array(
                         rowSignature(unnamedParameter(signature("bigint")), unnamedParameter(signature("double")))))));
-        assertRowSignature(
-                "row(a decimal(p1,s1),decimal(p2,s2))",
-                ImmutableSet.of("p1", "s1", "p2", "s2"),
-                rowSignature(namedParameter("a", decimal("p1", "s1")), unnamedParameter(decimal("p2", "s2"))));
 
         // named fields of types with spaces
         assertRowSignature(
@@ -171,54 +145,48 @@ public class TestTypeSignature
                 rowSignature(namedParameter("a", signature("bigint")), namedParameter("b", varchar())));
     }
 
-    private TypeSignature varchar()
+    private TypeDescriptor varchar()
     {
-        return new TypeSignature(StandardTypes.VARCHAR, TypeParameter.numericParameter(VarcharType.UNBOUNDED_LENGTH));
+        return new TypeDescriptor(StandardTypes.VARCHAR, TypeParameter.numericParameter(VarcharType.UNBOUNDED_LENGTH));
     }
 
-    private TypeSignature varchar(long length)
+    private TypeDescriptor varchar(long length)
     {
-        return new TypeSignature(StandardTypes.VARCHAR, TypeParameter.numericParameter(length));
+        return new TypeDescriptor(StandardTypes.VARCHAR, TypeParameter.numericParameter(length));
     }
 
-    private TypeSignature decimal(String precisionVariable, String scaleVariable)
+    private static TypeDescriptor rowSignature(Field... fields)
     {
-        return new TypeSignature(StandardTypes.DECIMAL, ImmutableList.of(
-                numericVariable(precisionVariable), numericVariable(scaleVariable)));
-    }
-
-    private static TypeSignature rowSignature(Field... fields)
-    {
-        return new TypeSignature(
+        return new TypeDescriptor(
                 "row",
                 asList(fields).stream()
                         .map(field -> TypeParameter.typeParameter(field.name(), field.type()))
                         .collect(toImmutableList()));
     }
 
-    private static Field namedParameter(String name, TypeSignature value)
+    private static Field namedParameter(String name, TypeDescriptor value)
     {
         return new Field(Optional.of(name), value);
     }
 
-    private static Field unnamedParameter(TypeSignature value)
+    private static Field unnamedParameter(TypeDescriptor value)
     {
         return new Field(Optional.empty(), value);
     }
 
-    private static TypeSignature array(TypeSignature type)
+    private static TypeDescriptor array(TypeDescriptor type)
     {
-        return new TypeSignature(StandardTypes.ARRAY, TypeParameter.typeParameter(type));
+        return new TypeDescriptor(StandardTypes.ARRAY, TypeParameter.typeParameter(type));
     }
 
-    private static TypeSignature map(TypeSignature keyType, TypeSignature valueType)
+    private static TypeDescriptor map(TypeDescriptor keyType, TypeDescriptor valueType)
     {
-        return new TypeSignature(StandardTypes.MAP, TypeParameter.typeParameter(keyType), TypeParameter.typeParameter(valueType));
+        return new TypeDescriptor(StandardTypes.MAP, TypeParameter.typeParameter(keyType), TypeParameter.typeParameter(valueType));
     }
 
-    private TypeSignature signature(String name)
+    private TypeDescriptor signature(String name)
     {
-        return new TypeSignature(name);
+        return new TypeDescriptor(name);
     }
 
     @Test
@@ -251,7 +219,6 @@ public class TestTypeSignature
         assertSignatureFail("blah()");
         assertSignatureFail("array()");
         assertSignatureFail("map()");
-        assertSignatureFail("x", ImmutableSet.of("x"));
 
         // ensure this is not treated as a row type
         assertSignature("rowxxx(a)", "rowxxx", ImmutableList.of("a"));
@@ -267,42 +234,21 @@ public class TestTypeSignature
     @Test
     public void testVarchar()
     {
-        assertThat(VARCHAR.getTypeSignature().toString()).isEqualTo("varchar");
-        assertThat(createVarcharType(42).getTypeSignature().toString()).isEqualTo("varchar(42)");
-        assertThat(VARCHAR.getTypeSignature()).isEqualTo(createUnboundedVarcharType().getTypeSignature());
-        assertThat(createUnboundedVarcharType().getTypeSignature()).isEqualTo(VARCHAR.getTypeSignature());
-        assertThat(VARCHAR.getTypeSignature().hashCode()).isEqualTo(createUnboundedVarcharType().getTypeSignature().hashCode());
-        assertThat(createUnboundedVarcharType().getTypeSignature())
-                .isNotEqualTo(createVarcharType(10).getTypeSignature());
-    }
-
-    @Test
-    public void testIsCalculated()
-    {
-        assertThat(BIGINT.getTypeSignature().isCalculated()).isFalse();
-        assertThat(new TypeSignature("decimal", numericVariable("p"), numericVariable("s")).isCalculated()).isTrue();
-        assertThat(createDecimalType(2, 1).getTypeSignature().isCalculated()).isFalse();
-        assertThat(arrayType(new TypeSignature("decimal", numericVariable("p"), numericVariable("s"))).isCalculated()).isTrue();
-        assertThat(arrayType(createDecimalType(2, 1).getTypeSignature()).isCalculated()).isFalse();
-        assertThat(mapType(new TypeSignature("decimal", numericVariable("p1"), numericVariable("s1")), new TypeSignature("decimal", numericVariable("p2"), numericVariable("s2"))).isCalculated()).isTrue();
-        assertThat(mapType(createDecimalType(2, 1).getTypeSignature(), createDecimalType(3, 1).getTypeSignature()).isCalculated()).isFalse();
-        assertThat(rowType(List.of(namedField("a", new TypeSignature("decimal", numericVariable("p1"), numericVariable("s1"))), namedField("b", new TypeSignature("decimal", numericVariable("p2"), numericVariable("s2"))))).isCalculated()).isTrue();
+        assertThat(VARCHAR.getTypeDescriptor().toString()).isEqualTo("varchar");
+        assertThat(createVarcharType(42).getTypeDescriptor().toString()).isEqualTo("varchar(42)");
+        assertThat(VARCHAR.getTypeDescriptor()).isEqualTo(createUnboundedVarcharType().getTypeDescriptor());
+        assertThat(createUnboundedVarcharType().getTypeDescriptor()).isEqualTo(VARCHAR.getTypeDescriptor());
+        assertThat(VARCHAR.getTypeDescriptor().hashCode()).isEqualTo(createUnboundedVarcharType().getTypeDescriptor().hashCode());
+        assertThat(createUnboundedVarcharType().getTypeDescriptor())
+                .isNotEqualTo(createVarcharType(10).getTypeDescriptor());
     }
 
     private static void assertRowSignature(
             String typeName,
-            Set<String> literalParameters,
-            TypeSignature expectedSignature)
+            TypeDescriptor expectedSignature)
     {
-        TypeSignature signature = parseTypeSignature(typeName, literalParameters);
+        TypeDescriptor signature = parseTypeDescriptor(typeName);
         assertThat(signature).isEqualTo(expectedSignature);
-    }
-
-    private static void assertRowSignature(
-            String typeName,
-            TypeSignature expectedSignature)
-    {
-        assertRowSignature(typeName, ImmutableSet.of(), expectedSignature);
     }
 
     private static void assertSignature(String typeName, String base, List<String> parameters)
@@ -316,7 +262,7 @@ public class TestTypeSignature
             List<String> parameters,
             String expectedTypeName)
     {
-        TypeSignature signature = parseTypeSignature(typeName, ImmutableSet.of());
+        TypeDescriptor signature = parseTypeDescriptor(typeName);
         assertThat(signature.getBase()).isEqualTo(base);
         assertThat(signature.getParameters()).hasSize(parameters.size());
         for (int i = 0; i < signature.getParameters().size(); i++) {
@@ -327,17 +273,10 @@ public class TestTypeSignature
 
     private void assertSignatureFail(String typeName)
     {
-        assertThatThrownBy(() -> parseTypeSignature(typeName, ImmutableSet.of()))
+        assertThatThrownBy(() -> parseTypeDescriptor(typeName))
                 .isInstanceOf(ParsingException.class)
                 .hasMessageMatching("line [1-9][0-9]*:[1-9][0-9]*: mismatched input '.*'\\. Expecting: .*");
     }
 
-    private void assertSignatureFail(String typeName, Set<String> literalCalculationParameters)
-    {
-        assertThatThrownBy(() -> parseTypeSignature(typeName, literalCalculationParameters))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Base type name cannot be a type variable");
-    }
-
-    record Field(Optional<String> name, TypeSignature type) {}
+    record Field(Optional<String> name, TypeDescriptor type) {}
 }

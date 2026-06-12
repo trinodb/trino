@@ -70,7 +70,7 @@ public final class BooleanType
 
     private BooleanType()
     {
-        super(new TypeSignature(NAME), boolean.class, ByteArrayBlock.class);
+        super(new TypeDescriptor(NAME), boolean.class, ByteArrayBlock.class);
     }
 
     @Override

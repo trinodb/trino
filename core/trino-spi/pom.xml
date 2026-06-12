@@ -236,6 +236,18 @@
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <new>method io.trino.spi.function.Signature.Builder io.trino.spi.function.Signature.Builder::argumentTypes(io.trino.spi.type.TypeDescriptor[])</new>
+                                    <justification>argumentTypes deliberately overloads on TypeDescriptor... and TypeTemplate... so call sites keep a stable shape across the ground/open split.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <new>method io.trino.spi.function.Signature.Builder io.trino.spi.function.Signature.Builder::argumentTypes(io.trino.spi.type.TypeTemplate[])</new>
+                                    <justification>argumentTypes deliberately overloads on TypeDescriptor... and TypeTemplate... so call sites keep a stable shape across the ground/open split.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
                                     <code>java.method.removed</code>
                                     <old>method io.trino.spi.type.TypeParameter io.trino.spi.type.TypeParameter::typeVariable(java.lang.String)</old>
                                     <justification>Renamed to numericVariable; the factory builds a numeric parameter variable, not a type variable.</justification>
@@ -263,24 +275,6 @@
                                     <code>java.method.removed</code>
                                     <old>method java.util.List&lt;io.trino.spi.function.LongVariableConstraint&gt; io.trino.spi.function.Signature::getLongVariableConstraints()</old>
                                     <justification>Renamed to getNumericVariableConstraints.</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method io.trino.spi.type.TypeSignature io.trino.spi.type.TypeSignature::parametricType(java.lang.String, io.trino.spi.type.TypeSignature[])</old>
-                                    <justification>Renamed parametricType to type; the parameterless type(name) is the degenerate case.</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
-                                    <new>method io.trino.spi.type.TypeSignature io.trino.spi.type.TypeSignature::type(java.lang.String, io.trino.spi.type.TypeSignature[])</new>
-                                    <justification>The type factory deliberately overloads on TypeSignature... and TypeParameter... varargs so callers avoid wrapping homogeneous parameters.</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
-                                    <new>method io.trino.spi.type.TypeSignature io.trino.spi.type.TypeSignature::type(java.lang.String, io.trino.spi.type.TypeParameter[])</new>
-                                    <justification>The type factory deliberately overloads on TypeSignature... and TypeParameter... varargs so callers avoid wrapping homogeneous parameters.</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
@@ -387,6 +381,50 @@
                                     <old>field io.trino.spi.function.OperatorType.MODULUS</old>
                                     <justification>Renamed to MODULO</justification>
                                 </item>
+                                <!-- Renamed TypeSignature to TypeDescriptor (it is always a ground type, not a signature) -->
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.type.TypeSignature</old>
+                                    <justification>Renamed TypeSignature to TypeDescriptor</justification>
+                                </item>
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>.*io\.trino\.spi\.type\.TypeSignature.*</old>
+                                    <new>.*io\.trino\.spi\.type\.TypeDescriptor.*</new>
+                                    <justification>Renamed TypeSignature to TypeDescriptor</justification>
+                                </item>
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>.*io\.trino\.spi\.type\.TypeSignature.*</old>
+                                    <new>.*io\.trino\.spi\.type\.TypeDescriptor.*</new>
+                                    <justification>Renamed TypeSignature to TypeDescriptor</justification>
+                                </item>
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>.*io\.trino\.spi\.type\.TypeSignature.*</old>
+                                    <new>.*io\.trino\.spi\.type\.TypeDescriptor.*</new>
+                                    <justification>Renamed TypeSignature to TypeDescriptor</justification>
+                                </item>
+                                <!-- Renamed Type.getTypeSignature() to getTypeDescriptor() -->
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java.method.removed</code>
+                                    <old>method io\.trino\.spi\.type\.TypeSignature io\.trino\.spi\.type\.\w+::getTypeSignature\(\)</old>
+                                    <justification>Renamed getTypeSignature to getTypeDescriptor</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method io.trino.spi.type.TypeDescriptor io.trino.spi.type.Type::getTypeDescriptor()</new>
+                                    <justification>Renamed getTypeSignature to getTypeDescriptor</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.finalMethodAddedToNonFinalClass</code>
+                                    <new>method io.trino.spi.type.TypeDescriptor io.trino.spi.type.AbstractType::getTypeDescriptor()</new>
+                                    <justification>Renamed getTypeSignature to getTypeDescriptor</justification>
+                                </item>
                                 <item>
                                     <code>java.method.returnTypeChanged</code>
                                     <old>method void io.trino.spi.connector.ConnectorMetadata::finishTableExecute(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableExecuteHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.List&lt;java.lang.Object&gt;)</old>
@@ -398,34 +436,9 @@
                                     <old>method long io.trino.spi.type.Timestamps::truncateEpochMicrosToMillis(long)</old>
                                 </item>
                                 <item>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method io.trino.spi.function.FunctionMetadata io.trino.spi.function.FunctionMetadata::fromJson(io.trino.spi.function.FunctionId, io.trino.spi.function.Signature, java.lang.String, java.util.Set&lt;java.lang.String&gt;, io.trino.spi.function.FunctionNullability, boolean, boolean, boolean, java.lang.String, io.trino.spi.function.FunctionKind, boolean)</old>
-                                    <new>method io.trino.spi.function.FunctionMetadata io.trino.spi.function.FunctionMetadata::fromJson(io.trino.spi.function.FunctionId, io.trino.spi.function.Signature, java.lang.String, java.util.Set&lt;java.lang.String&gt;, io.trino.spi.function.FunctionNullability, boolean, boolean, boolean, java.lang.String, io.trino.spi.function.FunctionKind, boolean, java.util.Optional&lt;io.trino.spi.type.TypeSignature&gt;, boolean)</new>
-                                    <justification>Add receiverType and instanceMethod to support SQL:2023 method invocation</justification>
-                                </item>
-                                <item>
                                     <code>java.method.addedToInterface</code>
                                     <new>method boolean io.trino.spi.type.TypeManager::isTypeRegistered(java.lang.String)</new>
                                     <justification>Required for resolving static method calls on parametric type bases (array, row, map). Cannot be a default that calls getType because parametric bases require parameters and would force exception-driven control flow.</justification>
-                                </item>
-                                <item>
-                                    <code>java.method.parameterTypeParameterChanged</code>
-                                    <old>parameter io.trino.spi.function.Signature io.trino.spi.function.Signature::fromJson(java.util.List&lt;io.trino.spi.function.TypeVariableConstraint&gt;, java.util.List&lt;io.trino.spi.function.LongVariableConstraint&gt;, io.trino.spi.type.TypeSignature, ===java.util.List&lt;io.trino.spi.type.TypeSignature&gt;===, boolean)</old>
-                                    <new>parameter io.trino.spi.function.Signature io.trino.spi.function.Signature::fromJson(java.util.List&lt;io.trino.spi.function.TypeVariableConstraint&gt;, java.util.List&lt;io.trino.spi.function.LongVariableConstraint&gt;, io.trino.spi.type.TypeSignature, ===java.util.List&lt;io.trino.spi.function.Signature.Argument&gt;===, boolean)</new>
-                                    <justification>Replace parallel argumentTypes list with structural Signature.Argument list to carry parameter names</justification>
-                                </item>
-                                <item>
-                                    <code>java.annotation.attributeValueChanged</code>
-                                    <old>parameter io.trino.spi.function.Signature io.trino.spi.function.Signature::fromJson(java.util.List&lt;io.trino.spi.function.TypeVariableConstraint&gt;, java.util.List&lt;io.trino.spi.function.LongVariableConstraint&gt;, io.trino.spi.type.TypeSignature, ===java.util.List&lt;io.trino.spi.type.TypeSignature&gt;===, boolean)</old>
-                                    <new>parameter io.trino.spi.function.Signature io.trino.spi.function.Signature::fromJson(java.util.List&lt;io.trino.spi.function.TypeVariableConstraint&gt;, java.util.List&lt;io.trino.spi.function.LongVariableConstraint&gt;, io.trino.spi.type.TypeSignature, ===java.util.List&lt;io.trino.spi.function.Signature.Argument&gt;===, boolean)</new>
-                                    <justification>JsonProperty value renamed from argumentTypes to arguments</justification>
-                                </item>
-                                <item>
-                                    <code>java.annotation.removed</code>
-                                    <old>method java.util.List&lt;io.trino.spi.type.TypeSignature&gt; io.trino.spi.function.Signature::getArgumentTypes()</old>
-                                    <new>method java.util.List&lt;io.trino.spi.type.TypeSignature&gt; io.trino.spi.function.Signature::getArgumentTypes()</new>
-                                    <annotationType>com.fasterxml.jackson.annotation.JsonProperty</annotationType>
-                                    <justification>getArgumentTypes() is now a derived view; JsonProperty moved to getArguments()</justification>
                                 </item>
                                 <!-- Remove dead JSON serialization from Signature and FunctionMetadata (never serialized at runtime). -->
                                 <item>
@@ -440,6 +453,45 @@
                                     <code>java.method.removed</code>
                                     <old>method .* io\.trino\.spi\.function\.(Signature|FunctionMetadata)::fromJson\(.*</old>
                                     <justification>Remove the dead @JsonCreator; Signature/FunctionMetadata are never deserialized.</justification>
+                                </item>
+                                <!-- A function signature's argument/return types are now TypeTemplate (the open, variable-bearing form). -->
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method io.trino.spi.type.TypeSignature io.trino.spi.function.Signature::getReturnType()</old>
+                                    <new>method io.trino.spi.type.TypeTemplate io.trino.spi.function.Signature::getReturnType()</new>
+                                    <justification>Signature now represents its return type as a TypeTemplate.</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.List&lt;io.trino.spi.type.TypeSignature&gt; io.trino.spi.function.Signature::getArgumentTypes()</old>
+                                    <new>method java.util.List&lt;io.trino.spi.type.TypeTemplate&gt; io.trino.spi.function.Signature::getArgumentTypes()</new>
+                                    <justification>Signature now represents its argument types as TypeTemplates.</justification>
+                                </item>
+                                <!-- Function dependencies are now carried as TypeTemplate (the open, variable-bearing form) rather than TypeSignature. -->
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java\.method\..*</code>
+                                    <old>.*io\.trino\.spi\.function\.FunctionDependencyDeclaration.*</old>
+                                    <justification>Function dependency declarations now carry their type, argument, and cast types as TypeTemplate, the open variable-bearing form, instead of TypeSignature.</justification>
+                                </item>
+                                <!-- A type variable's castable-to/from constraints are now carried as TypeTemplate rather than TypeSignature. -->
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java\.method\..*</code>
+                                    <old>.*io\.trino\.spi\.function\.TypeVariableConstraint.*</old>
+                                    <justification>A type variable's castable-to and castable-from constraints are now carried as TypeTemplate instead of TypeSignature.</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.List&lt;io.trino.spi.type.TypeSignature&gt; io.trino.spi.function.AggregationFunctionMetadata::getIntermediateTypes()</old>
+                                    <new>method java.util.List&lt;io.trino.spi.type.TypeTemplate&gt; io.trino.spi.function.AggregationFunctionMetadata::getIntermediateTypes()</new>
+                                    <justification>An aggregation's intermediate types are now carried as TypeTemplate, the open variable-bearing form, instead of TypeSignature.</justification>
+                                </item>
+                                <!-- TypeSignature is now strictly ground: a numeric variable is no longer a TypeParameter.Variable but a NumericExpression carried by TypeTemplate. -->
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.type.TypeParameter.Variable</old>
+                                    <justification>A TypeSignature is now always ground; variables live only in TypeTemplate, so the Variable type parameter is removed.</justification>
                                 </item>
                             </differences>
                         </revapi.differences>
