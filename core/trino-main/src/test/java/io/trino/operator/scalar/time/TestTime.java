@@ -1877,6 +1877,39 @@ public class TestTime
     }
 
     @Test
+    public void testTimePlusIntervalDayToSecondLargeInterval()
+    {
+        // Interval is reduced modulo 24h, so even extreme values just wrap around.
+
+        // Multiplying interval by PICOSECONDS_PER_MILLISECOND would overflow long without the modulo.
+        assertThat(assertions.expression("TIME '00:00:00' + INTERVAL '1' SECOND * 10000000000"))
+                .matches("TIME '17:46:40.000'");
+        assertThat(assertions.expression("INTERVAL '1' SECOND * 10000000000 + TIME '00:00:00'"))
+                .matches("TIME '17:46:40.000'");
+
+        // 9_223_372 seconds scales to ~9.22e18 picos, fitting in long but leaving only ~37 ms of
+        // headroom below Long.MAX_VALUE. Adding to a TIME with more picos than that would overflow
+        // `picos + delta` without the `delta % PICOSECONDS_PER_DAY` reduction in TimeOperators.add.
+        assertThat(assertions.expression("TIME '00:00:00.037' + INTERVAL '1' SECOND * 9223372"))
+                .matches("TIME '18:02:52.037'");
+    }
+
+    @Test
+    public void testTimeMinusIntervalDayToSecondLargeInterval()
+    {
+        // Interval is reduced modulo 24h, so even extreme values just wrap around.
+
+        // Multiplying interval by PICOSECONDS_PER_MILLISECOND would overflow long without the modulo.
+        assertThat(assertions.expression("TIME '00:00:00' - INTERVAL '1' SECOND * 10000000000"))
+                .matches("TIME '06:13:20.000'");
+
+        // Negating Long.MIN_VALUE would overflow without the modulo.
+        assertThat(assertions.expression(
+                "TIME '00:00:00' - (INTERVAL '1' SECOND * (-9223372036854775) - INTERVAL '0.808' SECOND)"))
+                .matches("TIME '07:12:55.808'");
+    }
+
+    @Test
     public void testDateTrunc()
     {
         assertThat(assertions.expression("date_trunc('millisecond', TIME '12:34:56')")).matches("TIME '12:34:56'");
