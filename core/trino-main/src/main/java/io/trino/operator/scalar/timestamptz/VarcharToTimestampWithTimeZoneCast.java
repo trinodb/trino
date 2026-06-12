@@ -42,6 +42,7 @@ import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.longTimestampWithTimeZone;
 import static io.trino.type.DateTimes.rescale;
 
+// fallible
 @ScalarOperator(CAST)
 public final class VarcharToTimestampWithTimeZoneCast
 {

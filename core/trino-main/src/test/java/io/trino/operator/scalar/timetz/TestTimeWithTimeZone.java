@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.function.BiFunction;
 
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
@@ -1697,6 +1698,10 @@ public class TestTimeWithTimeZone
         assertThat(assertions.expression("CAST('23:59:59.999999999999+08:35' AS TIME(9) WITH TIME ZONE)")).matches("TIME '00:00:00.000000000+08:35'");
         assertThat(assertions.expression("CAST('23:59:59.999999999999+08:35' AS TIME(10) WITH TIME ZONE)")).matches("TIME '00:00:00.0000000000+08:35'");
         assertThat(assertions.expression("CAST('23:59:59.999999999999+08:35' AS TIME(11) WITH TIME ZONE)")).matches("TIME '00:00:00.00000000000+08:35'");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS TIME(3) WITH TIME ZONE)")
+                .binding("a", "VARCHAR 'invalid'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
     }
 
     @Test

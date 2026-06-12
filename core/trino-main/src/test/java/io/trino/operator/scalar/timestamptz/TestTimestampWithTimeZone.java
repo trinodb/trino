@@ -29,6 +29,7 @@ import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.function.OperatorType.ADD;
@@ -1954,6 +1955,11 @@ public class TestTimestampWithTimeZone
         assertThat(assertions.expression("CAST(CHAR '-12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(10) WITH TIME ZONE)")).matches("TIMESTAMP '-12001-05-01 12:34:56.1111111111 Asia/Kathmandu'");
         assertThat(assertions.expression("CAST(CHAR '-12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(11) WITH TIME ZONE)")).matches("TIMESTAMP '-12001-05-01 12:34:56.11111111111 Asia/Kathmandu'");
         assertThat(assertions.expression("CAST(CHAR '-12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(12) WITH TIME ZONE)")).matches("TIMESTAMP '-12001-05-01 12:34:56.111111111111 Asia/Kathmandu'");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS TIMESTAMP(3) WITH TIME ZONE)")
+                .binding("a", "CHAR 'invalid'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to timestamp: invalid");
     }
 
     @Test
