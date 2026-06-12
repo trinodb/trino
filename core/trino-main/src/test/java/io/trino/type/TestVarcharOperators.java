@@ -206,6 +206,14 @@ public class TestVarcharOperators
 
         assertThat(assertions.operator(EQUAL, "'bar'", "'bar'"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a = b")
+                .binding("a", "'bar'")
+                .binding("b", "'bar'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "'bar'", "'bar'"))
+                .neverFails();
     }
 
     @Test
