@@ -363,16 +363,10 @@ class FunctionBinder
     {
         FunctionMetadata.Builder newMetadata = FunctionMetadata.builder(functionMetadata.getCanonicalName(), functionMetadata.getKind())
                 .functionId(functionMetadata.getFunctionId())
-                .signature(signature.toSignature());
+                .signature(signature.toSignature())
+                .description(functionMetadata.getDescription());
 
         functionMetadata.getNames().forEach(newMetadata::alias);
-
-        if (functionMetadata.getDescription().isEmpty()) {
-            newMetadata.noDescription();
-        }
-        else {
-            newMetadata.description(functionMetadata.getDescription());
-        }
 
         if (functionMetadata.isHidden()) {
             newMetadata.hidden();

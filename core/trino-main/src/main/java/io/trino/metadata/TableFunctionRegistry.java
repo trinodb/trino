@@ -74,7 +74,7 @@ public class TableFunctionRegistry
                         .argumentTypes(toArgumentTypes(tableFunction))
                         .returnType(UnknownType.UNKNOWN)
                         .build())
-                .noDescription()
+                .description("")
                 .nondeterministic()
                 .build();
     }

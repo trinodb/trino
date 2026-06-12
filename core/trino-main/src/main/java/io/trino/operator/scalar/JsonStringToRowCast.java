@@ -40,7 +40,7 @@ public final class JsonStringToRowCast
                         .build())
                 .nullable()
                 .hidden()
-                .noDescription()
+                .description("")
                 .build());
     }
 

@@ -90,7 +90,6 @@ import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Predicate.not;
 
 public class SqlRoutineAnalyzer
 {
@@ -121,11 +120,8 @@ public class SqlRoutineAnalyzer
                 .functionId(functionId)
                 .signature(signature)
                 .nullable()
-                .argumentNullability(nCopies(signature.getArgumentTypes().size(), isCalledOnNull(function)));
-
-        getComment(function)
-                .filter(not(String::isBlank))
-                .ifPresentOrElse(builder::description, builder::noDescription);
+                .argumentNullability(nCopies(signature.getArgumentTypes().size(), isCalledOnNull(function)))
+                .description(getComment(function).orElse(""));
 
         if (!isDeterministic(function)) {
             builder.nondeterministic();

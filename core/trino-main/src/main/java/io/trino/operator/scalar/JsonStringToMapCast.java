@@ -42,7 +42,7 @@ public final class JsonStringToMapCast
                         .build())
                 .nullable()
                 .hidden()
-                .noDescription()
+                .description("")
                 .build());
     }
 

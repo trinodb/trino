@@ -51,7 +51,7 @@ public class TryCastFunction
                 .nullable()
                 .hidden()
                 .neverFails()
-                .noDescription()
+                .description("")
                 .build());
     }
 
