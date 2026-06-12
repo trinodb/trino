@@ -123,6 +123,7 @@ public final class NumberOperators
         return TrinoNumber.from(new Infinity(resultNegative));
     }
 
+    // fallible
     @ScalarOperator(DIVIDE)
     @SqlType(StandardTypes.NUMBER)
     public static TrinoNumber divide(@SqlType(StandardTypes.NUMBER) TrinoNumber dividend, @SqlType(StandardTypes.NUMBER) TrinoNumber divisor)
@@ -157,6 +158,7 @@ public final class NumberOperators
         };
     }
 
+    // fallible
     @ScalarOperator(MODULO)
     @SqlType(StandardTypes.NUMBER)
     public static TrinoNumber modulo(@SqlType(StandardTypes.NUMBER) TrinoNumber dividend, @SqlType(StandardTypes.NUMBER) TrinoNumber divisor)
@@ -190,6 +192,7 @@ public final class NumberOperators
         };
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TINYINT)
     public static long castToTinyint(@SqlType(StandardTypes.NUMBER) TrinoNumber value)
@@ -212,6 +215,7 @@ public final class NumberOperators
         throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to TINYINT", asBigDecimal));
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.SMALLINT)
     public static long castToSmallint(@SqlType(StandardTypes.NUMBER) TrinoNumber value)
@@ -234,6 +238,7 @@ public final class NumberOperators
         throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to SMALLINT", asBigDecimal));
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.INTEGER)
     public static long castToInteger(@SqlType(StandardTypes.NUMBER) TrinoNumber value)
@@ -256,6 +261,7 @@ public final class NumberOperators
         throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to INTEGER", asBigDecimal));
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.BIGINT)
     public static long castToBigint(@SqlType(StandardTypes.NUMBER) TrinoNumber value)
@@ -297,6 +303,7 @@ public final class NumberOperators
         };
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
