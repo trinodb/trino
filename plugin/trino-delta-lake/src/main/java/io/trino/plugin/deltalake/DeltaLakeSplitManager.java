@@ -86,7 +86,6 @@ public class DeltaLakeSplitManager
     private final DeltaLakeFileSystemFactory fileSystemFactory;
     private final DeltaLakeTransactionManager deltaLakeTransactionManager;
     private final SplitAffinityProvider splitAffinityProvider;
-    private final DeltaLakeTableCredentialsProvider tableCredentialsProvider;
 
     @Inject
     public DeltaLakeSplitManager(
@@ -96,8 +95,7 @@ public class DeltaLakeSplitManager
             DeltaLakeConfig config,
             DeltaLakeFileSystemFactory fileSystemFactory,
             DeltaLakeTransactionManager deltaLakeTransactionManager,
-            SplitAffinityProvider splitAffinityProvider,
-            DeltaLakeTableCredentialsProvider tableCredentialsProvider)
+            SplitAffinityProvider splitAffinityProvider)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
@@ -108,7 +106,6 @@ public class DeltaLakeSplitManager
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.deltaLakeTransactionManager = requireNonNull(deltaLakeTransactionManager, "deltaLakeTransactionManager is null");
         this.splitAffinityProvider = requireNonNull(splitAffinityProvider, "splitAffinityProvider is null");
-        this.tableCredentialsProvider = requireNonNull(tableCredentialsProvider, "tableCredentialsProvider is null");
     }
 
     @Override
@@ -144,7 +141,10 @@ public class DeltaLakeSplitManager
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableFunctionHandle function)
     {
         if (function instanceof TableChangesTableFunctionHandle tableFunctionHandle) {
-            return new TableChangesSplitSource(session, fileSystemFactory, tableFunctionHandle, tableCredentialsProvider.getTableCredentials(tableFunctionHandle.credentialsHandle()));
+            Optional<DeltaLakeTableCredentials> tableCredentials = deltaLakeTransactionManager.get(transaction, session.getIdentity())
+                    .getTableCredentials(session, tableFunctionHandle)
+                    .map(DeltaLakeTableCredentials.class::cast);
+            return new TableChangesSplitSource(session, fileSystemFactory, tableFunctionHandle, tableCredentials);
         }
         throw new UnsupportedOperationException("Unrecognized function: " + function);
     }

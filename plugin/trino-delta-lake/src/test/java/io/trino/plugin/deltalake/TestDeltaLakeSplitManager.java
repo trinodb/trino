@@ -250,8 +250,7 @@ public class TestDeltaLakeSplitManager
                 deltaLakeConfig,
                 new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY, new NoOpTableCredentialsProvider()),
                 deltaLakeTransactionManager,
-                new NoopSplitAffinityProvider(),
-                new NoOpTableCredentialsProvider());
+                new NoopSplitAffinityProvider());
     }
 
     private AddFileEntry addFileEntryOfSize(String path, long fileSize)
