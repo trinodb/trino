@@ -441,6 +441,11 @@
                                     <old>method .* io\.trino\.spi\.function\.(Signature|FunctionMetadata)::fromJson\(.*</old>
                                     <justification>Remove the dead @JsonCreator; Signature/FunctionMetadata are never deserialized.</justification>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.function.FunctionMetadata::isNeverFails()</old>
+                                    <justification>Replaced with getNeverFails() returning Predicate&lt;BoundSignature&gt; so per-binding (e.g., decimal precision/scale) infallibility can be expressed and is type-enforced at the read side.</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
