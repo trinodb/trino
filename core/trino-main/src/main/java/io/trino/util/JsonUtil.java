@@ -744,7 +744,7 @@ public final class JsonUtil
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
             case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToBigint(utf8Slice(parser.getText()));
-            case VALUE_NUMBER_FLOAT -> DoubleOperators.castToLong(parser.getDoubleValue());
+            case VALUE_NUMBER_FLOAT -> DoubleOperators.castToBigint(parser.getDoubleValue());
             case VALUE_NUMBER_INT -> parser.getLongValue();
             case VALUE_TRUE -> BooleanOperators.castToBigint(true);
             case VALUE_FALSE -> BooleanOperators.castToBigint(false);

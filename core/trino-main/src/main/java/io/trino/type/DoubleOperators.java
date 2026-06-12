@@ -156,7 +156,7 @@ public final class DoubleOperators
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.BIGINT)
-    public static long castToLong(@SqlType(StandardTypes.DOUBLE) double value)
+    public static long castToBigint(@SqlType(StandardTypes.DOUBLE) double value)
     {
         if (Double.isNaN(value)) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast double NaN to bigint");
