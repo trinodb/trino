@@ -127,13 +127,13 @@ final class ShortTimeWithTimeZoneType
         return Long.BYTES;
     }
 
-    @ScalarOperator(READ_VALUE)
+    @ScalarOperator(value = READ_VALUE, neverFails = true)
     private static long read(@BlockPosition LongArrayBlock block, @BlockIndex int position)
     {
         return block.getLong(position);
     }
 
-    @ScalarOperator(READ_VALUE)
+    @ScalarOperator(value = READ_VALUE, neverFails = true)
     private static long readFlat(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
@@ -143,7 +143,7 @@ final class ShortTimeWithTimeZoneType
         return (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
     }
 
-    @ScalarOperator(READ_VALUE)
+    @ScalarOperator(value = READ_VALUE, neverFails = true)
     private static void writeFlat(
             long value,
             @FlatFixed byte[] fixedSizeSlice,
@@ -154,37 +154,37 @@ final class ShortTimeWithTimeZoneType
         LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset, value);
     }
 
-    @ScalarOperator(EQUAL)
+    @ScalarOperator(value = EQUAL, neverFails = true)
     private static boolean equalOperator(long leftPackedTime, long rightPackedTime)
     {
         return normalizePackedTime(leftPackedTime) == normalizePackedTime(rightPackedTime);
     }
 
-    @ScalarOperator(HASH_CODE)
+    @ScalarOperator(value = HASH_CODE, neverFails = true)
     private static long hashCodeOperator(long packedTime)
     {
         return AbstractLongType.hash(normalizePackedTime(packedTime));
     }
 
-    @ScalarOperator(XX_HASH_64)
+    @ScalarOperator(value = XX_HASH_64, neverFails = true)
     private static long xxHash64Operator(long packedTime)
     {
         return XxHash64.hash(normalizePackedTime(packedTime));
     }
 
-    @ScalarOperator(COMPARISON_UNORDERED_LAST)
+    @ScalarOperator(value = COMPARISON_UNORDERED_LAST, neverFails = true)
     private static long comparisonOperator(long left, long right)
     {
         return Long.compare(normalizePackedTime(left), normalizePackedTime(right));
     }
 
-    @ScalarOperator(LESS_THAN)
+    @ScalarOperator(value = LESS_THAN, neverFails = true)
     private static boolean lessThanOperator(long left, long right)
     {
         return normalizePackedTime(left) < normalizePackedTime(right);
     }
 
-    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    @ScalarOperator(value = LESS_THAN_OR_EQUAL, neverFails = true)
     private static boolean lessThanOrEqualOperator(long left, long right)
     {
         return normalizePackedTime(left) <= normalizePackedTime(right);
