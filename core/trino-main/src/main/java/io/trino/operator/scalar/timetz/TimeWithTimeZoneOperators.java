@@ -26,6 +26,7 @@ import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackOffsetMinutes;
 import static io.trino.spi.type.DateTimeEncoding.unpackTimeNanos;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MINUTE;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
@@ -74,7 +75,7 @@ public final class TimeWithTimeZoneOperators
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
         {
             long picos = unpackTimeNanos(packedTime) * PICOSECONDS_PER_NANOSECOND;
-            long nanos = TimeOperators.add(picos, interval * PICOSECONDS_PER_MILLISECOND) / PICOSECONDS_PER_NANOSECOND;
+            long nanos = TimeOperators.add(picos, (long) floorMod(interval, MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND) / PICOSECONDS_PER_NANOSECOND;
 
             return packTimeWithTimeZone(nanos, unpackOffsetMinutes(packedTime));
         }
@@ -86,7 +87,7 @@ public final class TimeWithTimeZoneOperators
                 @SqlType("time(p) with time zone") LongTimeWithTimeZone time,
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
         {
-            long picos = TimeOperators.add(time.getPicoseconds(), interval * PICOSECONDS_PER_MILLISECOND);
+            long picos = TimeOperators.add(time.getPicoseconds(), (long) floorMod(interval, MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND);
             return new LongTimeWithTimeZone(picos, time.getOffsetMinutes());
         }
     }
@@ -129,7 +130,7 @@ public final class TimeWithTimeZoneOperators
                 @SqlType("time(p) with time zone") long packedTime,
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
         {
-            return TimePlusIntervalDayToSecond.add(packedTime, -interval);
+            return TimePlusIntervalDayToSecond.add(packedTime, -floorMod(interval, MILLISECONDS_PER_DAY));
         }
 
         @LiteralParameters({"p", "u"})
@@ -139,7 +140,7 @@ public final class TimeWithTimeZoneOperators
                 @SqlType("time(p) with time zone") LongTimeWithTimeZone time,
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
         {
-            return TimePlusIntervalDayToSecond.add(time, -interval);
+            return TimePlusIntervalDayToSecond.add(time, -floorMod(interval, MILLISECONDS_PER_DAY));
         }
     }
 

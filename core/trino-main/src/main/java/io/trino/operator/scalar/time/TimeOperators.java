@@ -28,6 +28,7 @@ import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.TimeType.MAX_PRECISION;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.MINUTES_PER_HOUR;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_HOUR;
@@ -39,6 +40,7 @@ import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.parseTime;
 import static io.trino.type.DateTimes.rescaleWithRounding;
 import static io.trino.type.DateTimes.scaleFactor;
+import static java.lang.Math.floorMod;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
@@ -58,6 +60,7 @@ public final class TimeOperators
         return interval;
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @LiteralParameters({"x", "p"})
     @SqlType("time(p)")
@@ -94,7 +97,7 @@ public final class TimeOperators
     @Constraint(variable = "u", expression = "max(3, p)") // interval is currently p = 3
     public static long timePlusIntervalDayToSecond(@SqlType("time(p)") long time, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
     {
-        return add(time, interval * PICOSECONDS_PER_MILLISECOND);
+        return add(time, (long) floorMod(interval, MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND);
     }
 
     @ScalarOperator(ADD)
@@ -112,9 +115,10 @@ public final class TimeOperators
     @Constraint(variable = "u", expression = "max(3, p)") // interval is currently p = 3
     public static long timeMinusIntervalDayToSecond(@SqlType("time(p)") long time, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
     {
-        return add(time, -interval * PICOSECONDS_PER_MILLISECOND);
+        return add(time, -(long) floorMod(interval, MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND);
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @LiteralParameters({"x", "p"})
     @SqlType("varchar(x)")
@@ -168,7 +172,7 @@ public final class TimeOperators
 
     public static long add(long picos, long delta)
     {
-        long result = (picos + delta) % PICOSECONDS_PER_DAY;
+        long result = (picos + (delta % PICOSECONDS_PER_DAY)) % PICOSECONDS_PER_DAY;
         if (result < 0) {
             result += PICOSECONDS_PER_DAY;
         }
