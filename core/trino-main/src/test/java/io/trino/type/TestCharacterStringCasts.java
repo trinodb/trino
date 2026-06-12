@@ -75,7 +75,7 @@ public class TestCharacterStringCasts
         assertThat(assertions.expression("cast(a as varchar(3))")
                 .binding("a", "'banana'"))
                 .hasType(createVarcharType(3))
-                .couldFail()
+                .neverFails()
                 .isEqualTo("ban");
 
         assertThat(assertions.expression("cast(cast(a as varchar(20)) as varchar(3))")
@@ -98,7 +98,7 @@ public class TestCharacterStringCasts
         assertThat(assertions.expression("cast(a as char)")
                 .binding("a", "'bar'"))
                 .hasType(createCharType(1))
-                .couldFail()
+                .neverFails()
                 .isEqualTo("b");
 
         assertThat(assertions.expression("cast(a as char)")
@@ -114,7 +114,7 @@ public class TestCharacterStringCasts
         assertThat(assertions.expression("cast(a as varchar(10))")
                 .binding("a", "CAST('bar' AS char(5))"))
                 .hasType(createVarcharType(10))
-                .couldFail()
+                .neverFails()
                 .isEqualTo("bar  ");
 
         assertThat(assertions.expression("cast(cast(a as char(5)) as varchar(10))")
@@ -151,13 +151,13 @@ public class TestCharacterStringCasts
         assertThat(assertions.expression("cast(a as varchar(4))")
                 .binding("a", "CAST('bar' AS char(5))"))
                 .hasType(createVarcharType(4))
-                .couldFail()
+                .neverFails()
                 .isEqualTo("bar ");
 
         assertThat(assertions.expression("cast(a as varchar(2))")
                 .binding("a", "CAST('bar' AS char(5))"))
                 .hasType(createVarcharType(2))
-                .couldFail()
+                .neverFails()
                 .isEqualTo("ba");
     }
 
@@ -175,13 +175,13 @@ public class TestCharacterStringCasts
         assertThat(assertions.expression("cast(a as char(4))")
                 .binding("a", "CAST('bar' AS char(5))"))
                 .hasType(createCharType(4))
-                .couldFail()
+                .neverFails()
                 .isEqualTo("bar ");
 
         assertThat(assertions.expression("cast(a as char(2))")
                 .binding("a", "CAST('bar' AS char(5))"))
                 .hasType(createCharType(2))
-                .couldFail()
+                .neverFails()
                 .isEqualTo("ba");
     }
 
