@@ -44,6 +44,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.StandaloneQueryRunner;
 import io.trino.testing.assertions.TrinoExceptionAssert;
+import jakarta.annotation.Nullable;
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.AbstractCollectionAssert;
 import org.assertj.core.api.AbstractIntegerAssert;
@@ -880,7 +881,13 @@ public class QueryAssertions
                     .withRepresentation(ExpressionAssert.TYPE_RENDERER);
         }
 
-        public record Result(Type type, Object value) {}
+        public record Result(Type type, @Nullable Object value)
+        {
+            public Result
+            {
+                requireNonNull(type, "type is null");
+            }
+        }
     }
 
     public static class ExpressionAssert
