@@ -206,7 +206,7 @@ public final class DoubleType
     }
 
     @ScalarOperator(XX_HASH_64)
-    public static long xxHash64(double value)
+    private static long xxHash64(double value)
     {
         if (value == 0) {
             value = 0;
