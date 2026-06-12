@@ -61,6 +61,15 @@ public final class TypeLibrary
     }
 
     /**
+     * The resolver {@link #resolveFunction} consults — exposed so callers can drive the same
+     * resolution (same specificity ranking) over candidate sets not registered in this library.
+     */
+    public FunctionResolver resolver()
+    {
+        return functionResolver;
+    }
+
+    /**
      * All registered signatures for the given function name. Returns empty list if unknown.
      */
     public List<TypeScheme> functions(String name)

@@ -30,7 +30,9 @@ import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.VarcharType;
 import org.weakref.solver.Expression;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.lang.Math.toIntExact;
@@ -53,6 +55,12 @@ import static org.weakref.solver.Expression.symbol;
  */
 public final class TypeBridge
 {
+    private static final Map<String, String> MULTI_WORD_BASES = Map.of(
+            "timestamp_with_time_zone", "timestamp with time zone",
+            "time_with_time_zone", "time with time zone",
+            "interval_day_to_second", "interval day to second",
+            "interval_year_to_month", "interval year to month");
+
     private TypeBridge() {}
 
     /**
@@ -113,6 +121,48 @@ public final class TypeBridge
                     default -> throw new IllegalArgumentException("Unsupported type parameter: " + parameter);
                 })
                 .toList());
+    }
+
+    /**
+     * Convert a ground solver expression back to a Trino type descriptor — the inverse of
+     * {@link #toExpression(Type)} for resolution results that must become engine types. Multi-word
+     * bases reverse the underscore encoding ({@code timestamp_with_time_zone(3)} is the engine's
+     * {@code timestamp(3) with time zone}).
+     */
+    public static TypeDescriptor toTypeDescriptor(Expression expression)
+    {
+        return switch (expression) {
+            case Expression.Symbol(String name) -> new TypeDescriptor(trinoBase(name));
+            case Expression.Application(Expression.Symbol(String name), List<Expression> arguments) -> new TypeDescriptor(
+                    trinoBase(name),
+                    arguments.stream().map(TypeBridge::toParameter).toList());
+            case Expression.Row(List<Expression.RowField> fields) -> TypeDescriptor.rowType(fields.stream()
+                    .map(field -> field.name()
+                            .map(name -> TypeParameter.namedField(name, toTypeDescriptor(field.type())))
+                            .orElseGet(() -> TypeParameter.anonymousField(toTypeDescriptor(field.type()))))
+                    .toList());
+            case Expression.FunctionType functionType -> {
+                List<TypeDescriptor> components = new ArrayList<>(functionType.parameterTypes().stream()
+                        .map(TypeBridge::toTypeDescriptor)
+                        .toList());
+                components.add(toTypeDescriptor(functionType.returnType()));
+                yield TypeDescriptor.functionType(components.getFirst(), components.subList(1, components.size()).toArray(TypeDescriptor[]::new));
+            }
+            default -> throw new IllegalArgumentException("Unsupported type expression: " + expression);
+        };
+    }
+
+    private static TypeParameter toParameter(Expression expression)
+    {
+        if (expression instanceof Expression.Literal(int value)) {
+            return TypeParameter.numericParameter(value);
+        }
+        return TypeParameter.typeParameter(toTypeDescriptor(expression));
+    }
+
+    private static String trinoBase(String name)
+    {
+        return MULTI_WORD_BASES.getOrDefault(name, name);
     }
 
     private static String symbolName(String base)

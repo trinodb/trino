@@ -14,7 +14,9 @@
 package io.trino.lib;
 
 import io.trino.spi.type.TypeDescriptor;
+import io.trino.spi.type.TypeParameter;
 import org.junit.jupiter.api.Test;
+import org.weakref.solver.Expression;
 
 import static io.trino.spi.type.TypeParameter.typeParameter;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -38,6 +40,21 @@ class TypeBridgeTest
         // Numeric parameters of nested descriptors survive too
         assertThat(TypeBridge.toExpression(new TypeDescriptor("Classifier", typeParameter(createVarcharType(10).getTypeDescriptor()))))
                 .isEqualTo(apply("classifier", apply("varchar", literal(10))));
+    }
+
+    @Test
+    void testExpressionConvertsBackToDescriptor()
+    {
+        // Multi-word bases reverse the underscore encoding the expression language uses
+        TypeDescriptor timestamp = TypeBridge.toTypeDescriptor(apply("timestamp_with_time_zone", literal(3)));
+        assertThat(timestamp.getBase()).isEqualTo("timestamp with time zone");
+        assertThat(timestamp.getParameters()).containsExactly(TypeParameter.numericParameter(3));
+
+        TypeDescriptor row = TypeBridge.toTypeDescriptor(Expression.row(
+                Expression.field("name", symbol("varchar")),
+                Expression.anonymousField(apply("decimal", literal(10), literal(2)))));
+        assertThat(row.getBase()).isEqualTo("row");
+        assertThat(row.getParameters()).hasSize(2);
     }
 
     @Test

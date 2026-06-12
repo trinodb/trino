@@ -17,8 +17,10 @@ import io.trino.lib.TrinoPreset;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
+import io.trino.sql.analyzer.SolverExpressionTypeChecker;
 import io.trino.sql.parser.SqlParser;
 import org.junit.jupiter.api.Test;
+import org.weakref.solver.TypeLibrary;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -34,8 +36,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TestSolverExpressionTypeChecking
 {
     private final SqlParser parser = new SqlParser();
+    private final TypeLibrary library = TrinoPreset.library();
     private final SolverExpressionTypeChecker checker = new SolverExpressionTypeChecker(
-            TrinoPreset.library(),
+            library.typeSystem(),
+            library.resolver(),
+            library::functions,
             new TestingFunctionResolution().getPlannerContext().getTypeManager());
 
     @Test
