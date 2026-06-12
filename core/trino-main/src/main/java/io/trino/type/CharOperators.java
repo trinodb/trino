@@ -35,6 +35,7 @@ public final class CharOperators
 {
     private CharOperators() {}
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.BOOLEAN)
@@ -43,6 +44,7 @@ public final class CharOperators
         return VarcharOperators.castToBoolean(value);
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.DOUBLE)
@@ -56,6 +58,7 @@ public final class CharOperators
         }
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.REAL)
@@ -69,6 +72,7 @@ public final class CharOperators
         }
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.BIGINT)
@@ -82,6 +86,7 @@ public final class CharOperators
         }
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.INTEGER)
@@ -95,6 +100,7 @@ public final class CharOperators
         }
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.SMALLINT)
@@ -108,6 +114,7 @@ public final class CharOperators
         }
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TINYINT)
@@ -121,6 +128,7 @@ public final class CharOperators
         }
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.NUMBER)
@@ -141,7 +149,7 @@ public final class CharOperators
     }
 
     @LiteralParameters("x")
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.VARBINARY)
     public static Slice castToBinary(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
     {

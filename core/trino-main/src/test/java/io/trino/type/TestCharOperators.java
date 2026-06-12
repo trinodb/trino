@@ -696,5 +696,28 @@ public class TestCharOperators
 
         assertTrinoExceptionThrownBy(assertions.expression("CAST(CHAR 'abc' AS NUMBER)")::evaluate)
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a AS INTEGER)")
+                .binding("a", "CHAR 'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a AS SMALLINT)")
+                .binding("a", "CHAR 'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a AS TINYINT)")
+                .binding("a", "CHAR 'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a AS REAL)")
+                .binding("a", "CHAR 'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a AS BOOLEAN)")
+                .binding("a", "CHAR 'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertThat(assertions.expression("cast(a AS VARBINARY)").binding("a", "CHAR 'abc'"))
+                .neverFails();
     }
 }
