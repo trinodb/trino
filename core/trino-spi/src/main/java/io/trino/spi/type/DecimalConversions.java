@@ -49,6 +49,7 @@ public final class DecimalConversions
     };
     // visible for testing
     static final Int128 MAX_EXACT_DOUBLE = Int128.valueOf(1L << 53);
+    private static final long MAX_EXACT_DOUBLE_LONG = MAX_EXACT_DOUBLE.toLongExact();
     // visible for testing
     static final Int128 MAX_EXACT_FLOAT = Int128.valueOf(1L << 24);
 
@@ -56,7 +57,10 @@ public final class DecimalConversions
 
     public static double shortDecimalToDouble(long decimal, long tenToScale)
     {
-        return ((double) decimal) / tenToScale;
+        if (-MAX_EXACT_DOUBLE_LONG <= decimal && decimal <= MAX_EXACT_DOUBLE_LONG) {
+            return ((double) decimal) / tenToScale;
+        }
+        return BigDecimal.valueOf(decimal).divide(BigDecimal.valueOf(tenToScale)).doubleValue();
     }
 
     public static double longDecimalToDouble(Int128 decimal, long scale)

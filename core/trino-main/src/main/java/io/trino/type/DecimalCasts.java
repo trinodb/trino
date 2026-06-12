@@ -444,7 +444,7 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static double shortDecimalToDouble(long decimal, long precision, long scale, long tenToScale)
     {
-        return ((double) decimal) / tenToScale;
+        return DecimalConversions.shortDecimalToDouble(decimal, tenToScale);
     }
 
     @UsedByGeneratedCode

@@ -2413,7 +2413,7 @@ public abstract class BaseHiveConnectorTest
                         .mapToObj(i -> format("MAP(ARRAY[%s, %s], ARRAY[%s, %s])", i + 567.123, i + 568.456, i + 22769, i + 22770))
                         .collect(toImmutableList()),
                 "MAP(ARRAY[567.123, 568.456], ARRAY[22769, 22770])",
-                149,
+                166,
                 1);
     }
 

@@ -1100,6 +1100,24 @@ public class TestDecimalCasts
         assertThat(assertions.expression("cast(a as DOUBLE)")
                 .binding("a", "DECIMAL '99999999999999999999999999999999999999'"))
                 .isEqualTo(1.0e38);
+
+        // unscaled value does not fit in double lossless, but represented number does
+        assertThat(assertions.expression("cast(a as DOUBLE)")
+                .binding("a", "DECIMAL '912057769880088.000'"))
+                .isEqualTo(912057769880088.0);
+
+        assertThat(assertions.expression("cast(a as DOUBLE)")
+                .binding("a", "DECIMAL '-912057769880088.000'"))
+                .isEqualTo(-912057769880088.0);
+
+        // unscaled value does not fit in double lossless, but represented number does
+        assertThat(assertions.expression("cast(a as DOUBLE)")
+                .binding("a", "DECIMAL '5764607523034800.00'"))
+                .isEqualTo(5764607523034800.0);
+
+        assertThat(assertions.expression("cast(a as DOUBLE)")
+                .binding("a", "DECIMAL '-5764607523034800.00'"))
+                .isEqualTo(-5764607523034800.0);
     }
 
     @Test
