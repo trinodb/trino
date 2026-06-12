@@ -295,6 +295,14 @@ public class TestRealOperators
 
         assertThat(assertions.operator(EQUAL, "REAL 'NaN'", "REAL 'NaN'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a = b")
+                .binding("a", "REAL '12.34'")
+                .binding("b", "REAL '12.34'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "REAL '12.34'", "REAL '12.34'"))
+                .neverFails();
     }
 
     @Test
@@ -364,6 +372,15 @@ public class TestRealOperators
 
         assertThat(assertions.operator(LESS_THAN, "REAL 'NaN'", "REAL 'NaN'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a < b")
+                .binding("a", "REAL '12.34'")
+                .binding("b", "REAL '12.34'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "REAL '12.34'", "REAL '12.34'"))
+                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
+                .couldFail();
     }
 
     @Test
@@ -389,6 +406,15 @@ public class TestRealOperators
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "REAL 'NaN'", "REAL 'NaN'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "REAL '12.34'")
+                .binding("b", "REAL '12.34'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "REAL '12.34'", "REAL '12.34'"))
+                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
+                .couldFail();
     }
 
     @Test
@@ -925,6 +951,14 @@ public class TestRealOperators
 
         assertThat(assertions.operator(IDENTICAL, "REAL '37.8'", "REAL 'NaN'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a IS NOT DISTINCT FROM b")
+                .binding("a", "REAL '37.7'")
+                .binding("b", "REAL '37.7'"))
+                .neverFails();
+
+        assertThat(assertions.operator(IDENTICAL, "REAL '37.7'", "REAL '37.7'"))
+                .neverFails();
     }
 
     @Test
