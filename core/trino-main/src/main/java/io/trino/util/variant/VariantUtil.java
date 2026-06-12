@@ -395,7 +395,7 @@ public final class VariantUtil
                 case NULL -> null;
                 case BOOLEAN_TRUE -> BooleanOperators.castToReal(true);
                 case BOOLEAN_FALSE -> BooleanOperators.castToReal(false);
-                case STRING -> VarcharOperators.castToFloat(variant.getString());
+                case STRING -> VarcharOperators.castToReal(variant.getString());
                 case INT8 -> TinyintOperators.castToReal(variant.getByte());
                 case INT16 -> SmallintOperators.castToReal(variant.getShort());
                 case INT32 -> IntegerOperators.castToReal(variant.getInt());
@@ -405,7 +405,7 @@ public final class VariantUtil
                 case DOUBLE -> DoubleOperators.castToReal(variant.getDouble());
                 default -> throw new VariantCastException("Unsupported VARIANT primitive type for cast to REAL: " + variant.primitiveType());
             };
-            case SHORT_STRING -> VarcharOperators.castToFloat(variant.getString());
+            case SHORT_STRING -> VarcharOperators.castToReal(variant.getString());
             default -> throw new VariantCastException("Unsupported VARIANT type for cast to REAL: " + variant.basicType());
         };
     }

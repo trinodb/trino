@@ -56,7 +56,7 @@ public final class CharOperators
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.REAL)
-    public static long castToFloat(@SqlType("char(x)") Slice slice)
+    public static long castToReal(@SqlType("char(x)") Slice slice)
     {
         try {
             return toReal(Float.parseFloat(slice.toStringUtf8().trim()));
