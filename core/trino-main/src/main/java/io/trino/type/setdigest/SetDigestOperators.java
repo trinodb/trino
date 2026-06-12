@@ -29,7 +29,7 @@ public final class SetDigestOperators
 {
     private SetDigestOperators() {}
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.VARBINARY)
     public static Slice castToBinary(@SqlType(StandardTypes.SET_DIGEST) Slice slice)
     {
@@ -43,6 +43,7 @@ public final class SetDigestOperators
         return slice;
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.HYPER_LOG_LOG)
     public static Slice castToHyperLogLog(@SqlType(StandardTypes.SET_DIGEST) Slice slice)
