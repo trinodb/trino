@@ -141,7 +141,7 @@ public final class RealOperators
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.BIGINT)
-    public static long castToLong(@SqlType(StandardTypes.REAL) long value)
+    public static long castToBigint(@SqlType(StandardTypes.REAL) long value)
     {
         float floatValue = intBitsToFloat((int) value);
         if (Float.isNaN(floatValue)) {

@@ -379,8 +379,8 @@ public final class VariantUtil
                         throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for bigint: " + decimalValue, e);
                     }
                 }
-                case FLOAT -> DoubleOperators.castToLong(variant.getFloat());
-                case DOUBLE -> DoubleOperators.castToLong(variant.getDouble());
+                case FLOAT -> DoubleOperators.castToBigint(variant.getFloat());
+                case DOUBLE -> DoubleOperators.castToBigint(variant.getDouble());
                 default -> throw new VariantCastException("Unsupported VARIANT primitive type for cast to BIGINT: " + variant.primitiveType());
             };
             case SHORT_STRING -> VarcharOperators.castToBigint(variant.getString());
