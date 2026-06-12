@@ -36,20 +36,35 @@ final class S3FileSystemUtils
 
     public static S3Presigner createS3PreSigner(S3FileSystemConfig config, S3Client s3Client)
     {
+        return createS3PreSigner(config, s3Client, Optional.empty());
+    }
+
+    public static S3Presigner createS3PreSigner(S3FileSystemConfig config, S3Client s3Client, Optional<S3SecurityMappingResult> mapping)
+    {
         Optional<AwsCredentialsProvider> staticCredentialsProvider = createStaticCredentialsProvider(config);
         Optional<String> staticRegion = Optional.ofNullable(config.getRegion());
         Optional<String> staticEndpoint = Optional.ofNullable(config.getEndpoint());
-        boolean pathStyleAccess = config.isPathStyleAccess();
         S3AuthType authType = config.getAuthType();
         Optional<String> staticIamRole = Optional.ofNullable(config.getIamRole());
         String staticRoleSessionName = config.getRoleSessionName();
         String externalId = config.getExternalId();
 
+        Optional<AwsCredentialsProvider> credentialsProvider = mapping
+                .flatMap(S3SecurityMappingResult::credentialsProvider)
+                .or(() -> staticCredentialsProvider);
+        Optional<String> region = mapping.flatMap(S3SecurityMappingResult::region).or(() -> staticRegion);
+        Optional<String> endpoint = mapping.flatMap(S3SecurityMappingResult::endpoint).or(() -> staticEndpoint);
+        Optional<String> iamRole = mapping.flatMap(S3SecurityMappingResult::iamRole).or(() -> staticIamRole);
+        String roleSessionName = mapping.flatMap(S3SecurityMappingResult::roleSessionName).orElse(staticRoleSessionName);
+        boolean pathStyleAccess = mapping
+                .flatMap(S3SecurityMappingResult::pathStyleAccess)
+                .orElse(config.isPathStyleAccess());
+
         S3Presigner.Builder s3 = S3Presigner.builder();
         s3.s3Client(s3Client);
 
-        staticRegion.map(Region::of).ifPresent(s3::region);
-        staticEndpoint.map(URI::create).ifPresent(s3::endpointOverride);
+        region.map(Region::of).ifPresent(s3::region);
+        endpoint.map(URI::create).ifPresent(s3::endpointOverride);
         s3.serviceConfiguration(S3Configuration.builder()
                 .pathStyleAccessEnabled(pathStyleAccess)
                 .build());
@@ -59,15 +74,22 @@ final class S3FileSystemUtils
             case WEB_IDENTITY -> s3.credentialsProvider(WebIdentityTokenFileCredentialsProvider.builder()
                     .asyncCredentialUpdateEnabled(true)
                     .build());
-            case IAM_ROLE -> s3.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
-                    .refreshRequest(request -> request
-                            .roleArn(staticIamRole.orElseThrow())
-                            .roleSessionName(staticRoleSessionName)
-                            .externalId(externalId))
-                    .stsClient(createStsClient(config, staticCredentialsProvider))
-                    .asyncCredentialUpdateEnabled(true)
-                    .build());
-            case DEFAULT -> staticCredentialsProvider.ifPresent(s3::credentialsProvider);
+            case IAM_ROLE, DEFAULT -> {
+                // A security mapping may supply a per-request IAM role even when the static auth type is DEFAULT.
+                if (iamRole.isPresent()) {
+                    s3.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
+                            .refreshRequest(request -> request
+                                    .roleArn(iamRole.get())
+                                    .roleSessionName(roleSessionName)
+                                    .externalId(externalId))
+                            .stsClient(createStsClient(config, credentialsProvider))
+                            .asyncCredentialUpdateEnabled(true)
+                            .build());
+                }
+                else {
+                    credentialsProvider.ifPresent(s3::credentialsProvider);
+                }
+            }
         }
 
         return s3.build();
