@@ -213,7 +213,7 @@ public final class StringFunctions
     }
 
     @Description("Returns index of first occurrence of a substring (or 0 if not found)")
-    @ScalarFunction("strpos")
+    @ScalarFunction(value = "strpos", neverFails = true)
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.BIGINT)
     public static long stringPosition(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice substring)
@@ -222,7 +222,7 @@ public final class StringFunctions
     }
 
     @Description("Returns index of n-th occurrence of a substring (or 0 if not found)")
-    @ScalarFunction("strpos")
+    @ScalarFunction(value = "strpos", neverFails = false /* for instance==0 */)
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.BIGINT)
     public static long stringPosition(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice substring, @SqlType(StandardTypes.BIGINT) long instance)
@@ -847,7 +847,7 @@ public final class StringFunctions
     }
 
     @Description("Decodes the UTF-8 encoded string")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.VARCHAR)
     public static Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
@@ -911,7 +911,8 @@ public final class StringFunctions
 
     // TODO: implement N arguments char concat
     @Description("Concatenates given character strings")
-    @ScalarFunction
+    // Given CHAR type max length, if the result type is valid, allocation cannot fail.
+    @ScalarFunction(neverFails = true)
     @LiteralParameters({"x", "y", "u"})
     @Constraint(variable = "u", expression = "x + y")
     @SqlType("char(u)")
@@ -933,7 +934,7 @@ public final class StringFunctions
     }
 
     @Description("Determine whether source starts with prefix or not")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean startsWith(@SqlType("varchar(x)") Slice source, @SqlType("varchar(y)") Slice prefix)
