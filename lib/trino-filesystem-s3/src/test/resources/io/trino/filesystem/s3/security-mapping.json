@@ -94,6 +94,18 @@
       "region": "us-west-2"
     },
     {
+      "prefix": "s3://crossregionbucket/",
+      "accessKey": "AKIAxxxaccess",
+      "secretKey": "iXbXxxxsecret",
+      "crossRegionAccessEnabled": true
+    },
+    {
+      "prefix": "s3://pathstylebucket/",
+      "accessKey": "AKIAxxxaccess",
+      "secretKey": "iXbXxxxsecret",
+      "pathStyleAccess": true
+    },
+    {
       "prefix": "s3://somebucket/",
       "iamRole": "arn:aws:iam::1234567891012:role/default",
       "roleSessionName": "iam-trino-session"
