@@ -1822,6 +1822,10 @@ public class TestStringFunctions
         assertThat(assertions.function("ltrim", "CAST('\u017a\u00f3\u0142\u0107' AS CHAR(4))", "'\u00f3\u017a'"))
                 .hasType(createVarcharType(4))
                 .isEqualTo("\u0142\u0107");
+
+        // invalid utf-8 characters
+        assertTrinoExceptionThrownBy(assertions.function("ltrim", "'hello world'", "CAST(utf8(from_hex('81')) AS CHAR(1))")::evaluate)
+                .hasMessage("Invalid UTF-8 encoding in characters: \ufffd ");
     }
 
     private static SqlVarbinary varbinary(int... bytesAsInts)
