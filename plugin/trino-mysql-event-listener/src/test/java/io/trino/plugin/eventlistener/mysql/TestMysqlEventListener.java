@@ -71,22 +71,22 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 final class TestMysqlEventListener
 {
-    private static final QueryMetadata FULL_QUERY_METADATA = new QueryMetadata(
-            "full_query",
-            Optional.of("transactionId"),
-            Optional.of("encoding"),
+    private static final String EXCLUDED_COLUMNS = String.join(
+            ",",
             "query",
-            Optional.of("updateType"),
-            Optional.of("preparedQuery"),
-            "queryState",
-            // not stored
-            List.of(),
-            // not stored
-            List.of(),
-            URI.create("http://localhost"),
-            Optional.of("plan"),
-            Optional.of("jsonplan"),
-            Optional.of("stageInfo"));
+            "prepared_query",
+            "plan",
+            "stage_info_json",
+            "client_info",
+            "client_tags_json",
+            "session_properties_json",
+            "inputs_json",
+            "output_json",
+            "failure_message",
+            "failures_json",
+            "warnings_json",
+            "operator_summaries_json");
+    private static final QueryMetadata FULL_QUERY_METADATA = fullQueryMetadata("full_query");
 
     private static final QueryStatistics FULL_QUERY_STATISTICS = new QueryStatistics(
             ofMillis(101),
@@ -561,5 +561,74 @@ final class TestMysqlEventListener
                 }
             }
         }
+    }
+
+    @Test
+    void testExcludedColumns()
+            throws SQLException
+    {
+        EventListener pruningEventListener = new MysqlEventListenerFactory()
+                .create(
+                        Map.of(
+                                "mysql-event-listener.db.url", mysqlContainerUrl,
+                                "mysql-event-listener.excluded-columns", EXCLUDED_COLUMNS),
+                        new TestingEventListenerContext());
+
+        pruningEventListener.queryCompleted(new QueryCompletedEvent(
+                fullQueryMetadata("pruned_query"),
+                FULL_QUERY_STATISTICS,
+                FULL_QUERY_CONTEXT,
+                FULL_QUERY_IO_METADATA,
+                Optional.empty(),
+                Optional.of(FULL_FAILURE_INFO),
+                FULL_QUERY_COMPLETED_EVENT.getWarnings(),
+                Instant.now(),
+                Instant.now(),
+                Instant.now()));
+
+        try (Connection connection = DriverManager.getConnection(mysqlContainerUrl)) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("SELECT * FROM trino_queries WHERE query_id = 'pruned_query'");
+                try (ResultSet resultSet = statement.getResultSet()) {
+                    assertThat(resultSet.next()).isTrue();
+                    assertThat(resultSet.getString("query_id")).isEqualTo("pruned_query");
+                    assertThat(resultSet.getString("query")).isEmpty();
+                    assertThat(resultSet.getString("prepared_query")).isNull();
+                    assertThat(resultSet.getString("plan")).isNull();
+                    assertThat(resultSet.getString("stage_info_json")).isNull();
+                    assertThat(resultSet.getString("client_info")).isNull();
+                    assertThat(resultSet.getString("client_tags_json")).isEqualTo("[]");
+                    assertThat(resultSet.getString("session_properties_json")).isEqualTo("{}");
+                    assertThat(resultSet.getString("inputs_json")).isEqualTo("[]");
+                    assertThat(resultSet.getString("output_json")).isNull();
+                    assertThat(resultSet.getString("failure_message")).isNull();
+                    assertThat(resultSet.getString("failures_json")).isNull();
+                    assertThat(resultSet.getString("warnings_json")).isEqualTo("[]");
+                    assertThat(resultSet.getString("operator_summaries_json")).isEqualTo("[]");
+                    assertThat(resultSet.getString("user")).isEqualTo("user");
+                    assertThat(resultSet.next()).isFalse();
+                }
+            }
+        }
+    }
+
+    private static QueryMetadata fullQueryMetadata(String queryId)
+    {
+        return new QueryMetadata(
+                queryId,
+                Optional.of("transactionId"),
+                Optional.of("encoding"),
+                "query",
+                Optional.of("updateType"),
+                Optional.of("preparedQuery"),
+                "queryState",
+                // not stored
+                List.of(),
+                // not stored
+                List.of(),
+                URI.create("http://localhost"),
+                Optional.of("plan"),
+                Optional.of("jsonplan"),
+                Optional.of("stageInfo"));
     }
 }
