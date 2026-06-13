@@ -108,7 +108,6 @@ import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthoriza
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetTableProperties;
-import static io.trino.spi.security.AccessDeniedException.denySetUser;
 import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateFunction;
@@ -166,12 +165,7 @@ public class RangerSystemAccessControl
 
     @Deprecated
     @Override
-    public void checkCanSetUser(Optional<Principal> principal, String userName)
-    {
-        if (!hasPermission(RangerTrinoResource.forUser(userName), principal, null, IMPERSONATE, "SetUser")) {
-            denySetUser(principal, userName);
-        }
-    }
+    public void checkCanSetUser(Optional<Principal> principal, String userName) {}
 
     @Override
     public void checkCanExecuteQuery(Identity identity, QueryId queryId)
