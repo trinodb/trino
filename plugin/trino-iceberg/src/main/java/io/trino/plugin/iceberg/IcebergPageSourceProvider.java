@@ -417,6 +417,7 @@ public class IcebergPageSourceProvider
                 start,
                 length,
                 fileSize,
+                fileRecordCount,
                 partitionSpec.specId(),
                 PartitionData.toJson(partitionData),
                 fileFormat,
@@ -587,6 +588,7 @@ public class IcebergPageSourceProvider
                 delete.fileSizeInBytes(),
                 delete.fileSizeInBytes(),
                 0,
+                0,
                 "",
                 IcebergFileFormat.fromIceberg(delete.format()),
                 schemaFromHandles(columns),
@@ -608,6 +610,7 @@ public class IcebergPageSourceProvider
             long start,
             long length,
             long fileSize,
+            long fileRecordCount,
             int partitionSpecId,
             String partitionData,
             IcebergFileFormat fileFormat,
@@ -627,8 +630,11 @@ public class IcebergPageSourceProvider
                     inputFile,
                     start,
                     length,
+                    fileSize,
+                    fileRecordCount,
                     partitionSpecId,
                     partitionData,
+                    fileFormat,
                     fileSchema,
                     dataColumns,
                     predicate,
@@ -654,8 +660,10 @@ public class IcebergPageSourceProvider
                     start,
                     length,
                     fileSize,
+                    fileRecordCount,
                     partitionSpecId,
                     partitionData,
+                    fileFormat,
                     fileSchema,
                     dataColumns,
                     ParquetReaderOptions.builder(parquetReaderOptions)
@@ -682,8 +690,11 @@ public class IcebergPageSourceProvider
                     inputFile,
                     start,
                     length,
+                    fileSize,
+                    fileRecordCount,
                     partitionSpecId,
                     partitionData,
+                    fileFormat,
                     fileSchema,
                     nameMapping,
                     partition,
@@ -735,8 +746,11 @@ public class IcebergPageSourceProvider
             TrinoInputFile inputFile,
             long start,
             long length,
+            long fileSize,
+            long fileRecordCount,
             int partitionSpecId,
             String partitionData,
+            IcebergFileFormat fileFormat,
             Schema tableSchema,
             List<IcebergColumnHandle> columns,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
@@ -826,7 +840,11 @@ public class IcebergPageSourceProvider
                             partitionSpecId,
                             utf8Slice(partitionData),
                             fileFirstRowId,
-                            sourceRowIdOrdinal));
+                            sourceRowIdOrdinal,
+                            fileFormat.ordinal(),
+                            fileSize,
+                            fileRecordCount,
+                            dataSequenceNumber.orElse(0L)));
                 }
                 else if (column.isRowPositionColumn()) {
                     appendRowNumberColumn = true;
@@ -1089,8 +1107,10 @@ public class IcebergPageSourceProvider
             long start,
             long length,
             long fileSize,
+            long fileRecordCount,
             int partitionSpecId,
             String partitionData,
+            IcebergFileFormat fileFormat,
             Schema tableSchema,
             List<IcebergColumnHandle> columns,
             ParquetReaderOptions options,
@@ -1181,7 +1201,11 @@ public class IcebergPageSourceProvider
                             partitionSpecId,
                             utf8Slice(partitionData),
                             fileFirstRowId,
-                            sourceRowIdOrdinal));
+                            sourceRowIdOrdinal,
+                            fileFormat.ordinal(),
+                            fileSize,
+                            fileRecordCount,
+                            dataSequenceNumber.orElse(0L)));
                 }
                 else if (column.isRowPositionColumn()) {
                     appendRowNumberColumn = true;
@@ -1393,8 +1417,11 @@ public class IcebergPageSourceProvider
             TrinoInputFile inputFile,
             long start,
             long length,
+            long fileSize,
+            long fileRecordCount,
             int partitionSpecId,
             String partitionData,
+            IcebergFileFormat fileFormat,
             Schema fileSchema,
             Optional<NameMapping> nameMapping,
             String partition,
@@ -1465,7 +1492,11 @@ public class IcebergPageSourceProvider
                             partitionSpecId,
                             utf8Slice(partitionData),
                             fileFirstRowId,
-                            sourceRowIdOrdinal));
+                            sourceRowIdOrdinal,
+                            fileFormat.ordinal(),
+                            fileSize,
+                            fileRecordCount,
+                            dataSequenceNumber.orElse(0L)));
                 }
                 else if (column.isRowPositionColumn()) {
                     appendRowNumberColumn = true;
@@ -2012,17 +2043,43 @@ public class IcebergPageSourceProvider
         }
     }
 
-    private record MergeRowIdTransform(VariableWidthBlock filePath, IntArrayBlock partitionSpecId, VariableWidthBlock partitionData, OptionalLong fileFirstRowId, Integer sourceRowIdChannel)
+    private record MergeRowIdTransform(
+            VariableWidthBlock filePath,
+            IntArrayBlock partitionSpecId,
+            VariableWidthBlock partitionData,
+            OptionalLong fileFirstRowId,
+            Integer sourceRowIdChannel,
+            IntArrayBlock fileFormatBlock,
+            LongArrayBlock fileSizeBlock,
+            LongArrayBlock fileRecordCountBlock,
+            LongArrayBlock dataSequenceNumberBlock,
+            Block fileFirstRowIdBlock)
             implements Function<SourcePage, Block>
     {
-        private static Function<SourcePage, Block> create(Slice filePath, int partitionSpecId, Slice partitionData, OptionalLong fileFirstRowId, Integer sourceRowIdChannel)
+        private static Function<SourcePage, Block> create(
+                Slice filePath,
+                int partitionSpecId,
+                Slice partitionData,
+                OptionalLong fileFirstRowId,
+                Integer sourceRowIdChannel,
+                int fileFormatOrdinal,
+                long fileSize,
+                long fileRecordCount,
+                long dataSequenceNumber)
         {
             return new MergeRowIdTransform(
                     new VariableWidthBlock(1, filePath, new int[] {0, filePath.length()}, Optional.empty()),
                     new IntArrayBlock(1, Optional.empty(), new int[] {partitionSpecId}),
                     new VariableWidthBlock(1, partitionData, new int[] {0, partitionData.length()}, Optional.empty()),
                     fileFirstRowId,
-                    sourceRowIdChannel);
+                    sourceRowIdChannel,
+                    new IntArrayBlock(1, Optional.empty(), new int[] {fileFormatOrdinal}),
+                    new LongArrayBlock(1, Optional.empty(), new long[] {fileSize}),
+                    new LongArrayBlock(1, Optional.empty(), new long[] {fileRecordCount}),
+                    new LongArrayBlock(1, Optional.empty(), new long[] {dataSequenceNumber}),
+                    fileFirstRowId.isPresent()
+                            ? new LongArrayBlock(1, Optional.empty(), new long[] {fileFirstRowId.orElseThrow()})
+                            : BIGINT.createNullBlock());
         }
 
         @Override
@@ -2064,6 +2121,11 @@ public class IcebergPageSourceProvider
                     RunLengthEncodedBlock.create(partitionSpecId, positionCount),
                     RunLengthEncodedBlock.create(partitionData, positionCount),
                     sourceRowIdBlock,
+                    RunLengthEncodedBlock.create(fileFormatBlock, positionCount),
+                    RunLengthEncodedBlock.create(fileSizeBlock, positionCount),
+                    RunLengthEncodedBlock.create(fileRecordCountBlock, positionCount),
+                    RunLengthEncodedBlock.create(dataSequenceNumberBlock, positionCount),
+                    RunLengthEncodedBlock.create(fileFirstRowIdBlock, positionCount),
             };
             return RowBlock.fromFieldBlocks(positionCount, fields);
         }
