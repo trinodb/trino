@@ -62,6 +62,8 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
+import static io.trino.spi.type.Decimals.bigIntegerTenToNth;
+import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.type.Decimals.writeBigDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -157,9 +159,9 @@ public final class BlockAssertions
         }
         if (type instanceof DecimalType decimalType) {
             if (decimalType.isShort()) {
-                return createRandomLongsBlock(positionCount, nullRate);
+                return createRandomShortDecimalsBlock(decimalType, positionCount, nullRate);
             }
-            return createRandomLongDecimalsBlock(positionCount, nullRate);
+            return createRandomLongDecimalsBlock(decimalType, positionCount, nullRate);
         }
         if (type == VARCHAR) {
             return createRandomStringBlock(positionCount, nullRate, MAX_STRING_SIZE);
@@ -236,7 +238,24 @@ public final class BlockAssertions
             Block[] fieldBlocks = new Block[rowType.getFields().size()];
 
             for (int i = 0; i < fieldBlocks.length; i++) {
-                fieldBlocks[i] = createRandomBlockForType(rowType.getFields().get(i).getType(), positionCount, nullRate);
+                Type fieldType = rowType.getFields().get(i).getType();
+                ValueBlock fieldBlock = createRandomBlockForType(fieldType, positionCount, nullRate);
+                if (isNull == null) {
+                    fieldBlocks[i] = fieldBlock;
+                }
+                else {
+                    // Mask ROW nulls in the field block
+                    BlockBuilder builder = fieldType.createBlockBuilder(null, positionCount);
+                    for (int position = 0; position < positionCount; position++) {
+                        if (isNull[position] || fieldBlock.isNull(position)) {
+                            builder.appendNull();
+                        }
+                        else {
+                            builder.append(fieldBlock, position);
+                        }
+                    }
+                    fieldBlocks[i] = builder.build();
+                }
             }
 
             return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, Optional.ofNullable(isNull), fieldBlocks);
@@ -257,13 +276,37 @@ public final class BlockAssertions
         return createIntsBlock(generateListWithNulls(positionCount, nullRate, random::nextInt));
     }
 
-    public static ValueBlock createRandomLongDecimalsBlock(int positionCount, float nullRate)
+    public static ValueBlock createRandomShortDecimalsBlock(DecimalType type, int positionCount, float nullRate)
     {
+        long bound = longTenToNth(type.getPrecision());
         Random random = random();
-        return createLongDecimalsBlock(generateListWithNulls(
-                positionCount,
-                nullRate,
-                () -> String.valueOf(random.nextLong())));
+        BlockBuilder blockBuilder = type.createFixedSizeBlockBuilder(positionCount);
+        for (int i = 0; i < positionCount; i++) {
+            if (nullRate > 0 && random.nextFloat() < nullRate) {
+                blockBuilder.appendNull();
+            }
+            else {
+                type.writeLong(blockBuilder, random.nextLong() % bound);
+            }
+        }
+        return blockBuilder.buildValueBlock();
+    }
+
+    public static ValueBlock createRandomLongDecimalsBlock(DecimalType type, int positionCount, float nullRate)
+    {
+        BigInteger bound = bigIntegerTenToNth(type.getPrecision());
+        Random random = random();
+        BlockBuilder blockBuilder = type.createFixedSizeBlockBuilder(positionCount);
+        for (int i = 0; i < positionCount; i++) {
+            if (nullRate > 0 && random.nextFloat() < nullRate) {
+                blockBuilder.appendNull();
+            }
+            else {
+                BigInteger magnitude = new BigInteger(128, random).mod(bound);
+                type.writeObject(blockBuilder, Int128.valueOf(random.nextBoolean() ? magnitude : magnitude.negate()));
+            }
+        }
+        return blockBuilder.buildValueBlock();
     }
 
     public static ValueBlock createRandomShortTimestampBlock(TimestampType type, int positionCount, float nullRate)
