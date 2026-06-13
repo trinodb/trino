@@ -16,13 +16,9 @@ package io.trino.plugin.iceberg.catalog.nessie;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
-import io.trino.plugin.iceberg.CommitTaskData;
-import io.trino.plugin.iceberg.IcebergMetadata;
-import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.containers.NessieContainer;
-import io.trino.spi.NodeVersion;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -43,18 +39,10 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.Map;
-import java.util.Optional;
 
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
-import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.airlift.units.Duration.ZERO;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
-import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
-import static io.trino.plugin.iceberg.delete.DeletionVectorWriter.UNSUPPORTED_DELETION_VECTOR_WRITER;
-import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.nio.file.Files.createTempDirectory;
@@ -200,26 +188,7 @@ public class TestTrinoNessieCatalog
                     .contains(namespace);
 
             // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
-            ConnectorMetadata icebergMetadata = new IcebergMetadata(
-                    new CatalogName("iceberg"),
-                    PLANNER_CONTEXT.getTypeManager(),
-                    jsonCodec(CommitTaskData.class),
-                    catalog,
-                    (_, _) -> {
-                        throw new UnsupportedOperationException();
-                    },
-                    TABLE_STATISTICS_READER,
-                    new TableStatisticsWriter(new NodeVersion("test-version")),
-                    UNSUPPORTED_DELETION_VECTOR_WRITER,
-                    Optional.empty(),
-                    false,
-                    _ -> false,
-                    newDirectExecutorService(),
-                    directExecutor(),
-                    newDirectExecutorService(),
-                    newDirectExecutorService(),
-                    0,
-                    ZERO);
+            ConnectorMetadata icebergMetadata = createTestIcebergMetadata(catalog);
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isTrue();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
