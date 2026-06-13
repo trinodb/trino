@@ -197,6 +197,67 @@ class TestFileBasedConflictDetection
     }
 
     @Test
+    void testConflictDetectionScopedToRewriteTasksOnly()
+    {
+        // Insert-only tasks (no rewriteInfo, DATA content) must not widen the CoW conflict filter.
+        // The caller (finishCopyOnWrite) passes only rewriteTasks, so the extracted domain is
+        // scoped to partitions we actually read/rewrote.
+        PartitionSpec partitionSpec = PartitionSpec.builderFor(TABLE_SCHEMA)
+                .identity(COLUMN_2_NAME)
+                .build();
+        Table icebergTable = createIcebergTable(partitionSpec);
+
+        String rewrittenPartition =
+                """
+                {"partitionValues":[40]}
+                """;
+        String insertOnlyPartition =
+                """
+                {"partitionValues":[50]}
+                """;
+
+        CommitTaskData rewriteTask = new CommitTaskData(
+                "test_location/data/rewritten.parquet",
+                IcebergFileFormat.PARQUET,
+                0,
+                new MetricsWrapper(new Metrics()),
+                PartitionSpecParser.toJson(partitionSpec),
+                Optional.of(rewrittenPartition),
+                DATA,
+                Optional.empty(),
+                Optional.empty(),
+                SortOrder.unsorted().orderId(),
+                Optional.empty(),
+                Optional.of(new CommitTaskData.RewriteInfo("old.parquet", 0, 0, IcebergFileFormat.PARQUET)));
+        CommitTaskData insertTask = new CommitTaskData(
+                "test_location/data/inserted.parquet",
+                IcebergFileFormat.PARQUET,
+                0,
+                new MetricsWrapper(new Metrics()),
+                PartitionSpecParser.toJson(partitionSpec),
+                Optional.of(insertOnlyPartition),
+                DATA,
+                Optional.empty(),
+                Optional.empty(),
+                SortOrder.unsorted().orderId(),
+                Optional.empty());
+
+        // Regression: mixed tasks (as the buggy callsite used) would include the insert-only partition.
+        TupleDomain<IcebergColumnHandle> mixed = extractTupleDomainsFromCommitTasks(
+                getIcebergTableHandle(partitionSpec), icebergTable, List.of(rewriteTask, insertTask), null);
+        assertThat(mixed.getDomains().orElseThrow())
+                .isEqualTo(Map.of(COLUMN_2_HANDLE, Domain.multipleValues(INTEGER, ImmutableList.of(40L, 50L))));
+
+        // Fixed callsite passes only rewriteTasks: domain narrows to partitions actually read.
+        TupleDomain<IcebergColumnHandle> rewriteOnly = extractTupleDomainsFromCommitTasks(
+                getIcebergTableHandle(partitionSpec), icebergTable, List.of(rewriteTask), null);
+        assertThat(rewriteOnly.getDomains().orElseThrow())
+                .isEqualTo(Map.of(COLUMN_2_HANDLE, Domain.singleValue(INTEGER, 40L)));
+
+        dropIcebergTable(icebergTable);
+    }
+
+    @Test
     void testConflictDetectionOnEvolvedTable()
     {
         PartitionSpec previousPartitionSpec = PartitionSpec.builderFor(TABLE_SCHEMA)
