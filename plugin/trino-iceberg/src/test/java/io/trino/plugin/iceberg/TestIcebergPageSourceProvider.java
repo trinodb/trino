@@ -139,6 +139,7 @@ class TestIcebergPageSourceProvider
                 1L, // dataSequenceNumber
                 OptionalLong.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         AtomicLong sharedMemoryUsage = new AtomicLong();
