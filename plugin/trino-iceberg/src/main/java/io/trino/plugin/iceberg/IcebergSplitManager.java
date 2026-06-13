@@ -38,6 +38,8 @@ import org.apache.iceberg.Scan;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableProperties;
+import org.apache.iceberg.TableScan;
 import org.apache.iceberg.metrics.InMemoryMetricsReporter;
 import org.apache.iceberg.metrics.MetricsReporter;
 import org.apache.iceberg.types.TypeUtil;
@@ -157,11 +159,16 @@ public class IcebergSplitManager
                 .filter(id -> schema.findField(id) != null) // Newly added column may not be found in current snapshot schema until new files are added
                 .collect(toImmutableSet());
 
-        return icebergTable.newScan()
+        TableScan scan = icebergTable.newScan()
                 .useSnapshot(table.getSnapshotId().getAsLong())
                 .project(TypeUtil.select(schema, projectedIds)) // Using Scan.project method because Scan.select throws an exception for nested variant
                 .planWith(executor)
                 .metricsReporter(metricsReporter);
+        // CoW rewrites need whole files; raising SPLIT_SIZE to MAX makes Iceberg emit one split per file.
+        if (icebergMetadata.isCopyOnWriteScan(table)) {
+            scan = scan.option(TableProperties.SPLIT_SIZE, Long.toString(Long.MAX_VALUE));
+        }
+        return scan;
     }
 
     @Override
@@ -177,7 +184,8 @@ public class IcebergSplitManager
                     icebergTable,
                     icebergTable.newIncrementalChangelogScan()
                             .fromSnapshotExclusive(functionHandle.startSnapshotId())
-                            .toSnapshot(functionHandle.endSnapshotId()));
+                            .toSnapshot(functionHandle.endSnapshotId())
+                            .planWith(icebergPlanningExecutor));
             return new ClassLoaderSafeConnectorSplitSource(tableChangesSplitSource, IcebergSplitManager.class.getClassLoader());
         }
 

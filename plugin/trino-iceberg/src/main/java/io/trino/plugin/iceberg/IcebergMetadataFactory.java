@@ -52,6 +52,7 @@ public class IcebergMetadataFactory
     private final ExecutorService icebergPlanningExecutor;
     private final ExecutorService icebergFileDeleteExecutor;
     private final DeletionVectorWriter deletionVectorWriter;
+    private final CopyOnWriteStats copyOnWriteStats;
     private final int materializedViewRefreshMaxSnapshotsToExpire;
     private final Duration materializedViewRefreshSnapshotRetentionPeriod;
 
@@ -65,6 +66,7 @@ public class IcebergMetadataFactory
             TableStatisticsReader tableStatisticsReader,
             TableStatisticsWriter tableStatisticsWriter,
             DeletionVectorWriter deletionVectorWriter,
+            CopyOnWriteStats copyOnWriteStats,
             @RawHiveMetastoreFactory Optional<HiveMetastoreFactory> metastoreFactory,
             @ForIcebergSplitManager ExecutorService icebergScanExecutor,
             @ForIcebergMetadata ExecutorService metadataExecutorService,
@@ -80,6 +82,7 @@ public class IcebergMetadataFactory
         this.tableStatisticsReader = requireNonNull(tableStatisticsReader, "tableStatisticsReader is null");
         this.tableStatisticsWriter = requireNonNull(tableStatisticsWriter, "tableStatisticsWriter is null");
         this.deletionVectorWriter = requireNonNull(deletionVectorWriter, "deletionVectorWriter is null");
+        this.copyOnWriteStats = requireNonNull(copyOnWriteStats, "copyOnWriteStats is null");
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
         this.addFilesProcedureEnabled = config.isAddFilesProcedureEnabled();
@@ -113,6 +116,7 @@ public class IcebergMetadataFactory
                 tableStatisticsReader,
                 tableStatisticsWriter,
                 deletionVectorWriter,
+                copyOnWriteStats,
                 metastoreFactory,
                 addFilesProcedureEnabled,
                 allowedExtraProperties,
