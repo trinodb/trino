@@ -206,6 +206,7 @@
 
 - [if](if-expression)
 - {func}`index`
+- {func}`initcap`
 - {func}`infinity`
 - {func}`intersection_cardinality`
 - {func}`inverse_beta_cdf`
