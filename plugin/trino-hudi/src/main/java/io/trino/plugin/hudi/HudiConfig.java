@@ -48,6 +48,7 @@ public class HudiConfig
     private long perTransactionMetastoreCacheMaximumSize = 2000;
     private boolean queryPartitionFilterRequired;
     private boolean ignoreAbsentPartitions;
+    private DataSize targetSplitSize = DataSize.of(32, MEGABYTE);
 
     public List<String> getColumnsToHide()
     {
@@ -215,5 +216,19 @@ public class HudiConfig
     public boolean isIgnoreAbsentPartitions()
     {
         return ignoreAbsentPartitions;
+    }
+
+    @Config("hudi.target-split-size")
+    @ConfigDescription("Target size for a single split. Defaults to 32MB.")
+    public HudiConfig setTargetSplitSize(DataSize targetSplitSize)
+    {
+        this.targetSplitSize = targetSplitSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getTargetSplitSize()
+    {
+        return targetSplitSize;
     }
 }
