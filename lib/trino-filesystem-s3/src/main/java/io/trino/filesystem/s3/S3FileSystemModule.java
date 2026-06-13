@@ -29,6 +29,7 @@ import java.lang.annotation.Target;
 import java.util.function.Supplier;
 
 import static com.google.inject.Scopes.SINGLETON;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static java.lang.annotation.ElementType.FIELD;
@@ -46,16 +47,23 @@ public class S3FileSystemModule
     {
         configBinder(binder).bindConfig(S3FileSystemConfig.class);
 
+        newOptionalBinder(binder, S3SecurityMappingProvider.class);
+
         if (buildConfigObject(S3SecurityMappingEnabledConfig.class).isEnabled()) {
             install(new S3SecurityMappingModule());
         }
-        else {
-            binder.bind(TrinoFileSystemFactory.class).annotatedWith(FileSystemS3.class)
-                    .to(S3FileSystemFactory.class).in(SINGLETON);
-        }
 
+        binder.bind(S3FileSystemLoader.class).in(SINGLETON);
         binder.bind(S3FileSystemStats.class).in(SINGLETON);
         newExporter(binder).export(S3FileSystemStats.class).withGeneratedName();
+    }
+
+    @Provides
+    @Singleton
+    @FileSystemS3
+    static TrinoFileSystemFactory createFileSystemFactory(S3FileSystemLoader loader)
+    {
+        return new SwitchingFileSystemFactory(loader);
     }
 
     public static class S3SecurityMappingModule
@@ -66,8 +74,7 @@ public class S3FileSystemModule
         {
             S3SecurityMappingConfig config = buildConfigObject(S3SecurityMappingConfig.class);
 
-            binder.bind(S3SecurityMappingProvider.class).in(SINGLETON);
-            binder.bind(S3FileSystemLoader.class).in(SINGLETON);
+            newOptionalBinder(binder, S3SecurityMappingProvider.class).setDefault().to(DefaultS3SecurityMappingProvider.class).in(SINGLETON);
 
             var mappingsBinder = binder.bind(new Key<Supplier<S3SecurityMappings>>() {});
             if (config.getConfigFile().isPresent()) {
@@ -84,14 +91,6 @@ public class S3FileSystemModule
             else {
                 throw new VerifyException("No security mapping source configured");
             }
-        }
-
-        @Provides
-        @Singleton
-        @FileSystemS3
-        static TrinoFileSystemFactory createFileSystemFactory(S3FileSystemLoader loader)
-        {
-            return new SwitchingFileSystemFactory(loader);
         }
     }
 
