@@ -39,6 +39,7 @@ import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -124,6 +125,7 @@ public class HiveSplitManager
     private final TypeManager typeManager;
     private final SplitAffinityProvider splitAffinityProvider;
     private final int maxPartitionsPerScan;
+    private final ConnectorExpressionEvaluator evaluator;
 
     @Inject
     public HiveSplitManager(
@@ -134,7 +136,8 @@ public class HiveSplitManager
             @ForHiveSplitManager ExecutorService executorService,
             VersionEmbedder versionEmbedder,
             TypeManager typeManager,
-            SplitAffinityProvider splitAffinityProvider)
+            SplitAffinityProvider splitAffinityProvider,
+            ConnectorExpressionEvaluator evaluator)
     {
         this(transactionManager,
                 partitionManager,
@@ -151,7 +154,8 @@ public class HiveSplitManager
                 hiveConfig.getRecursiveDirWalkerEnabled(),
                 typeManager,
                 splitAffinityProvider,
-                hiveConfig.getMaxPartitionsPerScan());
+                hiveConfig.getMaxPartitionsPerScan(),
+                evaluator);
     }
 
     public HiveSplitManager(
@@ -170,7 +174,8 @@ public class HiveSplitManager
             boolean recursiveDfsWalkerEnabled,
             TypeManager typeManager,
             SplitAffinityProvider splitAffinityProvider,
-            int maxPartitionsPerScan)
+            int maxPartitionsPerScan,
+            ConnectorExpressionEvaluator evaluator)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
@@ -189,6 +194,7 @@ public class HiveSplitManager
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.splitAffinityProvider = requireNonNull(splitAffinityProvider, "splitAffinityProvider is null");
         this.maxPartitionsPerScan = maxPartitionsPerScan;
+        this.evaluator = requireNonNull(evaluator, "evaluator is null");
     }
 
     @Override
@@ -233,7 +239,7 @@ public class HiveSplitManager
                         bucketing.tableBucketCount()));
 
         // get partitions
-        Iterator<HivePartition> partitions = partitionManager.getPartitions(metastore, hiveTable);
+        Iterator<HivePartition> partitions = partitionManager.getPartitions(metastore, hiveTable, session);
 
         // short circuit if we don't have any partitions
         if (!partitions.hasNext()) {
@@ -277,7 +283,8 @@ public class HiveSplitManager
                 metastore.getValidWriteIds(session, hiveTable)
                         .map(value -> value.getTableValidWriteIdList(table.getDatabaseName() + "." + table.getTableName())),
                 hiveTable.getMaxScannedFileSize(),
-                maxPartitionsPerScan);
+                maxPartitionsPerScan,
+                evaluator);
 
         HiveSplitSource splitSource = HiveSplitSource.allAtOnce(
                 session,

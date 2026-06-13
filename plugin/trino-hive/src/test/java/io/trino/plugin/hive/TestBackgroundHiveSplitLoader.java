@@ -17,8 +17,10 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.io.Resources;
+import io.airlift.slice.Slice;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -45,12 +47,19 @@ import io.trino.plugin.hive.util.InternalHiveSplitFactory;
 import io.trino.plugin.hive.util.ValidWriteIdList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
+import io.trino.spi.connector.ConnectorExpressionEvaluator.EvaluationResult;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource.ConnectorSplitBatch;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.expression.Call;
+import io.trino.spi.expression.Constant;
+import io.trino.spi.expression.FunctionName;
+import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.AfterAll;
@@ -108,7 +117,9 @@ import static io.trino.plugin.hive.util.HiveUtil.getRegularColumnHandles;
 import static io.trino.plugin.hive.util.SerdeConstants.FOOTER_COUNT;
 import static io.trino.plugin.hive.util.SerdeConstants.HEADER_COUNT;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
+import static io.trino.spi.expression.StandardFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -218,13 +229,55 @@ public class TestBackgroundHiveSplitLoader
     public void testPathConstraint()
             throws Exception
     {
+        Constraint constraint = new Constraint(
+                TupleDomain.all(),
+                new Call(
+                        BOOLEAN,
+                        new FunctionName("$engine_expression"), // Simulate an engine expression representing a predicate on a path-like value
+                        ImmutableList.of(
+                                new Constant(utf8Slice(LIKE_FUNCTION_NAME.getName()), VARCHAR),
+                                new Variable("path", VARCHAR),
+                                new Constant(utf8Slice("%000000_0"), VARCHAR))),
+                ImmutableMap.of("path", pathColumnHandle()));
+
+        ConnectorExpressionEvaluator evaluator = (expression, _) -> new ConnectorExpressionEvaluator.Prepared()
+        {
+            private final Call call = (Call) expression;
+            // Strip the leading '%' to get the literal suffix to match against.
+            private final String suffix = ((Slice) ((Constant) call.getArguments().get(2)).getValue()).toStringUtf8().substring(1);
+            private final String pathVariable = call.getArguments().stream()
+                    .filter(Variable.class::isInstance)
+                    .map(arg -> ((Variable) arg).getName())
+                    .findFirst()
+                    .orElse(null);
+
+            @Override
+            public Set<String> getArguments()
+            {
+                return pathVariable != null ? ImmutableSet.of(pathVariable) : ImmutableSet.of();
+            }
+
+            @Override
+            public EvaluationResult tryEvaluate(Map<String, NullableValue> bindings)
+            {
+                if (pathVariable == null) {
+                    return new EvaluationResult.NoResult();
+                }
+                NullableValue pathValue = bindings.get(pathVariable);
+                if (pathValue == null || pathValue.isNull()) {
+                    return new EvaluationResult.NoResult();
+                }
+
+                // Simulate an engine expression evaluated by the engine
+                return new EvaluationResult.Value(((Slice) pathValue.getValue()).toStringUtf8().endsWith(suffix));
+            }
+        };
+
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 TEST_LOCATIONS,
-                LOCATION_DOMAIN,
-                new Constraint(
-                        TupleDomain.all(),
-                        LOCATION_DOMAIN.transformKeys(ColumnHandle.class::cast).asPredicate(),
-                        Set.of(pathColumnHandle())));
+                TupleDomain.all(),
+                constraint,
+                evaluator);
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
@@ -506,7 +559,8 @@ public class TestBackgroundHiveSplitLoader
                 false,
                 Optional.empty(),
                 Optional.empty(),
-                100);
+                100,
+                ConnectorExpressionEvaluator.NO_OP);
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
@@ -858,7 +912,9 @@ public class TestBackgroundHiveSplitLoader
                 Optional.empty(),
                 DataSize.of(512, MEGABYTE),
                 false,
-                Optional.empty());
+                Optional.empty(),
+                SESSION,
+                ConnectorExpressionEvaluator.NO_OP);
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 locations,
                 directoryLister);
@@ -900,7 +956,9 @@ public class TestBackgroundHiveSplitLoader
                 Optional.empty(),
                 DataSize.of(512, MEGABYTE),
                 false,
-                Optional.empty());
+                Optional.empty(),
+                SESSION,
+                ConnectorExpressionEvaluator.NO_OP);
 
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 locations,
@@ -939,7 +997,9 @@ public class TestBackgroundHiveSplitLoader
                 Optional.empty(),
                 DataSize.of(512, MEGABYTE),
                 false,
-                Optional.empty());
+                Optional.empty(),
+                SESSION,
+                ConnectorExpressionEvaluator.NO_OP);
 
         Location firstFilePath = Location.of("memory:///db_name/table_name/file1");
         List<Location> locations1 = List.of(firstFilePath);
@@ -1153,6 +1213,41 @@ public class TestBackgroundHiveSplitLoader
 
     private BackgroundHiveSplitLoader backgroundHiveSplitLoader(
             List<Location> locations,
+            TupleDomain<HiveColumnHandle> tupleDomain,
+            Constraint constraint,
+            ConnectorExpressionEvaluator evaluator)
+            throws IOException
+    {
+        List<HivePartitionMetadata> hivePartitionMetadatas = List.of(
+                new HivePartitionMetadata(
+                        new HivePartition(new SchemaTableName("testSchema", "table_name")),
+                        Optional.empty(),
+                        ImmutableMap.of()));
+        TrinoFileSystemFactory fileSystemFactory = createTestingFileSystem(locations);
+        return new BackgroundHiveSplitLoader(
+                SIMPLE_TABLE,
+                hivePartitionMetadatas.iterator(),
+                tupleDomain,
+                constraint,
+                DynamicFilter.EMPTY,
+                new Duration(0, SECONDS),
+                TESTING_TYPE_MANAGER,
+                createBucketSplitInfo(Optional.empty(), Optional.empty()),
+                SESSION,
+                fileSystemFactory,
+                new CachingDirectoryLister(new HiveConfig()),
+                executor,
+                2,
+                false,
+                false,
+                Optional.empty(),
+                Optional.empty(),
+                100,
+                evaluator);
+    }
+
+    private BackgroundHiveSplitLoader backgroundHiveSplitLoader(
+            List<Location> locations,
             TupleDomain<HiveColumnHandle> compactEffectivePredicate,
             Constraint constraint,
             Optional<HiveBucketFilter> hiveBucketFilter,
@@ -1229,7 +1324,8 @@ public class TestBackgroundHiveSplitLoader
                 false,
                 validWriteIds,
                 Optional.empty(),
-                100);
+                100,
+                ConnectorExpressionEvaluator.NO_OP);
     }
 
     private BackgroundHiveSplitLoader backgroundHiveSplitLoader(
@@ -1274,7 +1370,8 @@ public class TestBackgroundHiveSplitLoader
                 false,
                 Optional.empty(),
                 Optional.empty(),
-                maxPartitions);
+                maxPartitions,
+                ConnectorExpressionEvaluator.NO_OP);
     }
 
     private BackgroundHiveSplitLoader backgroundHiveSplitLoaderOfflinePartitions()
@@ -1302,7 +1399,8 @@ public class TestBackgroundHiveSplitLoader
                 false,
                 Optional.empty(),
                 Optional.empty(),
-                100);
+                100,
+                ConnectorExpressionEvaluator.NO_OP);
     }
 
     private static Iterator<HivePartitionMetadata> createPartitionMetadataWithOfflinePartitions()

@@ -121,7 +121,8 @@ public class TestEliminateSorts
                         getPlanTester().getPlannerContext(),
                         getPlanTester().getStatsCalculator(),
                         getPlanTester().getTaskCountEstimator(),
-                        getPlanTester().getNodePartitioningManager()));
+                        getPlanTester().getNodePartitioningManager(),
+                        getPlanTester().getExpressionCodec()));
 
         assertPlan(sql, pattern, optimizers);
     }

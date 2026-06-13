@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.json.JsonCodec;
 import io.trino.SystemSessionProperties;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.CostCalculator.EstimatedExchanges;
@@ -29,6 +30,7 @@ import io.trino.metadata.Metadata;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.RuleStats;
@@ -293,7 +295,8 @@ public class PlanOptimizers
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
             NodePartitioningManager nodePartitioningManager,
-            RuleStatsRecorder ruleStats)
+            RuleStatsRecorder ruleStats,
+            JsonCodec<Expression> expressionCodec)
     {
         this(plannerContext,
                 taskManagerConfig,
@@ -307,7 +310,8 @@ public class PlanOptimizers
                 costComparator,
                 taskCountEstimator,
                 nodePartitioningManager,
-                ruleStats);
+                ruleStats,
+                expressionCodec);
     }
 
     public PlanOptimizers(
@@ -323,7 +327,8 @@ public class PlanOptimizers
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
             NodePartitioningManager nodePartitioningManager,
-            RuleStatsRecorder ruleStats)
+            RuleStatsRecorder ruleStats,
+            JsonCodec<Expression> expressionCodec)
     {
         CostCalculator costCalculator = costCalculatorWithEstimatedExchanges;
 
@@ -657,7 +662,7 @@ public class PlanOptimizers
                         ImmutableSet.of(
                                 new ApplyTableScanRedirection(plannerContext),
                                 new PruneTableScanColumns(metadata),
-                                new PushPredicateIntoTableScan(plannerContext, false))));
+                                new PushPredicateIntoTableScan(plannerContext, false, expressionCodec))));
 
         Set<Rule<?>> pushIntoTableScanRulesExceptJoins = ImmutableSet.<Rule<?>>builder()
                 .addAll(columnPruningRules)
@@ -665,7 +670,7 @@ public class PlanOptimizers
                 .add(new PushProjectionIntoTableScan(plannerContext, scalarStatsCalculator))
                 .add(new RemoveRedundantIdentityProjections())
                 .add(new PushLimitIntoTableScan(metadata))
-                .add(new PushPredicateIntoTableScan(plannerContext, false))
+                .add(new PushPredicateIntoTableScan(plannerContext, false, expressionCodec))
                 .add(new PushSampleIntoTableScan(metadata))
                 .add(new PushAggregationIntoTableScan(plannerContext))
                 .add(new PushDistinctLimitIntoTableScan(plannerContext))
@@ -749,7 +754,7 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                                .add(new PushPredicateIntoTableScan(plannerContext, false))
+                                .add(new PushPredicateIntoTableScan(plannerContext, false, expressionCodec))
                                 .build()),
                 new UnaliasSymbolReferences(), // Run again because predicate pushdown and projection pushdown might add more projections
                 columnPruningOptimizer // Make sure to run this before index join. Filtered projections may not have all the columns.
@@ -825,7 +830,7 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                                .add(new PushPredicateIntoTableScan(plannerContext, false))
+                                .add(new PushPredicateIntoTableScan(plannerContext, false, expressionCodec))
                                 .build()),
                 pushProjectionIntoTableScanOptimizer
                         .withName("PushProjectionIntoTableScanAfterCrossJoin"),
@@ -841,7 +846,7 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                                .add(new PushPredicateIntoTableScan(plannerContext, false))
+                                .add(new PushPredicateIntoTableScan(plannerContext, false, expressionCodec))
                                 .build()),
                 columnPruningOptimizer
                         .withName("PruneOutputsBeforeJoinReordering"),
@@ -917,7 +922,7 @@ public class PlanOptimizers
                 statsCalculator,
                 costCalculator,
                 ImmutableSet.of(
-                        new PushPredicateIntoTableScan(plannerContext, true),
+                        new PushPredicateIntoTableScan(plannerContext, true, expressionCodec),
                         new RemoveEmptyUnionBranches(),
                         new EvaluateEmptyIntersect(),
                         new RemoveEmptyExceptBranches(),
@@ -963,7 +968,7 @@ public class PlanOptimizers
             // unalias symbols before adding exchanges to use same partitioning symbols in joins, aggregations and other
             // operators that require node partitioning
             builder.add(new UnaliasSymbolReferences());
-            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(plannerContext, statsCalculator, taskCountEstimator, nodePartitioningManager)));
+            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(plannerContext, statsCalculator, taskCountEstimator, nodePartitioningManager, expressionCodec)));
             // It can only run after AddExchanges since it estimates the hash partition count for all remote exchanges
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new DeterminePartitionCount(statsCalculator, taskCountEstimator)));
         }
@@ -1021,7 +1026,7 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                        .add(new PushPredicateIntoTableScan(plannerContext, false))
+                        .add(new PushPredicateIntoTableScan(plannerContext, false, expressionCodec))
                         .add(new PushFilterIntoValues(plannerContext))
                         .add(new ReplaceJoinOverConstantWithProject())
                         .add(new RemoveRedundantPredicateAboveTableScan(plannerContext))

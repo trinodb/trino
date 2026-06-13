@@ -117,7 +117,7 @@ public class TestPushPredicateIntoTableScan
     @BeforeAll
     public void setUpBeforeClass()
     {
-        pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), false);
+        pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), false, tester().getPlanTester().getExpressionCodec());
 
         CatalogHandle catalogHandle = tester().getCurrentCatalogHandle();
         tester().getPlanTester().createCatalog(MOCK_CATALOG, createMockFactory(), ImmutableMap.of());
