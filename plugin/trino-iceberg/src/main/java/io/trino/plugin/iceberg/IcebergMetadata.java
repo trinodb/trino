@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
+import io.airlift.concurrent.MoreFutures;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -159,18 +160,22 @@ import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.DeleteFiles;
+import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.HasTableOperations;
 import org.apache.iceberg.IsolationLevel;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.MetadataColumns;
+import org.apache.iceberg.OverwriteFiles;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.ReplaceSortOrder;
 import org.apache.iceberg.RewriteFiles;
 import org.apache.iceberg.RowDelta;
+import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
@@ -198,6 +203,8 @@ import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.expressions.Literal;
 import org.apache.iceberg.expressions.Term;
 import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.io.SupportsBulkOperations;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Type.NestedType;
 import org.apache.iceberg.types.TypeUtil;
@@ -208,6 +215,8 @@ import org.apache.iceberg.types.Types.LongType;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StringType;
 import org.apache.iceberg.types.Types.StructType;
+import org.apache.iceberg.util.DataFileSet;
+import org.apache.iceberg.util.DeleteFileSet;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -235,6 +244,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -275,6 +285,11 @@ import static io.trino.plugin.iceberg.ExpressionConverter.isConvertibleToIceberg
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.GeoSpatialUtils.isGeospatialType;
 import static io.trino.plugin.iceberg.IcebergAnalyzeProperties.getColumnNames;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_DATA_SEQUENCE_NUMBER;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_FILE_FIRST_ROW_ID;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_FILE_FORMAT;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_FILE_RECORD_COUNT;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_FILE_SIZE;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_DATA;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_SPEC_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_ROW_ID;
@@ -443,6 +458,9 @@ import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
+import static org.apache.iceberg.TableProperties.MERGE_ISOLATION_LEVEL;
+import static org.apache.iceberg.TableProperties.MERGE_ISOLATION_LEVEL_DEFAULT;
+import static org.apache.iceberg.TableProperties.MERGE_MODE;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static org.apache.iceberg.TableProperties.MIN_SNAPSHOTS_TO_KEEP;
@@ -521,9 +539,18 @@ public class IcebergMetadata
     private final IcebergTableCredentialsProvider tableCredentialsProvider;
     private final DeletionVectorWriter deletionVectorWriter;
     private final ConnectorExpressionEvaluator evaluator;
+    private final CopyOnWriteStats copyOnWriteStats;
+    // Per-transaction CoW target scan handles. Read by IcebergSplitManager to configure
+    // one-split-per-file scans without a processing-mode flag on the table handle. Keyed on
+    // the full IcebergTableHandle (not SchemaTableName) so a self-referencing MERGE source
+    // scan of the same table does not inherit the target's scan options -- the source and
+    // target scans have different projections/predicates and therefore different handles.
+    private final Set<IcebergTableHandle> copyOnWriteScanHandles = ConcurrentHashMap.newKeySet();
 
     private Transaction transaction;
     private OptionalLong fromSnapshotForRefresh = OptionalLong.empty();
+    private List<String> pendingCowRollbackFilePaths = ImmutableList.of();
+    private boolean canCleanupPendingCowRollbackFiles;
 
     public IcebergMetadata(
             CatalogName catalogName,
@@ -534,6 +561,7 @@ public class IcebergMetadata
             TableStatisticsReader tableStatisticsReader,
             TableStatisticsWriter tableStatisticsWriter,
             DeletionVectorWriter deletionVectorWriter,
+            CopyOnWriteStats copyOnWriteStats,
             Optional<HiveMetastoreFactory> metastoreFactory,
             boolean addFilesProcedureEnabled,
             Predicate<String> allowedExtraProperties,
@@ -560,6 +588,7 @@ public class IcebergMetadata
         this.icebergPlanningExecutor = requireNonNull(icebergPlanningExecutor, "icebergPlanningExecutor is null");
         this.icebergFileDeleteExecutor = requireNonNull(icebergFileDeleteExecutor, "icebergFileDeleteExecutor is null");
         this.deletionVectorWriter = requireNonNull(deletionVectorWriter, "deletionVectorWriter is null");
+        this.copyOnWriteStats = requireNonNull(copyOnWriteStats, "copyOnWriteStats is null");
         this.materializedViewRefreshMaxSnapshotsToExpire = materializedViewRefreshMaxSnapshotsToExpire;
         this.materializedViewRefreshSnapshotRetentionPeriod = materializedViewRefreshSnapshotRetentionPeriod;
         this.tableCredentialsProvider = new IcebergTableCredentialsProvider(catalog);
@@ -792,7 +821,7 @@ public class IcebergMetadata
             return Optional.empty();
         }
         PartitionSpec partitionSpec = icebergTable.spec();
-        if (partitionSpec.isUnpartitioned()) {
+        if (partitionSpec.fields().isEmpty()) {
             return Optional.empty();
         }
 
@@ -1703,12 +1732,16 @@ public class IcebergMetadata
 
         IcebergWritableTableHandle table = (IcebergWritableTableHandle) insertHandle;
         Table icebergTable = transaction.table();
+        Schema schema = icebergTable.schema();
+        Type[] partitionColumnTypes = icebergTable.spec().fields().stream()
+                .map(field -> field.transform().getResultType(
+                        schema.findType(field.sourceId())))
+                .toArray(Type[]::new);
 
         AppendFiles appendFiles = isMergeManifestsOnWrite(session) ? transaction.newAppend() : transaction.newFastAppend();
         Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
-        PartitionSpec partitionSpec = icebergTable.spec();
         for (CommitTaskData task : commitTasks) {
-            DataFiles.Builder builder = DataFiles.builder(partitionSpec)
+            DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
                     .withPath(task.path())
                     .withFileSizeInBytes(task.fileSizeInBytes())
                     .withFormat(table.fileFormat().toIceberg())
@@ -1716,10 +1749,10 @@ public class IcebergMetadata
                     .withSortOrder(sortOrders.get(task.sortOrderId()));
             task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
 
-            if (partitionSpec.isPartitioned()) {
+            if (!icebergTable.spec().fields().isEmpty()) {
                 String partitionDataJson = task.partitionDataJson()
                         .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
-                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionSpec));
+                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
             }
 
             appendFiles.appendFile(builder.build());
@@ -2157,11 +2190,15 @@ public class IcebergMetadata
                 .map(commitTaskCodec::fromJson)
                 .collect(toImmutableList());
 
+        Type[] partitionColumnTypes = icebergTable.spec().fields().stream()
+                .map(field -> field.transform().getResultType(
+                        icebergTable.schema().findType(field.sourceId())))
+                .toArray(Type[]::new);
+
         Set<DataFile> newFiles = new HashSet<>();
         Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
-        PartitionSpec partitionSpec = icebergTable.spec();
         for (CommitTaskData task : commitTasks) {
-            DataFiles.Builder builder = DataFiles.builder(partitionSpec)
+            DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
                     .withPath(task.path())
                     .withFileSizeInBytes(task.fileSizeInBytes())
                     .withFormat(optimizeHandle.fileFormat().toIceberg())
@@ -2169,10 +2206,10 @@ public class IcebergMetadata
                     .withSortOrder(sortOrders.get(task.sortOrderId()));
             task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
 
-            if (partitionSpec.isPartitioned()) {
+            if (!icebergTable.spec().fields().isEmpty()) {
                 String partitionDataJson = task.partitionDataJson()
                         .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
-                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionSpec));
+                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
             }
 
             newFiles.add(builder.build());
@@ -3265,6 +3302,11 @@ public class IcebergMetadata
                 .add(NestedField.required(TRINO_MERGE_PARTITION_SPEC_ID, "partition_spec_id", IntegerType.get()))
                 .add(NestedField.required(TRINO_MERGE_PARTITION_DATA, "partition_data", StringType.get()))
                 .add(NestedField.optional(TRINO_MERGE_SOURCE_ROW_ID, "source_row_id", LongType.get()))
+                .add(NestedField.required(TRINO_MERGE_FILE_FORMAT, "file_format", IntegerType.get()))
+                .add(NestedField.required(TRINO_MERGE_FILE_SIZE, "file_size", LongType.get()))
+                .add(NestedField.required(TRINO_MERGE_FILE_RECORD_COUNT, "file_record_count", LongType.get()))
+                .add(NestedField.required(TRINO_MERGE_DATA_SEQUENCE_NUMBER, "data_sequence_number", LongType.get()))
+                .add(NestedField.optional(TRINO_MERGE_FILE_FIRST_ROW_ID, "file_first_row_id", LongType.get()))
                 .build());
 
         NestedField field = NestedField.required(TRINO_MERGE_ROW_ID, TRINO_MERGE_ROW_ID_NAME, type);
@@ -3278,10 +3320,20 @@ public class IcebergMetadata
         Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
         int specId = table.getSpecId().orElseThrow(() -> new VerifyException("Partition spec missing in the table handle"));
         PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, table.getPartitionSpecJsons().get(specId));
-        return getWriteLayout(schema, partitionSpec, true)
+        Optional<ConnectorPartitioningHandle> partitionedLayout = getWriteLayout(schema, partitionSpec, true)
                 .flatMap(ConnectorTableLayout::getPartitioning)
                 .map(IcebergPartitioningHandle.class::cast)
                 .map(IcebergPartitioningHandle::forUpdate);
+        if (partitionedLayout.isPresent()) {
+            return partitionedLayout;
+        }
+
+        // For unpartitioned CoW tables, hash DELETE/UPDATE rows by file path (via
+        // IcebergUpdateBucketFunction) so deletions for the same file land on one worker.
+        if (isCopyOnWriteMode(table.getStorageProperties())) {
+            return Optional.of(new IcebergPartitioningHandle(true, ImmutableList.of(), ImmutableList.of()));
+        }
+        return Optional.empty();
     }
 
     @Override
@@ -3292,11 +3344,63 @@ public class IcebergMetadata
 
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
         validateNotModifyingOldSnapshot(table, icebergTable);
-
         beginTransaction(icebergTable);
 
+        // Resolve the row-level operation mode from the planning-time properties carried on the
+        // table handle, not from the freshly loaded Iceberg table. getUpdateLayout() above
+        // resolved partitioning from the same frozen properties; reading a different value here
+        // would let a concurrent ALTER TABLE SET PROPERTIES between planning and execution flip
+        // the mode, defeating the file-path bucketing that guarantees one rewriter per data
+        // file in CoW. Write properties (compression, format, etc.) are still read fresh below
+        // because they only influence the format of newly written files.
+        RowLevelOperationMode operationMode = resolveRowLevelOperationMode(table.getStorageProperties());
+
+        CopyOnWriteMergeState cowState = operationMode == RowLevelOperationMode.COPY_ON_WRITE
+                ? prepareCopyOnWriteMergeState(table, icebergTable)
+                : CopyOnWriteMergeState.EMPTY;
+
         IcebergWritableTableHandle insertHandle = newWritableTableHandle(table.getSchemaTableName(), icebergTable);
-        return new IcebergMergeTableHandle(table, insertHandle);
+        return new IcebergMergeTableHandle(
+                table,
+                insertHandle,
+                operationMode,
+                cowState.baseTableProperties(),
+                cowState.preExistingDeletesByDataFile());
+    }
+
+    /**
+     * Capture the coordinator-only state CoW merge-writer tasks need: register the target for
+     * one-split-per-file scanning, freeze table properties, and plan pre-existing delete files.
+     */
+    private CopyOnWriteMergeState prepareCopyOnWriteMergeState(IcebergTableHandle table, Table icebergTable)
+    {
+        verify(icebergTable instanceof HasTableOperations, "Unexpected table implementation: %s", icebergTable.getClass().getName());
+        copyOnWriteScanHandles.add(table);
+        Map<String, String> baseTableProperties = ImmutableMap.copyOf(icebergTable.properties());
+
+        long snapshotId = table.getSnapshotId().orElseThrow(
+                () -> new VerifyException("Missing snapshot ID for copy-on-write merge: " + table.getSchemaTableName()));
+        long planStartNanos = System.nanoTime();
+        Map<String, List<io.trino.plugin.iceberg.delete.DeleteFile>> preExistingDeletesByDataFile =
+                planPreExistingDeletesByDataFile(icebergTable, snapshotId, icebergPlanningExecutor);
+        long elapsedMillis = (System.nanoTime() - planStartNanos) / 1_000_000;
+        int totalDeleteFileCount = preExistingDeletesByDataFile.values().stream().mapToInt(List::size).sum();
+        // Mirror of the finishCopyOnWrite commit log so operators can observe both ends of the merge.
+        log.debug(
+                "CoW beginMerge: %d data file(s) with pre-existing deletes (%d delete file(s) total), snapshot=%d, table=%s, elapsedMillis=%d",
+                preExistingDeletesByDataFile.size(),
+                totalDeleteFileCount,
+                snapshotId,
+                table.getSchemaTableName(),
+                elapsedMillis);
+        return new CopyOnWriteMergeState(baseTableProperties, preExistingDeletesByDataFile);
+    }
+
+    private record CopyOnWriteMergeState(
+            Map<String, String> baseTableProperties,
+            Map<String, List<io.trino.plugin.iceberg.delete.DeleteFile>> preExistingDeletesByDataFile)
+    {
+        static final CopyOnWriteMergeState EMPTY = new CopyOnWriteMergeState(ImmutableMap.of(), ImmutableMap.of());
     }
 
     @Override
@@ -3304,7 +3408,53 @@ public class IcebergMetadata
     {
         IcebergMergeTableHandle mergeHandle = (IcebergMergeTableHandle) mergeTableHandle;
         IcebergTableHandle handle = mergeHandle.getTableHandle();
-        finishWrite(session, handle, fragments);
+        try {
+            if (mergeHandle.getRowLevelOperationMode() == RowLevelOperationMode.COPY_ON_WRITE) {
+                finishCopyOnWrite(session, handle, mergeHandle.getBaseTableProperties(), fragments);
+            }
+            else {
+                finishWrite(session, handle, fragments);
+            }
+        }
+        finally {
+            // The scan that needed one-split-per-file is finished by the time finishMerge runs,
+            // and the IcebergMetadata instance can outlive a single merge in long-lived
+            // transactions (CTAS-style or future multi-statement transactions). Drop the entry
+            // unconditionally; copyOnWriteScanHandles.remove on a non-CoW handle is a no-op.
+            copyOnWriteScanHandles.remove(handle);
+        }
+    }
+
+    /**
+     * @return the number of dangling delete files queued for removal in this commit
+     */
+    private static int removeDanglingDeleteFiles(Schema schema, List<CommitTaskData> rewriteTasks, OverwriteFiles overwriteFiles)
+    {
+        DeleteFileSet danglingDeletes = DeleteFileSet.create();
+        for (CommitTaskData task : rewriteTasks) {
+            CommitTaskData.RewriteInfo rewriteInfo = task.rewriteInfo().orElseThrow();
+            for (CommitTaskData.DanglingDeleteFile danglingFile : rewriteInfo.danglingDeleteFiles()) {
+                PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, danglingFile.partitionSpecJson());
+                Optional<PartitionData> partitionData = toPartitionData(partitionSpec, schema, danglingFile.partitionDataJson());
+                FileMetadata.Builder deleteBuilder = FileMetadata.deleteFileBuilder(partitionSpec)
+                        .withPath(danglingFile.path())
+                        .withFormat(FileFormat.fromFileName(danglingFile.path()))
+                        .ofPositionDeletes()
+                        .withFileSizeInBytes(danglingFile.fileSizeInBytes())
+                        .withRecordCount(danglingFile.recordCount())
+                        .withReferencedDataFile(danglingFile.referencedDataFile());
+                if (danglingFile.contentOffset() != null && danglingFile.contentSizeInBytes() != null) {
+                    deleteBuilder.withContentOffset(danglingFile.contentOffset());
+                    deleteBuilder.withContentSizeInBytes(danglingFile.contentSizeInBytes());
+                }
+                partitionData.ifPresent(deleteBuilder::withPartition);
+                danglingDeletes.add(deleteBuilder.build());
+            }
+        }
+        if (!danglingDeletes.isEmpty()) {
+            overwriteFiles.deleteFiles(DataFileSet.create(), danglingDeletes);
+        }
+        return danglingDeletes.size();
     }
 
     private static void verifyTableVersionForUpdate(IcebergTableHandle table)
@@ -3319,6 +3469,235 @@ public class IcebergMetadata
     {
         if (table.getSnapshotId().isPresent() && (table.getSnapshotId().getAsLong() != icebergTable.currentSnapshot().snapshotId())) {
             throw new TrinoException(NOT_SUPPORTED, "Modifying old snapshot is not supported in Iceberg");
+        }
+    }
+
+    /**
+     * Resolve the row-level operation mode from {@link org.apache.iceberg.TableProperties#MERGE_MODE}.
+     * {@code write.delete.mode} and {@code write.update.mode} are intentionally ignored.
+     */
+    static RowLevelOperationMode resolveRowLevelOperationMode(Map<String, String> tableProperties)
+    {
+        return RowLevelOperationMode.fromName(
+                tableProperties.getOrDefault(MERGE_MODE, RowLevelOperationMode.MERGE_ON_READ.modeName()));
+    }
+
+    /**
+     * Resolve the CoW isolation level from {@link org.apache.iceberg.TableProperties#MERGE_ISOLATION_LEVEL}.
+     * {@code write.delete.isolation-level} and {@code write.update.isolation-level} are ignored.
+     */
+    static IsolationLevel resolveCopyOnWriteIsolationLevel(Map<String, String> tableProperties)
+    {
+        return IsolationLevel.fromName(tableProperties.getOrDefault(MERGE_ISOLATION_LEVEL, MERGE_ISOLATION_LEVEL_DEFAULT));
+    }
+
+    private static boolean isCopyOnWriteMode(Map<String, String> tableProperties)
+    {
+        return RowLevelOperationMode.COPY_ON_WRITE.modeName()
+                .equals(tableProperties.get(MERGE_MODE));
+    }
+
+    private void finishCopyOnWrite(
+            ConnectorSession session,
+            IcebergTableHandle table,
+            Map<String, String> baseTableProperties,
+            Collection<Slice> fragments)
+    {
+        Table icebergTable = transaction.table();
+
+        List<CommitTaskData> commitTasks = fragments.stream()
+                .map(Slice::getInput)
+                .map(commitTaskCodec::fromJson)
+                .collect(toImmutableList());
+
+        if (commitTasks.isEmpty()) {
+            transaction = null;
+            clearCopyOnWriteRollbackCleanupState();
+            return;
+        }
+
+        prepareCopyOnWriteRollbackCleanup(commitTasks);
+        try {
+            Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
+
+            // Rewrite fragments carry RewriteInfo from worker-side CopyOnWriteFileRewriter
+            List<CommitTaskData> rewriteTasks = new ArrayList<>();
+            List<CommitTaskData> insertTasks = new ArrayList<>();
+
+            for (CommitTaskData task : commitTasks) {
+                if (task.rewriteInfo().isPresent()) {
+                    rewriteTasks.add(task);
+                }
+                else {
+                    insertTasks.add(task);
+                }
+            }
+
+            verifyUniqueRewriteTasksPerDataFile(rewriteTasks);
+
+            Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
+
+            // Always commit through OverwriteFiles so conflict validators run for every CoW
+            // commit, including insert-only MERGEs (Iceberg still labels those as "append").
+            OverwriteFiles overwriteFiles = transaction.newOverwrite();
+            configureCopyOnWriteConflictDetection(overwriteFiles, table, icebergTable, baseTableProperties, rewriteTasks);
+
+            appendRewriteTasks(overwriteFiles, schema, sortOrders, rewriteTasks);
+
+            for (CommitTaskData task : insertTasks) {
+                overwriteFiles.addFile(buildInsertDataFile(schema, sortOrders, task));
+            }
+
+            int danglingDeletesRemoved = 0;
+            if (!rewriteTasks.isEmpty()) {
+                danglingDeletesRemoved = removeDanglingDeleteFiles(schema, rewriteTasks, overwriteFiles);
+            }
+
+            commitUpdate(overwriteFiles, session, "copy-on-write");
+
+            long totalOldBytes = rewriteTasks.stream()
+                    .mapToLong(task -> task.rewriteInfo().orElseThrow().oldFileSizeInBytes())
+                    .sum();
+            long totalNewBytes = rewriteTasks.stream()
+                    .filter(task -> !task.path().isEmpty())
+                    .mapToLong(CommitTaskData::fileSizeInBytes)
+                    .sum();
+            long totalInsertBytes = insertTasks.stream()
+                    .mapToLong(CommitTaskData::fileSizeInBytes)
+                    .sum();
+            log.debug(
+                    "CoW commit: %d files overwritten (%d bytes -> %d bytes), %d new files inserted (%d bytes), table=%s",
+                    rewriteTasks.size(),
+                    totalOldBytes,
+                    totalNewBytes,
+                    insertTasks.size(),
+                    totalInsertBytes,
+                    table.getTableName());
+
+            commitTransaction(transaction, "copy-on-write");
+            copyOnWriteStats.recordCommit(rewriteTasks.size(), totalOldBytes, totalNewBytes);
+            copyOnWriteStats.recordDanglingDeletesRemoved(danglingDeletesRemoved);
+            clearCopyOnWriteRollbackCleanupState();
+        }
+        catch (RuntimeException e) {
+            if (hasCommitStateUnknownException(e)) {
+                canCleanupPendingCowRollbackFiles = false;
+                copyOnWriteStats.recordCommitStateUnknown();
+            }
+            throw e;
+        }
+    }
+
+    private static DataFile buildInsertDataFile(Schema schema, Map<Integer, SortOrder> sortOrders, CommitTaskData task)
+    {
+        PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, task.partitionSpecJson());
+        Type[] partitionColumnTypes = partitionSpec.fields().stream()
+                .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
+                .toArray(Type[]::new);
+
+        DataFiles.Builder builder = DataFiles.builder(partitionSpec)
+                .withPath(task.path())
+                .withFormat(task.fileFormat().toIceberg())
+                .withFileSizeInBytes(task.fileSizeInBytes())
+                .withMetrics(task.metrics().metrics())
+                .withSortOrder(sortOrders.get(task.sortOrderId()));
+        task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
+
+        if (!partitionSpec.fields().isEmpty()) {
+            String partitionDataJson = task.partitionDataJson()
+                    .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
+            builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
+        }
+
+        return builder.build();
+    }
+
+    /**
+     * CoW invariant: every data file may be rewritten at most once per merge. The merge layout in
+     * getUpdateLayout() buckets DELETE/UPDATE rows by file path so all rows of one data file land on
+     * a single worker, and that worker emits a single rewrite task per old file. Two rewrite tasks for
+     * the same old file would be silently committed by Iceberg as two separate appends, duplicating
+     * every surviving row of that file. Fail fast and loudly if the invariant is ever broken (bug in
+     * bucketing, retry path, worker double-commit, etc.) so we never produce a corrupted snapshot.
+     */
+    private void verifyUniqueRewriteTasksPerDataFile(List<CommitTaskData> rewriteTasks)
+    {
+        Set<String> seenOldFilePaths = new HashSet<>();
+        for (CommitTaskData task : rewriteTasks) {
+            String oldFilePath = task.rewriteInfo().orElseThrow().oldFilePath();
+            if (!seenOldFilePaths.add(oldFilePath)) {
+                copyOnWriteStats.recordUniqueRewriteTaskInvariantViolation();
+                throw new IllegalStateException(
+                        "Multiple rewrite tasks reference the same old data file path " + oldFilePath
+                                + "; expected one rewrite per file in copy-on-write merge");
+            }
+        }
+    }
+
+    private void configureCopyOnWriteConflictDetection(
+            OverwriteFiles overwriteFiles,
+            IcebergTableHandle table,
+            Table icebergTable,
+            Map<String, String> baseTableProperties,
+            List<CommitTaskData> rewriteTasks)
+    {
+        OptionalLong baseSnapshotId = table.getSnapshotId();
+        if (baseSnapshotId.isPresent()) {
+            overwriteFiles.validateFromSnapshot(baseSnapshotId.getAsLong());
+        }
+
+        if (!rewriteTasks.isEmpty()) {
+            // Narrow conflict detection to files we actually read; inserts don't widen it.
+            TupleDomain<IcebergColumnHandle> dataColumnPredicate = table.getEnforcedPredicate().filter((column, _) -> !isMetadataColumnId(column.getId()));
+            TupleDomain<IcebergColumnHandle> effectivePredicate = dataColumnPredicate.intersect(table.getUnenforcedPredicate());
+            effectivePredicate = effectivePredicate.intersect(extractTupleDomainsFromCommitTasks(table, icebergTable, rewriteTasks, typeManager));
+            effectivePredicate = effectivePredicate.filter((_, domain) -> isConvertibleToIcebergExpression(domain));
+            if (!effectivePredicate.isAll()) {
+                overwriteFiles.conflictDetectionFilter(toIcebergExpression(effectivePredicate));
+            }
+        }
+
+        // Resolve isolation from the properties frozen at beginMerge, not the freshly committed table, so a
+        // concurrent ALTER TABLE SET PROPERTIES between planning and commit cannot change conflict detection.
+        IsolationLevel isolationLevel = resolveCopyOnWriteIsolationLevel(baseTableProperties);
+        if (isolationLevel == IsolationLevel.SERIALIZABLE) {
+            overwriteFiles.validateNoConflictingData();
+        }
+        overwriteFiles.validateNoConflictingDeletes();
+        overwriteFiles.scanManifestsWith(icebergScanExecutor);
+    }
+
+    private static void appendRewriteTasks(
+            OverwriteFiles overwriteFiles,
+            Schema schema,
+            Map<Integer, SortOrder> sortOrders,
+            List<CommitTaskData> rewriteTasks)
+    {
+        for (CommitTaskData task : rewriteTasks) {
+            CommitTaskData.RewriteInfo rewriteInfo = task.rewriteInfo().orElseThrow();
+            PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, task.partitionSpecJson());
+            Optional<PartitionData> partitionData = toPartitionData(partitionSpec, schema, task.partitionDataJson());
+
+            DataFiles.Builder oldBuilder = DataFiles.builder(partitionSpec)
+                    .withPath(rewriteInfo.oldFilePath())
+                    .withFormat(rewriteInfo.oldFileFormat().toIceberg())
+                    .withFileSizeInBytes(rewriteInfo.oldFileSizeInBytes())
+                    .withRecordCount(rewriteInfo.oldRecordCount());
+            partitionData.ifPresent(oldBuilder::withPartition);
+            overwriteFiles.deleteFile(oldBuilder.build());
+
+            // Empty path signals all rows deleted
+            if (!task.path().isEmpty()) {
+                DataFiles.Builder newBuilder = DataFiles.builder(partitionSpec)
+                        .withPath(task.path())
+                        .withFormat(task.fileFormat().toIceberg())
+                        .withFileSizeInBytes(task.fileSizeInBytes())
+                        .withMetrics(task.metrics().metrics())
+                        .withSortOrder(sortOrders.get(task.sortOrderId()));
+                task.fileSplitOffsets().ifPresent(newBuilder::withSplitOffsets);
+                partitionData.ifPresent(newBuilder::withPartition);
+                overwriteFiles.addFile(newBuilder.build());
+            }
         }
     }
 
@@ -3338,6 +3717,17 @@ public class IcebergMetadata
         }
 
         Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
+
+        List<CommitTaskData> dataTasks = new ArrayList<>();
+        List<CommitTaskData> deleteTasks = new ArrayList<>();
+
+        for (CommitTaskData task : commitTasks) {
+            switch (task.content()) {
+                case DATA -> dataTasks.add(task);
+                case POSITION_DELETES -> deleteTasks.add(task);
+                case EQUALITY_DELETES, DATA_MANIFEST, DELETE_MANIFEST -> throw new UnsupportedOperationException("Unsupported task content: " + task.content());
+            }
+        }
 
         RowDelta rowDelta = transaction.newRowDelta();
         OptionalLong baseSnapshotId = table.getSnapshotId();
@@ -3362,20 +3752,13 @@ public class IcebergMetadata
         rowDelta.validateNoConflictingDeleteFiles();
         rowDelta.scanManifestsWith(icebergScanExecutor);
 
-        List<CommitTaskData> dataTasks = new ArrayList<>();
-        List<CommitTaskData> deleteTasks = new ArrayList<>();
-
-        for (CommitTaskData task : commitTasks) {
-            switch (task.content()) {
-                case DATA -> dataTasks.add(task);
-                case POSITION_DELETES -> deleteTasks.add(task);
-                case EQUALITY_DELETES, DATA_MANIFEST, DELETE_MANIFEST -> throw new UnsupportedOperationException("Unsupported task content: " + task.content());
-            }
-        }
-
         Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
         for (CommitTaskData task : dataTasks) {
             PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, task.partitionSpecJson());
+            Type[] partitionColumnTypes = partitionSpec.fields().stream()
+                    .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
+                    .toArray(Type[]::new);
+
             DataFiles.Builder builder = DataFiles.builder(partitionSpec)
                     .withPath(task.path())
                     .withFormat(task.fileFormat().toIceberg())
@@ -3384,10 +3767,10 @@ public class IcebergMetadata
                     .withSortOrder(sortOrders.get(task.sortOrderId()));
             task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
 
-            if (partitionSpec.isPartitioned()) {
+            if (!icebergTable.spec().fields().isEmpty()) {
                 String partitionDataJson = task.partitionDataJson()
                         .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
-                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionSpec));
+                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
             }
             rowDelta.addRows(builder.build());
         }
@@ -3416,12 +3799,7 @@ public class IcebergMetadata
                         .withFileSizeInBytes(task.fileSizeInBytes())
                         .withMetrics(task.metrics().metrics());
                 task.fileSplitOffsets().ifPresent(deleteBuilder::withSplitOffsets);
-                if (partitionSpec.isPartitioned()) {
-                    deleteBuilder.withPartition(PartitionData.fromJson(
-                            task.partitionDataJson().orElseThrow(() -> new VerifyException("No partition data for partitioned table")),
-                            partitionSpec));
-                }
-
+                toPartitionData(partitionSpec, schema, task.partitionDataJson()).ifPresent(deleteBuilder::withPartition);
                 rowDelta.addDeletes(deleteBuilder.build());
             }
             commitUpdateAndTransaction(rowDelta, session, transaction, "write");
@@ -3432,18 +3810,13 @@ public class IcebergMetadata
         List<DeletionVectorInfo> deletionVectorInfos = deleteTasks.stream()
                 .map(task -> {
                     PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, task.partitionSpecJson());
-                    Optional<PartitionData> partitionData = partitionSpec.isPartitioned()
-                            ? Optional.of(PartitionData.fromJson(
-                            task.partitionDataJson().orElseThrow(() -> new VerifyException("No partition data for partitioned table")),
-                            partitionSpec))
-                            : Optional.empty();
                     return new DeletionVectorInfo(
                             task.referencedDataFile().orElseThrow(() -> new VerifyException("v3 POSITION_DELETES task missing referencedDataFile")),
                             task.serializedDeletionVector()
                                     .map(Slices::wrappedBuffer)
                                     .orElseThrow(() -> new VerifyException("v3 POSITION_DELETES task missing serializedDeletionVector")),
                             partitionSpec,
-                            partitionData);
+                            toPartitionData(partitionSpec, schema, task.partitionDataJson()));
                 })
                 .toList();
 
@@ -3452,10 +3825,25 @@ public class IcebergMetadata
         commitUpdateAndTransaction(rowDelta, session, transaction, "write");
     }
 
+    private static Optional<PartitionData> toPartitionData(PartitionSpec partitionSpec, Schema schema, Optional<String> partitionDataJson)
+    {
+        if (partitionSpec.fields().isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(PartitionData.fromJson(
+                partitionDataJson.orElseThrow(() -> new VerifyException("No partition data for partitioned table")),
+                partitionSpec.fields().stream()
+                        .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
+                        .toArray(Type[]::new)));
+    }
+
     static TupleDomain<IcebergColumnHandle> extractTupleDomainsFromCommitTasks(IcebergTableHandle table, Table icebergTable, List<CommitTaskData> commitTasks, TypeManager typeManager)
     {
         Set<IcebergColumnHandle> partitionColumns = new HashSet<>(getProjectedColumns(icebergTable.schema(), typeManager, identityPartitionColumnsInAllSpecs(icebergTable)));
         PartitionSpec partitionSpec = icebergTable.spec();
+        Type[] partitionColumnTypes = partitionSpec.fields().stream()
+                .map(field -> field.transform().getResultType(icebergTable.schema().findType(field.sourceId())))
+                .toArray(Type[]::new);
         Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
         Map<IcebergColumnHandle, List<Domain>> domainsFromTasks = new HashMap<>();
         for (CommitTaskData commitTask : commitTasks) {
@@ -3466,7 +3854,7 @@ public class IcebergMetadata
                 return TupleDomain.all();
             }
 
-            PartitionData partitionData = PartitionData.fromJson(commitTask.partitionDataJson().get(), partitionSpec);
+            PartitionData partitionData = PartitionData.fromJson(commitTask.partitionDataJson().get(), partitionColumnTypes);
             Map<Integer, Optional<String>> partitionKeys = getPartitionKeys(partitionData, partitionSpec);
             Map<ColumnHandle, NullableValue> partitionValues = getPartitionValues(partitionColumns, partitionKeys);
 
@@ -3594,7 +3982,180 @@ public class IcebergMetadata
 
     public void rollback()
     {
-        // TODO: cleanup open transaction
+        try {
+            if (transaction == null) {
+                clearCopyOnWriteRollbackCleanupState();
+                return;
+            }
+            cleanupPendingCopyOnWriteFiles(transaction.table());
+            clearCopyOnWriteRollbackCleanupState();
+        }
+        finally {
+            // Defense in depth: rollback is the terminal point for a failed transaction and
+            // any scan that registered a CoW handle has long since completed. Clear the whole
+            // set so we never carry a handle into a retried statement on the same metadata.
+            copyOnWriteScanHandles.clear();
+        }
+    }
+
+    private void prepareCopyOnWriteRollbackCleanup(List<CommitTaskData> commitTasks)
+    {
+        pendingCowRollbackFilePaths = commitTasks.stream()
+                .filter(task -> task.content() == FileContent.DATA)
+                .map(CommitTaskData::path)
+                .filter(path -> !path.isEmpty())
+                .distinct()
+                .collect(toImmutableList());
+        canCleanupPendingCowRollbackFiles = true;
+    }
+
+    private void cleanupPendingCopyOnWriteFiles(Table icebergTable)
+    {
+        if (pendingCowRollbackFilePaths.isEmpty()) {
+            return;
+        }
+        if (!canCleanupPendingCowRollbackFiles) {
+            log.warn("Skipping CoW rollback cleanup because commit state is unknown; orphan files may remain until remove_orphan_files runs");
+            return;
+        }
+
+        deleteOrphanFilesInParallel(icebergTable.io(), pendingCowRollbackFilePaths, icebergFileDeleteExecutor);
+        // Best-effort accounting: deleteOrphanFilesInParallel swallows individual failures, so this
+        // is an upper bound on what was actually unlinked from storage. Operators should compare
+        // this against orphan-file metrics on storage to detect persistent failures.
+        copyOnWriteStats.recordOrphanFilesCleanedUp(pendingCowRollbackFilePaths.size());
+    }
+
+    /**
+     * Deletes the given paths with best-effort semantics: any failure is logged and never
+     * propagates. Cleanup must not mask the original query failure during rollback.
+     *
+     * <p>When the supplied {@link FileIO} implements {@link SupportsBulkOperations}, delegates to
+     * its bulk {@code deleteFiles} API which internally batches (typically 1000 paths per cloud
+     * API call), parallelises batches on its own dedicated executor, and leverages the underlying
+     * cloud provider's bulk-delete primitive (e.g. S3 {@code DeleteObjects}). This collapses
+     * {@code N * RTT} sequential round trips to roughly {@code ceil(N / 1000) * RTT} request work,
+     * with the storage provider fanning out in its backend.
+     *
+     * <p>Otherwise falls back to submitting one {@code deleteFile} per path to the supplied
+     * executor, blocking until all complete.
+     */
+    static void deleteOrphanFilesInParallel(FileIO fileIo, List<String> paths, ExecutorService executor)
+    {
+        if (paths.isEmpty()) {
+            return;
+        }
+        if (fileIo instanceof SupportsBulkOperations bulkFileIo) {
+            try {
+                bulkFileIo.deleteFiles(paths);
+            }
+            catch (RuntimeException e) {
+                log.warn(e, "Failed to bulk-delete %d file(s) during cleanup", paths.size());
+            }
+            return;
+        }
+        List<Future<?>> futures = new ArrayList<>(paths.size());
+        try {
+            for (String path : paths) {
+                futures.add(executor.submit(() -> {
+                    try {
+                        fileIo.deleteFile(path);
+                    }
+                    catch (RuntimeException e) {
+                        log.warn(e, "Failed to clean up file: %s", path);
+                    }
+                }));
+            }
+            futures.forEach(MoreFutures::getFutureValue);
+        }
+        finally {
+            futures.forEach(future -> future.cancel(true));
+        }
+    }
+
+    /**
+     * Plans pre-existing position/equality delete files per data file at the given snapshot.
+     * Invoked once on the coordinator in {@code beginMerge} and the result is shipped to every
+     * worker via {@link IcebergMergeTableHandle}, replacing the per-worker
+     * {@code newScan().useSnapshot().planFiles()} that each merge-writer task would otherwise
+     * perform. Only entries with at least one delete file are included; a merge rewriting a file
+     * with no pre-existing deletes uses an empty list. The scan uses {@code planWith} so manifest
+     * I/O fans out across the shared {@code icebergPlanningExecutor}, matching the parallelism
+     * already used by the regular query planning path inside this connector.
+     */
+    static Map<String, List<io.trino.plugin.iceberg.delete.DeleteFile>> planPreExistingDeletesByDataFile(
+            Table icebergTable,
+            long snapshotId,
+            ExecutorService planningExecutor)
+    {
+        try (CloseableIterable<FileScanTask> fileScanTasks = icebergTable.newScan()
+                .useSnapshot(snapshotId)
+                .planWith(planningExecutor)
+                .planFiles()) {
+            return extractPreExistingDeletesByDataFile(fileScanTasks);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Failed to plan data files for pre-existing delete lookup", e);
+        }
+    }
+
+    /**
+     * Pure data-transform kept package-private for direct testing without mocking Iceberg scans.
+     * Keeps only position and equality deletes (ignores content types Trino does not apply during
+     * CoW rewrites) and drops data files with no retained deletes so the resulting handle payload
+     * grows only with files that actually carry delete state.
+     */
+    static Map<String, List<io.trino.plugin.iceberg.delete.DeleteFile>> extractPreExistingDeletesByDataFile(Iterable<FileScanTask> fileScanTasks)
+    {
+        ImmutableMap.Builder<String, List<io.trino.plugin.iceberg.delete.DeleteFile>> result = ImmutableMap.builder();
+        for (FileScanTask fileScanTask : fileScanTasks) {
+            List<io.trino.plugin.iceberg.delete.DeleteFile> preExistingDeletes = fileScanTask.deletes().stream()
+                    .filter(deleteFile -> deleteFile.content() == FileContent.POSITION_DELETES || deleteFile.content() == FileContent.EQUALITY_DELETES)
+                    .map(io.trino.plugin.iceberg.delete.DeleteFile::fromIceberg)
+                    .collect(toImmutableList());
+            if (!preExistingDeletes.isEmpty()) {
+                result.put(fileScanTask.file().location(), preExistingDeletes);
+            }
+        }
+        return result.buildKeepingLast();
+    }
+
+    private void clearCopyOnWriteRollbackCleanupState()
+    {
+        pendingCowRollbackFilePaths = ImmutableList.of();
+        canCleanupPendingCowRollbackFiles = false;
+    }
+
+    /**
+     * Returns true if {@code throwable} is, or wraps anywhere in its cause chain, an
+     * {@link CommitStateUnknownException}. The CoW rollback path uses this to decide whether
+     * orphan-file cleanup is safe: when the commit state is unknown the catalog may have
+     * accepted the snapshot, so deleting the just-written files would corrupt the table.
+     *
+     * <p>Visible-for-test: package-private so we can exercise nested cause and cycle handling
+     * without driving a full Iceberg transaction.
+     */
+    static boolean hasCommitStateUnknownException(Throwable throwable)
+    {
+        // Floyd's tortoise-and-hare guards against pathological self-referencing cause chains.
+        Throwable slow = throwable;
+        Throwable fast = throwable;
+        while (slow != null) {
+            if (slow instanceof CommitStateUnknownException) {
+                return true;
+            }
+            slow = slow.getCause();
+            if (fast != null) {
+                fast = fast.getCause();
+                if (fast != null) {
+                    fast = fast.getCause();
+                }
+            }
+            if (slow != null && slow == fast) {
+                return false;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -4034,11 +4595,15 @@ public class IcebergMetadata
                 .map(commitTaskCodec::fromJson)
                 .collect(toImmutableList());
 
+        Type[] partitionColumnTypes = icebergTable.spec().fields().stream()
+                .map(field -> field.transform().getResultType(
+                        icebergTable.schema().findType(field.sourceId())))
+                .toArray(Type[]::new);
+
         AppendFiles appendFiles = isMergeManifestsOnWrite(session) ? transaction.newAppend() : transaction.newFastAppend();
         Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
-        PartitionSpec partitionSpec = icebergTable.spec();
         for (CommitTaskData task : commitTasks) {
-            DataFiles.Builder builder = DataFiles.builder(partitionSpec)
+            DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
                     .withPath(task.path())
                     .withFileSizeInBytes(task.fileSizeInBytes())
                     .withFormat(table.fileFormat().toIceberg())
@@ -4046,10 +4611,10 @@ public class IcebergMetadata
                     .withSortOrder(sortOrders.get(task.sortOrderId()));
             task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
 
-            if (partitionSpec.isPartitioned()) {
+            if (!icebergTable.spec().fields().isEmpty()) {
                 String partitionDataJson = task.partitionDataJson()
                         .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
-                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionSpec));
+                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
             }
 
             appendFiles.appendFile(builder.build());
@@ -4386,6 +4951,18 @@ public class IcebergMetadata
     public void disableIncrementalRefresh()
     {
         fromSnapshotForRefresh = OptionalLong.empty();
+    }
+
+    /**
+     * Returns true when {@code handle} is the target scan handle of a copy-on-write DML in this
+     * transaction (registered by a prior {@code beginMerge}). Matching on the full handle -- not
+     * on {@code SchemaTableName} -- so the source scan of a self-referencing MERGE, which has a
+     * different projection/predicate and therefore a different handle, is not misclassified as a
+     * CoW target scan. Used by {@link IcebergSplitManager} to apply the one-split-per-file option.
+     */
+    public boolean isCopyOnWriteScan(IcebergTableHandle handle)
+    {
+        return copyOnWriteScanHandles.contains(handle);
     }
 
     private static CollectedStatistics processComputedTableStatistics(Table table, Collection<ComputedStatistics> computedStatistics)
