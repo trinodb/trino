@@ -134,6 +134,7 @@ class TestIcebergPageSourceProvider
                 OptionalLong.empty(),
                 1L, // dataSequenceNumber
                 OptionalLong.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         IcebergPageSourceProvider provider = createPageSourceProvider();
