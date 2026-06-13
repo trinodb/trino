@@ -192,6 +192,313 @@ final class TestOpenLineageListener
                 .isEqualTo("queryId-user-some-trino-client-127.0.0.1-abc123");
     }
 
+    @Test
+    void testIncludeTransitiveInputsDisabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithView);
+
+        assertThat(result.getInputs())
+                .hasSize(1)
+                .satisfiesExactly(input -> {
+                    assertThat(input.getName()).isEqualTo("marquez.default.my_view");
+                    assertThat(input.getFacets().getSchema().getFields())
+                            .extracting(field -> field.getName())
+                            .containsExactly("nationkey", "name");
+                });
+    }
+
+    @Test
+    void testIncludeTransitiveInputsEnabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost",
+                "openlineage-event-listener.include-transitive-inputs", "true"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithView);
+
+        assertThat(result.getInputs())
+                .hasSize(2)
+                .satisfiesExactlyInAnyOrder(
+                        input -> assertThat(input.getName()).isEqualTo("marquez.default.my_view"),
+                        input -> assertThat(input.getName()).isEqualTo("marquez.default.base_table"));
+    }
+
+    @Test
+    void testIncludeTransitiveInputsNestedViewDisabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithNestedView);
+
+        assertThat(result.getInputs())
+                .hasSize(1)
+                .satisfiesExactly(input -> {
+                    assertThat(input.getName()).isEqualTo("marquez.default.v2");
+                    assertThat(input.getFacets().getSchema().getFields())
+                            .extracting(field -> field.getName())
+                            .containsExactly("nationkey", "name");
+                });
+    }
+
+    @Test
+    void testIncludeTransitiveInputsNestedViewEnabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost",
+                "openlineage-event-listener.include-transitive-inputs", "true"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithNestedView);
+
+        assertThat(result.getInputs())
+                .hasSize(3)
+                .satisfiesExactlyInAnyOrder(
+                        input -> assertThat(input.getName()).isEqualTo("marquez.default.v2"),
+                        input -> assertThat(input.getName()).isEqualTo("marquez.default.v1"),
+                        input -> assertThat(input.getName()).isEqualTo("marquez.default.base_table"));
+    }
+
+    @Test
+    void testIncludeTransitiveInputsDirectTableDisabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithDirectTable);
+
+        assertThat(result.getInputs())
+                .hasSize(1)
+                .satisfiesExactly(input -> {
+                    assertThat(input.getName()).isEqualTo("marquez.default.orders");
+                    assertThat(input.getFacets().getSchema().getFields())
+                            .extracting(field -> field.getName())
+                            .containsExactly("orderkey", "custkey");
+                });
+    }
+
+    @Test
+    void testIncludeTransitiveInputsDirectTableEnabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost",
+                "openlineage-event-listener.include-transitive-inputs", "true"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithDirectTable);
+
+        assertThat(result.getInputs())
+                .hasSize(1)
+                .satisfiesExactly(input -> {
+                    assertThat(input.getName()).isEqualTo("marquez.default.orders");
+                    assertThat(input.getFacets().getSchema().getFields())
+                            .extracting(field -> field.getName())
+                            .containsExactly("orderkey", "custkey");
+                });
+    }
+
+    @Test
+    void testIncludeTransitiveInputsMixedInputsDisabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithMixedInputs);
+
+        assertThat(result.getInputs())
+                .hasSize(2)
+                .satisfiesExactlyInAnyOrder(
+                        input -> {
+                            assertThat(input.getName()).isEqualTo("marquez.default.orders");
+                            assertThat(input.getFacets().getSchema().getFields())
+                                    .extracting(field -> field.getName())
+                                    .containsExactly("orderkey");
+                        },
+                        input -> {
+                            assertThat(input.getName()).isEqualTo("marquez.default.my_view");
+                            assertThat(input.getFacets().getSchema().getFields())
+                                    .extracting(field -> field.getName())
+                                    .containsExactly("nationkey");
+                        });
+    }
+
+    @Test
+    void testIncludeTransitiveInputsMixedInputsEnabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost",
+                "openlineage-event-listener.include-transitive-inputs", "true"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithMixedInputs);
+
+        assertThat(result.getInputs())
+                .hasSize(3)
+                .satisfiesExactlyInAnyOrder(
+                        input -> assertThat(input.getName()).isEqualTo("marquez.default.orders"),
+                        input -> assertThat(input.getName()).isEqualTo("marquez.default.my_view"),
+                        input -> assertThat(input.getName()).isEqualTo("marquez.default.nation"));
+    }
+
+    @Test
+    void testIncludeTransitiveInputsViewMultipleBaseTablesDisabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithViewMultipleBaseTables);
+
+        assertThat(result.getInputs())
+                .hasSize(1)
+                .satisfiesExactly(input -> {
+                    assertThat(input.getName()).isEqualTo("marquez.default.join_view");
+                    assertThat(input.getFacets().getSchema().getFields())
+                            .extracting(field -> field.getName())
+                            .containsExactly("col_a", "col_b");
+                });
+    }
+
+    @Test
+    void testIncludeTransitiveInputsViewMultipleBaseTablesEnabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost",
+                "openlineage-event-listener.include-transitive-inputs", "true"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithViewMultipleBaseTables);
+
+        assertThat(result.getInputs())
+                .hasSize(3)
+                .satisfiesExactlyInAnyOrder(
+                        input -> assertThat(input.getName()).isEqualTo("marquez.default.join_view"),
+                        input -> assertThat(input.getName()).isEqualTo("marquez.default.t1"),
+                        input -> assertThat(input.getName()).isEqualTo("marquez.default.t2"));
+    }
+
+    @Test
+    void testIncludeTransitiveInputsNestedViewComplexJoinDisabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithNestedViewComplexJoin);
+
+        assertThat(result.getInputs())
+                .hasSize(1)
+                .satisfiesExactly(input -> {
+                    assertThat(input.getName()).isEqualTo("marquez.default.v_outer");
+                    assertThat(input.getFacets().getSchema().getFields())
+                            .extracting(field -> field.getName())
+                            .containsExactly("nationkey", "regionkey", "orderkey");
+                });
+    }
+
+    @Test
+    void testIncludeTransitiveInputsNestedViewComplexJoinEnabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost",
+                "openlineage-event-listener.include-transitive-inputs", "true"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithNestedViewComplexJoin);
+
+        assertThat(result.getInputs())
+                .hasSize(5)
+                .satisfiesExactlyInAnyOrder(
+                        input -> assertThat(input.getName()).isEqualTo("marquez.default.v_outer"),
+                        input -> assertThat(input.getName()).isEqualTo("marquez.default.v_inner"),
+                        input -> assertThat(input.getName()).isEqualTo("marquez.default.orders"),
+                        input -> assertThat(input.getName()).isEqualTo("marquez.default.nation"),
+                        input -> assertThat(input.getName()).isEqualTo("marquez.default.region"));
+    }
+
+    @Test
+    void testIncludeTransitiveInputsFreshMaterializedViewDisabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithFreshMaterializedView);
+
+        assertThat(result.getInputs())
+                .hasSize(1)
+                .satisfiesExactly(input -> {
+                    assertThat(input.getName()).isEqualTo("marquez.default.mv_fresh");
+                    assertThat(input.getFacets().getSchema().getFields())
+                            .extracting(field -> field.getName())
+                            .containsExactly("nationkey", "name");
+                });
+    }
+
+    @Test
+    void testIncludeTransitiveInputsFreshMaterializedViewEnabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost",
+                "openlineage-event-listener.include-transitive-inputs", "true"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithFreshMaterializedView);
+
+        assertThat(result.getInputs())
+                .hasSize(1)
+                .satisfiesExactly(input -> {
+                    assertThat(input.getName()).isEqualTo("marquez.default.mv_fresh");
+                    assertThat(input.getFacets().getSchema().getFields())
+                            .extracting(field -> field.getName())
+                            .containsExactly("nationkey", "name");
+                });
+    }
+
+    @Test
+    void testIncludeTransitiveInputsStaleMaterializedViewDisabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithStaleMaterializedView);
+
+        assertThat(result.getInputs())
+                .hasSize(1)
+                .satisfiesExactly(input -> {
+                    assertThat(input.getName()).isEqualTo("marquez.default.mv_stale");
+                    assertThat(input.getFacets().getSchema().getFields())
+                            .extracting(field -> field.getName())
+                            .containsExactly("nationkey", "name");
+                });
+    }
+
+    @Test
+    void testIncludeTransitiveInputsStaleMaterializedViewEnabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost",
+                "openlineage-event-listener.include-transitive-inputs", "true"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithStaleMaterializedView);
+
+        assertThat(result.getInputs())
+                .hasSize(2)
+                .satisfiesExactlyInAnyOrder(
+                        input -> assertThat(input.getName()).isEqualTo("marquez.default.mv_stale"),
+                        input -> assertThat(input.getName()).isEqualTo("marquez.default.nation"));
+    }
+
     private static EventListener createEventListener(Map<String, String> config)
     {
         return new OpenLineageListenerFactory().create(ImmutableMap.copyOf(config), new TestingEventListenerContext());
