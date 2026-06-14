@@ -417,12 +417,11 @@ final class TestIcebergLocalConcurrentWrites
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService executor = newFixedThreadPool(threads);
         String tableName = "test_concurrent_non_overlapping_updates_table_" + randomNameSuffix();
-        // Force creating more parquet files
-        Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("iceberg", "target_max_file_size", "1kB")
-                .build();
-
-        assertUpdate("CREATE TABLE " + tableName + " (a BIGINT, part BIGINT) WITH (partitioning = ARRAY['part'])");
+        Session session = getSession();
+        // Force creating more parquet files via the target_max_file_size table property
+        assertUpdate("CREATE TABLE " + tableName + " (a BIGINT, part BIGINT) WITH (partitioning = ARRAY['part'], target_max_file_size = '1kB')");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("target_max_file_size = '1kB'");
         assertUpdate(session, " INSERT INTO " + tableName + " SELECT * FROM " +
                 "(select * from UNNEST(SEQUENCE(1, 10000)) AS t(a)) CROSS JOIN (select * from UNNEST(SEQUENCE(1, 3)) AS t(part))", 30000);
 

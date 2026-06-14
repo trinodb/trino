@@ -61,7 +61,7 @@ public class TestIcebergParquetComplexTypesPredicatePushDown
             throws IOException
     {
         String tableName = "test_nested_column_pruning_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (col1Row ROW(a BIGINT, b BIGINT), col2 BIGINT) WITH (sorted_by=ARRAY['col2'])");
+        assertUpdate("CREATE TABLE " + tableName + " (col1Row ROW(a BIGINT, b BIGINT), col2 BIGINT) WITH (sorted_by=ARRAY['col2'], parquet_writer_row_group_size = '1kB')");
         assertUpdate("INSERT INTO " + tableName + " SELECT * FROM unnest(transform(SEQUENCE(1, 10000), x -> ROW(ROW(x*2, 100), x)))", 10000);
 
         long valueBetweenRowGroups = getValueBetweenRowGroups(tableName, "col1row.a");
