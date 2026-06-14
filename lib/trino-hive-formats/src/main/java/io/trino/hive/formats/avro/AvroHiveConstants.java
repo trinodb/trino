@@ -33,4 +33,9 @@ public final class AvroHiveConstants
     public static final String CHAR_TYPE_LOGICAL_NAME = "char";
     public static final String VARCHAR_TYPE_LOGICAL_NAME = "varchar";
     public static final String VARCHAR_AND_CHAR_LOGICAL_TYPE_LENGTH_PROP = "maxLength";
+
+    // Marker property added to Avro union schemas that correspond to Hive UNIONTYPE columns.
+    // Prevents the Avro reader from optimizing simple nullable unions to scalar types, ensuring a
+    // RowBlock with tag and field columns is produced instead (Hive maps UNIONTYPE to ROW(tag, field0, ...)).
+    public static final String HIVE_UNION_TYPE_SCHEMA_PROP = "hiveUnionType";
 }
