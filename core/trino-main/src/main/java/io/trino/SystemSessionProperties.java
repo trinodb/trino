@@ -100,6 +100,7 @@ public final class SystemSessionProperties
     public static final String SPATIAL_PARTITIONING_TABLE_NAME = "spatial_partitioning_table_name";
     public static final String COLOCATED_JOIN = "colocated_join";
     public static final String JOIN_REORDERING_STRATEGY = "join_reordering_strategy";
+    public static final String USE_LEGACY_DECORRELATOR = "use_legacy_decorrelator";
     public static final String MAX_REORDERED_JOINS = "max_reordered_joins";
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
@@ -467,6 +468,11 @@ public final class SystemSessionProperties
                         "Join reordering strategy",
                         JoinReorderingStrategy.class,
                         optimizerConfig.getJoinReorderingStrategy(),
+                        false),
+                booleanProperty(
+                        USE_LEGACY_DECORRELATOR,
+                        "Use the legacy pattern-matched subquery decorrelation rules instead of the dependent-join framework",
+                        optimizerConfig.isUseLegacyDecorrelator(),
                         false),
                 new PropertyMetadata<>(
                         MAX_REORDERED_JOINS,
@@ -1334,6 +1340,11 @@ public final class SystemSessionProperties
     public static double getTableScanNodePartitioningMinBucketToTaskRatio(Session session)
     {
         return session.getSystemProperty(TABLE_SCAN_NODE_PARTITIONING_MIN_BUCKET_TO_TASK_RATIO, Double.class);
+    }
+
+    public static boolean isUseLegacyDecorrelator(Session session)
+    {
+        return session.getSystemProperty(USE_LEGACY_DECORRELATOR, Boolean.class);
     }
 
     public static JoinReorderingStrategy getJoinReorderingStrategy(Session session)
