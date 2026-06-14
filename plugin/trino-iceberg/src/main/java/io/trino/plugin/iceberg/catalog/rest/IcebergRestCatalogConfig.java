@@ -66,6 +66,7 @@ public class IcebergRestCatalogConfig
     private boolean caseInsensitiveNameMatching;
     private Map<String, String> httpHeaders = ImmutableMap.of();
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
+    private boolean tokenDelegation;
 
     @NotNull
     public URI getBaseUri()
@@ -248,6 +249,19 @@ public class IcebergRestCatalogConfig
                     "Cannot parse http headers from property iceberg.rest-catalog.http-headers; value provided was %s, expected format is \"Header-Name-1: header value 1, Header-Value-2: header value 2, ...\"",
                     String.join(", ", httpHeaders)), e);
         }
+        return this;
+    }
+
+    public boolean isTokenDelegation()
+    {
+        return tokenDelegation;
+    }
+
+    @Config("iceberg.rest-catalog.token-delegation")
+    @ConfigDescription("Forward the authenticated user's OAuth2 token to the REST catalog as session credentials")
+    public IcebergRestCatalogConfig setTokenDelegation(boolean tokenDelegation)
+    {
+        this.tokenDelegation = tokenDelegation;
         return this;
     }
 

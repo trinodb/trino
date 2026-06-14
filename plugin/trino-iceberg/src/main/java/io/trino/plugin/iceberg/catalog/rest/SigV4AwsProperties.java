@@ -75,11 +75,12 @@ public class SigV4AwsProperties
             Optional.ofNullable(s3Config.getAwsSecretKey()).ifPresent(secretAccessKey -> builder.put(CLIENT_CREDENTIAL_AWS_SECRET_ACCESS_KEY, secretAccessKey));
             Optional.ofNullable(s3Config.getStsEndpoint()).ifPresent(endpoint -> builder.put(CLIENT_CREDENTIAL_AWS_STS_ENDPOINT, endpoint));
         }
-        else {
+        else if (s3Config.getAwsAccessKey() != null) {
             builder
-                    .put(REST_ACCESS_KEY_ID, requireNonNull(s3Config.getAwsAccessKey(), "s3.aws-access-key is null"))
+                    .put(REST_ACCESS_KEY_ID, s3Config.getAwsAccessKey())
                     .put(REST_SECRET_ACCESS_KEY, requireNonNull(s3Config.getAwsSecretKey(), "s3.aws-secret-key is null"));
         }
+        // else: OIDC exchange mode — per-user STS credentials are injected at session time
 
         properties = builder.buildOrThrow();
     }

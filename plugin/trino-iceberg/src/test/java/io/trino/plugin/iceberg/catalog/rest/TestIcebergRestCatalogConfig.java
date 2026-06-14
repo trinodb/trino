@@ -47,7 +47,8 @@ public class TestIcebergRestCatalogConfig
                 .setViewEndpointsEnabled(true)
                 .setCaseInsensitiveNameMatching(false)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
-                .setHttpHeaders(List.of()));
+                .setHttpHeaders(List.of())
+                .setTokenDelegation(false));
     }
 
     @Test
@@ -68,6 +69,7 @@ public class TestIcebergRestCatalogConfig
                 .put("iceberg.rest-catalog.case-insensitive-name-matching", "true")
                 .put("iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl", "3m")
                 .put("iceberg.rest-catalog.http-headers", "Polaris-Realm: default-realm")
+                .put("iceberg.rest-catalog.token-delegation", "true")
                 .buildOrThrow();
 
         IcebergRestCatalogConfig expected = new IcebergRestCatalogConfig()
@@ -84,7 +86,8 @@ public class TestIcebergRestCatalogConfig
                 .setViewEndpointsEnabled(false)
                 .setCaseInsensitiveNameMatching(true)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(3, MINUTES))
-                .setHttpHeaders(List.of("Polaris-Realm: default-realm"));
+                .setHttpHeaders(List.of("Polaris-Realm: default-realm"))
+                .setTokenDelegation(true);
 
         assertFullMapping(properties, expected);
     }
