@@ -60,7 +60,7 @@ are also available. They are discussed later in this topic.
     metastore calls for that partition.
   - `false`
 * - `hive.metastore-cache.cache-missing-stats`
-  - Enable caching the fact that table statistics for a specific table are 
+  - Enable caching the fact that table statistics for a specific table are
     missing to prevent future metastore calls.
   - `false`
 * - `hive.metastore-cache-ttl`
@@ -212,7 +212,7 @@ properties:
 ### Iceberg-specific Hive catalog configuration properties
 
 When using the Hive catalog, the Iceberg connector supports the same
-{ref}`general Thrift metastore configuration properties <hive-thrift-metastore>` 
+{ref}`general Thrift metastore configuration properties <hive-thrift-metastore>`
 as previously described with the following additional property:
 
 :::{list-table} Iceberg Hive catalog configuration property
@@ -487,11 +487,15 @@ following properties:
   - Warehouse identifier/location for the catalog (optional). Example:
     `s3://my_bucket/warehouse_location`
 * - `iceberg.rest-catalog.security`
-  - The type of security to use (default: `NONE`). Possible values are `NONE`, 
-    `SIGV4`, `GOOGLE` or `OAUTH2`. `OAUTH2` requires either a `token` or a `credential`.
+  - The type of security to use (default: `NONE`). Possible values are `NONE`,
+    `SIGV4`, `GOOGLE` or `OAUTH2`. `OAUTH2` requires OAuth2 credentials
+    configured as catalog properties or supplied as OAuth2-authenticated user
+    session extra credentials.
 * - `iceberg.rest-catalog.session`
   - Session information included when communicating with the REST Catalog.
-    Options are `NONE` or `USER` (default: `NONE`).
+    Options are `NONE` or `USER` (default: `NONE`). When set to `USER`, the
+    REST catalog can use the OAuth2-authenticated `token` or `credential` extra
+    credential from the user session for `OAUTH2` security.
 * - `iceberg.rest-catalog.connection-timeout`
   - Maximum time [Duration](prop-type-duration) allowed for socket connection
     requests to complete before timing out.
@@ -502,22 +506,29 @@ following properties:
   - [Duration](prop-type-duration) to keep authentication session in cache. Defaults to `1h`.
 * - `iceberg.rest-catalog.oauth2.token`
   - The bearer token used for interactions with the server. A `token` or
-    `credential` is required for `OAUTH2` security. Example: `AbCdEf123456`
+    `credential` is required for `OAUTH2` security unless
+    `iceberg.rest-catalog.session=USER` supplies the credential from the user
+    session. Use this for direct token forwarding.
 * - `iceberg.rest-catalog.oauth2.credential`
   - The credential to exchange for a token in the OAuth2 client credentials flow
-    with the server. A `token` or `credential` is required for `OAUTH2`
-    security. Example: `AbCdEf123456`
+    with the server. A `token` or `credential` is required for `OAUTH2` security
+    unless `iceberg.rest-catalog.session=USER` supplies the credential from the
+    user session. Use this when the catalog OAuth2 client must acquire a token.
 * - `iceberg.rest-catalog.oauth2.scope`
   - Scope to be used when communicating with the REST Catalog. Applicable only
     when using `credential`.
 * - `iceberg.rest-catalog.oauth2.server-uri`
-  - The endpoint to retrieve access token from OAuth2 Server.
+  - The endpoint to retrieve an access token from an OAuth2 server. This is not
+    needed when forwarding a user token directly.
 * - `iceberg.rest-catalog.oauth2.token-refresh-enabled`
   - Controls whether a token should be refreshed if information about its expiration time is available.
     Defaults to `true`
 * - `iceberg.rest-catalog.oauth2.token-exchange-enabled`
-  - Controls whether to use the token exchange flow to acquire new tokens.
-    Defaults to `true` 
+  - Controls whether the Iceberg REST OAuth2 client uses the
+    [OAuth 2.0 Token Exchange](https://datatracker.ietf.org/doc/html/rfc8693)
+    flow to acquire new tokens. The exchange is performed by the Iceberg REST
+    OAuth2 client and the configured OAuth2 server, not by Trino.
+    Defaults to `true`. Set to `false` when forwarding a user token directly.
 * - `iceberg.rest-catalog.vended-credentials-enabled`
   - Use credentials provided by the REST backend for file system access.
     Defaults to `false`.
@@ -529,12 +540,12 @@ following properties:
 * - `iceberg.rest-catalog.signing-name`
   - AWS SigV4 signing service name. Defaults to `execute-api`.
 * - `iceberg.rest-catalog.google-project-id`
-  - Google Cloud project name. This property must be set when `iceberg.rest-catalog.security` 
+  - Google Cloud project name. This property must be set when `iceberg.rest-catalog.security`
     config property is set to `GOOGLE`. Example: `development-123456`.
 * - `iceberg.rest-catalog.case-insensitive-name-matching`
   - Match namespace, table, and view names case insensitively. Defaults to `false`.
 * - `iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl`
-  - [Duration](prop-type-duration) for which case-insensitive namespace, table, 
+  - [Duration](prop-type-duration) for which case-insensitive namespace, table,
     and view names are cached. Defaults to `1m`.
 * - `iceberg.rest-catalog.http-headers`
   - Additional *non-sensitive* HTTP headers to include with requests to the REST catalog.
@@ -549,6 +560,88 @@ connector.name=iceberg
 iceberg.catalog.type=rest
 iceberg.rest-catalog.uri=http://iceberg-with-rest:8181
 ```
+
+When Trino authenticates users with OAuth2, the Iceberg REST catalog can use the
+authenticated user's access token for REST catalog authorization. There are two
+common patterns: forwarding the access token directly to the REST catalog, or
+using the access token as input to a downstream
+[OAuth 2.0 Token Exchange](https://datatracker.ietf.org/doc/html/rfc8693) flow.
+
+#### OAuth2 user token forwarding
+
+Use direct token forwarding when the REST catalog can validate and authorize the
+same OAuth2 access token that Trino receives during user authentication. The
+token issuer, audience, signature, and principal claims must be accepted by the
+REST catalog.
+
+Configure the coordinator to store the authenticated OAuth2 access token as the
+`token` extra credential:
+
+```properties
+http-server.authentication.oauth2.access-token-extra-credential-name=token
+```
+
+Then configure the Iceberg catalog to use `OAUTH2` security with the `USER`
+session. Do not configure `iceberg.rest-catalog.oauth2.token`,
+`iceberg.rest-catalog.oauth2.credential`, or
+`iceberg.rest-catalog.oauth2.server-uri` when the value must come from the user
+session and be forwarded directly. Static catalog properties take precedence
+over session extra credentials:
+
+```properties
+connector.name=iceberg
+iceberg.catalog.type=rest
+iceberg.rest-catalog.uri=https://catalog.example.com/api/catalog
+iceberg.rest-catalog.warehouse=warehouse
+iceberg.rest-catalog.security=OAUTH2
+iceberg.rest-catalog.session=USER
+iceberg.rest-catalog.oauth2.token-exchange-enabled=false
+iceberg.rest-catalog.oauth2.token-refresh-enabled=false
+iceberg.rest-catalog.vended-credentials-enabled=true
+```
+
+In this configuration, the REST catalog receives the OAuth2 token associated
+with the authenticated Trino user. Client-supplied extra credentials named
+`token` are not used. If the REST catalog provides storage credentials,
+`iceberg.rest-catalog.vended-credentials-enabled=true` allows Trino to use
+those credentials for file system access.
+
+#### OAuth2 token exchange
+
+Use token exchange when the REST catalog or its authorization server requires a
+catalog-scoped token instead of the original Trino user token. Trino stores the
+authenticated user's OAuth2 access token in the session as the `credential`
+extra credential. The Iceberg REST OAuth2 client uses it as the credential for
+its OAuth2 flow with the configured server. Trino does not perform the token
+exchange itself.
+
+Configure the coordinator to store the authenticated OAuth2 access token as the
+`credential` extra credential:
+
+```properties
+http-server.authentication.oauth2.access-token-extra-credential-name=credential
+```
+
+Then configure the Iceberg catalog with the OAuth2 token endpoint used for the
+exchange:
+
+```properties
+connector.name=iceberg
+iceberg.catalog.type=rest
+iceberg.rest-catalog.uri=https://catalog.example.com/api/catalog
+iceberg.rest-catalog.warehouse=warehouse
+iceberg.rest-catalog.security=OAUTH2
+iceberg.rest-catalog.session=USER
+iceberg.rest-catalog.oauth2.server-uri=https://auth.example.com/oauth2/token
+iceberg.rest-catalog.oauth2.token-exchange-enabled=true
+iceberg.rest-catalog.oauth2.token-refresh-enabled=true
+iceberg.rest-catalog.vended-credentials-enabled=true
+```
+
+In this configuration, Trino does not exchange the token. The authenticated
+access token is supplied to the Iceberg REST OAuth2 client as the credential,
+and the configured OAuth2 server returns the token used for REST catalog
+requests.
 
 `iceberg.security` must be `read_only` when connecting to Databricks Unity catalog
 using an Iceberg REST catalog:
@@ -578,7 +671,7 @@ fs.gcs.enabled=true
 gcs.json-key-file-path=/path/to/gcs_keyfile.json
 ```
 
-The REST catalog supports [view management](sql-view-management) 
+The REST catalog supports [view management](sql-view-management)
 using the [Iceberg View specification](https://iceberg.apache.org/view-spec/).
 
 The REST catalog does not support [materialized view management](sql-materialized-view-management).
