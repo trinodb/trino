@@ -80,7 +80,7 @@ public class TestDruidLatestConnectorSmokeTest
                            __time timestamp(3) NOT NULL,
                            comment varchar,
                            name varchar,
-                           regionkey bigint NOT NULL
+                           regionkey bigint
                         )""");
     }
 }

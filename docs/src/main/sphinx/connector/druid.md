@@ -17,7 +17,7 @@ database from Trino.
 
 To connect to Druid, you need:
 
-- Druid version 0.18.0 or higher.
+- Druid version 0.22.0 or higher.
 - Network access from the Trino coordinator and workers to your Druid broker.
   Port 8082 is the default port.
 
@@ -105,10 +105,14 @@ following table:
 
 No other data types are supported.
 
-Druid does not have a real `NULL` value for any data type. By
-default, Druid treats `NULL` as the default value for a data type. For
-example, `LONG` would be `0`, `DOUBLE` would be `0.0`, `STRING` would
-be an empty string `''`, and so forth.
+For results that match Trino semantics, Druid must use SQL-compatible null
+handling (`druid.generic.useDefaultValueForNull=false`), which preserves `NULL`
+values for all data types. This is the default since Druid 28.0.0 and mandatory
+from Druid 32.0.0; on earlier versions set it explicitly. With Druid's legacy null
+handling (`druid.generic.useDefaultValueForNull=true`), `NULL` is replaced with
+default values such as `0` for `LONG`, `0.0` for `DOUBLE`, and an empty string
+`''` for `STRING`. Those results do not match Trino semantics, including for
+{ref}`pushed-down aggregations <druid-pushdown>`.
 
 ```{include} jdbc-type-mapping.fragment
 ```
@@ -170,4 +174,46 @@ FROM
 ```
 
 ```{include} query-table-function-ordering.fragment
+```
+
+## Performance
+
+(druid-pushdown)=
+### Pushdown
+
+The connector supports {ref}`aggregate pushdown <aggregation-pushdown>` for the following functions:
+
+- {func}`avg`
+- {func}`count`
+- {func}`max`
+- {func}`min`
+- {func}`sum`
+
+Pushed-down aggregations follow Trino's `NULL` semantics, which relies on Druid's
+SQL-compatible null handling (`druid.generic.useDefaultValueForNull=false`, the
+default since Druid 28.0.0). For example, `avg`, `min`, `max`, and `sum` over empty
+input return `NULL` rather than Druid's legacy default values.
+
+If your Druid cluster must keep legacy null handling enabled
+(`druid.generic.useDefaultValueForNull=true`), set the
+`druid.use-default-value-for-null` catalog configuration property (or the
+`use_default_value_for_null` catalog session property) to `true`. The connector
+then skips aggregate pushdown so that aggregation results stay consistent with
+Trino's `NULL` semantics.
+
+:::{list-table} Druid configuration properties
+:widths: 30, 55, 15
+:header-rows: 1
+
+* - Property name
+  - Description
+  - Default
+* - `druid.use-default-value-for-null`
+  - Set to `true` when the Druid cluster runs with
+    `druid.generic.useDefaultValueForNull=true` (legacy null handling). The
+    connector disables aggregate pushdown to preserve Trino's `NULL` semantics.
+  - `false`
+:::
+
+```{include} pushdown-correctness-behavior.fragment
 ```
