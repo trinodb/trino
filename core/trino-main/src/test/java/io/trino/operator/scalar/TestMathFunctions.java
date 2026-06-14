@@ -1868,6 +1868,17 @@ public class TestMathFunctions
         assertThat(assertions.function("round", "DOUBLE '-1.8E292'", "16"))
                 .isEqualTo(-1.8e292);
 
+        // 10^decimals underflows to 0 for decimals <= -324; rounding any finite value to such a
+        // coarse place must yield 0, not NaN (regression for the 0L / 0.0 division)
+        assertThat(assertions.function("round", "DOUBLE '123.456'", "-324"))
+                .isEqualTo(0.0);
+
+        assertThat(assertions.function("round", "DOUBLE '-123.456'", "-1000"))
+                .isEqualTo(0.0);
+
+        assertThat(assertions.function("round", "REAL '123.456'", "-324"))
+                .isEqualTo(0.0f);
+
         assertThat(assertions.function("round", "TINYINT '3'", "TINYINT '1'"))
                 .isEqualTo((byte) 3);
 
