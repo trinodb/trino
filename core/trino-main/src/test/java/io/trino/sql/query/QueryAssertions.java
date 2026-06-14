@@ -22,6 +22,7 @@ import com.google.errorprone.annotations.CheckReturnValue;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.Plugin;
 import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.OperatorType;
@@ -30,11 +31,15 @@ import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.testing.MaterializedResult;
@@ -44,6 +49,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.StandaloneQueryRunner;
 import io.trino.testing.assertions.TrinoExceptionAssert;
+import jakarta.annotation.Nullable;
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.AbstractCollectionAssert;
 import org.assertj.core.api.AbstractIntegerAssert;
@@ -863,24 +869,34 @@ public class QueryAssertions
                 fail("Mismatched results between interpreter and evaluation engine: %s vs %s".formatted(full.value(), withConstantFolding.value()));
             }
 
-            return new Result(full.type(), full.value);
+            return full;
         }
 
         private Result run(String query)
         {
             MaterializedResultWithPlan result = runner.executeWithPlan(session, query);
-            return new Result(getOnlyElement(result.result().getTypes()), result.result().getOnlyColumnAsSet().iterator().next());
+            return new Result(
+                    getOnlyElement(result.result().getTypes()),
+                    result.result().getOnlyColumnAsSet().iterator().next(),
+                    result.queryPlan());
         }
 
         @Override
         public ExpressionAssert assertThat()
         {
             Result result = evaluate();
-            return new ExpressionAssert(runner, session, result.value(), result.type())
+            return new ExpressionAssert(runner, session, result.value(), result.type(), result.sourcePlan())
                     .withRepresentation(ExpressionAssert.TYPE_RENDERER);
         }
 
-        public record Result(Type type, Object value) {}
+        public record Result(Type type, @Nullable Object value, Optional<Plan> sourcePlan)
+        {
+            public Result
+            {
+                requireNonNull(type, "type is null");
+                requireNonNull(sourcePlan, "sourcePlan is null");
+            }
+        }
     }
 
     public static class ExpressionAssert
@@ -926,13 +942,20 @@ public class QueryAssertions
         private final QueryRunner runner;
         private final Session session;
         private final Type actualType;
+        private final Optional<Plan> plan;
 
         public ExpressionAssert(QueryRunner runner, Session session, Object actual, Type actualType)
+        {
+            this(runner, session, actual, actualType, Optional.empty());
+        }
+
+        public ExpressionAssert(QueryRunner runner, Session session, Object actual, Type actualType, Optional<Plan> plan)
         {
             super(actual, Object.class);
             this.runner = runner;
             this.session = session;
             this.actualType = actualType;
+            this.plan = requireNonNull(plan, "plan is null");
         }
 
         public ExpressionAssert isEqualTo(BiFunction<Session, QueryRunner, Object> evaluator)
@@ -974,6 +997,53 @@ public class QueryAssertions
         {
             objects.assertEqual(info, actualType, type);
             return this;
+        }
+
+        /**
+         * Asserts that the user expression's outermost function call (or cast operator) is resolved
+         * to a function declared as never failing.
+         */
+        @CanIgnoreReturnValue
+        public ExpressionAssert neverFails()
+        {
+            ResolvedFunction function = outermostFunction();
+            assertThat(function.neverFails())
+                    .as("call %s neverFails", function.name())
+                    .isTrue();
+            return this;
+        }
+
+        /**
+         * Asserts that the user expression's outermost function call (or cast operator) is resolved
+         * to a function not declared as never failing.
+         */
+        @CanIgnoreReturnValue
+        public ExpressionAssert couldFail()
+        {
+            ResolvedFunction function = outermostFunction();
+            assertThat(function.neverFails())
+                    .as("call %s neverFails", function.name())
+                    .isFalse();
+            return this;
+        }
+
+        private ResolvedFunction outermostFunction()
+        {
+            Plan planValue = plan.orElseThrow(() -> new AssertionError("No plan was captured for this expression"));
+            Expression expression = PlanNodeSearcher.searchFrom(planValue.getRoot())
+                    .where(ProjectNode.class::isInstance)
+                    .findAll().stream()
+                    .map(ProjectNode.class::cast)
+                    .flatMap(project -> project.getAssignments().expressions().stream())
+                    .filter(candidate -> candidate instanceof Call || candidate instanceof Cast)
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError(
+                            "No Call or Cast found in plan; the expression may have been constant-folded — add a binding to preserve it"));
+            return switch (expression) {
+                case Call call -> call.function();
+                case Cast cast -> runner.getPlannerContext().getMetadata().getCoercion(cast.expression().type(), cast.type());
+                default -> throw new AssertionError("Unexpected expression type: " + expression.getClass());
+            };
         }
     }
 }

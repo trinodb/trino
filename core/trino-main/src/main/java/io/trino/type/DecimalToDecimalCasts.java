@@ -21,6 +21,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.DecimalConversions;
 import io.trino.spi.type.DecimalType;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
@@ -36,6 +37,14 @@ public final class DecimalToDecimalCasts
     public static final SqlScalarFunction DECIMAL_TO_DECIMAL_CAST = new PolymorphicScalarFunctionBuilder(CAST, DecimalConversions.class)
             .signature(SIGNATURE)
             .deterministic(true)
+            .neverFails(boundSignature -> {
+                DecimalType source = (DecimalType) getOnlyElement(boundSignature.getArgumentTypes());
+                DecimalType target = (DecimalType) boundSignature.getReturnType();
+                // When target scale shrinks, rounding can push the result up by one integer digit (e.g. 99.9 → 100).
+                int requiredIntegerDigits = source.getPrecision() - source.getScale()
+                        + (target.getScale() < source.getScale() ? 1 : 0);
+                return target.getPrecision() - target.getScale() >= requiredIntegerDigits;
+            })
             .choice(choice -> choice
                     .implementation(methodsGroup -> methodsGroup
                             .methods("shortToShortCast")
