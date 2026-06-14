@@ -25,6 +25,7 @@ import org.weakref.jmx.Managed;
 
 import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Queue;
@@ -37,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.getQueryMaxExecutionTime;
 import static io.trino.SystemSessionProperties.getQueryMaxPlanningTime;
 import static io.trino.SystemSessionProperties.getQueryMaxRunTime;
@@ -46,6 +48,7 @@ import static io.trino.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableCollection;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Predicate.not;
 
 @ThreadSafe
 public class QueryTracker<T extends TrackedQuery>
@@ -140,6 +143,15 @@ public class QueryTracker<T extends TrackedQuery>
     public Collection<T> getAllQueries()
     {
         return unmodifiableCollection(queries.values());
+    }
+
+    public List<T> getExecutingQueries()
+    {
+        return queries.values().stream()
+                .filter(not(TrackedQuery::isDone))
+                .filter(query -> query.getState() != QueryState.FINISHING)
+                .filter(query -> query.getExecutionStartTime().isPresent())
+                .collect(toImmutableList());
     }
 
     public T getQuery(QueryId queryId)
@@ -317,6 +329,8 @@ public class QueryTracker<T extends TrackedQuery>
         QueryId getQueryId();
 
         boolean isDone();
+
+        QueryState getState();
 
         Session getSession();
 

@@ -58,7 +58,6 @@ import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.SystemSessionProperties.getQueryMaxCpuTime;
 import static io.trino.SystemSessionProperties.getQueryMaxScanPhysicalBytes;
 import static io.trino.SystemSessionProperties.getQueryMaxWritePhysicalSize;
-import static io.trino.execution.QueryState.FINISHING;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.tracing.ScopedSpan.scopedSpan;
@@ -394,7 +393,7 @@ public class QueryManager
      */
     private void enforceCpuLimits()
     {
-        for (QueryExecution query : queryTracker.getAllQueries()) {
+        for (QueryExecution query : queryTracker.getExecutingQueries()) {
             Duration cpuTime = query.getTotalCpuTime();
             Duration sessionLimit = getQueryMaxCpuTime(query.getSession());
             Duration limit = Ordering.natural().min(maxQueryCpuTime, sessionLimit);
@@ -409,7 +408,7 @@ public class QueryManager
      */
     private void enforceScanLimits()
     {
-        for (QueryExecution query : queryTracker.getAllQueries()) {
+        for (QueryExecution query : queryTracker.getExecutingQueries()) {
             Optional<DataSize> limitOpt = getQueryMaxScanPhysicalBytes(query.getSession());
             if (maxQueryScanPhysicalBytes.isPresent()) {
                 limitOpt = limitOpt
@@ -431,10 +430,7 @@ public class QueryManager
      */
     private void enforceWriteLimits()
     {
-        for (QueryExecution query : queryTracker.getAllQueries()) {
-            if (query.isDone() || query.getState() == FINISHING) {
-                continue;
-            }
+        for (QueryExecution query : queryTracker.getExecutingQueries()) {
             Optional<DataSize> limitOpt = getQueryMaxWritePhysicalSize(query.getSession());
             if (maxQueryWritePhysicalSize.isPresent()) {
                 limitOpt = limitOpt
