@@ -43,6 +43,8 @@ public class OAuth2Authenticator
     private static final Logger log = Logger.get(OAuth2Authenticator.class);
     private final OAuth2Client client;
     private final String principalField;
+    private final String issuer;
+    private final String scopes;
     private final UserMapping userMapping;
     private final TokenPairSerializer tokenPairSerializer;
     private final TokenRefresher tokenRefresher;
@@ -52,6 +54,8 @@ public class OAuth2Authenticator
     {
         this.client = requireNonNull(client, "service is null");
         this.principalField = config.getPrincipalField();
+        this.issuer = requireNonNull(config.getIssuer(), "issuer is null");
+        this.scopes = String.join(" ", config.getScopes());
         this.tokenRefresher = requireNonNull(tokenRefresher, "tokenRefresher is null");
         this.tokenPairSerializer = requireNonNull(tokenPairSerializer, "tokenPairSerializer is null");
         userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
@@ -110,6 +114,6 @@ public class OAuth2Authenticator
         UUID authId = UUID.randomUUID();
         URI initiateUri = request.getUriInfo().getBaseUri().resolve(getInitiateUri(authId));
         URI tokenUri = request.getUriInfo().getBaseUri().resolve(getTokenUri(authId));
-        return new AuthenticationException(message, format("Bearer x_redirect_server=\"%s\", x_token_server=\"%s\"", initiateUri, tokenUri));
+        return new AuthenticationException(message, format("Bearer x_redirect_server=\"%s\", x_token_server=\"%s\", x_issuer_server=\"%s\", scope=\"%s\"", initiateUri, tokenUri, issuer, scopes));
     }
 }

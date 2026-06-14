@@ -55,7 +55,11 @@ import static io.trino.client.uri.PropertyName.CLIENT_TAGS;
 import static io.trino.client.uri.PropertyName.DISABLE_COMPRESSION;
 import static io.trino.client.uri.PropertyName.ENCODING;
 import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION;
+import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION_CLIENT_ID;
+import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION_CLIENT_SECRET;
+import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION_ISSUER;
 import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS;
+import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION_SCOPES;
 import static io.trino.client.uri.PropertyName.EXTRA_CREDENTIALS;
 import static io.trino.client.uri.PropertyName.EXTRA_HEADERS;
 import static io.trino.client.uri.PropertyName.HTTP_LOGGING_LEVEL;
@@ -193,6 +197,22 @@ public class ClientOptions
     @PropertyMapping(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS)
     @Option(names = "--external-authentication-redirect-handler", paramLabel = "<externalAuthenticationRedirectHandler>", description = "External authentication redirect handlers: ${COMPLETION-CANDIDATES} " + DEFAULT_VALUE, defaultValue = "ALL")
     public List<ExternalRedirectStrategy> externalAuthenticationRedirectHandler = new ArrayList<>();
+
+    @PropertyMapping(EXTERNAL_AUTHENTICATION_CLIENT_ID)
+    @Option(names = "--external-authentication-client-id", paramLabel = "<clientId>", description = "OAuth2 client ID for client credentials authentication")
+    public Optional<String> externalAuthenticationClientId;
+
+    @PropertyMapping(EXTERNAL_AUTHENTICATION_CLIENT_SECRET)
+    @Option(names = "--external-authentication-client-secret", description = "Prompt for OAuth2 client secret for client credentials authentication")
+    public boolean externalAuthenticationClientSecret;
+
+    @PropertyMapping(EXTERNAL_AUTHENTICATION_ISSUER)
+    @Option(names = "--external-authentication-issuer", paramLabel = "<issuer>", description = "OAuth2 issuer URL for client credentials authentication; used to discover the token endpoint via OIDC")
+    public Optional<String> externalAuthenticationIssuer;
+
+    @PropertyMapping(EXTERNAL_AUTHENTICATION_SCOPES)
+    @Option(names = "--external-authentication-scopes", paramLabel = "<scopes>", description = "Comma-separated OAuth2 scopes for client credentials authentication", converter = ExternalAuthenticationScopesConverter.class)
+    public Optional<Set<String>> externalAuthenticationScopes;
 
     @PropertyMapping(SOURCE)
     @Option(names = "--source", paramLabel = "<source>", description = "Name of the client to use as source that submits the query (default: " + SOURCE_DEFAULT + ")")
@@ -381,6 +401,7 @@ public class ClientOptions
         List<PropertyName> bannedProperties = ImmutableList.<PropertyName>builder()
                 .addAll(restrictedProperties.keySet())
                 .add(PASSWORD)
+                .add(EXTERNAL_AUTHENTICATION_CLIENT_SECRET)
                 .build();
         TrinoUri.Builder builder = TrinoUri.builder()
                 .setUri(uri)
@@ -438,6 +459,12 @@ public class ClientOptions
         if (!externalAuthenticationRedirectHandler.isEmpty()) {
             builder.setExternalAuthenticationRedirectHandlers(externalAuthenticationRedirectHandler);
         }
+        externalAuthenticationClientId.ifPresent(builder::setExternalAuthenticationClientId);
+        if (externalAuthenticationClientSecret) {
+            builder.setExternalAuthenticationClientSecret(getClientSecret());
+        }
+        externalAuthenticationIssuer.ifPresent(builder::setExternalAuthenticationIssuer);
+        externalAuthenticationScopes.ifPresent(builder::setExternalAuthenticationScopes);
         source.ifPresent(builder::setSource);
         clientInfo.ifPresent(builder::setClientInfo);
         clientTags.ifPresent(builder::setClientTags);
@@ -466,6 +493,27 @@ public class ClientOptions
                     e.getPropertyName(),
                     restrictedProperties.get(e.getPropertyName())), e);
         }
+    }
+
+    private String getClientSecret()
+    {
+        checkState(externalAuthenticationClientId.isPresent() && !externalAuthenticationClientId.get().isEmpty(), "Both client ID and client secret must be specified");
+        String defaultSecret = System.getenv("TRINO_EXTERNAL_AUTHENTICATION_CLIENT_SECRET");
+        if (defaultSecret != null) {
+            return defaultSecret;
+        }
+
+        java.io.Console console = System.console();
+        if (console != null) {
+            char[] secret = console.readPassword("OAuth2 client secret: ");
+            if (secret == null) {
+                throw new IllegalArgumentException("OAuth2 client secret not provided");
+            }
+            return new String(secret);
+        }
+
+        LineReader reader = LineReaderBuilder.builder().terminal(getTerminal()).build();
+        return reader.readLine("OAuth2 client secret: ", (char) 0);
     }
 
     private String getPassword()
@@ -557,6 +605,16 @@ public class ClientOptions
                     .trimResults()
                     .omitEmptyStrings();
             return ImmutableSet.copyOf(splitter.split(nullToEmpty(clientTagsString)));
+        }
+    }
+
+    private static class ExternalAuthenticationScopesConverter
+            implements CommandLine.ITypeConverter<Set<String>>
+    {
+        @Override
+        public Set<String> convert(String scopesString)
+        {
+            return ImmutableSet.copyOf(Splitter.on(',').trimResults().omitEmptyStrings().split(nullToEmpty(scopesString)));
         }
     }
 

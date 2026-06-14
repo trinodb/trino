@@ -14,6 +14,7 @@
 package io.trino.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
@@ -183,6 +184,23 @@ public class TestTrinoDriverUri
 
         // legacy url
         assertInvalid("jdbc:presto://localhost:8080", "Invalid JDBC URL: jdbc:presto://localhost:8080");
+
+        // client credentials: clientSecret without clientId
+        assertInvalid("jdbc:trino://localhost:8080?externalAuthenticationClientSecret=secret", "Connection property externalAuthenticationClientSecret requires externalAuthenticationClientId to be set");
+
+        // client credentials: clientId without clientSecret
+        assertInvalid("jdbc:trino://localhost:8080?externalAuthenticationClientId=id", "Connection property externalAuthenticationClientId requires externalAuthenticationClientSecret to be set");
+
+        // client credentials: scopes without clientId
+        assertInvalid("jdbc:trino://localhost:8080?externalAuthenticationScopes=openid", "Connection property externalAuthenticationScopes requires externalAuthenticationClientId to be set");
+
+        // client credentials: issuer without clientId
+        assertInvalid("jdbc:trino://localhost:8080?externalAuthenticationIssuer=https://idp.example.com", "Connection property externalAuthenticationIssuer requires externalAuthenticationClientId to be set");
+
+        // client credentials: clientId cannot be combined with externalAuthentication
+        assertInvalid(
+                "jdbc:trino://localhost:8080?externalAuthenticationClientId=id&externalAuthentication=true",
+                "Connection property externalAuthenticationClientId cannot be set when externalAuthentication is enabled");
 
         // cannot set mutually exclusive properties for non-conforming clients to true
         assertInvalid(
@@ -467,6 +485,55 @@ public class TestTrinoDriverUri
                 .hasMessage("Connection property timezone value is invalid: Asia/NOT_FOUND")
                 .hasRootCauseInstanceOf(ZoneRulesException.class)
                 .hasRootCauseMessage("Unknown time-zone ID: Asia/NOT_FOUND");
+    }
+
+    @Test
+    public void testClientCredentials()
+            throws SQLException
+    {
+        // clientId + clientSecret are sufficient; issuer and scopes are optional
+        TrinoDriverUri uri = createDriverUri(
+                "jdbc:trino://localhost:8080?externalAuthenticationClientId=my-client" +
+                        "&externalAuthenticationClientSecret=my-secret");
+        assertThat(uri.getExternalAuthenticationClientId()).hasValue("my-client");
+        assertThat(uri.getExternalAuthenticationClientSecret()).hasValue("my-secret");
+        assertThat(uri.getExternalAuthenticationIssuer()).isEmpty();
+        assertThat(uri.getExternalAuthenticationScopes()).isEmpty();
+        assertThat(uri.isClientCredentialsAuthenticationEnabled()).isTrue();
+
+        // with both issuer and scopes
+        TrinoDriverUri uriWithIssuerAndScopes = createDriverUri(
+                "jdbc:trino://localhost:8080?externalAuthenticationClientId=my-client" +
+                        "&externalAuthenticationClientSecret=my-secret" +
+                        "&externalAuthenticationIssuer=https://idp.example.com/realm" +
+                        "&externalAuthenticationScopes=openid,profile");
+        assertThat(uriWithIssuerAndScopes.getExternalAuthenticationClientId()).hasValue("my-client");
+        assertThat(uriWithIssuerAndScopes.getExternalAuthenticationClientSecret()).hasValue("my-secret");
+        assertThat(uriWithIssuerAndScopes.getExternalAuthenticationIssuer()).hasValue("https://idp.example.com/realm");
+        assertThat(uriWithIssuerAndScopes.getExternalAuthenticationScopes()).hasValue(ImmutableSet.of("openid", "profile"));
+        assertThat(uriWithIssuerAndScopes.isClientCredentialsAuthenticationEnabled()).isTrue();
+
+        // issuer without scopes
+        TrinoDriverUri uriWithIssuerOnly = createDriverUri(
+                "jdbc:trino://localhost:8080?externalAuthenticationClientId=my-client" +
+                        "&externalAuthenticationClientSecret=my-secret" +
+                        "&externalAuthenticationIssuer=https://idp.example.com/realm");
+        assertThat(uriWithIssuerOnly.getExternalAuthenticationClientId()).hasValue("my-client");
+        assertThat(uriWithIssuerOnly.getExternalAuthenticationClientSecret()).hasValue("my-secret");
+        assertThat(uriWithIssuerOnly.getExternalAuthenticationIssuer()).hasValue("https://idp.example.com/realm");
+        assertThat(uriWithIssuerOnly.getExternalAuthenticationScopes()).isEmpty();
+        assertThat(uriWithIssuerOnly.isClientCredentialsAuthenticationEnabled()).isTrue();
+
+        // scopes without issuer
+        TrinoDriverUri uriWithScopesOnly = createDriverUri(
+                "jdbc:trino://localhost:8080?externalAuthenticationClientId=my-client" +
+                        "&externalAuthenticationClientSecret=my-secret" +
+                        "&externalAuthenticationScopes=openid,profile");
+        assertThat(uriWithScopesOnly.getExternalAuthenticationClientId()).hasValue("my-client");
+        assertThat(uriWithScopesOnly.getExternalAuthenticationClientSecret()).hasValue("my-secret");
+        assertThat(uriWithScopesOnly.getExternalAuthenticationIssuer()).isEmpty();
+        assertThat(uriWithScopesOnly.getExternalAuthenticationScopes()).hasValue(ImmutableSet.of("openid", "profile"));
+        assertThat(uriWithScopesOnly.isClientCredentialsAuthenticationEnabled()).isTrue();
     }
 
     @Test

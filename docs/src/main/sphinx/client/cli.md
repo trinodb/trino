@@ -166,6 +166,16 @@ mode:
 * - `--extra-header`
   - HTTP header to add to the authenticated HTTP requests
     (property can be used multiple times; format is key=value).
+* - `--external-authentication-client-id`
+  - OAuth2 client ID for client credentials authentication.
+* - `--external-authentication-client-secret`
+  - Prompt for OAuth2 client secret for client credentials authentication.
+* - `--external-authentication-issuer`
+  - OAuth2 issuer URL for client credentials authentication; used to discover the token endpoint
+    via OIDC. Optional and auto-discovered if not configured.
+* - `--external-authentication-scopes`
+  - Comma-separated OAuth2 scopes for client credentials authentication. Optional and
+    auto-discovered if not configured.
 * - `--http-proxy`
   - Configures the URL of the HTTP proxy to connect to Trino.
 * - `--history-file`
@@ -347,6 +357,34 @@ The detailed behavior is as follows:
   authentication token remains valid. Token expiration depends on the external
   authentication type configuration.
 - Expired tokens force you to log in again.
+
+(cli-oauth2-client-credentials-auth)=
+### OAuth2 client credentials authentication
+
+Use the `--external-authentication-client-id` and `--external-authentication-client-secret`
+options for non-interactive (machine-to-machine) authentication using the OAuth2 client
+credentials flow, as detailed in {doc}`/security/oauth2`. Unlike browser-based authentication,
+the client authenticates directly using a client ID and secret without user involvement.
+
+The following options are available for client credentials authentication:
+
+:::{list-table} CLI options for OAuth2 client credentials authentication
+:widths: 45 55
+:header-rows: 1
+
+* - Option
+  - Description
+* - `--external-authentication-client-id`
+  - OAuth2 client ID for client credentials authentication.
+* - `--external-authentication-client-secret`
+  - Prompt for OAuth2 client secret for client credentials authentication.
+* - `--external-authentication-issuer`
+  - OAuth2 issuer URL used to discover the token endpoint via OIDC. Optional and
+    auto-discovered if not configured.
+* - `--external-authentication-scopes`
+  - Comma-separated OAuth2 scopes for client credentials authentication. Optional and
+    auto-discovered if not configured.
+:::
 
 (cli-certificate-auth)=
 ### Certificate authentication

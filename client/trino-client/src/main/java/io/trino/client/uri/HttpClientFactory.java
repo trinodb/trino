@@ -16,6 +16,7 @@ package io.trino.client.uri;
 import io.trino.client.ClientException;
 import io.trino.client.DisallowLocalRedirectInterceptor;
 import io.trino.client.DnsResolver;
+import io.trino.client.auth.external.ClientCredentialsAuthenticator;
 import io.trino.client.auth.external.CompositeRedirectHandler;
 import io.trino.client.auth.external.ExternalAuthenticator;
 import io.trino.client.auth.external.HttpTokenPoller;
@@ -25,6 +26,7 @@ import io.trino.client.auth.external.TokenPoller;
 import okhttp3.OkHttpClient;
 
 import java.io.File;
+import java.net.URI;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -107,6 +109,27 @@ public class HttpClientFactory
                 }
                 return externalAuthenticator.authenticate(route, response);
             });
+        }
+
+        if (uri.isClientCredentialsAuthenticationEnabled()) {
+            if (!uri.isUseSecureConnection()) {
+                throw new RuntimeException("TLS/SSL is required for authentication with client credentials");
+            }
+            Optional<String> issuer = uri.getExternalAuthenticationIssuer();
+            issuer.ifPresent(value -> {
+                String scheme = URI.create(value).getScheme();
+                if (scheme == null || !scheme.equalsIgnoreCase("https")) {
+                    throw new RuntimeException("OAuth2 issuer must use HTTPS: " + value);
+                }
+            });
+            ClientCredentialsAuthenticator clientCredentialsAuthenticator = new ClientCredentialsAuthenticator(
+                    builder.build(),
+                    uri.getExternalAuthenticationClientId().get(),
+                    uri.getExternalAuthenticationClientSecret().get(),
+                    issuer,
+                    uri.getExternalAuthenticationScopes());
+            builder.addNetworkInterceptor(clientCredentialsAuthenticator);
+            builder.authenticator(clientCredentialsAuthenticator);
         }
 
         if (!uri.getExtraHeaders().isEmpty()) {
