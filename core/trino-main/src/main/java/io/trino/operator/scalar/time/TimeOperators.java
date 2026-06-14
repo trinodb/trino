@@ -24,6 +24,7 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
@@ -39,6 +40,8 @@ import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.parseTime;
 import static io.trino.type.DateTimes.rescaleWithRounding;
 import static io.trino.type.DateTimes.scaleFactor;
+import static java.lang.Math.multiplyExact;
+import static java.lang.Math.negateExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
@@ -58,6 +61,7 @@ public final class TimeOperators
         return interval;
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @LiteralParameters({"x", "p"})
     @SqlType("time(p)")
@@ -88,15 +92,22 @@ public final class TimeOperators
         return round(time, (int) (MAX_PRECISION - targetPrecision)) % PICOSECONDS_PER_DAY;
     }
 
+    // fallible
     @ScalarOperator(ADD)
     @LiteralParameters({"p", "u"})
     @SqlType("time(u)")
     @Constraint(variable = "u", expression = "max(3, p)") // interval is currently p = 3
     public static long timePlusIntervalDayToSecond(@SqlType("time(p)") long time, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
     {
-        return add(time, interval * PICOSECONDS_PER_MILLISECOND);
+        try {
+            return add(time, multiplyExact(interval, PICOSECONDS_PER_MILLISECOND));
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "interval scaling overflow: " + interval, e);
+        }
     }
 
+    // fallible
     @ScalarOperator(ADD)
     @LiteralParameters({"p", "u"})
     @SqlType("time(u)")
@@ -106,15 +117,22 @@ public final class TimeOperators
         return timePlusIntervalDayToSecond(time, interval);
     }
 
+    // fallible
     @ScalarOperator(SUBTRACT)
     @LiteralParameters({"p", "u"})
     @SqlType("time(u)")
     @Constraint(variable = "u", expression = "max(3, p)") // interval is currently p = 3
     public static long timeMinusIntervalDayToSecond(@SqlType("time(p)") long time, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
     {
-        return add(time, -interval * PICOSECONDS_PER_MILLISECOND);
+        try {
+            return add(time, multiplyExact(negateExact(interval), PICOSECONDS_PER_MILLISECOND));
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "interval scaling overflow: " + interval, e);
+        }
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @LiteralParameters({"x", "p"})
     @SqlType("varchar(x)")
@@ -168,7 +186,7 @@ public final class TimeOperators
 
     public static long add(long picos, long delta)
     {
-        long result = (picos + delta) % PICOSECONDS_PER_DAY;
+        long result = (picos + (delta % PICOSECONDS_PER_DAY)) % PICOSECONDS_PER_DAY;
         if (result < 0) {
             result += PICOSECONDS_PER_DAY;
         }

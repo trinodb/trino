@@ -30,6 +30,7 @@ import java.util.function.BiFunction;
 
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -2183,6 +2184,49 @@ public class TestTimeWithTimeZone
                     .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                     .hasMessage("'%s' is not a valid TIME field".formatted(unit));
         }
+    }
+
+    @Test
+    public void testTimePlusIntervalDayToSecondOverflow()
+    {
+        assertTrinoExceptionThrownBy(assertions.expression("TIME '00:00:00+00:00' + INTERVAL '1' SECOND * 10000000000")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval scaling overflow: 10000000000000");
+
+        assertTrinoExceptionThrownBy(assertions.expression("INTERVAL '1' SECOND * 10000000000 + TIME '00:00:00+00:00'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval scaling overflow: 10000000000000");
+
+        // long TIME WITH TIME ZONE
+        assertTrinoExceptionThrownBy(assertions.expression("TIME '00:00:00.0000000000+00:00' + INTERVAL '1' SECOND * 10000000000")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval scaling overflow: 10000000000000");
+
+        assertTrinoExceptionThrownBy(assertions.expression("INTERVAL '1' SECOND * 10000000000 + TIME '00:00:00.0000000000+00:00'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval scaling overflow: 10000000000000");
+    }
+
+    @Test
+    public void testTimeMinusIntervalDayToSecondOverflow()
+    {
+        assertTrinoExceptionThrownBy(assertions.expression("TIME '00:00:00+00:00' - INTERVAL '1' SECOND * 10000000000")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval scaling overflow: -10000000000000");
+
+        assertTrinoExceptionThrownBy(assertions.expression("TIME '00:00:00.0000000000+00:00' - INTERVAL '1' SECOND * 10000000000")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval scaling overflow: -10000000000000");
+
+        assertTrinoExceptionThrownBy(assertions.expression(
+                "TIME '00:00:00+00:00' - (INTERVAL '1' SECOND * (-9223372036854775) - INTERVAL '0.808' SECOND)")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval negation overflow: -9223372036854775808");
+
+        assertTrinoExceptionThrownBy(assertions.expression(
+                "TIME '00:00:00.0000000000+00:00' - (INTERVAL '1' SECOND * (-9223372036854775) - INTERVAL '0.808' SECOND)")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval negation overflow: -9223372036854775808");
     }
 
     @Test

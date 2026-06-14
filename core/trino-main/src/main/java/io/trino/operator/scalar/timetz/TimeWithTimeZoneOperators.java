@@ -14,6 +14,7 @@
 package io.trino.operator.scalar.timetz;
 
 import io.trino.operator.scalar.time.TimeOperators;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.Constraint;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
@@ -21,6 +22,7 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimeWithTimeZone;
 import io.trino.spi.type.StandardTypes;
 
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
@@ -61,6 +63,7 @@ public final class TimeWithTimeZoneOperators
         return floorMod(time.getPicoseconds() - time.getOffsetMinutes() * PICOSECONDS_PER_MINUTE, PICOSECONDS_PER_DAY);
     }
 
+    // fallible
     @ScalarOperator(ADD)
     public static final class TimePlusIntervalDayToSecond
     {
@@ -74,7 +77,7 @@ public final class TimeWithTimeZoneOperators
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
         {
             long picos = unpackTimeNanos(packedTime) * PICOSECONDS_PER_NANOSECOND;
-            long nanos = TimeOperators.add(picos, interval * PICOSECONDS_PER_MILLISECOND) / PICOSECONDS_PER_NANOSECOND;
+            long nanos = TimeOperators.add(picos, intervalMillisToPicos(interval)) / PICOSECONDS_PER_NANOSECOND;
 
             return packTimeWithTimeZone(nanos, unpackOffsetMinutes(packedTime));
         }
@@ -86,11 +89,12 @@ public final class TimeWithTimeZoneOperators
                 @SqlType("time(p) with time zone") LongTimeWithTimeZone time,
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
         {
-            long picos = TimeOperators.add(time.getPicoseconds(), interval * PICOSECONDS_PER_MILLISECOND);
+            long picos = TimeOperators.add(time.getPicoseconds(), intervalMillisToPicos(interval));
             return new LongTimeWithTimeZone(picos, time.getOffsetMinutes());
         }
     }
 
+    // fallible
     @ScalarOperator(ADD)
     public static final class IntervalDayToSecondPlusTime
     {
@@ -117,6 +121,7 @@ public final class TimeWithTimeZoneOperators
         }
     }
 
+    // fallible
     @ScalarOperator(SUBTRACT)
     public static final class TimeMinusIntervalDayToSecond
     {
@@ -129,7 +134,7 @@ public final class TimeWithTimeZoneOperators
                 @SqlType("time(p) with time zone") long packedTime,
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
         {
-            return TimePlusIntervalDayToSecond.add(packedTime, -interval);
+            return TimePlusIntervalDayToSecond.add(packedTime, negateExactInterval(interval));
         }
 
         @LiteralParameters({"p", "u"})
@@ -139,7 +144,27 @@ public final class TimeWithTimeZoneOperators
                 @SqlType("time(p) with time zone") LongTimeWithTimeZone time,
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
         {
-            return TimePlusIntervalDayToSecond.add(time, -interval);
+            return TimePlusIntervalDayToSecond.add(time, negateExactInterval(interval));
+        }
+    }
+
+    private static long intervalMillisToPicos(long interval)
+    {
+        try {
+            return Math.multiplyExact(interval, PICOSECONDS_PER_MILLISECOND);
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "interval scaling overflow: " + interval, e);
+        }
+    }
+
+    private static long negateExactInterval(long interval)
+    {
+        try {
+            return Math.negateExact(interval);
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "interval negation overflow: " + interval, e);
         }
     }
 
