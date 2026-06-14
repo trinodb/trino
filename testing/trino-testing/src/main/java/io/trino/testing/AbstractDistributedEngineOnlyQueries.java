@@ -124,17 +124,19 @@ public abstract class AbstractDistributedEngineOnlyQueries
     {
         assertQueryFails(
                 "CREATE TABLE test (a integer, a integer)",
-                "line 1:31: Column name 'a' specified more than once");
+                ".* Column name '%s' specified more than once".formatted(canonicalize("a")));
         assertQueryFails(
-                "CREATE TABLE test (a integer, orderkey integer, LIKE orders INCLUDING PROPERTIES)",
-                "line 1:49: Column name 'orderkey' specified more than once");
+                "CREATE TABLE test (a integer, \"orderkey\" integer, LIKE \"orders\" INCLUDING PROPERTIES)",
+                ".* Column name 'orderkey' specified more than once");
 
-        assertQueryFails(
-                "CREATE TABLE test (a integer, A integer)",
-                "line 1:31: Column name 'A' specified more than once");
-        assertQueryFails(
-                "CREATE TABLE test (a integer, OrderKey integer, LIKE orders INCLUDING PROPERTIES)",
-                "line 1:49: Column name 'orderkey' specified more than once");
+        if (!canonicalize("Aa").equals("Aa")) {
+            assertQueryFails("CREATE TABLE test (a integer, A integer)",
+                    ".* Column name '%s' specified more than once".formatted(canonicalize("A")));
+        }
+        if (canonicalize("OrderKey").equals("orderkey")) {
+            assertQueryFails("CREATE TABLE test (a integer, OrderKey integer, LIKE \"orders\" INCLUDING PROPERTIES)",
+                    ".* Column name 'orderkey' specified more than once");
+        }
     }
 
     @Test
@@ -149,7 +151,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
     public void testTooManyStages()
     {
         @Language("SQL") String query = "WITH\n" +
-                "  t1 AS (SELECT nationkey AS x FROM nation where name='UNITED STATES'),\n" +
+                "  t1 AS (SELECT \"nationkey\" AS x FROM \"nation\" where \"name\"='UNITED STATES'),\n" +
                 "  t2 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t1 a, t1 b, t1 c, t1 d),\n" +
                 "  t3 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t2 a, t2 b, t2 c, t2 d),\n" +
                 "  t4 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t3 a, t3 b, t3 c, t3 d),\n" +
@@ -182,7 +184,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
     public void testExplain()
     {
         assertExplain(
-                "explain select name from nation where abs(nationkey) = 22",
+                "explain select \"name\" from \"nation\" where abs(\"nationkey\") = 22",
                 Pattern.quote("abs(nationkey)"),
                 "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}",
                 "Trino version: .*");
@@ -192,7 +194,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
     public void testExplainDistributed()
     {
         assertExplain(
-                "explain (type distributed) select name from nation where abs(nationkey) = 22",
+                "explain (type distributed) select \"name\" from \"nation\" where abs(\"nationkey\") = 22",
                 Pattern.quote("abs(nationkey)"),
                 "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}",
                 "Trino version: .*");
@@ -204,22 +206,22 @@ public abstract class AbstractDistributedEngineOnlyQueries
     {
         assertExplainAnalyze(
                 noJoinReordering(BROADCAST),
-                "EXPLAIN ANALYZE SELECT * FROM (SELECT nationkey, regionkey FROM nation GROUP BY nationkey, regionkey) a, nation b WHERE a.regionkey = b.regionkey",
+                "EXPLAIN ANALYZE SELECT * FROM (SELECT \"nationkey\", \"regionkey\" FROM \"nation\" GROUP BY \"nationkey\", \"regionkey\") a, \"nation\" b WHERE a.\"regionkey\" = b.\"regionkey\"",
                 "Trino version: .*");
         assertExplainAnalyze(
-                "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
+                "EXPLAIN ANALYZE SELECT * FROM \"nation\" a, \"nation\" b WHERE a.\"nationkey\" = b.\"nationkey\"",
                 "Left \\(probe\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*",
                 "Right \\(build\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*");
         assertExplainAnalyze(
                 Session.builder(getSession())
                         .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
                         .build(),
-                "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
+                "EXPLAIN ANALYZE SELECT * FROM \"nation\" a, \"nation\" b WHERE a.\"nationkey\" = b.\"nationkey\"",
                 "Left \\(probe\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*",
                 "Right \\(build\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*");
 
         assertExplainAnalyze(
-                "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
+                "EXPLAIN ANALYZE SELECT * FROM \"nation\" a, \"nation\" b WHERE a.\"nationkey\" = b.\"nationkey\"",
                 "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}");
     }
 
@@ -228,7 +230,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
     {
         // ExplainAnalyzeOperator may finish before dynamic filter stats are reported to QueryInfo
         assertEventually(() -> assertExplainAnalyze(
-                "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
+                "EXPLAIN ANALYZE SELECT * FROM \"nation\" a, \"nation\" b WHERE a.\"nationkey\" = b.\"nationkey\"",
                 "Dynamic filters: \n.*ranges=25, \\{\\[0], ..., \\[24]}.* collection time=\\d+.*"));
     }
 
@@ -236,7 +238,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
     public void testExplainAnalyzeVerbose()
     {
         assertExplainAnalyze(
-                "EXPLAIN ANALYZE VERBOSE SELECT * FROM nation a",
+                "EXPLAIN ANALYZE VERBOSE SELECT * FROM \"nation\" a",
                 "'Input rows distribution' = \\{count=.*, p01=.*, p05=.*, p10=.*, p25=.*, p50=.*, p75=.*, p90=.*, p95=.*, p99=.*, min=.*, max=.*}",
                 "'CPU time distribution \\(s\\)' = \\{count=.*, p01=.*, p05=.*, p10=.*, p25=.*, p50=.*, p75=.*, p90=.*, p95=.*, p99=.*, min=.*, max=.*}",
                 "'Scheduled time distribution \\(s\\)' = \\{count=.*, p01=.*, p05=.*, p10=.*, p25=.*, p50=.*, p75=.*, p90=.*, p95=.*, p99=.*, min=.*, max=.*}",
@@ -250,7 +252,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
     public void testExplainAnalyzeTopLevelTimes()
     {
         assertExplainAnalyze(
-                "EXPLAIN ANALYZE SELECT * FROM nation a",
+                "EXPLAIN ANALYZE SELECT * FROM \"nation\" a",
                 "Queued: .*s, Analysis: .*s, Planning: .*s, Execution: .*s\n");
     }
 
@@ -296,8 +298,8 @@ public abstract class AbstractDistributedEngineOnlyQueries
     {
         // Ensure CTA works when the table exposes hidden fields
         // First, verify that the table 'nation' contains the expected hidden column 'row_number'
-        assertThat(query("SELECT count(*) FROM information_schema.columns " +
-                "WHERE table_catalog = 'tpch' and table_schema = 'tiny' and table_name = 'nation' and column_name = 'row_number'"))
+        assertThat(query("SELECT count(*) FROM \"information_schema\".\"columns\" " +
+                "WHERE \"table_catalog\" = 'tpch' and \"table_schema\" = 'tiny' and \"table_name\" = 'nation' and \"column_name\" = 'row_number'"))
                 .matches("VALUES BIGINT '0'");
         assertThat(query("SELECT min(row_number) FROM tpch.tiny.nation"))
                 .matches("VALUES BIGINT '0'");
@@ -307,8 +309,8 @@ public abstract class AbstractDistributedEngineOnlyQueries
                 .matches("SELECT * FROM tpch.tiny.nation");
 
         // Verify that hidden column is not present in the created table
-        assertThat(query("SELECT min(row_number) FROM create_table_as_table"))
-                .failure().hasMessage("line 1:12: Column 'row_number' cannot be resolved");
+        assertQueryFails("SELECT min(row_number) FROM create_table_as_table",
+                "line 1:12: Column 'row_number' cannot be resolved, available candidates are: '.*'");
         assertUpdate(getSession(), "DROP TABLE create_table_as_table");
     }
 
@@ -317,8 +319,8 @@ public abstract class AbstractDistributedEngineOnlyQueries
     {
         // Ensure INSERT works when the source table exposes hidden fields
         // First, verify that the table 'nation' contains the expected hidden column 'row_number'
-        assertThat(query("SELECT count(*) FROM information_schema.columns " +
-                "WHERE table_catalog = 'tpch' and table_schema = 'tiny' and table_name = 'nation' and column_name = 'row_number'"))
+        assertThat(query("SELECT count(*) FROM \"information_schema\".\"columns\" " +
+                "WHERE \"table_catalog\" = 'tpch' and \"table_schema\" = 'tiny' and \"table_name\" = 'nation' and \"column_name\" = 'row_number'"))
                 .matches("VALUES BIGINT '0'");
         assertThat(query("SELECT min(row_number) FROM tpch.tiny.nation"))
                 .matches("VALUES BIGINT '0'");
@@ -329,8 +331,8 @@ public abstract class AbstractDistributedEngineOnlyQueries
                 .matches("SELECT * FROM tpch.tiny.nation LIMIT 0");
 
         // Verify that the hidden column is not present in the created table
-        assertThat(query("SELECT row_number FROM test_insert_table_into_table"))
-                .failure().hasMessage("line 1:8: Column 'row_number' cannot be resolved");
+        assertQueryFails("SELECT row_number FROM test_insert_table_into_table",
+                "line 1:8: Column 'row_number' cannot be resolved, available candidates are: '.*'");
 
         // Insert values from the original table into the created table
         assertUpdate(getSession(), "INSERT INTO test_insert_table_into_table TABLE tpch.tiny.nation", 25);
@@ -362,7 +364,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
     {
         String query = format(
                 // use random marker in query for unique matching below
-                "SELECT count(*) c_%s FROM lineitem CROSS JOIN lineitem CROSS JOIN lineitem",
+                "SELECT count(*) c_%s FROM \"lineitem\" CROSS JOIN \"lineitem\" CROSS JOIN \"lineitem\"",
                 randomNameSuffix());
         QueryRunner queryRunner = getDistributedQueryRunner();
         ListenableFuture<?> queryFuture = Futures.submit(

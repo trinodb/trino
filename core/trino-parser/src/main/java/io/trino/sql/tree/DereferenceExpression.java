@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -82,11 +83,12 @@ public class DereferenceExpression
         return field;
     }
 
-    /**
-     * If this DereferenceExpression looks like a QualifiedName, return QualifiedName.
-     * Otherwise return null
-     */
     public static QualifiedName getQualifiedName(DereferenceExpression expression)
+    {
+        return getQualifiedName(Resolver.DEFAULT_CANONICALIZER, expression);
+    }
+
+    public static QualifiedName getQualifiedName(Function<Identifier, String> canonicalizer, DereferenceExpression expression)
     {
         if (!expression.field.isPresent()) {
             return null;
@@ -99,7 +101,7 @@ public class DereferenceExpression
             parts = ImmutableList.of(identifier, field);
         }
         else if (expression.base instanceof DereferenceExpression dereferenceExpression) {
-            QualifiedName baseQualifiedName = getQualifiedName(dereferenceExpression);
+            QualifiedName baseQualifiedName = getQualifiedName(canonicalizer, dereferenceExpression);
             if (baseQualifiedName != null) {
                 ImmutableList.Builder<Identifier> builder = ImmutableList.builder();
                 builder.addAll(baseQualifiedName.getOriginalParts());
@@ -107,20 +109,22 @@ public class DereferenceExpression
                 parts = builder.build();
             }
         }
-
-        return parts == null ? null : QualifiedName.of(parts);
+        if (parts == null) {
+            return null;
+        }
+        return QualifiedName.of(canonicalizer, parts);
     }
 
     public static Expression from(QualifiedName name)
     {
         Expression result = null;
 
-        for (String part : name.getParts()) {
+        for (Identifier part : name.getOriginalParts()) {
             if (result == null) {
-                result = new Identifier(part);
+                result = part;
             }
             else {
-                result = new DereferenceExpression(result, new Identifier(part));
+                result = new DereferenceExpression(result, part);
             }
         }
 

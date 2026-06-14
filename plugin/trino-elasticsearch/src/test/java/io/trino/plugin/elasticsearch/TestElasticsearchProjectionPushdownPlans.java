@@ -185,7 +185,7 @@ final class TestElasticsearchProjectionPushdownPlans
 
         // Simple Projection pushdown
         assertPlan(
-                "SELECT col0.x expr_x, col0.y expr_y FROM " + tableName,
+                "SELECT col0.x expr_x, col0.y expr_y FROM \"" + tableName + "\"",
                 any(
                         tableScan(
                                 equalTo(elasticsearchTableHandle.withColumns(Set.of(columnX, columnY))),
@@ -194,7 +194,7 @@ final class TestElasticsearchProjectionPushdownPlans
 
         // Projection and predicate pushdown
         assertPlan(
-                "SELECT col0.x FROM " + tableName + " WHERE col0.x = col1 + 3 and col0.y = 2",
+                "SELECT col0.x FROM \"" + tableName + "\" WHERE col0.x = col1 + 3 and col0.y = 2",
                 anyTree(
                         filter(
                                 new Comparison(EQUAL, new Reference(BIGINT, "x"), new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "col1"), new Constant(BIGINT, 3L)))),
@@ -210,7 +210,7 @@ final class TestElasticsearchProjectionPushdownPlans
 
         // Projection and predicate pushdown with overlapping columns
         assertPlan(
-                "SELECT col0, col0.y expr_y FROM " + tableName + " WHERE col0.x = 5",
+                "SELECT col0, col0.y expr_y FROM \"" + tableName + "\" WHERE col0.x = 5",
                 anyTree(
                         tableScan(
                                 table -> {
@@ -224,7 +224,7 @@ final class TestElasticsearchProjectionPushdownPlans
 
         // Projection and predicate pushdown with joins
         assertPlan(
-                "SELECT T.col0.x, T.col0, T.col0.y FROM " + tableName + " T join " + tableName + " S on T.col1 = S.col1 WHERE T.col0.x = 2",
+                "SELECT T.col0.x, T.col0, T.col0.y FROM \"" + tableName + "\" T join \"" + tableName + "\" S on T.col1 = S.col1 WHERE T.col0.x = 2",
                 anyTree(
                         project(
                                 ImmutableMap.of(

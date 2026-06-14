@@ -30,6 +30,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.List;
 
 import static java.util.Arrays.asList;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;

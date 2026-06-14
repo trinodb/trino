@@ -53,7 +53,7 @@ FROM
       , "w_state"
       , "w_country"
       , "concat"("concat"('DHL', ','), 'BARIAN') "ship_carriers"
-      , "d_year" "YEAR"
+      , "d_year" "year"
       , "sum"((CASE WHEN ("d_moy" = 1) THEN ("ws_ext_sales_price" * "ws_quantity") ELSE 0 END)) "jan_sales"
       , "sum"((CASE WHEN ("d_moy" = 2) THEN ("ws_ext_sales_price" * "ws_quantity") ELSE 0 END)) "feb_sales"
       , "sum"((CASE WHEN ("d_moy" = 3) THEN ("ws_ext_sales_price" * "ws_quantity") ELSE 0 END)) "mar_sales"
@@ -79,11 +79,11 @@ FROM
       , "sum"((CASE WHEN ("d_moy" = 11) THEN ("ws_net_paid" * "ws_quantity") ELSE 0 END)) "nov_net"
       , "sum"((CASE WHEN ("d_moy" = 12) THEN ("ws_net_paid" * "ws_quantity") ELSE 0 END)) "dec_net"
       FROM
-        ${database}.${schema}.web_sales
-      , ${database}.${schema}.warehouse
-      , ${database}.${schema}.date_dim
-      , ${database}.${schema}.time_dim
-      , ${database}.${schema}.ship_mode
+        ${database}.${schema}."web_sales"
+      , ${database}.${schema}."warehouse"
+      , ${database}.${schema}."date_dim"
+      , ${database}.${schema}."time_dim"
+      , ${database}.${schema}."ship_mode"
       WHERE ("ws_warehouse_sk" = "w_warehouse_sk")
          AND ("ws_sold_date_sk" = "d_date_sk")
          AND ("ws_sold_time_sk" = "t_time_sk")
@@ -101,7 +101,7 @@ FROM
       , "w_state"
       , "w_country"
       , "concat"("concat"('DHL', ','), 'BARIAN') "ship_carriers"
-      , "d_year" "YEAR"
+      , "d_year" "year"
       , "sum"((CASE WHEN ("d_moy" = 1) THEN ("cs_sales_price" * "cs_quantity") ELSE 0 END)) "jan_sales"
       , "sum"((CASE WHEN ("d_moy" = 2) THEN ("cs_sales_price" * "cs_quantity") ELSE 0 END)) "feb_sales"
       , "sum"((CASE WHEN ("d_moy" = 3) THEN ("cs_sales_price" * "cs_quantity") ELSE 0 END)) "mar_sales"
@@ -127,11 +127,11 @@ FROM
       , "sum"((CASE WHEN ("d_moy" = 11) THEN ("cs_net_paid_inc_tax" * "cs_quantity") ELSE 0 END)) "nov_net"
       , "sum"((CASE WHEN ("d_moy" = 12) THEN ("cs_net_paid_inc_tax" * "cs_quantity") ELSE 0 END)) "dec_net"
       FROM
-        ${database}.${schema}.catalog_sales
-      , ${database}.${schema}.warehouse
-      , ${database}.${schema}.date_dim
-      , ${database}.${schema}.time_dim
-      , ${database}.${schema}.ship_mode
+        ${database}.${schema}."catalog_sales"
+      , ${database}.${schema}."warehouse"
+      , ${database}.${schema}."date_dim"
+      , ${database}.${schema}."time_dim"
+      , ${database}.${schema}."ship_mode"
       WHERE ("cs_warehouse_sk" = "w_warehouse_sk")
          AND ("cs_sold_date_sk" = "d_date_sk")
          AND ("cs_sold_time_sk" = "t_time_sk")

@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.plugin.postgresql.TestPostgreSqlRollbacks.doTestRollbackCreateTableAsSelect;
+import static java.util.Locale.ENGLISH;
 
 public abstract class BasePostgresFailureRecoveryTest
         extends BaseJdbcFailureRecoveryTest
@@ -59,6 +60,12 @@ public abstract class BasePostgresFailureRecoveryTest
         queryRunner.installPlugin(new BlackHolePlugin());
         queryRunner.createCatalog("blackhole", "blackhole", Map.of());
         return queryRunner;
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Test

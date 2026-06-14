@@ -158,6 +158,12 @@ public class FakerMetadata
     }
 
     @Override
+    public String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     public synchronized List<String> listSchemaNames(ConnectorSession connectorSession)
     {
         return schemas.stream()

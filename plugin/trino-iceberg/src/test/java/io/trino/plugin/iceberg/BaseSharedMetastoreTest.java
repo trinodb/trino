@@ -23,6 +23,7 @@ import java.time.format.DateTimeFormatter;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseSharedMetastoreTest
@@ -38,15 +39,21 @@ public abstract class BaseSharedMetastoreTest
 
     protected abstract String getExpectedIcebergCreateSchema(String catalogName);
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
     @Test
     public void testSelect()
     {
-        assertQuery("SELECT * FROM iceberg." + tpchSchema + ".nation", "SELECT * FROM nation");
-        assertQuery("SELECT * FROM hive." + tpchSchema + ".region", "SELECT * FROM region");
-        assertQuery("SELECT * FROM hive_with_redirections." + tpchSchema + ".nation", "SELECT * FROM nation");
-        assertQuery("SELECT * FROM hive_with_redirections." + tpchSchema + ".region", "SELECT * FROM region");
-        assertQuery("SELECT * FROM iceberg_with_redirections." + tpchSchema + ".nation", "SELECT * FROM nation");
-        assertQuery("SELECT * FROM iceberg_with_redirections." + tpchSchema + ".region", "SELECT * FROM region");
+        assertQuery("SELECT * FROM iceberg." + tpchSchema + ".nation", "SELECT * FROM \"nation\"");
+        assertQuery("SELECT * FROM hive." + tpchSchema + ".region", "SELECT * FROM \"region\"");
+        assertQuery("SELECT * FROM hive_with_redirections." + tpchSchema + ".nation", "SELECT * FROM \"nation\"");
+        assertQuery("SELECT * FROM hive_with_redirections." + tpchSchema + ".region", "SELECT * FROM \"region\"");
+        assertQuery("SELECT * FROM iceberg_with_redirections." + tpchSchema + ".nation", "SELECT * FROM \"nation\"");
+        assertQuery("SELECT * FROM iceberg_with_redirections." + tpchSchema + ".region", "SELECT * FROM \"region\"");
 
         assertThat(query("SELECT * FROM iceberg." + tpchSchema + ".region"))
                 .failure().hasMessageContaining("Not an Iceberg table");
@@ -99,7 +106,7 @@ public abstract class BaseSharedMetastoreTest
     @Test
     void testHiveSelectTableColumns()
     {
-        assertThat(query("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = '" + tpchSchema + "' AND table_name = 'region'"))
+        assertThat(query("SELECT \"TABLE_CAT\", \"TABLE_SCHEM\", \"TABLE_NAME\", \"COLUMN_NAME\" FROM system.jdbc.columns WHERE \"TABLE_CAT\" = 'hive' AND \"TABLE_SCHEM\" = '" + tpchSchema + "' AND \"TABLE_NAME\" = 'region'"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
                         "('hive', '" + tpchSchema + "', 'region', 'regionkey')," +
@@ -107,7 +114,7 @@ public abstract class BaseSharedMetastoreTest
                         "('hive', '" + tpchSchema + "', 'region', 'comment')");
 
         // Hive does not show any information about tables with unsupported format
-        assertQueryReturnsEmptyResult("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = '" + tpchSchema + "' AND table_name = 'nation'");
+        assertQueryReturnsEmptyResult("SELECT \"TABLE_CAT\", \"TABLE_SCHEM\", \"TABLE_NAME\", \"COLUMN_NAME\" FROM system.jdbc.columns WHERE \"TABLE_CAT\" = 'hive' AND \"TABLE_SCHEM\" = '" + tpchSchema + "' AND \"TABLE_NAME\" = 'nation'");
     }
 
     @Test
@@ -165,7 +172,7 @@ public abstract class BaseSharedMetastoreTest
     {
         try {
             assertUpdate(format("CREATE TABLE iceberg.%s.nation_test AS SELECT * FROM nation", testSchema), 25);
-            assertQuery("SELECT * FROM hive_with_redirections." + testSchema + ".nation_test", "SELECT * FROM nation");
+            assertQuery("SELECT * FROM hive_with_redirections." + testSchema + ".nation_test", "SELECT * FROM \"nation\"");
             long snapshot1 = getLatestSnapshotId(testSchema);
             long v1EpochMillis = getCommittedAtInEpochMilliSeconds(snapshot1, testSchema);
             Thread.sleep(1);
@@ -178,8 +185,8 @@ public abstract class BaseSharedMetastoreTest
             long v3EpochMillis = getCommittedAtInEpochMilliSeconds(snapshot3, testSchema);
             long incorrectSnapshot = 2324324333L;
             Thread.sleep(1);
-            assertQuery(format("SELECT * FROM hive_with_redirections.%s.nation_test FOR VERSION AS OF %d", testSchema, snapshot1), "SELECT * FROM nation");
-            assertQuery(format("SELECT * FROM hive_with_redirections.%s.nation_test FOR TIMESTAMP AS OF %s", testSchema, timestampLiteral(v1EpochMillis)), "SELECT * FROM nation");
+            assertQuery(format("SELECT * FROM hive_with_redirections.%s.nation_test FOR VERSION AS OF %d", testSchema, snapshot1), "SELECT * FROM \"nation\"");
+            assertQuery(format("SELECT * FROM hive_with_redirections.%s.nation_test FOR TIMESTAMP AS OF %s", testSchema, timestampLiteral(v1EpochMillis)), "SELECT * FROM \"nation\"");
             assertQuery(format("SELECT count(*) FROM hive_with_redirections.%s.nation_test FOR VERSION AS OF %d", testSchema, snapshot2), "VALUES(26)");
             assertQuery(format(
                     "SELECT count(*) FROM iceberg_with_redirections.%s.nation_test FOR TIMESTAMP AS OF %s", testSchema, timestampLiteral(v2EpochMillis)), "VALUES(26)");

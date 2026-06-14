@@ -23,12 +23,12 @@ import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static org.junit.jupiter.api.Assumptions.abort;
 
@@ -43,9 +43,15 @@ public class TestPostgreSqlTableStatistics
     {
         postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer());
         return PostgreSqlQueryRunner.builder(postgreSqlServer)
-                .addConnectorProperties(Map.of("case-insensitive-name-matching", "true"))
+                //.addConnectorProperties(Map.of("case-insensitive-name-matching", "true"))
                 .setInitialTables(List.of(ORDERS))
                 .build();
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Test
@@ -309,16 +315,18 @@ public class TestPostgreSqlTableStatistics
     @Override
     protected void testCaseColumnNames(String tableName)
     {
-        executeInPostgres("" +
-                "CREATE TABLE " + tableName + " " +
-                "AS SELECT " +
-                "  orderkey AS CASE_UNQUOTED_UPPER, " +
-                "  custkey AS case_unquoted_lower, " +
-                "  orderstatus AS cASe_uNQuoTeD_miXED, " +
-                "  totalprice AS \"CASE_QUOTED_UPPER\", " +
-                "  orderdate AS \"case_quoted_lower\"," +
-                "  orderpriority AS \"CasE_QuoTeD_miXED\" " +
-                "FROM orders");
+        executeInPostgres(
+                """
+                CREATE TABLE %s \
+                AS SELECT \
+                  orderkey AS CASE_UNQUOTED_UPPER, \
+                  custkey AS case_unquoted_lower, \
+                  orderstatus AS cASe_uNQuoTeD_miXED, \
+                  totalprice AS "CASE_QUOTED_UPPER", \
+                  orderdate AS "case_quoted_lower", \
+                  orderpriority AS "CasE_QuoTeD_miXED" \
+                FROM orders\
+                """.formatted(tableName));
         try {
             gatherStats(tableName);
             assertQuery(
@@ -327,9 +335,9 @@ public class TestPostgreSqlTableStatistics
                             "('case_unquoted_upper', null, 15000, 0, null, null, null)," +
                             "('case_unquoted_lower', null, 1000, 0, null, null, null)," +
                             "('case_unquoted_mixed', 30000, 3, 0, null, null, null)," +
-                            "('case_quoted_upper', null, 14996, 0, null, null, null)," +
+                            "('CASE_QUOTED_UPPER', null, 14996, 0, null, null, null)," +
                             "('case_quoted_lower', null, 2401, 0, null, null, null)," +
-                            "('case_quoted_mixed', 135000, 5, 0, null, null, null)," +
+                            "('CasE_QuoTeD_miXED', 135000, 5, 0, null, null, null)," +
                             "(null, null, null, null, 15000, null, null)");
         }
         finally {
@@ -396,6 +404,7 @@ public class TestPostgreSqlTableStatistics
                 long estimatedCount = handle.createQuery(format("SELECT reltuples FROM pg_class WHERE oid = '%s'::regclass::oid", tableName))
                         .mapTo(Long.class)
                         .one();
+                System.out.println("TestPostgreSqlTableStatistics.gatherStats() actualCount: " + actualCount + " - estimatedCount: " + estimatedCount);
                 if (actualCount == estimatedCount) {
                     return;
                 }
@@ -419,6 +428,7 @@ public class TestPostgreSqlTableStatistics
                 long estimatedCount = handle.createQuery(format("SELECT SUM(reltuples) FROM pg_class WHERE oid IN (%s)", parameter))
                         .mapTo(Long.class)
                         .one();
+                System.out.println("TestPostgreSqlTableStatistics.gatherStatsPartitionedTable() actualCount: " + actualCount + " - estimatedCount: " + estimatedCount);
                 if (actualCount == estimatedCount) {
                     return;
                 }

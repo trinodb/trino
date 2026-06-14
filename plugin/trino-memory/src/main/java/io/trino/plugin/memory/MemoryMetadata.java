@@ -95,7 +95,7 @@ import static java.util.function.Function.identity;
 public class MemoryMetadata
         implements ConnectorMetadata
 {
-    public static final String SCHEMA_NAME = "default";
+    public static final String SCHEMA_NAME = "DEFAULT";
 
     private final NodeManager nodeManager;
     @GuardedBy("this")
@@ -738,6 +738,8 @@ public class MemoryMetadata
     @Override
     public synchronized Collection<LanguageFunction> getLanguageFunctions(ConnectorSession session, SchemaFunctionName name)
     {
+        System.out.println("MemoryMetadata.getLanguageFunctions() name: " + name);
+        System.out.println("MemoryMetadata.getLanguageFunctions() functions name: " + String.join(", ", functions.keySet().toString()));
         return functions.getOrDefault(name, Map.of()).values();
     }
 

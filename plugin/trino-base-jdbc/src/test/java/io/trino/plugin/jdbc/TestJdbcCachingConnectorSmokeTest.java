@@ -30,7 +30,7 @@ public class TestJdbcCachingConnectorSmokeTest
                 .putAll(TestingH2JdbcModule.createProperties())
                 .put("metadata.cache-ttl", "10m")
                 .put("metadata.cache-missing", "true")
-                .put("case-insensitive-name-matching", "true")
+                //.put("case-insensitive-name-matching", "true")
                 .buildOrThrow());
     }
 

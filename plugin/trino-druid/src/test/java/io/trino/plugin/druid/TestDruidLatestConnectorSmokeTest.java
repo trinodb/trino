@@ -60,6 +60,12 @@ public class TestDruidLatestConnectorSmokeTest
         };
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     @Override // Override because an additional '__time' column exists
     public void testSelectInformationSchemaColumns()

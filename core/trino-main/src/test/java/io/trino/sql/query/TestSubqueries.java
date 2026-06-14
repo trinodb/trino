@@ -60,6 +60,7 @@ import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -94,6 +95,11 @@ public class TestSubqueries
     public void teardown()
     {
         assertions.close();
+    }
+
+    private String canonicalize(String value)
+    {
+        return value.toUpperCase(ENGLISH);
     }
 
     @Test
@@ -1704,7 +1710,7 @@ public class TestSubqueries
         //      D and whose fields are all the null value.
         assertThat(assertions.query(
                 "SELECT (SELECT 1 AS a, 2 AS b WHERE false)"))
-                .matches("SELECT CAST(ROW(NULL, NULL) AS row(a integer, b integer))");
+                .matches("SELECT CAST(ROW(NULL, NULL) AS row(\"%s\" integer, \"%s\" integer))".formatted(canonicalize("a"), canonicalize("b")));
 
         assertThat(assertions.query(
                 "SELECT (SELECT 1, 2) = (SELECT ROW(1, 2))"))
@@ -1719,8 +1725,8 @@ public class TestSubqueries
         assertThat(assertions.query(
                 "SELECT (SELECT 'a' AS x, 1 AS y)"))
                 .result()
-                .hasTypes(List.of(rowType(field("x", createVarcharType(1)), field("y", INTEGER))))
-                .matches("SELECT CAST(ROW('a', 1) AS row(x varchar(1), y integer))");
+                .hasTypes(List.of(rowType(field(canonicalize("x"), createVarcharType(1)), field(canonicalize("y"), INTEGER))))
+                .matches("SELECT CAST(ROW('a', 1) AS row(\"%s\" varchar(1), \"%s\" integer))".formatted(canonicalize("x"), canonicalize("y")));
 
         assertThat(assertions.query(
                 "SELECT * FROM (SELECT (SELECT 1, 2))"))
@@ -1728,13 +1734,13 @@ public class TestSubqueries
 
         assertThat(assertions.query(
                 "SELECT (SELECT t.* FROM (VALUES 1)) FROM (SELECT 1, 'a') t(a, b)"))
-                .matches("SELECT CAST(ROW(1, 'a') AS row(a integer, b varchar(1)))");
+                .matches("SELECT CAST(ROW(1, 'a') AS row(\"%s\" integer, \"%s\" varchar(1)))".formatted(canonicalize("a"), canonicalize("b")));
 
         // The quoted identifiers are needed due to some pre-existing inconsistencies
         // in how identifiers are canonicalized (see TypeSignatureTranslator.canonicalize())
         assertThat(assertions.query(
                 "SELECT (SELECT t.* AS (x, y) FROM (SELECT 1, 'a') t)"))
-                .matches("SELECT CAST(ROW(1, 'a') AS row(\"X\" integer, \"Y\" varchar(1)))");
+                .matches("SELECT CAST(ROW(1, 'a') AS row(\"%s\" integer, \"%s\" varchar(1)))".formatted(canonicalize("x"), canonicalize("y")));
 
         // test implicit coercion for the result of the subquery
         assertThat(assertions.query(
@@ -1748,6 +1754,6 @@ public class TestSubqueries
 
         assertThat(assertions.query(
                 "SELECT (SELECT 'a' AS x, 1)"))
-                .matches("SELECT (SELECT CAST(ROW('a', 1) AS row(x varchar(1), integer)))");
+                .matches("SELECT (SELECT CAST(ROW('a', 1) AS row(\"%s\" varchar(1), integer)))".formatted(canonicalize("x")));
     }
 }

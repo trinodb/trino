@@ -198,7 +198,8 @@ public class TestMemoryDefaultColumnValue
     void testInformationSchema()
     {
         try (TestTable table = newTrinoTable("test_default_value", "(id int, data int DEFAULT 123)")) {
-            assertThat((String) computeScalar("SELECT column_default FROM information_schema.columns WHERE table_name = '" + table.getName() + "' AND column_name = 'data'"))
+            assertThat((String) computeScalar("SELECT \"column_default\" FROM \"information_schema\".\"columns\" WHERE \"table_name\" = '%s' AND \"column_name\" = '%s'"
+                    .formatted(canonicalize(table.getName()), canonicalize("data"))))
                     .isEqualTo("123");
         }
     }

@@ -28,7 +28,7 @@ public class TestJmxConnector
     @Test(groups = JDBC)
     public void selectFromJavaRuntimeJmxMBean()
     {
-        String sql = "SELECT node, vmname, vmversion FROM jmx.current.\"java.lang:type=runtime\"";
+        String sql = "SELECT node, vmname, vmversion FROM jmx.current.\"java.lang:type=Runtime\"";
         assertThat(onTrino().executeQuery(sql))
                 .hasColumns(VARCHAR, VARCHAR, VARCHAR)
                 .hasAnyRows();
@@ -38,7 +38,7 @@ public class TestJmxConnector
     public void selectFromJavaOperatingSystemJmxMBean()
     {
         assertThat(onTrino().executeQuery("SELECT openfiledescriptorcount, maxfiledescriptorcount " +
-                "FROM jmx.current.\"java.lang:type=operatingsystem\""))
+                "FROM jmx.current.\"java.lang:type=OperatingSystem\""))
                 .hasColumns(BIGINT, BIGINT)
                 .hasAnyRows();
     }

@@ -78,6 +78,12 @@ public abstract class BaseDeltaLakeSharedMetastoreViewsTest
 
     protected abstract HiveMetastore createTestMetastore(Path dataDirectory);
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testViewWithLiteralColumnCreatedInDeltaLakeIsReadableInHive()
     {

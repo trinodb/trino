@@ -27,6 +27,7 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergParquetWithBloomFilters
@@ -40,12 +41,18 @@ public class TestIcebergParquetWithBloomFilters
     }
 
     @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
+    @Override
     protected CatalogSchemaTableName createParquetTableWithBloomFilter(String columnName, List<Integer> testValues)
     {
         // create the managed table
         String tableName = "parquet_with_bloom_filters_" + randomNameSuffix();
         CatalogSchemaTableName catalogSchemaTableName = new CatalogSchemaTableName("iceberg", new SchemaTableName("tpch", tableName));
-        assertUpdate(format("CREATE TABLE %s WITH (format = 'PARQUET', parquet_bloom_filter_columns = ARRAY['%s']) AS SELECT * FROM (VALUES %s) t(%s)", catalogSchemaTableName, columnName, Joiner.on(", ").join(testValues), columnName), testValues.size());
+        assertUpdate(format("CREATE TABLE %s WITH (format = 'PARQUET', parquet_bloom_filter_columns = ARRAY['%s']) AS SELECT * FROM (VALUES %s) t(\"%s\")", catalogSchemaTableName, columnName, Joiner.on(", ").join(testValues), columnName), testValues.size());
 
         return catalogSchemaTableName;
     }
@@ -56,7 +63,7 @@ public class TestIcebergParquetWithBloomFilters
         String tableName = "test_metadata_write_properties_" + randomNameSuffix();
         assertQuerySucceeds("CREATE TABLE " + tableName + " (A bigint, b bigint, c bigint) WITH (" +
                 "format = 'parquet'," +
-                "parquet_bloom_filter_columns = array['a','B'])");
+                "parquet_bloom_filter_columns = array['a','b'])");
 
         verifyTableProperties(tableName);
     }
@@ -67,7 +74,7 @@ public class TestIcebergParquetWithBloomFilters
         String tableName = "test_metadata_write_properties_" + randomNameSuffix();
         assertQuerySucceeds("CREATE TABLE " + tableName + "(A bigint, b bigint, c bigint)");
 
-        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES parquet_bloom_filter_columns = ARRAY['a','B']");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES parquet_bloom_filter_columns = ARRAY['a','b']");
         verifyTableProperties(tableName);
 
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES parquet_bloom_filter_columns = ARRAY['a']");
