@@ -131,8 +131,9 @@ The following are supported Ignite SQL data types from [https://ignite.apache.or
   - `BIGINT`
   - `-9223372036854775808`, `9223372036854775807`, etc.
 * - `DECIMAL`
-  - `DECIMAL`
-  - Data type with fixed precision and scale
+  - `DECIMAL` or `NUMBER`
+  - Maps to Trino `DECIMAL` when the declared precision and scale can be
+    represented as a Trino `DECIMAL`. Otherwise, maps to `NUMBER`.
 * - `DOUBLE`
   - `DOUBLE`
   - `3.14`, `-10.24`, etc.
