@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.geospatial.Rectangle;
 import io.trino.operator.PagesRTreeIndex.GeometryWithPosition;
 import io.trino.operator.SpatialIndexBuilderOperator.SpatialPredicate;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
@@ -43,8 +44,10 @@ import static io.trino.geospatial.serde.JtsGeometrySerde.deserialize;
 import static io.trino.operator.PagesSpatialIndex.EMPTY_INDEX;
 import static io.trino.operator.SyntheticAddress.decodePosition;
 import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static java.lang.String.format;
 
 public class PagesSpatialIndexSupplier
         implements Supplier<PagesSpatialIndex>
@@ -63,6 +66,7 @@ public class PagesSpatialIndexSupplier
     private final SpatialPredicate spatialRelationshipTest;
     private final Optional<JoinFilterFunctionCompiler.JoinFilterFunctionFactory> filterFunctionFactory;
     private final STRtree rtree;
+    private final int validSrid;
     private final Map<Integer, Rectangle> partitions;
     private final long memorySizeInBytes;
 
@@ -87,16 +91,21 @@ public class PagesSpatialIndexSupplier
         this.filterFunctionFactory = filterFunctionFactory;
         this.partitions = partitions;
 
-        this.rtree = buildRTree(addresses, channels, geometryChannel, radiusChannel, constantRadius, partitionChannel);
+        RTreeBuildResult rtreeBuildResult = buildRTree(addresses, channels, geometryChannel, radiusChannel, constantRadius, partitionChannel);
+        this.rtree = rtreeBuildResult.rtree();
+        this.validSrid = rtreeBuildResult.validSrid();
         this.radiusChannel = radiusChannel;
         this.constantRadius = constantRadius;
         this.memorySizeInBytes = INSTANCE_SIZE +
                 (rtree.isEmpty() ? 0 : STRTREE_INSTANCE_SIZE + computeMemorySizeInBytes(rtree.getRoot()));
     }
 
-    private static STRtree buildRTree(LongArrayList addresses, List<ObjectArrayList<Block>> channels, int geometryChannel, OptionalInt radiusChannel, OptionalDouble constantRadius, OptionalInt partitionChannel)
+    private record RTreeBuildResult(STRtree rtree, int validSrid) {}
+
+    private static RTreeBuildResult buildRTree(LongArrayList addresses, List<ObjectArrayList<Block>> channels, int geometryChannel, OptionalInt radiusChannel, OptionalDouble constantRadius, OptionalInt partitionChannel)
     {
         STRtree rtree = new STRtree();
+        int validSrid = 0;
 
         for (int position = 0; position < addresses.size(); position++) {
             long pageAddress = addresses.getLong(position);
@@ -130,6 +139,8 @@ public class PagesSpatialIndexSupplier
                 continue;
             }
 
+            validSrid = validateBuildSrid(validSrid, geometry.getSRID());
+
             int partition = -1;
             if (partitionChannel.isPresent()) {
                 Block partitionBlock = channels.get(partitionChannel.getAsInt()).get(blockIndex);
@@ -140,7 +151,21 @@ public class PagesSpatialIndexSupplier
         }
 
         rtree.build();
-        return rtree;
+        return new RTreeBuildResult(rtree, validSrid);
+    }
+
+    private static int validateBuildSrid(int validSrid, int geometrySrid)
+    {
+        if (geometrySrid == 0) {
+            return validSrid;
+        }
+        if (validSrid == 0) {
+            return geometrySrid;
+        }
+        if (validSrid != geometrySrid) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("SRID mismatch: %s vs %s", validSrid, geometrySrid));
+        }
+        return validSrid;
     }
 
     private static Envelope getEnvelope(Geometry geometry, double radius)
@@ -181,6 +206,6 @@ public class PagesSpatialIndexSupplier
         if (rtree.isEmpty()) {
             return EMPTY_INDEX;
         }
-        return new PagesRTreeIndex(session, addresses, outputChannels, channels, rtree, radiusChannel, constantRadius, spatialRelationshipTest, filterFunctionFactory, partitions);
+        return new PagesRTreeIndex(session, addresses, outputChannels, channels, rtree, validSrid, radiusChannel, constantRadius, spatialRelationshipTest, filterFunctionFactory, partitions);
     }
 }

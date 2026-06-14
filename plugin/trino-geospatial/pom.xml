@@ -35,7 +35,17 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-geospatial-epsg</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-geospatial-toolkit</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.opengis</groupId>
+            <artifactId>geoapi</artifactId>
         </dependency>
 
         <dependency>

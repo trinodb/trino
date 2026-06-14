@@ -17,9 +17,14 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.geospatial.GeometryType;
 import io.trino.spi.TrinoException;
+import org.locationtech.jts.geom.CoordinateSequence;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryCollection;
 import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKBReader;
 import org.locationtech.jts.io.WKBWriter;
@@ -44,8 +49,7 @@ public final class JtsGeometrySerde
     // EWKB flag for SRID presence (bit 29)
     private static final int EWKB_SRID_FLAG = 0x20000000;
     private static final int EWKB_M_FLAG = 0x40000000;
-    private static final int EWKB_Z_FLAG = 0x80000000;
-    private static final String UNSUPPORTED_COORDINATE_DIMENSIONS_MESSAGE = "Geospatial values with more than 2 coordinate dimensions are not supported";
+    private static final String UNSUPPORTED_MEASURE_DIMENSION_MESSAGE = "Geospatial values with measure coordinates are not supported";
 
     // WKB type codes (2D)
     private static final int WKB_POINT = 1;
@@ -78,11 +82,102 @@ public final class JtsGeometrySerde
      */
     public static Slice serialize(Geometry geometry)
     {
+        return serialize(geometry, true);
+    }
+
+    /**
+     * Serialize a JTS Geometry to WKB bytes without SRID, preserving Z coordinates when present.
+     */
+    public static Slice serializeWithoutSrid(Geometry geometry)
+    {
+        return serialize(geometry, false);
+    }
+
+    /**
+     * Serialize a JTS Geometry to WKB/EWKB bytes, preserving Z coordinates when present.
+     */
+    private static Slice serialize(Geometry geometry, boolean includeSrid)
+    {
         requireNonNull(geometry, "geometry is null");
+        verifySupportedCoordinateDimensions(geometry);
         // WKBWriter(outputDimension, includeSRID)
-        // Always include SRID in EWKB format
-        byte[] bytes = new WKBWriter(2, true).write(geometry);
+        byte[] bytes = new WKBWriter(hasZ(geometry) ? 3 : 2, includeSrid).write(geometry);
         return Slices.wrappedBuffer(bytes);
+    }
+
+    private static void verifySupportedCoordinateDimensions(Geometry geometry)
+    {
+        requireNonNull(geometry, "geometry is null");
+        if (geometry instanceof Point point) {
+            verifySupportedCoordinateDimensions(point.getCoordinateSequence());
+            return;
+        }
+        if (geometry instanceof LineString lineString) {
+            verifySupportedCoordinateDimensions(lineString.getCoordinateSequence());
+            return;
+        }
+        if (geometry instanceof Polygon polygon) {
+            verifySupportedCoordinateDimensions(polygon.getExteriorRing().getCoordinateSequence());
+            for (int i = 0; i < polygon.getNumInteriorRing(); i++) {
+                verifySupportedCoordinateDimensions(polygon.getInteriorRingN(i).getCoordinateSequence());
+            }
+            return;
+        }
+        if (geometry instanceof GeometryCollection geometryCollection) {
+            for (int i = 0; i < geometryCollection.getNumGeometries(); i++) {
+                verifySupportedCoordinateDimensions(geometryCollection.getGeometryN(i));
+            }
+        }
+    }
+
+    private static void verifySupportedCoordinateDimensions(CoordinateSequence coordinates)
+    {
+        if (coordinates.hasM()) {
+            throw unsupportedCoordinateDimensions();
+        }
+    }
+
+    private static boolean hasZ(Geometry geometry)
+    {
+        requireNonNull(geometry, "geometry is null");
+        if (geometry instanceof Point point) {
+            return hasZ(point.getCoordinateSequence());
+        }
+        if (geometry instanceof LineString lineString) {
+            return hasZ(lineString.getCoordinateSequence());
+        }
+        if (geometry instanceof Polygon polygon) {
+            if (hasZ(polygon.getExteriorRing().getCoordinateSequence())) {
+                return true;
+            }
+            for (int i = 0; i < polygon.getNumInteriorRing(); i++) {
+                if (hasZ(polygon.getInteriorRingN(i).getCoordinateSequence())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        if (geometry instanceof GeometryCollection geometryCollection) {
+            for (int i = 0; i < geometryCollection.getNumGeometries(); i++) {
+                if (hasZ(geometryCollection.getGeometryN(i))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasZ(CoordinateSequence coordinates)
+    {
+        if (!coordinates.hasZ()) {
+            return false;
+        }
+        for (int i = 0; i < coordinates.size(); i++) {
+            if (!Double.isNaN(coordinates.getZ(i))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -313,13 +408,14 @@ public final class JtsGeometrySerde
 
     private static void verifySupportedCoordinateDimensions(int type)
     {
-        if ((type & (EWKB_Z_FLAG | EWKB_M_FLAG)) != 0 || (type & 0xFFFF) > 999) {
+        int isoDimension = (type & 0xFFFF) / 1000;
+        if ((type & EWKB_M_FLAG) != 0 || isoDimension > 1) {
             throw unsupportedCoordinateDimensions();
         }
     }
 
     private static TrinoException unsupportedCoordinateDimensions()
     {
-        return new TrinoException(NOT_SUPPORTED, UNSUPPORTED_COORDINATE_DIMENSIONS_MESSAGE);
+        return new TrinoException(NOT_SUPPORTED, UNSUPPORTED_MEASURE_DIMENSION_MESSAGE);
     }
 }
