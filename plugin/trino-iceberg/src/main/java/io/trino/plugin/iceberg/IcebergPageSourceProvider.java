@@ -63,6 +63,9 @@ import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.plugin.iceberg.system.files.FilesTablePageSource;
 import io.trino.plugin.iceberg.system.files.FilesTableSplit;
+import io.trino.plugin.iceberg.system.positiondeletes.DeletionVectorPageSource;
+import io.trino.plugin.iceberg.system.positiondeletes.PositionDeletesTablePageSource;
+import io.trino.plugin.iceberg.system.positiondeletes.PositionDeletesTableSplit;
 import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -102,6 +105,7 @@ import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
 import org.apache.avro.file.DataFileStream;
 import org.apache.avro.generic.GenericDatumReader;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -220,6 +224,8 @@ import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
 import static org.apache.iceberg.FileContent.POSITION_DELETES;
+import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
+import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 import static org.joda.time.DateTimeZone.UTC;
 
@@ -287,6 +293,9 @@ public class IcebergPageSourceProvider
                     columns.stream().map(SystemColumnHandle.class::cast).map(SystemColumnHandle::columnName).collect(toImmutableList()),
                     filesTableSplit);
         }
+        if (connectorSplit instanceof PositionDeletesTableSplit positionDeletesTableSplit) {
+            return createPositionDeletesPageSource(session, columns, positionDeletesTableSplit, icebergTableCredentials);
+        }
 
         IcebergSplit split = (IcebergSplit) connectorSplit;
         List<IcebergColumnHandle> icebergColumns = columns.stream()
@@ -320,6 +329,61 @@ public class IcebergPageSourceProvider
                 split.dataSequenceNumber(),
                 split.fileFirstRowId(),
                 tableHandle.getNameMappingJson().map(NameMappingParser::fromJson));
+    }
+
+    private ConnectorPageSource createPositionDeletesPageSource(
+            ConnectorSession session,
+            List<ColumnHandle> columns,
+            PositionDeletesTableSplit split,
+            IcebergTableCredentials tableCredentials)
+    {
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), tableCredentials);
+        FileFormat fileFormat = split.deleteFileFormat();
+        ConnectorPageSource deleteFilePageSource;
+
+        if (fileFormat == FileFormat.PUFFIN) {
+            deleteFilePageSource = new DeletionVectorPageSource(
+                    fileSystem,
+                    split.referencedDataFile().orElseThrow(),
+                    split.deleteFilePath(),
+                    split.deleteFileLength(),
+                    split.contentOffset().orElseThrow(),
+                    split.contentSizeInBytes().orElseThrow());
+        }
+        else if (Set.of(FileFormat.PARQUET, FileFormat.ORC, FileFormat.AVRO).contains(fileFormat)) {
+            IcebergColumnHandle deleteFilePath = getColumnHandle(DELETE_FILE_PATH, typeManager);
+            IcebergColumnHandle deleteFilePos = getColumnHandle(DELETE_FILE_POS, typeManager);
+            List<IcebergColumnHandle> deleteColumns = ImmutableList.of(deleteFilePath, deleteFilePos);
+            Schema deleteFileSchema = new Schema(DELETE_FILE_PATH, DELETE_FILE_POS);
+
+            TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(split.deleteFilePath()));
+            ReaderPageSourceWithRowPositions readerPageSource = createDataPageSource(
+                    session,
+                    inputFile,
+                    0,
+                    split.deleteFileLength(),
+                    split.deleteFileLength(),
+                    split.specId(),
+                    "",
+                    IcebergFileFormat.fromIceberg(fileFormat),
+                    deleteFileSchema,
+                    deleteColumns,
+                    TupleDomain.all(),
+                    Optional.empty(),
+                    "",
+                    Map.of(),
+                    OptionalLong.empty(),
+                    OptionalLong.empty());
+            deleteFilePageSource = readerPageSource.pageSource();
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported file format: " + fileFormat);
+        }
+
+        return new PositionDeletesTablePageSource(
+                deleteFilePageSource,
+                split,
+                columns.stream().map(SystemColumnHandle.class::cast).map(SystemColumnHandle::columnName).collect(toImmutableList()));
     }
 
     public ConnectorPageSource createPageSource(

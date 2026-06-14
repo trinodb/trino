@@ -46,6 +46,7 @@ import static io.trino.plugin.iceberg.TableType.MANIFESTS;
 import static io.trino.plugin.iceberg.TableType.MATERIALIZED_VIEW_STORAGE;
 import static io.trino.plugin.iceberg.TableType.METADATA_LOG_ENTRIES;
 import static io.trino.plugin.iceberg.TableType.PARTITIONS;
+import static io.trino.plugin.iceberg.TableType.POSITION_DELETES;
 import static io.trino.plugin.iceberg.TableType.PROPERTIES;
 import static io.trino.plugin.iceberg.TableType.REFS;
 import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
@@ -405,6 +406,12 @@ public class TestIcebergMetastoreAccessOperations
                         .addCopies(GET_TABLE, 1)
                         .build());
 
+        // select from $position_deletes
+        assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$position_deletes\"",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLE, 1)
+                        .build());
+
         // select from $properties
         assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$properties\"",
                 ImmutableMultiset.<MetastoreMethod>builder()
@@ -417,7 +424,21 @@ public class TestIcebergMetastoreAccessOperations
 
         // This test should get updated if a new system table is added.
         assertThat(TableType.values())
-                .containsExactly(DATA, HISTORY, METADATA_LOG_ENTRIES, SNAPSHOTS, ALL_MANIFESTS, MANIFESTS, PARTITIONS, FILES, ALL_ENTRIES, ENTRIES, PROPERTIES, REFS, MATERIALIZED_VIEW_STORAGE);
+                .containsExactly(
+                        DATA,
+                        HISTORY,
+                        METADATA_LOG_ENTRIES,
+                        SNAPSHOTS,
+                        ALL_MANIFESTS,
+                        MANIFESTS,
+                        PARTITIONS,
+                        FILES,
+                        ALL_ENTRIES,
+                        ENTRIES,
+                        POSITION_DELETES,
+                        PROPERTIES,
+                        REFS,
+                        MATERIALIZED_VIEW_STORAGE);
     }
 
     @Test

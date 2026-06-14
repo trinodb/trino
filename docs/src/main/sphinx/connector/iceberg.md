@@ -1619,6 +1619,58 @@ The output of the query has the following columns:
     data files.
 :::
 
+##### `$position_deletes` table
+
+The `$position_deletes` table provides a detailed view of position delete records
+in the current snapshot of the Iceberg table. Each row represents a deleted row
+position from a data file.
+
+To retrieve position delete information for the Iceberg table `test_table`, use
+the following query:
+
+```sql
+SELECT * FROM "test_table$position_deletes";
+```
+
+```text
+ file_path                                     | pos | spec_id | delete_file_path
+-----------------------------------------------+-----+---------+----------------------------------------------
+ s3://test-bucket/test_table/data/file-001.parquet | 42  | 0       | s3://test-bucket/test_table/data/delete-001.parquet
+ s3://test-bucket/test_table/data/file-001.parquet | 108 | 0       | s3://test-bucket/test_table/data/delete-001.parquet
+```
+
+The output of the query has the following columns:
+
+:::{list-table} Position deletes columns
+:widths: 25, 30, 45
+:header-rows: 1
+
+* - Name
+  - Type
+  - Description
+* - `file_path`
+  - `VARCHAR`
+  - The path of the data file containing the deleted row.
+* - `pos`
+  - `BIGINT`
+  - The position (row number) of the deleted row within the data file.
+* - `partition`
+  - `ROW(...)`
+  - A row that contains the mapping of the partition column names to the
+    partition column values. Only present for partitioned tables.
+* - `spec_id`
+  - `INTEGER`
+  - The partition specification ID for the data file.
+* - `delete_file_path`
+  - `VARCHAR`
+  - The path of the delete file (position delete file or deletion vector) that
+    marks this row as deleted.
+:::
+
+The table includes both traditional position delete files (format v2) and deletion
+vectors (format v3). Deletion vectors are automatically expanded to show individual
+deleted row positions. Equality delete files are not included in this table.
+
 ##### `$entries` and `$all_entries` tables
 
 The `$entries` and `$all_entries` tables provide the table's manifest entries
