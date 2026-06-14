@@ -82,6 +82,7 @@ import static io.trino.plugin.iceberg.IcebergSplitSource.createFileStatisticsDom
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -354,6 +355,52 @@ public class TestIcebergSplitSource
     }
 
     @Test
+    public void testRowGroupMerging()
+            throws Exception
+    {
+        assertUpdate(
+                withSmallRowGroups(getSession()),
+                "CREATE TABLE test_row_group_merging WITH (format = 'PARQUET') AS SELECT * FROM tpch.tiny.nation",
+                25);
+        try {
+            SchemaTableName schemaTableName = new SchemaTableName("tpch", "test_row_group_merging");
+            Table table = catalog.loadTable(SESSION, schemaTableName);
+            IcebergColumnHandle nationKey = IcebergColumnHandle.optional(
+                            new ColumnIdentity(1, "nationkey", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
+                    .columnType(BIGINT)
+                    .build();
+            IcebergTableHandle tableHandle = createTableHandle(schemaTableName, table, TupleDomain.all(), ImmutableSet.of(nationKey));
+
+            ConnectorSession sessionWithSmallSplitSize = getSessionWithSplitSize("1B");
+            List<IcebergSplit> splitsWithoutMerging = generateSplits(sessionWithSmallSplitSize, table, tableHandle, DynamicFilter.EMPTY);
+            assertThat(splitsWithoutMerging.size()).isGreaterThan(1);
+
+            ConnectorSession sessionWithLargeSplitSize = getSessionWithSplitSize("100MB");
+            List<IcebergSplit> splitsWithMerging = generateSplits(sessionWithLargeSplitSize, table, tableHandle, DynamicFilter.EMPTY);
+            assertThat(splitsWithMerging).hasSize(1);
+            assertThat(splitsWithMerging.getFirst().length())
+                    .isEqualTo(splitsWithoutMerging.stream().mapToLong(IcebergSplit::length).sum());
+        }
+        finally {
+            assertUpdate("DROP TABLE test_row_group_merging");
+        }
+    }
+
+    private static TestingConnectorSession getSessionWithSplitSize(String splitSize)
+    {
+        return TestingConnectorSession.builder()
+                .setPropertyMetadata(new IcebergSessionProperties(
+                        new IcebergConfig(),
+                        new OrcReaderConfig(),
+                        new OrcWriterConfig(),
+                        new ParquetReaderConfig(),
+                        new ParquetWriterConfig())
+                        .getSessionProperties())
+                .setPropertyValues(ImmutableMap.of(IcebergSessionProperties.SPLIT_SIZE, splitSize))
+                .build();
+    }
+
+    @Test
     public void testSplitWeight()
             throws Exception
     {
@@ -438,6 +485,14 @@ public class TestIcebergSplitSource
     private IcebergSplit generateSplit(ConnectorSession session, Table nationTable, IcebergTableHandle tableHandle, DynamicFilter dynamicFilter)
             throws Exception
     {
+        List<IcebergSplit> splits = generateSplits(session, nationTable, tableHandle, dynamicFilter);
+        assertThat(splits).hasSize(1);
+        return splits.getFirst();
+    }
+
+    private List<IcebergSplit> generateSplits(ConnectorSession session, Table nationTable, IcebergTableHandle tableHandle, DynamicFilter dynamicFilter)
+            throws Exception
+    {
         try (IcebergSplitSource splitSource = new IcebergSplitSource(
                 new DefaultIcebergFileSystemFactory(fileSystemFactory),
                 session,
@@ -462,15 +517,21 @@ public class TestIcebergSplitSource
                         .map(IcebergSplit.class::cast)
                         .forEach(builder::add);
             }
-            List<IcebergSplit> splits = builder.build();
-            assertThat(splits).hasSize(1);
             assertThat(splitSource.isFinished()).isTrue();
-
-            return splits.getFirst();
+            return builder.build();
         }
     }
 
-    private static IcebergTableHandle createTableHandle(SchemaTableName schemaTableName, Table nationTable, TupleDomain<IcebergColumnHandle> unenforcedPredicate)
+    private static IcebergTableHandle createTableHandle(SchemaTableName schemaTableName, Table table, TupleDomain<IcebergColumnHandle> unenforcedPredicate)
+    {
+        return createTableHandle(schemaTableName, table, unenforcedPredicate, ImmutableSet.of());
+    }
+
+    private static IcebergTableHandle createTableHandle(
+            SchemaTableName schemaTableName,
+            Table nationTable,
+            TupleDomain<IcebergColumnHandle> unenforcedPredicate,
+            Set<IcebergColumnHandle> projectedColumns)
     {
         return new IcebergTableHandle(
                 schemaTableName.getSchemaName(),
@@ -484,7 +545,7 @@ public class TestIcebergSplitSource
                 unenforcedPredicate,
                 TupleDomain.all(),
                 OptionalLong.empty(),
-                ImmutableSet.of(),
+                projectedColumns,
                 Optional.empty(),
                 nationTable.location(),
                 nationTable.properties(),

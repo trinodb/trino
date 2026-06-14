@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
+import com.google.common.collect.PeekingIterator;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -57,6 +58,7 @@ import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.MergeableScanTask;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Scan;
@@ -169,6 +171,8 @@ public class IcebergSplitSource
     private CloseableIterable<FileScanTask> fileScanIterable;
     @GuardedBy("this")
     private long targetSplitSize;
+    @GuardedBy("this")
+    private boolean splitSizeOverridden;
     @GuardedBy("this")
     private CloseableIterator<FileScanTask> fileScanIterator;
     @GuardedBy("this")
@@ -302,7 +306,13 @@ public class IcebergSplitSource
             synchronized (closer) {
                 checkState(!closed, "split source is closed");
                 this.fileScanIterable = closer.register(scan.planFiles());
-                this.targetSplitSize = getSplitSize(session)
+                Optional<DataSize> sessionSplitSize = getSplitSize(session);
+                // Row group merging is only enabled when the split size is explicitly configured.
+                // If a writer set read.split.target-size on the table, they may rely on
+                // Iceberg's default one-split-per-row-group behavior. Merging is a Trino-specific
+                // behavior, so we only enable it when the user explicitly opts in.
+                this.splitSizeOverridden = sessionSplitSize.isPresent();
+                this.targetSplitSize = sessionSplitSize
                         .map(DataSize::toBytes)
                         .orElseGet(tableScan::targetSplitSize);
                 this.fileScanIterator = closer.register(fileScanIterable.iterator());
@@ -379,7 +389,7 @@ public class IcebergSplitSource
                 scanTaskBuilder.add(fileScanTaskWithDomain);
             }
             else {
-                scanTaskBuilder.addAll(fileScanTaskWithDomain.split(targetSplitSize));
+                scanTaskBuilder.addAll(fileScanTaskWithDomain.split(targetSplitSize, splitSizeOverridden));
             }
         }
         return scanTaskBuilder.build().iterator();
@@ -601,11 +611,41 @@ public class IcebergSplitSource
 
     private record FileScanTaskWithDomain(FileScanTask fileScanTask, TupleDomain<IcebergColumnHandle> fileStatisticsDomain)
     {
-        Iterator<FileScanTaskWithDomain> split(long targetSplitSize)
+        Iterator<FileScanTaskWithDomain> split(long targetSplitSize, boolean mergeAdjacent)
         {
-            return Iterators.transform(
+            Iterator<FileScanTaskWithDomain> splits = Iterators.transform(
                     fileScanTask().split(targetSplitSize).iterator(),
                     task -> new FileScanTaskWithDomain(task, fileStatisticsDomain));
+            if (!mergeAdjacent) {
+                return splits;
+            }
+            PeekingIterator<FileScanTaskWithDomain> peekingSplits = Iterators.peekingIterator(splits);
+            ImmutableList.Builder<FileScanTaskWithDomain> merged = ImmutableList.builder();
+            while (peekingSplits.hasNext()) {
+                FileScanTaskWithDomain current = peekingSplits.next();
+                while (peekingSplits.hasNext() && canMerge(current, peekingSplits.peek(), targetSplitSize)) {
+                    current = new FileScanTaskWithDomain(
+                            merge(current, peekingSplits.next()),
+                            fileStatisticsDomain);
+                }
+                merged.add(current);
+            }
+            return merged.build().iterator();
+        }
+
+        private static boolean canMerge(FileScanTaskWithDomain current, FileScanTaskWithDomain next, long targetSplitSize)
+        {
+            FileScanTask currentTask = current.fileScanTask();
+            FileScanTask nextTask = next.fileScanTask();
+            return currentTask instanceof MergeableScanTask<?> mergeable
+                    && mergeable.canMerge(nextTask)
+                    && currentTask.length() + nextTask.length() <= targetSplitSize;
+        }
+
+        @SuppressWarnings("unchecked")
+        private static FileScanTask merge(FileScanTaskWithDomain current, FileScanTaskWithDomain next)
+        {
+            return ((MergeableScanTask<FileScanTask>) current.fileScanTask()).merge(next.fileScanTask());
         }
     }
 
