@@ -421,6 +421,30 @@
                                     <justification>JsonProperty value renamed from argumentTypes to arguments</justification>
                                 </item>
                                 <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method long io.trino.spi.type.DoubleType::xxHash64(double)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method boolean io.trino.spi.type.TimeType::equalOperator(long, long)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method long io.trino.spi.type.TimeType::hashCodeOperator(long)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method boolean io.trino.spi.type.TimeType::lessThan(long, long)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method boolean io.trino.spi.type.TimeType::lessThanOrEqual(long, long)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method long io.trino.spi.type.TimeType::xxHash64Operator(long)</old>
+                                </item>
+                                <item>
                                     <code>java.annotation.removed</code>
                                     <old>method java.util.List&lt;io.trino.spi.type.TypeSignature&gt; io.trino.spi.function.Signature::getArgumentTypes()</old>
                                     <new>method java.util.List&lt;io.trino.spi.type.TypeSignature&gt; io.trino.spi.function.Signature::getArgumentTypes()</new>

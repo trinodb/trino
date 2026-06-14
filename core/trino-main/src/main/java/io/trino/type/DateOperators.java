@@ -37,6 +37,7 @@ public final class DateOperators
 {
     private DateOperators() {}
 
+    // fallible
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -51,6 +52,7 @@ public final class DateOperators
         throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s cannot be represented as varchar(%s)", stringValue, x));
     }
 
+    // fallible
     @ScalarFunction("date")
     @ScalarOperator(CAST)
     @LiteralParameters("x")
@@ -67,6 +69,7 @@ public final class DateOperators
         }
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType(StandardTypes.DATE)

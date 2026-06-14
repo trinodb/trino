@@ -69,7 +69,7 @@ public class ScalarHeader
         this.instanceMethod = instanceMethod;
     }
 
-    public ScalarHeader(OperatorType operatorType, Optional<String> description)
+    public ScalarHeader(OperatorType operatorType, Optional<String> description, boolean neverFails)
     {
         this.name = mangleOperatorName(operatorType);
         this.operatorType = Optional.of(operatorType);
@@ -77,7 +77,7 @@ public class ScalarHeader
         this.aliases = ImmutableSet.of();
         this.hidden = true;
         this.deterministic = true;
-        this.neverFails = false;
+        this.neverFails = neverFails;
         this.receiverType = Optional.empty();
         this.instanceMethod = false;
     }
@@ -111,7 +111,7 @@ public class ScalarHeader
         }
 
         if (scalarOperator != null) {
-            builder.add(new ScalarHeader(scalarOperator.value(), description));
+            builder.add(new ScalarHeader(scalarOperator.value(), description, scalarOperator.neverFails()));
         }
 
         List<ScalarHeader> result = builder.build();
