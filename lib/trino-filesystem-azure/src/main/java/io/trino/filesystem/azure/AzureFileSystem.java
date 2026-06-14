@@ -94,6 +94,7 @@ public class AzureFileSystem
     private final int maxWriteConcurrency;
     private final long maxSingleUploadSizeBytes;
     private final boolean multipartWriteEnabled;
+    private final boolean allowNonStandardHosts;
 
     public AzureFileSystem(
             HttpClient httpClient,
@@ -106,7 +107,8 @@ public class AzureFileSystem
             DataSize writeBlockSize,
             int maxWriteConcurrency,
             DataSize maxSingleUploadSize,
-            boolean multipartWriteEnabled)
+            boolean multipartWriteEnabled,
+            boolean allowNonStandardHosts)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.concurrencyPolicy = requireNonNull(concurrencyPolicy, "concurrencyPolicy is null");
@@ -120,6 +122,7 @@ public class AzureFileSystem
         this.maxWriteConcurrency = maxWriteConcurrency;
         this.maxSingleUploadSizeBytes = maxSingleUploadSize.toBytes();
         this.multipartWriteEnabled = multipartWriteEnabled;
+        this.allowNonStandardHosts = allowNonStandardHosts;
     }
 
     @Override
@@ -666,10 +669,38 @@ public class AzureFileSystem
 
     private String validatedEndpoint(AzureLocation location)
     {
-        if (!location.endpoint().equals(endpoint)) {
+        // For non-standard hosts (e.g., Microsoft Fabric OneLake) the endpoint is fully
+        // specified in the URL itself; skip the check against the configured default endpoint.
+        if (!location.isStandardFormat()) {
+            if (!allowNonStandardHosts) {
+                throw new IllegalArgumentException("Location does not match configured Azure endpoint: " + location);
+            }
+            return location.endpoint();
+        }
+        if (!location.endpoint().equals(endpoint) && !allowNonStandardHosts) {
             throw new IllegalArgumentException("Location does not match configured Azure endpoint: " + location);
         }
         return location.endpoint();
+    }
+
+    private String blobServiceUrl(AzureLocation location)
+    {
+        String ep = validatedEndpoint(location);
+        if (location.isStandardFormat()) {
+            return "https://%s.blob.%s".formatted(location.account(), ep);
+        }
+        // Non-standard host (e.g., Microsoft Fabric OneLake): no .blob. infix
+        return "https://%s.%s".formatted(location.account(), ep);
+    }
+
+    private String dfsServiceUrl(AzureLocation location)
+    {
+        String ep = validatedEndpoint(location);
+        if (location.isStandardFormat()) {
+            return "https://%s.dfs.%s".formatted(location.account(), ep);
+        }
+        // Non-standard host (e.g., Microsoft Fabric OneLake): no .dfs. infix
+        return "https://%s.%s".formatted(location.account(), ep);
     }
 
     private BlobClient createBlobClient(AzureLocation location, Optional<EncryptionKey> key)
@@ -685,7 +716,7 @@ public class AzureFileSystem
                 .httpClient(httpClient)
                 .addPolicy(concurrencyPolicy)
                 .clientOptions(new ClientOptions().setTracingOptions(tracingOptions))
-                .endpoint("https://%s.blob.%s".formatted(location.account(), validatedEndpoint(location)));
+                .endpoint(blobServiceUrl(location));
 
         key.ifPresent(encryption -> builder.customerProvidedKey(blobCustomerProvidedKey(encryption)));
 
@@ -702,7 +733,7 @@ public class AzureFileSystem
                 .httpClient(httpClient)
                 .addPolicy(concurrencyPolicy)
                 .clientOptions(new ClientOptions().setTracingOptions(tracingOptions))
-                .endpoint("https://%s.dfs.%s".formatted(location.account(), validatedEndpoint(location)));
+                .endpoint(dfsServiceUrl(location));
         key.ifPresent(encryption -> builder.customerProvidedKey(lakeCustomerProvidedKey(encryption)));
         azureAuth.setAuth(location.account(), builder);
         DataLakeServiceClient client = builder.buildClient();

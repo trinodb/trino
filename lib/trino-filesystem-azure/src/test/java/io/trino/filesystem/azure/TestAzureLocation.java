@@ -45,12 +45,12 @@ class TestAzureLocation
         assertValid("wasb://container@account.blob.core.usgovcloudapi.net/some/path/file", "account", "container", "some/path/file", "wasb", "core.usgovcloudapi.net");
         assertValid("wasbs://container@account.blob.core.usgovcloudapi.net/some/path/file", "account", "container", "some/path/file", "wasbs", "core.usgovcloudapi.net");
 
-        // abfs[s] host must contain ".dfs.", and wasb[s] host must contain ".blob." before endpoint
-        assertInvalid("abfs://container@account.invalid.core.usgovcloudapi.net/some/path/file");
-        assertInvalid("abfss://container@account.invalid.core.usgovcloudapi.net/some/path/file");
+        // abfs[s] non-standard hosts (no .dfs. after account) are accepted; wasb[s] still requires .blob.
+        assertNonStandard("abfs://container@account.invalid.core.usgovcloudapi.net/some/path/file", "account", "container", "some/path/file", "abfs", "invalid.core.usgovcloudapi.net");
+        assertNonStandard("abfss://container@account.invalid.core.usgovcloudapi.net/some/path/file", "account", "container", "some/path/file", "abfss", "invalid.core.usgovcloudapi.net");
         assertInvalid("wasb://container@account.invalid.core.usgovcloudapi.net/some/path/file");
-        assertInvalid("abfs://container@account.blob.core.usgovcloudapi.net/some/path/file");
-        assertInvalid("abfss://container@account.blob.core.usgovcloudapi.net/some/path/file");
+        assertNonStandard("abfs://container@account.blob.core.usgovcloudapi.net/some/path/file", "account", "container", "some/path/file", "abfs", "blob.core.usgovcloudapi.net");
+        assertNonStandard("abfss://container@account.blob.core.usgovcloudapi.net/some/path/file", "account", "container", "some/path/file", "abfss", "blob.core.usgovcloudapi.net");
         assertInvalid("wasb://container@account.dfs.core.usgovcloudapi.net/some/path/file");
         assertInvalid("wasbs://container@account.dfs.core.usgovcloudapi.net/some/path/file");
 
@@ -79,8 +79,8 @@ class TestAzureLocation
         assertInvalid("abfs://container@ac$count.dfs.core.windows.net/some/path/file");
 
         // host must contain .dfs. after account
-        assertInvalid("abfs://container@account.example.com/some/path/file");
-        assertInvalid("abfs://container@account.fake.dfs.core.windows.net/some/path/file");
+        assertNonStandard("abfs://container@account.example.com/some/path/file", "account", "container", "some/path/file", "abfs", "example.com");
+        assertNonStandard("abfs://container@account.fake.dfs.core.windows.net/some/path/file", "account", "container", "some/path/file", "abfs", "fake.dfs.core.windows.net");
     }
 
     private static void assertValid(String uri, String expectedAccount, String expectedContainer, String expectedPath, String expectedScheme, String expectedEndpoint)
@@ -93,6 +93,19 @@ class TestAzureLocation
         assertThat(azureLocation.container()).isEqualTo(Optional.ofNullable(expectedContainer));
         assertThat(azureLocation.path()).contains(expectedPath);
         assertThat(azureLocation.baseLocation().scheme()).isEqualTo(Optional.of(expectedScheme));
+    }
+
+    private static void assertNonStandard(String uri, String expectedAccount, String expectedContainer, String expectedPath, String expectedScheme, String expectedEndpoint)
+    {
+        Location location = Location.of(uri);
+        AzureLocation azureLocation = new AzureLocation(location);
+        assertThat(azureLocation.location()).isEqualTo(location);
+        assertThat(azureLocation.account()).isEqualTo(expectedAccount);
+        assertThat(azureLocation.endpoint()).isEqualTo(expectedEndpoint);
+        assertThat(azureLocation.container()).isEqualTo(Optional.ofNullable(expectedContainer));
+        assertThat(azureLocation.path()).contains(expectedPath);
+        assertThat(azureLocation.baseLocation().scheme()).isEqualTo(Optional.of(expectedScheme));
+        assertThat(azureLocation.isStandardFormat()).isFalse();
     }
 
     private static void assertInvalid(String uri)
