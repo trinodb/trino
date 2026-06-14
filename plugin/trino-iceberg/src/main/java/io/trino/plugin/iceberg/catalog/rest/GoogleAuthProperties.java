@@ -30,11 +30,13 @@ public class GoogleAuthProperties
     @Inject
     public GoogleAuthProperties(GoogleSecurityConfig config)
     {
-        properties = ImmutableMap.<String, String>builder()
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.<String, String>builder()
                 .put(AUTH_TYPE, AUTH_TYPE_GOOGLE)
-                .put(GCP_CREDENTIALS_PATH_PROPERTY, config.getJsonKeyFilePath())
-                .put("header.x-goog-user-project", config.getProjectId())
-                .buildOrThrow();
+                .put("header.x-goog-user-project", config.getProjectId());
+        if (config.getJsonKeyFilePath() != null) {
+            builder.put(GCP_CREDENTIALS_PATH_PROPERTY, config.getJsonKeyFilePath());
+        }
+        properties = builder.buildOrThrow();
     }
 
     @Override

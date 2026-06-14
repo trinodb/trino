@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog.rest;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.validation.FileExists;
+import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 
 public class GoogleSecurityConfig
@@ -37,14 +38,15 @@ public class GoogleSecurityConfig
         return this;
     }
 
-    @NotNull
+    @Nullable
     @FileExists
     public String getJsonKeyFilePath()
     {
         return jsonKeyFilePath;
     }
 
-    // Duplicated from GcsFileSystemConfig to enforce the property in BigLake metastore
+    // Duplicated from GcsFileSystemConfig. When null, Application Default Credentials (ADC) are used,
+    // which enables GKE Workload Identity and environment-based credential sources.
     @Config("gcs.json-key-file-path")
     @ConfigDescription("JSON key file used to access Google Cloud Storage")
     public GoogleSecurityConfig setJsonKeyFilePath(String jsonKeyFilePath)
