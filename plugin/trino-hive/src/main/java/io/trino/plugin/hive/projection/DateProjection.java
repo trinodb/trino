@@ -28,6 +28,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
@@ -67,6 +68,7 @@ import static java.time.temporal.ChronoUnit.HOURS;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.time.temporal.ChronoUnit.MONTHS;
 import static java.time.temporal.ChronoUnit.SECONDS;
+import static java.time.temporal.ChronoUnit.YEARS;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.nonNull;
 import static java.util.Objects.requireNonNull;
@@ -76,11 +78,7 @@ final class DateProjection
         implements Projection
 {
     private static final ZoneId UTC_TIME_ZONE_ID = ZoneId.of("UTC");
-    // Limited to only DAYS, HOURS, MINUTES, SECONDS as we are not fully sure how everything above day
-    // is implemented in Athena. So we limit it to a subset of interval units which are explicitly clear how to calculate.
-    // The rest will be implemented if this is required as it would require making compatibility tests
-    // for results received from Athena and verifying if we receive identical with Trino.
-    private static final Set<ChronoUnit> DATE_PROJECTION_INTERVAL_UNITS = ImmutableSet.of(DAYS, HOURS, MINUTES, SECONDS);
+    private static final Set<ChronoUnit> DATE_PROJECTION_INTERVAL_UNITS = ImmutableSet.of(YEARS, MONTHS, DAYS, HOURS, MINUTES, SECONDS);
     private static final Pattern DATE_RANGE_BOUND_EXPRESSION_PATTERN = Pattern.compile("^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$");
 
     private final String columnName;
@@ -121,7 +119,11 @@ final class DateProjection
             throw invalidRangeProperty(columnName, dateFormatPattern, Optional.empty());
         }
 
-        this.dateFormat = DateTimeFormatter.ofPattern(dateFormatPattern, ENGLISH);
+        this.dateFormat = new DateTimeFormatterBuilder()
+                .appendPattern(dateFormatPattern)
+                .parseDefaulting(ChronoField.MONTH_OF_YEAR, 1)
+                .parseDefaulting(ChronoField.DAY_OF_MONTH, 1)
+                .toFormatter(ENGLISH);
 
         leftBound = parseDateRangerBound(columnName, range.get(0), dateFormatPattern);
         rightBound = parseDateRangerBound(columnName, range.get(1), dateFormatPattern);
@@ -264,18 +266,21 @@ final class DateProjection
         String datePatternWithoutText = dateFormatPattern.replaceAll("'.*?'", "");
         if (datePatternWithoutText.contains("S") || datePatternWithoutText.contains("s")
                 || datePatternWithoutText.contains("m") || datePatternWithoutText.contains("H")) {
-            // When the provided dates are at single-day or single-month precision.
+            // When the provided dates are at sub-day precision.
             throw new InvalidProjectionException(
                     columnName,
                     format(
-                            "Property: '%s' needs to be set when provided '%s' is less that single-day precision. Interval defaults to 1 day or 1 month, respectively. Otherwise, interval is required",
+                            "Property: '%s' needs to be set when provided '%s' is less than single-day precision. Interval defaults to 1 day, 1 month or 1 year, respectively. Otherwise, interval is required",
                             COLUMN_PROJECTION_INTERVAL_UNIT,
                             COLUMN_PROJECTION_FORMAT));
         }
         if (datePatternWithoutText.contains("d")) {
             return DAYS;
         }
-        return MONTHS;
+        if (datePatternWithoutText.contains("M")) {
+            return MONTHS;
+        }
+        return YEARS;
     }
 
     private Instant parseDateRangerBound(String columnName, String value, String dateFormatPattern)

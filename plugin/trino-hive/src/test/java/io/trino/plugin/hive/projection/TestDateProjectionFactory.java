@@ -63,4 +63,23 @@ class TestDateProjectionFactory
                 .isInstanceOf(InvalidProjectionException.class)
                 .hasMessage("Column projection for column 'test' failed. Missing required property: 'partition_projection_format'");
     }
+
+    @Test
+    void testYearMonthFormat()
+    {
+        Projection projection = new DateProjection("test", VARCHAR, ImmutableMap.of(COLUMN_PROJECTION_FORMAT, "yyyy-MM", COLUMN_PROJECTION_RANGE, ImmutableList.of("2022-01", "2022-03")));
+        assertThat(projection.getProjectedValues(Optional.empty())).containsExactly("2022-01", "2022-02", "2022-03");
+        assertThat(projection.getProjectedValues(Optional.of(Domain.all(VARCHAR)))).containsExactly("2022-01", "2022-02", "2022-03");
+        assertThat(projection.getProjectedValues(Optional.of(Domain.none(VARCHAR)))).isEmpty();
+        assertThat(projection.getProjectedValues(Optional.of(Domain.singleValue(VARCHAR, Slices.utf8Slice("2022-02"))))).containsExactly("2022-02");
+        assertThat(projection.getProjectedValues(Optional.of(Domain.singleValue(VARCHAR, Slices.utf8Slice("2023-01"))))).isEmpty();
+    }
+
+    @Test
+    void testYearFormat()
+    {
+        Projection projection = new DateProjection("test", VARCHAR, ImmutableMap.of(COLUMN_PROJECTION_FORMAT, "yyyy", COLUMN_PROJECTION_RANGE, ImmutableList.of("2020", "2023")));
+        assertThat(projection.getProjectedValues(Optional.empty())).containsExactly("2020", "2021", "2022", "2023");
+        assertThat(projection.getProjectedValues(Optional.of(Domain.singleValue(VARCHAR, Slices.utf8Slice("2021"))))).containsExactly("2021");
+    }
 }
