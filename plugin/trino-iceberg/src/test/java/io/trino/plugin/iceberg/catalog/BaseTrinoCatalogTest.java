@@ -24,6 +24,7 @@ import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.iceberg.CommitTaskData;
+import io.trino.plugin.iceberg.CopyOnWriteStats;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileFormat;
 import io.trino.plugin.iceberg.IcebergMetadata;
@@ -96,6 +97,31 @@ public abstract class BaseTrinoCatalogTest
     protected abstract TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
             throws IOException;
 
+    protected static ConnectorMetadata createTestIcebergMetadata(TrinoCatalog catalog)
+    {
+        return new IcebergMetadata(
+                new CatalogName("iceberg"),
+                PLANNER_CONTEXT.getTypeManager(),
+                jsonCodec(CommitTaskData.class),
+                catalog,
+                (_, _) -> {
+                    throw new UnsupportedOperationException();
+                },
+                TABLE_STATISTICS_READER,
+                new TableStatisticsWriter(new NodeVersion("test-version")),
+                UNSUPPORTED_DELETION_VECTOR_WRITER,
+                new CopyOnWriteStats(),
+                Optional.empty(),
+                false,
+                _ -> false,
+                newDirectExecutorService(),
+                directExecutor(),
+                newDirectExecutorService(),
+                newDirectExecutorService(),
+                0,
+                ZERO);
+    }
+
     protected Map<String, Object> defaultNamespaceProperties(String newNamespaceName)
     {
         return ImmutableMap.of();
@@ -141,26 +167,7 @@ public abstract class BaseTrinoCatalogTest
                     .contains(schema);
 
             // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
-            ConnectorMetadata icebergMetadata = new IcebergMetadata(
-                    new CatalogName("iceberg"),
-                    PLANNER_CONTEXT.getTypeManager(),
-                    jsonCodec(CommitTaskData.class),
-                    catalog,
-                    (_, _) -> {
-                        throw new UnsupportedOperationException();
-                    },
-                    TABLE_STATISTICS_READER,
-                    new TableStatisticsWriter(new NodeVersion("test-version")),
-                    UNSUPPORTED_DELETION_VECTOR_WRITER,
-                    Optional.empty(),
-                    false,
-                    _ -> false,
-                    newDirectExecutorService(),
-                    directExecutor(),
-                    newDirectExecutorService(),
-                    newDirectExecutorService(),
-                    0,
-                    ZERO);
+            ConnectorMetadata icebergMetadata = createTestIcebergMetadata(catalog);
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isFalse();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
@@ -183,26 +190,7 @@ public abstract class BaseTrinoCatalogTest
         TrinoCatalog catalog = createTrinoCatalog(false);
         createNamespaceWithProperties(catalog, namespace, ImmutableMap.of("invalid_property", "test-value"));
         try {
-            ConnectorMetadata icebergMetadata = new IcebergMetadata(
-                    new CatalogName("iceberg"),
-                    PLANNER_CONTEXT.getTypeManager(),
-                    jsonCodec(CommitTaskData.class),
-                    catalog,
-                    (_, _) -> {
-                        throw new UnsupportedOperationException();
-                    },
-                    TABLE_STATISTICS_READER,
-                    new TableStatisticsWriter(new NodeVersion("test-version")),
-                    UNSUPPORTED_DELETION_VECTOR_WRITER,
-                    Optional.empty(),
-                    false,
-                    _ -> false,
-                    newDirectExecutorService(),
-                    directExecutor(),
-                    newDirectExecutorService(),
-                    newDirectExecutorService(),
-                    0,
-                    ZERO);
+            ConnectorMetadata icebergMetadata = createTestIcebergMetadata(catalog);
 
             assertThat(icebergMetadata.getSchemaProperties(SESSION, namespace))
                     .doesNotContainKey("invalid_property");

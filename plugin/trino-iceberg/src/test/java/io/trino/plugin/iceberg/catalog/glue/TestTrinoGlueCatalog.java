@@ -19,13 +19,9 @@ import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
-import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergConfig;
-import io.trino.plugin.iceberg.IcebergMetadata;
-import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
-import io.trino.spi.NodeVersion;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -52,18 +48,13 @@ import java.util.Optional;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
-import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.airlift.units.Duration.ZERO;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
-import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
-import static io.trino.plugin.iceberg.delete.DeletionVectorWriter.UNSUPPORTED_DELETION_VECTOR_WRITER;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Locale.ENGLISH;
@@ -155,26 +146,7 @@ public class TestTrinoGlueCatalog
                     .contains(trinoSchemaName);
 
             // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
-            ConnectorMetadata icebergMetadata = new IcebergMetadata(
-                    new CatalogName("iceberg"),
-                    PLANNER_CONTEXT.getTypeManager(),
-                    jsonCodec(CommitTaskData.class),
-                    catalog,
-                    (_, _) -> {
-                        throw new UnsupportedOperationException();
-                    },
-                    TABLE_STATISTICS_READER,
-                    new TableStatisticsWriter(new NodeVersion("test-version")),
-                    UNSUPPORTED_DELETION_VECTOR_WRITER,
-                    Optional.empty(),
-                    false,
-                    _ -> false,
-                    newDirectExecutorService(),
-                    directExecutor(),
-                    newDirectExecutorService(),
-                    newDirectExecutorService(),
-                    0,
-                    ZERO);
+            ConnectorMetadata icebergMetadata = createTestIcebergMetadata(catalog);
             assertThat(icebergMetadata.schemaExists(SESSION, databaseName)).as("icebergMetadata.schemaExists(databaseName)")
                     .isFalse();
             assertThat(icebergMetadata.schemaExists(SESSION, trinoSchemaName)).as("icebergMetadata.schemaExists(trinoSchemaName)")

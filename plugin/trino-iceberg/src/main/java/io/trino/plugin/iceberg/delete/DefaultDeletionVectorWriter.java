@@ -41,6 +41,7 @@ import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.ManifestReader;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.RowDelta;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
@@ -189,15 +190,103 @@ public class DefaultDeletionVectorWriter
         existingDeletes.fileScopedDeletes().values().forEach(rowDelta::removeDeletes);
     }
 
+    @Override
+    public void mergePreExistingDeletes(
+            ConnectorSession session,
+            Table icebergTable,
+            long snapshotId,
+            Map<String, DeletionVector.Builder> deletionVectorBuilders)
+    {
+        ExistingDeletes existingDeletes = getExistingDeletesByMetadataOnly(icebergTable, snapshotId, deletionVectorBuilders.keySet());
+
+        if (existingDeletes.deletionVectors().isEmpty()
+                && existingDeletes.fileScopedDeletes().isEmpty()
+                && existingDeletes.partitionScopedDeletes().isEmpty()) {
+            return;
+        }
+
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), icebergTable.io().properties());
+
+        mergePreExistingDeletes(session, fileSystem, existingDeletes, deletionVectorBuilders);
+    }
+
+    @Override
+    public void mergePreExistingDeletes(
+            ConnectorSession session,
+            TrinoFileSystem fileSystem,
+            FileIO fileIo,
+            Map<Integer, PartitionSpec> specsById,
+            Snapshot snapshot,
+            Map<String, DeletionVector.Builder> deletionVectorBuilders)
+    {
+        ExistingDeletes existingDeletes = getExistingDeletesByMetadataOnly(fileIo, specsById, snapshot, deletionVectorBuilders.keySet());
+
+        if (existingDeletes.deletionVectors().isEmpty()
+                && existingDeletes.fileScopedDeletes().isEmpty()
+                && existingDeletes.partitionScopedDeletes().isEmpty()) {
+            return;
+        }
+
+        mergePreExistingDeletes(session, fileSystem, existingDeletes, deletionVectorBuilders);
+    }
+
+    private void mergePreExistingDeletes(
+            ConnectorSession session,
+            TrinoFileSystem fileSystem,
+            ExistingDeletes existingDeletes,
+            Map<String, DeletionVector.Builder> deletionVectorBuilders)
+    {
+        // merge existing DVs
+        existingDeletes.deletionVectors().forEach((dataFilePath, deleteFile) -> {
+            try (TrinoInput input = fileSystem.newInputFile(Location.of(deleteFile.location()), deleteFile.fileSizeInBytes()).newInput()) {
+                Slice data = input.readFully(deleteFile.contentOffset(), toIntExact(deleteFile.contentSizeInBytes()));
+                deletionVectorBuilders.get(dataFilePath).deserialize(data);
+            }
+            catch (IOException e) {
+                throw new TrinoException(ICEBERG_BAD_DATA, "Failed to read existing deletion vector: " + deleteFile.location(), e);
+            }
+        });
+
+        // merge file-scoped position deletes
+        if (!existingDeletes.fileScopedDeletes().isEmpty()) {
+            existingDeletes.fileScopedDeletes().forEach((dataFilePath, deleteFile) -> {
+                try (ConnectorPageSource source = openDeleteFilePageSource(session, deleteFile, fileSystem)) {
+                    PositionDeleteReader.readSingleFilePositionDeletes(source, deletionVectorBuilders.get(dataFilePath)::add);
+                }
+                catch (IOException e) {
+                    throw new TrinoException(ICEBERG_BAD_DATA, "Failed to read position delete file: " + deleteFile.location(), e);
+                }
+            });
+        }
+
+        // merge partition-scoped position deletes
+        for (DeleteFile deleteFile : existingDeletes.partitionScopedDeletes()) {
+            try (ConnectorPageSource source = openDeleteFilePageSource(session, deleteFile, fileSystem)) {
+                PositionDeleteReader.readMultiFilePositionDeletes(source, (dataFilePath, position) -> {
+                    DeletionVector.Builder builder = deletionVectorBuilders.get(dataFilePath);
+                    if (builder != null) {
+                        builder.add(position);
+                    }
+                });
+            }
+            catch (IOException e) {
+                throw new TrinoException(ICEBERG_BAD_DATA, "Failed to read position delete file: " + deleteFile.location(), e);
+            }
+        }
+    }
+
     private static ExistingDeletes getExistingDeletesByMetadataOnly(Table table, long snapshotId, Set<String> dataFilePaths)
+    {
+        return getExistingDeletesByMetadataOnly(table.io(), table.specs(), table.snapshot(snapshotId), dataFilePaths);
+    }
+
+    private static ExistingDeletes getExistingDeletesByMetadataOnly(FileIO io, Map<Integer, PartitionSpec> specsById, Snapshot snapshot, Set<String> dataFilePaths)
     {
         Map<String, DeleteFile> deletionVectors = new HashMap<>();
         Multimap<String, DeleteFile> fileScopedDeletes = ArrayListMultimap.create();
         List<DeleteFile> partitionScopedDeletes = new ArrayList<>();
 
-        FileIO io = table.io();
-        Map<Integer, PartitionSpec> specsById = table.specs();
-        for (ManifestFile manifest : table.snapshot(snapshotId).deleteManifests(io)) {
+        for (ManifestFile manifest : snapshot.deleteManifests(io)) {
             try (ManifestReader<DeleteFile> reader = ManifestFiles.readDeleteManifest(manifest, io, specsById)) {
                 for (DeleteFile deleteFile : reader) {
                     if (deleteFile.content() != FileContent.POSITION_DELETES) {

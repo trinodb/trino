@@ -62,6 +62,11 @@ public class IcebergColumnHandle
     public static final int DATA_CHANGE_ORDINAL_ID = Integer.MIN_VALUE + 6;
 
     public static final int TRINO_MERGE_SOURCE_ROW_ID = Integer.MIN_VALUE + 7;
+    public static final int TRINO_MERGE_FILE_FORMAT = Integer.MIN_VALUE + 8;
+    public static final int TRINO_MERGE_FILE_SIZE = Integer.MIN_VALUE + 9;
+    public static final int TRINO_MERGE_FILE_RECORD_COUNT = Integer.MIN_VALUE + 10;
+    public static final int TRINO_MERGE_DATA_SEQUENCE_NUMBER = Integer.MIN_VALUE + 11;
+    public static final int TRINO_MERGE_FILE_FIRST_ROW_ID = Integer.MIN_VALUE + 12;
 
     private final ColumnIdentity baseColumnIdentity;
     private final Type baseType;
