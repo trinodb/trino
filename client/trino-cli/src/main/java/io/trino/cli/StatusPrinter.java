@@ -61,10 +61,11 @@ public class StatusPrinter
     private final ConsolePrinter console;
     private final boolean checkInput;
     private final boolean decimalDataSize;
+    private final Theme theme;
 
     private boolean debug;
 
-    public StatusPrinter(StatementClient client, PrintStream out, boolean debug, boolean checkInput, boolean decimalDataSize)
+    public StatusPrinter(StatementClient client, PrintStream out, boolean debug, boolean checkInput, boolean decimalDataSize, Theme theme)
     {
         this.client = client;
         this.out = out;
@@ -72,6 +73,7 @@ public class StatusPrinter
         this.debug = debug;
         this.checkInput = checkInput;
         this.decimalDataSize = decimalDataSize;
+        this.theme = requireNonNull(theme, "theme is null");
     }
 
 /*
@@ -99,7 +101,7 @@ Spilled: 20GB
         long start = System.nanoTime();
         long lastPrint = System.nanoTime();
         try {
-            WarningsPrinter warningsPrinter = new ConsoleWarningsPrinter(console);
+            WarningsPrinter warningsPrinter = new ConsoleWarningsPrinter(console, theme);
             while (client.isRunning()) {
                 try {
                     // exit status loop if there is pending output
@@ -508,9 +510,9 @@ Spilled: 20GB
         private static final int DISPLAYED_WARNINGS = 5;
         private final ConsolePrinter console;
 
-        ConsoleWarningsPrinter(ConsolePrinter console)
+        ConsoleWarningsPrinter(ConsolePrinter console, Theme theme)
         {
-            super(OptionalInt.of(DISPLAYED_WARNINGS));
+            super(OptionalInt.of(DISPLAYED_WARNINGS), theme);
             this.console = requireNonNull(console, "console is null");
         }
 
