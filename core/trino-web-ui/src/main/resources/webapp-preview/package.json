@@ -52,7 +52,7 @@
     "prettier": "^3.8.3",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.60.1",
-    "vite": "^7.3.3"
+    "vite": "^7.3.5"
   },
   "overrides": {
     "refractor": {
