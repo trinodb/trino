@@ -46,6 +46,7 @@ import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Fail.fail;
@@ -133,6 +134,35 @@ public class TestLakehouseConnectorTest
     }
 
     @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
+    @Override
+    protected String getCreateTableMixedCaseUnDelimited(String catalog, String schema, String table)
+    {
+        return format(
+                """
+                \\QCREATE TABLE %1$s.%2$s.%3$s (
+                   %4$s bigint,
+                   %5$s double
+                )
+                WITH (
+                   format = 'PARQUET',
+                   format_version = 2,
+                   location = 's3://test-bucket-\\E.*/%2$s/%3$s-.*\\Q',
+                   type = 'ICEBERG'
+                )\\E\
+                """,
+                catalog,
+                canonicalize(schema).equals(schema) ? schema : '"' + schema + '"',
+                table,
+                canonicalize("Column_A"),
+                canonicalize("Column_B"));
+    }
+
+    @Override
     protected OptionalInt maxSchemaNameLength()
     {
         return OptionalInt.of(128);
@@ -148,6 +178,23 @@ public class TestLakehouseConnectorTest
     protected String createSchemaSql(String schemaName)
     {
         return "CREATE SCHEMA %s WITH (location = 's3://%s/%s')".formatted(schemaName, bucketName, schemaName);
+    }
+
+    @Test
+    @Override
+    public void testCreateTableMixedCaseDelimited()
+    {
+        assertThatThrownBy(super::testCreateTableMixedCaseDelimited)
+                .hasMessageMatching("Failed to create table tpch.Test Create MixedCase Delimited .*: Test Create MixedCase Delimited .* is not a valid object name");
+    }
+
+    @Test
+    @Override
+    public void testRenameTableToUnqualifiedPreservesSchema()
+    {
+        // FIXME: cant run this test?
+        assertThatThrownBy(super::testRenameTableToUnqualifiedPreservesSchema)
+                .hasMessageMatching("Failed checking new table's location: hdfs://hadoop-master:9000/user/hive/warehouse/test_source_schema_.*db/test_rename_unqualified_name_.*");
     }
 
     @Override

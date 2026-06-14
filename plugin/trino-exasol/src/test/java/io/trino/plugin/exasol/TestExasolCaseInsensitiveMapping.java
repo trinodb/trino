@@ -70,12 +70,12 @@ final class TestExasolCaseInsensitiveMapping
 
         try (AutoCloseable ignore = withSchema(schema);
                 AutoCloseable ignore1 = withTable(schema, "remote_table", "(c varchar(5))")) {
-            assertThat(computeActual("SHOW TABLES FROM " + schema).getOnlyColumn())
+            assertThat(computeActual("SHOW TABLES FROM \"" + schema + "\"").getOnlyColumn())
                     .contains("trino_table");
-            assertQuery("SHOW COLUMNS FROM " + schema + ".trino_table", "SELECT 'c', 'varchar(5)', '', ''");
+            assertQuery("SHOW COLUMNS FROM \"" + schema + "\".\"trino_table\"", "SELECT 'C', 'varchar(5)', '', ''");
             // Exasol does not support writing via Trino
             onRemoteDatabase().execute("INSERT INTO \"" + schema + "\".\"remote_table\" VALUES 'dane'");
-            assertQuery("SELECT * FROM " + schema + ".trino_table", "VALUES 'dane'");
+            assertQuery("SELECT * FROM \"" + schema + "\".\"trino_table\"", "VALUES 'dane'");
         }
     }
 
@@ -93,12 +93,12 @@ final class TestExasolCaseInsensitiveMapping
                 AutoCloseable ignore2 = withTable("remote_schema", "remote_table", "(c varchar(5))")) {
             assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn())
                     .contains("trino_schema");
-            assertThat(computeActual("SHOW TABLES IN trino_schema").getOnlyColumn())
+            assertThat(computeActual("SHOW TABLES IN \"trino_schema\"").getOnlyColumn())
                     .contains("trino_table");
-            assertQuery("SHOW COLUMNS FROM trino_schema.trino_table", "SELECT 'c', 'varchar(5)', '', ''");
+            assertQuery("SHOW COLUMNS FROM \"trino_schema\".\"trino_table\"", "SELECT 'C', 'varchar(5)', '', ''");
             // Exasol does not support writing via Trino
             onRemoteDatabase().execute("INSERT INTO \"remote_schema\".\"remote_table\" VALUES 'dane'");
-            assertQuery("SELECT * FROM trino_schema.trino_table", "VALUES 'dane'");
+            assertQuery("SELECT * FROM \"trino_schema\".\"trino_table\"", "VALUES 'dane'");
         }
     }
 
@@ -132,15 +132,15 @@ final class TestExasolCaseInsensitiveMapping
                             .map(TableMappingRule::getMapping)
                             .collect(onlyElement());
 
-                    assertThat(computeActual("SHOW TABLES FROM " + schema)
+                    assertThat(computeActual("SHOW TABLES FROM \"" + schema + "\"")
                             .getOnlyColumn()
                             .map(String.class::cast)
                             .filter(anObject -> anObject.startsWith("casesensitivename")))
                             .hasSize(2);
-                    assertQuery("SHOW COLUMNS FROM " + schema + "." + table, "SELECT 'c', 'varchar(5)', '', ''");
+                    assertQuery("SHOW COLUMNS FROM \"" + schema + "\".\"" + table + "\"", "SELECT 'C', 'varchar(5)', '', ''");
                     // Exasol does not support writing via Trino
                     onRemoteDatabase().execute("INSERT INTO \"remote_schema\".\"" + remoteTable + "\" VALUES 'dane'");
-                    assertQuery("SELECT * FROM " + schema + "." + table, "VALUES 'dane'");
+                    assertQuery("SELECT * FROM \"" + schema + "\".\"" + table + "\"", "VALUES 'dane'");
                 }
             }
         }
@@ -159,24 +159,23 @@ final class TestExasolCaseInsensitiveMapping
                                 quoted("lower_case_name") + " varchar(1), " +
                                 quoted("Mixed_Case_Name") + " varchar(1), " +
                                 quoted("UPPER_CASE_NAME") + " varchar(1))")) {
-            onRemoteDatabase().execute("INSERT INTO " + (quoted("SomeSchema") + "." + quoted("NonLowerCaseTable")) + " SELECT 'a', 'b', 'c'" + optionalFromDual().orElse(""));
+            onRemoteDatabase().execute("INSERT INTO \"SomeSchema\".\"NonLowerCaseTable\" SELECT 'a', 'b', 'c'" + optionalFromDual().orElse(""));
             assertQuery(
-                    "SELECT column_name FROM information_schema.columns WHERE table_schema = 'someschema' AND table_name = 'nonlowercasetable'",
-                    "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
+                    "SELECT \"column_name\" FROM \"information_schema\".\"columns\" WHERE \"table_schema\" = 'SomeSchema' AND \"table_name\" = 'NonLowerCaseTable'",
+                    "VALUES 'lower_case_name', 'Mixed_Case_Name', 'UPPER_CASE_NAME'");
             assertQuery(
-                    "SELECT column_name FROM information_schema.columns WHERE table_name = 'nonlowercasetable'",
-                    "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
-            assertThat(computeActual("SHOW COLUMNS FROM someschema.nonlowercasetable").getMaterializedRows().stream()
+                    "SELECT \"column_name\" FROM \"information_schema\".\"columns\" WHERE \"table_name\" = 'NonLowerCaseTable'",
+                    "VALUES 'lower_case_name', 'Mixed_Case_Name', 'UPPER_CASE_NAME'");
+            assertThat(computeActual("SHOW COLUMNS FROM \"SomeSchema\".\"NonLowerCaseTable\"").getMaterializedRows().stream()
                     .map(row -> row.getField(0))
                     .collect(toImmutableSet()))
-                    .containsOnly("lower_case_name", "mixed_case_name", "upper_case_name");
+                    .containsOnly("lower_case_name", "Mixed_Case_Name", "UPPER_CASE_NAME");
 
             // Note: until https://github.com/prestodb/presto/issues/2863 is resolved, this is *the* way to access the tables.
 
-            assertQuery("SELECT lower_case_name FROM someschema.nonlowercasetable", "VALUES 'a'");
-            assertQuery("SELECT mixed_case_name FROM someschema.nonlowercasetable", "VALUES 'b'");
-            assertQuery("SELECT upper_case_name FROM someschema.nonlowercasetable", "VALUES 'c'");
-            assertQuery("SELECT upper_case_name FROM SomeSchema.NonLowerCaseTable", "VALUES 'c'");
+            assertQuery("SELECT \"lower_case_name\" FROM \"SomeSchema\".\"NonLowerCaseTable\"", "VALUES 'a'");
+            assertQuery("SELECT \"Mixed_Case_Name\" FROM \"SomeSchema\".\"NonLowerCaseTable\"", "VALUES 'b'");
+            assertQuery("SELECT \"UPPER_CASE_NAME\" FROM \"SomeSchema\".\"NonLowerCaseTable\"", "VALUES 'c'");
             assertQuery("SELECT upper_case_name FROM \"SomeSchema\".\"NonLowerCaseTable\"", "VALUES 'c'");
 
             // Exasol does not support writing via Trino
@@ -184,7 +183,7 @@ final class TestExasolCaseInsensitiveMapping
             onRemoteDatabase().execute("INSERT INTO \"SomeSchema\".\"NonLowerCaseTable\" (\"Mixed_Case_Name\") VALUES ('m')");
             onRemoteDatabase().execute("INSERT INTO \"SomeSchema\".\"NonLowerCaseTable\" (\"UPPER_CASE_NAME\") VALUES ('u')");
             assertQuery(
-                    "SELECT * FROM someschema.nonlowercasetable",
+                    "SELECT * FROM \"SomeSchema\".\"NonLowerCaseTable\"",
                     "VALUES ('a', 'b', 'c')," +
                             "('l', NULL, NULL)," +
                             "(NULL, 'm', NULL)," +
@@ -207,10 +206,10 @@ final class TestExasolCaseInsensitiveMapping
             assertThat(computeActual("SHOW SCHEMAS ")
                     .getOnlyColumn())
                     .contains("trino_schema");
-            assertQuery("SHOW TABLES FROM trino_schema", "VALUES 'some_table_name'");
+            assertQuery("SHOW TABLES FROM \"trino_schema\"", "VALUES 'some_table_name'");
             // Exasol does not support writing via Trino
             onRemoteDatabase().execute("INSERT INTO \"remote_schema\".\"some_table_name\" VALUES 'a'");
-            assertQuery("SELECT * FROM trino_schema.some_table_name", "VALUES 'a'");
+            assertQuery("SELECT * FROM \"trino_schema\".\"some_table_name\"", "VALUES 'a'");
         }
     }
 
@@ -249,10 +248,10 @@ final class TestExasolCaseInsensitiveMapping
                             .map(String.class::cast)
                             .filter(anObject -> anObject.startsWith("casesensitivename")))
                             .hasSize(2);
-                    assertQuery("SHOW TABLES FROM " + schema, "VALUES 'some_table_name'");
+                    assertQuery("SHOW TABLES FROM \"" + schema + "\"", "VALUES 'some_table_name'");
                     // Exasol does not support writing via Trino
                     onRemoteDatabase().execute(format("INSERT INTO \"%s\".\"some_table_name\" VALUES 'a'", remoteSchema));
-                    assertQuery(format("SELECT * FROM %s.some_table_name", schema), "VALUES 'a'");
+                    assertQuery(format("SELECT * FROM \"%s\".\"some_table_name\"", schema), "VALUES 'a'");
                 }
             }
         }

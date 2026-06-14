@@ -72,6 +72,12 @@ public class TpcdsMetadata
     }
 
     @Override
+    public String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
+    @Override
     public boolean schemaExists(ConnectorSession session, String schemaName)
     {
         return schemaNameToScaleFactor(schemaName) > 0;

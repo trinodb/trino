@@ -27,6 +27,7 @@ import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RE
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_FAILURE;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_TIMEOUT;
 import static io.trino.operator.RetryPolicy.TASK;
+import static java.util.Locale.ENGLISH;
 
 public abstract class BaseIcebergFailureRecoveryTest
         extends BaseFailureRecoveryTest
@@ -40,6 +41,12 @@ public abstract class BaseIcebergFailureRecoveryTest
     protected boolean areWriteRetriesSupported()
     {
         return true;
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Test

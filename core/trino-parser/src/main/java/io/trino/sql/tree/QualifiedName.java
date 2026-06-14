@@ -18,6 +18,7 @@ import com.google.common.collect.Lists;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -28,18 +29,81 @@ import static java.util.Objects.requireNonNull;
 public class QualifiedName
 {
     private final List<Identifier> originalParts;
+    private final Optional<QualifiedName> prefix;
     private final List<String> parts;
 
     // Following fields are not part of the equals/hashCode methods as
     // they are exist solely to speed-up certain method calls.
     private final String name;
-    private final Optional<QualifiedName> prefix;
     private final String suffix;
+    private final String sqlName;
+    private final boolean isResolved;
+
+    public static QualifiedName of(Optional<Function<Identifier, String>> canonicalizer, QualifiedName name)
+    {
+        requireNonNull(canonicalizer, "canonicalizer is null");
+        requireNonNull(name, "name is null");
+        return canonicalizer.map(function -> of(function, name)).orElse(name);
+    }
+
+    public static QualifiedName of(Function<Identifier, String> canonicalizer, QualifiedName name)
+    {
+        return of(canonicalizer, name, name.originalParts.size() > 2);
+    }
+
+    public static QualifiedName of(Function<Identifier, String> canonicalizer, QualifiedName name, boolean withCatalog)
+    {
+        requireNonNull(canonicalizer, "canonicalizer is null");
+        requireNonNull(name, "name is null");
+        return new QualifiedName(Optional.of(canonicalizer), name.originalParts, withCatalog);
+    }
+
+    public static QualifiedName of(Function<Identifier, String> canonicalizer, Identifier identifier)
+    {
+        return of(Optional.of(canonicalizer), identifier);
+    }
+
+    public static QualifiedName of(Optional<Function<Identifier, String>> canonicalizer, Identifier identifier)
+    {
+        requireNonNull(canonicalizer, "canonicalizer is null");
+        requireNonNull(identifier, "identifier is null");
+        return new QualifiedName(canonicalizer, ImmutableList.of(identifier), false);
+    }
+
+    public static QualifiedName of(Optional<Function<Identifier, String>> canonicalizer, List<Identifier> identifiers)
+    {
+        requireNonNull(canonicalizer, "canonicalizer is null");
+        requireNonNull(identifiers, "identifiers is null");
+        return of(canonicalizer, identifiers);
+    }
+
+    public static QualifiedName of(Function<Identifier, String> canonicalizer, List<Identifier> identifiers)
+    {
+        return of(canonicalizer, identifiers, identifiers.size() > 2);
+    }
+
+    public static QualifiedName of(Function<Identifier, String> canonicalizer, List<Identifier> identifiers, boolean withCatalog)
+    {
+        requireNonNull(canonicalizer, "canonicalizer is null");
+        requireNonNull(identifiers, "identifiers is null");
+        return new QualifiedName(Optional.of(canonicalizer), identifiers, withCatalog);
+    }
 
     public static QualifiedName of(String first, String... rest)
     {
         requireNonNull(first, "first is null");
         return of(Lists.asList(first, rest).stream().map(Identifier::new).collect(toImmutableList()));
+    }
+
+    public static QualifiedName ofDelimited(String name)
+    {
+        requireNonNull(name, "name is null");
+        return of(ImmutableList.of(new Identifier(name, true)));
+    }
+
+    public static QualifiedName ofDelimited(String first, String... rest)
+    {
+        return of(true, first, rest);
     }
 
     public static QualifiedName of(String name)
@@ -48,39 +112,94 @@ public class QualifiedName
         return of(ImmutableList.of(new Identifier(name)));
     }
 
+    public static QualifiedName of(boolean delimited, String first, String... rest)
+    {
+        requireNonNull(first, "first is null");
+        return of(Lists.asList(first, rest).stream().map(name -> new Identifier(name, delimited)).collect(toImmutableList()));
+    }
+
+    public static QualifiedName of(String name, boolean delimited)
+    {
+        requireNonNull(name, "name is null");
+        return of(ImmutableList.of(new Identifier(name, delimited)));
+    }
+
+    public static QualifiedName of(Identifier identifier)
+    {
+        requireNonNull(identifier, "identifier is null");
+        return of(ImmutableList.of(identifier));
+    }
+
     public static QualifiedName of(Iterable<Identifier> originalParts)
     {
         requireNonNull(originalParts, "originalParts is null");
-        checkArgument(!isEmpty(originalParts), "originalParts is empty");
-
-        return new QualifiedName(ImmutableList.copyOf(originalParts));
+        return of(ImmutableList.copyOf(originalParts));
     }
 
-    private QualifiedName(List<Identifier> originalParts)
+    public static QualifiedName of(List<Identifier> originalParts)
+    {
+        return of(originalParts, false);
+    }
+
+    public static QualifiedName of(List<Identifier> originalParts, boolean withCatalog)
+    {
+        requireNonNull(originalParts, "originalParts is null");
+        checkArgument(!isEmpty(originalParts), "originalParts is empty");
+        return new QualifiedName(Optional.empty(), ImmutableList.copyOf(originalParts), withCatalog);
+    }
+
+    public QualifiedName(Optional<Function<Identifier, String>> canonicalizer, List<Identifier> originalParts, boolean withCatalog)
     {
         this.originalParts = originalParts;
-        // Iteration instead of stream for performance reasons
-        ImmutableList.Builder<String> partsBuilder = ImmutableList.builderWithExpectedSize(originalParts.size());
-        for (Identifier identifier : originalParts) {
-            partsBuilder.add(mapIdentifier(identifier));
-        }
-        this.parts = partsBuilder.build();
-        this.name = String.join(".", parts);
+        this.isResolved = canonicalizer.isPresent();
 
-        if (originalParts.size() == 1) {
+        int size = originalParts.size();
+        if (size == 1) {
+            Identifier identifier = originalParts.getFirst();
+            String value = withCatalog || canonicalizer.isEmpty() ? identifier.getValue() : canonicalizer.get().apply(identifier);
             this.prefix = Optional.empty();
-            this.suffix = mapIdentifier(originalParts.get(0));
+            this.parts = ImmutableList.of(value);
+            this.name = value;
+            this.sqlName = withCatalog || !identifier.isDelimited() ? value : delimited(value);
+            this.suffix = value;
         }
         else {
-            List<Identifier> subList = originalParts.subList(0, originalParts.size() - 1);
-            this.prefix = Optional.of(new QualifiedName(subList));
-            this.suffix = mapIdentifier(originalParts.getLast());
+            // Iteration instead of stream for performance reasons
+            List<Identifier> subList = originalParts.subList(0, size - 1);
+            this.prefix = Optional.of(new QualifiedName(canonicalizer, subList, withCatalog));
+            ImmutableList.Builder<String> partsBuilder = ImmutableList.builderWithExpectedSize(size);
+            ImmutableList.Builder<String> namesBuilder = ImmutableList.builderWithExpectedSize(size);
+            for (Identifier identifier : originalParts) {
+                if (withCatalog) {
+                    partsBuilder.add(identifier.getValue());
+                    namesBuilder.add(identifier.getValue());
+                    withCatalog = false;
+                    continue;
+                }
+                String value = canonicalizer.map(function -> function.apply(identifier)).orElse(identifier.getValue());
+                partsBuilder.add(value);
+                namesBuilder.add(identifier.isDelimited() ? delimited(value) : value);
+            }
+            this.parts = partsBuilder.build();
+            this.name = String.join(".", parts);
+            this.sqlName = String.join(".", namesBuilder.build());
+            this.suffix = parts.getLast();
         }
     }
 
-    private static String mapIdentifier(Identifier identifier)
+    private String delimited(String value)
     {
-        return identifier.getValue().toLowerCase(ENGLISH);
+        return '"' + value.replace("\"", "\"\"") + '"';
+    }
+
+    public String getSqlName()
+    {
+        return sqlName;
+    }
+
+    public boolean isResolved()
+    {
+        return isResolved;
     }
 
     public List<String> getParts()
@@ -102,19 +221,42 @@ public class QualifiedName
         return this.prefix;
     }
 
+    public boolean matchesSuffix(String name, boolean resolved)
+    {
+        // FIXME: If we want to be able to differentiate between fields that only differ in their case,
+        //        then we must resolve the fields taking case into account if resolved (ie: coming from connector)?
+        return resolved ? suffix.equals(name) : suffix.equalsIgnoreCase(name);
+    }
+
     public boolean hasSuffix(QualifiedName suffix)
+    {
+        return hasSuffix(suffix, true);
+    }
+
+    public boolean hasSuffix(QualifiedName suffix, boolean resolved)
     {
         if (parts.size() < suffix.getParts().size()) {
             return false;
         }
 
-        int start = parts.size() - suffix.getParts().size();
-        return parts.subList(start, parts.size()).equals(suffix.getParts());
+        int size = parts.size();
+        int start =  size - suffix.getParts().size();
+        List<String> subParts = getParts().subList(start, size);
+        if (resolved) {
+            return subParts.equals(suffix.getParts());
+        }
+        return subParts.stream().map(value -> value.toLowerCase(ENGLISH)).toList()
+                .equals(suffix.getParts().stream().map(value -> value.toLowerCase(ENGLISH)).toList());
     }
 
     public String getSuffix()
     {
         return this.suffix;
+    }
+
+    public boolean isDelimited()
+    {
+        return originalParts.stream().allMatch(Identifier::isDelimited);
     }
 
     @Override

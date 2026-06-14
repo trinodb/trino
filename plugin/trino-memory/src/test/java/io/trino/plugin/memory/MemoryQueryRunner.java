@@ -54,7 +54,7 @@ public final class MemoryQueryRunner
         {
             super(testSessionBuilder()
                     .setCatalog(CATALOG)
-                    .setSchema("default")
+                    .setSchema("DEFAULT")
                     .build());
         }
 

@@ -42,10 +42,13 @@ public final class TestHiveDynamicRowFiltering
     public void createTestData()
     {
         assertUpdate(
-                "CREATE TABLE orders AS SELECT " +
-                        "CAST(clerk AS CHAR(15)) clerk, " +
-                        "CAST(orderstatus AS CHAR(5)) orderstatus, " +
-                        "custkey FROM tpch.tiny.orders",
+                """
+                    CREATE TABLE "orders" AS SELECT \
+                    CAST("clerk" AS CHAR(15)) "clerk", \
+                    CAST("orderstatus" AS CHAR(5)) "orderstatus", \
+                    "custkey" \
+                    FROM tpch.tiny.orders\
+                    """,
                 15000);
     }
 
@@ -55,12 +58,12 @@ public final class TestHiveDynamicRowFiltering
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
             assertRowFiltering(
-                    "SELECT o1.clerk, o1.custkey, CAST(o1.orderstatus AS VARCHAR(1)) FROM orders o1, orders o2 WHERE o1.clerk = o2.clerk AND o2.custkey < 10",
+                    "SELECT o1.\"clerk\", o1.\"custkey\", CAST(o1.\"orderstatus\" AS VARCHAR(1)) FROM \"orders\" o1, \"orders\" o2 WHERE o1.\"clerk\" = o2.\"clerk\" AND o2.\"custkey\" < 10",
                     joinDistributionType,
                     "orders");
 
             assertNoRowFiltering(
-                    "SELECT COUNT(*) FROM orders o1, orders o2 WHERE o1.orderstatus = o2.orderstatus AND o2.custkey < 20",
+                    "SELECT COUNT(*) FROM \"orders\" o1, \"orders\" o2 WHERE o1.\"orderstatus\" = o2.\"orderstatus\" AND o2.\"custkey\" < 20",
                     joinDistributionType,
                     "orders");
         }

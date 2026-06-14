@@ -24,6 +24,7 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
@@ -34,6 +35,7 @@ import org.duckdb.DuckDBDriver;
 import java.util.Properties;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.duckdb.DuckDBDriver.DUCKDB_USER_AGENT_PROPERTY;
 
@@ -44,6 +46,7 @@ public final class DuckDbClientModule
     protected void setup(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(DuckDbClient.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(DuckDbMetadataFactory.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }

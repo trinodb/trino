@@ -63,21 +63,24 @@ public abstract class BaseTestJdbcResultSet
     protected abstract Connection createConnection()
             throws SQLException;
 
+    protected abstract String legacyCanonicalize(String value);
+
     @Test
     public void testDuplicateColumnLabels()
             throws Exception
     {
+        // FIXME: Query without any connector use the SQL canonicalizer (ie: UPPERCASE_CANONICALIZER)
         try (ConnectedStatement connectedStatement = newStatement()) {
             try (ResultSet rs = connectedStatement.getStatement().executeQuery("SELECT 123 x, 456 x")) {
                 ResultSetMetaData metadata = rs.getMetaData();
                 assertThat(metadata.getColumnCount()).isEqualTo(2);
-                assertThat(metadata.getColumnName(1)).isEqualTo("x");
-                assertThat(metadata.getColumnName(2)).isEqualTo("x");
+                assertThat(metadata.getColumnName(1)).isEqualTo(legacyCanonicalize("x"));
+                assertThat(metadata.getColumnName(2)).isEqualTo(legacyCanonicalize("x"));
 
                 assertThat(rs.next()).isTrue();
                 assertThat(rs.getLong(1)).isEqualTo(123L);
                 assertThat(rs.getLong(2)).isEqualTo(456L);
-                assertThat(rs.getLong("x")).isEqualTo(123L);
+                assertThat(rs.getLong(legacyCanonicalize("x"))).isEqualTo(123L);
             }
         }
     }

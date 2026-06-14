@@ -136,7 +136,6 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.lang.String.join;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -145,7 +144,7 @@ import static java.util.stream.Collectors.joining;
 public class IgniteClient
         extends BaseJdbcClient
 {
-    private static final String IGNITE_SCHEMA = "PUBLIC";
+    protected static final String IGNITE_SCHEMA = "PUBLIC";
 
     private static final String IGNITE_DUMMY_ID = "dummy_id";
     private static final Splitter SPLITTER = Splitter.on("\"").omitEmptyStrings().trimResults();
@@ -163,7 +162,7 @@ public class IgniteClient
             IdentifierMapping identifierMapping,
             RemoteQueryModifier queryModifier)
     {
-        super("`", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
+        super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
@@ -467,7 +466,7 @@ public class IgniteClient
         Set<String> primaryKey = ImmutableSet.copyOf(IgniteTableProperties.getPrimaryKey(tableProperties));
         List<JdbcColumnHandle> primaryKeys = getColumns(session, remoteTableName.getSchemaTableName(), remoteTableName)
                 .stream()
-                .filter(columnHandle -> primaryKey.contains(columnHandle.getColumnName().toLowerCase(ENGLISH)))
+                .filter(columnHandle -> primaryKey.contains(columnHandle.getColumnName()))
                 .collect(toImmutableList());
         verify(!primaryKeys.isEmpty(), "Ignite primary keys is empty");
         return primaryKeys;
@@ -518,8 +517,8 @@ public class IgniteClient
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
         SchemaTableName schemaTableName = tableHandle.asPlainTable().getSchemaTableName();
-        String schemaName = requireNonNull(schemaTableName.getSchemaName(), "Ignite schema name can not be null").toUpperCase(ENGLISH);
-        String tableName = requireNonNull(schemaTableName.getTableName(), "Ignite table name can not be null").toUpperCase(ENGLISH);
+        String schemaName = requireNonNull(schemaTableName.getSchemaName(), "Ignite schema name can not be null");
+        String tableName = requireNonNull(schemaTableName.getTableName(), "Ignite table name can not be null");
         // Get primary keys from 'sys.indexes' because DatabaseMetaData.getPrimaryKeys doesn't work well while table being concurrent modified
         String sql = "SELECT COLUMNS FROM sys.indexes WHERE SCHEMA_NAME = ? AND TABLE_NAME = ? AND IS_PK LIMIT 1";
 
@@ -554,7 +553,7 @@ public class IgniteClient
         for (int i = 0; i < fields.size(); i += 2) {
             String field = fields.get(i);
             checkArgument(!isNullOrEmpty(field), "Ignite column name is empty");
-            builder.add(field.toLowerCase(ENGLISH));
+            builder.add(field);
         }
 
         return builder.build();

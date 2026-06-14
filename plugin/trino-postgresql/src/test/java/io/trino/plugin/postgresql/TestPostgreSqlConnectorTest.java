@@ -81,6 +81,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.Math.round;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
@@ -107,6 +108,12 @@ public class TestPostgreSqlConnectorTest
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .withProtocolSpooling("json")
                 .build();
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @BeforeAll
@@ -277,7 +284,7 @@ public class TestPostgreSqlConnectorTest
     {
         onRemoteDatabase().execute("CREATE OR REPLACE VIEW test_view AS SELECT * FROM orders");
         assertThat(getQueryRunner().tableExists(getSession(), "test_view")).isTrue();
-        assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
+        assertQuery("SELECT orderkey FROM test_view", "SELECT \"orderkey\" FROM \"orders\"");
         onRemoteDatabase().execute("DROP VIEW IF EXISTS test_view");
     }
 
@@ -286,7 +293,7 @@ public class TestPostgreSqlConnectorTest
     {
         onRemoteDatabase().execute("CREATE MATERIALIZED VIEW test_mv as SELECT * FROM orders");
         assertThat(getQueryRunner().tableExists(getSession(), "test_mv")).isTrue();
-        assertQuery("SELECT orderkey FROM test_mv", "SELECT orderkey FROM orders");
+        assertQuery("SELECT orderkey FROM test_mv", "SELECT \"orderkey\" FROM \"orders\"");
         onRemoteDatabase().execute("DROP MATERIALIZED VIEW test_mv");
     }
 

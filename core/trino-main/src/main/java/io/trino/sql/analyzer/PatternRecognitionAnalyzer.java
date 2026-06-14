@@ -31,6 +31,7 @@ import io.trino.sql.tree.PatternRecognitionRelation;
 import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
 import io.trino.sql.tree.PatternSearchMode;
 import io.trino.sql.tree.RangeQuantifier;
+import io.trino.sql.tree.Resolver;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SubsetDefinition;
@@ -62,6 +63,7 @@ public final class PatternRecognitionAnalyzer
     private PatternRecognitionAnalyzer() {}
 
     public static PatternRecognitionAnalysis analyze(
+            Resolver resolver,
             List<SubsetDefinition> subsets,
             List<VariableDefinition> variableDefinitions,
             List<MeasureDefinition> measures,
@@ -70,17 +72,17 @@ public final class PatternRecognitionAnalyzer
     {
         // extract label names (Identifiers) from PATTERN and SUBSET clauses. create labels respecting SQL identifier semantics
         Set<String> primaryLabels = extractExpressions(ImmutableList.of(pattern), Identifier.class).stream()
-                .map(PatternRecognitionAnalyzer::label)
+                .map(identifier -> label(resolver, identifier))
                 .collect(toImmutableSet());
         List<String> unionLabels = subsets.stream()
                 .map(SubsetDefinition::getName)
-                .map(PatternRecognitionAnalyzer::label)
+                .map(identifier -> label(resolver, identifier))
                 .collect(toImmutableList());
 
         // analyze SUBSET
         Set<String> unique = new HashSet<>();
         for (SubsetDefinition subset : subsets) {
-            String label = label(subset.getName());
+            String label = label(resolver, subset.getName());
             if (primaryLabels.contains(label)) {
                 throw semanticException(INVALID_LABEL, subset.getName(), "union pattern variable name: %s is a duplicate of primary pattern variable name", subset.getName());
             }
@@ -89,7 +91,7 @@ public final class PatternRecognitionAnalyzer
             }
             for (Identifier element : subset.getIdentifiers()) {
                 // TODO can there be repetitions in the list of subset elements? (currently repetitions are supported)
-                if (!primaryLabels.contains(label(element))) {
+                if (!primaryLabels.contains(label(resolver, element))) {
                     throw semanticException(INVALID_LABEL, element, "subset element: %s is not a primary pattern variable", element);
                 }
             }
@@ -98,7 +100,7 @@ public final class PatternRecognitionAnalyzer
         // analyze DEFINE
         unique = new HashSet<>();
         for (VariableDefinition definition : variableDefinitions) {
-            String label = label(definition.getName());
+            String label = label(resolver, definition.getName());
             if (!primaryLabels.contains(label)) {
                 throw semanticException(INVALID_LABEL, definition.getName(), "defined variable: %s is not a primary pattern variable", definition.getName());
             }
@@ -156,7 +158,7 @@ public final class PatternRecognitionAnalyzer
                 .build();
         skipTo.flatMap(SkipTo::getIdentifier)
                 .ifPresent(identifier -> {
-                    String label = label(identifier);
+                    String label = label(resolver, identifier);
                     if (!allLabels.contains(label)) {
                         throw semanticException(INVALID_LABEL, identifier, "%s is not a primary or union pattern variable", identifier);
                     }
@@ -209,8 +211,8 @@ public final class PatternRecognitionAnalyzer
                 });
     }
 
-    private static String label(Identifier identifier)
+    private static String label(Resolver resolver, Identifier identifier)
     {
-        return identifier.getCanonicalValue();
+        return resolver.canonicalize(identifier);
     }
 }

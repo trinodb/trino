@@ -43,8 +43,10 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NATIVE_QUERY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -252,6 +254,27 @@ public abstract class BaseMySqlConnectorTest
                 """);
     }
 
+    @Test
+    @Override
+    public void testNativeQueryColumnAlias()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
+        // The output column type may differ per connector. Skipping the check because it's unrelated to the test purpose.
+        assertThat(query(format("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region WHERE regionkey = 0'))", getSession().getSchema().orElseThrow())))
+                .skippingTypesCheck()
+                .matches("VALUES 'AFRICA'");
+    }
+
+    @Test
+    @Override
+    public void testNativeQuerySelectFromNation()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
+        assertQuery(
+                format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))", getSession().getSchema().orElseThrow()),
+                "VALUES 'ALGERIA'");
+    }
+
     private void verifyCreateTableDefinition(String tableDefinition, String showCreateTableFormat)
     {
         try (TestTable table = newTrinoTable("test_create_with_primary_key_", tableDefinition)) {
@@ -349,7 +372,7 @@ public abstract class BaseMySqlConnectorTest
     public void testViews()
     {
         onRemoteDatabase().execute("CREATE OR REPLACE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
-        assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
+        assertQuery("SELECT orderkey FROM test_view", "SELECT \"orderkey\" FROM \"orders\"");
         onRemoteDatabase().execute("DROP VIEW IF EXISTS tpch.test_view");
     }
 
@@ -779,6 +802,15 @@ public abstract class BaseMySqlConnectorTest
         }
     }
 
+    @Test
+    @Override // Override because MySql does not support primary key on varchar
+    public void testMergeSubqueries()
+    {
+        assertThatThrownBy(super::testMergeSubqueries)
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("java.sql.SQLSyntaxErrorException: BLOB/TEXT column 'nation_name' used in key specification without a key length");
+    }
+
     @Override
     protected void createTableForWrites(@Language("SQL") String createTable, String tableName, Optional<String> primaryKey, OptionalInt updateCount)
     {
@@ -816,5 +848,17 @@ public abstract class BaseMySqlConnectorTest
         TestTable testTable = super.createTestTableForWrites(namePrefix, tableDefinition, rowsToInsert, primaryKey);
         onRemoteDatabase().execute(format("ALTER TABLE %s ADD PRIMARY KEY (%s)", testTable.getName(), primaryKey));
         return testTable;
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
+    protected String compareColumn(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 }

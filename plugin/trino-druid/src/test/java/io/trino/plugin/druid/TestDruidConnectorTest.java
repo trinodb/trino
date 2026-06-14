@@ -98,6 +98,12 @@ public class TestDruidConnectorTest
     }
 
     @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return druidServer::execute;
@@ -178,7 +184,7 @@ public class TestDruidConnectorTest
     public void testSelectAll()
     {
         // List columns explicitly, as Druid has an additional __time column
-        assertQuery("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment  FROM orders");
+        assertQuery("SELECT \"orderkey\", \"custkey\", \"orderstatus\", \"totalprice\", \"orderdate\", \"orderpriority\", \"clerk\", \"shippriority\", \"comment\" FROM \"orders\"");
     }
 
     /**

@@ -68,7 +68,7 @@ public class DropFunctionTask
     {
         Session session = stateMachine.getSession();
 
-        QualifiedObjectName name = qualifiedFunctionName(functionSchema, statement, statement.getName());
+        QualifiedObjectName name = qualifiedFunctionName(session, functionSchema, statement, statement.getName(), metadata);
 
         accessControl.checkCanDropFunction(session.toSecurityContext(), name);
 

@@ -61,13 +61,19 @@ public class TestDruidCaseInsensitiveMapping
         druidServer = new TestingDruidServer();
         mappingFile = createRuleBasedIdentifierMappingFile();
         QueryRunner queryRunner = DruidQueryRunner.builder(druidServer)
-                .addConnectorProperty("case-insensitive-name-matching", "true")
+                //.addConnectorProperty("case-insensitive-name-matching", "true")
                 .addConnectorProperty("case-insensitive-name-matching.config-file", mappingFile.toFile().getAbsolutePath())
                 .addConnectorProperty("case-insensitive-name-matching.config-file.refresh-period", "1ms") // ~always refresh
                 .build();
         copyAndIngestTpchDataFromSourceToTarget(queryRunner.execute(SELECT_FROM_ORDERS + " LIMIT 10"), this.druidServer, "orders", "MiXeD_CaSe", Optional.empty());
 
         return queryRunner;
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
     }
 
     @Override
@@ -98,10 +104,10 @@ public class TestDruidCaseInsensitiveMapping
                 .row("shippriority", "bigint", "", "") // Druid doesn't support int type
                 .row("totalprice", "double", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE MiXeD_CaSe");
+        MaterializedResult actualColumns = computeActual("DESCRIBE \"MiXeD_CaSe\"");
         assertThat(actualColumns).isEqualTo(expectedColumns);
-        assertQuery("SELECT COUNT(1) FROM druid.druid.mixed_case", "VALUES 10");
-        assertQuery("SELECT COUNT(1) FROM druid.druid.MIXED_CASE", "VALUES 10");
+        assertQuery("SELECT COUNT(1) FROM druid.druid.\"MiXeD_CaSe\"", "VALUES 10");
+        assertQuery("SELECT COUNT(1) FROM druid.druid.MiXeD_CaSe", "VALUES 10");
     }
 
     @Override
@@ -124,11 +130,15 @@ public class TestDruidCaseInsensitiveMapping
                 "casesensitivename",
                 // when you create a second datasource with the same name (ignoring case) the filename mentioned in firehose's ingestion config, must match with the first one.
                 // Otherwise druid's loadstatus (and system tables) fails to register the second datasource created.
+                // FIXME: Is it really still necessary?
                 Optional.of("CaseSensitiveName"));
 
+        assertThat(computeActual("SHOW TABLES").getOnlyColumn().filter("CaseSensitiveName"::equals)).hasSize(1);
         assertThat(computeActual("SHOW TABLES").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1);
-        assertQueryFails("SHOW COLUMNS FROM casesensitivename", "Failed to find remote table name: Ambiguous name: casesensitivename");
-        assertQueryFails("SELECT * FROM casesensitivename", "Failed to find remote table name: Ambiguous name: casesensitivename");
+        assertThat(computeActual("SHOW COLUMNS FROM CaseSensitiveName").getRowCount()).isEqualTo(4);
+        assertThat(computeActual("SHOW COLUMNS FROM casesensitivename").getRowCount()).isEqualTo(4);
+        assertQuery("SELECT COUNT(*) FROM CaseSensitiveName", "SELECT COUNT(*) FROM \"region\"");
+        assertQuery("SELECT COUNT(*) FROM casesensitivename", "SELECT COUNT(*) FROM \"region\"");
     }
 
     @Override

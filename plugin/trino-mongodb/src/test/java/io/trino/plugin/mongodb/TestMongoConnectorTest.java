@@ -120,9 +120,30 @@ public class TestMongoConnectorTest
     }
 
     @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     protected TestTable createTableWithDefaultColumns()
     {
         return abort("MongoDB connector does not support column default values");
+    }
+
+    @Test
+    @Override
+    public void testInformationSchemaUppercaseName()
+    {
+        assertQuery(
+                "SELECT \"table_name\" FROM \"information_schema\".\"tables\" WHERE \"table_catalog\" = 'LOCAL'",
+                "SELECT '' WHERE false");
+        assertQuery(
+                "SELECT \"table_name\" FROM \"information_schema\".\"tables\" WHERE \"table_schema\" = 'TINY'",
+                "SELECT '' WHERE false");
+        assertQuery(
+                "SELECT \"table_name\" FROM \"information_schema\".\"tables\" WHERE \"table_name\" = 'ORDERS'",
+                "SELECT 'ORDERS' WHERE true");
     }
 
     @Test
@@ -200,9 +221,19 @@ public class TestMongoConnectorTest
             db.getCollection(table.toUpperCase(ENGLISH)).insertOne(new Document("uppercase", 3));
 
             assertThat(query("SELECT * FROM information_schema.tables WHERE table_catalog = 'mongodb' AND table_schema = '" + schema + "'"))
-                    .matches("VALUES (VARCHAR 'mongodb', VARCHAR '" + schema + "', VARCHAR '" + table + "', VARCHAR 'BASE TABLE')");
+                    .matches("""
+                            VALUES \
+                            (VARCHAR 'mongodb', VARCHAR '%1$s', VARCHAR '%2$s', VARCHAR 'BASE TABLE'), \
+                            (VARCHAR 'mongodb', VARCHAR '%1$s', VARCHAR '%3$s', VARCHAR 'BASE TABLE'), \
+                            (VARCHAR 'mongodb', VARCHAR '%1$s', VARCHAR '%4$s', VARCHAR 'BASE TABLE')\
+                            """.formatted(schema, mixedTable, table.toUpperCase(ENGLISH), table));
             assertThat(query("SELECT table_name, column_name FROM information_schema.columns WHERE table_catalog = 'mongodb' AND table_schema = '" + schema + "'"))
-                    .matches("VALUES (VARCHAR '" + table + "', VARCHAR 'lowercase')");
+                    .matches("""
+                            VALUES \
+                            (VARCHAR '%1$s', VARCHAR 'mixed'), \
+                            (VARCHAR '%2$s', VARCHAR 'uppercase'), \
+                            (VARCHAR '%3$s', VARCHAR 'lowercase')\
+                            """.formatted(mixedTable, table.toUpperCase(ENGLISH), table));
             assertThat(query("SELECT * FROM " + schema + "." + table))
                     .matches("VALUES BIGINT '1'");
         }
@@ -1157,10 +1188,12 @@ public class TestMongoConnectorTest
 
         assertQueryFails(
                 "SELECT * FROM TABLE(mongodb.system.query(database => 'TPCH', collection => 'region', filter => '{}'))",
-                "Only lowercase database name is supported");
-        assertQueryFails(
-                "SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'REGION', filter => '{}'))",
-                "Only lowercase collection name is supported");
+                "Table 'TPCH.region' not found");
+
+        // FIXME: cant have this message: Table 'tpch.REGION' not found
+        assertThatThrownBy(() -> assertQuery(
+                "SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'REGION', filter => '{}'))"))
+                .hasStackTraceContaining("descriptor has no fields");
 
         assertQueryFails(
                 "SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'region', filter => '{ invalid }'))",

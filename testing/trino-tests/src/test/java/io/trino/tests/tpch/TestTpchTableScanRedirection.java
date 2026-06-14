@@ -33,13 +33,13 @@ public class TestTpchTableScanRedirection
         QueryRunner queryRunner = TpchQueryRunner.builder()
                 .withConnectorProperties(Map.of(
                         "tpch.table-scan-redirection-catalog", "memory",
-                        "tpch.table-scan-redirection-schema", "test"))
+                        "tpch.table-scan-redirection-schema", "TEST"))
                 .build();
         queryRunner.installPlugin(new MemoryPlugin());
         queryRunner.createCatalog("memory", "memory");
         // Add another tpch catalog without redirection to aid in loading data into memory connector
         queryRunner.createCatalog("tpch_data_load", "tpch");
-        queryRunner.execute("CREATE SCHEMA memory.test");
+        queryRunner.execute("CREATE SCHEMA memory.TEST");
         return queryRunner;
     }
 
@@ -51,7 +51,7 @@ public class TestTpchTableScanRedirection
         // O           |  7333
         // P           |   363
         // F           |  7304
-        assertUpdate("CREATE TABLE memory.test.orders AS SELECT * FROM tpch_data_load.tiny.orders WHERE orderstatus IN ('O', 'P')", 7696L);
+        assertUpdate("CREATE TABLE memory.TEST.orders AS SELECT * FROM tpch_data_load.tiny.orders WHERE orderstatus IN ('O', 'P')", 7696L);
         // row count of 7333L verifies that filter was coorectly re-materialized during redirection and that redirection has taken place
         assertThat(computeActual("SELECT * FROM tpch.tiny.orders WHERE orderstatus IN ('O', 'F')").getRowCount()).isEqualTo(7333L);
     }
@@ -60,7 +60,7 @@ public class TestTpchTableScanRedirection
     @Timeout(20)
     public void testTableScanRedirectionWithCoercion()
     {
-        assertUpdate("CREATE TABLE memory.test.nation AS SELECT * FROM (VALUES '42') t(nationkey)", 1L);
+        assertUpdate("CREATE TABLE memory.TEST.\"nation\" AS SELECT * FROM (VALUES '42') t(\"nationkey\")", 1L);
         assertQuery("SELECT nationkey FROM tpch.tiny.nation", "VALUES 42");
     }
 }

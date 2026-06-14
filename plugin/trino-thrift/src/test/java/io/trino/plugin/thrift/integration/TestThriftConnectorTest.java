@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import static io.trino.plugin.thrift.integration.ThriftQueryRunner.startThriftServers;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.QueryAssertions.assertContains;
+import static java.util.Locale.ENGLISH;
 
 public class TestThriftConnectorTest
         extends BaseConnectorTest
@@ -59,6 +60,12 @@ public class TestThriftConnectorTest
         ThriftQueryRunner.StartedServers servers = startThriftServers(3, false);
         servers.resources().forEach(this::closeAfterClass);
         return ThriftQueryRunner.builder(servers).build();
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Override

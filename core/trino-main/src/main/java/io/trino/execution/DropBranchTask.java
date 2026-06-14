@@ -59,7 +59,7 @@ public class DropBranchTask
     {
         Session session = stateMachine.getSession();
 
-        QualifiedObjectName table = createQualifiedObjectName(session, statement, statement.getTableName());
+        QualifiedObjectName table = createQualifiedObjectName(session, statement, statement.getTableName(), metadata);
         String branch = statement.getBranchName().getValue();
 
         if (metadata.isMaterializedView(session, table)) {

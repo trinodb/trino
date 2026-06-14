@@ -1541,6 +1541,69 @@ public class TracingConnectorMetadata
         }
     }
 
+    @Override
+    public String canonicalize(String value)
+    {
+        Span span = startSpan("canonicalize");
+        try (var _ = scopedSpan(span)) {
+            return delegate.canonicalize(value);
+        }
+    }
+
+    @Override
+    public String canonicalize(String value, boolean delimited)
+    {
+        Span span = startSpan("canonicalize");
+        try (var _ = scopedSpan(span)) {
+            return delegate.canonicalize(value, delimited);
+        }
+    }
+
+    @Override
+    public String compare(String value)
+    {
+        Span span = startSpan("compare");
+        try (var _ = scopedSpan(span)) {
+            return delegate.compare(value);
+        }
+    }
+
+    @Override
+    public String compareSchema(String value)
+    {
+        Span span = startSpan("compareSchema");
+        try (var _ = scopedSpan(span)) {
+            return delegate.compareSchema(value);
+        }
+    }
+
+    @Override
+    public String compareTable(String value)
+    {
+        Span span = startSpan("compareTable");
+        try (var _ = scopedSpan(span)) {
+            return delegate.compareTable(value);
+        }
+    }
+
+    @Override
+    public String compareColumn(String value)
+    {
+        Span span = startSpan("compareColumn");
+        try (var _ = scopedSpan(span)) {
+            return delegate.compareColumn(value);
+        }
+    }
+
+    @Override
+    public boolean predicate(String value)
+    {
+        Span span = startSpan("predicate");
+        try (var _ = scopedSpan(span)) {
+            return delegate.predicate(value);
+        }
+    }
+
     private Span startSpan(String methodName)
     {
         return tracer.spanBuilder("ConnectorMetadata." + methodName)

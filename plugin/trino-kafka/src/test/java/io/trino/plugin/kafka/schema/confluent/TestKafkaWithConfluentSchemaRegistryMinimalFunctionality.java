@@ -87,6 +87,12 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 .build();
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testBasicTopic()
     {
@@ -195,7 +201,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     @Test
     public void testTopicWithTopicRecordNameStrategy()
     {
-        String topic = "topic-Topic-Record-Name-Strategy-" + randomNameSuffix();
+        String topic = "topic-topic-record-name-strategy-" + randomNameSuffix();
         assertTopic(
                 topic,
                 format("SELECT \"%1$s-key\", col_1, col_2 FROM \"%1$s&value-subject=%1$s-%2$s\"", topic, RECORD_NAME),

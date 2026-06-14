@@ -34,7 +34,6 @@ import static io.trino.plugin.mongodb.AuthenticatedMongoServer.privilege;
 import static io.trino.plugin.mongodb.AuthenticatedMongoServer.resource;
 import static io.trino.plugin.mongodb.AuthenticatedMongoServer.role;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMongoPrivileges
@@ -73,7 +72,7 @@ public class TestMongoPrivileges
     public void testSchemasVisibility()
     {
         for (String database : DATABASES) {
-            assertQuery("SHOW SCHEMAS FROM " + getCatalogName(database), "VALUES 'information_schema','%s'".formatted(database.toLowerCase(ENGLISH)));
+            assertQuery("SHOW SCHEMAS FROM " + getCatalogName(database), "VALUES 'information_schema','%s'".formatted(database));
         }
     }
 
@@ -81,7 +80,7 @@ public class TestMongoPrivileges
     public void testTablesVisibility()
     {
         for (String database : DATABASES) {
-            assertQuery("SHOW TABLES FROM %s.%s".formatted(getCatalogName(database), database), "VALUES '%s'".formatted(TEST_COLLECTION.toLowerCase(ENGLISH)));
+            assertQuery("SHOW TABLES FROM %s.%s".formatted(getCatalogName(database), database), "VALUES '%s'".formatted(TEST_COLLECTION));
         }
     }
 
@@ -136,7 +135,7 @@ public class TestMongoPrivileges
 
     private static String getCatalogName(String database)
     {
-        return "mongodb_" + database.toLowerCase(ENGLISH);
+        return "mongodb_" + database;
     }
 
     private static Document createTestUser(String database)

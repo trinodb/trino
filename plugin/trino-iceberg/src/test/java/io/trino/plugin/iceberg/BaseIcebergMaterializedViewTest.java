@@ -845,7 +845,7 @@ public abstract class BaseIcebergMaterializedViewTest
         assertThat(query("SELECT " + exampleValue))
                 .matches("SELECT CAST(%s AS %S)".formatted(exampleValue, dataType));
 
-        assertUpdate("CREATE MATERIALIZED VIEW test_bucket_partitioning WITH (partitioning=ARRAY['bucket(col, 4)']) AS SELECT * FROM (VALUES CAST(NULL AS %s), %s) t(col)"
+        assertUpdate("CREATE MATERIALIZED VIEW test_bucket_partitioning WITH (partitioning=ARRAY['bucket(col, 4)']) AS SELECT * FROM (VALUES CAST(NULL AS %s), %s) t(\"col\")"
                 .formatted(dataType, exampleValue));
         try {
             TableMetadata storageMetadata = getStorageTableMetadata("test_bucket_partitioning");
@@ -878,7 +878,7 @@ public abstract class BaseIcebergMaterializedViewTest
         assertThat(query("SELECT " + exampleValue))
                 .matches("SELECT CAST(%s AS %S)".formatted(exampleValue, dataType));
 
-        assertUpdate("CREATE MATERIALIZED VIEW test_truncate_partitioning WITH (partitioning=ARRAY['truncate(col, 4)']) AS SELECT * FROM (VALUES CAST(NULL AS %s), %s) t(col)"
+        assertUpdate("CREATE MATERIALIZED VIEW test_truncate_partitioning WITH (partitioning=ARRAY['truncate(col, 4)']) AS SELECT * FROM (VALUES CAST(NULL AS %s), %s) t(\"col\")"
                 .formatted(dataType, exampleValue));
         try {
             TableMetadata storageMetadata = getStorageTableMetadata("test_truncate_partitioning");
@@ -917,7 +917,7 @@ public abstract class BaseIcebergMaterializedViewTest
         assertThat(query("SELECT " + exampleValue))
                 .matches("SELECT CAST(%s AS %S)".formatted(exampleValue, dataType));
 
-        assertUpdate("CREATE MATERIALIZED VIEW test_temporal_partitioning WITH (partitioning=ARRAY['%s(col)']) AS SELECT * FROM (VALUES CAST(NULL AS %s), %s) t(col)"
+        assertUpdate("CREATE MATERIALIZED VIEW test_temporal_partitioning WITH (partitioning=ARRAY['%s(col)']) AS SELECT * FROM (VALUES CAST(NULL AS %s), %s) t(\"col\")"
                 .formatted(partitioning, dataType, exampleValue));
         try {
             TableMetadata storageMetadata = getStorageTableMetadata("test_temporal_partitioning");

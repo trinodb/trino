@@ -37,6 +37,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.memory.MemoryMetadata.SCHEMA_NAME;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -119,20 +120,20 @@ public class TestMemoryConnectorTest
     @Test
     public void testCreateTableWhenTableIsAlreadyCreated()
     {
-        @Language("SQL") String createTableSql = "CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation";
+        @Language("SQL") String createTableSql = "CREATE TABLE \"nation\" AS SELECT * FROM tpch.tiny.nation";
 
         // it has to be RuntimeException as FailureInfo$FailureException is private
         assertThatThrownBy(() -> assertUpdate(createTableSql))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessage("line 1:1: Destination table 'memory.default.nation' already exists");
+                .hasMessage("line 1:1: Destination table 'memory." + SCHEMA_NAME + ".\"nation\"' already exists");
     }
 
     @Test
     public void testSelect()
     {
-        assertUpdate("CREATE TABLE test_select AS SELECT * FROM tpch.tiny.nation", "SELECT count(*) FROM nation");
+        assertUpdate("CREATE TABLE test_select AS SELECT * FROM tpch.tiny.nation", "SELECT count(*) FROM \"nation\"");
 
-        assertQuery("SELECT * FROM test_select ORDER BY nationkey", "SELECT * FROM nation ORDER BY nationkey");
+        assertQuery("SELECT * FROM test_select ORDER BY \"nationkey\"", "SELECT * FROM \"nation\" ORDER BY \"nationkey\"");
 
         assertUpdate("INSERT INTO test_select SELECT * FROM tpch.tiny.nation", 25L);
 
@@ -144,7 +145,7 @@ public class TestMemoryConnectorTest
     @Test
     public void testCustomMetricsScanFilter()
     {
-        Metrics metrics = collectCustomMetrics("SELECT partkey FROM part WHERE partkey % 1000 > 0");
+        Metrics metrics = collectCustomMetrics("SELECT \"partkey\" FROM \"part\" WHERE \"partkey\" % 1000 > 0");
         assertThat(metrics.getMetrics()).containsEntry("rows", new LongCount(PART_COUNT));
         assertThat(metrics.getMetrics()).containsEntry("started", metrics.getMetrics().get("finished"));
         assertThat(((Count<?>) metrics.getMetrics().get("finished")).getTotal()).isGreaterThan(0);
@@ -153,7 +154,7 @@ public class TestMemoryConnectorTest
     @Test
     public void testCustomMetricsScanOnly()
     {
-        Metrics metrics = collectCustomMetrics("SELECT partkey FROM part");
+        Metrics metrics = collectCustomMetrics("SELECT \"partkey\" FROM \"part\"");
         assertThat(metrics.getMetrics()).containsEntry("rows", new LongCount(PART_COUNT));
         assertThat(metrics.getMetrics()).containsEntry("started", metrics.getMetrics().get("finished"));
         assertThat(((Count<?>) metrics.getMetrics().get("finished")).getTotal()).isGreaterThan(0);
@@ -163,7 +164,7 @@ public class TestMemoryConnectorTest
     public void testExplainCustomMetricsScanOnly()
     {
         assertExplainAnalyze(
-                "EXPLAIN ANALYZE VERBOSE SELECT partkey FROM part",
+                "EXPLAIN ANALYZE VERBOSE SELECT \"partkey\" FROM \"part\"",
                 "'rows' = LongCount\\{total=2000}");
     }
 
@@ -171,7 +172,7 @@ public class TestMemoryConnectorTest
     public void testExplainCustomMetricsScanFilter()
     {
         assertExplainAnalyze(
-                "EXPLAIN ANALYZE VERBOSE SELECT partkey FROM part WHERE partkey % 1000 > 0",
+                "EXPLAIN ANALYZE VERBOSE SELECT \"partkey\" FROM \"part\" WHERE \"partkey\" % 1000 > 0",
                 "'rows' = LongCount\\{total=2000}");
     }
 
@@ -194,10 +195,20 @@ public class TestMemoryConnectorTest
     @Timeout(30)
     public void testPhysicalInputPositions()
     {
+        String query;
+        if (canonicalize("x").equals("x")) {
+            query = """
+                SELECT * FROM lineitem JOIN tpch.tiny.supplier ON supplier.suppkey = lineitem.suppkey AND supplier.name = 'Supplier#000000001'\
+                """;
+        }
+        else {
+            query = """
+                SELECT * FROM "lineitem" JOIN tpch.tiny.supplier ON "supplier"."suppkey" = "lineitem"."suppkey" AND "supplier"."name" = 'Supplier#000000001'\
+                """;
+        }
         MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                 getSession(),
-                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey " +
-                        "AND supplier.name = 'Supplier#000000001'");
+                query);
         assertThat(result.result().getRowCount()).isEqualTo(615);
 
         OperatorStats probeStats = getScanOperatorStats(getDistributedQueryRunner(), result.queryId()).stream()
@@ -213,7 +224,7 @@ public class TestMemoryConnectorTest
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
             // Probe-side is not scanned at all, due to dynamic filtering:
             assertDynamicFiltering(
-                    "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice < 0",
+                    "SELECT * FROM \"lineitem\" JOIN \"orders\" ON \"lineitem\".\"orderkey\" = \"orders\".\"orderkey\" AND \"orders\".\"totalprice\" < 0",
                     noJoinReordering(joinDistributionType),
                     0,
                     0,
@@ -226,7 +237,7 @@ public class TestMemoryConnectorTest
     public void testJoinLargeBuildSideDynamicFiltering()
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
-            @Language("SQL") String sql = "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey and orders.custkey BETWEEN 300 AND 700";
+            @Language("SQL") String sql = "SELECT * FROM \"lineitem\" JOIN \"orders\" ON \"lineitem\".\"orderkey\" = \"orders\".\"orderkey\" and \"orders\".\"custkey\" BETWEEN 300 AND 700";
             int expectedRowCount = 15793;
             // Probe-side is partially scanned because we extract min/max from large build-side for dynamic filtering
             assertDynamicFiltering(
@@ -243,15 +254,15 @@ public class TestMemoryConnectorTest
     public void testJoinDynamicFilteringSingleValue()
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
-            assertThat(computeScalar("SELECT orderkey FROM orders WHERE comment = 'nstructions sleep furiously among '")).isEqualTo(1L);
-            assertThat(computeScalar("SELECT COUNT() FROM lineitem WHERE orderkey = 1")).isEqualTo(6L);
+            assertThat(computeScalar("SELECT \"orderkey\" FROM \"orders\" WHERE \"comment\" = 'nstructions sleep furiously among '")).isEqualTo(1L);
+            assertThat(computeScalar("SELECT COUNT() FROM \"lineitem\" WHERE \"orderkey\" = 1")).isEqualTo(6L);
 
-            assertThat(computeScalar("SELECT partkey FROM part WHERE comment = 'onic deposits'")).isEqualTo(1552L);
-            assertThat(computeScalar("SELECT COUNT() FROM lineitem WHERE partkey = 1552")).isEqualTo(39L);
+            assertThat(computeScalar("SELECT \"partkey\" FROM \"part\" WHERE \"comment\" = 'onic deposits'")).isEqualTo(1552L);
+            assertThat(computeScalar("SELECT COUNT() FROM \"lineitem\" WHERE \"partkey\" = 1552")).isEqualTo(39L);
 
             // Join lineitem with a single row of orders
             assertDynamicFiltering(
-                    "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.comment = 'nstructions sleep furiously among '",
+                    "SELECT * FROM \"lineitem\" JOIN \"orders\" ON \"lineitem\".\"orderkey\" = \"orders\".\"orderkey\" AND \"orders\".\"comment\" = 'nstructions sleep furiously among '",
                     noJoinReordering(joinDistributionType),
                     6,
                     6,
@@ -259,7 +270,7 @@ public class TestMemoryConnectorTest
 
             // Join lineitem with a single row of part
             assertDynamicFiltering(
-                    "SELECT l.comment FROM  lineitem l, part p WHERE p.partkey = l.partkey AND p.comment = 'onic deposits'",
+                    "SELECT l.\"comment\" FROM  \"lineitem\" l, \"part\" p WHERE p.\"partkey\" = l.\"partkey\" AND p.\"comment\" = 'onic deposits'",
                     noJoinReordering(joinDistributionType),
                     39,
                     39,
@@ -270,10 +281,10 @@ public class TestMemoryConnectorTest
     @Test
     public void testJoinDynamicFilteringImplicitCoercion()
     {
-        assertUpdate("CREATE TABLE coerce_test AS SELECT CAST(orderkey as INT) orderkey_int FROM tpch.tiny.lineitem", "SELECT count(*) FROM lineitem");
+        assertUpdate("CREATE TABLE coerce_test AS SELECT CAST(\"orderkey\" as INT) \"orderkey_int\" FROM tpch.tiny.lineitem", "SELECT count(*) FROM \"lineitem\"");
         // Probe-side is partially scanned, dynamic filters from build side are coerced to the probe column type
         assertDynamicFiltering(
-                "SELECT * FROM coerce_test l JOIN orders o ON l.orderkey_int = o.orderkey AND o.comment = 'nstructions sleep furiously among '",
+                "SELECT * FROM coerce_test l JOIN \"orders\" o ON l.\"orderkey_int\" = o.\"orderkey\" AND o.\"comment\" = 'nstructions sleep furiously among '",
                 noJoinReordering(BROADCAST),
                 6,
                 6,
@@ -287,9 +298,9 @@ public class TestMemoryConnectorTest
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
             // Wait for both build side to finish before starting the scan of 'lineitem' table (should be very selective given the dynamic filters).
             assertDynamicFiltering(
-                    "SELECT l.comment" +
-                            " FROM  lineitem l, orders o" +
-                            " WHERE l.orderkey = o.orderkey AND o.comment = 'nstructions sleep furiously among '",
+                    "SELECT l.\"comment\"" +
+                            " FROM  \"lineitem\" l, \"orders\" o" +
+                            " WHERE l.\"orderkey\" = o.\"orderkey\" AND o.\"comment\" = 'nstructions sleep furiously among '",
                     noJoinReordering(joinDistributionType),
                     6,
                     6,
@@ -304,7 +315,7 @@ public class TestMemoryConnectorTest
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
             // Probe-side is not scanned at all, due to dynamic filtering:
             assertDynamicFiltering(
-                    "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders WHERE orders.totalprice < 0)",
+                    "SELECT * FROM \"lineitem\" WHERE \"lineitem\".\"orderkey\" IN (SELECT \"orders\".\"orderkey\" FROM \"orders\" WHERE \"orders\".\"totalprice\" < 0)",
                     noJoinReordering(joinDistributionType),
                     0,
                     0,
@@ -318,8 +329,8 @@ public class TestMemoryConnectorTest
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
             // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
-            @Language("SQL") String sql = "SELECT * FROM lineitem WHERE lineitem.orderkey IN " +
-                    "(SELECT orders.orderkey FROM orders WHERE orders.custkey BETWEEN 300 AND 700)";
+            @Language("SQL") String sql = "SELECT * FROM \"lineitem\" WHERE \"lineitem\".\"orderkey\" IN " +
+                    "(SELECT \"orders\".\"orderkey\" FROM \"orders\" WHERE \"orders\".\"custkey\" BETWEEN 300 AND 700)";
             int expectedRowCount = 15793;
             // Probe-side is partially scanned because we extract min/max from large build-side for dynamic filtering
             assertDynamicFiltering(
@@ -338,7 +349,7 @@ public class TestMemoryConnectorTest
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
             // Join lineitem with a single row of orders
             assertDynamicFiltering(
-                    "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders WHERE orders.comment = 'nstructions sleep furiously among ')",
+                    "SELECT * FROM \"lineitem\" WHERE \"lineitem\".\"orderkey\" IN (SELECT \"orders\".\"orderkey\" FROM \"orders\" WHERE \"orders\".\"comment\" = 'nstructions sleep furiously among ')",
                     noJoinReordering(joinDistributionType),
                     6,
                     6,
@@ -346,7 +357,7 @@ public class TestMemoryConnectorTest
 
             // Join lineitem with a single row of part
             assertDynamicFiltering(
-                    "SELECT l.comment FROM lineitem l WHERE l.partkey IN (SELECT p.partkey FROM part p WHERE p.comment = 'onic deposits')",
+                    "SELECT l.\"comment\" FROM \"lineitem\" l WHERE l.\"partkey\" IN (SELECT p.\"partkey\" FROM \"part\" p WHERE p.\"comment\" = 'onic deposits')",
                     noJoinReordering(joinDistributionType),
                     39,
                     39,
@@ -361,9 +372,9 @@ public class TestMemoryConnectorTest
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
             // Wait for both build sides to finish before starting the scan of 'lineitem' table (should be very selective given the dynamic filters).
             assertDynamicFiltering(
-                    "SELECT t.comment FROM " +
-                            "(SELECT * FROM lineitem l WHERE l.orderkey IN (SELECT o.orderkey FROM orders o WHERE o.comment = 'nstructions sleep furiously among ')) t " +
-                            "WHERE t.partkey IN (SELECT p.partkey FROM part p WHERE p.comment = 'onic deposits')",
+                    "SELECT t.\"comment\" FROM " +
+                            "(SELECT * FROM \"lineitem\" l WHERE l.\"orderkey\" IN (SELECT o.\"orderkey\" FROM \"orders\" o WHERE o.\"comment\" = 'nstructions sleep furiously among ')) t " +
+                            "WHERE t.\"partkey\" IN (SELECT p.\"partkey\" FROM \"part\" p WHERE p.\"comment\" = 'onic deposits')",
                     noJoinReordering(joinDistributionType),
                     1,
                     1,
@@ -443,7 +454,7 @@ public class TestMemoryConnectorTest
     {
         // Probe-side is partially scanned because we extract min/max from large build-side for dynamic filtering
         assertDynamicFiltering(
-                "SELECT * FROM orders o, customer c WHERE o.custkey < c.custkey AND c.name < 'Customer#000001000' AND o.custkey > 1000",
+                "SELECT * FROM \"orders\" o, \"customer\" c WHERE o.\"custkey\" < c.\"custkey\" AND c.\"name\" < 'Customer#000001000' AND o.\"custkey\" > 1000",
                 noJoinReordering(BROADCAST),
                 0,
                 9894,
@@ -515,7 +526,7 @@ public class TestMemoryConnectorTest
     @Test
     public void testCreateFilteredOutTable()
     {
-        assertUpdate("CREATE TABLE filtered_out AS SELECT nationkey FROM tpch.tiny.nation WHERE nationkey < 0", "SELECT count(nationkey) FROM nation WHERE nationkey < 0");
+        assertUpdate("CREATE TABLE filtered_out AS SELECT nationkey FROM tpch.tiny.nation WHERE nationkey < 0", "SELECT count(\"nationkey\") FROM \"nation\" WHERE \"nationkey\" < 0");
         assertThat(computeScalar("SELECT count(*) FROM filtered_out")).isEqualTo(0L);
         assertUpdate("INSERT INTO filtered_out SELECT nationkey FROM tpch.tiny.nation", 25L);
         assertThat(computeScalar("SELECT count(*) FROM filtered_out")).isEqualTo(25L);
@@ -524,7 +535,7 @@ public class TestMemoryConnectorTest
     @Test
     public void testSelectFromEmptyTable()
     {
-        assertUpdate("CREATE TABLE test_select_empty AS SELECT * FROM tpch.tiny.nation WHERE nationkey > 1000", "SELECT count(*) FROM nation WHERE nationkey > 1000");
+        assertUpdate("CREATE TABLE test_select_empty AS SELECT * FROM tpch.tiny.nation WHERE nationkey > 1000", "SELECT count(*) FROM \"nation\" WHERE \"nationkey\" > 1000");
 
         assertThat(computeScalar("SELECT count(*) FROM test_select_empty")).isEqualTo(0L);
     }
@@ -532,13 +543,13 @@ public class TestMemoryConnectorTest
     @Test
     public void testSelectSingleRow()
     {
-        assertQuery("SELECT * FROM tpch.tiny.nation WHERE nationkey = 1", "SELECT * FROM nation WHERE nationkey = 1");
+        assertQuery("SELECT * FROM tpch.tiny.nation WHERE nationkey = 1", "SELECT * FROM \"nation\" WHERE \"nationkey\" = 1");
     }
 
     @Test
     public void testSelectColumnsSubset()
     {
-        assertQuery("SELECT nationkey, regionkey FROM tpch.tiny.nation ORDER BY nationkey", "SELECT nationkey, regionkey FROM nation ORDER BY nationkey");
+        assertQuery("SELECT nationkey, regionkey FROM tpch.tiny.nation ORDER BY nationkey", "SELECT \"nationkey\", \"regionkey\" FROM \"nation\" ORDER BY \"nationkey\"");
     }
 
     @Test
@@ -549,9 +560,9 @@ public class TestMemoryConnectorTest
 
         assertThat(query("SHOW SCHEMAS"))
                 .skippingTypesCheck()
-                .containsAll("VALUES 'default', 'information_schema', 'schema1', 'schema2'");
-        assertUpdate("CREATE TABLE schema1.nation AS SELECT * FROM tpch.tiny.nation WHERE nationkey % 2 = 0", "SELECT count(*) FROM nation WHERE MOD(nationkey, 2) = 0");
-        assertUpdate("CREATE TABLE schema2.nation AS SELECT * FROM tpch.tiny.nation WHERE nationkey % 2 = 1", "SELECT count(*) FROM nation WHERE MOD(nationkey, 2) = 1");
+                .containsAll("VALUES '%s', 'information_schema', '%s', '%s'".formatted(SCHEMA_NAME, canonicalize("schema1"), canonicalize("schema2")));
+        assertUpdate("CREATE TABLE schema1.nation AS SELECT * FROM tpch.tiny.nation WHERE nationkey % 2 = 0", "SELECT count(*) FROM \"nation\" WHERE MOD(\"nationkey\", 2) = 0");
+        assertUpdate("CREATE TABLE schema2.nation AS SELECT * FROM tpch.tiny.nation WHERE nationkey % 2 = 1", "SELECT count(*) FROM \"nation\" WHERE MOD(\"nationkey\", 2) = 1");
 
         assertThat(computeScalar("SELECT count(*) FROM schema1.nation")).isEqualTo(13L);
         assertThat(computeScalar("SELECT count(*) FROM schema2.nation")).isEqualTo(12L);
@@ -563,40 +574,43 @@ public class TestMemoryConnectorTest
     @Test
     public void testCreateTableAndViewInNotExistSchema()
     {
-        assertQueryFails("CREATE TABLE schema3.test_table3 (x date)", "Schema schema3 not found");
+        assertQueryFails("CREATE TABLE schema3.test_table3 (x date)", "Schema %s not found".formatted(canonicalize("schema3")));
         assertThat(getQueryRunner().tableExists(getSession(), "schema3.test_table3")).isFalse();
-        assertQueryFails("CREATE VIEW schema4.test_view4 AS SELECT 123 x", "Schema schema4 not found");
+        assertQueryFails("CREATE VIEW schema4.test_view4 AS SELECT 123 x", "Schema %s not found".formatted(canonicalize("schema4")));
         assertThat(getQueryRunner().tableExists(getSession(), "schema4.test_view4")).isFalse();
-        assertQueryFails("CREATE OR REPLACE VIEW schema5.test_view5 AS SELECT 123 x", "Schema schema5 not found");
+        assertQueryFails("CREATE OR REPLACE VIEW schema5.test_view5 AS SELECT 123 x", "Schema %s not found".formatted(canonicalize("schema5")));
         assertThat(getQueryRunner().tableExists(getSession(), "schema5.test_view5")).isFalse();
     }
 
     @Test
     public void testViews()
     {
-        @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
+        @Language("SQL") String query = "SELECT \"orderkey\", \"orderstatus\", \"totalprice\" / 2 half FROM \"orders\"";
 
         assertUpdate("CREATE VIEW test_view AS SELECT 123 x");
         assertUpdate("CREATE OR REPLACE VIEW test_view AS " + query);
 
-        assertQueryFails("CREATE TABLE test_view (x date)", ".*Table 'memory.default.test_view' already exists");
-        assertQueryFails("CREATE VIEW test_view AS SELECT 123 x", ".*View already exists: 'memory.default.test_view'");
+        assertQueryFails("CREATE TABLE test_view (x date)", ".*Table 'memory.%s.%s' already exists"
+                .formatted(SCHEMA_NAME, canonicalize("test_view")));
+        assertQueryFails("CREATE VIEW test_view AS SELECT 123 x", ".*View already exists: 'memory.%s.%s'"
+                .formatted(SCHEMA_NAME, canonicalize("test_view")));
 
         assertQuery("SELECT * FROM test_view", query);
 
-        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).contains("test_view");
+        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).contains(canonicalize("test_view"));
 
         assertUpdate("DROP VIEW test_view");
-        assertQueryFails("DROP VIEW test_view", "line 1:1: View 'memory.default.test_view' does not exist");
+        assertQueryFails("DROP VIEW test_view", "line 1:1: View 'memory.%s.%s' does not exist".formatted(SCHEMA_NAME, canonicalize("test_view")));
     }
 
     @Test
     public void testRenameView()
     {
-        @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
+        @Language("SQL") String query = "SELECT \"orderkey\", \"orderstatus\", \"totalprice\" / 2 half FROM \"orders\"";
 
         assertUpdate("CREATE VIEW test_view_to_be_renamed AS " + query);
-        assertQueryFails("ALTER VIEW test_view_to_be_renamed RENAME TO memory.test_schema_not_exist.test_view_renamed", "Schema test_schema_not_exist not found");
+        assertQueryFails("ALTER VIEW test_view_to_be_renamed RENAME TO memory.test_schema_not_exist.test_view_renamed", "Schema %s not found"
+                .formatted(canonicalize("test_schema_not_exist")));
         assertUpdate("ALTER VIEW test_view_to_be_renamed RENAME TO test_view_renamed");
         assertQuery("SELECT * FROM test_view_renamed", query);
 

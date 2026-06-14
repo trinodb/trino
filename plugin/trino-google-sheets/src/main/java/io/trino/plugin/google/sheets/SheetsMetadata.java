@@ -50,6 +50,7 @@ import static io.trino.plugin.google.sheets.ptf.Sheet.SheetFunctionHandle;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class SheetsMetadata
@@ -62,6 +63,12 @@ public class SheetsMetadata
     public SheetsMetadata(SheetsClient sheetsClient)
     {
         this.sheetsClient = requireNonNull(sheetsClient, "sheetsClient is null");
+    }
+
+    @Override
+    public String canonicalize(String value)
+    {
+        return value;
     }
 
     @Override

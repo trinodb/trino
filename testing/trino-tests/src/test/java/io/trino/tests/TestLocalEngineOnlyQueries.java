@@ -22,6 +22,7 @@ import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static java.util.Locale.ENGLISH;
 import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestLocalEngineOnlyQueries
@@ -44,6 +45,12 @@ public class TestLocalEngineOnlyQueries
             throw closeAllSuppress(e, queryRunner);
         }
         return queryRunner;
+    }
+
+    @Override
+    public String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Test
