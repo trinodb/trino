@@ -61,6 +61,8 @@ import io.trino.plugin.iceberg.delete.DeletionVector;
 import io.trino.plugin.iceberg.delete.PageFilter;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
+import io.trino.plugin.iceberg.system.entries.EntriesTablePageSource;
+import io.trino.plugin.iceberg.system.entries.EntriesTableSplit;
 import io.trino.plugin.iceberg.system.files.FilesTablePageSource;
 import io.trino.plugin.iceberg.system.files.FilesTableSplit;
 import io.trino.spi.BlocksHashFactory;
@@ -286,6 +288,15 @@ public class IcebergPageSourceProvider
                     fileIoFactory,
                     columns.stream().map(SystemColumnHandle.class::cast).map(SystemColumnHandle::columnName).collect(toImmutableList()),
                     filesTableSplit);
+        }
+
+        if (connectorSplit instanceof EntriesTableSplit entriesTableSplit) {
+            return new EntriesTablePageSource(
+                    typeManager,
+                    fileSystemFactory.create(session.getIdentity(), icebergTableCredentials),
+                    fileIoFactory,
+                    columns.stream().map(SystemColumnHandle.class::cast).map(SystemColumnHandle::columnName).collect(toImmutableList()),
+                    entriesTableSplit);
         }
 
         IcebergSplit split = (IcebergSplit) connectorSplit;
