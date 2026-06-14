@@ -744,6 +744,12 @@ public class TestRowOperators
         assertTrinoExceptionThrownBy(assertions.expression("row(1, CAST(NULL AS INTEGER)) < row(1, 2)")::evaluate)
                 .hasErrorCode(StandardErrorCode.NOT_SUPPORTED);
 
+        assertTrinoExceptionThrownBy(assertions.expression("row(1, CAST(NULL AS INTEGER)) <= row(1, 2)")::evaluate)
+                .hasErrorCode(StandardErrorCode.NOT_SUPPORTED);
+
+        assertTrinoExceptionThrownBy(assertions.expression("row(1, CAST(NULL AS INTEGER)) >= row(1, 2)")::evaluate)
+                .hasErrorCode(StandardErrorCode.NOT_SUPPORTED);
+
         assertComparisonCombination("row(1.0E0, ARRAY [1,2,3], row(2, 2.0E0))", "row(1.0E0, ARRAY [1,3,3], row(2, 2.0E0))");
         assertComparisonCombination("row(TRUE, ARRAY [1])", "row(TRUE, ARRAY [1, 2])");
         assertComparisonCombination("ROW(1, 2)", "ROW(2, 1)");
