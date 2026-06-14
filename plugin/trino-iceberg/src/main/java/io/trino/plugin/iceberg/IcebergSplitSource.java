@@ -727,6 +727,7 @@ public class IcebergSplitSource
         return true;
     }
 
+    @GuardedBy("this")
     private IcebergSplit toIcebergSplit(FileScanTaskWithDomain taskWithDomain)
     {
         FileScanTask task = taskWithDomain.fileScanTask();
@@ -784,9 +785,10 @@ public class IcebergSplitSource
                 deleteFile.location());
     }
 
+    @GuardedBy("this")
     private double getSplitWeight(FileScanTask task)
     {
-        double dataWeight = (double) task.length() / tableScan.targetSplitSize();
+        double dataWeight = (double) task.length() / targetSplitSize;
         double weight = dataWeight;
         if (task.deletes().stream().anyMatch(deleteFile -> deleteFile.content() == POSITION_DELETES)) {
             // Presence of each data position is looked up in a combined bitmap of deleted positions

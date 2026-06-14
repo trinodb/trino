@@ -403,12 +403,44 @@ public class TestIcebergSplitSource
         assertThat(split.getSplitWeight().getRawValue()).isGreaterThan(splitWeightWithPositionDelete.getRawValue());
     }
 
+    @Test
+    public void testSplitWeightUsesSessionSplitSize()
+            throws Exception
+    {
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", "nation");
+        Table nationTable = catalog.loadTable(SESSION, schemaTableName);
+        IcebergTableHandle tableHandle = createTableHandle(schemaTableName, nationTable, TupleDomain.all());
+
+        ConnectorSession sessionWithSplitSize = TestingConnectorSession.builder()
+                .setPropertyMetadata(new IcebergSessionProperties(
+                        new IcebergConfig(),
+                        new OrcReaderConfig(),
+                        new OrcWriterConfig(),
+                        new ParquetReaderConfig(),
+                        new ParquetWriterConfig())
+                        .getSessionProperties())
+                .setPropertyValues(ImmutableMap.of(IcebergSessionProperties.SPLIT_SIZE, "512B"))
+                .build();
+
+        IcebergSplit splitWithDefaultSize = generateSplit(nationTable, tableHandle, DynamicFilter.EMPTY);
+        IcebergSplit splitWithOverriddenSize = generateSplit(sessionWithSplitSize, nationTable, tableHandle, DynamicFilter.EMPTY);
+
+        assertThat(splitWithOverriddenSize.getSplitWeight().getRawValue())
+                .isGreaterThan(splitWithDefaultSize.getSplitWeight().getRawValue());
+    }
+
     private IcebergSplit generateSplit(Table nationTable, IcebergTableHandle tableHandle, DynamicFilter dynamicFilter)
+            throws Exception
+    {
+        return generateSplit(SESSION, nationTable, tableHandle, dynamicFilter);
+    }
+
+    private IcebergSplit generateSplit(ConnectorSession session, Table nationTable, IcebergTableHandle tableHandle, DynamicFilter dynamicFilter)
             throws Exception
     {
         try (IcebergSplitSource splitSource = new IcebergSplitSource(
                 new DefaultIcebergFileSystemFactory(fileSystemFactory),
-                SESSION,
+                session,
                 tableHandle,
                 nationTable,
                 nationTable.newScan(),
