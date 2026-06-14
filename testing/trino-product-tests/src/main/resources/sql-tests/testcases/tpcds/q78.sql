@@ -5,9 +5,9 @@ WITH
      "d_year" "ws_sold_year"
    , "ws_item_sk"
    , "ws_bill_customer_sk" "ws_customer_sk"
-   , "sum"("ws_quantity") "ws_qty"
-   , "sum"("ws_wholesale_cost") "ws_wc"
-   , "sum"("ws_sales_price") "ws_sp"
+   , sum("ws_quantity") "ws_qty"
+   , sum("ws_wholesale_cost") "ws_wc"
+   , sum("ws_sales_price") "ws_sp"
    FROM
      ((web_sales
    LEFT JOIN web_returns ON ("wr_order_number" = "ws_order_number")
@@ -21,9 +21,9 @@ WITH
      "d_year" "cs_sold_year"
    , "cs_item_sk"
    , "cs_bill_customer_sk" "cs_customer_sk"
-   , "sum"("cs_quantity") "cs_qty"
-   , "sum"("cs_wholesale_cost") "cs_wc"
-   , "sum"("cs_sales_price") "cs_sp"
+   , sum("cs_quantity") "cs_qty"
+   , sum("cs_wholesale_cost") "cs_wc"
+   , sum("cs_sales_price") "cs_sp"
    FROM
      ((catalog_sales
    LEFT JOIN catalog_returns ON ("cr_order_number" = "cs_order_number")
@@ -37,9 +37,9 @@ WITH
      "d_year" "ss_sold_year"
    , "ss_item_sk"
    , "ss_customer_sk"
-   , "sum"("ss_quantity") "ss_qty"
-   , "sum"("ss_wholesale_cost") "ss_wc"
-   , "sum"("ss_sales_price") "ss_sp"
+   , sum("ss_quantity") "ss_qty"
+   , sum("ss_wholesale_cost") "ss_wc"
+   , sum("ss_sales_price") "ss_sp"
    FROM
      ((store_sales
    LEFT JOIN store_returns ON ("sr_ticket_number" = "ss_ticket_number")

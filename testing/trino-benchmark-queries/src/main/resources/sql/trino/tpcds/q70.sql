@@ -1,15 +1,15 @@
 SELECT
-  "sum"("ss_net_profit") "total_sum"
+  sum("ss_net_profit") "total_sum"
 , "s_state"
 , "s_county"
 , (GROUPING ("s_state") + GROUPING ("s_county")) "lochierarchy"
-, "rank"() OVER (PARTITION BY (GROUPING ("s_state") + GROUPING ("s_county")), (CASE WHEN (GROUPING ("s_county") = 0) THEN "s_state" END) ORDER BY "sum"("ss_net_profit") DESC) "rank_within_parent"
+, rank() OVER (PARTITION BY (GROUPING ("s_state") + GROUPING ("s_county")), (CASE WHEN (GROUPING ("s_county") = 0) THEN "s_state" END) ORDER BY sum("ss_net_profit") DESC) "rank_within_parent"
 FROM
   ${database}.${schema}.store_sales
 , ${database}.${schema}.date_dim d1
 , ${database}.${schema}.store
-WHERE ("d1"."d_month_seq" BETWEEN 1200 AND (1200 + 11))
-   AND ("d1"."d_date_sk" = "ss_sold_date_sk")
+WHERE (d1."d_month_seq" BETWEEN 1200 AND (1200 + 11))
+   AND (d1."d_date_sk" = "ss_sold_date_sk")
    AND ("s_store_sk" = "ss_store_sk")
    AND ("s_state" IN (
    SELECT "s_state"
@@ -17,7 +17,7 @@ WHERE ("d1"."d_month_seq" BETWEEN 1200 AND (1200 + 11))
      (
       SELECT
         "s_state" "s_state"
-      , "rank"() OVER (PARTITION BY "s_state" ORDER BY "sum"("ss_net_profit") DESC) "ranking"
+      , rank() OVER (PARTITION BY "s_state" ORDER BY sum("ss_net_profit") DESC) "ranking"
       FROM
         ${database}.${schema}.store_sales
       , ${database}.${schema}.store

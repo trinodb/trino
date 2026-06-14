@@ -340,9 +340,11 @@ public class TestShowStats
     {
         assertQuery(
                 "SHOW STATS FOR (SELECT 1 AS x)",
-                "VALUES " +
-                        "   ('x', null, 1.0, 0.0, null, 1, 1), " +
-                        "   (null, null, null, null, 1.0, null, null)");
+                """
+                VALUES \
+                    ('%s', null, 1.0, 0.0, null, 1, 1), \
+                    (null, null, null, null, 1.0, null, null)\
+                """.formatted(sqlCanonicalize("x")));
     }
 
     @Test
@@ -400,7 +402,8 @@ public class TestShowStats
     @Test
     public void testShowStatsForNonExistingColumnFails()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT column_does_not_exist FROM nation_partitioned)", ".*Column 'column_does_not_exist' cannot be resolved");
+        assertQueryFails("SHOW STATS FOR (SELECT column_does_not_exist FROM nation_partitioned)",
+                ".*\\QColumn 'column_does_not_exist' cannot be resolved, available candidates are: 'nationkey, name, comment, regionkey, $path, $file_size, $file_modified_time, $partition'\\E");
     }
 
     @Test
@@ -471,15 +474,18 @@ public class TestShowStats
     @Test
     public void testShowStatsWithWith()
     {
-        assertQuery(
-                "SHOW STATS FOR ( " +
-                        "   WITH t AS (SELECT nationkey, name, regionkey FROM nation) " +
-                        "   SELECT * FROM t)",
-                "VALUES " +
-                        "   ('nationkey', null, 25, 0, null, 0, 24), " +
-                        "   ('name', 177, 25, 0, null, null, null), " +
-                        "   ('regionkey', null, 5, 0, null, 0, 4), " +
-                        "   (null, null, null, null, 25, null, null)");
+        assertQuery("""
+                SHOW STATS FOR ( \
+                   WITH t AS (SELECT nationkey, name, regionkey FROM nation) \
+                   SELECT * FROM t)\
+                """,
+                """
+                VALUES \
+                   ('%s', null, 25, 0, null, 0, 24), \
+                   ('%s', 177, 25, 0, null, null, null), \
+                   ('%s', null, 5, 0, null, 0, 4), \
+                   (null, null, null, null, 25, null, null)\
+                """.formatted(withCanonicalize("nationkey"), withCanonicalize("name"), withCanonicalize("regionkey")));
     }
 
     @Test

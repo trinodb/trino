@@ -526,13 +526,21 @@ public final class QueryAssertions
     public static void copyTable(QueryRunner queryRunner, QualifiedObjectName table, Session session)
     {
         long start = System.nanoTime();
-        @Language("SQL") String sql = format("CREATE TABLE IF NOT EXISTS %s AS SELECT * FROM %s", table.objectName(), table);
+        String sqlTargetTable = quoted(table.objectName());
+        String sqlSourceTable = "%s.%s.%s".formatted(table.catalogName(), quoted(table.schemaName()), quoted(table.objectName()));
+        @Language("SQL") String sql = "CREATE TABLE IF NOT EXISTS %s AS SELECT * FROM %s".formatted(sqlTargetTable, sqlSourceTable);
         long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
         log.debug("Imported %s rows from %s in %s", rows, table, nanosSince(start));
 
-        assertThat(queryRunner.execute(session, "SELECT count(*) FROM " + table.objectName()).getOnlyValue())
+        assertThat(queryRunner.execute(session, "SELECT count(*) FROM " + sqlTargetTable).getOnlyValue())
                 .as("Table is not loaded properly: %s", table.objectName())
-                .isEqualTo(queryRunner.execute(session, "SELECT count(*) FROM " + table).getOnlyValue());
+                .isEqualTo(queryRunner.execute(session, "SELECT count(*) FROM " + sqlSourceTable).getOnlyValue());
+    }
+
+    private static String quoted(String identifier)
+    {
+        String delimiter = "\"";
+        return delimiter + identifier.replace(delimiter, delimiter + delimiter) + delimiter;
     }
 
     public static RuntimeException getTrinoExceptionCause(Throwable e)

@@ -3,7 +3,7 @@ WITH
   sr_items AS (
    SELECT
      "i_item_id" "item_id"
-   , "sum"("sr_return_quantity") "sr_item_qty"
+   , sum("sr_return_quantity") "sr_item_qty"
    FROM
      store_returns
    , item
@@ -26,7 +26,7 @@ WITH
 , cr_items AS (
    SELECT
      "i_item_id" "item_id"
-   , "sum"("cr_return_quantity") "cr_item_qty"
+   , sum("cr_return_quantity") "cr_item_qty"
    FROM
      catalog_returns
    , item
@@ -49,7 +49,7 @@ WITH
 , wr_items AS (
    SELECT
      "i_item_id" "item_id"
-   , "sum"("wr_return_quantity") "wr_item_qty"
+   , sum("wr_return_quantity") "wr_item_qty"
    FROM
      web_returns
    , item
@@ -70,7 +70,7 @@ WITH
    GROUP BY "i_item_id"
 )
 SELECT
-  "sr_items"."item_id"
+  sr_items."item_id"
 , "sr_item_qty"
 , CAST(((("sr_item_qty" / ((CAST("sr_item_qty" AS DECIMAL(9,4)) + "cr_item_qty") + "wr_item_qty")) / DECIMAL '3.0') * 100) AS DECIMAL(7,2)) "sr_dev"
 , "cr_item_qty"
@@ -82,7 +82,7 @@ FROM
   sr_items
 , cr_items
 , wr_items
-WHERE ("sr_items"."item_id" = "cr_items"."item_id")
-   AND ("sr_items"."item_id" = "wr_items"."item_id")
-ORDER BY "sr_items"."item_id" ASC, "sr_item_qty" ASC
+WHERE (sr_items."item_id" = cr_items."item_id")
+   AND (sr_items."item_id" = wr_items."item_id")
+ORDER BY sr_items."item_id" ASC, "sr_item_qty" ASC
 LIMIT 100

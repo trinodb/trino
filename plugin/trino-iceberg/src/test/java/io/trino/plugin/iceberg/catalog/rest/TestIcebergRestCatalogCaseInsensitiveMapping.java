@@ -52,7 +52,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 final class TestIcebergRestCatalogCaseInsensitiveMapping
         extends AbstractTestQueryFramework
 {
-    private static final String SCHEMA = "LeVeL1_" + randomNameSuffix();
+    private static final String SCHEMA = "level1_" + randomNameSuffix();
     private static final String LOWERCASE_SCHEMA = SCHEMA.toLowerCase(ENGLISH);
     private static final Namespace NAMESPACE = Namespace.of(SCHEMA);
 
@@ -75,7 +75,7 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
         testServer.start();
         closeAfterClass(testServer::stop);
 
-        return IcebergQueryRunner.builder(LOWERCASE_SCHEMA)
+        return IcebergQueryRunner.builder(SCHEMA)
                 .setBaseDataDir(Optional.of(warehouseLocation))
                 .addIcebergProperty("iceberg.catalog.type", "rest")
                 .addIcebergProperty("iceberg.rest-catalog.uri", testServer.getBaseUrl().toString())
@@ -92,21 +92,27 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
                 .containsExactlyInAnyOrder(
                         "information_schema",
                         "tpch",
-                        LOWERCASE_SCHEMA,
+                        SCHEMA,
                         "system");
 
-        assertThat(computeActual("SHOW SCHEMAS LIKE 'level%'").getOnlyColumnAsSet())
+        assertThat(computeActual("SHOW SCHEMAS LIKE 'level1%'").getOnlyColumnAsSet())
                 .containsExactlyInAnyOrder(
-                        LOWERCASE_SCHEMA);
+                        SCHEMA);
 
-        assertQuery("SELECT * FROM information_schema.schemata",
-                """
-                VALUES
-                ('iceberg', 'information_schema'),
-                ('iceberg', 'system'),
-                ('iceberg', '%s'),
-                ('iceberg', 'tpch')
-                """.formatted(LOWERCASE_SCHEMA));
+        assertQuery("SELECT * FROM \"information_schema\".\"schemata\"",
+                        """
+                        VALUES
+                        ('iceberg', 'information_schema'),
+                        ('iceberg', 'system'),
+                        ('iceberg', '%s'),
+                        ('iceberg', 'tpch')
+                        """.formatted(SCHEMA));
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
     }
 
     @Test
@@ -119,14 +125,14 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
         // Create and query a mixed case letter table from Trino
         String tableName1 = "MiXed_CaSe_TaBlE1_" + randomNameSuffix();
         String lowercaseTableName1 = tableName1.toLowerCase(ENGLISH);
-        String table1Location = namespaceLocation + "/" + lowercaseTableName1;
+        String table1Location = namespaceLocation + "/" + tableName1;
         assertUpdate("CREATE TABLE " + tableName1 + " WITH (location = '" + table1Location + "') AS SELECT BIGINT '42' a, DOUBLE '-38.5' b", 1);
         assertQuery("SELECT * FROM " + tableName1, "VALUES (42, -38.5)");
 
         // Create a mixed case letter table directly using rest catalog and query from Trino
         String tableName2 = "mIxEd_cAsE_tAbLe2_" + randomNameSuffix();
         String lowercaseTableName2 = tableName2.toLowerCase(ENGLISH);
-        String table2Location = namespaceLocation + "/" + lowercaseTableName2;
+        String table2Location = namespaceLocation + "/" + tableName2;
         createDir(table2Location);
         createDir(table2Location + "/data");
         createDir(table2Location + "/metadata");
@@ -139,23 +145,23 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
         assertQuery("SELECT * FROM " + tableName2, "VALUES (78)");
 
         // Test register/unregister table. Re-register for further testing.
-        assertThat(backend.dropTable(TableIdentifier.of(NAMESPACE, lowercaseTableName1), false)).isTrue();
-        assertQueryFails("SELECT * FROM " + tableName1, ".*'iceberg.%s.%s' does not exist".formatted(LOWERCASE_SCHEMA, lowercaseTableName1));
+        assertThat(backend.dropTable(TableIdentifier.of(NAMESPACE, tableName1), false)).isTrue();
+        assertQueryFails("SELECT * FROM " + tableName1, ".*'iceberg.%s.%s' does not exist".formatted(SCHEMA, tableName1));
         assertUpdate("CALL system.register_table (CURRENT_SCHEMA, '" + tableName1 + "', '" + table1Location + "')");
         assertQuery("SELECT * FROM " + tableName1, "VALUES (42, -38.5)");
         assertUpdate("CALL system.unregister_table (CURRENT_SCHEMA, '" + tableName1 + "')");
-        assertQueryFails("SELECT * FROM " + tableName1, ".*'iceberg.%s.%s' does not exist".formatted(LOWERCASE_SCHEMA, lowercaseTableName1));
+        assertQueryFails("SELECT * FROM " + tableName1, ".*'iceberg.%s.%s' does not exist".formatted(SCHEMA, tableName1));
         assertUpdate("CALL system.register_table (CURRENT_SCHEMA, '" + tableName1 + "', '" + table1Location + "')");
 
         // Query information_schema and list objects
-        assertThat(computeActual("SHOW TABLES IN " + SCHEMA).getOnlyColumnAsSet()).contains(lowercaseTableName1, lowercaseTableName2);
-        assertThat(computeActual("SHOW TABLES IN " + SCHEMA + " LIKE 'mixed_case_table%'").getOnlyColumnAsSet()).isEqualTo(Set.of(lowercaseTableName1, lowercaseTableName2));
+        assertThat(computeActual("SHOW TABLES IN " + SCHEMA).getOnlyColumnAsSet()).contains(tableName1, tableName2);
+        assertThat(computeActual("SHOW TABLES IN " + SCHEMA + " LIKE '%" + tableName1 + "%'").getOnlyColumnAsSet()).isEqualTo(Set.of(tableName1));
         assertQuery("SELECT * FROM information_schema.tables WHERE table_schema NOT IN ('information_schema', 'system') AND table_type = 'BASE TABLE'",
                 """
                 VALUES
                 ('iceberg', '%1$s', '%2$s', 'BASE TABLE'),
                 ('iceberg', '%1$s', '%3$s', 'BASE TABLE')
-                """.formatted(LOWERCASE_SCHEMA, lowercaseTableName1, lowercaseTableName2));
+                """.formatted(LOWERCASE_SCHEMA, tableName1, tableName2));
 
         // Add table comment
         assertUpdate("COMMENT ON TABLE " + tableName1 + " IS 'test comment' ");
@@ -168,16 +174,16 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
         // Rename table
         String renamedTableName1 = tableName1 + "_renamed";
         assertUpdate("ALTER TABLE " + lowercaseTableName1 + " RENAME TO " + renamedTableName1);
-        assertQueryFails("SELECT * FROM " + tableName1, ".*'iceberg.%s.%s' does not exist".formatted(LOWERCASE_SCHEMA, lowercaseTableName1));
+        assertQueryFails("SELECT * FROM " + tableName1, ".*'iceberg.%s.%s' does not exist".formatted(SCHEMA, tableName1));
         assertQuery("SELECT * FROM " + renamedTableName1, "VALUES (42, -38.5)");
 
         // Drop tables
         assertUpdate("DROP TABLE " + renamedTableName1);
         assertUpdate("DROP TABLE " + tableName2);
 
-        // Query dropped tablesd
-        assertQueryFails("SELECT * FROM " + renamedTableName1, ".*'iceberg.%s.%s' does not exist".formatted(LOWERCASE_SCHEMA, renamedTableName1.toLowerCase(ENGLISH)));
-        assertQueryFails("SELECT * FROM " + tableName2, ".*'iceberg.%s.%s' does not exist".formatted(LOWERCASE_SCHEMA, lowercaseTableName2));
+        // Query dropped tables
+        assertQueryFails("SELECT * FROM " + renamedTableName1, ".*'iceberg.%s.%s' does not exist".formatted(SCHEMA, renamedTableName1));
+        assertQueryFails("SELECT * FROM " + tableName2, ".*'iceberg.%s.%s' does not exist".formatted(SCHEMA, tableName2));
     }
 
     @Test
@@ -210,14 +216,14 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
         assertQuery("SELECT * FROM " + viewName2, "VALUES (34)");
 
         // Query information_schema and list objects
-        assertThat(computeActual("SHOW TABLES IN " + SCHEMA).getOnlyColumnAsSet()).contains(lowercaseViewName1, lowercaseViewName2);
-        assertThat(computeActual("SHOW TABLES IN " + SCHEMA + " LIKE 'mixed_case_view%'").getOnlyColumnAsSet()).contains(lowercaseViewName1, lowercaseViewName2);
-        assertQuery("SELECT * FROM information_schema.tables WHERE table_schema != 'information_schema' AND table_type = 'VIEW'",
-                """
-                VALUES
-                ('iceberg', '%1$s', '%2$s', 'VIEW'),
-                ('iceberg', '%1$s', '%3$s', 'VIEW')
-                """.formatted(LOWERCASE_SCHEMA, lowercaseViewName1, lowercaseViewName2));
+        assertThat(computeActual("SHOW TABLES IN " + SCHEMA).getOnlyColumnAsSet()).contains(viewName1, viewName2);
+        assertThat(computeActual("SHOW TABLES IN " + SCHEMA + " LIKE '%" + viewName1 + "%'").getOnlyColumnAsSet()).contains(viewName1);
+        assertQuery("SELECT * FROM \"information_schema\".\"tables\" WHERE \"table_schema\" != 'information_schema' AND \"table_type\" = 'VIEW'",
+                        """
+                        VALUES
+                        ('iceberg', '%1$s', '%2$s', 'VIEW'),
+                        ('iceberg', '%1$s', '%3$s', 'VIEW')
+                        """.formatted(LOWERCASE_SCHEMA, viewName1, viewName2));
 
         // Add view comment
         assertUpdate("COMMENT ON VIEW " + viewName1 + " IS 'test comment' ");
@@ -230,7 +236,7 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
         // Rename view
         String renamedViewName1 = viewName1 + "_renamed";
         assertUpdate("ALTER VIEW " + lowercaseViewName1 + " RENAME TO " + renamedViewName1);
-        assertQueryFails("SELECT * FROM " + viewName1, ".*'iceberg.%s.%s' does not exist".formatted(LOWERCASE_SCHEMA, lowercaseViewName1));
+        assertQueryFails("SELECT * FROM " + viewName1, ".*'iceberg.%s.%s' does not exist".formatted(SCHEMA, viewName1));
         assertQuery("SELECT * FROM " + renamedViewName1, "VALUES (25, 99.4)");
 
         // Drop views
@@ -238,8 +244,8 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
         assertUpdate("DROP VIEW " + viewName2);
 
         // Query dropped views
-        assertQueryFails("SELECT * FROM " + renamedViewName1, ".*'iceberg.%s.%s' does not exist".formatted(LOWERCASE_SCHEMA, renamedViewName1.toLowerCase(ENGLISH)));
-        assertQueryFails("SELECT * FROM " + viewName2, ".*'iceberg.%s.%s' does not exist".formatted(LOWERCASE_SCHEMA, lowercaseViewName2));
+        assertQueryFails("SELECT * FROM " + renamedViewName1, ".*'iceberg.%s.%s' does not exist".formatted(SCHEMA, renamedViewName1));
+        assertQueryFails("SELECT * FROM " + viewName2, ".*'iceberg.%s.%s' does not exist".formatted(SCHEMA, viewName2));
     }
 
     private String getColumnComment(String tableName, String columnName)

@@ -48,6 +48,12 @@ public class TestDeltaLakeDelete
                 .build();
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testTargetedDeleteWhenTableIsPartitionedWithColumnContainingSpecialCharacters()
     {
@@ -70,9 +76,9 @@ public class TestDeltaLakeDelete
     public void testTargetedDelete()
     {
         String tableName = "test_targeted_delete";
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.orders", "SELECT count(*) FROM orders");
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.orders", "SELECT count(*) FROM \"orders\"");
         assertUpdate("DELETE FROM " + tableName + " WHERE orderkey = 60000", "VALUES 1");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders WHERE orderkey != 60000");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM \"orders\" WHERE \"orderkey\" != 60000");
     }
 
     @Test
@@ -96,9 +102,9 @@ public class TestDeltaLakeDelete
         hiveMinioDataLake.copyResources(resourcePath + "/lineitem", tableName);
         getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', 's3://%s/%s')", tableName, bucketName, tableName));
 
-        assertQuery("SELECT count(*) FROM " + tableName, "SELECT count(*) FROM lineitem");
-        assertUpdate("DELETE FROM " + tableName + " WHERE partkey % 2 = 0", "SELECT count(*) FROM lineitem WHERE partkey % 2 = 0");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM lineitem WHERE partkey % 2 = 1");
+        assertQuery("SELECT count(*) FROM " + tableName, "SELECT count(*) FROM \"lineitem\"");
+        assertUpdate("DELETE FROM " + tableName + " WHERE partkey % 2 = 0", "SELECT count(*) FROM \"lineitem\" WHERE \"partkey\" % 2 = 0");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM \"lineitem\" WHERE \"partkey\" % 2 = 1");
     }
 
     @Test
@@ -172,7 +178,7 @@ public class TestDeltaLakeDelete
         hiveMinioDataLake.copyResources("io/trino/plugin/deltalake/testing/resources/ossdeltalake/customer", tableName);
         Set<String> originalFiles = ImmutableSet.copyOf(hiveMinioDataLake.listFiles(tableName));
         getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', 's3://%s/%s')", tableName, bucketName, tableName));
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM customer");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM \"customer\"");
         // There are `add` files in the transaction log without stats, reason why the DELETE statement on the whole table
         // performed on the basis of metadata does not return the number of deleted records
         assertUpdate("DELETE FROM " + tableName);
@@ -189,8 +195,8 @@ public class TestDeltaLakeDelete
         hiveMinioDataLake.copyResources(resourcePath + "/customer", tableName);
         Set<String> originalFiles = ImmutableSet.copyOf(hiveMinioDataLake.listFiles(tableName));
         getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', 's3://%s/%s')", tableName, bucketName, tableName));
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM customer");
-        assertUpdate("DELETE FROM " + tableName, "SELECT count(*) FROM customer");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM \"customer\"");
+        assertUpdate("DELETE FROM " + tableName, "SELECT count(*) FROM \"customer\"");
         assertQuery("SELECT count(*) FROM " + tableName, "VALUES 0");
         return originalFiles;
     }
@@ -233,8 +239,8 @@ public class TestDeltaLakeDelete
                         "CREATE TABLE " + tableName + " WITH (partitioned_by = ARRAY['regionkey']) " +
                         "AS SELECT nationkey, regionkey FROM tpch.tiny.nation",
                 25);
-        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey = 4 AND nationkey < 100", "SELECT count(*) FROM nation WHERE regionkey = 4 AND nationkey < 100");
-        assertQuery("SELECT * FROM " + tableName, "SELECT nationkey, regionkey FROM nation WHERE regionkey != 4 OR nationkey >= 100");
+        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey = 4 AND nationkey < 100", "SELECT count(*) FROM \"nation\" WHERE \"regionkey\" = 4 AND \"nationkey\" < 100");
+        assertQuery("SELECT * FROM " + tableName, "SELECT \"nationkey\", \"regionkey\" FROM \"nation\" WHERE \"regionkey\" != 4 OR \"nationkey\" >= 100");
     }
 
     @Test

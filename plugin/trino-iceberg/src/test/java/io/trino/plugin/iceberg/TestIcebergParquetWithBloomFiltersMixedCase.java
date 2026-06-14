@@ -71,6 +71,12 @@ public class TestIcebergParquetWithBloomFiltersMixedCase
     }
 
     @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     protected CatalogSchemaTableName createParquetTableWithBloomFilter(String columnName, List<Integer> testValues)
     {
         minio.copyResources("iceberg/mixed_case_bloom_filter", BUCKET_NAME, "mixed_case_bloom_filter");
@@ -81,7 +87,11 @@ public class TestIcebergParquetWithBloomFiltersMixedCase
                 format("s3://%s/mixed_case_bloom_filter", BUCKET_NAME)));
 
         CatalogSchemaTableName catalogSchemaTableName = new CatalogSchemaTableName("iceberg", new SchemaTableName("tpch", tableName));
-        assertUpdate(format("INSERT INTO %s SELECT * FROM (VALUES %s) t(%s)", catalogSchemaTableName, Joiner.on(", ").join(testValues), columnName), testValues.size());
+        assertUpdate("INSERT INTO %s SELECT * FROM (VALUES %s) t(\"%s\")".formatted(
+                        catalogSchemaTableName,
+                        Joiner.on(", ").join(testValues),
+                        columnName),
+                testValues.size());
 
         checkTableProperties(tableName);
 

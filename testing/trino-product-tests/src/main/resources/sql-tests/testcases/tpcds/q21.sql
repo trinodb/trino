@@ -5,8 +5,8 @@ FROM
    SELECT
      "w_warehouse_name"
    , "i_item_id"
-   , "sum"((CASE WHEN (CAST("d_date" AS DATE) < CAST('2000-03-11' AS DATE)) THEN "inv_quantity_on_hand" ELSE 0 END)) "inv_before"
-   , "sum"((CASE WHEN (CAST("d_date" AS DATE) >= CAST('2000-03-11' AS DATE)) THEN "inv_quantity_on_hand" ELSE 0 END)) "inv_after"
+   , sum((CASE WHEN (CAST("d_date" AS DATE) < CAST('2000-03-11' AS DATE)) THEN "inv_quantity_on_hand" ELSE 0 END)) "inv_before"
+   , sum((CASE WHEN (CAST("d_date" AS DATE) >= CAST('2000-03-11' AS DATE)) THEN "inv_quantity_on_hand" ELSE 0 END)) "inv_after"
    FROM
      inventory
    , warehouse

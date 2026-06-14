@@ -4,7 +4,7 @@ WITH
      "substr"("i_item_desc", 1, 30) "itemdesc"
    , "i_item_sk" "item_sk"
    , "d_date" "solddate"
-   , "count"(*) "cnt"
+   , count(*) "cnt"
    FROM
      ${database}.${schema}.store_sales
    , ${database}.${schema}.date_dim
@@ -13,7 +13,7 @@ WITH
       AND ("ss_item_sk" = "i_item_sk")
       AND ("d_year" IN (2000   , (2000 + 1)   , (2000 + 2)   , (2000 + 3)))
    GROUP BY "substr"("i_item_desc", 1, 30), "i_item_sk", "d_date"
-   HAVING ("count"(*) > 4)
+   HAVING (count(*) > 4)
 ) 
 , max_store_sales AS (
    SELECT "max"("csales") "tpcds_cmax"
@@ -21,7 +21,7 @@ WITH
      (
       SELECT
         "c_customer_sk"
-      , "sum"(("ss_quantity" * "ss_sales_price")) "csales"
+      , sum(("ss_quantity" * "ss_sales_price")) "csales"
       FROM
         ${database}.${schema}.store_sales
       , ${database}.${schema}.customer
@@ -35,19 +35,19 @@ WITH
 , best_ss_customer AS (
    SELECT
      "c_customer_sk"
-   , "sum"(("ss_quantity" * "ss_sales_price")) "ssales"
+   , sum(("ss_quantity" * "ss_sales_price")) "ssales"
    FROM
      ${database}.${schema}.store_sales
    , ${database}.${schema}.customer
    WHERE ("ss_customer_sk" = "c_customer_sk")
    GROUP BY "c_customer_sk"
-   HAVING ("sum"(("ss_quantity" * "ss_sales_price")) > ((50 / DECIMAL '100.0') * (
+   HAVING (sum(("ss_quantity" * "ss_sales_price")) > ((50 / DECIMAL '100.0') * (
             SELECT *
             FROM
               max_store_sales
          )))
 ) 
-SELECT "sum"("sales")
+SELECT sum("sales")
 FROM
   (
    SELECT ("cs_quantity" * "cs_list_price") "sales"

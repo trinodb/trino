@@ -21,6 +21,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ResourceLock;
 
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.DATA_SHEET_ID;
+import static java.util.Locale.ENGLISH;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @Execution(SAME_THREAD)
@@ -35,6 +36,12 @@ public class TestGoogleSheetsWithoutMetadataSheetId
         return SheetsQueryRunner.builder()
                 .addConnectorProperty("gsheets.read-timeout", "1m")
                 .build();
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
     }
 
     @Test

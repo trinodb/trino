@@ -35,7 +35,7 @@ public final class IcebergTableName
     static {
         String referencableTableTypes = Stream.of(TableType.values())
                 .filter(tableType -> tableType != DATA)
-                .map(tableType -> tableType.name().toLowerCase(ENGLISH))
+                .map(tableType -> tableType.name())
                 .collect(Collectors.joining("|"));
         TABLE_PATTERN = Pattern.compile("" +
                 "(?<table>[^$@]+)" +

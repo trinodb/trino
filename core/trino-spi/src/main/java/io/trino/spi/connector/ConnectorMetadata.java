@@ -77,13 +77,7 @@ public interface ConnectorMetadata
      */
     default boolean schemaExists(ConnectorSession session, String schemaName)
     {
-        if (!schemaName.equals(schemaName.toLowerCase(ENGLISH))) {
-            // Currently, Trino schemas are always lowercase, so this one cannot exist (https://github.com/trinodb/trino/issues/17)
-            return false;
-        }
         return listSchemaNames(session).stream()
-                // Lower-casing is done by callers of listSchemaNames (see MetadataManager)
-                .map(schema -> schema.toLowerCase(ENGLISH))
                 .anyMatch(schemaName::equals);
     }
 
@@ -1866,5 +1860,45 @@ public interface ConnectorMetadata
     default Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableFunctionHandle tableFunctionHandle)
     {
         return Optional.empty();
+    }
+
+    /**
+     * Canonicalizes the provided SQL identifier according to connector-specific rules
+     * for the purpose of providing the name in metadata APIs
+     */
+    // FIXME: the default canonicalizer is used by the JdbcPlugin (ie: H2 database)
+    default String canonicalize(String value)
+    {
+        return value.toUpperCase(ENGLISH);
+    }
+
+    default String canonicalize(String value, boolean delimited)
+    {
+        return delimited ? value : canonicalize(value);
+    }
+
+    default String compare(String value)
+    {
+        return value;
+    }
+
+    default String compareSchema(String value)
+    {
+        return value;
+    }
+
+    default String compareTable(String value)
+    {
+        return value;
+    }
+
+    default String compareColumn(String value)
+    {
+        return value;
+    }
+
+    default boolean predicate(String value)
+    {
+        return !value.equals(canonicalize(value));
     }
 }

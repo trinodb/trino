@@ -28,6 +28,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.CatalogFunctionMetadata;
 import io.trino.metadata.FunctionResolver;
 import io.trino.metadata.LanguageFunctionAnalysisException;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.FormatFunction;
@@ -148,6 +149,7 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.QueryColumn;
 import io.trino.sql.tree.RangeQuantifier;
+import io.trino.sql.tree.Resolver;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SearchedCaseExpression;
@@ -720,6 +722,8 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitRow(Row node, Context context)
         {
+            // FIXME: Does Row fields need to use now identifier canonicalized value?
+            //        Function<Identifier, String> canonicalizer = context.getScope()::canonicalize;
             List<RowType.Field> fields = node.getFields().stream()
                     .map(field -> new RowType.Field(
                             field.getName().map(Identifier::getCanonicalValue),
@@ -779,7 +783,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitIdentifier(Identifier node, Context context)
         {
-            ResolvedField resolvedField = context.getScope().resolveField(node, QualifiedName.of(node.getValue()));
+            ResolvedField resolvedField = context.getScope().resolveField(node, node);
 
             if (context.isPatternRecognition()) {
                 labels.put(NodeRef.of(node), Optional.empty());
@@ -831,7 +835,11 @@ public class ExpressionAnalyzer
                 throw semanticException(NOT_SUPPORTED, node, "<identifier>.* not allowed in this context");
             }
 
-            QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
+            // FIXME: query resolver will be used to resolve DereferenceExpression
+            Scope scope = context.getScope();
+            // System.out.println("ExpressionAnalyzer.visitDereferenceExpression() node: " + node + " - scope: " + scope.getResolver().map(r -> r.getCanonicalizerKind().name()).orElse("No resolver"));
+            Resolver resolver = plannerContext.getMetadata().getResolverManager().getQueryResolver(session, Optional.of(scope));
+            QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(resolver.getCanonicalizer(), node);
 
             // If this Dereference looks like column reference, try match it to column first.
             if (qualifiedName != null) {
@@ -865,7 +873,6 @@ public class ExpressionAnalyzer
                     throw missingAttributeException(node, qualifiedName);
                 }
 
-                Scope scope = context.getScope();
                 Optional<ResolvedField> resolvedField = scope.tryResolveField(node, qualifiedName);
                 if (resolvedField.isPresent()) {
                     return handleResolvedField(node, resolvedField.get(), context);
@@ -881,7 +888,8 @@ public class ExpressionAnalyzer
             }
 
             Identifier field = node.getField().orElseThrow();
-            String fieldName = field.getValue();
+            // FIXME: field will bee canonicalized
+            String fieldName = resolver.canonicalize(field);
 
             boolean foundFieldName = false;
             Type rowFieldType = null;
@@ -1327,15 +1335,19 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitFunctionCall(FunctionCall node, Context context)
         {
+            // System.out.println("ExpressionAnalyzer.visitFunctionCall() 1 scope canonicalizer: " + getScopeInfo(context.getScope()));
+            // System.out.println("ExpressionAnalyzer.visitFunctionCall() 2 functionName: " + node.getName());
             // SQL:2023 6.3 Syntax Rule 2: a non-parenthesized value expression primary
             // of the form A.B(args) is treated as a method invocation if it satisfies
             // the rules for one; otherwise it is a routine invocation.
-            Optional<Type> asMethod = tryResolveAsInstanceMethod(node, context);
+            Optional<Type> asMethod = tryResolveAsInstanceMethod(node, context, node.getName());
             if (asMethod.isPresent()) {
                 return asMethod.get();
             }
 
+            // System.out.println("ExpressionAnalyzer.visitFunctionCall() 3");
             boolean isAggregation = functionResolver.isAggregationFunction(session, node.getName(), accessControl);
+            // System.out.println("ExpressionAnalyzer.visitFunctionCall() 4 isAggregation: " + isAggregation);
             boolean isRowPatternCount = context.isPatternRecognition() &&
                     isAggregation &&
                     node.getName().getSuffix().equalsIgnoreCase("count");
@@ -1418,7 +1430,7 @@ public class ExpressionAnalyzer
             // identity-binding of positional calls still indexes safely.
             boolean hasNamedArguments = node.hasNamedArguments();
             List<Integer> argumentBinding = hasNamedArguments
-                    ? computeArgumentBinding(node)
+                    ? computeArgumentBinding(node, node.getName())
                     : identityBinding(rawTypes.size());
             List<TypeSignatureProvider> argumentTypes = argumentBinding.stream()
                     .map(rawTypes::get)
@@ -1437,7 +1449,9 @@ public class ExpressionAnalyzer
 
             ResolvedFunction function;
             try {
+                // System.out.println("ExpressionAnalyzer.visitFunctionCall() 5");
                 function = functionResolver.resolveFunction(session, node.getName(), argumentTypes, accessControl);
+                // System.out.println("ExpressionAnalyzer.visitFunctionCall() 6");
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {
@@ -1497,8 +1511,33 @@ public class ExpressionAnalyzer
                 analyzePatternAggregation(node, function);
             }
 
+            //plannerContext.setResolver(session, catalog);
             Type type = signature.getReturnType();
             return setExpressionType(node, type);
+        }
+
+        private String getScopeInfo(Scope scope)
+        {
+            return scope.getResolver().map(r -> r.getCanonicalizerKind().name()).orElse("No Resolver");
+        }
+
+        private static QualifiedName resolveFunctionName(Session session, Node node, QualifiedName name, Metadata metadata, Scope scope)
+        {
+            Optional<String> catalog;
+            List<Identifier> parts = name.getOriginalParts();
+            switch (parts.size()) {
+                case 1 -> {
+                    catalog = session.getCatalog();
+                }
+                case 2 -> throw semanticException(NOT_SUPPORTED, node, "Function name must be unqualified or fully qualified with catalog and schema");
+                case 3 -> {
+                    catalog = Optional.of(parts.getFirst().getValue());
+                }
+                default -> throw semanticException(SYNTAX_ERROR, node, "Too many dots in function name: %s", name);
+            }
+            Resolver resolver = catalog.map(value -> metadata.getResolverManager().getResolver(session, value))
+                    .orElse(metadata.getResolverManager().getQueryResolver(session, Optional.of(scope)));
+            return QualifiedName.of(resolver.getCanonicalizer(), name);
         }
 
         /// Computes the binding from signature-position to AST argument index. Returns the
@@ -1510,7 +1549,7 @@ public class ExpressionAnalyzer
         //  inference engine. Doing it here means we walk the function search path twice —
         //  once for the binding, once for the type-based resolution. Lifting it into the
         //  binder is a much bigger change.
-        private List<Integer> computeArgumentBinding(FunctionCall node)
+        private List<Integer> computeArgumentBinding(FunctionCall node, QualifiedName functionName)
         {
             List<CallArgument> arguments = node.getArguments();
             int arity = arguments.size();
@@ -1563,7 +1602,7 @@ public class ExpressionAnalyzer
                                     name,
                                     "Named argument %s for function %s refers to parameter position %s, which is already supplied positionally",
                                     name.getValue(),
-                                    node.getName(),
+                                    functionName,
                                     declaredPosition.getAsInt());
                         }
                     }
@@ -1656,9 +1695,8 @@ public class ExpressionAnalyzer
             return result.build();
         }
 
-        private Optional<Type> tryResolveAsInstanceMethod(FunctionCall node, Context context)
+        private Optional<Type> tryResolveAsInstanceMethod(FunctionCall node, Context context, QualifiedName name)
         {
-            QualifiedName name = node.getName();
             if (name.getParts().size() != 2) {
                 return Optional.empty();
             }
@@ -1884,6 +1922,7 @@ public class ExpressionAnalyzer
                     if (frame.getStart().getType() != CURRENT_ROW || frame.getEnd().isEmpty()) {
                         throw semanticException(INVALID_WINDOW_FRAME, frame, "Pattern recognition requires frame specified as BETWEEN CURRENT ROW AND ...");
                     }
+                    Resolver resolver = plannerContext.getMetadata().getResolverManager().getQueryResolver(session, Optional.of(context.getScope()));
                     PatternRecognitionAnalysis analysis = PatternRecognitionAnalyzer.analyze(
                             frame.getSubsets(),
                             frame.getVariableDefinitions(),
@@ -1893,14 +1932,14 @@ public class ExpressionAnalyzer
 
                     frame.getAfterMatchSkipTo()
                             .flatMap(SkipTo::getIdentifier)
-                            .ifPresent(label -> resolvedLabels.put(NodeRef.of(label), label.getCanonicalValue()));
+                            .ifPresent(label -> resolvedLabels.put(NodeRef.of(label), resolver.canonicalize(label)));
 
                     for (SubsetDefinition subset : frame.getSubsets()) {
-                        resolvedLabels.put(NodeRef.of(subset.getName()), subset.getName().getCanonicalValue());
+                        resolvedLabels.put(NodeRef.of(subset.getName()), resolver.canonicalize(subset.getName()));
                         subsets.put(
                                 NodeRef.of(subset),
                                 subset.getIdentifiers().stream()
-                                        .map(Identifier::getCanonicalValue)
+                                        .map(resolver::canonicalize)
                                         .collect(Collectors.toSet()));
                     }
 
@@ -1913,7 +1952,7 @@ public class ExpressionAnalyzer
                     for (VariableDefinition variableDefinition : frame.getVariableDefinitions()) {
                         Expression expression = variableDefinition.getExpression();
                         Type type = analyze(expression, context.getScope(), analysis.allLabels(), true);
-                        resolvedLabels.put(NodeRef.of(variableDefinition.getName()), variableDefinition.getName().getCanonicalValue());
+                        resolvedLabels.put(NodeRef.of(variableDefinition.getName()), resolver.canonicalize(variableDefinition.getName()));
 
                         if (!type.equals(BOOLEAN)) {
                             throw semanticException(TYPE_MISMATCH, expression, "Expression defining a label must be boolean (actual type: %s)", type);
@@ -1922,7 +1961,7 @@ public class ExpressionAnalyzer
                     for (MeasureDefinition measureDefinition : frame.getMeasures()) {
                         Expression expression = measureDefinition.getExpression();
                         analyze(expression, context.getScope(), analysis.allLabels(), true);
-                        resolvedLabels.put(NodeRef.of(measureDefinition.getName()), measureDefinition.getName().getCanonicalValue());
+                        resolvedLabels.put(NodeRef.of(measureDefinition.getName()), resolver.canonicalize(measureDefinition.getName()));
                     }
 
                     // TODO prohibited nesting: pattern recognition in frame end expression(?)
@@ -2815,9 +2854,10 @@ public class ExpressionAnalyzer
                         .ifPresent(function -> {
                             throw semanticException(NOT_SUPPORTED, function, "IN-PREDICATE with %s function is not yet supported", function.getName().getSuffix());
                         });
+                Function<Identifier, String> canonicalizer = plannerContext.getMetadata().getResolverManager().getQueryResolver(session, Optional.of(context.getScope())).getCanonicalizer();
                 extractExpressions(ImmutableList.of(value), DereferenceExpression.class)
                         .forEach(dereference -> {
-                            QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(dereference);
+                            QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(canonicalizer, dereference);
                             if (qualifiedName != null) {
                                 String label = label(qualifiedName.getOriginalParts().getFirst());
                                 if (context.getPatternRecognitionContext().labels().contains(label)) {
@@ -3041,7 +3081,7 @@ public class ExpressionAnalyzer
                 fieldToLambdaArgumentDeclaration.putAll(context.getFieldToLambdaArgumentDeclaration());
             }
             for (LambdaArgumentDeclaration lambdaArgument : lambdaArguments) {
-                ResolvedField resolvedField = lambdaScope.resolveField(lambdaArgument, QualifiedName.of(lambdaArgument.getName().getValue()));
+                ResolvedField resolvedField = lambdaScope.resolveField(lambdaArgument, lambdaArgument.getName());
                 fieldToLambdaArgumentDeclaration.put(FieldId.from(resolvedField), lambdaArgument);
             }
 

@@ -42,6 +42,7 @@ import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.REGION;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class TestPostgreSqlJdbcConnectionCreation
@@ -83,6 +84,12 @@ public class TestPostgreSqlJdbcConnectionCreation
                 .build();
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
     private static ConnectionCountingConnectionFactory getConnectionCountingConnectionFactory(TestingPostgreSqlServer postgreSqlServer)
     {
         Properties connectionProperties = new Properties();
@@ -98,9 +105,9 @@ public class TestPostgreSqlJdbcConnectionCreation
     @Test
     public void testJdbcConnectionCreations()
     {
-        assertJdbcConnections("SELECT * FROM nation LIMIT 1", 3, Optional.empty());
-        assertJdbcConnections("SELECT * FROM nation ORDER BY nationkey LIMIT 1", 3, Optional.empty());
-        assertJdbcConnections("SELECT * FROM nation WHERE nationkey = 1", 3, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation LIMIT 1", 2, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation ORDER BY nationkey LIMIT 1", 2, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation WHERE nationkey = 1", 2, Optional.empty());
         assertJdbcConnections("SELECT avg(nationkey) FROM nation", 2, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation, region", 3, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation n, region r WHERE n.regionkey = r.regionkey", 3, Optional.empty());
@@ -118,7 +125,7 @@ public class TestPostgreSqlJdbcConnectionCreation
         assertJdbcConnections("SHOW SCHEMAS", 1, Optional.empty());
         assertJdbcConnections("SHOW TABLES", 1, Optional.empty());
         assertJdbcConnections("SHOW STATS FOR nation", 2, Optional.empty());
-        assertJdbcConnections("SELECT * FROM system.jdbc.columns WHERE table_cat = 'counting_postgresql'", 1, Optional.empty());
+        assertJdbcConnections("SELECT * FROM system.jdbc.columns WHERE \"TABLE_CAT\" = 'counting_postgresql'", 1, Optional.empty());
 
         testJdbcMergeConnectionCreations();
     }

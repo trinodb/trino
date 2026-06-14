@@ -42,7 +42,7 @@ public class TestMemoryTableStatistics
     public void testBasic()
     {
         assertQuery(
-                "SHOW STATS FOR nation",
+                "SHOW STATS FOR \"nation\"",
                 "VALUES " +
                         "('nationkey', null, null, null, null, null, null)," +
                         "('name', null, null, null, null, null, null)," +
@@ -54,7 +54,7 @@ public class TestMemoryTableStatistics
     @Test
     public void testEmptyTable()
     {
-        computeActual("CREATE TABLE empty_table AS TABLE nation WITH NO DATA");
+        computeActual("CREATE TABLE empty_table AS TABLE \"nation\" WITH NO DATA");
         assertQuery(
                 "SHOW STATS FOR empty_table",
                 "VALUES " +
@@ -68,7 +68,7 @@ public class TestMemoryTableStatistics
     @Test
     public void testView()
     {
-        computeActual("CREATE VIEW nation_view AS TABLE nation");
+        computeActual("CREATE VIEW nation_view AS TABLE \"nation\"");
         assertQuery(
                 "SHOW STATS FOR nation_view",
                 "VALUES " +
@@ -82,7 +82,7 @@ public class TestMemoryTableStatistics
     @Test
     public void testStatsWithLimitPushdown()
     {
-        String query = "SELECT * FROM nation LIMIT 3";
+        String query = "SELECT * FROM \"nation\" LIMIT 3";
         assertThat(query(query)).skipResultsCorrectnessCheckForPushdown().isFullyPushedDown();
 
         assertQuery(
@@ -108,7 +108,7 @@ public class TestMemoryTableStatistics
     @Test
     public void testStatsWithSamplePushdown()
     {
-        String query = "SELECT * FROM nation TABLESAMPLE SYSTEM (50)";
+        String query = "SELECT * FROM \"nation\" TABLESAMPLE SYSTEM (50)";
         assertThat(query(query)).skipResultsCorrectnessCheckForPushdown().isFullyPushedDown();
 
         assertQuery(

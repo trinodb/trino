@@ -140,7 +140,7 @@ final class TestExasolConnectorTest
         // - varchar instead of varchar(n) for columns orderstatus, orderpriority and comment
         // - double instead of decimal(10,2) for column totalprice
         // - integer instead of decimal(10,0) for column shippriority
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM \"orders\"");
         MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "decimal(19,0)", "", "")
                 .row("custkey", "decimal(19,0)", "", "")
@@ -171,7 +171,7 @@ final class TestExasolConnectorTest
                 .row("shippriority", "decimal(10,0)", "", "")
                 .row("comment", "varchar(79)", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
+        MaterializedResult actualColumns = computeActual("DESCRIBE \"orders\"");
         assertThat(actualColumns).isEqualTo(expectedColumns);
     }
 
@@ -182,20 +182,20 @@ final class TestExasolConnectorTest
         // Exasol reports bigint columns as decimal(19, 0) and integer as decimal(10, 0)
         String catalog = getSession().getCatalog().orElseThrow();
         String schema = getSession().getSchema().orElseThrow();
-        assertThat(computeScalar("SHOW CREATE TABLE orders"))
+        assertThat(computeScalar("SHOW CREATE TABLE \"orders\""))
                 // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
                 .isEqualTo(format(
                         """
-                        CREATE TABLE %s.%s.orders (
-                           orderkey decimal(19, 0),
-                           custkey decimal(19, 0),
-                           orderstatus varchar(1),
-                           totalprice decimal(10, 2),
-                           orderdate date,
-                           orderpriority varchar(15),
-                           clerk varchar(15),
-                           shippriority decimal(10, 0),
-                           comment varchar(79)
+                        CREATE TABLE %s.%s."orders" (
+                           "orderkey" decimal(19, 0),
+                           "custkey" decimal(19, 0),
+                           "orderstatus" varchar(1),
+                           "totalprice" decimal(10, 2),
+                           "orderdate" date,
+                           "orderpriority" varchar(15),
+                           "clerk" varchar(15),
+                           "shippriority" decimal(10, 0),
+                           "comment" varchar(79)
                         )\
                         """,
                         catalog,
@@ -206,15 +206,15 @@ final class TestExasolConnectorTest
     @Override
     public void testAggregationWithUnsupportedResultType()
     {
-        assertThat(query("SELECT array_agg(nationkey) FROM nation"))
+        assertThat(query("SELECT array_agg(\"nationkey\") FROM \"nation\""))
                 .skipResultsCorrectnessCheckForPushdown() // array_agg doesn't have a deterministic order of elements in result array
                 .isNotFullyPushedDown(AggregationNode.class);
-        assertThat(query("SELECT histogram(regionkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-        assertThat(query("SELECT multimap_agg(regionkey, nationkey) FROM nation"))
+        assertThat(query("SELECT histogram(\"regionkey\") FROM \"nation\"")).isNotFullyPushedDown(AggregationNode.class);
+        assertThat(query("SELECT multimap_agg(\"regionkey\", \"nationkey\") FROM \"nation\""))
                 .skipResultsCorrectnessCheckForPushdown() // multimap_agg doesn't have a deterministic order of values for a key
                 .isNotFullyPushedDown(AggregationNode.class);
         // Overridden because for approx_set(bigint) a ProjectNode is present above table scan because Exasol doesn't support bigint
-        assertThat(query("SELECT approx_set(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class, ProjectNode.class);
+        assertThat(query("SELECT approx_set(\"nationkey\") FROM \"nation\"")).isNotFullyPushedDown(AggregationNode.class, ProjectNode.class);
     }
 
     @Test
@@ -280,7 +280,7 @@ final class TestExasolConnectorTest
     public void testDateYearOfEraPredicate()
     {
         // Override because Exasol does not support negative dates
-        assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
+        assertQuery("SELECT \"orderdate\" FROM \"orders\" WHERE \"orderdate\" = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
     }
 
     @Test
@@ -289,10 +289,10 @@ final class TestExasolConnectorTest
     {
         // Exasol reports bigint columns as decimal(19,0)
         assertQuery(
-                "SELECT table_name FROM information_schema.tables WHERE table_name = 'orders' LIMIT 1",
+                "SELECT \"table_name\" FROM \"information_schema\".\"tables\" WHERE \"table_name\" = 'orders' LIMIT 1",
                 "SELECT 'orders' table_name");
         assertQuery(
-                "SELECT table_name FROM information_schema.columns WHERE data_type = 'decimal(19,0)' AND table_name = 'customer' AND column_name = 'custkey' LIMIT 1",
+                "SELECT \"table_name\" FROM \"information_schema\".\"columns\" WHERE \"data_type\" = 'decimal(19,0)' AND \"table_name\" = 'customer' AND \"column_name\" = 'custkey' LIMIT 1",
                 "SELECT 'customer' table_name");
     }
 
@@ -319,7 +319,7 @@ final class TestExasolConnectorTest
         try (TestTable testTable = createTableWithUnsupportedColumn()) {
             String unqualifiedTableName = testTable.getName().replaceAll("^\\w+\\.", "");
             // Check that column 'two' is not supported.
-            assertQuery("SELECT column_name FROM information_schema.columns WHERE table_name = '" + unqualifiedTableName + "'", "VALUES 'one', 'three'");
+            assertQuery("SELECT \"column_name\" FROM \"information_schema\".\"columns\" WHERE \"table_name\" = '" + canonicalize(unqualifiedTableName) + "'", "VALUES 'ONE', 'THREE'");
         }
     }
 
@@ -329,7 +329,7 @@ final class TestExasolConnectorTest
         String longInClauses = range(0, 10)
                 .mapToObj(value -> getLongInClause(value * 1_000, 1_000))
                 .collect(joining(" OR "));
-        onRemoteDatabase().execute(format("SELECT count(*) FROM %s.orders WHERE %s", TEST_SCHEMA, longInClauses));
+        onRemoteDatabase().execute(format("SELECT count(*) FROM %s.\"orders\" WHERE %s", TEST_SCHEMA, longInClauses));
     }
 
     private static String getLongInClause(int start, int length)
@@ -337,7 +337,7 @@ final class TestExasolConnectorTest
         String longValues = range(start, start + length)
                 .mapToObj(Integer::toString)
                 .collect(joining(", "));
-        return "orderkey IN (" + longValues + ")";
+        return "\"orderkey\" IN (" + longValues + ")";
     }
 
     @Test
@@ -356,22 +356,23 @@ final class TestExasolConnectorTest
         String tableName = "test_execute" + randomNameSuffix();
         String schemaTableName = getSession().getSchema().orElseThrow() + "." + tableName;
 
-        assertUpdate("CALL system.execute('CREATE TABLE " + schemaTableName + "(a int)')");
+        assertUpdate("CALL \"system\".\"execute\"('CREATE TABLE " + schemaTableName + "(a int)')");
         try {
-            assertUpdate("CALL system.execute('INSERT INTO " + schemaTableName + " VALUES (1)')");
+            assertUpdate("CALL \"system\".\"execute\"('INSERT INTO " + schemaTableName + " VALUES (1)')");
             assertQuery("SELECT * FROM " + schemaTableName, "VALUES 1");
 
-            assertUpdate("CALL system.execute('UPDATE " + schemaTableName + " SET a = 2')");
+            assertUpdate("CALL \"system\".\"execute\"('UPDATE " + schemaTableName + " SET a = 2')");
             assertQuery("SELECT * FROM " + schemaTableName, "VALUES 2");
 
-            assertUpdate("CALL system.execute('DELETE FROM " + schemaTableName + "')");
+            assertUpdate("CALL \"system\".\"execute\"('DELETE FROM " + schemaTableName + "')");
             assertQueryReturnsEmptyResult("SELECT * FROM " + schemaTableName);
 
-            assertUpdate("CALL system.execute('DROP TABLE " + schemaTableName + "')");
-            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+            assertThat(getQueryRunner().tableExists(getSession(), canonicalize(tableName))).isTrue();
+            assertUpdate("CALL \"system\".\"execute\"('DROP TABLE " + schemaTableName + "')");
+            assertThat(getQueryRunner().tableExists(getSession(), canonicalize(tableName))).isFalse();
         }
         finally {
-            assertUpdate("CALL system.execute('DROP TABLE IF EXISTS " + schemaTableName + "')");
+            assertUpdate("CALL \"system\".\"execute\"('DROP TABLE IF EXISTS " + schemaTableName + "')");
         }
     }
 
@@ -382,14 +383,14 @@ final class TestExasolConnectorTest
         String tableName = "test_execute" + randomNameSuffix();
         String schemaTableName = getSession().getSchema().orElseThrow() + "." + tableName;
 
-        assertUpdate("CALL system.execute('CREATE TABLE " + schemaTableName + "(a int)')");
+        assertUpdate("CALL \"system\".\"execute\"('CREATE TABLE " + schemaTableName + "(a int)')");
         try {
-            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
-            assertUpdate("CALL system.execute(query => 'DROP TABLE " + schemaTableName + "')");
-            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+            assertThat(getQueryRunner().tableExists(getSession(), canonicalize(tableName))).isTrue();
+            assertUpdate("CALL \"system\".\"execute\"(query => 'DROP TABLE " + schemaTableName + "')");
+            assertThat(getQueryRunner().tableExists(getSession(), canonicalize(tableName))).isFalse();
         }
         finally {
-            assertUpdate("CALL system.execute('DROP TABLE IF EXISTS " + schemaTableName + "')");
+            assertUpdate("CALL \"system\".\"execute\"('DROP TABLE IF EXISTS " + schemaTableName + "')");
         }
     }
 

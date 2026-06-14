@@ -33,10 +33,13 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Resolver;
 import io.trino.sql.tree.SetColumnType;
 
+import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -51,9 +54,9 @@ import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.tree.IdentifierKind.COLUMN;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class SetColumnTypeTask
@@ -85,7 +88,9 @@ public class SetColumnTypeTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName qualifiedObjectName = createQualifiedObjectName(session, statement, statement.getTableName());
+        QualifiedObjectName qualifiedObjectName = createQualifiedObjectName(session, statement, statement.getTableName(), metadata);
+        Resolver resolver = metadata.getResolverManager().getResolver(session, qualifiedObjectName.catalogName());
+
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, qualifiedObjectName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             String exceptionMessage = format("Table '%s' does not exist", qualifiedObjectName);
@@ -104,9 +109,11 @@ public class SetColumnTypeTask
         accessControl.checkCanAlterColumn(session.toSecurityContext(), redirectionAwareTableHandle.redirectedTableName().orElse(qualifiedObjectName));
 
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
-        String columnName = statement.getColumnName().getParts().get(0).toLowerCase(ENGLISH);
-        ColumnHandle column = columnHandles.get(columnName);
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle).entrySet().stream()
+                .map(entry -> new AbstractMap.SimpleEntry<>(resolver.compare(entry.getKey(), COLUMN), entry.getValue()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        String columnName = resolver.canonicalize(statement.getColumnName().getOriginalParts().getFirst());
+        ColumnHandle column = columnHandles.get(resolver.compare(columnName, COLUMN));
         if (column == null) {
             throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", statement.getColumnName());
         }
@@ -148,17 +155,20 @@ public class SetColumnTypeTask
     private static List<RowType.Field> getCandidates(Type type, String fieldName)
     {
         if (type instanceof ArrayType arrayType) {
-            if (!fieldName.equals("element")) {
+            // FIXME: fieldName must be compared case insensitive.
+            if (!fieldName.equalsIgnoreCase("element")) {
                 throw new TrinoException(NOT_SUPPORTED, "ARRAY type should be denoted by 'element' in the path; found '%s'".formatted(fieldName));
             }
             // return nameless Field to denote unwrapping of container
             return ImmutableList.of(RowType.field(arrayType.getElementType()));
         }
         if (type instanceof MapType mapType) {
-            if (fieldName.equals("key")) {
+            // FIXME: is fieldName must be compared case insensitive?
+            if (fieldName.equalsIgnoreCase("key")) {
                 return ImmutableList.of(RowType.field(mapType.getKeyType()));
             }
-            if (fieldName.equals("value")) {
+            // FIXME: is fieldName must be compared case insensitive?
+            if (fieldName.equalsIgnoreCase("value")) {
                 return ImmutableList.of(RowType.field(mapType.getValueType()));
             }
             throw new TrinoException(NOT_SUPPORTED, "MAP type should be denoted by 'key' or 'value' in the path; found '%s'".formatted(fieldName));

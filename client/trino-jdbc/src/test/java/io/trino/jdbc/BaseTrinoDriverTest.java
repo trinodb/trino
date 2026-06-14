@@ -74,6 +74,7 @@ import static io.trino.execution.QueryState.RUNNING;
 import static java.lang.Float.POSITIVE_INFINITY;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -126,10 +127,10 @@ public abstract class BaseTrinoDriverTest
     {
         try (Connection connection = createConnection("blackhole", "blackhole");
                 Statement statement = connection.createStatement()) {
-            assertThat(statement.executeUpdate("CREATE SCHEMA blackhole.blackhole")).isEqualTo(0);
-            assertThat(statement.executeUpdate("CREATE TABLE test_table (x bigint)")).isEqualTo(0);
+            assertThat(statement.executeUpdate("CREATE SCHEMA blackhole.\"blackhole\"")).isEqualTo(0);
+            assertThat(statement.executeUpdate("CREATE TABLE \"test_table\" (x bigint)")).isEqualTo(0);
 
-            assertThat(statement.executeUpdate("CREATE TABLE slow_test_table (x bigint) " +
+            assertThat(statement.executeUpdate("CREATE TABLE \"slow_test_table\" (x bigint) " +
                     "WITH (" +
                     "   split_count = 1, " +
                     "   pages_per_split = 1, " +
@@ -147,6 +148,11 @@ public abstract class BaseTrinoDriverTest
         executorService = null;
         server.close();
         server = null;
+    }
+
+    private String canonicalize(String value)
+    {
+        return value.toUpperCase(ENGLISH);
     }
 
     @Test
@@ -171,99 +177,99 @@ public abstract class BaseTrinoDriverTest
 
                     assertThat(metadata.getColumnCount()).isEqualTo(10);
 
-                    assertThat(metadata.getColumnLabel(1)).isEqualTo("_integer");
+                    assertThat(metadata.getColumnLabel(1)).isEqualTo(canonicalize("_integer"));
                     assertThat(metadata.getColumnType(1)).isEqualTo(Types.INTEGER);
 
-                    assertThat(metadata.getColumnLabel(2)).isEqualTo("_bigint");
+                    assertThat(metadata.getColumnLabel(2)).isEqualTo(canonicalize("_bigint"));
                     assertThat(metadata.getColumnType(2)).isEqualTo(Types.BIGINT);
 
-                    assertThat(metadata.getColumnLabel(3)).isEqualTo("_varchar");
+                    assertThat(metadata.getColumnLabel(3)).isEqualTo(canonicalize("_varchar"));
                     assertThat(metadata.getColumnType(3)).isEqualTo(Types.VARCHAR);
 
-                    assertThat(metadata.getColumnLabel(4)).isEqualTo("_double");
+                    assertThat(metadata.getColumnLabel(4)).isEqualTo(canonicalize("_double"));
                     assertThat(metadata.getColumnType(4)).isEqualTo(Types.DOUBLE);
 
-                    assertThat(metadata.getColumnLabel(5)).isEqualTo("_boolean");
+                    assertThat(metadata.getColumnLabel(5)).isEqualTo(canonicalize("_boolean"));
                     assertThat(metadata.getColumnType(5)).isEqualTo(Types.BOOLEAN);
 
-                    assertThat(metadata.getColumnLabel(6)).isEqualTo("_varbinary");
+                    assertThat(metadata.getColumnLabel(6)).isEqualTo(canonicalize("_varbinary"));
                     assertThat(metadata.getColumnType(6)).isEqualTo(Types.VARBINARY);
 
-                    assertThat(metadata.getColumnLabel(7)).isEqualTo("_decimal_short");
+                    assertThat(metadata.getColumnLabel(7)).isEqualTo(canonicalize("_decimal_short"));
                     assertThat(metadata.getColumnType(7)).isEqualTo(Types.DECIMAL);
 
-                    assertThat(metadata.getColumnLabel(8)).isEqualTo("_decimal_long");
+                    assertThat(metadata.getColumnLabel(8)).isEqualTo(canonicalize("_decimal_long"));
                     assertThat(metadata.getColumnType(8)).isEqualTo(Types.DECIMAL);
 
-                    assertThat(metadata.getColumnLabel(9)).isEqualTo("_hll");
+                    assertThat(metadata.getColumnLabel(9)).isEqualTo(canonicalize("_hll"));
                     assertThat(metadata.getColumnType(9)).isEqualTo(Types.JAVA_OBJECT);
 
-                    assertThat(metadata.getColumnLabel(10)).isEqualTo("_char");
+                    assertThat(metadata.getColumnLabel(10)).isEqualTo(canonicalize("_char"));
                     assertThat(metadata.getColumnType(10)).isEqualTo(Types.CHAR);
 
                     assertThat(rs.next()).isTrue();
 
                     assertThat(rs.getObject(1)).isEqualTo(123);
-                    assertThat(rs.getObject("_integer")).isEqualTo(123);
+                    assertThat(rs.getObject(canonicalize("_integer"))).isEqualTo(123);
                     assertThat(rs.getInt(1)).isEqualTo(123);
-                    assertThat(rs.getInt("_integer")).isEqualTo(123);
+                    assertThat(rs.getInt(canonicalize("_integer"))).isEqualTo(123);
                     assertThat(rs.getLong(1)).isEqualTo(123L);
-                    assertThat(rs.getLong("_integer")).isEqualTo(123L);
+                    assertThat(rs.getLong(canonicalize("_integer"))).isEqualTo(123L);
 
                     assertThat(rs.getObject(2)).isEqualTo(12300000000L);
-                    assertThat(rs.getObject("_bigint")).isEqualTo(12300000000L);
+                    assertThat(rs.getObject(canonicalize("_bigint"))).isEqualTo(12300000000L);
                     assertThat(rs.getLong(2)).isEqualTo(12300000000L);
-                    assertThat(rs.getLong("_bigint")).isEqualTo(12300000000L);
+                    assertThat(rs.getLong(canonicalize("_bigint"))).isEqualTo(12300000000L);
 
                     assertThat(rs.getObject(3)).isEqualTo("foo");
-                    assertThat(rs.getObject("_varchar")).isEqualTo("foo");
+                    assertThat(rs.getObject(canonicalize("_varchar"))).isEqualTo("foo");
                     assertThat(rs.getString(3)).isEqualTo("foo");
-                    assertThat(rs.getString("_varchar")).isEqualTo("foo");
+                    assertThat(rs.getString(canonicalize("_varchar"))).isEqualTo("foo");
 
                     assertThat(rs.getObject(4)).isEqualTo(0.1);
-                    assertThat(rs.getObject("_double")).isEqualTo(0.1);
+                    assertThat(rs.getObject(canonicalize("_double"))).isEqualTo(0.1);
                     assertThat(rs.getDouble(4)).isEqualTo(0.1);
-                    assertThat(rs.getDouble("_double")).isEqualTo(0.1);
+                    assertThat(rs.getDouble(canonicalize("_double"))).isEqualTo(0.1);
 
                     assertThat(rs.getObject(5)).isEqualTo(true);
-                    assertThat(rs.getObject("_boolean")).isEqualTo(true);
+                    assertThat(rs.getObject(canonicalize("_boolean"))).isEqualTo(true);
                     assertThat(rs.getBoolean(5)).isEqualTo(true);
-                    assertThat(rs.getBoolean("_boolean")).isEqualTo(true);
-                    assertThat(rs.getByte("_boolean")).isEqualTo((byte) 1);
-                    assertThat(rs.getShort("_boolean")).isEqualTo((short) 1);
-                    assertThat(rs.getInt("_boolean")).isEqualTo(1);
-                    assertThat(rs.getLong("_boolean")).isEqualTo(1L);
-                    assertThat(rs.getFloat("_boolean")).isEqualTo(1.0f);
-                    assertThat(rs.getDouble("_boolean")).isEqualTo(1.0);
+                    assertThat(rs.getBoolean(canonicalize("_boolean"))).isEqualTo(true);
+                    assertThat(rs.getByte(canonicalize("_boolean"))).isEqualTo((byte) 1);
+                    assertThat(rs.getShort(canonicalize("_boolean"))).isEqualTo((short) 1);
+                    assertThat(rs.getInt(canonicalize("_boolean"))).isEqualTo(1);
+                    assertThat(rs.getLong(canonicalize("_boolean"))).isEqualTo(1L);
+                    assertThat(rs.getFloat(canonicalize("_boolean"))).isEqualTo(1.0f);
+                    assertThat(rs.getDouble(canonicalize("_boolean"))).isEqualTo(1.0);
 
                     assertThat(rs.getObject(6)).isEqualTo("hello".getBytes(UTF_8));
-                    assertThat(rs.getObject("_varbinary")).isEqualTo("hello".getBytes(UTF_8));
+                    assertThat(rs.getObject(canonicalize("_varbinary"))).isEqualTo("hello".getBytes(UTF_8));
                     assertThat(rs.getBytes(6)).isEqualTo("hello".getBytes(UTF_8));
-                    assertThat(rs.getBytes("_varbinary")).isEqualTo("hello".getBytes(UTF_8));
+                    assertThat(rs.getBytes(canonicalize("_varbinary"))).isEqualTo("hello".getBytes(UTF_8));
 
                     assertThat(rs.getObject(7)).isEqualTo(new BigDecimal("1234567890.1234567"));
-                    assertThat(rs.getObject("_decimal_short")).isEqualTo(new BigDecimal("1234567890.1234567"));
+                    assertThat(rs.getObject(canonicalize("_decimal_short"))).isEqualTo(new BigDecimal("1234567890.1234567"));
                     assertThat(rs.getBigDecimal(7)).isEqualTo(new BigDecimal("1234567890.1234567"));
-                    assertThat(rs.getBigDecimal("_decimal_short")).isEqualTo(new BigDecimal("1234567890.1234567"));
+                    assertThat(rs.getBigDecimal(canonicalize("_decimal_short"))).isEqualTo(new BigDecimal("1234567890.1234567"));
                     assertThat(rs.getBigDecimal(7, 1)).isEqualTo(new BigDecimal("1234567890.1"));
-                    assertThat(rs.getBigDecimal("_decimal_short", 1)).isEqualTo(new BigDecimal("1234567890.1"));
+                    assertThat(rs.getBigDecimal(canonicalize("_decimal_short"), 1)).isEqualTo(new BigDecimal("1234567890.1"));
 
                     assertThat(rs.getObject(8)).isEqualTo(new BigDecimal(".12345678901234567890123456789012345678"));
-                    assertThat(rs.getObject("_decimal_long")).isEqualTo(new BigDecimal(".12345678901234567890123456789012345678"));
+                    assertThat(rs.getObject(canonicalize("_decimal_long"))).isEqualTo(new BigDecimal(".12345678901234567890123456789012345678"));
                     assertThat(rs.getBigDecimal(8)).isEqualTo(new BigDecimal(".12345678901234567890123456789012345678"));
-                    assertThat(rs.getBigDecimal("_decimal_long")).isEqualTo(new BigDecimal(".12345678901234567890123456789012345678"));
+                    assertThat(rs.getBigDecimal(canonicalize("_decimal_long"))).isEqualTo(new BigDecimal(".12345678901234567890123456789012345678"));
                     assertThat(rs.getBigDecimal(8, 6)).isEqualTo(new BigDecimal(".123457"));
-                    assertThat(rs.getBigDecimal("_decimal_long", 6)).isEqualTo(new BigDecimal(".123457"));
+                    assertThat(rs.getBigDecimal(canonicalize("_decimal_long"), 6)).isEqualTo(new BigDecimal(".123457"));
 
                     assertThat(rs.getObject(9)).isInstanceOf(byte[].class);
-                    assertThat(rs.getObject("_hll")).isInstanceOf(byte[].class);
+                    assertThat(rs.getObject(canonicalize("_hll"))).isInstanceOf(byte[].class);
                     assertThat(rs.getBytes(9)).isInstanceOf(byte[].class);
-                    assertThat(rs.getBytes("_hll")).isInstanceOf(byte[].class);
+                    assertThat(rs.getBytes(canonicalize("_hll"))).isInstanceOf(byte[].class);
 
                     assertThat(rs.getObject(10)).isEqualTo("foo  ");
-                    assertThat(rs.getObject("_char")).isEqualTo("foo  ");
+                    assertThat(rs.getObject(canonicalize("_char"))).isEqualTo("foo  ");
                     assertThat(rs.getString(10)).isEqualTo("foo  ");
-                    assertThat(rs.getString("_char")).isEqualTo("foo  ");
+                    assertThat(rs.getString(canonicalize("_char"))).isEqualTo("foo  ");
 
                     assertThat(rs.next()).isFalse();
                 }
@@ -295,70 +301,70 @@ public abstract class BaseTrinoDriverTest
                     assertThat(rs.getTime(1)).isEqualTo(new Time(new DateTime(1970, 1, 1, 3, 4, 5).getMillis()));
                     assertThat(rs.getTime(1, ASIA_ORAL_CALENDAR)).isEqualTo(new Time(new DateTime(1970, 1, 1, 3, 4, 5, ASIA_ORAL_ZONE).getMillis()));
                     assertThat(rs.getObject(1)).isEqualTo(new Time(new DateTime(1970, 1, 1, 3, 4, 5).getMillis()));
-                    assertThat(rs.getTime("a")).isEqualTo(new Time(new DateTime(1970, 1, 1, 3, 4, 5).getMillis()));
-                    assertThat(rs.getTime("a", ASIA_ORAL_CALENDAR)).isEqualTo(new Time(new DateTime(1970, 1, 1, 3, 4, 5, ASIA_ORAL_ZONE).getMillis()));
-                    assertThat(rs.getObject("a")).isEqualTo(new Time(new DateTime(1970, 1, 1, 3, 4, 5).getMillis()));
+                    assertThat(rs.getTime(canonicalize("a"))).isEqualTo(new Time(new DateTime(1970, 1, 1, 3, 4, 5).getMillis()));
+                    assertThat(rs.getTime(canonicalize("a"), ASIA_ORAL_CALENDAR)).isEqualTo(new Time(new DateTime(1970, 1, 1, 3, 4, 5, ASIA_ORAL_ZONE).getMillis()));
+                    assertThat(rs.getObject(canonicalize("a"))).isEqualTo(new Time(new DateTime(1970, 1, 1, 3, 4, 5).getMillis()));
 
                     assertThat(rs.getTime(2)).isEqualTo(new Time(new DateTime(1970, 1, 1, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
                     assertThat(rs.getTime(2, ASIA_ORAL_CALENDAR)).isEqualTo(new Time(new DateTime(1970, 1, 1, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
                     assertThat(rs.getObject(2)).isEqualTo(new Time(new DateTime(1970, 1, 1, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
-                    assertThat(rs.getTime("b")).isEqualTo(new Time(new DateTime(1970, 1, 1, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
-                    assertThat(rs.getTime("b", ASIA_ORAL_CALENDAR)).isEqualTo(new Time(new DateTime(1970, 1, 1, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
-                    assertThat(rs.getObject("b")).isEqualTo(new Time(new DateTime(1970, 1, 1, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
+                    assertThat(rs.getTime(canonicalize("b"))).isEqualTo(new Time(new DateTime(1970, 1, 1, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
+                    assertThat(rs.getTime(canonicalize("b"), ASIA_ORAL_CALENDAR)).isEqualTo(new Time(new DateTime(1970, 1, 1, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
+                    assertThat(rs.getObject(canonicalize("b"))).isEqualTo(new Time(new DateTime(1970, 1, 1, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
 
                     assertThat(rs.getTime(3)).isEqualTo(new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forOffsetHoursMinutes(2, 0)).getMillis()));
                     assertThat(rs.getTime(3, ASIA_ORAL_CALENDAR)).isEqualTo(new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forOffsetHoursMinutes(2, 0)).getMillis()));
                     assertThat(rs.getObject(3)).isEqualTo(new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forOffsetHoursMinutes(2, 0)).getMillis()));
-                    assertThat(rs.getTime("c")).isEqualTo(new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forOffsetHoursMinutes(2, 0)).getMillis()));
-                    assertThat(rs.getTime("c", ASIA_ORAL_CALENDAR)).isEqualTo(new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forOffsetHoursMinutes(2, 0)).getMillis()));
-                    assertThat(rs.getObject("c")).isEqualTo(new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forOffsetHoursMinutes(2, 0)).getMillis()));
+                    assertThat(rs.getTime(canonicalize("c"))).isEqualTo(new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forOffsetHoursMinutes(2, 0)).getMillis()));
+                    assertThat(rs.getTime(canonicalize("c"), ASIA_ORAL_CALENDAR)).isEqualTo(new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forOffsetHoursMinutes(2, 0)).getMillis()));
+                    assertThat(rs.getObject(canonicalize("c"))).isEqualTo(new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forOffsetHoursMinutes(2, 0)).getMillis()));
 
                     assertThat(rs.getTimestamp(4)).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5).getMillis()));
                     assertThat(rs.getTimestamp(4, ASIA_ORAL_CALENDAR)).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, ASIA_ORAL_ZONE).getMillis()));
                     assertThat(rs.getObject(4)).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5).getMillis()));
-                    assertThat(rs.getTimestamp("d")).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5).getMillis()));
-                    assertThat(rs.getTimestamp("d", ASIA_ORAL_CALENDAR)).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, ASIA_ORAL_ZONE).getMillis()));
-                    assertThat(rs.getObject("d")).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5).getMillis()));
+                    assertThat(rs.getTimestamp(canonicalize("d"))).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5).getMillis()));
+                    assertThat(rs.getTimestamp(canonicalize("d"), ASIA_ORAL_CALENDAR)).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, ASIA_ORAL_ZONE).getMillis()));
+                    assertThat(rs.getObject(canonicalize("d"))).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5).getMillis()));
 
                     assertThat(rs.getTimestamp(5)).isEqualTo(new Timestamp(new DateTime(2004, 5, 6, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
                     assertThat(rs.getTimestamp(5, ASIA_ORAL_CALENDAR)).isEqualTo(new Timestamp(new DateTime(2004, 5, 6, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
                     assertThat(rs.getObject(5)).isEqualTo(new Timestamp(new DateTime(2004, 5, 6, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
                     assertThat(rs.getObject(5, ZonedDateTime.class)).isEqualTo(ZonedDateTime.of(2004, 5, 6, 6, 7, 8, 0, ZoneOffset.ofHoursMinutes(6, 17)));
-                    assertThat(rs.getTimestamp("e")).isEqualTo(new Timestamp(new DateTime(2004, 5, 6, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
-                    assertThat(rs.getTimestamp("e", ASIA_ORAL_CALENDAR)).isEqualTo(new Timestamp(new DateTime(2004, 5, 6, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
-                    assertThat(rs.getObject("e")).isEqualTo(new Timestamp(new DateTime(2004, 5, 6, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
-                    assertThat(rs.getObject("e", ZonedDateTime.class)).isEqualTo(ZonedDateTime.of(2004, 5, 6, 6, 7, 8, 0, ZoneOffset.ofHoursMinutes(6, 17)));
+                    assertThat(rs.getTimestamp(canonicalize("e"))).isEqualTo(new Timestamp(new DateTime(2004, 5, 6, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
+                    assertThat(rs.getTimestamp(canonicalize("e"), ASIA_ORAL_CALENDAR)).isEqualTo(new Timestamp(new DateTime(2004, 5, 6, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
+                    assertThat(rs.getObject(canonicalize("e"))).isEqualTo(new Timestamp(new DateTime(2004, 5, 6, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
+                    assertThat(rs.getObject(canonicalize("e"), ZonedDateTime.class)).isEqualTo(ZonedDateTime.of(2004, 5, 6, 6, 7, 8, 0, ZoneOffset.ofHoursMinutes(6, 17)));
 
                     assertThat(rs.getTimestamp(6)).isEqualTo(new Timestamp(new DateTime(2007, 8, 9, 9, 10, 11, DateTimeZone.forID("Europe/Berlin")).getMillis()));
                     assertThat(rs.getTimestamp(6, ASIA_ORAL_CALENDAR)).isEqualTo(new Timestamp(new DateTime(2007, 8, 9, 9, 10, 11, DateTimeZone.forID("Europe/Berlin")).getMillis()));
                     assertThat(rs.getObject(6)).isEqualTo(new Timestamp(new DateTime(2007, 8, 9, 9, 10, 11, DateTimeZone.forID("Europe/Berlin")).getMillis()));
                     assertThat(rs.getObject(6, ZonedDateTime.class)).isEqualTo(ZonedDateTime.of(2007, 8, 9, 9, 10, 11, 0, ZoneId.of("Europe/Berlin")));
-                    assertThat(rs.getTimestamp("f")).isEqualTo(new Timestamp(new DateTime(2007, 8, 9, 9, 10, 11, DateTimeZone.forID("Europe/Berlin")).getMillis()));
-                    assertThat(rs.getTimestamp("f", ASIA_ORAL_CALENDAR)).isEqualTo(new Timestamp(new DateTime(2007, 8, 9, 9, 10, 11, DateTimeZone.forID("Europe/Berlin")).getMillis()));
-                    assertThat(rs.getObject("f")).isEqualTo(new Timestamp(new DateTime(2007, 8, 9, 9, 10, 11, DateTimeZone.forID("Europe/Berlin")).getMillis()));
-                    assertThat(rs.getObject("f", ZonedDateTime.class)).isEqualTo(ZonedDateTime.of(2007, 8, 9, 9, 10, 11, 0, ZoneId.of("Europe/Berlin")));
+                    assertThat(rs.getTimestamp(canonicalize("f"))).isEqualTo(new Timestamp(new DateTime(2007, 8, 9, 9, 10, 11, DateTimeZone.forID("Europe/Berlin")).getMillis()));
+                    assertThat(rs.getTimestamp(canonicalize("f"), ASIA_ORAL_CALENDAR)).isEqualTo(new Timestamp(new DateTime(2007, 8, 9, 9, 10, 11, DateTimeZone.forID("Europe/Berlin")).getMillis()));
+                    assertThat(rs.getObject(canonicalize("f"))).isEqualTo(new Timestamp(new DateTime(2007, 8, 9, 9, 10, 11, DateTimeZone.forID("Europe/Berlin")).getMillis()));
+                    assertThat(rs.getObject(canonicalize("f"), ZonedDateTime.class)).isEqualTo(ZonedDateTime.of(2007, 8, 9, 9, 10, 11, 0, ZoneId.of("Europe/Berlin")));
 
                     assertThat(rs.getDate(7)).isEqualTo(new Date(new DateTime(2013, 3, 22, 0, 0).getMillis()));
                     assertThat(rs.getDate(7, ASIA_ORAL_CALENDAR)).isEqualTo(new Date(new DateTime(2013, 3, 22, 0, 0, ASIA_ORAL_ZONE).getMillis()));
                     assertThat(rs.getObject(7)).isEqualTo(new Date(new DateTime(2013, 3, 22, 0, 0).getMillis()));
-                    assertThat(rs.getDate("g")).isEqualTo(new Date(new DateTime(2013, 3, 22, 0, 0).getMillis()));
-                    assertThat(rs.getDate("g", ASIA_ORAL_CALENDAR)).isEqualTo(new Date(new DateTime(2013, 3, 22, 0, 0, ASIA_ORAL_ZONE).getMillis()));
-                    assertThat(rs.getObject("g")).isEqualTo(new Date(new DateTime(2013, 3, 22, 0, 0).getMillis()));
+                    assertThat(rs.getDate(canonicalize("g"))).isEqualTo(new Date(new DateTime(2013, 3, 22, 0, 0).getMillis()));
+                    assertThat(rs.getDate(canonicalize("g"), ASIA_ORAL_CALENDAR)).isEqualTo(new Date(new DateTime(2013, 3, 22, 0, 0, ASIA_ORAL_ZONE).getMillis()));
+                    assertThat(rs.getObject(canonicalize("g"))).isEqualTo(new Date(new DateTime(2013, 3, 22, 0, 0).getMillis()));
 
                     assertThat(rs.getObject(8)).isEqualTo(new TrinoIntervalYearMonth(123, 11));
-                    assertThat(rs.getObject("h")).isEqualTo(new TrinoIntervalYearMonth(123, 11));
+                    assertThat(rs.getObject(canonicalize("h"))).isEqualTo(new TrinoIntervalYearMonth(123, 11));
                     assertThat(rs.getObject(9)).isEqualTo(new TrinoIntervalDayTime(11, 22, 33, 44, 555));
-                    assertThat(rs.getObject("i")).isEqualTo(new TrinoIntervalDayTime(11, 22, 33, 44, 555));
+                    assertThat(rs.getObject(canonicalize("i"))).isEqualTo(new TrinoIntervalDayTime(11, 22, 33, 44, 555));
 
                     assertThat(rs.getFloat(10)).isEqualTo(123.45f);
                     assertThat(rs.getObject(10)).isEqualTo(123.45f);
-                    assertThat(rs.getFloat("j")).isEqualTo(123.45f);
-                    assertThat(rs.getObject("j")).isEqualTo(123.45f);
+                    assertThat(rs.getFloat(canonicalize("j"))).isEqualTo(123.45f);
+                    assertThat(rs.getObject(canonicalize("j"))).isEqualTo(123.45f);
 
                     assertThat(rs.getFloat(11)).isEqualTo(POSITIVE_INFINITY);
                     assertThat(rs.getObject(11)).isEqualTo(POSITIVE_INFINITY);
-                    assertThat(rs.getFloat("k")).isEqualTo(POSITIVE_INFINITY);
-                    assertThat(rs.getObject("k")).isEqualTo(POSITIVE_INFINITY);
+                    assertThat(rs.getFloat(canonicalize("k"))).isEqualTo(POSITIVE_INFINITY);
+                    assertThat(rs.getObject(canonicalize("k"))).isEqualTo(POSITIVE_INFINITY);
                     assertThat(rs.next()).isFalse();
                 }
             }
@@ -460,19 +466,19 @@ public abstract class BaseTrinoDriverTest
 
                 assertThat(rs.getLong(1)).isEqualTo(123);
                 assertThat(rs.wasNull()).isFalse();
-                assertThat(rs.getLong("x")).isEqualTo(123);
+                assertThat(rs.getLong(canonicalize("x"))).isEqualTo(123);
                 assertThat(rs.wasNull()).isFalse();
 
                 assertThat(rs.getLong(3)).isEqualTo(0);
                 assertThat(rs.wasNull()).isTrue();
-                assertThat(rs.getLong("z")).isEqualTo(0);
+                assertThat(rs.getLong(canonicalize("z"))).isEqualTo(0);
                 assertThat(rs.wasNull()).isTrue();
-                assertThat(rs.getObject("z")).isNull();
+                assertThat(rs.getObject(canonicalize("z"))).isNull();
                 assertThat(rs.wasNull()).isTrue();
 
                 assertThat(rs.getString(2)).isEqualTo("foo");
                 assertThat(rs.wasNull()).isFalse();
-                assertThat(rs.getString("y")).isEqualTo("foo");
+                assertThat(rs.getString(canonicalize("y"))).isEqualTo("foo");
                 assertThat(rs.wasNull()).isFalse();
 
                 assertThat(rs.next()).isFalse();
@@ -666,17 +672,17 @@ public abstract class BaseTrinoDriverTest
             try (Statement statement = connection.createStatement();
                     ResultSet rs = statement.executeQuery(sql)) {
                 assertThat(rs.next()).isTrue();
-                assertThat(rs.getString("zone")).isEqualTo(defaultZoneKey.getId());
-                assertThat(rs.getTimestamp("ts")).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
+                assertThat(rs.getString(canonicalize("zone"))).isEqualTo(defaultZoneKey.getId());
+                assertThat(rs.getTimestamp(canonicalize("ts"))).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
             }
 
             connection.unwrap(TrinoConnection.class).setTimeZoneId("UTC");
             try (Statement statement = connection.createStatement();
                     ResultSet rs = statement.executeQuery(sql)) {
                 assertThat(rs.next()).isTrue();
-                assertThat(rs.getString("zone")).isEqualTo("UTC");
+                assertThat(rs.getString(canonicalize("zone"))).isEqualTo("UTC");
                 // setting the session timezone has no effect on the interpretation of timestamps in the JDBC driver
-                assertThat(rs.getTimestamp("ts")).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
+                assertThat(rs.getTimestamp(canonicalize("ts"))).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
             }
         }
 
@@ -684,9 +690,9 @@ public abstract class BaseTrinoDriverTest
             try (Statement statement = connection.createStatement();
                     ResultSet rs = statement.executeQuery(sql)) {
                 assertThat(rs.next()).isTrue();
-                assertThat(rs.getString("zone")).isEqualTo("Asia/Kolkata");
+                assertThat(rs.getString(canonicalize("zone"))).isEqualTo("Asia/Kolkata");
                 // setting the session timezone has no effect on the interpretation of timestamps in the JDBC driver
-                assertThat(rs.getTimestamp("ts")).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
+                assertThat(rs.getTimestamp(canonicalize("ts"))).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
             }
         }
 
@@ -694,9 +700,9 @@ public abstract class BaseTrinoDriverTest
             try (Statement statement = connection.createStatement();
                     ResultSet rs = statement.executeQuery(sql)) {
                 assertThat(rs.next()).isTrue();
-                assertThat(rs.getString("zone")).isEqualTo("+05:30");
+                assertThat(rs.getString(canonicalize("zone"))).isEqualTo("+05:30");
                 // setting the session timezone has no effect on the interpretation of timestamps in the JDBC driver
-                assertThat(rs.getTimestamp("ts")).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
+                assertThat(rs.getTimestamp(canonicalize("ts"))).isEqualTo(new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
             }
         }
 
@@ -1200,7 +1206,7 @@ public abstract class BaseTrinoDriverTest
     private QueryState getQueryState(String queryId)
             throws SQLException
     {
-        String sql = format("SELECT state FROM system.runtime.queries WHERE query_id = '%s'", queryId);
+        String sql = format("SELECT state FROM system.runtime.queries WHERE \"query_id\" = '%s'", queryId);
         try (Connection connection = createConnection();
                 Statement statement = connection.createStatement();
                 ResultSet resultSet = statement.executeQuery(sql)) {

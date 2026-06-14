@@ -40,12 +40,18 @@ public class TestIcebergParquetWithBloomFilters
     }
 
     @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     protected CatalogSchemaTableName createParquetTableWithBloomFilter(String columnName, List<Integer> testValues)
     {
         // create the managed table
         String tableName = "parquet_with_bloom_filters_" + randomNameSuffix();
         CatalogSchemaTableName catalogSchemaTableName = new CatalogSchemaTableName("iceberg", new SchemaTableName("tpch", tableName));
-        assertUpdate(format("CREATE TABLE %s WITH (format = 'PARQUET', parquet_bloom_filter_columns = ARRAY['%s']) AS SELECT * FROM (VALUES %s) t(%s)", catalogSchemaTableName, columnName, Joiner.on(", ").join(testValues), columnName), testValues.size());
+        assertUpdate(format("CREATE TABLE %s WITH (format = 'PARQUET', parquet_bloom_filter_columns = ARRAY['%s']) AS SELECT * FROM (VALUES %s) t(\"%s\")", catalogSchemaTableName, columnName, Joiner.on(", ").join(testValues), columnName), testValues.size());
 
         return catalogSchemaTableName;
     }
@@ -54,9 +60,9 @@ public class TestIcebergParquetWithBloomFilters
     public void testBloomFilterPropertiesArePersistedDuringCreate()
     {
         String tableName = "test_metadata_write_properties_" + randomNameSuffix();
-        assertQuerySucceeds("CREATE TABLE " + tableName + " (A bigint, b bigint, c bigint) WITH (" +
+        assertQuerySucceeds("CREATE TABLE " + tableName + " (a bigint, b bigint, c bigint) WITH (" +
                 "format = 'parquet'," +
-                "parquet_bloom_filter_columns = array['a','B'])");
+                "parquet_bloom_filter_columns = array['a','b'])");
 
         verifyTableProperties(tableName);
     }
@@ -65,9 +71,9 @@ public class TestIcebergParquetWithBloomFilters
     void testBloomFilterPropertiesArePersistedDuringSetProperties()
     {
         String tableName = "test_metadata_write_properties_" + randomNameSuffix();
-        assertQuerySucceeds("CREATE TABLE " + tableName + "(A bigint, b bigint, c bigint)");
+        assertQuerySucceeds("CREATE TABLE " + tableName + "(a bigint, b bigint, c bigint)");
 
-        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES parquet_bloom_filter_columns = ARRAY['a','B']");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES parquet_bloom_filter_columns = ARRAY['a','b']");
         verifyTableProperties(tableName);
 
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES parquet_bloom_filter_columns = ARRAY['a']");
