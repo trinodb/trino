@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>382</version>
+        <version>387</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -184,7 +184,7 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>429</dep.airlift.version>
+        <dep.airlift.version>434</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.1</dep.avro.version>
@@ -201,7 +201,7 @@
         <dep.jsonwebtoken.version>0.13.0</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.netty.version>4.2.15.Final</dep.netty.version>
-        <dep.okhttp.version>5.3.2</dep.okhttp.version>
+        <dep.okhttp.version>5.4.0</dep.okhttp.version>
         <dep.okio.version>3.17.0</dep.okio.version>
         <dep.parquet.version>1.17.1</dep.parquet.version>
         <dep.protobuf.version>4.34.1</dep.protobuf.version>
@@ -383,7 +383,7 @@
             <dependency>
                 <groupId>com.fasterxml.woodstox</groupId>
                 <artifactId>woodstox-core</artifactId>
-                <version>7.1.1</version>
+                <version>7.2.1</version>
             </dependency>
 
             <dependency>
@@ -2147,6 +2147,12 @@
                 <groupId>org.codehaus.plexus</groupId>
                 <artifactId>plexus-xml</artifactId>
                 <version>4.1.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.codehaus.woodstox</groupId>
+                <artifactId>stax2-api</artifactId>
+                <version>4.3.0</version>
             </dependency>
 
             <dependency>
