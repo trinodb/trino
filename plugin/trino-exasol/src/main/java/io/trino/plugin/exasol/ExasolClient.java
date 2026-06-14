@@ -353,7 +353,7 @@ public class ExasolClient
     @Override
     public boolean isTopNGuaranteed(ConnectorSession session)
     {
-        return true;
+        return ExasolSessionProperties.getParallelImportWorkerCount(session) <= 1;
     }
 
     @Override
