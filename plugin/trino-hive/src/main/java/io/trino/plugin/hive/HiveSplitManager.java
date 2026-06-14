@@ -90,6 +90,7 @@ import static io.trino.plugin.hive.HiveStorageFormat.getHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getProtectMode;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyOnline;
+import static io.trino.plugin.hive.projection.PartitionProjectionProperties.shouldEnforceDirectory;
 import static io.trino.plugin.hive.util.HiveCoercionPolicy.canCoerce;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -272,7 +273,7 @@ public class HiveSplitManager
                 transactionalMetadata.getDirectoryLister(),
                 executor,
                 splitLoaderConcurrency,
-                recursiveDfsWalkerEnabled,
+                recursiveDfsWalkerEnabled || !shouldEnforceDirectory(table.getParameters()),
                 !hiveTable.getPartitionColumns().isEmpty() && isIgnoreAbsentPartitions(session),
                 metastore.getValidWriteIds(session, hiveTable)
                         .map(value -> value.getTableValidWriteIdList(table.getDatabaseName() + "." + table.getTableName())),

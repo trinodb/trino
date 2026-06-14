@@ -135,6 +135,11 @@ public abstract class AbstractTestTrinoFileSystem
         return true;
     }
 
+    protected boolean supportsPrefixListing()
+    {
+        return false;
+    }
+
     protected Location createLocation(String path)
     {
         if (path.isEmpty()) {
@@ -1333,6 +1338,48 @@ public abstract class AbstractTestTrinoFileSystem
     }
 
     @Test
+    public void testListFilesByPrefix()
+            throws IOException
+    {
+        try (Closer closer = Closer.create()) {
+            createBlob(closer, "data/bfc-adx-rtb-i-aaa/file1.csv");
+            createBlob(closer, "data/bfc-adx-rtb-i-bbb/file2.csv");
+            createBlob(closer, "data/bfc-nyc-rtb-i-ccc/file3.csv");
+            createBlob(closer, "data/other/file4.csv");
+
+            // directory-style prefix (trailing slash) works on all file system types
+            assertThat(listByPrefix("data/bfc-adx-rtb-i-aaa/")).containsExactly(
+                    createLocation("data/bfc-adx-rtb-i-aaa/file1.csv"));
+
+            assertThat(listByPrefix("data/other/")).containsExactly(
+                    createLocation("data/other/file4.csv"));
+
+            // equivalence with listFiles for slash-ending paths
+            assertThat(listByPrefix("data/")).containsExactlyInAnyOrderElementsOf(listPath("data/"));
+
+            // partial prefix (no trailing slash)
+            if (supportsPrefixListing()) {
+                assertThat(listByPrefix("data/bfc-adx-")).containsExactlyInAnyOrder(
+                        createLocation("data/bfc-adx-rtb-i-aaa/file1.csv"),
+                        createLocation("data/bfc-adx-rtb-i-bbb/file2.csv"));
+
+                assertThat(listByPrefix("data/bfc-nyc-")).containsExactly(
+                        createLocation("data/bfc-nyc-rtb-i-ccc/file3.csv"));
+
+                // non-matching prefix
+                assertThat(listByPrefix("data/xyz-")).isEmpty();
+            }
+            else {
+                // default fallback appends '/' so partial prefixes return empty
+                assertThat(listByPrefix("data/bfc-adx-")).isEmpty();
+            }
+
+            // empty prefix lists all files, same as listFiles with empty path
+            assertThat(listByPrefix("")).containsExactlyInAnyOrderElementsOf(listPath(""));
+        }
+    }
+
+    @Test
     public void testDirectoryExists()
             throws IOException
     {
@@ -1604,6 +1651,17 @@ public abstract class AbstractTestTrinoFileSystem
             Location location = fileEntry.location();
             assertThat(fileEntry.length()).isEqualTo(TEST_BLOB_CONTENT_PREFIX.length() + location.toString().length());
             locations.add(location);
+        }
+        return locations;
+    }
+
+    private List<Location> listByPrefix(String path)
+            throws IOException
+    {
+        List<Location> locations = new ArrayList<>();
+        FileIterator fileIterator = getFileSystem().listFilesByPrefix(createLocation(path));
+        while (fileIterator.hasNext()) {
+            locations.add(fileIterator.next().location());
         }
         return locations;
     }

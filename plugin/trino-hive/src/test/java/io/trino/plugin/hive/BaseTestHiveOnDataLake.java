@@ -1179,6 +1179,80 @@ abstract class BaseTestHiveOnDataLake
     }
 
     @Test
+    void testPartitionProjectionWithEnforceDirectoryDisabled()
+    {
+        String tableName = "partition_projection_enforce_directory_disabled_" + randomNameSuffix();
+        String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
+        String tablePath = format("%s/%s", HIVE_TEST_SCHEMA, tableName);
+
+        computeActual(
+                "CREATE TABLE " + fullyQualifiedTestTableName + " ( " +
+                        "  name varchar(25), " +
+                        "  comment varchar(152), " +
+                        "  dt DATE WITH (" +
+                        "    partition_projection_type='date', " +
+                        "    partition_projection_format='yyyy/MM/dd', " +
+                        "    partition_projection_range=ARRAY['2025/01/01', '2025/12/31'], " +
+                        "    partition_projection_interval=1, " +
+                        "    partition_projection_interval_unit='DAYS'" +
+                        "  ), " +
+                        "  line_type varchar(25) WITH (partition_projection_type='injected'), " +
+                        "  line_exchange varchar(25) WITH (partition_projection_type='injected') " +
+                        ") WITH ( " +
+                        "  partitioned_by=ARRAY['dt', 'line_type', 'line_exchange'], " +
+                        "  partition_projection_enabled=true, " +
+                        "  partition_projection_location_template='s3://" + bucketName + "/" + tablePath + "/${dt}/${line_type}-${line_exchange}-', " +
+                        "  partition_projection_enforce_directory=false, " +
+                        "  format='TEXTFILE')");
+
+        assertThat(
+                hiveMinioDataLake
+                        .runOnHive("SHOW TBLPROPERTIES " + getHiveTestTableName(tableName)))
+                .containsPattern("[ |]+projection\\.enabled[ |]+true[ |]+")
+                .containsPattern("[ |]+storage\\.location\\.template[ |]+.*\\$\\{dt\\}/\\$\\{line_type\\}-\\$\\{line_exchange\\}-[ |]+")
+                .containsPattern("[ |]+storage\\.location\\.enforce_directory[ |]+false[ |]+");
+
+        // Upload data with partial-prefix directory structure:
+        //   .../2025/01/15/bfc-adx-rtb-i-aaa/data.txt  (matches bfc + adx)
+        //   .../2025/01/15/bfc-adx-rtb-i-bbb/data.txt  (matches bfc + adx)
+        //   .../2025/01/15/bfc-apn-rtb-i-ccc/data.txt  (matches bfc + apn)
+        //   .../2025/01/15/bid-adx-rtb-i-ddd/data.txt  (matches bid + adx)
+        byte[] bfcAdxRow1 = "BFC_ADX_1\u0001row1".getBytes(UTF_8);
+        byte[] bfcAdxRow2 = "BFC_ADX_2\u0001row2".getBytes(UTF_8);
+        byte[] bfcApnRow = "BFC_APN_1\u0001row3".getBytes(UTF_8);
+        byte[] bidAdxRow = "BID_ADX_1\u0001row4".getBytes(UTF_8);
+
+        String basePath = tablePath + "/2025/01/15";
+        hiveMinioDataLake.getMinioClient().putObject(bucketName, bfcAdxRow1, basePath + "/bfc-adx-rtb-i-aaa/data.txt");
+        hiveMinioDataLake.getMinioClient().putObject(bucketName, bfcAdxRow2, basePath + "/bfc-adx-rtb-i-bbb/data.txt");
+        hiveMinioDataLake.getMinioClient().putObject(bucketName, bfcApnRow, basePath + "/bfc-apn-rtb-i-ccc/data.txt");
+        hiveMinioDataLake.getMinioClient().putObject(bucketName, bidAdxRow, basePath + "/bid-adx-rtb-i-ddd/data.txt");
+
+        // Prefix "bfc-adx-" should match bfc-adx-rtb-i-aaa and bfc-adx-rtb-i-bbb
+        assertQuery(
+                format("SELECT name FROM %s WHERE dt = DATE '2025-01-15' AND line_type = 'bfc' AND line_exchange = 'adx'", fullyQualifiedTestTableName),
+                "VALUES 'BFC_ADX_1', 'BFC_ADX_2'");
+
+        // Prefix "bfc-apn-" should match only bfc-apn-rtb-i-ccc
+        assertQuery(
+                format("SELECT name FROM %s WHERE dt = DATE '2025-01-15' AND line_type = 'bfc' AND line_exchange = 'apn'", fullyQualifiedTestTableName),
+                "VALUES 'BFC_APN_1'");
+
+        // Prefix "bid-adx-" should match only bid-adx-rtb-i-ddd
+        assertQuery(
+                format("SELECT name FROM %s WHERE dt = DATE '2025-01-15' AND line_type = 'bid' AND line_exchange = 'adx'", fullyQualifiedTestTableName),
+                "VALUES 'BID_ADX_1'");
+
+        // Non-matching prefix should return empty
+        assertQueryReturnsEmptyResult(
+                format("SELECT name FROM %s WHERE dt = DATE '2025-01-15' AND line_type = 'api' AND line_exchange = 'foo'", fullyQualifiedTestTableName));
+
+        // SHOW CREATE TABLE should round-trip the enforce_directory property
+        String showCreate = (String) computeScalar("SHOW CREATE TABLE " + fullyQualifiedTestTableName);
+        assertThat(showCreate).contains("partition_projection_enforce_directory = false");
+    }
+
+    @Test
     void testWriteNotSupportedWithCustomProjection()
     {
         String tableName = "partition_write_not_support_custom_" + randomNameSuffix();
