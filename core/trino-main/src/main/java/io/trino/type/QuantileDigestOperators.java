@@ -14,10 +14,13 @@
 package io.trino.type;
 
 import io.airlift.slice.Slice;
+import io.airlift.stats.QuantileDigest;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 
 public final class QuantileDigestOperators
@@ -49,6 +52,7 @@ public final class QuantileDigestOperators
     @SqlType("qdigest(double)")
     public static Slice castFromVarbinaryDouble(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
+        verifyQuantileDigest(slice);
         return slice;
     }
 
@@ -56,6 +60,7 @@ public final class QuantileDigestOperators
     @SqlType("qdigest(bigint)")
     public static Slice castFromVarbinaryBigint(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
+        verifyQuantileDigest(slice);
         return slice;
     }
 
@@ -63,6 +68,17 @@ public final class QuantileDigestOperators
     @SqlType("qdigest(real)")
     public static Slice castFromVarbinaryReal(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
+        verifyQuantileDigest(slice);
         return slice;
+    }
+
+    private static void verifyQuantileDigest(Slice slice)
+    {
+        try {
+            new QuantileDigest(slice);
+        }
+        catch (IllegalArgumentException | IndexOutOfBoundsException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast to qdigest: " + e.getMessage(), e);
+        }
     }
 }

@@ -16,6 +16,7 @@ package io.trino.type.setdigest;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
@@ -23,6 +24,7 @@ import io.trino.spi.type.StandardTypes;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 
 public final class SetDigestOperators
@@ -40,6 +42,12 @@ public final class SetDigestOperators
     @SqlType(StandardTypes.SET_DIGEST)
     public static Slice castFromBinary(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
+        try {
+            SetDigest.newInstance(slice);
+        }
+        catch (IllegalArgumentException | IndexOutOfBoundsException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast to SetDigest: " + e.getMessage(), e);
+        }
         return slice;
     }
 
