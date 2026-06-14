@@ -132,6 +132,11 @@ implementation is used:
   - Whether schema locations are deleted when Trino can't determine whether
     they contain external files.
   - `false`
+* - `iceberg.max-split-size`
+  - Target maximum size of a split. When not set, the split size defined by the 
+    Iceberg table properties is used. The configured value is a target rather than 
+    a hard limit, and some splits may exceed it.
+  -
 * - `iceberg.minimum-assigned-split-weight`
   - A decimal value in the range `(0, 1]` used as a minimum for weights assigned
     to each split. A low value may improve performance on tables with small
