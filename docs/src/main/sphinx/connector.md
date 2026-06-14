@@ -12,6 +12,7 @@ BigQuery        <connector/bigquery>
 Black Hole      <connector/blackhole>
 Cassandra       <connector/cassandra>
 ClickHouse      <connector/clickhouse>
+Databricks      <connector/databricks>
 Delta Lake      <connector/delta-lake>
 Druid           <connector/druid>
 DuckDB          <connector/duckdb>
