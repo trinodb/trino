@@ -7,13 +7,17 @@ and processed on these workers. Repeated queries with different parameters, or
 even different queries from different users, often access, and therefore
 transfer, the same objects.
 
-Trino includes support for caching these files with the help of the open
-source [Alluxio](https://github.com/Alluxio/alluxio) libraries with catalogs
-using the following connectors:
+Trino includes support for caching these files on local storage attached to the
+Trino cluster nodes. The [native file system cache
+implementation](/object-storage/file-system-native-cache) is managed by Trino.
+Catalogs using the following connectors support file system caching:
 
 * [](/connector/delta-lake)
 * [](/connector/hive)
 * [](/connector/iceberg)
+
+For an external cache layer backed by an Alluxio cluster, see
+[](/object-storage/file-system-alluxio).
 
 (fs-cache-distributed)=
 ## Distributed caching
@@ -101,6 +105,10 @@ enable and configure caching for the specific catalogs.
   - Description
 * - `fs.cache.enabled`
   - Enable object storage caching. Defaults to no caching with the value `false`.
+* - `fs.cache.type`
+  - Cache implementation to use. Use `NATIVE` for the native file system cache.
+    Native-cache-specific properties are documented in
+    [](/object-storage/file-system-native-cache).
 * - `fs.cache.directories`
   - Required, comma-separated list of absolute paths to directories to use for
     caching. All directories must exist on the coordinator and all workers.
@@ -118,7 +126,7 @@ enable and configure caching for the specific catalogs.
     `fs.cache.max-disk-usage-percentages` is required.
 * - `fs.cache.max-disk-usage-percentages`
   - Comma-separated list of maximum percentage values of the used disk for each
-    directory. Each value is an integer between 1 and 100. Order of values must
+    directory. Each value is an integer between 0 and 100. Order of values must
     be identical to the directories list. If multiple directories use the same
     disk, ensure that total percentages per drive remains below 100 percent.
     Configuring either `fs.cache.max-sizes` or
@@ -142,10 +150,12 @@ enable and configure caching for the specific catalogs.
 
 ## Monitoring
 
-The cache exposes the
+The native cache exposes JMX metrics under
+`io.trino.filesystem.cache.local.NativeFileSystemCacheStats`. The Alluxio-based
+cache exposes the
 [Alluxio JMX client metrics](https://docs.alluxio.io/ee-da/user/stable/en/reference/Metrics-List.html#client-metrics)
-under the `org.alluxio` package, and metrics on external reads and cache reads under
-`io.trino.filesystem.alluxio.AlluxioCacheStats`.
+under the `org.alluxio` package, and metrics on external reads and cache reads
+under `io.trino.filesystem.alluxio.AlluxioCacheStats`.
 
 The cache code uses [OpenTelemetry tracing](/admin/opentelemetry).
 
