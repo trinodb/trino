@@ -140,23 +140,19 @@ public class FileBasedAccessControl
         ImmutableSet.Builder<AnySchemaPermissionsRule> anySchemaPermissionsRules = ImmutableSet.builder();
         schemaRules.stream()
                 .map(SchemaAccessControlRule::toAnySchemaPermissionsRule)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(Optional::stream)
                 .forEach(anySchemaPermissionsRules::add);
         tableRules.stream()
                 .map(TableAccessControlRule::toAnySchemaPermissionsRule)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(Optional::stream)
                 .forEach(anySchemaPermissionsRules::add);
         functionRules.stream()
                 .map(FunctionAccessControlRule::toAnySchemaPermissionsRule)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(Optional::stream)
                 .forEach(anySchemaPermissionsRules::add);
         procedureRules.stream()
                 .map(ProcedureAccessControlRule::toAnySchemaPermissionsRule)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(Optional::stream)
                 .forEach(anySchemaPermissionsRules::add);
         this.anySchemaPermissionsRules = anySchemaPermissionsRules.build();
     }
