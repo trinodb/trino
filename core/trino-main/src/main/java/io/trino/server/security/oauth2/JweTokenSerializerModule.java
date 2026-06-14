@@ -55,7 +55,7 @@ public class JweTokenSerializerModule
                 client,
                 config.getIssuer() + "_" + nodeVersion.version(),
                 config.getAudience(),
-                oAuth2Config.getPrincipalField(),
+                oAuth2Config.getPrincipalFields(),
                 Clock.systemUTC(),
                 config.getTokenExpiration());
     }

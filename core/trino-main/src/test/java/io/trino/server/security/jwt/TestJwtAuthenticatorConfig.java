@@ -13,6 +13,7 @@
  */
 package io.trino.server.security.jwt;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +35,7 @@ public class TestJwtAuthenticatorConfig
                 .setKeyFile(null)
                 .setRequiredAudience(null)
                 .setRequiredIssuer(null)
-                .setPrincipalField("sub")
+                .setPrincipalFields(ImmutableList.of("sub"))
                 .setUserMappingPattern(null)
                 .setUserMappingFile(null));
     }
@@ -50,7 +51,7 @@ public class TestJwtAuthenticatorConfig
                 .put("http-server.authentication.jwt.key-file", jwtKeyFile.toString())
                 .put("http-server.authentication.jwt.required-audience", "some-audience")
                 .put("http-server.authentication.jwt.required-issuer", "some-issuer")
-                .put("http-server.authentication.jwt.principal-field", "some-field")
+                .put("http-server.authentication.jwt.principal-field", "some-field-1,some-field-2")
                 .put("http-server.authentication.jwt.user-mapping.pattern", "(.*)@something")
                 .put("http-server.authentication.jwt.user-mapping.file", userMappingFile.toString())
                 .buildOrThrow();
@@ -59,7 +60,7 @@ public class TestJwtAuthenticatorConfig
                 .setKeyFile(jwtKeyFile.toString())
                 .setRequiredAudience("some-audience")
                 .setRequiredIssuer("some-issuer")
-                .setPrincipalField("some-field")
+                .setPrincipalFields(ImmutableList.of("some-field-1", "some-field-2"))
                 .setUserMappingPattern("(.*)@something")
                 .setUserMappingFile(userMappingFile.toFile());
 

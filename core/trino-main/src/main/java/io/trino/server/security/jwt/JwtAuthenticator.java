@@ -13,6 +13,7 @@
  */
 package io.trino.server.security.jwt;
 
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtParser;
@@ -28,6 +29,7 @@ import jakarta.ws.rs.container.ContainerRequestContext;
 
 import java.security.Key;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import static io.jsonwebtoken.Claims.AUDIENCE;
@@ -39,14 +41,14 @@ public class JwtAuthenticator
         extends AbstractBearerAuthenticator
 {
     private final JwtParser jwtParser;
-    private final String principalField;
+    private final List<String> principalFields;
     private final UserMapping userMapping;
     private final Optional<String> requiredAudience;
 
     @Inject
     public JwtAuthenticator(JwtAuthenticatorConfig config, @ForJwt Locator<Key> signingKeyLocator)
     {
-        principalField = config.getPrincipalField();
+        principalFields = ImmutableList.copyOf(config.getPrincipalFields());
         requiredAudience = Optional.ofNullable(config.getRequiredAudience());
 
         JwtParserBuilder jwtParser = newJwtParserBuilder()
@@ -66,13 +68,24 @@ public class JwtAuthenticator
         Claims claims = jwtParser.parseSignedClaims(token).getPayload();
         validateAudience(claims);
 
-        Optional<String> principal = Optional.ofNullable(claims.get(principalField, String.class));
+        Optional<String> principal = firstNonEmpty(claims, principalFields);
         if (principal.isEmpty()) {
             return Optional.empty();
         }
         return Optional.of(Identity.forUser(userMapping.mapUser(principal.get()))
                 .withPrincipal(new BasicPrincipal(principal.get()))
                 .build());
+    }
+
+    private static Optional<String> firstNonEmpty(Claims claims, List<String> fields)
+    {
+        for (String field : fields) {
+            String value = claims.get(field, String.class);
+            if (value != null && !value.isEmpty()) {
+                return Optional.of(value);
+            }
+        }
+        return Optional.empty();
     }
 
     private void validateAudience(Claims claims)

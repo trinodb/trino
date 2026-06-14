@@ -148,9 +148,13 @@ The following configuration properties are available:
   - File containing rules for mapping user. See [](/security/user-mapping) for
     more information.
 * - `http-server.authentication.oauth2.principal-field`
-  - The field of the access token used for the Trino user principal. Defaults to
-    `sub`. Other commonly used fields include `sAMAccountName`, `name`,
-    `upn`, and `email`.
+  - Comma-separated list of access-token claim names to read the principal from.
+    Defaults to `sub`. The authenticator tries each claim in order and uses the
+    value of the first claim that is present and non-empty as the Trino
+    principal. Configuring multiple values is useful when the coordinator trusts
+    tokens from issuers that disagree on which claim carries the subject — for
+    example, `preferred_username,email`. Other commonly used fields include
+    `sAMAccountName`, `name`, and `upn`.
 * - `http-server.authentication.oauth2.oidc.discovery`
   - Enable reading the [OIDC provider metadata](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata).
     Default is `true`.
