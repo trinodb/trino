@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
@@ -32,8 +33,16 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.IsNull;
@@ -59,13 +68,24 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -77,6 +97,7 @@ import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.groupingSets;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMultipleDistinctAggregationsToSubqueries
         extends BaseRuleTest
@@ -118,6 +139,44 @@ public class TestMultipleDistinctAggregationsToSubqueries
     {
         closeAllRuntimeException(ruleTester);
         ruleTester = null;
+    }
+
+    @Test
+    public void testNullSentinelCoversSupportedTypes()
+    {
+        // Scalar types the rule must handle: verify each produces a non-null sentinel
+        // of the correct native representation for Constant(type, value).
+        assertThat(MultipleDistinctAggregationsToSubqueries.nullSentinel(BIGINT)).hasValue(0L);
+        assertThat(MultipleDistinctAggregationsToSubqueries.nullSentinel(INTEGER)).hasValue(0L);
+        assertThat(MultipleDistinctAggregationsToSubqueries.nullSentinel(SMALLINT)).hasValue(0L);
+        assertThat(MultipleDistinctAggregationsToSubqueries.nullSentinel(TINYINT)).hasValue(0L);
+        assertThat(MultipleDistinctAggregationsToSubqueries.nullSentinel(BOOLEAN)).hasValue(false);
+        assertThat(MultipleDistinctAggregationsToSubqueries.nullSentinel(DOUBLE)).hasValue(0.0d);
+        // REAL stores float as raw-int bits packed in a long; 0L == floatToRawIntBits(0.0f)
+        assertThat(MultipleDistinctAggregationsToSubqueries.nullSentinel(REAL)).hasValue(0L);
+        assertThat(MultipleDistinctAggregationsToSubqueries.nullSentinel(DATE)).hasValue(0L);
+        assertThat(MultipleDistinctAggregationsToSubqueries.nullSentinel(VARCHAR)).hasValue(Slices.EMPTY_SLICE);
+        assertThat(MultipleDistinctAggregationsToSubqueries.nullSentinel(createCharType(10))).hasValue(Slices.EMPTY_SLICE);
+        // Short-precision timestamps are stored as long
+        assertThat(MultipleDistinctAggregationsToSubqueries.nullSentinel(createTimestampType(3))).hasValue(0L);
+        assertThat(MultipleDistinctAggregationsToSubqueries.nullSentinel(createTimestampType(6))).hasValue(0L);
+        // Long-precision timestamps use LongTimestamp
+        assertThat(MultipleDistinctAggregationsToSubqueries.nullSentinel(createTimestampType(9))).hasValue(new LongTimestamp(0, 0));
+        assertThat(MultipleDistinctAggregationsToSubqueries.nullSentinel(createTimestampType(12))).hasValue(new LongTimestamp(0, 0));
+        // Short-precision TSWTZ is stored as packed long
+        assertThat(MultipleDistinctAggregationsToSubqueries.nullSentinel(createTimestampWithTimeZoneType(3))).hasValue(0L);
+        // Long-precision TSWTZ uses LongTimestampWithTimeZone
+        assertThat(MultipleDistinctAggregationsToSubqueries.nullSentinel(createTimestampWithTimeZoneType(6)))
+                .hasValue(LongTimestampWithTimeZone.fromEpochMillisAndFraction(0, 0, TimeZoneKey.UTC_KEY));
+        assertThat(MultipleDistinctAggregationsToSubqueries.nullSentinel(createTimestampWithTimeZoneType(9)))
+                .hasValue(LongTimestampWithTimeZone.fromEpochMillisAndFraction(0, 0, TimeZoneKey.UTC_KEY));
+        // Short decimal stored as long, long decimal as Int128
+        assertThat(MultipleDistinctAggregationsToSubqueries.nullSentinel(createDecimalType(10, 2))).hasValue(0L);
+        assertThat(MultipleDistinctAggregationsToSubqueries.nullSentinel(createDecimalType(38, 2))).hasValue(Int128.ZERO);
+
+        // Complex types don't have a readily available sentinel -> rule must bail out.
+        assertThat(MultipleDistinctAggregationsToSubqueries.nullSentinel(RowType.anonymous(ImmutableList.of(BIGINT)))).isEmpty();
+        assertThat(MultipleDistinctAggregationsToSubqueries.nullSentinel(new ArrayType(BIGINT))).isEmpty();
     }
 
     @Test
@@ -332,6 +391,24 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                     input2Symbol, COLUMN_2_HANDLE)))));
                 })
                 .doesNotFire();
+
+        // grouping key type without a null sentinel (ROW): rule must skip because NULL-safe
+        // equi-join cannot be built, and a cross-join fallback is not obviously better than
+        // other distinct aggregation strategies.
+        Type rowType = RowType.anonymous(ImmutableList.of(BIGINT));
+        ruleTester.assertThat(newMultipleDistinctAggregationsToSubqueries(ruleTester))
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "split_to_subqueries")
+                .on(p -> {
+                    Symbol input1Symbol = p.symbol("input1Symbol", BIGINT);
+                    Symbol input2Symbol = p.symbol("input2Symbol", BIGINT);
+                    Symbol groupingKey = p.symbol("groupingKey", rowType);
+                    return p.aggregation(builder -> builder
+                            .singleGroupingSet(groupingKey)
+                            .addAggregation(p.symbol("output1", BIGINT), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2", BIGINT), PlanBuilder.aggregation("sum", true, ImmutableList.of(new Reference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
+                            .source(p.values(input1Symbol, input2Symbol, groupingKey)));
+                })
+                .doesNotFire();
     }
 
     @Test
@@ -393,27 +470,37 @@ public class TestMultipleDistinctAggregationsToSubqueries
                         join(
                                 INNER,
                                 builder -> builder
-                                        .equiCriteria("left_groupingKey", "right_groupingKey")
-                                        .left(aggregation(
-                                                singleGroupingSet("left_groupingKey"),
-                                                ImmutableMap.of(Optional.of("output1"), aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
-                                                Optional.empty(),
-                                                SINGLE,
-                                                tableScan(
-                                                        TABLE_SCHEMA.getTableName(),
-                                                        ImmutableMap.of(
-                                                                "input1Symbol", COLUMN_1,
-                                                                "left_groupingKey", GROUPING_KEY_COLUMN))))
-                                        .right(aggregation(
-                                                singleGroupingSet("right_groupingKey"),
-                                                ImmutableMap.of(Optional.of("output2"), aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol")))),
-                                                Optional.empty(),
-                                                SINGLE,
-                                                tableScan(
-                                                        TABLE_SCHEMA.getTableName(),
-                                                        ImmutableMap.of(
-                                                                "input2Symbol", COLUMN_2,
-                                                                "right_groupingKey", GROUPING_KEY_COLUMN)))))));
+                                        .equiCriteria(ImmutableList.of(
+                                                equiJoinClause("left_null_key", "right_null_key"),
+                                                equiJoinClause("left_coalesced_key", "right_coalesced_key")))
+                                        .left(project(
+                                                ImmutableMap.of(
+                                                        "left_null_key", PlanMatchPattern.expression(new IsNull(new Reference(BIGINT, "left_groupingKey"))),
+                                                        "left_coalesced_key", PlanMatchPattern.expression(new Coalesce(new Reference(BIGINT, "left_groupingKey"), new Constant(BIGINT, 0L)))),
+                                                aggregation(
+                                                        singleGroupingSet("left_groupingKey"),
+                                                        ImmutableMap.of(Optional.of("output1"), aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
+                                                        Optional.empty(),
+                                                        SINGLE,
+                                                        tableScan(
+                                                                TABLE_SCHEMA.getTableName(),
+                                                                ImmutableMap.of(
+                                                                        "input1Symbol", COLUMN_1,
+                                                                        "left_groupingKey", GROUPING_KEY_COLUMN)))))
+                                        .right(project(
+                                                ImmutableMap.of(
+                                                        "right_null_key", PlanMatchPattern.expression(new IsNull(new Reference(BIGINT, "right_groupingKey"))),
+                                                        "right_coalesced_key", PlanMatchPattern.expression(new Coalesce(new Reference(BIGINT, "right_groupingKey"), new Constant(BIGINT, 0L)))),
+                                                aggregation(
+                                                        singleGroupingSet("right_groupingKey"),
+                                                        ImmutableMap.of(Optional.of("output2"), aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol")))),
+                                                        Optional.empty(),
+                                                        SINGLE,
+                                                        tableScan(
+                                                                TABLE_SCHEMA.getTableName(),
+                                                                ImmutableMap.of(
+                                                                        "input2Symbol", COLUMN_2,
+                                                                        "right_groupingKey", GROUPING_KEY_COLUMN))))))));
 
         // single_step is not preferred, the overhead of groupingKeys is bigger than 50%
         String aggregationId = "aggregationId";
@@ -617,33 +704,43 @@ public class TestMultipleDistinctAggregationsToSubqueries
                         join(
                                 INNER,
                                 builder -> builder
-                                        .equiCriteria("left_groupingKey", "right_groupingKey")
-                                        .left(aggregation(
-                                                singleGroupingSet("left_groupingKey"),
-                                                ImmutableMap.of(Optional.of("output1"), aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
-                                                Optional.empty(),
-                                                SINGLE,
-                                                filter(
-                                                        not(ruleTester.getMetadata(), new IsNull(new Reference(BIGINT, "left_filterInput"))),
-                                                        tableScan(
-                                                                TABLE_SCHEMA.getTableName(),
-                                                                ImmutableMap.of(
-                                                                        "input1Symbol", COLUMN_1,
-                                                                        "left_groupingKey", GROUPING_KEY_COLUMN,
-                                                                        "left_filterInput", GROUPING_KEY2_COLUMN)))))
-                                        .right(aggregation(
-                                                singleGroupingSet("right_groupingKey"),
-                                                ImmutableMap.of(Optional.of("output2"), aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol")))),
-                                                Optional.empty(),
-                                                SINGLE,
-                                                filter(
-                                                        not(ruleTester.getMetadata(), new IsNull(new Reference(BIGINT, "right_filterInput"))),
-                                                        tableScan(
-                                                                TABLE_SCHEMA.getTableName(),
-                                                                ImmutableMap.of(
-                                                                        "input2Symbol", COLUMN_2,
-                                                                        "right_groupingKey", GROUPING_KEY_COLUMN,
-                                                                        "right_filterInput", GROUPING_KEY2_COLUMN))))))));
+                                        .equiCriteria(ImmutableList.of(
+                                                equiJoinClause("left_null_key", "right_null_key"),
+                                                equiJoinClause("left_coalesced_key", "right_coalesced_key")))
+                                        .left(project(
+                                                ImmutableMap.of(
+                                                        "left_null_key", PlanMatchPattern.expression(new IsNull(new Reference(BIGINT, "left_groupingKey"))),
+                                                        "left_coalesced_key", PlanMatchPattern.expression(new Coalesce(new Reference(BIGINT, "left_groupingKey"), new Constant(BIGINT, 0L)))),
+                                                aggregation(
+                                                        singleGroupingSet("left_groupingKey"),
+                                                        ImmutableMap.of(Optional.of("output1"), aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
+                                                        Optional.empty(),
+                                                        SINGLE,
+                                                        filter(
+                                                                not(ruleTester.getMetadata(), new IsNull(new Reference(BIGINT, "left_filterInput"))),
+                                                                tableScan(
+                                                                        TABLE_SCHEMA.getTableName(),
+                                                                        ImmutableMap.of(
+                                                                                "input1Symbol", COLUMN_1,
+                                                                                "left_groupingKey", GROUPING_KEY_COLUMN,
+                                                                                "left_filterInput", GROUPING_KEY2_COLUMN))))))
+                                        .right(project(
+                                                ImmutableMap.of(
+                                                        "right_null_key", PlanMatchPattern.expression(new IsNull(new Reference(BIGINT, "right_groupingKey"))),
+                                                        "right_coalesced_key", PlanMatchPattern.expression(new Coalesce(new Reference(BIGINT, "right_groupingKey"), new Constant(BIGINT, 0L)))),
+                                                aggregation(
+                                                        singleGroupingSet("right_groupingKey"),
+                                                        ImmutableMap.of(Optional.of("output2"), aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol")))),
+                                                        Optional.empty(),
+                                                        SINGLE,
+                                                        filter(
+                                                                not(ruleTester.getMetadata(), new IsNull(new Reference(BIGINT, "right_filterInput"))),
+                                                                tableScan(
+                                                                        TABLE_SCHEMA.getTableName(),
+                                                                        ImmutableMap.of(
+                                                                                "input2Symbol", COLUMN_2,
+                                                                                "right_groupingKey", GROUPING_KEY_COLUMN,
+                                                                                "right_filterInput", GROUPING_KEY2_COLUMN)))))))));
     }
 
     @Test
@@ -918,27 +1015,37 @@ public class TestMultipleDistinctAggregationsToSubqueries
                         join(
                                 INNER,
                                 builder -> builder
-                                        .equiCriteria("left_groupingKey", "right_groupingKey")
-                                        .left(aggregation(
-                                                singleGroupingSet("left_groupingKey"),
-                                                ImmutableMap.of(Optional.of("output1"), aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
-                                                Optional.empty(),
-                                                SINGLE,
-                                                tableScan(
-                                                        TABLE_SCHEMA.getTableName(),
-                                                        ImmutableMap.of(
-                                                                "input1Symbol", COLUMN_1,
-                                                                "left_groupingKey", GROUPING_KEY_COLUMN))))
-                                        .right(aggregation(
-                                                singleGroupingSet("right_groupingKey"),
-                                                ImmutableMap.of(Optional.of("output2"), aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol")))),
-                                                Optional.empty(),
-                                                SINGLE,
-                                                tableScan(
-                                                        TABLE_SCHEMA.getTableName(),
-                                                        ImmutableMap.of(
-                                                                "input2Symbol", COLUMN_2,
-                                                                "right_groupingKey", GROUPING_KEY_COLUMN)))))));
+                                        .equiCriteria(ImmutableList.of(
+                                                equiJoinClause("left_null_key", "right_null_key"),
+                                                equiJoinClause("left_coalesced_key", "right_coalesced_key")))
+                                        .left(project(
+                                                ImmutableMap.of(
+                                                        "left_null_key", PlanMatchPattern.expression(new IsNull(new Reference(BIGINT, "left_groupingKey"))),
+                                                        "left_coalesced_key", PlanMatchPattern.expression(new Coalesce(new Reference(BIGINT, "left_groupingKey"), new Constant(BIGINT, 0L)))),
+                                                aggregation(
+                                                        singleGroupingSet("left_groupingKey"),
+                                                        ImmutableMap.of(Optional.of("output1"), aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
+                                                        Optional.empty(),
+                                                        SINGLE,
+                                                        tableScan(
+                                                                TABLE_SCHEMA.getTableName(),
+                                                                ImmutableMap.of(
+                                                                        "input1Symbol", COLUMN_1,
+                                                                        "left_groupingKey", GROUPING_KEY_COLUMN)))))
+                                        .right(project(
+                                                ImmutableMap.of(
+                                                        "right_null_key", PlanMatchPattern.expression(new IsNull(new Reference(BIGINT, "right_groupingKey"))),
+                                                        "right_coalesced_key", PlanMatchPattern.expression(new Coalesce(new Reference(BIGINT, "right_groupingKey"), new Constant(BIGINT, 0L)))),
+                                                aggregation(
+                                                        singleGroupingSet("right_groupingKey"),
+                                                        ImmutableMap.of(Optional.of("output2"), aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol")))),
+                                                        Optional.empty(),
+                                                        SINGLE,
+                                                        tableScan(
+                                                                TABLE_SCHEMA.getTableName(),
+                                                                ImmutableMap.of(
+                                                                        "input2Symbol", COLUMN_2,
+                                                                        "right_groupingKey", GROUPING_KEY_COLUMN))))))));
     }
 
     @Test
@@ -1002,57 +1109,67 @@ public class TestMultipleDistinctAggregationsToSubqueries
                         join(
                                 INNER,
                                 builder -> builder
-                                        .equiCriteria("left_groupingKey", "right_groupingKey")
-                                        .left(aggregation(
-                                                singleGroupingSet("left_groupingKey"),
-                                                ImmutableMap.of(Optional.of("output1"), aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol1")))),
-                                                Optional.empty(),
-                                                SINGLE,
-                                                union(
-                                                        filter(
-                                                                new Comparison(GREATER_THAN, new Reference(BIGINT, "input1_1_1Symbol"), new Constant(BIGINT, 0L)),
-                                                                tableScan(
-                                                                        TABLE_SCHEMA.getTableName(),
-                                                                        ImmutableMap.of(
-                                                                                "input1_1_1Symbol", COLUMN_1,
-                                                                                "input2_1_1Symbol", COLUMN_2,
-                                                                                "left_groupingKey1", GROUPING_KEY_COLUMN))),
-                                                        filter(
-                                                                new Comparison(GREATER_THAN, new Reference(BIGINT, "input2_2_1Symbol"), new Constant(BIGINT, 2L)),
-                                                                tableScan(
-                                                                        TABLE_SCHEMA.getTableName(),
-                                                                        ImmutableMap.of(
-                                                                                "input1_2_1Symbol", COLUMN_1,
-                                                                                "input2_2_1Symbol", COLUMN_2,
-                                                                                "left_groupingKey2", GROUPING_KEY_COLUMN))))
-                                                        .withAlias("input1Symbol1", new SetOperationOutputMatcher(0))
-                                                        .withAlias("input2Symbol1", new SetOperationOutputMatcher(1))
-                                                        .withAlias("left_groupingKey", new SetOperationOutputMatcher(2))))
-                                        .right(aggregation(
-                                                singleGroupingSet("right_groupingKey"),
-                                                ImmutableMap.of(Optional.of("output2"), aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol2")))),
-                                                Optional.empty(),
-                                                SINGLE,
-                                                union(
-                                                        filter(
-                                                                new Comparison(GREATER_THAN, new Reference(BIGINT, "input1_1_2Symbol"), new Constant(BIGINT, 0L)),
-                                                                tableScan(
-                                                                        TABLE_SCHEMA.getTableName(),
-                                                                        ImmutableMap.of(
-                                                                                "input1_1_2Symbol", COLUMN_1,
-                                                                                "input2_1_2Symbol", COLUMN_2,
-                                                                                "right_groupingKey1", GROUPING_KEY_COLUMN))),
-                                                        filter(
-                                                                new Comparison(GREATER_THAN, new Reference(BIGINT, "input2_2_2Symbol"), new Constant(BIGINT, 2L)),
-                                                                tableScan(
-                                                                        TABLE_SCHEMA.getTableName(),
-                                                                        ImmutableMap.of(
-                                                                                "input1_2_2Symbol", COLUMN_1,
-                                                                                "input2_2_2Symbol", COLUMN_2,
-                                                                                "right_groupingKey2", GROUPING_KEY_COLUMN))))
-                                                        .withAlias("input1Symbol2", new SetOperationOutputMatcher(0))
-                                                        .withAlias("input2Symbol2", new SetOperationOutputMatcher(1))
-                                                        .withAlias("right_groupingKey", new SetOperationOutputMatcher(2)))))));
+                                        .equiCriteria(ImmutableList.of(
+                                                equiJoinClause("left_null_key", "right_null_key"),
+                                                equiJoinClause("left_coalesced_key", "right_coalesced_key")))
+                                        .left(project(
+                                                ImmutableMap.of(
+                                                        "left_null_key", PlanMatchPattern.expression(new IsNull(new Reference(BIGINT, "left_groupingKey"))),
+                                                        "left_coalesced_key", PlanMatchPattern.expression(new Coalesce(new Reference(BIGINT, "left_groupingKey"), new Constant(BIGINT, 0L)))),
+                                                aggregation(
+                                                        singleGroupingSet("left_groupingKey"),
+                                                        ImmutableMap.of(Optional.of("output1"), aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol1")))),
+                                                        Optional.empty(),
+                                                        SINGLE,
+                                                        union(
+                                                                filter(
+                                                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "input1_1_1Symbol"), new Constant(BIGINT, 0L)),
+                                                                        tableScan(
+                                                                                TABLE_SCHEMA.getTableName(),
+                                                                                ImmutableMap.of(
+                                                                                        "input1_1_1Symbol", COLUMN_1,
+                                                                                        "input2_1_1Symbol", COLUMN_2,
+                                                                                        "left_groupingKey1", GROUPING_KEY_COLUMN))),
+                                                                filter(
+                                                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "input2_2_1Symbol"), new Constant(BIGINT, 2L)),
+                                                                        tableScan(
+                                                                                TABLE_SCHEMA.getTableName(),
+                                                                                ImmutableMap.of(
+                                                                                        "input1_2_1Symbol", COLUMN_1,
+                                                                                        "input2_2_1Symbol", COLUMN_2,
+                                                                                        "left_groupingKey2", GROUPING_KEY_COLUMN))))
+                                                                .withAlias("input1Symbol1", new SetOperationOutputMatcher(0))
+                                                                .withAlias("input2Symbol1", new SetOperationOutputMatcher(1))
+                                                                .withAlias("left_groupingKey", new SetOperationOutputMatcher(2)))))
+                                        .right(project(
+                                                ImmutableMap.of(
+                                                        "right_null_key", PlanMatchPattern.expression(new IsNull(new Reference(BIGINT, "right_groupingKey"))),
+                                                        "right_coalesced_key", PlanMatchPattern.expression(new Coalesce(new Reference(BIGINT, "right_groupingKey"), new Constant(BIGINT, 0L)))),
+                                                aggregation(
+                                                        singleGroupingSet("right_groupingKey"),
+                                                        ImmutableMap.of(Optional.of("output2"), aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol2")))),
+                                                        Optional.empty(),
+                                                        SINGLE,
+                                                        union(
+                                                                filter(
+                                                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "input1_1_2Symbol"), new Constant(BIGINT, 0L)),
+                                                                        tableScan(
+                                                                                TABLE_SCHEMA.getTableName(),
+                                                                                ImmutableMap.of(
+                                                                                        "input1_1_2Symbol", COLUMN_1,
+                                                                                        "input2_1_2Symbol", COLUMN_2,
+                                                                                        "right_groupingKey1", GROUPING_KEY_COLUMN))),
+                                                                filter(
+                                                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "input2_2_2Symbol"), new Constant(BIGINT, 2L)),
+                                                                        tableScan(
+                                                                                TABLE_SCHEMA.getTableName(),
+                                                                                ImmutableMap.of(
+                                                                                        "input1_2_2Symbol", COLUMN_1,
+                                                                                        "input2_2_2Symbol", COLUMN_2,
+                                                                                        "right_groupingKey2", GROUPING_KEY_COLUMN))))
+                                                                .withAlias("input1Symbol2", new SetOperationOutputMatcher(0))
+                                                                .withAlias("input2Symbol2", new SetOperationOutputMatcher(1))
+                                                                .withAlias("right_groupingKey", new SetOperationOutputMatcher(2))))))));
     }
 
     private static MultipleDistinctAggregationsToSubqueries newMultipleDistinctAggregationsToSubqueries(RuleTester ruleTester)
