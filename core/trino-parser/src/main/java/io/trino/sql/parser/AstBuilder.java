@@ -3188,7 +3188,7 @@ class AstBuilder
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 (Identifier) visit(context.identifier()),
-                visit(context.expression(), Expression.class));
+                visit(context.argument(), CallArgument.class));
     }
 
     @Override
@@ -3198,7 +3198,7 @@ class AstBuilder
                 getLocation(context),
                 (Expression) visit(context.primaryExpression()),
                 (Identifier) visit(context.identifier()),
-                visit(context.expression(), Expression.class));
+                visit(context.argument(), CallArgument.class));
     }
 
     @Override

@@ -349,7 +349,7 @@ public class TestSqlParser
                         location(1, 1),
                         QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "bigint", false))),
                         new Identifier(location(1, 9), "parse", false),
-                        ImmutableList.of(new StringLiteral(location(1, 15), "42"))));
+                        ImmutableList.of(new CallArgument(location(1, 15), Optional.empty(), new StringLiteral(location(1, 15), "42")))));
 
         assertThat(expression("cat.sch.t::method()"))
                 .isEqualTo(new StaticMethodCall(
@@ -367,8 +367,16 @@ public class TestSqlParser
                         QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "array", false))),
                         new Identifier(location(1, 8), "contains", false),
                         ImmutableList.of(
-                                new Identifier(location(1, 17), "x", false),
-                                new LongLiteral(location(1, 20), "1"))));
+                                new CallArgument(location(1, 17), Optional.empty(), new Identifier(location(1, 17), "x", false)),
+                                new CallArgument(location(1, 20), Optional.empty(), new LongLiteral(location(1, 20), "1")))));
+
+        // Named arguments are accepted, mirroring ordinary function-call syntax.
+        assertThat(expression("bigint::parse(value => '42')"))
+                .isEqualTo(new StaticMethodCall(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "bigint", false))),
+                        new Identifier(location(1, 9), "parse", false),
+                        ImmutableList.of(new CallArgument(location(1, 15), Optional.of(new Identifier(location(1, 15), "value", false)), new StringLiteral(location(1, 24), "42")))));
 
         // Parametric receiver types are not allowed in the grammar.
         assertInvalidExpression("varchar(5)::parse('42')", "mismatched input '::'.*");
@@ -451,8 +459,17 @@ public class TestSqlParser
                         new Identifier(location(1, 2), "x", false),
                         new Identifier(location(1, 5), "contains", false),
                         ImmutableList.of(
-                                new LongLiteral(location(1, 14), "1"),
-                                new LongLiteral(location(1, 17), "2"))));
+                                new CallArgument(location(1, 14), Optional.empty(), new LongLiteral(location(1, 14), "1")),
+                                new CallArgument(location(1, 17), Optional.empty(), new LongLiteral(location(1, 17), "2")))));
+
+        // Named arguments are accepted, mirroring ordinary function-call syntax.
+        assertThat(expression("(x).contains(element => 1)"))
+                .isEqualTo(new MethodCall(
+                        location(1, 1),
+                        new Identifier(location(1, 2), "x", false),
+                        new Identifier(location(1, 5), "contains", false),
+                        ImmutableList.of(
+                                new CallArgument(location(1, 14), Optional.of(new Identifier(location(1, 14), "element", false)), new LongLiteral(location(1, 25), "1")))));
 
         // Bare two-part name still parses as a function call; method-call
         // interpretation happens at semantic time per SQL:2023 6.3 SR 2.

@@ -16,6 +16,7 @@ package io.trino.operator.scalar;
 import io.airlift.slice.Slice;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.Name;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.StaticMethod;
@@ -61,7 +62,7 @@ public class TestStaticMethodCall
     @ScalarFunction("parse")
     @StaticMethod(StandardTypes.BIGINT)
     @SqlType(StandardTypes.BIGINT)
-    public static long bigintParse(@SqlType(StandardTypes.VARCHAR) Slice value)
+    public static long bigintParse(@Name("value") @SqlType(StandardTypes.VARCHAR) Slice value)
     {
         try {
             return Long.parseLong(value.toStringUtf8());
@@ -69,6 +70,17 @@ public class TestStaticMethodCall
         catch (NumberFormatException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot parse '%s' as bigint".formatted(value.toStringUtf8()));
         }
+    }
+
+    @ScalarFunction("clamp")
+    @StaticMethod(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.BIGINT)
+    public static long bigintClamp(
+            @Name("value") @SqlType(StandardTypes.BIGINT) long value,
+            @Name("low") @SqlType(StandardTypes.BIGINT) long low,
+            @Name("high") @SqlType(StandardTypes.BIGINT) long high)
+    {
+        return Math.max(low, Math.min(high, value));
     }
 
     @ScalarFunction("array_method")
@@ -127,6 +139,77 @@ public class TestStaticMethodCall
 
         assertThat(assertions.expression("bigint::parse('-1234567890')"))
                 .matches("BIGINT '-1234567890'");
+    }
+
+    @Test
+    public void testNamedArgument()
+    {
+        assertThat(assertions.expression("bigint::parse(value => '42')"))
+                .matches("BIGINT '42'");
+    }
+
+    @Test
+    public void testNamedArgumentsReordered()
+    {
+        // Named arguments may appear in any order; they bind by declared name.
+        assertThat(assertions.expression("bigint::clamp(high => 10, value => 20, low => 0)"))
+                .matches("BIGINT '10'");
+    }
+
+    @Test
+    public void testPositionalThenNamedArguments()
+    {
+        assertThat(assertions.expression("bigint::clamp(20, high => 10, low => 0)"))
+                .matches("BIGINT '10'");
+    }
+
+    @Test
+    public void testUnknownNamedArgument()
+    {
+        assertTrinoExceptionThrownBy(() -> assertions.expression("bigint::parse(bogus => '42')").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("No argument named bogus for static method bigint::parse");
+    }
+
+    @Test
+    public void testTooManyArguments()
+    {
+        // No overload of parse accepts a second argument, so the call fails to resolve.
+        assertTrinoExceptionThrownBy(() -> assertions.expression("bigint::parse('42', '43')").evaluate())
+                .hasErrorCode(FUNCTION_NOT_FOUND);
+    }
+
+    @Test
+    public void testPositionalArgumentAfterNamed()
+    {
+        assertTrinoExceptionThrownBy(() -> assertions.expression("bigint::clamp(value => 20, 0, 10)").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("Positional arguments cannot follow named arguments");
+    }
+
+    @Test
+    public void testNamedArgumentForPositionallySuppliedSlot()
+    {
+        assertTrinoExceptionThrownBy(() -> assertions.expression("bigint::clamp(5, value => 3)").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("Named argument value for static method bigint::clamp refers to parameter position 0, which is already supplied positionally");
+    }
+
+    @Test
+    public void testDuplicateNamedArgument()
+    {
+        assertTrinoExceptionThrownBy(() -> assertions.expression("bigint::clamp(value => 1, value => 2)").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("Duplicate named argument: value");
+    }
+
+    @Test
+    public void testNamedArgumentOnUnknownMethod()
+    {
+        // A named argument on a method that does not exist reports method-not-found, rather
+        // than a misleading "No argument named ..." that would imply the method exists.
+        assertTrinoExceptionThrownBy(() -> assertions.expression("bigint::nope(value => '42')").evaluate())
+                .hasErrorCode(FUNCTION_NOT_FOUND);
     }
 
     @Test

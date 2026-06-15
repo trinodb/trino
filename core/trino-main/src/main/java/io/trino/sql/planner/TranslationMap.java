@@ -711,11 +711,7 @@ public class TranslationMap
         Optional<ResolvedFunction> resolvedFunction = analysis.getResolvedFunction(expression);
         checkArgument(resolvedFunction.isPresent(), "Static method has not been analyzed: %s", expression);
 
-        return new Call(
-                resolvedFunction.get(),
-                expression.getArguments().stream()
-                        .map(this::translateExpression)
-                        .collect(toImmutableList()));
+        return new Call(resolvedFunction.get(), translateMethodArguments(expression, expression.getArguments()));
     }
 
     private io.trino.sql.ir.Expression translate(MethodCall expression)
@@ -727,10 +723,20 @@ public class TranslationMap
                 resolvedFunction.get(),
                 ImmutableList.<io.trino.sql.ir.Expression>builder()
                         .add(translateExpression(expression.getReceiver()))
-                        .addAll(expression.getArguments().stream()
-                                .map(this::translateExpression)
-                                .collect(toImmutableList()))
+                        .addAll(translateMethodArguments(expression, expression.getArguments()))
                         .build());
+    }
+
+    // Emit arguments in resolved signature order: for positional calls the binding
+    // is the identity; for named calls it reorders so values land at their
+    // declared positions.
+    private List<io.trino.sql.ir.Expression> translateMethodArguments(Expression methodCall, List<CallArgument> arguments)
+    {
+        return analysis.getArgumentBinding(methodCall).stream()
+                .map(arguments::get)
+                .map(CallArgument::getValue)
+                .map(this::translateExpression)
+                .collect(toImmutableList());
     }
 
     private io.trino.sql.ir.Expression translate(DereferenceExpression expression)

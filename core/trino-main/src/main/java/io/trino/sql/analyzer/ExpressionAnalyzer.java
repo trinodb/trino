@@ -58,6 +58,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeParameter;
+import io.trino.spi.type.TypeTemplate;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis.PredicateCoercions;
@@ -187,6 +188,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -336,7 +338,7 @@ public class ExpressionAnalyzer
 
     private final Map<NodeRef<Node>, ResolvedFunction> resolvedFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<FunctionCall>, Identifier> methodCallReceivers = new LinkedHashMap<>();
-    private final Map<NodeRef<FunctionCall>, List<Integer>> argumentBindings = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, List<Integer>> argumentBindings = new LinkedHashMap<>();
     private final Set<NodeRef<SubqueryExpression>> subqueries = new LinkedHashSet<>();
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries = new LinkedHashSet<>();
     private final Map<NodeRef<Expression>, Type> expressionCoercions = new LinkedHashMap<>();
@@ -450,7 +452,7 @@ public class ExpressionAnalyzer
         return unmodifiableMap(methodCallReceivers);
     }
 
-    public Map<NodeRef<FunctionCall>, List<Integer>> getArgumentBindings()
+    public Map<NodeRef<Expression>, List<Integer>> getArgumentBindings()
     {
         return unmodifiableMap(argumentBindings);
     }
@@ -1490,7 +1492,7 @@ public class ExpressionAnalyzer
                 }
             }
             resolvedFunctions.put(NodeRef.of(node), function);
-            argumentBindings.put(NodeRef.of(node), argumentBinding);
+            argumentBindings.put(NodeRef.<Expression>of(node), argumentBinding);
 
             // must run after arguments are processed and labels are recorded
             if (context.isPatternRecognition() && isAggregation) {
@@ -1512,24 +1514,32 @@ public class ExpressionAnalyzer
         //  binder is a much bigger change.
         private List<Integer> computeArgumentBinding(FunctionCall node)
         {
-            List<CallArgument> arguments = node.getArguments();
-            int arity = arguments.size();
-            int firstNamedArgument = findFirstNamedArgument(arguments);
-            verifyNoDuplicateNames(arguments);
-
             // SQL name resolution picks the first path entry that has any candidate;
             // we stop iterating the path after that. Registration enforces that
             // overloads of the same name at the same arity place each named parameter
             // at the same position (see InternalFunctionBundle), so the first
             // arity-matching overload that fits is enough to build the binding.
-            List<FunctionMetadata> candidates = findCandidates(node.getName());
+            return computeArgumentBinding(node.getArguments(), findCandidates(node.getName()), 0, node, "function " + node.getName());
+        }
+
+        /// Computes the binding from declared-argument position to AST argument index for
+        /// a call with named arguments. `candidates` are the overloads in scope for the
+        /// callee; `receiverSlots` is the number of leading signature slots not visible to
+        /// the caller (1 for an instance method's `self`, 0 otherwise). `subject` names the
+        /// callee for diagnostics (for example `function foo` or `method bar`).
+        private List<Integer> computeArgumentBinding(List<CallArgument> arguments, List<FunctionMetadata> candidates, int receiverSlots, Node errorNode, String subject)
+        {
+            int arity = arguments.size();
+            int firstNamedArgument = findFirstNamedArgument(arguments);
+            verifyNoDuplicateNames(arguments);
+
             Optional<FunctionMetadata> chosen = Optional.empty();
             for (FunctionMetadata candidate : candidates) {
                 if (candidate.getSignature().isVariableArity()) {
                     // Variadic + named args is intentionally unsupported.
                     continue;
                 }
-                List<Signature.Argument> declared = candidate.getSignature().getArguments();
+                List<Signature.Argument> declared = callerVisibleArguments(candidate, receiverSlots);
                 if (declared.size() == arity && satisfiesNamedArguments(arguments, firstNamedArgument, declared)) {
                     chosen = Optional.of(candidate);
                     break;
@@ -1542,12 +1552,12 @@ public class ExpressionAnalyzer
                     if (candidate.getSignature().isVariableArity()) {
                         continue;
                     }
-                    candidate.getSignature().getArguments().forEach(argument -> argument.name().ifPresent(knownNames::add));
+                    callerVisibleArguments(candidate, receiverSlots).forEach(argument -> argument.name().ifPresent(knownNames::add));
                 }
                 for (int i = firstNamedArgument; i < arity; i++) {
                     Identifier name = arguments.get(i).getName().orElseThrow();
                     if (!knownNames.contains(name.getValue())) {
-                        throw semanticException(INVALID_FUNCTION_ARGUMENT, name, "No argument named %s for function %s", name.getValue(), node.getName());
+                        throw semanticException(INVALID_FUNCTION_ARGUMENT, name, "No argument named %s for %s", name.getValue(), subject);
                     }
                 }
                 // Names are known but no overload accepts them — typically because a
@@ -1556,22 +1566,22 @@ public class ExpressionAnalyzer
                 for (FunctionMetadata candidate : candidates) {
                     for (int i = firstNamedArgument; i < arity; i++) {
                         Identifier name = arguments.get(i).getName().orElseThrow();
-                        OptionalInt declaredPosition = findArgumentPosition(candidate.getSignature().getArguments(), name.getValue());
+                        OptionalInt declaredPosition = findArgumentPosition(callerVisibleArguments(candidate, receiverSlots), name.getValue());
                         if (declaredPosition.isPresent() && declaredPosition.getAsInt() < firstNamedArgument) {
                             throw semanticException(
                                     INVALID_FUNCTION_ARGUMENT,
                                     name,
-                                    "Named argument %s for function %s refers to parameter position %s, which is already supplied positionally",
+                                    "Named argument %s for %s refers to parameter position %s, which is already supplied positionally",
                                     name.getValue(),
-                                    node.getName(),
+                                    subject,
                                     declaredPosition.getAsInt());
                         }
                     }
                 }
-                throw semanticException(INVALID_FUNCTION_ARGUMENT, node, "No overload of function %s accepts the given named arguments", node.getName());
+                throw semanticException(INVALID_FUNCTION_ARGUMENT, errorNode, "No overload of %s accepts the given named arguments", subject);
             }
 
-            List<Signature.Argument> chosenArguments = chosen.get().getSignature().getArguments();
+            List<Signature.Argument> chosenArguments = callerVisibleArguments(chosen.get(), receiverSlots);
             List<Integer> binding = new ArrayList<>(identityBinding(arity));
             for (int i = firstNamedArgument; i < arity; i++) {
                 Identifier name = arguments.get(i).getName().orElseThrow();
@@ -1579,6 +1589,49 @@ public class ExpressionAnalyzer
                 binding.set(signaturePosition, i);
             }
             return List.copyOf(binding);
+        }
+
+        /// Returns the declared arguments visible to the caller, dropping the leading
+        /// `receiverSlots` entries that the call syntax supplies implicitly (an instance
+        /// method's `self`).
+        private static List<Signature.Argument> callerVisibleArguments(FunctionMetadata candidate, int receiverSlots)
+        {
+            List<Signature.Argument> arguments = candidate.getSignature().getArguments();
+            return arguments.subList(receiverSlots, arguments.size());
+        }
+
+        private List<FunctionMetadata> findInstanceMethodCandidates(String methodName, Type receiverType)
+        {
+            String receiverBase = receiverType.getTypeDescriptor().getBase();
+            return findMethodCandidates(methodName, candidate -> candidate.isInstanceMethod()
+                    && candidate.getReceiverType().map(TypeTemplate::baseName).equals(Optional.of(receiverBase)));
+        }
+
+        private List<FunctionMetadata> findStaticMethodCandidates(String methodName, String receiverBase)
+        {
+            return findMethodCandidates(methodName, candidate -> !candidate.isInstanceMethod()
+                    && candidate.getReceiverType().map(TypeTemplate::baseName).equals(Optional.of(receiverBase)));
+        }
+
+        /// Returns the method overloads named `methodName` from the first function-path
+        /// entry that declares one matching `filter` (instance vs static and receiver
+        /// type). This follows the same first-path-entry strategy as [#findCandidates]
+        /// — and inherits the same approximation of [FunctionResolver]'s binding, which
+        /// aggregates across the path: name binding only reads parameter names, and
+        /// registration keeps each name at a stable position per name+arity, so the
+        /// first matching entry's overloads are enough to build the binding.
+        private List<FunctionMetadata> findMethodCandidates(String methodName, Predicate<FunctionMetadata> filter)
+        {
+            for (CatalogSchemaFunctionName candidateName : FunctionResolver.toPath(session, QualifiedName.of(methodName), accessControl)) {
+                List<FunctionMetadata> matching = plannerContext.getMetadata().getFunctions(session, candidateName).stream()
+                        .map(CatalogFunctionMetadata::functionMetadata)
+                        .filter(filter)
+                        .collect(toImmutableList());
+                if (!matching.isEmpty()) {
+                    return matching;
+                }
+            }
+            return List.of();
         }
 
         /// Returns the index of the first named argument (or `arguments.size()` for
@@ -1656,15 +1709,20 @@ public class ExpressionAnalyzer
             return result.build();
         }
 
+        /// Returns the argument values reordered into declared-signature order, as given
+        /// by `binding` (the identity for a purely positional call).
+        private static List<Expression> orderedArgumentValues(List<CallArgument> arguments, List<Integer> binding)
+        {
+            return binding.stream()
+                    .map(arguments::get)
+                    .map(CallArgument::getValue)
+                    .collect(toImmutableList());
+        }
+
         private Optional<Type> tryResolveAsInstanceMethod(FunctionCall node, Context context)
         {
             QualifiedName name = node.getName();
             if (name.getParts().size() != 2) {
-                return Optional.empty();
-            }
-            if (node.hasNamedArguments()) {
-                // Method-call syntax (receiver.method(...)) does not support named arguments;
-                // fall through to ordinary function resolution so the caller sees a clear error.
                 return Optional.empty();
             }
             if (node.isDistinct()
@@ -1692,7 +1750,22 @@ public class ExpressionAnalyzer
             }
             Type receiverType = resolvedReceiver.get().getField().getType();
 
-            List<Expression> argumentValues = node.argumentValues();
+            List<CallArgument> arguments = node.getArguments();
+            List<Integer> binding;
+            if (node.hasNamedArguments()) {
+                List<FunctionMetadata> candidates = findInstanceMethodCandidates(method.getValue(), receiverType);
+                if (candidates.isEmpty()) {
+                    // No instance method of this name on the receiver type; let ordinary
+                    // function resolution handle (and reject) the call.
+                    return Optional.empty();
+                }
+                binding = computeArgumentBinding(arguments, candidates, 1, node, "method " + method.getValue());
+            }
+            else {
+                binding = identityBinding(arguments.size());
+            }
+            List<Expression> argumentValues = orderedArgumentValues(arguments, binding);
+
             MethodResolution resolution;
             try {
                 resolution = resolveInstanceMethodCall(receiverType, method.getValue(), argumentValues, context);
@@ -1706,7 +1779,7 @@ public class ExpressionAnalyzer
 
             Type result = analyzeInstanceMethodInvocation(node, receiver, receiverType, method.getValue(), argumentValues, resolution, context);
             methodCallReceivers.put(NodeRef.of(node), receiver);
-            argumentBindings.put(NodeRef.of(node), identityBinding(node.getArguments().size()));
+            argumentBindings.put(NodeRef.<Expression>of(node), binding);
             return Optional.of(result);
         }
 
@@ -1716,9 +1789,24 @@ public class ExpressionAnalyzer
             Type receiverType = process(node.getReceiver(), context);
             String methodName = node.getMethod().getValue();
 
+            List<CallArgument> arguments = node.getArguments();
+            List<Integer> binding;
+            if (node.hasNamedArguments()) {
+                List<FunctionMetadata> candidates = findInstanceMethodCandidates(methodName, receiverType);
+                // With no instance method of this name on the receiver type, bind positionally so
+                // resolution reports method-not-found rather than a misleading "No argument named ...".
+                binding = candidates.isEmpty()
+                        ? identityBinding(arguments.size())
+                        : computeArgumentBinding(arguments, candidates, 1, node, "method " + methodName);
+            }
+            else {
+                binding = identityBinding(arguments.size());
+            }
+            List<Expression> argumentValues = orderedArgumentValues(arguments, binding);
+
             MethodResolution resolution;
             try {
-                resolution = resolveInstanceMethodCall(receiverType, methodName, node.getArguments(), context);
+                resolution = resolveInstanceMethodCall(receiverType, methodName, argumentValues, context);
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {
@@ -1727,7 +1815,8 @@ public class ExpressionAnalyzer
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
 
-            return analyzeInstanceMethodInvocation(node, node.getReceiver(), receiverType, methodName, node.getArguments(), resolution, context);
+            argumentBindings.put(NodeRef.<Expression>of(node), binding);
+            return analyzeInstanceMethodInvocation(node, node.getReceiver(), receiverType, methodName, argumentValues, resolution, context);
         }
 
         private MethodResolution resolveInstanceMethodCall(Type receiverType, String methodName, List<Expression> arguments, Context context)
@@ -1788,15 +1877,31 @@ public class ExpressionAnalyzer
                 throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", receiver);
             }
             TypeDescriptor receiverSignature = new TypeDescriptor(receiver.getSuffix());
+            String methodName = node.getMethod().getValue();
 
-            List<TypeDescriptorProvider> argumentTypes = getCallArgumentTypes(node.getArguments(), context);
+            List<CallArgument> arguments = node.getArguments();
+            List<Integer> binding;
+            if (node.hasNamedArguments()) {
+                List<FunctionMetadata> candidates = findStaticMethodCandidates(methodName, receiverSignature.getBase());
+                // With no static method of this name on the receiver type, bind positionally so
+                // resolution reports method-not-found rather than a misleading "No argument named ...".
+                binding = candidates.isEmpty()
+                        ? identityBinding(arguments.size())
+                        : computeArgumentBinding(arguments, candidates, 0, node, "static method " + receiver + "::" + methodName);
+            }
+            else {
+                binding = identityBinding(arguments.size());
+            }
+            List<Expression> argumentValues = orderedArgumentValues(arguments, binding);
+
+            List<TypeDescriptorProvider> argumentTypes = getCallArgumentTypes(argumentValues, context);
 
             ResolvedFunction function;
             try {
                 function = functionResolver.resolveStaticMethod(
                         session,
                         receiverSignature,
-                        QualifiedName.of(node.getMethod().getValue()),
+                        QualifiedName.of(methodName),
                         argumentTypes,
                         accessControl);
             }
@@ -1807,13 +1912,13 @@ public class ExpressionAnalyzer
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
 
-            if (node.getArguments().size() > 127) {
-                throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for static method call %s::%s()", receiver, node.getMethod().getValue());
+            if (argumentValues.size() > 127) {
+                throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for static method call %s::%s()", receiver, methodName);
             }
 
             BoundSignature signature = function.signature();
             for (int i = 0; i < argumentTypes.size(); i++) {
-                Expression expression = node.getArguments().get(i);
+                Expression expression = argumentValues.get(i);
                 Type expectedType = signature.getArgumentTypes().get(i);
                 if (argumentTypes.get(i).hasDependency()) {
                     FunctionType expectedFunctionType = (FunctionType) expectedType;
@@ -1821,10 +1926,11 @@ public class ExpressionAnalyzer
                 }
                 else {
                     Type actualType = plannerContext.getTypeManager().getType(argumentTypes.get(i).getTypeDescriptor());
-                    coerceType(expression, actualType, expectedType, format("Static method %s::%s argument %d", receiver, node.getMethod().getValue(), i));
+                    coerceType(expression, actualType, expectedType, format("Static method %s::%s argument %d", receiver, methodName, i));
                 }
             }
             resolvedFunctions.put(NodeRef.of(node), function);
+            argumentBindings.put(NodeRef.<Expression>of(node), binding);
             return setExpressionType(node, signature.getReturnType());
         }
 
