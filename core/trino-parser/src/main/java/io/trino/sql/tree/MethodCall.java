@@ -25,9 +25,9 @@ public class MethodCall
 {
     private final Expression receiver;
     private final Identifier method;
-    private final List<Expression> arguments;
+    private final List<CallArgument> arguments;
 
-    public MethodCall(NodeLocation location, Expression receiver, Identifier method, List<Expression> arguments)
+    public MethodCall(NodeLocation location, Expression receiver, Identifier method, List<CallArgument> arguments)
     {
         super(location);
         this.receiver = requireNonNull(receiver, "receiver is null");
@@ -45,9 +45,14 @@ public class MethodCall
         return method;
     }
 
-    public List<Expression> getArguments()
+    public List<CallArgument> getArguments()
     {
         return arguments;
+    }
+
+    public boolean hasNamedArguments()
+    {
+        return arguments.stream().anyMatch(argument -> argument.getName().isPresent());
     }
 
     @Override

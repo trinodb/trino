@@ -606,8 +606,8 @@ primaryExpression
         filter? over?                                                                     #functionCall
     | processingMode? qualifiedName '(' (setQuantifier? argument (',' argument)*)?
         orderBy? ')' filter? (nullTreatment? over)?                                       #functionCall
-    | qualifiedName '::' identifier '(' (expression (',' expression)*)? ')'               #staticMethodCall
-    | primaryExpression '.' identifier '(' (expression (',' expression)*)? ')'            #methodCall
+    | qualifiedName '::' identifier '(' (argument (',' argument)*)? ')'                   #staticMethodCall
+    | primaryExpression '.' identifier '(' (argument (',' argument)*)? ')'                #methodCall
     | identifier over                                                                     #measure
     | identifier '->' expression                                                          #lambda
     | '(' (identifier (',' identifier)*)? ')' '->' expression                             #lambda

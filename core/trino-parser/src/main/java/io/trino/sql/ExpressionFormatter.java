@@ -529,13 +529,13 @@ public final class ExpressionFormatter
         @Override
         protected String visitStaticMethodCall(StaticMethodCall node, Void context)
         {
-            return formatName(node.getType()) + "::" + formatExpression(node.getMethod()) + "(" + joinExpressions(node.getArguments()) + ")";
+            return formatName(node.getType()) + "::" + formatExpression(node.getMethod()) + "(" + joinCallArguments(node.getArguments()) + ")";
         }
 
         @Override
         protected String visitMethodCall(MethodCall node, Void context)
         {
-            return "(" + formatExpression(node.getReceiver()) + ")." + formatExpression(node.getMethod()) + "(" + joinExpressions(node.getArguments()) + ")";
+            return "(" + formatExpression(node.getReceiver()) + ")." + formatExpression(node.getMethod()) + "(" + joinCallArguments(node.getArguments()) + ")";
         }
 
         @Override
@@ -986,6 +986,13 @@ public final class ExpressionFormatter
         {
             return expressions.stream()
                     .map(e -> process(e, null))
+                    .collect(joining(", "));
+        }
+
+        private String joinCallArguments(List<CallArgument> arguments)
+        {
+            return arguments.stream()
+                    .map(argument -> process(argument, null))
                     .collect(joining(", "));
         }
 

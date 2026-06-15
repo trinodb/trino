@@ -514,13 +514,7 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
-            List<CallArgument> arguments = new ArrayList<>(node.getArguments().size());
-            for (CallArgument argument : node.getArguments()) {
-                Expression rewrittenValue = rewrite(argument.getValue(), context.get());
-                arguments.add(rewrittenValue == argument.getValue()
-                        ? argument
-                        : new CallArgument(argument.getLocation().orElse(null), argument.getName(), rewrittenValue));
-            }
+            List<CallArgument> arguments = rewriteCallArguments(node.getArguments(), context);
 
             Optional<OrderBy> orderBy = node.getOrderBy();
             if (orderBy.isPresent()) {
@@ -556,7 +550,7 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
-            List<Expression> arguments = rewrite(node.getArguments(), context);
+            List<CallArgument> arguments = rewriteCallArguments(node.getArguments(), context);
             if (!sameElements(node.getArguments(), arguments)) {
                 return new StaticMethodCall(node.getLocation().orElseThrow(), node.getType(), node.getMethod(), arguments);
             }
@@ -574,11 +568,23 @@ public final class ExpressionTreeRewriter<C>
             }
 
             Expression receiver = rewrite(node.getReceiver(), context.get());
-            List<Expression> arguments = rewrite(node.getArguments(), context);
+            List<CallArgument> arguments = rewriteCallArguments(node.getArguments(), context);
             if (receiver != node.getReceiver() || !sameElements(node.getArguments(), arguments)) {
                 return new MethodCall(node.getLocation().orElseThrow(), receiver, node.getMethod(), arguments);
             }
             return node;
+        }
+
+        private List<CallArgument> rewriteCallArguments(List<CallArgument> callArguments, Context<C> context)
+        {
+            List<CallArgument> arguments = new ArrayList<>(callArguments.size());
+            for (CallArgument argument : callArguments) {
+                Expression rewrittenValue = rewrite(argument.getValue(), context.get());
+                arguments.add(rewrittenValue == argument.getValue()
+                        ? argument
+                        : new CallArgument(argument.getLocation().orElse(null), argument.getName(), rewrittenValue));
+            }
+            return arguments;
         }
 
         // Since OrderBy contains list of SortItems, we want to process each SortItem's key, which is an expression

@@ -234,8 +234,8 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitStaticMethodCall(StaticMethodCall node, C context)
     {
-        for (Expression argument : node.getArguments()) {
-            process(argument, context);
+        for (CallArgument argument : node.getArguments()) {
+            process(argument.getValue(), context);
         }
         return null;
     }
@@ -244,8 +244,8 @@ public abstract class DefaultTraversalVisitor<C>
     protected Void visitMethodCall(MethodCall node, C context)
     {
         process(node.getReceiver(), context);
-        for (Expression argument : node.getArguments()) {
-            process(argument, context);
+        for (CallArgument argument : node.getArguments()) {
+            process(argument.getValue(), context);
         }
         return null;
     }
