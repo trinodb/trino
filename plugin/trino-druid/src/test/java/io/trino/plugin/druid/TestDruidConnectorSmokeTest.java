@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
-public class TestDruidLatestConnectorSmokeTest
+public class TestDruidConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
 {
     private TestingDruidServer druidServer;
@@ -33,7 +33,7 @@ public class TestDruidLatestConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        druidServer = closeAfterClass(new TestingDruidServer("apache/druid:0.20.0"));
+        druidServer = closeAfterClass(new TestingDruidServer("apache/druid:37.0.0"));
         return DruidQueryRunner.builder(druidServer)
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
@@ -78,9 +78,9 @@ public class TestDruidLatestConnectorSmokeTest
                         """
                         CREATE TABLE druid.druid.region (
                            __time timestamp(3) NOT NULL,
-                           comment varchar,
+                           regionkey bigint,
                            name varchar,
-                           regionkey bigint NOT NULL
+                           comment varchar
                         )""");
     }
 }

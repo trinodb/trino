@@ -3,67 +3,49 @@
     "spec": {
         "dataSchema": {
             "dataSource": "part",
-            "parser": {
-                "type": "string",
-                "parseSpec": {
-                    "format": "tsv",
-                    "timestampSpec": {
-                        "column": "part_druid_dummy_ts",
-                        "format": "auto"
+            "timestampSpec": {
+                "column": "part_druid_dummy_ts",
+                "format": "auto"
+            },
+            "dimensionsSpec": {
+                "dimensions": [
+                    {
+                        "name": "partkey",
+                        "type": "long"
                     },
-                    "columns": [
-                        "partkey",
-                        "name",
-                        "mfgr",
-                        "brand",
-                        "type",
-                        "size",
-                        "container",
-                        "retailprice",
-                        "comment",
-                        "part_druid_dummy_ts"
-                    ],
-                    "dimensionsSpec": {
-                        "dimensions": [
-                            {
-                                "name": "partkey",
-                                "type": "long"
-                            },
-                            {
-                                "name": "name",
-                                "type": "string"
-                            },
-                            {
-                                "name": "mfgr",
-                                "type": "string"
-                            },
-                            {
-                                "name": "brand",
-                                "type": "string"
-                            },
-                            {
-                                "name": "type",
-                                "type": "string"
-                            },
-                            {
-                                "name": "size",
-                                "type": "long"
-                            },
-                            {
-                                "name": "container",
-                                "type": "string"
-                            },
-                            {
-                                "name": "retailprice",
-                                "type": "double"
-                            },
-                            {
-                                "name": "comment",
-                                "type": "string"
-                            }
-                        ]
+                    {
+                        "name": "name",
+                        "type": "string"
+                    },
+                    {
+                        "name": "mfgr",
+                        "type": "string"
+                    },
+                    {
+                        "name": "brand",
+                        "type": "string"
+                    },
+                    {
+                        "name": "type",
+                        "type": "string"
+                    },
+                    {
+                        "name": "size",
+                        "type": "long"
+                    },
+                    {
+                        "name": "container",
+                        "type": "string"
+                    },
+                    {
+                        "name": "retailprice",
+                        "type": "double"
+                    },
+                    {
+                        "name": "comment",
+                        "type": "string"
                     }
-                }
+                ]
             },
             "granularitySpec": {
                 "type": "uniform",
@@ -76,10 +58,26 @@
         },
         "ioConfig": {
             "type": "index",
-            "firehose": {
+            "inputSource": {
                 "type": "local",
                 "baseDir": "/opt/druid/var/",
                 "filter": "part.tsv"
+            },
+            "inputFormat": {
+                "type": "tsv",
+                "findColumnsFromHeader": false,
+                "columns": [
+                    "partkey",
+                    "name",
+                    "mfgr",
+                    "brand",
+                    "type",
+                    "size",
+                    "container",
+                    "retailprice",
+                    "comment",
+                    "part_druid_dummy_ts"
+                ]
             },
             "appendToExisting": false
         },
