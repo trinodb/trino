@@ -464,6 +464,7 @@ final class TestRedshiftCastPushdown
                 .add(new CastTestCase("c_char_10", "char(256)", "c_bpchar"))
                 .add(new CastTestCase("c_char", "char(4096)", "c_char_4096"))
 
+                .add(new CastTestCase("c_char_50", "varchar(50)", "c_varchar_50"))
                 .add(new CastTestCase("c_varchar_10", "varchar(10)", "c_varchar_10"))
                 .add(new CastTestCase("c_varchar_15_unicode", "varchar(50)", "c_varchar_50"))
                 .add(new CastTestCase("c_nvarchar_15_unicode", "varchar(50)", "c_varchar_50"))
@@ -551,7 +552,6 @@ final class TestRedshiftCastPushdown
                 .add(new CastTestCase("c_nvarchar_15_unicode", "char(50)", "c_char_50"))
                 .add(new CastTestCase("c_varchar_50", "char(50)", "c_char_50"))
 
-                .add(new CastTestCase("c_char_50", "varchar(50)", "c_varchar_50"))
                 .add(new CastTestCase("c_boolean", "varchar(50)", "c_varchar_50"))
                 .add(new CastTestCase("c_smallint", "varchar(50)", "c_varchar_50"))
                 .add(new CastTestCase("c_int2", "varchar(50)", "c_varchar_50"))

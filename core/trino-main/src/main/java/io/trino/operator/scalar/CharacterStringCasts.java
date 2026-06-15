@@ -29,7 +29,6 @@ import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.airlift.slice.SliceUtf8.setCodePointAt;
-import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Math.toIntExact;
@@ -66,18 +65,6 @@ public final class CharacterStringCasts
     public static Slice varcharToCharCast(@LiteralParameter("y") Long y, @SqlType("varchar(x)") Slice slice)
     {
         return truncateToLengthAndTrimSpaces(slice, y.intValue());
-    }
-
-    @ScalarOperator(value = OperatorType.CAST, neverFails = true)
-    @SqlType("varchar(y)")
-    @LiteralParameters({"x", "y"})
-    public static Slice charToVarcharCast(@LiteralParameter("x") Long x, @LiteralParameter("y") Long y, @SqlType("char(x)") Slice slice)
-    {
-        if (x.intValue() <= y.intValue()) {
-            return padSpaces(slice, x.intValue());
-        }
-
-        return padSpaces(truncateToLength(slice, y.intValue()), y.intValue());
     }
 
     @ScalarOperator(OperatorType.SATURATED_FLOOR_CAST)

@@ -17,6 +17,7 @@ import com.google.common.base.Suppliers;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.FeaturesConfig;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.FunctionResolver;
@@ -54,6 +55,7 @@ public class PlannerContext
     private final LanguageFunctionManager languageFunctionManager;
     private final Tracer tracer;
     private final JsonCodec<Expression> expressionCodec;
+    private final boolean legacyVarcharToCharCoercion;
     private final Supplier<IrExpressionOptimizer> expressionOptimizer = Suppliers.memoize(() -> newOptimizer(this));
     private final Supplier<IrExpressionEvaluator> expressionEvaluator = Suppliers.memoize(() -> new IrExpressionEvaluator(this));
     private final Supplier<IrExpressionOptimizer> partialEvaluator = Suppliers.memoize(() -> newPartialEvaluator(this));
@@ -67,7 +69,8 @@ public class PlannerContext
             FunctionManager functionManager,
             LanguageFunctionManager languageFunctionManager,
             Tracer tracer,
-            JsonCodec<Expression> expressionCodec)
+            JsonCodec<Expression> expressionCodec,
+            FeaturesConfig featuresConfig)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
@@ -77,6 +80,12 @@ public class PlannerContext
         this.languageFunctionManager = requireNonNull(languageFunctionManager, "languageFunctionManager is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.expressionCodec = requireNonNull(expressionCodec, "expressionCodec is null");
+        this.legacyVarcharToCharCoercion = requireNonNull(featuresConfig, "featuresConfig is null").isLegacyVarcharToCharCoercion();
+    }
+
+    public boolean isLegacyVarcharToCharCoercion()
+    {
+        return legacyVarcharToCharCoercion;
     }
 
     public Metadata getMetadata()
@@ -111,7 +120,7 @@ public class PlannerContext
 
     public FunctionResolver getFunctionResolver(WarningCollector warningCollector)
     {
-        return new FunctionResolver(metadata, typeManager, languageFunctionManager, warningCollector);
+        return new FunctionResolver(metadata, typeManager, languageFunctionManager, warningCollector, legacyVarcharToCharCoercion);
     }
 
     public IrExpressionOptimizer getExpressionOptimizer()

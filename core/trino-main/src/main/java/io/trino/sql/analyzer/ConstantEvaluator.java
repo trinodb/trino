@@ -65,7 +65,7 @@ public final class ConstantEvaluator
         io.trino.sql.ir.Expression rewritten = translationMap.rewrite(expression);
 
         Type actualType = rewritten.type();
-        if (!new TypeCoercion(plannerContext.getTypeManager()::getType).canCoerce(actualType, expectedType)) {
+        if (!new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion()).canCoerce(actualType, expectedType)) {
             throw semanticException(TYPE_MISMATCH, expression, "Cannot cast type %s to %s", actualType.getDisplayName(), expectedType.getDisplayName());
         }
 

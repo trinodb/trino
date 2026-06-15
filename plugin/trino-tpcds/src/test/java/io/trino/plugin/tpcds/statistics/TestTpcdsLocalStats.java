@@ -137,11 +137,12 @@ public class TestTpcdsLocalStats
     @Test
     public void testIn()
     {
+        // char values are compared as varchar after trimming, so the IN literals are written without padding
         statisticsAssertion.check(
-                "SELECT * FROM item WHERE i_category IN ('Women                                             ')",
+                "SELECT * FROM item WHERE i_category IN ('Women')",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
         statisticsAssertion.check(
-                "SELECT * FROM ship_mode WHERE sm_carrier IN ('DHL                 ', 'BARIAN              ')",
+                "SELECT * FROM ship_mode WHERE sm_carrier IN ('DHL', 'BARIAN')",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
     }
 }

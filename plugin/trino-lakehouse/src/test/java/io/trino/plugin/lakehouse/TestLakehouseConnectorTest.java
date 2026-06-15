@@ -234,10 +234,6 @@ public class TestLakehouseConnectorTest
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("char(3)")) {
-            return Optional.of(new DataMappingTestSetup(typeName, "'ab '", dataMappingTestSetup.getHighValueLiteral()));
-        }
         return Optional.of(dataMappingTestSetup);
     }
 
@@ -358,10 +354,13 @@ public class TestLakehouseConnectorTest
                         "   (-1, CAST(NULL AS CHAR(3))), " +
                         "   (3, CAST('   ' AS CHAR(3)))," +
                         "   (6, CAST('x  ' AS CHAR(3)))")) {
-            assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS varchar(2))")).returnsEmptyResult();
-            assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('    ' AS varchar(4))")).returnsEmptyResult();
+            assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('' AS varchar(2))"))
+                    .skippingTypesCheck()
+                    .matches("VALUES (3, '')");
+            assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x' AS varchar(2))"))
+                    .skippingTypesCheck()
+                    .matches("VALUES (6, 'x')");
             assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS varchar(2))")).returnsEmptyResult();
-            assertQuery("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('   ' AS varchar(3))", "VALUES (3, '   ')");
         }
     }
 

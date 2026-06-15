@@ -115,12 +115,36 @@ public class TestUnwrapCastInComparison
 
         // varchar and char, same length
         testUnwrap("varchar(3)", "a = CAST('abc' AS char(3))", comparison(EQUAL, new Reference(createVarcharType(3), "a"), new Constant(createVarcharType(3), Slices.utf8Slice("abc"))));
-        // longer varchar and char
-        // actually unwrapping didn't happen
-        testUnwrap("varchar(10)", "a = CAST('abc' AS char(3))", comparison(EQUAL, new Cast(new Reference(createVarcharType(10), "a"), createCharType(10)), new Constant(createCharType(10), Slices.utf8Slice("abc"))));
+        // longer varchar and char; the char constant is coerced to varchar, so the comparison unwraps to varchar
+        testUnwrap("varchar(10)", "a = CAST('abc' AS char(3))", comparison(EQUAL, new Reference(createVarcharType(10), "a"), new Constant(createVarcharType(10), Slices.utf8Slice("abc"))));
         // unbounded varchar and char
-        // actually unwrapping didn't happen
-        testUnwrap("varchar", "a = CAST('abc' AS char(3))", comparison(EQUAL, new Cast(new Reference(VARCHAR, "a"), createCharType(65536)), new Constant(createCharType(65536), Slices.utf8Slice("abc"))));
+        testUnwrap("varchar", "a = CAST('abc' AS char(3))", comparison(EQUAL, new Reference(VARCHAR, "a"), new Constant(VARCHAR, Slices.utf8Slice("abc"))));
+    }
+
+    @Test
+    public void testCharToVarcharCast()
+    {
+        // CAST(char AS varchar) = varchar literal: the char column is compared after trimming, so the comparison
+        // unwraps to a char equality when the cast does not narrow (varchar length >= char length).
+
+        // same length: unwraps to char equality
+        testUnwrap("char(3)", "CAST(a AS varchar(3)) = VARCHAR 'abc'", comparison(EQUAL, new Reference(createCharType(3), "a"), new Constant(createCharType(3), Slices.utf8Slice("abc"))));
+
+        // wider varchar (does not narrow): still unwraps
+        testUnwrap("char(3)", "CAST(a AS varchar(10)) = VARCHAR 'abc'", comparison(EQUAL, new Reference(createCharType(3), "a"), new Constant(createCharType(3), Slices.utf8Slice("abc"))));
+
+        // unbounded varchar: unwraps
+        testUnwrap("char(3)", "CAST(a AS varchar) = VARCHAR 'abc'", comparison(EQUAL, new Reference(createCharType(3), "a"), new Constant(createCharType(3), Slices.utf8Slice("abc"))));
+
+        // literal with trailing spaces: no char value's trimmed varchar form has trailing spaces, so the equality is
+        // unsatisfiable (this is the discriminator that would catch a PAD-semantics regression)
+        testUnwrap("char(3)", "CAST(a AS varchar(3)) = VARCHAR 'ab '", new Logical(AND, ImmutableList.of(new IsNull(new Reference(createCharType(3), "a")), new Constant(BOOLEAN, null))));
+
+        // empty literal matches all-spaces char values (stored unpadded as '')
+        testUnwrap("char(3)", "CAST(a AS varchar(3)) = VARCHAR ''", comparison(EQUAL, new Reference(createCharType(3), "a"), new Constant(createCharType(3), Slices.utf8Slice(""))));
+
+        // narrowing cast (varchar shorter than char) is not injective on the source, so it must NOT be unwrapped
+        testUnwrap("char(5)", "CAST(a AS varchar(3)) = VARCHAR 'abc'", comparison(EQUAL, new Cast(new Reference(createCharType(5), "a"), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("abc"))));
     }
 
     @Test
