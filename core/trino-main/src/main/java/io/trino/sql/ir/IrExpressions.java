@@ -184,6 +184,10 @@ public final class IrExpressions
         if (mayFail(plannerContext, cast.expression())) {
             return true;
         }
+        ResolvedFunction castFunction = plannerContext.getMetadata().getCoercion(cast.expression().type(), cast.type());
+        if (castFunction.neverFails()) {
+            return false;
+        }
 
         TypeCoercion coercions = new TypeCoercion(plannerContext.getTypeManager()::getType);
         if (coercions.canCoerce(cast.expression().type(), cast.type())) {
