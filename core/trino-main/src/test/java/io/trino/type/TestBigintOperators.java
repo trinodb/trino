@@ -497,6 +497,7 @@ public class TestBigintOperators
     {
         assertThat(assertions.expression("cast(a as boolean)")
                 .binding("a", "BIGINT '37'"))
+                .couldFail()
                 .isEqualTo(true);
 
         assertThat(assertions.expression("cast(a as boolean)")
@@ -506,10 +507,6 @@ public class TestBigintOperators
         assertThat(assertions.expression("cast(a as boolean)")
                 .binding("a", "BIGINT '0'"))
                 .isEqualTo(false);
-
-        assertThat(assertions.expression("cast(a as boolean)")
-                .binding("a", "BIGINT '0'"))
-                .couldFail();
     }
 
     @Test

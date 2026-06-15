@@ -500,6 +500,7 @@ public class TestTinyintOperators
     {
         assertThat(assertions.expression("cast(a as boolean)")
                 .binding("a", "TINYINT '37'"))
+                .couldFail()
                 .isEqualTo(true);
 
         assertThat(assertions.expression("cast(a as boolean)")

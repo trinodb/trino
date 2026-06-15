@@ -728,6 +728,7 @@ public class TestDoubleOperators
     {
         assertThat(assertions.expression("cast(a as boolean)")
                 .binding("a", "37.7E0"))
+                .couldFail()
                 .isEqualTo(true);
 
         assertThat(assertions.expression("cast(a as boolean)")
