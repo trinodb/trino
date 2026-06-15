@@ -116,7 +116,7 @@ public final class SolverExpressionTypeChecker
     // there is nothing to reuse); the value carries between expressions only when a long-lived
     // checker holds it.
     private final Map<ResolutionKey, FunctionResolver.ResolutionOutcome> resolutionCache;
-    private final Map<ResolutionKey, Set<List<List<Expression>>>> probeCache;
+    private final Map<ProbeKey, Set<List<List<Expression>>>> probeCache;
 
     public SolverExpressionTypeChecker(TypeSystem typeSystem, FunctionResolver resolver, FunctionSchemes functions, TypeManager typeManager)
     {
@@ -161,19 +161,27 @@ public final class SolverExpressionTypeChecker
         allocator.reserveThrough(1_000_000);
     }
 
-    /// Caches a call outcome on the name and its ground argument shapes — the lambda placeholder
+    /// Caches a call outcome on the name and its (named) argument list.
+    private record ResolutionKey(String name, List<FunctionResolver.Argument> arguments) {}
+
+    /// Caches a lambda probe on the name and its ground argument shapes — the lambda placeholder
     /// arguments a probe passes are normalized to their arity, since the fresh variables a probe
     /// mints differ from one analysis to the next but the assignment they yield does not.
-    private record ResolutionKey(String name, List<Expression> arguments) {}
+    private record ProbeKey(String name, List<Expression> arguments) {}
 
-    private FunctionResolver.ResolutionOutcome resolveOutcome(String name, List<Expression> arguments)
+    private FunctionResolver.ResolutionOutcome resolveOutcome(String name, List<FunctionResolver.Argument> arguments)
     {
         if (resolutionCache == null) {
-            return resolver.resolveOutcome(functions.functions(name), arguments);
+            return resolver.resolveNamed(functions.functions(name), arguments);
         }
         return resolutionCache.computeIfAbsent(
                 new ResolutionKey(name, arguments),
-                key -> resolver.resolveOutcome(functions.functions(key.name()), key.arguments()));
+                key -> resolver.resolveNamed(functions.functions(key.name()), key.arguments()));
+    }
+
+    private static List<FunctionResolver.Argument> positionalArguments(List<Expression> arguments)
+    {
+        return arguments.stream().map(FunctionResolver.Argument::positional).toList();
     }
 
     public Type typeOf(io.trino.sql.tree.Expression expression)
@@ -282,13 +290,13 @@ public final class SolverExpressionTypeChecker
             }
             case Cast cast -> typeManager.getType(TypeDescriptorTranslator.toTypeDescriptor(cast.getType()));
             case NullLiteral _ -> UNKNOWN;
-            case ArithmeticBinaryExpression operation -> resolveCall(operation.getOperator().getValue(), List.of(operation.getLeft(), operation.getRight()), scope);
+            case ArithmeticBinaryExpression operation -> resolvePositionalCall(operation.getOperator().getValue(), List.of(operation.getLeft(), operation.getRight()), scope);
             case Predicated predicated -> {
                 // The LHS now rides on the Predicated wrapper; each fragment reproduces the
                 // constraint shape its former standalone node carried
                 io.trino.sql.tree.Expression value = predicated.getValue();
                 yield switch (predicated.getPredicate()) {
-                    case ComparisonPredicate comparison -> resolveCall(comparison.getOperator().getValue(), List.of(value, comparison.getRight()), scope);
+                    case ComparisonPredicate comparison -> resolvePositionalCall(comparison.getOperator().getValue(), List.of(value, comparison.getRight()), scope);
                     case IsNullPredicate _ -> {
                         // IS [NOT] NULL is a boolean of any argument; the negated flag is irrelevant to typing
                         typeOf(value, scope);
@@ -317,7 +325,11 @@ public final class SolverExpressionTypeChecker
                 if (call.getName().getPrefix().isPresent()) {
                     throw new UnsupportedOperationException("Unsupported qualified call: " + call.getName());
                 }
-                yield resolveCall(call.getName().getSuffix(), call.getArguments().stream().map(CallArgument::getValue).toList(), scope);
+                yield resolveCall(
+                        call.getName().getSuffix(),
+                        call.getArguments().stream().map(CallArgument::getValue).toList(),
+                        call.getArguments().stream().map(argument -> argument.getName().map(Identifier::getValue)).toList(),
+                        scope);
             }
             case SubscriptExpression subscript -> {
                 // Row subscript is field access, special-cased in the analyzer — only the
@@ -325,7 +337,7 @@ public final class SolverExpressionTypeChecker
                 if (typeOf(subscript.getBase(), scope) instanceof RowType) {
                     throw new UnsupportedOperationException("Unsupported subscript on a row type: " + subscript);
                 }
-                yield resolveCall("[]", List.of(subscript.getBase(), subscript.getIndex()), scope);
+                yield resolvePositionalCall("[]", List.of(subscript.getBase(), subscript.getIndex()), scope);
             }
             // The constructs below are special-cased in ExpressionAnalyzer; here each is the same
             // constraint shape a generic signature produces — branches flowing into one type
@@ -443,7 +455,12 @@ public final class SolverExpressionTypeChecker
 
     private record PendingLambda(int index, LambdaExpression lambda, List<String> parameterVariables) {}
 
-    private Type resolveCall(String name, List<io.trino.sql.tree.Expression> argumentNodes, Map<String, Type> scope)
+    private Type resolvePositionalCall(String name, List<io.trino.sql.tree.Expression> argumentNodes, Map<String, Type> scope)
+    {
+        return resolveCall(name, argumentNodes, nCopies(argumentNodes.size(), Optional.<String>empty()), scope);
+    }
+
+    private Type resolveCall(String name, List<io.trino.sql.tree.Expression> argumentNodes, List<Optional<String>> argumentNames, Map<String, Type> scope)
     {
         List<Expression> arguments = new ArrayList<>();
         List<PendingLambda> pendingLambdas = new ArrayList<>();
@@ -463,7 +480,17 @@ public final class SolverExpressionTypeChecker
         }
 
         if (pendingLambdas.isEmpty()) {
-            return resolveRecordingCoercions(name, argumentNodes, arguments);
+            List<FunctionResolver.Argument> namedArguments = new ArrayList<>(arguments.size());
+            for (int index = 0; index < arguments.size(); index++) {
+                namedArguments.add(new FunctionResolver.Argument(argumentNames.get(index), arguments.get(index)));
+            }
+            return resolveRecordingCoercions(name, argumentNodes, namedArguments);
+        }
+
+        if (argumentNames.stream().anyMatch(Optional::isPresent)) {
+            // Determining a lambda's parameter types depends on the overload, and named arguments
+            // depend on the overload too; resolving both at once is out of scope for now
+            throw new UnsupportedOperationException("Named arguments with lambda arguments are unsupported: " + name);
         }
 
         // Probing solve, per candidate: with the lambdas as function types over fresh variables,
@@ -494,7 +521,7 @@ public final class SolverExpressionTypeChecker
             // Final solve with every argument ground: full overload dominance applies. With
             // several surviving assignments the last one's coercions win; the ambiguity check
             // below rejects the call unless they agree on the result anyway
-            results.add(resolveRecordingCoercions(name, argumentNodes, completed));
+            results.add(resolveRecordingCoercions(name, argumentNodes, positionalArguments(completed)));
         }
 
         if (results.size() != 1) {
@@ -533,7 +560,7 @@ public final class SolverExpressionTypeChecker
     /// wider formal — the caller re-discharges until this is a fixpoint.
     private List<List<Expression>> refineAssignment(String name, List<Expression> completed, List<PendingLambda> pendingLambdas, List<List<Expression>> assignment)
     {
-        if (!(resolveOutcome(name, completed) instanceof FunctionResolver.Resolved resolved)) {
+        if (!(resolveOutcome(name, positionalArguments(completed)) instanceof FunctionResolver.Resolved resolved)) {
             return assignment;
         }
         Map<Integer, Expression> formals = new HashMap<>();
@@ -582,7 +609,7 @@ public final class SolverExpressionTypeChecker
                         : argument)
                 .toList();
         return probeCache.computeIfAbsent(
-                new ResolutionKey(name, normalized),
+                new ProbeKey(name, normalized),
                 _ -> uncachedProbe(name, arguments, lambdaIndexes));
     }
 
@@ -617,7 +644,7 @@ public final class SolverExpressionTypeChecker
     /// Resolves the call and transcribes the resolution's argument coercions onto the argument
     /// nodes, the way the analyzer records them for the planner — skipping conversions that do
     /// not change the Trino type (e.g. unbounded varchar re-encoded as its length sentinel)
-    private Type resolveRecordingCoercions(String name, List<io.trino.sql.tree.Expression> argumentNodes, List<Expression> arguments)
+    private Type resolveRecordingCoercions(String name, List<io.trino.sql.tree.Expression> argumentNodes, List<FunctionResolver.Argument> arguments)
     {
         if (resolveOutcome(name, arguments) instanceof FunctionResolver.Ambiguous ambiguous) {
             // The engine treats candidates that agree on the return type as semantically the
@@ -643,7 +670,7 @@ public final class SolverExpressionTypeChecker
         return toType(resolution.returnType());
     }
 
-    private FunctionResolver.Resolution resolve(String name, List<Expression> arguments)
+    private FunctionResolver.Resolution resolve(String name, List<FunctionResolver.Argument> arguments)
     {
         return switch (resolveOutcome(name, arguments)) {
             case FunctionResolver.Resolved resolved -> resolved.resolution();

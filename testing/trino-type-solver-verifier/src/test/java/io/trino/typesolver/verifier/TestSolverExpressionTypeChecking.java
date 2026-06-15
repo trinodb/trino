@@ -13,8 +13,10 @@
  */
 package io.trino.typesolver.verifier;
 
+import io.trino.lib.SignatureBridge;
 import io.trino.lib.TrinoPreset;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.SolverExpressionTypeChecker;
@@ -95,6 +97,35 @@ class TestSolverExpressionTypeChecking
         // the outer call's probe
         assertType("transform(transform(sequence(1, 3), x -> x + 1), y -> y * 1.5e0)", new ArrayType(DOUBLE));
         assertType("filter(transform(sequence(1, 3), x -> x + 1), y -> y > 2)", new ArrayType(BIGINT));
+    }
+
+    @Test
+    void testNamedArgumentsMapToDeclaredPositions()
+    {
+        // pick(a integer, b varchar): writing the arguments out of order under their names binds
+        // each to its declared position, so the call types the same as the positional form. If
+        // names were ignored the written order (varchar, integer) would fail to match — varchar
+        // does not coerce to the integer parameter a — so a clean BIGINT result proves the
+        // permutation, which the analyzer's name-to-position pass does separately from binding.
+        Signature signature = Signature.builder()
+                .returnType(BIGINT)
+                .argumentType(INTEGER, "a")
+                .argumentType(VARCHAR, "b")
+                .build();
+        TypeLibrary named = TrinoPreset.install(TypeLibrary.builder())
+                .registerFunction("pick", SignatureBridge.toTypeScheme(signature))
+                .build();
+        SolverExpressionTypeChecker namedChecker = new SolverExpressionTypeChecker(
+                named.typeSystem(),
+                named.resolver(),
+                named::functions,
+                new TestingFunctionResolution().getPlannerContext().getTypeManager());
+
+        assertThat(namedChecker.typeOf(parser.createExpression("pick(b => 'hello', a => 1)")))
+                .isEqualTo(BIGINT);
+        // the same call written positionally agrees
+        assertThat(namedChecker.typeOf(parser.createExpression("pick(1, 'hello')")))
+                .isEqualTo(BIGINT);
     }
 
     private void assertType(String expression, Type expected)
