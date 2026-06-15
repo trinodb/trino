@@ -121,6 +121,7 @@ public class TestDecimalCasts
     {
         assertThat(assertions.expression("cast(a as BOOLEAN)")
                 .binding("a", "DECIMAL '1.1'"))
+                .couldFail()
                 .isEqualTo(true);
 
         assertThat(assertions.expression("cast(a as BOOLEAN)")

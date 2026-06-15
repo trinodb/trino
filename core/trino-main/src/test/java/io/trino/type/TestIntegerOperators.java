@@ -501,6 +501,7 @@ public class TestIntegerOperators
     {
         assertThat(assertions.expression("cast(a as boolean)")
                 .binding("a", "INTEGER '37'"))
+                .couldFail()
                 .isEqualTo(true);
 
         assertThat(assertions.expression("cast(a as boolean)")

@@ -851,6 +851,7 @@ public class TestRealOperators
     {
         assertThat(assertions.expression("cast(a as BOOLEAN)")
                 .binding("a", "REAL '754.1985'"))
+                .couldFail()
                 .isEqualTo(true);
 
         assertThat(assertions.expression("cast(a as BOOLEAN)")

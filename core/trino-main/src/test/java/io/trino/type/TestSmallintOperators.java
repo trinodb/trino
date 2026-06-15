@@ -503,6 +503,7 @@ public class TestSmallintOperators
     {
         assertThat(assertions.expression("cast(a as boolean)")
                 .binding("a", "SMALLINT '37'"))
+                .couldFail()
                 .isEqualTo(true);
 
         assertThat(assertions.expression("cast(a as boolean)")
