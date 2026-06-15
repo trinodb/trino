@@ -158,15 +158,6 @@ public class TestHiveViewsLegacy
 
     @Override
     @Test
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
-    public void testNestedHiveViews()
-    {
-        assertThatThrownBy(super::testNestedHiveViews)
-                .hasMessageContaining("View 'hive.default.nested_top_view' is stale or in invalid state: column [n_renamed] of type varchar projected from query view at position 0 cannot be coerced to column [n_renamed] of type varchar(25) stored in view definition");
-    }
-
-    @Override
-    @Test
     public void testCurrentUser()
     {
         assertThatThrownBy(super::testCurrentUser)

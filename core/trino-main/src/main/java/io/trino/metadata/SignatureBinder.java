@@ -102,12 +102,12 @@ public class SignatureBinder
     private final Map<String, TypeVariableConstraint> typeVariableConstraints;
 
     // this could use the function resolver instead of Metadata, but Metadata caches coercion resolution
-    SignatureBinder(Metadata metadata, TypeManager typeManager, Signature declaredSignature, boolean allowCoercion)
+    SignatureBinder(Metadata metadata, TypeManager typeManager, Signature declaredSignature, boolean allowCoercion, boolean legacyVarcharToCharCoercion)
     {
         checkNoLiteralVariableUsageAcrossTypes(declaredSignature);
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.typeCoercion = new TypeCoercion(typeManager::getType);
+        this.typeCoercion = new TypeCoercion(typeManager::getType, legacyVarcharToCharCoercion);
         this.declaredSignature = requireNonNull(declaredSignature, "declaredSignature is null");
         this.allowCoercion = allowCoercion;
 

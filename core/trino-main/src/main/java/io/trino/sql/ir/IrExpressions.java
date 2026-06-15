@@ -511,7 +511,7 @@ public final class IrExpressions
             return false;
         }
 
-        TypeCoercion coercions = new TypeCoercion(plannerContext.getTypeManager()::getType);
+        TypeCoercion coercions = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
         if (coercions.canCoerce(cast.expression().type(), cast.type())) {
             return false;
         }

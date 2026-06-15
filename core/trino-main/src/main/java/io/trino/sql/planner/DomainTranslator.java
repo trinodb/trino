@@ -34,6 +34,7 @@ import io.trino.spi.predicate.Ranges;
 import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
@@ -327,7 +328,7 @@ public final class DomainTranslator
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.session = requireNonNull(session, "session is null");
             this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
-            this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
+            this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
         }
 
         private static ValueSet complementIfNecessary(ValueSet valueSet, boolean complement)
@@ -519,6 +520,13 @@ public final class DomainTranslator
 
         private boolean isImplicitCoercion(Cast cast)
         {
+            if (cast.expression().type() instanceof CharType && cast.type() instanceof VarcharType) {
+                // CHAR -> VARCHAR trims trailing spaces, so it has no inverse on the value side: a VARCHAR constant
+                // carrying trailing spaces has no CHAR preimage. Peeling the cast and rounding the constant back to
+                // CHAR would drop those trailing spaces and build a domain that matches rows it should not
+                // (e.g. CAST(c AS varchar) = 'a ' is unsatisfiable, but would be rewritten to c = CHAR 'a'). Leave it.
+                return false;
+            }
             return typeCoercion.canCoerce(cast.expression().type(), cast.type());
         }
 

@@ -2374,34 +2374,36 @@ public class TestStringFunctions
     @Test
     public void testCharConcat()
     {
+        // a varchar argument coerces the char argument to varchar, so the result is varchar with trailing spaces preserved as-is
         assertThat(assertions.function("concat", "'ab '", "cast(' ' as char(1))"))
-                .hasType(createCharType(4))
-                .isEqualTo("ab  ");
+                .hasType(VARCHAR)
+                .isEqualTo("ab ");
 
         assertThat(assertions.function("concat", "'ab '", "cast(' ' as char(1))"))
-                .hasType(createCharType(4))
-                .isEqualTo("ab  ");
+                .hasType(VARCHAR)
+                .isEqualTo("ab ");
 
         assertThat(assertions.function("concat", "'ab '", "cast('a' as char(2))"))
-                .hasType(createCharType(5))
-                .isEqualTo("ab a ");
+                .hasType(VARCHAR)
+                .isEqualTo("ab a");
 
         assertThat(assertions.function("concat", "'ab '", "cast('a' as char(2))"))
-                .hasType(createCharType(5))
-                .isEqualTo("ab a ");
+                .hasType(VARCHAR)
+                .isEqualTo("ab a");
 
         assertThat(assertions.function("concat", "'ab '", "cast('' as char(0))"))
-                .hasType(createCharType(3))
+                .hasType(VARCHAR)
                 .isEqualTo("ab ");
 
         assertThat(assertions.function("concat", "'ab '", "cast('' as char(0))"))
-                .hasType(createCharType(3))
+                .hasType(VARCHAR)
                 .isEqualTo("ab ");
 
         assertThat(assertions.function("concat", "'hello na\u00EFve'", "cast(' world' as char(6))"))
-                .hasType(createCharType(17))
+                .hasType(VARCHAR)
                 .isEqualTo("hello na\u00EFve world");
 
+        // concat of two char arguments stays char; here the combined length exceeds the maximum char length
         assertTrinoExceptionThrownBy(assertions.function("concat", "cast('ab ' as char(40000))", "cast('' as char(40000))")::evaluate)
                 .hasErrorCode(TYPE_NOT_FOUND)
                 .hasMessage("line 1:8: Unknown type: char(80000)");

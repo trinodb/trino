@@ -242,8 +242,14 @@ final class TestExasolConnectorTest
     @Test
     void testPredicatePushdownForChars()
     {
+        // Equality against a varchar literal: the char column is coerced to varchar (trailing spaces trimmed,
+        // NO PAD comparison), but UnwrapCastInComparison rewrites c = varchar back to c = char(n) because the
+        // literal '0' round-trips through char(1) unchanged, so the predicate still pushes down as a char comparison.
         predicatePushdownTest("CHAR(1)", "'0'", "=", "'0'");
-        predicatePushdownTest("CHAR(1)", "'0'", "<=", "'0'");
+        // Ordering comparison against a char literal: char ordering is PAD SPACE, so the comparison must stay char-to-char
+        // (no char->varchar coercion) to remain pushable. Comparing a char column to a varchar literal with <= would
+        // leave a residual CAST(c AS varchar) that is not pushed down, so an explicit char literal is used here.
+        predicatePushdownTest("CHAR(1)", "'0'", "<=", "CAST('0' AS CHAR(1))");
         predicatePushdownTest("CHAR(7)", "'my_char'", "=", "CAST('my_char' AS CHAR(7))");
     }
 

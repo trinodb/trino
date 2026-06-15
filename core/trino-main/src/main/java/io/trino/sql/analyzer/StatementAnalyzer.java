@@ -484,7 +484,7 @@ class StatementAnalyzer
         this.analysis = requireNonNull(analysis, "analysis is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.metadata = plannerContext.getMetadata();
-        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
+        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -5486,7 +5486,7 @@ class StatementAnalyzer
 
             Type actualType = expressionAnalysis.getType(expression);
             if (!actualType.equals(BOOLEAN)) {
-                TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
+                TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
 
                 if (!coercion.canCoerce(actualType, BOOLEAN)) {
                     throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected row filter for '%s' to be of type BOOLEAN, but was %s", name, actualType), null);
@@ -5549,7 +5549,7 @@ class StatementAnalyzer
 
             Type actualType = expressionAnalysis.getType(expression);
             if (!actualType.equals(BOOLEAN)) {
-                TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
+                TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
 
                 if (!coercion.canCoerce(actualType, BOOLEAN)) {
                     throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected check constraint for '%s' to be of type BOOLEAN, but was %s", name, actualType), null);
@@ -5610,7 +5610,7 @@ class StatementAnalyzer
             Type expectedType = field.getType();
             Type actualType = expressionAnalysis.getType(expression);
             if (!actualType.equals(expectedType)) {
-                TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
+                TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
 
                 if (!coercion.canCoerce(actualType, field.getType())) {
                     throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected column mask for '%s.%s' to be of type %s, but was %s", tableName, column, field.getType(), actualType), null);

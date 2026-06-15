@@ -506,6 +506,19 @@ SELECT CHAR 'All right, Mr. DeMille, I''m ready for my close-up.'
 
 Example type definitions: `char`, `char(20)`
 
+#### `CHAR` and `VARCHAR` coercion and comparison
+
+A `CHAR` value implicitly coerces to `VARCHAR`, yielding the value with its
+trailing spaces removed (for example `CHAR(7) 'dog'` becomes `VARCHAR 'dog'`,
+and `CAST(CHAR(7) 'dog' AS VARCHAR)` returns `'dog'`, not the padded form).
+There is no implicit coercion in the other direction.
+
+As a result, comparing a `CHAR` and a `VARCHAR` value follows `VARCHAR`
+semantics: the `CHAR` value is coerced to `VARCHAR` (trailing spaces trimmed)
+and the two are compared with **no blank padding**, so trailing spaces are
+significant. For example `CHAR 'a' = VARCHAR 'a '` is `false`. Comparisons
+between two `CHAR` values are unaffected and remain blank-padded.
+
 #### Methods
 
 The following instance methods are available on `CHAR` values. Each returns a
@@ -565,7 +578,6 @@ code points long, or truncated to `size` when already longer. Related:
 Returns the UTF-8 encoding of `string` as a `VARBINARY` value. Related:
 {func}`to_utf8`.
 :::
-
 ### `VARBINARY`
 
 Variable length binary data.

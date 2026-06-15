@@ -79,8 +79,9 @@ public class TestCharOperators
         assertThat(assertions.operator(EQUAL, "cast('bar' as char(5))", "'bar'"))
                 .isEqualTo(true);
 
+        // the char is coerced to varchar by trimming, so the trailing spaces in the varchar are significant
         assertThat(assertions.operator(EQUAL, "cast('bar' as char(5))", "'bar   '"))
-                .isEqualTo(true);
+                .isEqualTo(false);
 
         assertThat(assertions.operator(EQUAL, "cast('a' as char(2))", "cast('a ' as char(2))"))
                 .isEqualTo(true);
@@ -129,7 +130,7 @@ public class TestCharOperators
         assertThat(assertions.expression("a <> b")
                 .binding("a", "cast('bar' as char(5))")
                 .binding("b", "'bar   '"))
-                .isEqualTo(false);
+                .isEqualTo(true);
 
         assertThat(assertions.expression("a <> b")
                 .binding("a", "cast('a' as char(2))")
@@ -575,7 +576,7 @@ public class TestCharOperators
                 .isEqualTo(true);
 
         assertThat(assertions.operator(IDENTICAL, "cast('bar' as char(5))", "'bar   '"))
-                .isEqualTo(true);
+                .isEqualTo(false);
 
         assertThat(assertions.operator(IDENTICAL, "NULL", "cast('foo' as char(3))"))
                 .isEqualTo(false);

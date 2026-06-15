@@ -224,10 +224,6 @@ public class TestDeltaLakeConnectorTest
                 typeName.equals("timestamp(6) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
-        if (typeName.equals("char(3)")) {
-            // Use explicitly padded literal in char mapping test due to whitespace padding on coercion to varchar
-            return Optional.of(new DataMappingTestSetup(typeName, "'ab '", dataMappingTestSetup.getHighValueLiteral()));
-        }
         return Optional.of(dataMappingTestSetup);
     }
 
@@ -618,14 +614,18 @@ public class TestDeltaLakeConnectorTest
                         "   (-1, CAST(NULL AS CHAR(3))), " +
                         "   (3, CAST('   ' AS CHAR(3)))," +
                         "   (6, CAST('x  ' AS CHAR(3)))")) {
-            // varchar of length shorter than column's length
-            assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS varchar(2))")).returnsEmptyResult();
-            // varchar of length longer than column's length
-            assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('    ' AS varchar(4))")).returnsEmptyResult();
-            // value that's not all-spaces
+            // The char value is coerced to varchar by trimming trailing spaces, then compared as varchar
+            // (no blank padding): char '   ' becomes '' and char 'x  ' becomes 'x'.
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('' AS varchar(2))",
+                    "VALUES (3, '')");
+
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x' AS varchar(2))",
+                    "VALUES (6, 'x')");
+
+            // Trailing spaces in the varchar are significant, so a space-padded value matches nothing.
             assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS varchar(2))")).returnsEmptyResult();
-            // exact match
-            assertQuery("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('   ' AS varchar(3))", "VALUES (3, '   ')");
         }
     }
 
@@ -4521,10 +4521,10 @@ public class TestDeltaLakeConnectorTest
         testTimestampCoercionOnCreateTable("TIMESTAMP '1969-12-31 23:59:59.9999995'", "TIMESTAMP '1970-01-01 00:00:00.000000'");
         testTimestampCoercionOnCreateTable("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
         testTimestampCoercionOnCreateTable("TIMESTAMP '1969-12-31 23:59:59.9999994'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
-        testCharCoercionOnCreateTable("CHAR 'ab '", "'ab '");
+        testCharCoercionOnCreateTable("CHAR 'ab '", "'ab'");
         testCharCoercionOnCreateTable("CHAR 'A'", "'A'");
         testCharCoercionOnCreateTable("CHAR 'é'", "'é'");
-        testCharCoercionOnCreateTable("CHAR 'A '", "'A '");
+        testCharCoercionOnCreateTable("CHAR 'A '", "'A'");
         testCharCoercionOnCreateTable("CHAR ' A'", "' A'");
         testCharCoercionOnCreateTable("CHAR 'ABc'", "'ABc'");
     }
@@ -4581,10 +4581,10 @@ public class TestDeltaLakeConnectorTest
         testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1969-12-31 23:59:59.9999995'", "TIMESTAMP '1970-01-01 00:00:00.000000'");
         testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
         testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1969-12-31 23:59:59.9999994'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
-        testCharCoercionOnCreateTableAsSelect("CHAR 'ab '", "'ab '");
+        testCharCoercionOnCreateTableAsSelect("CHAR 'ab '", "'ab'");
         testCharCoercionOnCreateTableAsSelect("CHAR 'A'", "'A'");
         testCharCoercionOnCreateTableAsSelect("CHAR 'é'", "'é'");
-        testCharCoercionOnCreateTableAsSelect("CHAR 'A '", "'A '");
+        testCharCoercionOnCreateTableAsSelect("CHAR 'A '", "'A'");
         testCharCoercionOnCreateTableAsSelect("CHAR ' A'", "' A'");
         testCharCoercionOnCreateTableAsSelect("CHAR 'ABc'", "'ABc'");
     }
@@ -4695,12 +4695,12 @@ public class TestDeltaLakeConnectorTest
         testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1969-12-31 23:59:59.9999995'", "TIMESTAMP '1970-01-01 00:00:00.000000'");
         testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
         testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1969-12-31 23:59:59.9999994'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
-        testCharCoercionOnCreateTableAsWithRowType("CHAR 'ab '", "CHAR(3)", "'ab '");
-        testCharCoercionOnCreateTableAsWithRowType("CHAR 'A'", "CHAR(3)", "'A  '");
+        testCharCoercionOnCreateTableAsWithRowType("CHAR 'ab '", "CHAR(3)", "'ab'");
+        testCharCoercionOnCreateTableAsWithRowType("CHAR 'A'", "CHAR(3)", "'A'");
         testCharCoercionOnCreateTableAsWithRowType("CHAR 'A'", "CHAR(1)", "'A'");
-        testCharCoercionOnCreateTableAsWithRowType("CHAR 'é'", "CHAR(3)", "'é  '");
-        testCharCoercionOnCreateTableAsWithRowType("CHAR 'A '", "CHAR(3)", "'A  '");
-        testCharCoercionOnCreateTableAsWithRowType("CHAR ' A'", "CHAR(3)", "' A '");
+        testCharCoercionOnCreateTableAsWithRowType("CHAR 'é'", "CHAR(3)", "'é'");
+        testCharCoercionOnCreateTableAsWithRowType("CHAR 'A '", "CHAR(3)", "'A'");
+        testCharCoercionOnCreateTableAsWithRowType("CHAR ' A'", "CHAR(3)", "' A'");
         testCharCoercionOnCreateTableAsWithRowType("CHAR 'ABc'", "CHAR(3)", "'ABc'");
     }
 
@@ -4758,10 +4758,10 @@ public class TestDeltaLakeConnectorTest
         testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1969-12-31 23:59:59.9999995'", "TIMESTAMP '1970-01-01 00:00:00.000000'");
         testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
         testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1969-12-31 23:59:59.9999994'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
-        testCharCoercionOnCreateTableAsWithArrayType("CHAR 'ab '", "'ab '");
+        testCharCoercionOnCreateTableAsWithArrayType("CHAR 'ab '", "'ab'");
         testCharCoercionOnCreateTableAsWithArrayType("CHAR 'A'", "'A'");
         testCharCoercionOnCreateTableAsWithArrayType("CHAR 'é'", "'é'");
-        testCharCoercionOnCreateTableAsWithArrayType("CHAR 'A '", "'A '");
+        testCharCoercionOnCreateTableAsWithArrayType("CHAR 'A '", "'A'");
         testCharCoercionOnCreateTableAsWithArrayType("CHAR ' A'", "' A'");
         testCharCoercionOnCreateTableAsWithArrayType("CHAR 'ABc'", "'ABc'");
     }
@@ -4820,10 +4820,10 @@ public class TestDeltaLakeConnectorTest
         testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1969-12-31 23:59:59.9999995'", "TIMESTAMP '1970-01-01 00:00:00.000000'");
         testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
         testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1969-12-31 23:59:59.9999994'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
-        testCharCoercionOnCreateTableAsWithMapType("CHAR 'ab '", "'ab '");
+        testCharCoercionOnCreateTableAsWithMapType("CHAR 'ab '", "'ab'");
         testCharCoercionOnCreateTableAsWithMapType("CHAR 'A'", "'A'");
         testCharCoercionOnCreateTableAsWithMapType("CHAR 'é'", "'é'");
-        testCharCoercionOnCreateTableAsWithMapType("CHAR 'A '", "'A '");
+        testCharCoercionOnCreateTableAsWithMapType("CHAR 'A '", "'A'");
         testCharCoercionOnCreateTableAsWithMapType("CHAR ' A'", "' A'");
         testCharCoercionOnCreateTableAsWithMapType("CHAR 'ABc'", "'ABc'");
     }
