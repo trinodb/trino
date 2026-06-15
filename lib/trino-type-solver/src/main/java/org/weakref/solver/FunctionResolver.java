@@ -14,8 +14,10 @@
 package org.weakref.solver;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Overload resolution — selects one signature from a list of candidates for a given call.
@@ -56,11 +58,31 @@ public final class FunctionResolver
 
     public ResolutionOutcome resolveOutcome(List<TypeScheme> candidates, List<Expression> arguments)
     {
+        return resolveNamed(candidates, arguments.stream().map(Argument::positional).toList());
+    }
+
+    /// Resolve a call whose actuals may carry argument names. Each candidate maps the named actuals
+    /// onto its own declared parameter positions and is then matched positionally, so name
+    /// resolution and type-based overload selection are one pass over the candidates — a candidate
+    /// that does not declare a supplied name simply does not match. The returned coercions are
+    /// indexed by the written argument position, not the signature position, so callers need not
+    /// know the permutation.
+    public ResolutionOutcome resolveNamed(List<TypeScheme> candidates, List<Argument> arguments)
+    {
         List<Resolution> matches = new ArrayList<>();
         List<TypeScheme> incomplete = new ArrayList<>();
         for (TypeScheme candidate : candidates) {
-            switch (candidate.matchFunctionCallOutcome(arguments, typeSystem)) {
-                case TypeScheme.Satisfied satisfied -> matches.add(toResolution(candidate, arguments, satisfied.result()));
+            Optional<int[]> permutation = argumentPermutation(arguments, candidate.argumentNames());
+            if (permutation.isEmpty()) {
+                continue;
+            }
+            int[] writtenForPosition = permutation.get();
+            List<Expression> ordered = new ArrayList<>(writtenForPosition.length);
+            for (int position : writtenForPosition) {
+                ordered.add(arguments.get(position).type());
+            }
+            switch (candidate.matchFunctionCallOutcome(ordered, typeSystem)) {
+                case TypeScheme.Satisfied satisfied -> matches.add(toResolution(candidate, ordered, writtenForPosition, satisfied.result()));
                 case TypeScheme.Incomplete _ -> incomplete.add(candidate);
                 case TypeScheme.Unsatisfied _ -> {}
             }
@@ -98,17 +120,19 @@ public final class FunctionResolver
         return new Ambiguous(undominated.stream().map(this::withCoercionPlans).toList());
     }
 
-    private Resolution toResolution(TypeScheme scheme, List<Expression> arguments, TypeScheme.MatchResult match)
+    private Resolution toResolution(TypeScheme scheme, List<Expression> arguments, int[] writtenForPosition, TypeScheme.MatchResult match)
     {
         // Coercion plans are left null here and filled in by {@link #withCoercionPlans} only for the
-        // candidates that survive dominance — specificity compares on types alone.
+        // candidates that survive dominance — specificity compares on types alone. The coercion's
+        // index is the written argument position (a named call permutes the actuals into signature
+        // order to match, but the caller records coercions against the positions it passed).
         List<ArgumentCoercion> coercions = new ArrayList<>();
         for (int index = 0; index < arguments.size(); index++) {
             Expression actual = arguments.get(index);
             Expression template = match.parameterTemplates().get(index);
             Expression formal = match.parameterTypes().get(index);
             coercions.add(new ArgumentCoercion(
-                    index,
+                    writtenForPosition[index],
                     actual,
                     formal,
                     template,
@@ -122,6 +146,62 @@ public final class FunctionResolver
                 match.typeBindings(),
                 match.numericBindings(),
                 match.solverResult());
+    }
+
+    /// The written-argument index that fills each signature position, or empty if this scheme
+    /// cannot accept the call. A purely positional call (no names) maps identically. A named call
+    /// requires the scheme to declare exactly this arity with names: positional actuals keep their
+    /// leading positions, each named actual goes to the position its name occupies, and a name the
+    /// scheme does not declare — or one that collides with a position already filled — disqualifies
+    /// the scheme. Variadic schemes never declare enough names to satisfy a named call, so named
+    /// arguments and variadic functions are mutually exclusive without special-casing.
+    private static Optional<int[]> argumentPermutation(List<Argument> arguments, List<Optional<String>> parameterNames)
+    {
+        int arity = arguments.size();
+        int firstNamed = arity;
+        for (int index = 0; index < arity; index++) {
+            if (arguments.get(index).name().isPresent()) {
+                firstNamed = index;
+                break;
+            }
+        }
+        if (firstNamed == arity) {
+            // Positional call: identity, regardless of whether the scheme declares names
+            int[] identity = new int[arity];
+            for (int index = 0; index < arity; index++) {
+                identity[index] = index;
+            }
+            return Optional.of(identity);
+        }
+        // Named resolution needs one declared name per position at exactly this arity
+        if (parameterNames.size() != arity) {
+            return Optional.empty();
+        }
+        int[] writtenForPosition = new int[arity];
+        Arrays.fill(writtenForPosition, -1);
+        for (int index = 0; index < firstNamed; index++) {
+            writtenForPosition[index] = index;
+        }
+        for (int index = firstNamed; index < arity; index++) {
+            String name = arguments.get(index).name().orElseThrow();
+            int position = -1;
+            for (int candidate = firstNamed; candidate < arity; candidate++) {
+                if (parameterNames.get(candidate).filter(name::equals).isPresent()) {
+                    position = candidate;
+                    break;
+                }
+            }
+            if (position < 0 || writtenForPosition[position] != -1) {
+                return Optional.empty();
+            }
+            writtenForPosition[position] = index;
+        }
+        for (int value : writtenForPosition) {
+            if (value == -1) {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(writtenForPosition);
     }
 
     private Resolution withCoercionPlans(Resolution resolution)
@@ -212,4 +292,21 @@ public final class FunctionResolver
             Expression template,
             boolean coercionNeeded,
             CoercionPlan coercionPlan) {}
+
+    /**
+     * One actual argument of a call: its type, and the parameter name it was written under for a
+     * named argument ({@code f(x => 1)}), or empty for a positional one.
+     */
+    public record Argument(Optional<String> name, Expression type)
+    {
+        public static Argument positional(Expression type)
+        {
+            return new Argument(Optional.empty(), type);
+        }
+
+        public static Argument named(String name, Expression type)
+        {
+            return new Argument(Optional.of(name), type);
+        }
+    }
 }

@@ -17,6 +17,7 @@ import io.trino.lib.TrinoPreset;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.weakref.solver.Expression.anyRow;
@@ -416,6 +417,100 @@ public class FunctionResolverTest
                 .resolveOutcome(List.of(exact, incomplete), List.of(symbol("integer"))))
                 .isInstanceOfSatisfying(FunctionResolver.Resolved.class, outcome ->
                         assertThat(outcome.resolution().scheme()).isEqualTo(exact));
+    }
+
+    @Test
+    void testNamedArgumentsMapToDeclaredPositions()
+    {
+        // f(a integer, b bigint) -> bigint; a named call written out of order resolves to the
+        // declared positions, so the coercion that integer->bigint needs lands on the b position.
+        TypeScheme scheme = new TypeScheme(
+                List.of(),
+                List.of(),
+                function(List.of(symbol("integer"), symbol("bigint")), symbol("bigint")),
+                List.of(Optional.of("a"), Optional.of("b")));
+
+        FunctionResolver.ResolutionOutcome outcome = new FunctionResolver(TrinoPreset.typeSystem()).resolveNamed(
+                List.of(scheme),
+                List.of(
+                        FunctionResolver.Argument.named("b", symbol("integer")),
+                        FunctionResolver.Argument.named("a", symbol("integer"))));
+
+        assertThat(outcome).isInstanceOfSatisfying(FunctionResolver.Resolved.class, resolved -> {
+            assertThat(resolved.resolution().returnType()).isEqualTo(symbol("bigint"));
+            // Coercions are reported against the written positions: the 'b' actual (written first,
+            // index 0) widens integer->bigint; the 'a' actual (written second, index 1) is exact.
+            assertThat(resolved.resolution().argumentCoercions())
+                    .filteredOn(FunctionResolver.ArgumentCoercion::coercionNeeded)
+                    .extracting(FunctionResolver.ArgumentCoercion::index)
+                    .containsExactly(0);
+        });
+    }
+
+    @Test
+    void testNamedArgumentResolutionIsPerCandidate()
+    {
+        // Two overloads declare DIFFERENT parameter names at the same arity — exactly what the
+        // analyzer's name-to-position pass cannot do (it assumes one binding across overloads).
+        // The solver permutes per candidate, so a call naming 'flag' picks the boolean overload
+        // and a call naming 'count' picks the integer one.
+        TypeScheme booleanOverload = new TypeScheme(
+                List.of(),
+                List.of(),
+                function(List.of(symbol("varchar"), symbol("boolean")), symbol("varchar")),
+                List.of(Optional.of("value"), Optional.of("flag")));
+        TypeScheme integerOverload = new TypeScheme(
+                List.of(),
+                List.of(),
+                function(List.of(symbol("varchar"), symbol("integer")), symbol("integer")),
+                List.of(Optional.of("value"), Optional.of("count")));
+        List<TypeScheme> candidates = List.of(booleanOverload, integerOverload);
+        FunctionResolver resolver = new FunctionResolver(TrinoPreset.typeSystem());
+
+        assertThat(resolver.resolveNamed(candidates, List.of(
+                FunctionResolver.Argument.named("value", symbol("varchar")),
+                FunctionResolver.Argument.named("flag", symbol("boolean")))))
+                .isInstanceOfSatisfying(FunctionResolver.Resolved.class, resolved ->
+                        assertThat(resolved.resolution().scheme()).isEqualTo(booleanOverload));
+
+        assertThat(resolver.resolveNamed(candidates, List.of(
+                FunctionResolver.Argument.named("value", symbol("varchar")),
+                FunctionResolver.Argument.named("count", symbol("integer")))))
+                .isInstanceOfSatisfying(FunctionResolver.Resolved.class, resolved ->
+                        assertThat(resolved.resolution().scheme()).isEqualTo(integerOverload));
+    }
+
+    @Test
+    void testCallNamingAnUndeclaredArgumentDoesNotMatch()
+    {
+        TypeScheme scheme = new TypeScheme(
+                List.of(),
+                List.of(),
+                function(List.of(symbol("integer")), symbol("integer")),
+                List.of(Optional.of("value")));
+
+        assertThat(new FunctionResolver(TrinoPreset.typeSystem()).resolveNamed(
+                List.of(scheme),
+                List.of(FunctionResolver.Argument.named("nope", symbol("integer")))))
+                .isInstanceOf(FunctionResolver.NoMatch.class);
+    }
+
+    @Test
+    void testNamedArgumentReferringToAPositionalSlotDoesNotMatch()
+    {
+        // f(a, b): the call (1, a => 2) names 'a', which is already supplied positionally — no match.
+        TypeScheme scheme = new TypeScheme(
+                List.of(),
+                List.of(),
+                function(List.of(symbol("integer"), symbol("integer")), symbol("integer")),
+                List.of(Optional.of("a"), Optional.of("b")));
+
+        assertThat(new FunctionResolver(TrinoPreset.typeSystem()).resolveNamed(
+                List.of(scheme),
+                List.of(
+                        FunctionResolver.Argument.positional(symbol("integer")),
+                        FunctionResolver.Argument.named("a", symbol("integer")))))
+                .isInstanceOf(FunctionResolver.NoMatch.class);
     }
 
     private static FunctionResolver.Resolution resolved(List<TypeScheme> candidates, List<Expression> arguments)

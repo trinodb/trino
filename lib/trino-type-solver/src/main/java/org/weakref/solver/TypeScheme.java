@@ -51,12 +51,22 @@ import static org.weakref.solver.Expression.variable;
  * {@link Incomplete} (no contradiction, but unresolved variables remain), or
  * {@link Unsatisfied} (this overload cannot match).
  */
-public record TypeScheme(List<Variable> parameters, List<Constraint> constraints, Expression type)
+/// The {@code argumentNames} component carries each declared parameter's name in signature order
+/// (empty where a parameter is unnamed), so the resolver can map a named-argument call onto this
+/// scheme's positions. A scheme built without names — every programmatic preset — leaves it empty
+/// and resolves positionally, as before.
+public record TypeScheme(List<Variable> parameters, List<Constraint> constraints, Expression type, List<Optional<String>> argumentNames)
 {
     public TypeScheme
     {
         parameters = List.copyOf(parameters);
         constraints = List.copyOf(constraints);
+        argumentNames = List.copyOf(argumentNames);
+    }
+
+    public TypeScheme(List<Variable> parameters, List<Constraint> constraints, Expression type)
+    {
+        this(parameters, constraints, type, List.of());
     }
 
     public Instantiation instantiate(VariableAllocator allocator)

@@ -34,6 +34,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Locale.ROOT;
@@ -124,7 +125,13 @@ public final class SignatureBridge
         else {
             functionType = function(argumentTypes, returnType);
         }
-        return new TypeScheme(parameters, constraints, functionType);
+
+        // Carry the declared parameter names so a named-argument call can be mapped onto this
+        // scheme's positions; signatures that declare none stay positional
+        List<Optional<String>> argumentNames = signature.getArguments().stream()
+                .map(Signature.Argument::name)
+                .toList();
+        return new TypeScheme(parameters, constraints, functionType, argumentNames);
     }
 
     private static Expression toExpression(TypeTemplate template, Set<String> typeVariables, Map<String, NumericExpression> numericVariables)
