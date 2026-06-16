@@ -33,6 +33,7 @@ import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.StructuralTestUtil.arrayType;
 import static io.trino.testing.StructuralTestUtil.mapType;
@@ -192,6 +193,33 @@ public class TestParquetSchemaConverter
             else {
                 assertThat(primitiveType.getLogicalTypeAnnotation())
                         .isEqualTo(timestampType(false, NANOS));
+            }
+        }
+    }
+
+    @Test
+    public void testInt64BackedTimestampsWithTimeZone()
+    {
+        for (int precision = 1; precision <= 9; precision++) {
+            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
+                    ImmutableList.of(createTimestampWithTimeZoneType(precision)),
+                    ImmutableList.of("test"),
+                    false,
+                    false);
+            PrimitiveType primitiveType = schemaConverter.getMessageType().getType(0).asPrimitiveType();
+            assertThat(primitiveType.getPrimitiveTypeName())
+                    .isEqualTo(PrimitiveType.PrimitiveTypeName.INT64);
+            if (precision <= 3) {
+                assertThat(primitiveType.getLogicalTypeAnnotation())
+                        .isEqualTo(timestampType(true, MILLIS));
+            }
+            else if (precision <= 6) {
+                assertThat(primitiveType.getLogicalTypeAnnotation())
+                        .isEqualTo(timestampType(true, MICROS));
+            }
+            else {
+                assertThat(primitiveType.getLogicalTypeAnnotation())
+                        .isEqualTo(timestampType(true, NANOS));
             }
         }
     }
