@@ -384,7 +384,7 @@ public class TestIcebergFileOperations
         String catalog = getSession().getCatalog().orElseThrow();
 
         assertUpdate("DROP TABLE IF EXISTS test_read_whole_splittable_file");
-        assertUpdate("CREATE TABLE test_read_whole_splittable_file(key varchar, data varchar) WITH (partitioning=ARRAY['key'])");
+        assertUpdate("CREATE TABLE test_read_whole_splittable_file(key varchar, data varchar) WITH (partitioning=ARRAY['key'], parquet_writer_row_group_size = '1kB')");
 
         assertUpdate(
                 withSmallRowGroups(Session.builder(getSession())
