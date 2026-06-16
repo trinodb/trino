@@ -1,9 +1,9 @@
 -- database: trino_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 SELECT
-  "substr"("r_reason_desc", 1, 20)
-, "avg"("ws_quantity")
-, "avg"("wr_refunded_cash")
-, "avg"("wr_fee")
+  substr("r_reason_desc", 1, 20)
+, avg("ws_quantity")
+, avg("wr_refunded_cash")
+, avg("wr_fee")
 FROM
   web_sales
 , web_returns
@@ -47,5 +47,5 @@ WHERE ("ws_web_page_sk" = "wp_web_page_sk")
          AND ("ca_state" IN ('LA'      , 'IA'      , 'AR'))
          AND ("ws_net_profit" BETWEEN 50 AND 250)))
 GROUP BY "r_reason_desc"
-ORDER BY "substr"("r_reason_desc", 1, 20) ASC, "avg"("ws_quantity") ASC, "avg"("wr_refunded_cash") ASC, "avg"("wr_fee") ASC
+ORDER BY substr("r_reason_desc", 1, 20) ASC, avg("ws_quantity") ASC, avg("wr_refunded_cash") ASC, avg("wr_fee") ASC
 LIMIT 100

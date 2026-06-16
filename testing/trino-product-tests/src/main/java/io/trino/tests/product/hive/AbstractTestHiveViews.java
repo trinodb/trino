@@ -64,7 +64,7 @@ public abstract class AbstractTestHiveViews
     public void testSelectOnView()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS hive_test_view");
-        onHive().executeQuery("CREATE VIEW hive_test_view AS SELECT * FROM nation");
+        onHive().executeQuery("CREATE VIEW hive_test_view AS SELECT * FROM \"nation\"");
 
         assertViewQuery("SELECT * FROM hive_test_view", queryAssert -> queryAssert.hasRowsCount(25));
         assertViewQuery(
@@ -81,7 +81,7 @@ public abstract class AbstractTestHiveViews
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_hive_view_array_index_table");
         onHive().executeQuery("CREATE TABLE test_hive_view_array_index_table(an_index int, an_array array<string>)");
-        onHive().executeQuery("INSERT INTO TABLE test_hive_view_array_index_table SELECT 1, array('trino','hive') FROM nation WHERE n_nationkey = 1");
+        onHive().executeQuery("INSERT INTO TABLE test_hive_view_array_index_table SELECT 1, array('trino','hive') FROM \"nation\" WHERE n_nationkey = 1");
 
         // literal array index
         onHive().executeQuery("DROP VIEW IF EXISTS test_hive_view_array_index_view");
@@ -104,7 +104,7 @@ public abstract class AbstractTestHiveViews
     {
         onHive().executeQuery(
                 "CREATE OR REPLACE VIEW test_common_table_expression AS " +
-                        "WITH t AS (SELECT n_nationkey, n_regionkey FROM nation WHERE n_nationkey = 8) SELECT * FROM t");
+                        "WITH t AS (SELECT n_nationkey, n_regionkey FROM \"nation\" WHERE n_nationkey = 8) SELECT * FROM t");
 
         assertViewQuery(
                 "SELECT * FROM test_common_table_expression",
@@ -119,7 +119,7 @@ public abstract class AbstractTestHiveViews
     {
         onHive().executeQuery(
                 "CREATE OR REPLACE VIEW test_nested_common_table_expression AS " +
-                        "WITH t AS (SELECT n_nationkey, n_regionkey FROM nation WHERE n_nationkey = 8), " +
+                        "WITH t AS (SELECT n_nationkey, n_regionkey FROM \"nation\" WHERE n_nationkey = 8), " +
                         "t2 AS (SELECT n_nationkey * 2 AS nationkey, n_regionkey * 2 AS regionkey FROM t) SELECT * FROM t2");
 
         assertViewQuery(
@@ -134,7 +134,7 @@ public abstract class AbstractTestHiveViews
     public void testArrayConstructionInView()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS test_array_construction_view");
-        onHive().executeQuery("CREATE VIEW test_array_construction_view AS SELECT n_nationkey, array(n_nationkey, n_regionkey) AS a FROM nation");
+        onHive().executeQuery("CREATE VIEW test_array_construction_view AS SELECT n_nationkey, array(n_nationkey, n_regionkey) AS a FROM \"nation\"");
 
         assertThat(onHive().executeQuery("SELECT a[0], a[1] FROM test_array_construction_view WHERE n_nationkey = 8"))
                 .containsOnly(row(8, 2));
@@ -173,7 +173,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery(
                 "CREATE VIEW test_schema.hive_test_view_1 AS SELECT * FROM " +
                         // no schema is specified in purpose
-                        "nation");
+                        "\"nation\"");
 
         assertViewQuery("SELECT * FROM test_schema.hive_test_view_1", queryAssert -> queryAssert.hasRowsCount(25));
     }
@@ -224,7 +224,7 @@ public abstract class AbstractTestHiveViews
     public void testViewWithUnsupportedCoercion()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS view_with_unsupported_coercion");
-        onHive().executeQuery("CREATE VIEW view_with_unsupported_coercion AS SELECT length(n_comment) FROM nation");
+        onHive().executeQuery("CREATE VIEW view_with_unsupported_coercion AS SELECT length(n_comment) FROM \"nation\"");
 
         assertQueryFailure(() -> onTrino().executeQuery("SELECT COUNT(*) FROM view_with_unsupported_coercion"))
                 .hasMessageContaining("View 'hive.default.view_with_unsupported_coercion' is stale or in invalid state: a column of type bigint projected from query view at position 0 has no name");
@@ -234,7 +234,7 @@ public abstract class AbstractTestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testOuterParentheses()
     {
-        onHive().executeQuery("CREATE OR REPLACE VIEW view_outer_parentheses AS (SELECT 'parentheses' AS col FROM nation LIMIT 1)");
+        onHive().executeQuery("CREATE OR REPLACE VIEW view_outer_parentheses AS (SELECT 'parentheses' AS col FROM \"nation\" LIMIT 1)");
 
         assertViewQuery(
                 "SELECT * FROM view_outer_parentheses",
@@ -283,7 +283,7 @@ public abstract class AbstractTestHiveViews
     public void testWithUnsupportedFunction()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS view_with_repeat_function");
-        onHive().executeQuery("CREATE VIEW view_with_repeat_function AS SELECT REPEAT(n_comment,2) FROM nation");
+        onHive().executeQuery("CREATE VIEW view_with_repeat_function AS SELECT REPEAT(n_comment,2) FROM \"nation\"");
 
         assertQueryFailure(() -> onTrino().executeQuery("SELECT COUNT(*) FROM view_with_repeat_function"))
                 .hasMessageContaining("View 'hive.default.view_with_repeat_function' is stale or in invalid state: a column of type array(varchar(152)) projected from query view at position 0 has no name");
@@ -294,9 +294,9 @@ public abstract class AbstractTestHiveViews
     public void testExistingView()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS hive_duplicate_view");
-        onHive().executeQuery("CREATE VIEW hive_duplicate_view AS SELECT * FROM nation");
+        onHive().executeQuery("CREATE VIEW hive_duplicate_view AS SELECT * FROM \"nation\"");
 
-        assertQueryFailure(() -> onTrino().executeQuery("CREATE VIEW hive_duplicate_view AS SELECT * FROM nation"))
+        assertQueryFailure(() -> onTrino().executeQuery("CREATE VIEW hive_duplicate_view AS SELECT * FROM \"nation\""))
                 .hasMessageContaining("View already exists");
     }
 
@@ -305,7 +305,7 @@ public abstract class AbstractTestHiveViews
     public void testShowCreateView()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS hive_show_view");
-        onHive().executeQuery("CREATE VIEW hive_show_view AS SELECT * FROM nation");
+        onHive().executeQuery("CREATE VIEW hive_show_view AS SELECT * FROM \"nation\"");
 
         String showCreateViewSql = "SHOW CREATE VIEW %s.default.hive_show_view";
         String expectedResult = "CREATE VIEW %s.default.hive_show_view SECURITY DEFINER AS\n" +
@@ -387,10 +387,10 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP SCHEMA IF EXISTS test_schema CASCADE");
 
         onHive().executeQuery("CREATE SCHEMA test_schema");
-        onHive().executeQuery("CREATE VIEW test_schema.hive_test_view AS SELECT * FROM nation");
+        onHive().executeQuery("CREATE VIEW test_schema.hive_test_view AS SELECT * FROM \"nation\"");
         onHive().executeQuery("CREATE TABLE test_schema.hive_table(a string)");
         onTrino().executeQuery("CREATE TABLE test_schema.trino_table(a int)");
-        onTrino().executeQuery("CREATE VIEW test_schema.trino_test_view AS SELECT * FROM nation");
+        onTrino().executeQuery("CREATE VIEW test_schema.trino_test_view AS SELECT * FROM \"nation\"");
 
         assertThat(onTrino().executeQuery("SELECT * FROM information_schema.tables WHERE table_schema = 'test_schema'")).containsOnly(
                 row("hive", "test_schema", "trino_table", "BASE TABLE"),
@@ -462,7 +462,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP VIEW IF EXISTS nested_middle_view");
         onHive().executeQuery("DROP VIEW IF EXISTS nested_top_view");
 
-        onHive().executeQuery("CREATE VIEW nested_base_view AS SELECT n_nationkey as k, n_name as n, n_regionkey as r, n_comment as c FROM nation");
+        onHive().executeQuery("CREATE VIEW nested_base_view AS SELECT n_nationkey as k, n_name as n, n_regionkey as r, n_comment as c FROM \"nation\"");
         onHive().executeQuery("CREATE VIEW nested_middle_view AS SELECT n, c FROM nested_base_view WHERE k = 14");
         onHive().executeQuery("CREATE VIEW nested_top_view AS SELECT n AS n_renamed FROM nested_middle_view");
 
@@ -476,11 +476,11 @@ public abstract class AbstractTestHiveViews
     public void testSelectFromHiveViewWithoutDefaultCatalogAndSchema()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS no_catalog_schema_view");
-        onHive().executeQuery("CREATE VIEW no_catalog_schema_view AS SELECT * FROM nation WHERE n_nationkey = 1");
+        onHive().executeQuery("CREATE VIEW no_catalog_schema_view AS SELECT * FROM \"nation\" WHERE n_nationkey = 1");
 
         QueryExecutor executor = connectToTrino("trino_no_default_catalog");
         assertQueryFailure(() -> executor.executeQuery("SELECT count(*) FROM no_catalog_schema_view"))
-                .hasMessageMatching(".*Schema must be specified when session schema is not set.*");
+                .hasMessageMatching(".*Catalog must be specified when session catalog is not set.*");
         assertThat(executor.executeQuery("SELECT count(*) FROM hive.default.no_catalog_schema_view"))
                 .containsOnly(row(1L));
     }
@@ -523,7 +523,7 @@ public abstract class AbstractTestHiveViews
     public void testCurrentUser()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS current_user_hive_view");
-        onHive().executeQuery("CREATE VIEW current_user_hive_view as SELECT current_user() AS cu FROM nation LIMIT 1");
+        onHive().executeQuery("CREATE VIEW current_user_hive_view as SELECT current_user() AS cu FROM \"nation\" LIMIT 1");
 
         String testQuery = "SELECT cu FROM current_user_hive_view";
         assertThat(onTrino().executeQuery(testQuery)).containsOnly(row("hive"));
@@ -535,7 +535,7 @@ public abstract class AbstractTestHiveViews
     public void testNestedGroupBy()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS test_nested_group_by_view");
-        onHive().executeQuery("CREATE VIEW test_nested_group_by_view AS SELECT n_regionkey, count(1) count FROM (SELECT n_regionkey FROM nation GROUP BY n_regionkey ) t GROUP BY n_regionkey");
+        onHive().executeQuery("CREATE VIEW test_nested_group_by_view AS SELECT n_regionkey, count(1) count FROM (SELECT n_regionkey FROM \"nation\" GROUP BY n_regionkey ) t GROUP BY n_regionkey");
 
         assertViewQuery(
                 "SELECT * FROM test_nested_group_by_view",

@@ -5,8 +5,8 @@ WITH
      "c_customer_id" "customer_id"
    , "c_first_name" "customer_first_name"
    , "c_last_name" "customer_last_name"
-   , "d_year" "YEAR"
-   , "sum"("ss_net_paid") "year_total"
+   , "d_year" "year"
+   , sum("ss_net_paid") "year_total"
    , 's' "sale_type"
    FROM
      customer
@@ -20,8 +20,8 @@ UNION ALL    SELECT
      "c_customer_id" "customer_id"
    , "c_first_name" "customer_first_name"
    , "c_last_name" "customer_last_name"
-   , "d_year" "YEAR"
-   , "sum"("ws_net_paid") "year_total"
+   , "d_year" "year"
+   , sum("ws_net_paid") "year_total"
    , 'w' "sale_type"
    FROM
      customer
@@ -33,27 +33,27 @@ UNION ALL    SELECT
    GROUP BY "c_customer_id", "c_first_name", "c_last_name", "d_year"
 )
 SELECT
-  "t_s_secyear"."customer_id"
-, "t_s_secyear"."customer_first_name"
-, "t_s_secyear"."customer_last_name"
+  t_s_secyear."customer_id"
+, t_s_secyear."customer_first_name"
+, t_s_secyear."customer_last_name"
 FROM
   year_total t_s_firstyear
 , year_total t_s_secyear
 , year_total t_w_firstyear
 , year_total t_w_secyear
-WHERE ("t_s_secyear"."customer_id" = "t_s_firstyear"."customer_id")
-   AND ("t_s_firstyear"."customer_id" = "t_w_secyear"."customer_id")
-   AND ("t_s_firstyear"."customer_id" = "t_w_firstyear"."customer_id")
-   AND ("t_s_firstyear"."sale_type" = 's')
-   AND ("t_w_firstyear"."sale_type" = 'w')
-   AND ("t_s_secyear"."sale_type" = 's')
-   AND ("t_w_secyear"."sale_type" = 'w')
-   AND ("t_s_firstyear"."year" = 2001)
-   AND ("t_s_secyear"."year" = (2001 + 1))
-   AND ("t_w_firstyear"."year" = 2001)
-   AND ("t_w_secyear"."year" = (2001 + 1))
-   AND ("t_s_firstyear"."year_total" > 0)
-   AND ("t_w_firstyear"."year_total" > 0)
-   AND ((CASE WHEN ("t_w_firstyear"."year_total" > 0) THEN ("t_w_secyear"."year_total" / "t_w_firstyear"."year_total") ELSE null END) > (CASE WHEN ("t_s_firstyear"."year_total" > 0) THEN ("t_s_secyear"."year_total" / "t_s_firstyear"."year_total") ELSE null END))
+WHERE (t_s_secyear."customer_id" = t_s_firstyear."customer_id")
+   AND (t_s_firstyear."customer_id" = t_w_secyear."customer_id")
+   AND (t_s_firstyear."customer_id" = t_w_firstyear."customer_id")
+   AND (t_s_firstyear."sale_type" = 's')
+   AND (t_w_firstyear."sale_type" = 'w')
+   AND (t_s_secyear."sale_type" = 's')
+   AND (t_w_secyear."sale_type" = 'w')
+   AND (t_s_firstyear."year" = 2001)
+   AND (t_s_secyear."year" = (2001 + 1))
+   AND (t_w_firstyear."year" = 2001)
+   AND (t_w_secyear."year" = (2001 + 1))
+   AND (t_s_firstyear."year_total" > 0)
+   AND (t_w_firstyear."year_total" > 0)
+   AND ((CASE WHEN (t_w_firstyear."year_total" > 0) THEN (t_w_secyear."year_total" / t_w_firstyear."year_total") ELSE null END) > (CASE WHEN (t_s_firstyear."year_total" > 0) THEN (t_s_secyear."year_total" / t_s_firstyear."year_total") ELSE null END))
 ORDER BY 1 ASC, 1 ASC, 1 ASC
 LIMIT 100

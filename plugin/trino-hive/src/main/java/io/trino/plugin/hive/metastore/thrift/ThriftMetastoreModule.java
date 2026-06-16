@@ -25,6 +25,7 @@ import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.RawHiveMetastoreFactory;
 import io.trino.plugin.base.security.UserNameProvider;
 import io.trino.plugin.hive.AllowHiveTableRename;
+import io.trino.plugin.jdbc.JdbcMetadataFactory;
 
 import java.util.concurrent.ExecutorService;
 
@@ -47,6 +48,7 @@ public final class ThriftMetastoreModule
         requireNonNull(staticMetastoreConfig.getMetastoreUris(), "metastoreUris is null");
         OptionalBinder.newOptionalBinder(binder, ThriftMetastoreClientFactory.class)
                 .setDefault().to(DefaultThriftMetastoreClientFactory.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(ThriftMetastoreMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(TokenAwareMetastoreClientFactory.class).to(StaticTokenAwareMetastoreClientFactory.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(ThriftMetastoreConfig.class);
         newOptionalBinder(binder, Key.get(new TypeLiteral<ExecutorService>() {}, ThriftHiveWriteStatisticsExecutor.class))

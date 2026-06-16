@@ -39,6 +39,7 @@ import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.RowType.rowType;
+import static io.trino.sql.QueryUtil.delimitedIdentifier;
 import static io.trino.sql.QueryUtil.identifier;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -50,13 +51,15 @@ public class TestRenameColumnTask
     @Test
     public void testRenameColumn()
     {
-        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, simpleTable(tableName), FAIL);
-        TableHandle table = metadata.getTableHandle(testSession, tableName).get();
+        String tableName = "existing_table";
+        QualifiedObjectName objectName = qualifiedObjectName(tableName);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, simpleTable(objectName), FAIL);
+
+        TableHandle table = metadata.getTableHandle(testSession, objectName).get();
         assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .containsExactly(new ColumnMetadata("a", BIGINT), new ColumnMetadata("b", BIGINT));
 
-        getFutureValue(executeRenameColumn(asQualifiedName(tableName), QualifiedName.of("a"), identifier("a_renamed"), false, false));
+        getFutureValue(executeRenameColumn(QualifiedName.ofDelimited(tableName), QualifiedName.ofDelimited("a"), delimitedIdentifier("a_renamed"), false, false));
         assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .containsExactly(new ColumnMetadata("a_renamed", BIGINT), new ColumnMetadata("b", BIGINT));
     }
@@ -170,6 +173,7 @@ public class TestRenameColumnTask
     @Test
     public void testUnsupportedRenameDuplicatedField()
     {
+        // FIXME: cant have this test working with COLUMN_NOT_FOUND
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
         metadata.createTable(testSession, TEST_CATALOG_NAME, rowTable(tableName, new RowType.Field(Optional.of("a"), BIGINT), new RowType.Field(Optional.of("a"), BIGINT)), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).get();
@@ -177,14 +181,15 @@ public class TestRenameColumnTask
                 .isEqualTo(ImmutableList.of(new ColumnMetadata("col", RowType.rowType(
                         new RowType.Field(Optional.of("a"), BIGINT), new RowType.Field(Optional.of("a"), BIGINT)))));
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameColumn(asQualifiedName(tableName), QualifiedName.of("col", "a"), identifier("x"), false, false)))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameColumn(asQualifiedName(tableName), QualifiedName.ofDelimited("col", "a"), identifier("x"), false, false)))
                 .hasErrorCode(AMBIGUOUS_NAME)
-                .hasMessageContaining("Field path [col, a] within row(\"a\" bigint, \"a\" bigint) is ambiguous");
+                .hasMessageContaining("line 1:1: Field path [col, a] within row(\"a\" bigint, \"a\" bigint) is ambiguous");
     }
 
     @Test
     public void testUnsupportedRenameToExistingField()
     {
+        // FIXME: cant have this test working with COLUMN_NOT_FOUND
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
         metadata.createTable(testSession, TEST_CATALOG_NAME, rowTable(tableName, new RowType.Field(Optional.of("a"), BIGINT), new RowType.Field(Optional.of("b"), BIGINT)), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).get();
@@ -192,9 +197,9 @@ public class TestRenameColumnTask
                 .isEqualTo(ImmutableList.of(new ColumnMetadata("col", RowType.rowType(
                         new RowType.Field(Optional.of("a"), BIGINT), new RowType.Field(Optional.of("b"), BIGINT)))));
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameColumn(asQualifiedName(tableName), QualifiedName.of("col", "a"), identifier("b"), false, false)))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameColumn(asQualifiedName(tableName), QualifiedName.ofDelimited("col", "a"), identifier("b"), false, false)))
                 .hasErrorCode(COLUMN_ALREADY_EXISTS)
-                .hasMessageContaining("Field 'b' already exists");
+                .hasMessageContaining("line 1:1: Field 'b' already exists");
     }
 
     @Test
@@ -221,7 +226,7 @@ public class TestRenameColumnTask
 
     private ListenableFuture<Void> executeRenameColumn(QualifiedName table, QualifiedName source, Identifier target, boolean tableExists, boolean columnExists)
     {
-        return new RenameColumnTask(plannerContext.getMetadata(), new AllowAllAccessControl())
+        return new RenameColumnTask(metadata, new AllowAllAccessControl())
                 .execute(new RenameColumn(new NodeLocation(1, 1), table, source, target, tableExists, columnExists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 

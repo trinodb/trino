@@ -342,8 +342,8 @@ public final class DeltaLakeSchemaSupport
                 .map(field -> {
                     String name = field.getName().orElseThrow(() ->
                             new TrinoException(NOT_SUPPORTED, "Row type field does not have a name: " + rowType.getDisplayName()));
-                    if (!fieldNames.add(name.toLowerCase(ENGLISH))) {
-                        throw new TrinoException(DUPLICATE_COLUMN_NAME, "Field name '%s' specified more than once".formatted(name.toLowerCase(ENGLISH)));
+                    if (!fieldNames.add(name)) {
+                        throw new TrinoException(DUPLICATE_COLUMN_NAME, "Field name '%s' specified more than once".formatted(name));
                     }
                     Object fieldType = serializeColumnType(columnMappingMode, maxColumnId, field.getType());
                     Map<String, Object> metadata = generateColumnMetadata(columnMappingMode, maxColumnId);
@@ -797,7 +797,7 @@ public final class DeltaLakeSchemaSupport
                     // Users can't work around this by casting in their queries because Trino parser always lower case types.
                     // TODO: This is a hack. Engine should be able to handle identifiers in a case insensitive way where necessary.
                     // See also HiveTypeTranslator#toTypeSingature.
-                    TransactionLogAccess.canonicalizeColumnName(fieldName),
+                    fieldName,
                     buildType(typeManager, element.get("type"), usePhysicalName)));
         }
         return RowType.from(fields.build());

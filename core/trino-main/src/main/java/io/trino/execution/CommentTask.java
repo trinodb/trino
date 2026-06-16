@@ -26,9 +26,12 @@ import io.trino.metadata.ViewColumn;
 import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.Resolver;
 
 import java.util.List;
 import java.util.Map;
@@ -89,7 +92,7 @@ public class CommentTask
 
     private void commentOnTable(Comment statement, Session session)
     {
-        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getName(), metadata);
         if (metadata.isMaterializedView(session, originalTableName)) {
             throw semanticException(
                     TABLE_NOT_FOUND,
@@ -118,7 +121,7 @@ public class CommentTask
 
     private void commentOnView(Comment statement, Session session)
     {
-        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName(), metadata);
         if (!metadata.isView(session, viewName)) {
             String additionalInformation;
             if (metadata.getMaterializedView(session, viewName).isPresent()) {
@@ -142,7 +145,7 @@ public class CommentTask
         QualifiedName prefix = statement.getName().getPrefix()
                 .orElseThrow(() -> semanticException(MISSING_TABLE, statement, "Table must be specified"));
 
-        QualifiedObjectName originalObjectName = createQualifiedObjectName(session, statement, prefix);
+        QualifiedObjectName originalObjectName = createQualifiedObjectName(session, statement, prefix, metadata);
         Optional<ViewDefinition> view = metadata.getView(session, originalObjectName);
         if (view.isPresent()) {
             ViewDefinition viewDefinition = view.get();
@@ -161,7 +164,9 @@ public class CommentTask
             }
             TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
 
-            String columnName = statement.getName().getSuffix();
+            Identifier identifier = statement.getName().getOriginalParts().getLast();
+            Resolver resolver = metadata.getResolverManager().getResolver(session, originalObjectName.catalogName());
+            String columnName = resolver.canonicalize(identifier);
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
             if (!columnHandles.containsKey(columnName)) {
                 throw semanticException(COLUMN_NOT_FOUND, statement, "Column does not exist: %s", columnName);

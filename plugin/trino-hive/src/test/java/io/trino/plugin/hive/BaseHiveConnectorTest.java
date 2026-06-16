@@ -303,6 +303,12 @@ public abstract class BaseHiveConnectorTest
         };
     }
 
+    @Override
+    public String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
     @Test
     @Override
     public void verifySupportsUpdateDeclaration()
@@ -1992,13 +1998,13 @@ public abstract class BaseHiveConnectorTest
                 "CREATE TABLE test_create_partitioned_table_as " +
                 "WITH (" +
                 "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ 'SHIP_PRIORITY', 'ORDER_STATUS' ]" +
+                "partitioned_by = ARRAY[ 'ship_priority', 'order_status' ]" +
                 ") " +
                 "AS " +
                 "SELECT orderkey AS order_key, shippriority AS ship_priority, orderstatus AS order_status " +
                 "FROM tpch.tiny.orders";
 
-        assertUpdate(session, createTable, "SELECT count(*) FROM orders");
+        assertUpdate(session, createTable, "SELECT count(*) FROM \"orders\"");
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_create_partitioned_table_as");
         assertThat(tableMetadata.metadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
@@ -2007,7 +2013,7 @@ public abstract class BaseHiveConnectorTest
         List<?> partitions = getPartitions("test_create_partitioned_table_as");
         assertThat(partitions).hasSize(3);
 
-        assertQuery(session, "SELECT * FROM test_create_partitioned_table_as", "SELECT orderkey, shippriority, orderstatus FROM orders");
+        assertQuery(session, "SELECT * FROM test_create_partitioned_table_as", "SELECT \"orderkey\", \"shippriority\", \"orderstatus\" FROM \"orders\"");
 
         assertUpdate(session, "DROP TABLE test_create_partitioned_table_as");
 
@@ -2065,10 +2071,12 @@ public abstract class BaseHiveConnectorTest
     public void testTargetMaxFileSizePartitioned()
     {
         // We use TEXTFILE in this test because is has a very consistent and predictable size
-        @Language("SQL") String createTableSql = "" +
-                "CREATE TABLE test_max_file_size_partitioned WITH (partitioned_by = ARRAY['returnflag'], format = 'TEXTFILE') AS " +
-                "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, linestatus, shipdate, commitdate, receiptdate, shipinstruct, shipmode, comment, returnflag " +
-                "FROM tpch.sf1.lineitem LIMIT 1000000";
+        @Language("SQL") String createTableSql =
+                """
+                CREATE TABLE test_max_file_size_partitioned WITH (partitioned_by = ARRAY['returnflag'], format = 'TEXTFILE') AS
+                SELECT "orderkey", "partkey", "suppkey", "linenumber", "quantity", "extendedprice", "discount", "tax", "linestatus", "shipdate", "commitdate", "receiptdate", "shipinstruct", "shipmode", "comment", "returnflag"
+                FROM tpch.sf1.lineitem LIMIT 1000000\
+                """;
         @Language("SQL") String selectFileInfo = "SELECT distinct \"$path\", \"$file_size\" FROM test_max_file_size_partitioned";
 
         // verify the default behavior is one file per node per partition
@@ -2123,7 +2131,7 @@ public abstract class BaseHiveConnectorTest
                 "SELECT orderkey AS order_key, shippriority AS ship_priority, orderstatus AS order_status " +
                 "FROM tpch.tiny.orders";
 
-        assertUpdate(createTable, "SELECT count(*) FROM orders");
+        assertUpdate(createTable, "SELECT count(*) FROM \"orders\"");
         String queryId = (String) computeScalar("SELECT query_id FROM system.runtime.queries WHERE query LIKE 'CREATE TABLE test_show_properties%'");
         String nodeVersion = (String) computeScalar("SELECT node_version FROM system.runtime.nodes WHERE coordinator");
         assertQuery(
@@ -2148,7 +2156,7 @@ public abstract class BaseHiveConnectorTest
     {
         assertThatThrownBy(() -> getQueryRunner().execute("" +
                 "CREATE TABLE test_create_table_as_invalid_column_ordering " +
-                "WITH (partitioned_by = ARRAY['SHIP_PRIORITY', 'ORDER_STATUS']) " +
+                "WITH (partitioned_by = ARRAY['ship_priority', 'order_status']) " +
                 "AS " +
                 "SELECT shippriority AS ship_priority, orderkey AS order_key, orderstatus AS order_status " +
                 "FROM tpch.tiny.orders"))
@@ -2557,23 +2565,25 @@ public abstract class BaseHiveConnectorTest
     {
         String tableName = "test_create_partitioned_bucketed_table_as" + randomNameSuffix();
 
-        @Language("SQL") String createTable = "" +
-                "CREATE TABLE " + tableName + " " +
-                "WITH (" +
-                "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ 'orderstatus' ], " +
-                "bucketed_by = ARRAY[ 'custkey', 'custkey2' ], " +
-                "bucket_count = 11 " +
-                ") " +
-                "AS " +
-                "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
-                "FROM tpch.tiny.orders";
+        @Language("SQL") String createTable =
+                """
+                CREATE TABLE %s
+                WITH (
+                  format = '%s',
+                  partitioned_by = ARRAY[ 'orderstatus' ],
+                  bucketed_by = ARRAY[ 'custkey', 'custkey2' ],
+                  bucket_count = 11
+                )
+                AS
+                SELECT custkey, custkey AS custkey2, comment, orderstatus
+                FROM tpch.tiny.orders\
+                """.formatted(tableName, storageFormat);
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
                 getParallelWriteSession(getSession()),
                 createTable,
-                "SELECT count(*) FROM orders");
+                "SELECT count(*) FROM \"orders\"");
 
         verifyPartitionedBucketedTable(storageFormat, tableName);
 
@@ -2606,7 +2616,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(
                 getParallelWriteSession(getSession()),
                 createTable,
-                "SELECT count(*) FROM orders");
+                "SELECT count(*) FROM \"orders\"");
 
         // verify that we create bucket_count files in each partition
         assertEqualsIgnoreOrder(
@@ -2629,7 +2639,7 @@ public abstract class BaseHiveConnectorTest
                         .row("5-LOW", "P", 4L)
                         .build());
 
-        assertQuery("SELECT * FROM " + tableName, "SELECT custkey, orderkey, comment, nullif(orderpriority, '1-URGENT') orderpriority_nulls, orderstatus FROM orders");
+        assertQuery("SELECT * FROM " + tableName, "SELECT \"custkey\", \"orderkey\", \"comment\", nullif(\"orderpriority\", '1-URGENT') \"orderpriority_nulls\", \"orderstatus\" FROM \"orders\"");
 
         assertUpdate("DROP TABLE " + tableName);
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
@@ -2697,8 +2707,8 @@ public abstract class BaseHiveConnectorTest
                     "FROM tpch.tiny.orders";
 
             Session session = getParallelWriteSession(getSession());
-            assertUpdate(session, createSourceTable, "SELECT count(*) FROM orders");
-            assertUpdate(session, createTargetTable, "SELECT count(*) FROM orders");
+            assertUpdate(session, createSourceTable, "SELECT count(*) FROM \"orders\"");
+            assertUpdate(session, createTargetTable, "SELECT count(*) FROM \"orders\"");
 
             transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getPlannerContext().getMetadata(), getQueryRunner().getAccessControl()).execute(
                     session,
@@ -2748,7 +2758,7 @@ public abstract class BaseHiveConnectorTest
                 // make sure that we will get one file per bucket regardless of writer count configured
                 getParallelWriteSession(getSession()),
                 createTable,
-                "SELECT count(*) FROM orders");
+                "SELECT count(*) FROM \"orders\"");
 
         verifyPartitionedBucketedTable(storageFormat, tableName);
 
@@ -2777,12 +2787,12 @@ public abstract class BaseHiveConnectorTest
                         .row("P", 11L)
                         .build());
 
-        assertQuery("SELECT * FROM " + tableName, "SELECT custkey, custkey, comment, orderstatus FROM orders");
+        assertQuery("SELECT * FROM " + tableName, "SELECT \"custkey\", \"custkey\", \"comment\", \"orderstatus\" FROM \"orders\"");
 
         for (int i = 1; i <= 30; i++) {
             assertQuery(
                     format("SELECT * FROM %s WHERE custkey = %d AND custkey2 = %d", tableName, i, i),
-                    format("SELECT custkey, custkey, comment, orderstatus FROM orders WHERE custkey = %d", i));
+                    format("SELECT \"custkey\", \"custkey\", \"comment\", \"orderstatus\" FROM \"orders\" WHERE \"custkey\" = %d", i));
         }
     }
 
@@ -3120,7 +3130,7 @@ public abstract class BaseHiveConnectorTest
                                     "WHERE orderstatus = '%s'",
                             tableName,
                             orderStatus),
-                    format("SELECT count(*) FROM orders WHERE orderstatus = '%s'", orderStatus));
+                    format("SELECT count(*) FROM \"orders\" WHERE \"orderstatus\" = '%s'", orderStatus));
         }
 
         verifyPartitionedBucketedTable(storageFormat, tableName);
@@ -3182,10 +3192,8 @@ public abstract class BaseHiveConnectorTest
                                     "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
                                     "FROM tpch.tiny.orders " +
                                     "WHERE orderstatus = '%s' AND length(comment) %% 2 = 1",
-                            tableName,
-                            orderStatus,
-                            orderStatus),
-                    format("SELECT count(*) FROM orders WHERE orderstatus = '%s'", orderStatus));
+                            tableName, orderStatus, orderStatus),
+                    format("SELECT count(*) FROM \"orders\" WHERE \"orderstatus\" = '%s'", orderStatus));
         }
 
         verifyPartitionedBucketedTable(storageFormat, tableName);
@@ -3305,17 +3313,18 @@ public abstract class BaseHiveConnectorTest
 
     private void testInsertPartitionedTable(Session session, HiveStorageFormat storageFormat)
     {
-        @Language("SQL") String createTable = "" +
-                "CREATE TABLE test_insert_partitioned_table " +
-                "(" +
-                "  ORDER_KEY BIGINT," +
-                "  SHIP_PRIORITY INTEGER," +
-                "  ORDER_STATUS VARCHAR" +
-                ") " +
-                "WITH (" +
-                "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ 'SHIP_PRIORITY', 'ORDER_STATUS' ]" +
-                ") ";
+        @Language("SQL") String createTable = """
+                CREATE TABLE test_insert_partitioned_table \
+                (\
+                  order_key BIGINT,\
+                  ship_priority INTEGER,\
+                  order_status VARCHAR\
+                ) \
+                WITH (\
+                format = '%s', \
+                partitioned_by = ARRAY[ 'ship_priority', 'order_status' ]\
+                )\
+                """.formatted(storageFormat);
 
         assertUpdate(session, createTable);
 
@@ -3328,7 +3337,7 @@ public abstract class BaseHiveConnectorTest
         assertQuery(
                 session,
                 "SELECT * FROM " + partitionsTable,
-                "SELECT shippriority, orderstatus FROM orders LIMIT 0");
+                "SELECT \"shippriority\", \"orderstatus\" FROM \"orders\" LIMIT 0");
 
         // Hive will reorder the partition keys, so we must insert into the table assuming the partition keys have been moved to the end
         assertUpdate(
@@ -3337,31 +3346,31 @@ public abstract class BaseHiveConnectorTest
                         "INSERT INTO test_insert_partitioned_table " +
                         "SELECT orderkey, shippriority, orderstatus " +
                         "FROM tpch.tiny.orders",
-                "SELECT count(*) FROM orders");
+                "SELECT count(*) FROM \"orders\"");
 
         // verify the partitions
         List<?> partitions = getPartitions("test_insert_partitioned_table");
         assertThat(partitions).hasSize(3);
 
-        assertQuery(session, "SELECT * FROM test_insert_partitioned_table", "SELECT orderkey, shippriority, orderstatus FROM orders");
+        assertQuery(session, "SELECT * FROM test_insert_partitioned_table", "SELECT \"orderkey\", \"shippriority\", \"orderstatus\" FROM \"orders\"");
 
         assertQuery(
                 session,
                 "SELECT * FROM " + partitionsTable,
-                "SELECT DISTINCT shippriority, orderstatus FROM orders");
+                "SELECT DISTINCT \"shippriority\", \"orderstatus\" FROM \"orders\"");
 
         assertQuery(
                 session,
                 "SELECT * FROM " + partitionsTable + " ORDER BY order_status LIMIT 2",
-                "SELECT DISTINCT shippriority, orderstatus FROM orders ORDER BY orderstatus LIMIT 2");
+                "SELECT DISTINCT \"shippriority\", \"orderstatus\" FROM \"orders\" ORDER BY \"orderstatus\" LIMIT 2");
 
         assertQuery(
                 session,
                 "SELECT * FROM " + partitionsTable + " WHERE order_status = 'O'",
-                "SELECT DISTINCT shippriority, orderstatus FROM orders WHERE orderstatus = 'O'");
+                "SELECT DISTINCT \"shippriority\", \"orderstatus\" FROM \"orders\" WHERE \"orderstatus\" = 'O'");
 
-        assertQueryFails(session, "SELECT * FROM " + partitionsTable + " WHERE no_such_column = 1", "line \\S*: Column 'no_such_column' cannot be resolved");
-        assertQueryFails(session, "SELECT * FROM " + partitionsTable + " WHERE orderkey = 1", "line \\S*: Column 'orderkey' cannot be resolved");
+        assertQueryFails(session, "SELECT * FROM " + partitionsTable + " WHERE no_such_column = 1", "line \\S*: Column 'no_such_column' cannot be resolved, available candidates are: 'ship_priority, order_status'");
+        assertQueryFails(session, "SELECT * FROM " + partitionsTable + " WHERE orderkey = 1", "line \\S*: Column 'orderkey' cannot be resolved, available candidates are: 'ship_priority, order_status'");
 
         assertUpdate(session, "DROP TABLE test_insert_partitioned_table");
 
@@ -3405,7 +3414,7 @@ public abstract class BaseHiveConnectorTest
                                     "FROM tpch.tiny.orders " +
                                     "WHERE orderkey %% 3 = %d",
                             i),
-                    format("SELECT count(*) FROM orders WHERE orderkey %% 3 = %d", i));
+                    format("SELECT count(*) FROM \"orders\" WHERE \"orderkey\" %% 3 = %d", i));
         }
 
         // verify the partitions
@@ -3415,7 +3424,7 @@ public abstract class BaseHiveConnectorTest
         assertQuery(
                 session,
                 "SELECT * FROM " + tableName,
-                "SELECT orderkey, comment, orderstatus FROM orders");
+                "SELECT \"orderkey\", \"comment\", \"orderstatus\" FROM \"orders\"");
 
         assertUpdate(session, "DROP TABLE " + tableName);
 
@@ -3463,7 +3472,7 @@ public abstract class BaseHiveConnectorTest
                                     "FROM tpch.tiny.orders " +
                                     "WHERE orderkey %% 3 = %d",
                             i),
-                    format("SELECT count(*) FROM orders WHERE orderkey %% 3 = %d", i));
+                    format("SELECT count(*) FROM \"orders\" WHERE \"orderkey\" %% 3 = %d", i));
 
             // verify the partitions
             List<?> partitions = getPartitions(tableName);
@@ -3472,7 +3481,7 @@ public abstract class BaseHiveConnectorTest
             assertQuery(
                     session,
                     "SELECT * FROM " + tableName,
-                    format("SELECT orderkey, comment, orderstatus FROM orders WHERE orderkey %% 3 = %d", i));
+                    format("SELECT \"orderkey\", \"comment\", \"orderstatus\" FROM \"orders\" WHERE \"orderkey\" %% 3 = %d", i));
         }
         assertUpdate(session, "DROP TABLE " + tableName);
 
@@ -3771,13 +3780,13 @@ public abstract class BaseHiveConnectorTest
                                     "FROM tpch.tiny.orders " +
                                     "WHERE orderkey %% 3 = %d",
                             i),
-                    format("SELECT count(*) FROM orders WHERE orderkey %% 3 = %d", i));
+                    format("SELECT count(*) FROM \"orders\" WHERE \"orderkey\" %% 3 = %d", i));
         }
 
         assertQuery(
                 session,
                 "SELECT * FROM " + tableName,
-                "SELECT orderkey, comment, orderstatus FROM orders");
+                "SELECT \"orderkey\", \"comment\", \"orderstatus\" FROM \"orders\"");
 
         assertUpdate(session, "DROP TABLE " + tableName);
 
@@ -3787,7 +3796,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testDeleteFromUnpartitionedTable()
     {
-        assertUpdate("CREATE TABLE test_delete_unpartitioned AS SELECT orderstatus FROM tpch.tiny.orders", "SELECT count(*) FROM orders");
+        assertUpdate("CREATE TABLE test_delete_unpartitioned AS SELECT orderstatus FROM tpch.tiny.orders", "SELECT count(*) FROM \"orders\"");
 
         assertUpdate("DELETE FROM test_delete_unpartitioned");
 
@@ -3802,16 +3811,17 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testMetadataDelete()
     {
-        @Language("SQL") String createTable = "" +
-                "CREATE TABLE test_metadata_delete " +
-                "(" +
-                "  ORDER_KEY BIGINT," +
-                "  LINE_NUMBER INTEGER," +
-                "  LINE_STATUS VARCHAR" +
-                ") " +
-                "WITH (" +
-                PARTITIONED_BY_PROPERTY + " = ARRAY[ 'LINE_NUMBER', 'LINE_STATUS' ]" +
-                ") ";
+        @Language("SQL") String createTable = """
+                CREATE TABLE test_metadata_delete \
+                (\
+                  ORDER_KEY BIGINT,\
+                  LINE_NUMBER INTEGER,\
+                  LINE_STATUS VARCHAR\
+                ) \
+                WITH (\
+                %s = ARRAY[ '%s', '%s' ]\
+                )\
+                """.formatted(PARTITIONED_BY_PROPERTY, canonicalize("LINE_NUMBER"), canonicalize("LINE_STATUS"));
 
         assertUpdate(createTable);
 
@@ -3820,23 +3830,23 @@ public abstract class BaseHiveConnectorTest
                         "INSERT INTO test_metadata_delete " +
                         "SELECT orderkey, linenumber, linestatus " +
                         "FROM tpch.tiny.lineitem",
-                "SELECT count(*) FROM lineitem");
+                "SELECT count(*) FROM \"lineitem\"");
 
         // Delete returns number of rows deleted, or null if obtaining the number is hard or impossible.
         // Currently, Hive implementation always returns null.
         assertUpdate("DELETE FROM test_metadata_delete WHERE LINE_STATUS='F' AND LINE_NUMBER=CAST(3 AS INTEGER)");
 
-        assertQuery("SELECT * FROM test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'F' or linenumber<>3");
+        assertQuery("SELECT * FROM test_metadata_delete", "SELECT \"orderkey\", \"linenumber\", \"linestatus\" FROM \"lineitem\" WHERE \"linestatus\"<>'F' or \"linenumber\"<>3");
 
         assertUpdate("DELETE FROM test_metadata_delete WHERE LINE_STATUS='O'");
 
-        assertQuery("SELECT * FROM test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' AND linenumber<>3");
+        assertQuery("SELECT * FROM test_metadata_delete", "SELECT \"orderkey\", \"linenumber\", \"linestatus\" FROM \"lineitem\" WHERE \"linestatus\"<>'O' AND \"linenumber\"<>3");
 
         assertThatThrownBy(() -> getQueryRunner().execute("DELETE FROM test_metadata_delete WHERE ORDER_KEY=1"))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
 
-        assertQuery("SELECT * FROM test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' AND linenumber<>3");
+        assertQuery("SELECT * FROM test_metadata_delete", "SELECT \"orderkey\", \"linenumber\", \"linestatus\" FROM \"lineitem\" WHERE \"linestatus\"<>'O' AND \"linenumber\"<>3");
 
         assertUpdate("DROP TABLE test_metadata_delete");
 
@@ -4134,11 +4144,11 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testBucketedExecution()
     {
-        assertQuery(bucketedSession, "SELECT count(*) a FROM orders t1 JOIN orders t2 on t1.custkey=t2.custkey");
-        assertQuery(bucketedSession, "SELECT count(*) a FROM orders t1 JOIN customer t2 on t1.custkey=t2.custkey", "SELECT count(*) FROM orders");
-        assertQuery(bucketedSession, "SELECT count(distinct custkey) FROM orders");
+        assertQuery(bucketedSession, "SELECT count(*) a FROM \"orders\" t1 JOIN \"orders\" t2 on t1.\"custkey\" = t2.\"custkey\"");
+        assertQuery(bucketedSession, "SELECT count(*) a FROM \"orders\" t1 JOIN \"customer\" t2 on t1.\"custkey\" = t2.\"custkey\"", "SELECT count(*) FROM \"orders\"");
+        assertQuery(bucketedSession, "SELECT count(distinct \"custkey\") FROM \"orders\"");
 
-        assertQuery("SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
+        assertQuery("SELECT \"custkey\", COUNT(*) FROM \"orders\" GROUP BY \"custkey\"");
     }
 
     @Test
@@ -5146,13 +5156,13 @@ public abstract class BaseHiveConnectorTest
     {
         assertUpdate("CREATE VIEW rename_view_original AS SELECT COUNT(*) as count FROM orders");
 
-        assertQuery("SELECT * FROM rename_view_original", "SELECT COUNT(*) FROM orders");
+        assertQuery("SELECT * FROM rename_view_original", "SELECT COUNT(*) FROM \"orders\"");
 
         assertUpdate("CREATE SCHEMA view_rename");
 
         assertUpdate("ALTER VIEW rename_view_original RENAME TO view_rename.rename_view_new");
 
-        assertQuery("SELECT * FROM view_rename.rename_view_new", "SELECT COUNT(*) FROM orders");
+        assertQuery("SELECT * FROM view_rename.rename_view_new", "SELECT COUNT(*) FROM \"orders\"");
 
         assertQueryFails("SELECT * FROM rename_view_original", ".*rename_view_original' does not exist");
 
@@ -5171,12 +5181,12 @@ public abstract class BaseHiveConnectorTest
                 "AS\n" +
                 "SELECT orderkey, orderstatus FROM orders";
 
-        assertUpdate(createTable, "SELECT count(*) FROM orders");
+        assertUpdate(createTable, "SELECT count(*) FROM \"orders\"");
         assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN orderkey TO new_orderkey");
-        assertQuery("SELECT new_orderkey, orderstatus FROM test_rename_column", "SELECT orderkey, orderstatus FROM orders");
+        assertQuery("SELECT new_orderkey, orderstatus FROM test_rename_column", "SELECT \"orderkey\", \"orderstatus\" FROM \"orders\"");
         assertQueryFails("ALTER TABLE test_rename_column RENAME COLUMN \"$path\" TO test", ".* Cannot rename hidden column");
         assertQueryFails("ALTER TABLE test_rename_column RENAME COLUMN orderstatus TO new_orderstatus", "Renaming partition columns is not supported.*");
-        assertQuery("SELECT new_orderkey, orderstatus FROM test_rename_column", "SELECT orderkey, orderstatus FROM orders");
+        assertQuery("SELECT new_orderkey, orderstatus FROM test_rename_column", "SELECT \"orderkey\", \"orderstatus\" FROM \"orders\"");
         assertUpdate("DROP TABLE test_rename_column");
     }
 
@@ -5192,14 +5202,14 @@ public abstract class BaseHiveConnectorTest
                 "AS\n" +
                 "SELECT custkey, orderkey, orderstatus FROM orders";
 
-        assertUpdate(createTable, "SELECT count(*) FROM orders");
-        assertQuery("SELECT orderkey, orderstatus FROM test_drop_column", "SELECT orderkey, orderstatus FROM orders");
+        assertUpdate(createTable, "SELECT count(*) FROM \"orders\"");
+        assertQuery("SELECT orderkey, orderstatus FROM test_drop_column", "SELECT \"orderkey\", \"orderstatus\" FROM \"orders\"");
 
         assertQueryFails("ALTER TABLE test_drop_column DROP COLUMN \"$path\"", ".* Cannot drop hidden column");
         assertQueryFails("ALTER TABLE test_drop_column DROP COLUMN orderstatus", "Cannot drop partition column.*");
         assertUpdate("ALTER TABLE test_drop_column DROP COLUMN orderkey");
         assertQueryFails("ALTER TABLE test_drop_column DROP COLUMN custkey", "Cannot drop the only non-partition column in a table.*");
-        assertQuery("SELECT * FROM test_drop_column", "SELECT custkey, orderstatus FROM orders");
+        assertQuery("SELECT * FROM test_drop_column", "SELECT \"custkey\", \"orderstatus\" FROM \"orders\"");
 
         assertUpdate("DROP TABLE test_drop_column");
     }
@@ -6145,14 +6155,14 @@ public abstract class BaseHiveConnectorTest
                     "ON key16=keyN";
 
             assertUpdate(withoutMismatchOptimization, writeToTableWithMoreBuckets, 15000, assertRemoteExchangesCount(3));
-            assertQuery("SELECT * FROM test_mismatch_bucketing_out32", "SELECT orderkey, comment, orderkey, comment, orderkey, comment FROM orders");
+            assertQuery("SELECT * FROM test_mismatch_bucketing_out32", "SELECT \"orderkey\", \"comment\", \"orderkey\", \"comment\", \"orderkey\", \"comment\" FROM \"orders\"");
             assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_out32");
 
             assertUpdate(withMismatchOptimization, writeToTableWithMoreBuckets, 15000, assertRemoteExchangesCount(2));
-            assertQuery("SELECT * FROM test_mismatch_bucketing_out32", "SELECT orderkey, comment, orderkey, comment, orderkey, comment FROM orders");
+            assertQuery("SELECT * FROM test_mismatch_bucketing_out32", "SELECT \"orderkey\", \"comment\", \"orderkey\", \"comment\", \"orderkey\", \"comment\" FROM \"orders\"");
 
             assertUpdate(withMismatchOptimization, writeToTableWithFewerBuckets, 15000, assertRemoteExchangesCount(2));
-            assertQuery("SELECT * FROM test_mismatch_bucketing_out8", "SELECT orderkey, comment, orderkey, comment, orderkey, comment FROM orders");
+            assertQuery("SELECT * FROM test_mismatch_bucketing_out8", "SELECT \"orderkey\", \"comment\", \"orderkey\", \"comment\", \"orderkey\", \"comment\" FROM \"orders\"");
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing16");
@@ -6181,18 +6191,18 @@ public abstract class BaseHiveConnectorTest
 
             // a basic scan should not use a partitioned read as it is not helpful to the query
             @Language("SQL") String query = "SELECT value1 FROM test_bucketed_select WHERE key1 < 10";
-            @Language("SQL") String expectedQuery = "SELECT comment FROM orders WHERE orderkey < 10";
+            @Language("SQL") String expectedQuery = "SELECT \"comment\" FROM \"orders\" WHERE \"orderkey\" < 10";
             assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertNoReadPartitioning("key1"));
 
             // aggregation on key1 should not require a remote exchange
             query = "SELECT count(value1) FROM test_bucketed_select GROUP BY key1";
-            expectedQuery = "SELECT count(comment) FROM orders GROUP BY orderkey";
+            expectedQuery = "SELECT count(\"comment\") FROM \"orders\" GROUP BY \"orderkey\"";
             assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(0));
             assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(1));
 
             // join on key1 should not require a remote exchange
             query = "SELECT key1 FROM test_bucketed_select JOIN test_bucketed_select USING (key1)";
-            expectedQuery = "SELECT a.orderkey FROM orders a JOIN orders USING (orderkey)";
+            expectedQuery = "SELECT a.\"orderkey\" FROM \"orders\" a JOIN \"orders\" USING (\"orderkey\")";
             assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(0));
             assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(2));
         }
@@ -6241,7 +6251,7 @@ public abstract class BaseHiveConnectorTest
                             "ON key1 = key2\n" +
                             "JOIN test_grouped_join3\n" +
                             "ON key2 = key3";
-            @Language("SQL") String expectedJoinQuery = "SELECT orderkey, comment, orderkey, comment, orderkey, comment FROM orders";
+            @Language("SQL") String expectedJoinQuery = "SELECT \"orderkey\", \"comment\", \"orderkey\", \"comment\", \"orderkey\", \"comment\" FROM \"orders\"";
             @Language("SQL") String leftJoinBucketedTable =
                     "SELECT key1, value1, key2, value2\n" +
                             "FROM test_grouped_join1\n" +
@@ -6252,7 +6262,7 @@ public abstract class BaseHiveConnectorTest
                             "FROM (SELECT * FROM test_grouped_join2 WHERE key2 % 2 = 0)\n" +
                             "RIGHT JOIN test_grouped_join1\n" +
                             "ON key1 = key2";
-            @Language("SQL") String expectedOuterJoinQuery = "SELECT orderkey, comment, CASE mod(orderkey, 2) WHEN 0 THEN orderkey END, CASE mod(orderkey, 2) WHEN 0 THEN comment END FROM orders";
+            @Language("SQL") String expectedOuterJoinQuery = "SELECT \"orderkey\", \"comment\", CASE mod(\"orderkey\", 2) WHEN 0 THEN \"orderkey\" END, CASE mod(\"orderkey\", 2) WHEN 0 THEN \"comment\" END FROM \"orders\"";
 
             assertQuery(session, joinThreeBucketedTable, expectedJoinQuery);
             assertQuery(session, leftJoinBucketedTable, expectedOuterJoinQuery);
@@ -6269,11 +6279,13 @@ public abstract class BaseHiveConnectorTest
                             "ON key1 = key2\n" +
                             "CROSS JOIN (SELECT * FROM test_grouped_join3 WHERE key3 <= 3)";
             @Language("SQL") String expectedCrossJoinQuery =
-                    "SELECT key1, value1, key1, value1, key3, value3\n" +
-                            "FROM\n" +
-                            "  (SELECT orderkey key1, comment value1 FROM orders)\n" +
-                            "CROSS JOIN\n" +
-                            "  (SELECT orderkey key3, comment value3 FROM orders WHERE orderkey <= 3)";
+                    """
+                    SELECT "key1", "value1", "key1", "value1", "key3", "value3"
+                    FROM
+                      (SELECT "orderkey" "key1", "comment" "value1" FROM "orders")
+                        CROSS JOIN
+                         (SELECT "orderkey" "key3", "comment" "value3" FROM "orders" WHERE "orderkey" <= 3)\
+                    """;
             assertQuery(session, crossJoin, expectedCrossJoinQuery);
 
             //
@@ -6292,7 +6304,7 @@ public abstract class BaseHiveConnectorTest
                             "ON key1 = keyN\n" +
                             "JOIN test_grouped_join3\n" +
                             "ON key1 = key3";
-            @Language("SQL") String expectedBucketedAndUnbucketedJoinQuery = "SELECT orderkey, comment, orderkey, comment, orderkey, comment, orderkey, comment FROM orders";
+            @Language("SQL") String expectedBucketedAndUnbucketedJoinQuery = "SELECT \"orderkey\", \"comment\", \"orderkey\", \"comment\", \"orderkey\", \"comment\", \"orderkey\", \"comment\" FROM \"orders\"";
             assertQuery(session, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery);
 
             //
@@ -6319,22 +6331,28 @@ public abstract class BaseHiveConnectorTest
                             "  (SELECT * FROM test_grouped_joinN WHERE mod(keyN, 3) = 0)\n" +
                             "ON key1 = keyN";
             // The preceding test case, which then feeds into another join
-            @Language("SQL") String expectedChainedOuterJoinResult = "SELECT\n" +
-                    "  CASE WHEN mod(orderkey, 2 * 3) = 0 THEN orderkey END,\n" +
-                    "  CASE WHEN mod(orderkey, 2 * 3) = 0 THEN comment END,\n" +
-                    "  CASE WHEN mod(orderkey, 3) = 0 THEN orderkey END,\n" +
-                    "  CASE WHEN mod(orderkey, 3) = 0 THEN comment END,\n" +
-                    "  CASE WHEN mod(orderkey, 5) = 0 THEN orderkey END,\n" +
-                    "  CASE WHEN mod(orderkey, 5) = 0 THEN comment END\n" +
-                    "FROM ORDERS\n" +
-                    "WHERE mod(orderkey, 3) = 0 OR mod(orderkey, 5) = 0";
-            @Language("SQL") String expectedSharedBuildOuterJoinResult = "SELECT\n" +
-                    "  CASE WHEN mod(orderkey, 2) = 0 THEN orderkey END,\n" +
-                    "  CASE WHEN mod(orderkey, 2) = 0 THEN comment END,\n" +
-                    "  orderkey,\n" +
-                    "  comment\n" +
-                    "FROM ORDERS\n" +
-                    "WHERE mod(orderkey, 3) = 0";
+            @Language("SQL") String expectedChainedOuterJoinResult =
+                    """
+                    SELECT
+                      CASE WHEN mod("orderkey", 2 * 3) = 0 THEN "orderkey" END,
+                      CASE WHEN mod("orderkey", 2 * 3) = 0 THEN "comment" END,
+                      CASE WHEN mod("orderkey", 3) = 0 THEN "orderkey" END,
+                      CASE WHEN mod("orderkey", 3) = 0 THEN "comment" END,
+                      CASE WHEN mod("orderkey", 5) = 0 THEN "orderkey" END,
+                      CASE WHEN mod("orderkey", 5) = 0 THEN "comment" END
+                    FROM "orders"
+                    WHERE mod("orderkey", 3) = 0 OR mod("orderkey", 5) = 0\
+                    """;
+            @Language("SQL") String expectedSharedBuildOuterJoinResult =
+                    """
+                    SELECT
+                      CASE WHEN mod("orderkey", 2) = 0 THEN "orderkey" END,
+                      CASE WHEN mod("orderkey", 2) = 0 THEN "comment" END,
+                      "orderkey",
+                      "comment"
+                    FROM "orders"
+                    WHERE mod("orderkey", 3) = 0\
+                    """;
 
             assertQuery(session, chainedOuterJoin, expectedChainedOuterJoinResult);
             assertQuery(session, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult);
@@ -6361,13 +6379,16 @@ public abstract class BaseHiveConnectorTest
                             ")\n" +
                             "ON key1=key2";
             @Language("SQL") String expectedNoSplits = "SELECT 1, 'a' WHERE FALSE";
-            @Language("SQL") String expectedJoinMismatchedBuckets = "SELECT\n" +
-                    "  CASE WHEN mod(orderkey, 13) = 1 THEN orderkey END,\n" +
-                    "  CASE WHEN mod(orderkey, 13) = 1 THEN comment END,\n" +
-                    "  CASE WHEN mod(orderkey, 13) = 11 THEN orderkey END,\n" +
-                    "  CASE WHEN mod(orderkey, 13) = 11 THEN comment END\n" +
-                    "FROM ORDERS\n" +
-                    "WHERE mod(orderkey, 13) IN (1, 11)";
+            @Language("SQL") String expectedJoinMismatchedBuckets =
+                    """
+                    SELECT
+                      CASE WHEN mod("orderkey", 13) = 1 THEN "orderkey" END,
+                      CASE WHEN mod("orderkey", 13) = 1 THEN "comment" END,
+                      CASE WHEN mod("orderkey", 13) = 11 THEN "orderkey" END,
+                      CASE WHEN mod("orderkey", 13) = 11 THEN "comment" END
+                    FROM "orders"
+                    WHERE mod("orderkey", 13) IN (1, 11)\
+                    """;
 
             assertQuery(session, noSplits, expectedNoSplits);
             assertQuery(session, joinMismatchedBuckets, expectedJoinMismatchedBuckets);
@@ -8414,7 +8435,7 @@ public abstract class BaseHiveConnectorTest
                 tableName);
         assertUpdate(createTableSql, 1500L);
 
-        @Language("SQL") String expected = "SELECT custkey FROM customer ORDER BY 1 NULLS FIRST LIMIT 100";
+        @Language("SQL") String expected = "SELECT \"custkey\" FROM \"customer\" ORDER BY 1 NULLS FIRST LIMIT 100";
         @Language("SQL") String actual = format("SELECT custkey FROM %s ORDER BY 1 NULLS FIRST LIMIT 100", tableName);
         Session session = getSession();
         assertQuery(session, actual, expected, assertPartialLimitWithPreSortedInputsCount(session, 0));
@@ -8448,7 +8469,7 @@ public abstract class BaseHiveConnectorTest
             return;
         }
         assertUpdate(session, createTableSql, 25);
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM \"nation\"");
         assertQuery("SELECT count(*) FROM " + tableName, "VALUES 25");
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -8478,7 +8499,7 @@ public abstract class BaseHiveConnectorTest
             return;
         }
         assertUpdate(session, createTableSql, 25);
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM \"nation\"");
         assertQuery("SELECT count(*) FROM " + tableName, "VALUES 25");
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -8870,7 +8891,7 @@ public abstract class BaseHiveConnectorTest
 
     private void assertNationNTimes(String tableName, int times)
     {
-        String verifyQuery = join(" UNION ALL ", nCopies(times, "SELECT * FROM nation"));
+        String verifyQuery = join(" UNION ALL ", nCopies(times, "SELECT * FROM \"nation\""));
         assertQuery("SELECT nationkey, name, regionkey, comment FROM " + tableName, verifyQuery);
     }
 
@@ -9080,7 +9101,7 @@ public abstract class BaseHiveConnectorTest
                 .setCatalog(Optional.empty())
                 .setSchema(Optional.empty())
                 .build();
-        assertQueryFails(sessionNoCatalog, "SELECT count(*) FROM " + viewName, ".*Schema must be specified when session schema is not set.*");
+        assertQueryFails(sessionNoCatalog, "SELECT count(*) FROM " + viewName, ".*Catalog must be specified when session catalog is not set.*");
         assertQuery(sessionNoCatalog, "SELECT count(*) FROM hive.tpch." + viewName, "VALUES 1");
     }
 
@@ -9482,10 +9503,11 @@ public abstract class BaseHiveConnectorTest
     {
         String tableName = "create_table_with_mixed_case_extra_properties" + randomNameSuffix();
 
-        assertUpdate("CREATE TABLE %s (c1 integer) WITH (extra_properties = MAP(ARRAY['one', 'ONE'], ARRAY['one', 'ONE']))".formatted(tableName));
-        // TODO: (https://github.com/trinodb/trino/issues/17) This should run successfully
-        assertThat(query("SELECT * FROM \"%s$properties\"".formatted(tableName)))
-                .nonTrinoExceptionFailure().hasMessageContaining("Multiple entries with same key: one=one and one=one");
+        assertUpdate("CREATE TABLE %s (c1 integer) WITH (extra_properties = MAP(ARRAY['one', 'ONE'], ARRAY['one value', 'ONE VALUE']))".formatted(tableName));
+        // TODO: (https://github.com/trinodb/trino/issues/17) This should run successfully: fixed
+        assertThat(query("SELECT \"one\", \"ONE\" FROM \"%s$properties\"".formatted(tableName))).result()
+                .skippingTypesCheck()
+                .containsAll("VALUES ('one value', 'ONE VALUE')");
 
         assertUpdate("DROP TABLE %s".formatted(tableName));
     }
@@ -9529,10 +9551,11 @@ public abstract class BaseHiveConnectorTest
     {
         String tableName = "create_view_with_mixed_case_extra_properties" + randomNameSuffix();
 
-        assertUpdate("CREATE VIEW %s WITH (extra_properties = MAP(ARRAY['one', 'ONE'], ARRAY['one', 'ONE'])) AS SELECT 1 as colA".formatted(tableName));
-        // TODO: (https://github.com/trinodb/trino/issues/17) This should run successfully
-        assertThat(query("SELECT * FROM \"%s$properties\"".formatted(tableName)))
-                .nonTrinoExceptionFailure().hasMessageContaining("Multiple entries with same key: one=one and one=one");
+        assertUpdate("CREATE VIEW %s WITH (extra_properties = MAP(ARRAY['one', 'ONE'], ARRAY['one value', 'ONE VALUE'])) AS SELECT 1 as colA".formatted(tableName));
+        // TODO: (https://github.com/trinodb/trino/issues/17) This should run successfully: fixed
+        assertThat(query("SELECT \"one\", \"ONE\" FROM \"%s$properties\"".formatted(tableName))).result()
+                .skippingTypesCheck()
+                .containsAll("VALUES ('one value', 'ONE VALUE')");
 
         assertUpdate("DROP VIEW %s".formatted(tableName));
     }
@@ -9903,5 +9926,43 @@ public abstract class BaseHiveConnectorTest
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "parquet_small_file_threshold", "0B")
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "orc_tiny_stripe_threshold", "0B")
                 .build();
+    }
+
+    @Override
+    protected String getCreateTableMixedCaseDelimited(String catalog, String schema, String table)
+    {
+        return format(
+                """
+                \\QCREATE TABLE %s.%s."%s" (
+                   "Column A" bigint,
+                   "Column B" double
+                )
+                WITH (
+                   format = 'ORC'
+                )\\E\
+                """,
+                catalog,
+                canonicalize(schema).equals(schema) ? schema : '"' + schema + '"',
+                table);
+    }
+
+    @Override
+    protected String getCreateTableMixedCaseUnDelimited(String catalog, String schema, String table)
+    {
+        return format(
+                """
+                \\QCREATE TABLE %s.%s.%s (
+                   %s bigint,
+                   %s double
+                )
+                WITH (
+                   format = 'ORC'
+                )\\E\
+                """,
+                catalog,
+                canonicalize(schema).equals(schema) ? schema : '"' + schema + '"',
+                table,
+                canonicalize("Column_A"),
+                canonicalize("Column_B"));
     }
 }

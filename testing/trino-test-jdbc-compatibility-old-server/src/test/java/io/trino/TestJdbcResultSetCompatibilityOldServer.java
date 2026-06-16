@@ -39,6 +39,7 @@ import static io.trino.testing.DataProviders.toDataProvider;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -54,6 +55,7 @@ public class TestJdbcResultSetCompatibilityOldServer
     /**
      * Empty means that we could not obtain current Trino version and tests defined here will be marked as failed.
      */
+    private static final String SUPPORT_CANONICALIZER = "482";
     private final Optional<String> testedTrinoVersion;
     private TrinoContainer trinoContainer;
 
@@ -131,6 +133,15 @@ public class TestJdbcResultSetCompatibilityOldServer
 
             removeDockerImage(imageName);
         }
+    }
+
+    @Override
+    protected String legacyCanonicalize(String value)
+    {
+        if (testedTrinoVersion.isPresent() && SUPPORT_CANONICALIZER.compareTo(testedTrinoVersion.get()) > 0) {
+            return value.toLowerCase(ENGLISH);
+        }
+        return value.toUpperCase(ENGLISH);
     }
 
     @Override

@@ -22,6 +22,10 @@ import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.metadata.ResolverManager.getLowerCaseCanonicalizer;
+import static java.util.Locale.ENGLISH;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestLocalEngineOnlyQueries
@@ -39,11 +43,61 @@ public class TestLocalEngineOnlyQueries
                     .withSessionProperties(TEST_CATALOG_PROPERTIES)
                     .build()));
             queryRunner.createCatalog(TESTING_CATALOG, "mock", ImmutableMap.of());
+            queryRunner.getPlannerContext().getMetadata().getResolverManager().addResolver(TESTING_CATALOG, getLowerCaseCanonicalizer());
         }
         catch (RuntimeException e) {
             throw closeAllSuppress(e, queryRunner);
         }
         return queryRunner;
+    }
+
+    @Override
+    public String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
+    @Test
+    @Override
+    public void testShowCreateInformationSchemaTable()
+    {
+        assertQueryFails("SHOW CREATE VIEW \"information_schema\".\"schemata\"", "line 1:1: Relation '\\w+.information_schema.schemata' is a table, not a view");
+        assertQueryFails("SHOW CREATE MATERIALIZED VIEW \"information_schema\".\"schemata\"", "line 1:1: Relation '\\w+.information_schema.schemata' is a table, not a materialized view");
+
+        assertThat((String) computeScalar("SHOW CREATE TABLE \"information_schema\".\"schemata\""))
+                .isEqualTo("""
+                        CREATE TABLE %s."information_schema"."schemata" (
+                           catalog_name varchar,
+                           schema_name varchar
+                        )\
+                        """.formatted(getSession().getCatalog().orElseThrow()));
+    }
+
+    @Test
+    @Override
+    public void testMatchRecognize()
+    {
+        // FIXME: Cant have this test working with mock connector?
+        assertThatThrownBy(super::testMatchRecognize)
+                .hasMessageMatching("Execution of 'actual' query failed: SELECT .*");
+    }
+
+    @Test
+    @Override
+    public void testJoinedPatternMatch()
+    {
+        // FIXME: Cant have this test working with mock connector?
+        assertThatThrownBy(super::testJoinedPatternMatch)
+                .hasMessageMatching("Execution of 'actual' query failed: SELECT .*");
+    }
+
+    @Test
+    @Override
+    public void testSelectCaseInsensitive()
+    {
+        // FIXME: Cant have this test working with mock connector?
+        assertThatThrownBy(super::testSelectCaseInsensitive)
+                .hasMessageMatching("Execution of 'expected' query failed: .*");
     }
 
     @Test

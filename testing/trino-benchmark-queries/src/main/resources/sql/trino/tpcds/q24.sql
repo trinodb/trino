@@ -11,7 +11,7 @@ WITH
    , "i_manager_id"
    , "i_units"
    , "i_size"
-   , "sum"("ss_net_paid") "netpaid"
+   , sum("ss_net_paid") "netpaid"
    FROM
      ${database}.${schema}.store_sales
    , ${database}.${schema}.store_returns
@@ -33,12 +33,12 @@ SELECT
   "c_last_name"
 , "c_first_name"
 , "s_store_name"
-, "sum"("netpaid") "paid"
+, sum("netpaid") "paid"
 FROM
   ssales
 WHERE ("i_color" = 'pale')
 GROUP BY "c_last_name", "c_first_name", "s_store_name"
-HAVING ("sum"("netpaid") > (
+HAVING (sum("netpaid") > (
       SELECT (DECIMAL '0.05' * "avg"("netpaid"))
       FROM
         ssales

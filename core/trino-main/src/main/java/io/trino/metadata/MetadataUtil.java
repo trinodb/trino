@@ -26,14 +26,18 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.GrantorSpecification;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.PrincipalSpecification;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.Resolver;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -48,6 +52,7 @@ import static io.trino.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
+import static io.trino.sql.QueryUtil.identifier;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -60,41 +65,33 @@ public final class MetadataUtil
     public static void checkTableName(String catalogName, Optional<String> schemaName, Optional<String> tableName)
     {
         checkCatalogName(catalogName);
-        schemaName.ifPresent(name -> checkLowerCase(name, "schemaName"));
-        tableName.ifPresent(name -> checkLowerCase(name, "tableName"));
+        schemaName.ifPresent(name -> requireNonNull(name, "schemaName is null"));
+        tableName.ifPresent(name -> requireNonNull(name, "tableName is null"));
 
         checkArgument(schemaName.isPresent() || tableName.isEmpty(), "tableName specified but schemaName is missing");
     }
 
     public static String checkCatalogName(String catalogName)
     {
-        return checkLowerCase(catalogName, "catalogName");
+        return requireNonNull(catalogName, "catalogName is null");
     }
 
     public static String checkSchemaName(String schemaName)
     {
-        return checkLowerCase(schemaName, "schemaName");
+        return requireNonNull(schemaName, "schemaName is null");
     }
 
     public static String checkTableName(String tableName)
     {
-        return checkLowerCase(tableName, "tableName");
+        return requireNonNull(tableName, "tableName is null");
     }
 
-    public static void checkObjectName(String catalogName, String schemaName, String objectName)
+    public static void checkObjectName(String catalogName, String schemaName, String objectName, Optional<Predicate<String>> predicate)
     {
-        checkLowerCase(catalogName, "catalogName");
-        checkLowerCase(schemaName, "schemaName");
-        checkLowerCase(objectName, "objectName");
-    }
-
-    public static String checkLowerCase(String value, String name)
-    {
-        if (value == null) {
-            throw new NullPointerException(format("%s is null", name));
-        }
-        checkArgument(value.equals(value.toLowerCase(ENGLISH)), "%s is not lowercase: %s", name, value);
-        return value;
+        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(schemaName, "schemaName is null");
+        requireNonNull(objectName, "objectName is null");
+        requireNonNull(predicate, "predicate is null");
     }
 
     public static ColumnMetadata findColumnMetadata(ConnectorTableMetadata tableMetadata, String columnName)
@@ -160,48 +157,136 @@ public final class MetadataUtil
         return name.stream().collect(Collectors.joining("."));
     }
 
-    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)
+    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema, Metadata metadata)
     {
-        String catalogName = session.getCatalog().orElse(null);
-        String schemaName = session.getSchema().orElse(null);
-
-        if (schema.isPresent()) {
-            List<String> parts = schema.get().getParts();
-            if (parts.size() > 2) {
-                throw semanticException(SYNTAX_ERROR, node, "Too many parts in schema name: %s", schema.get());
-            }
-            if (parts.size() == 2) {
-                catalogName = parts.get(0);
-            }
-            schemaName = schema.get().getSuffix();
-        }
-
-        if (catalogName == null) {
-            throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
-        }
-        if (schemaName == null) {
-            throw semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set");
-        }
-
-        return new CatalogSchemaName(catalogName, schemaName);
+        return createCatalogSchemaName(session, metadata, getCatalogSchemaIdentifiers(session, node, schema, metadata));
     }
 
-    public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name)
+    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema, Metadata metadata, boolean lowerCase)
+    {
+        return createCatalogSchemaName(session, metadata, getCatalogSchemaIdentifiers(session, node, schema, metadata), lowerCase);
+    }
+
+    public static CatalogSchemaName createCatalogSchemaName(Session session, Metadata metadata, List<Identifier> identifiers)
+    {
+        return createCatalogSchemaName(session, metadata, identifiers, false);
+    }
+
+    public static CatalogSchemaName createCatalogSchemaName(Session session, Metadata metadata, List<Identifier> identifiers, boolean lowerCase)
+    {
+        String catalog = identifiers.getFirst().getValue();
+        String schema = lowerCase ?
+                identifiers.getLast().getValue().toLowerCase(ENGLISH) :
+                metadata.getResolverManager().getResolver(session, catalog).canonicalize(identifiers.getLast());
+        return new CatalogSchemaName(catalog, schema);
+    }
+
+    public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name, Metadata metadata)
+    {
+        return createQualifiedObjectName(session, node, name, metadata, Optional.empty());
+    }
+
+    public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name, Metadata metadata, Optional<Function<Identifier, String>> canonicalizer)
+    {
+        return createQualifiedObjectName(session, metadata, getQualifiedObjectIdentifiers(session, node, name, metadata), canonicalizer);
+    }
+
+    public static QualifiedObjectName createQualifiedObjectName(Session session, Metadata metadata, List<Identifier> identifiers)
+    {
+        return createQualifiedObjectName(session, metadata, identifiers, Optional.empty());
+    }
+
+    public static QualifiedObjectName createQualifiedObjectName(Session session, Metadata metadata, List<Identifier> identifiers, Optional<Function<Identifier, String>> canonicalizer)
+    {
+        requireNonNull(identifiers, "identifiers is null");
+        if (identifiers.size() < 3) {
+            throw new TrinoException(SYNTAX_ERROR, format("Not enough parts in table name: %s", identifiers.getLast().getValue()));
+        }
+
+        String catalog = identifiers.getFirst().getValue();
+        Resolver resolver = getResolver(session, metadata, catalog);
+        return new QualifiedObjectName(
+                catalog,
+                resolver.canonicalize(identifiers.get(1)),
+                canonicalizer.map(function -> function.apply(identifiers.get(2)))
+                        .orElse(resolver.canonicalize(identifiers.get(2))),
+                Optional.of(resolver::predicate));
+    }
+
+    public static List<Identifier> getCatalogSchemaIdentifiers(Session session, Node node, Optional<QualifiedName> qualifiedName, Metadata metadata)
+    {
+        requireNonNull(metadata, "metadata is null");
+        Identifier catalog = null;
+        Identifier schema = null;
+
+        if (qualifiedName.isPresent()) {
+            List<Identifier> parts = qualifiedName.get().getOriginalParts();
+            if (parts.size() > 2) {
+                throw semanticException(SYNTAX_ERROR, node, "Too many parts in schema name: %s", qualifiedName.get());
+            }
+            if (parts.size() == 2) {
+                catalog = parts.getFirst();
+            }
+            schema = parts.getLast();
+        }
+
+        if (catalog == null) {
+            catalog = new Identifier(getSessionCatalog(session, node));
+        }
+        if (schema == null) {
+            schema = getSessionSchemaIdentifier(session, node, getResolver(session, metadata, catalog.getValue()));
+        }
+        return ImmutableList.of(catalog, schema);
+    }
+
+    public static List<Identifier> getQualifiedObjectIdentifiers(Session session, Node node, QualifiedName name, Metadata metadata)
     {
         requireNonNull(session, "session is null");
         requireNonNull(name, "name is null");
-        if (name.getParts().size() > 3) {
+        if (name.getOriginalParts().size() > 3) {
             throw new TrinoException(SYNTAX_ERROR, format("Too many dots in table name: %s", name));
         }
 
-        List<String> parts = name.getParts().reversed();
-        String objectName = parts.get(0);
-        String schemaName = (parts.size() > 1) ? parts.get(1) : session.getSchema().orElseThrow(() ->
-                semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set"));
-        String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCatalog().orElseThrow(() ->
-                semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set"));
+        Identifier catalog;
+        Identifier schema;
+        List<Identifier> identifiers = name.getOriginalParts();
+        switch (identifiers.size()) {
+            case 3 -> {
+                catalog = identifiers.getFirst();
+                schema = identifiers.get(1);
+            }
+            case 2 -> {
+                String currentCatalog = getSessionCatalog(session, node);
+                catalog = new Identifier(currentCatalog);
+                schema = identifiers.getFirst();
+            }
+            default -> {
+                String currentCatalog = getSessionCatalog(session, node);
+                catalog = new Identifier(currentCatalog);
+                schema = getSessionSchemaIdentifier(session, node, getResolver(session, metadata, currentCatalog));
+            }
+        }
+        return ImmutableList.of(catalog, schema, identifiers.getLast());
+    }
 
-        return new QualifiedObjectName(catalogName, schemaName, objectName);
+    public static String getSessionCatalog(Session session, Node node)
+    {
+        return session.getCatalog().orElseThrow(() ->
+                semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set"));
+    }
+
+    public static Resolver getResolver(Session session, Metadata metadata, String catalog)
+    {
+        return metadata.getResolverManager().getResolver(session, catalog);
+    }
+
+    private static Identifier getSessionSchemaIdentifier(Session session, Node node, Resolver resolver)
+    {
+        if (session.getSchema().isEmpty()) {
+            throw semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set");
+        }
+        String schema = session.getSchema().get();
+        return new Identifier(schema, resolver.predicate(schema));
     }
 
     public static EntityKindAndName createEntityKindAndName(String entityKind, QualifiedName name)
@@ -233,8 +318,8 @@ public final class MetadataUtil
     {
         PrincipalType type = principal.getType();
         return switch (type) {
-            case USER -> new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(principal.getName()));
-            case ROLE -> new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(principal.getName()));
+            case USER -> new PrincipalSpecification(PrincipalSpecification.Type.USER, identifier(principal.getName()));
+            case ROLE -> new PrincipalSpecification(PrincipalSpecification.Type.ROLE, identifier(principal.getName()));
         };
     }
 

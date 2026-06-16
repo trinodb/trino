@@ -68,14 +68,15 @@ public class TestHiveFaultTolerantExecutionOrderByQueries
     {
         // The file system exchange can break ordering only when a single writer generates more than a single file for a single output partition.
         // Order large dataset to cross the exchange.sink-max-file-size boundary and generate more than a single file.
-        assertQueryOrdered("" +
-                "SELECT " +
-                "   *, " +
-                "   comment || comment c0, " +
-                "   comment || comment || comment c1, " +
-                "   comment || comment || comment || comment c2, " +
-                "   comment || comment || comment || comment c3, " +
-                "   comment || comment || comment || comment c4 " +
-                " FROM lineitem ORDER BY orderkey, suppkey, linenumber");
+        assertQueryOrdered("""
+                SELECT \
+                   *, \
+                   "comment" || "comment" c0, \
+                   "comment" || "comment" || "comment" c1, \
+                   "comment" || "comment" || "comment" || "comment" c2, \
+                   "comment" || "comment" || "comment" || "comment" c3, \
+                   "comment" || "comment" || "comment" || "comment" c4 \
+                FROM "lineitem" ORDER BY "orderkey", "suppkey", "linenumber"\
+                """);
     }
 }

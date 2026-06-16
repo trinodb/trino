@@ -14,7 +14,13 @@
 package io.trino.plugin.mysql;
 
 import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MERGE;
+import static io.trino.testing.TestingNames.randomNameSuffix;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMySqlConnectorTest

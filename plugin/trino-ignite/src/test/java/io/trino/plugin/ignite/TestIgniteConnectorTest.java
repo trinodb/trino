@@ -104,6 +104,44 @@ public class TestIgniteConnectorTest
         };
     }
 
+    @Override
+    protected String getCreateTableMixedCaseDelimited(String catalog, String schema, String table)
+    {
+        return format(
+                """
+                \\QCREATE TABLE %s.%s."%s" (
+                   "Column A" bigint,
+                   "Column B" double
+                )
+                WITH (
+                   primary_key = ARRAY['dummy_id']
+                )\\E\
+                """,
+                catalog,
+                canonicalize(schema).equals(schema) ? schema : '"' + schema + '"',
+                table);
+    }
+
+    @Override
+    protected String getCreateTableMixedCaseUnDelimited(String catalog, String schema, String table)
+    {
+        return format(
+                """
+                \\QCREATE TABLE %s.%s.%s (
+                   %s bigint,
+                   %s double
+                )
+                WITH (
+                   primary_key = ARRAY['dummy_id']
+                )\\E\
+                """,
+                catalog,
+                canonicalize(schema).equals(schema) ? schema : '"' + schema + '"',
+                table,
+                canonicalize("Column_A"),
+                canonicalize("Column_B"));
+    }
+
     @Test
     public void testLikeWithEscape()
     {
@@ -134,8 +172,8 @@ public class TestIgniteConnectorTest
     @Test
     public void testIsNullPredicatePushdown()
     {
-        assertThat(query("SELECT nationkey FROM nation WHERE name IS NULL")).isFullyPushedDown();
-        assertThat(query("SELECT nationkey FROM nation WHERE name IS NULL OR name = 'a' OR regionkey = 4")).isFullyPushedDown();
+        assertThat(query("SELECT \"nationkey\" FROM \"nation\" WHERE \"name\" IS NULL")).isFullyPushedDown();
+        assertThat(query("SELECT \"nationkey\" FROM \"nation\" WHERE \"name\" IS NULL OR \"name\" = 'a' OR \"regionkey\" = 4")).isFullyPushedDown();
 
         try (TestTable table = newTrinoTable(
                 "test_is_null_predicate_pushdown",
@@ -152,7 +190,7 @@ public class TestIgniteConnectorTest
     @Test
     public void testIsNotNullPredicatePushdown()
     {
-        assertThat(query("SELECT nationkey FROM nation WHERE name IS NOT NULL OR regionkey = 4")).isFullyPushedDown();
+        assertThat(query("SELECT \"nationkey\" FROM \"nation\" WHERE \"name\" IS NOT NULL OR \"regionkey\" = 4")).isFullyPushedDown();
 
         try (TestTable table = newTrinoTable(
                 "test_is_not_null_predicate_pushdown",
@@ -169,7 +207,7 @@ public class TestIgniteConnectorTest
     @Test
     public void testNotExpressionPushdown()
     {
-        assertThat(query("SELECT nationkey FROM nation WHERE NOT(name LIKE '%A%')")).isFullyPushedDown();
+        assertThat(query("SELECT \"nationkey\" FROM \"nation\" WHERE NOT(\"name\" LIKE '%A%')")).isFullyPushedDown();
 
         try (TestTable table = newTrinoTable(
                 "test_is_not_predicate_pushdown",
@@ -197,16 +235,16 @@ public class TestIgniteConnectorTest
         String underscoreTableName = "\"" + "test_search" + tableNameSuffix + "\"";
         String percentTableName = "\"" + "test%search" + tableNameSuffix + "\"";
         try {
-            assertUpdate("CREATE TABLE " + normalTableName + "(a int, b int, c int) WITH (primary_key = ARRAY['a'])");
-            assertUpdate("CREATE TABLE " + underscoreTableName + "(a int, b int, c int) WITH (primary_key = ARRAY['b'])");
-            assertUpdate("CREATE TABLE " + percentTableName + " (a int, b int, c int) WITH (primary_key = ARRAY['c'])");
+            assertUpdate("CREATE TABLE " + normalTableName + "(a int, b int, c int) WITH (primary_key = ARRAY['%s'])".formatted(canonicalize("a")));
+            assertUpdate("CREATE TABLE " + underscoreTableName + "(a int, b int, c int) WITH (primary_key = ARRAY['%s'])".formatted(canonicalize("b")));
+            assertUpdate("CREATE TABLE " + percentTableName + " (a int, b int, c int) WITH (primary_key = ARRAY['%s'])".formatted(canonicalize("c")));
 
             // wildcard characters on table name
-            assertThat((String) computeScalar("SHOW CREATE TABLE " + normalTableName)).contains("primary_key = ARRAY['a']");
-            assertThat((String) computeScalar("SHOW CREATE TABLE " + underscoreTableName)).contains("primary_key = ARRAY['b']");
-            assertThat((String) computeScalar("SHOW CREATE TABLE " + percentTableName)).contains("primary_key = ARRAY['c']");
-            assertQueryFails("SHOW CREATE TABLE " + "\"test%\"", ".*Table 'ignite.public.\"test%\"' does not exist");
-            assertQueryFails("SHOW COLUMNS FROM " + "\"test%\"", ".*Table 'ignite.public.\"test%\"' does not exist");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + normalTableName)).contains("primary_key = ARRAY['A']");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + underscoreTableName)).contains("primary_key = ARRAY['B']");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + percentTableName)).contains("primary_key = ARRAY['C']");
+            assertQueryFails("SHOW CREATE TABLE " + "\"test%\"", ".*Table 'ignite.PUBLIC.\"test%\"' does not exist");
+            assertQueryFails("SHOW COLUMNS FROM " + "\"test%\"", ".*Table 'ignite.PUBLIC.\"test%\"' does not exist");
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + normalTableName);
@@ -221,15 +259,15 @@ public class TestIgniteConnectorTest
         assertUpdate("CREATE TABLE a1 (id int, a varchar)");
         assertUpdate("CREATE TABLE x2 (id int, a varchar)");
         assertUpdate("CREATE TABLE x3 (id int, a varchar)");
-        assertQuery("SHOW TABLES IN ignite.public LIKE 'a%'", "VALUES ('a1')");
+        assertQuery("SHOW TABLES IN ignite.PUBLIC LIKE 'A%'", "VALUES ('A1')");
 
         // injection on table name
-        assertUpdate("CREATE TABLE \"test (c1 int not null, c2 int, primary key(c1)); DROP TABLE public.a1;\" (c1 date)");
-        assertQuery("SHOW TABLES IN ignite.public LIKE 'a%'", "VALUES ('a1')");
+        assertUpdate("CREATE TABLE \"test (c1 int not null, c2 int, primary key(c1)); DROP TABLE PUBLIC.a1;\" (c1 date)");
+        assertQuery("SHOW TABLES IN ignite.PUBLIC LIKE 'A%'", "VALUES ('A1')");
 
         // injection on column name
-        assertUpdate("CREATE TABLE test (\"test (c1 int not null, c2 int, primary key(c1)); DROP TABLE public.a1;\" date)");
-        assertQuery("SHOW TABLES IN ignite.public LIKE 'a%'", "VALUES ('a1')");
+        assertUpdate("CREATE TABLE test (\"test (c1 int not null, c2 int, primary key(c1)); DROP TABLE PUBLIC.a1;\" date)");
+        assertQuery("SHOW TABLES IN ignite.PUBLIC LIKE 'A%'", "VALUES ('A1')");
     }
 
     @Test
@@ -237,7 +275,7 @@ public class TestIgniteConnectorTest
     {
         // Test that Ignite not support column name contains quote
         String tableWithQuote = "create_table_with_unsupported_quote_column";
-        String tableDefinitionWithQuote = "(`a\"b` bigint primary key, c varchar)";
+        String tableDefinitionWithQuote = "(\"a\"b\" bigint primary key, c varchar)";
         assertThatThrownBy(() -> onRemoteDatabase().execute("CREATE TABLE " + tableWithQuote + tableDefinitionWithQuote))
                 .rootCause()
                 .hasMessageContaining("Failed to parse query");
@@ -248,16 +286,18 @@ public class TestIgniteConnectorTest
         try (TestTable testTable = new TestTable(
                 onRemoteDatabase(),
                 "create_table_with_comma_column",
-                "(`a,b` bigint primary key, `c,d` bigint, `x` varchar(79))",
+                "(\"a,b\" bigint primary key, \"c,d\" bigint, \"x\" varchar(79))",
                 List.of("1, 1, 'a'", "2, 2, 'b'", "3, 3, null"))) {
-            String pattern = "CREATE TABLE %s.%s.%s (\n" +
-                    "   \"a,b\" bigint,\n" +
-                    "   \"c,d\" bigint,\n" +
-                    "   x varchar(79)\n" +
-                    ")\n" +
-                    "WITH (\n" +
-                    "   primary_key = ARRAY['a,b']\n" +
-                    ")";
+            String pattern = """
+                    CREATE TABLE %s.%s.%s (
+                       "a,b" bigint,
+                       "c,d" bigint,
+                       "x" varchar(79)
+                    )
+                    WITH (
+                       primary_key = ARRAY['a,b']
+                    )\
+                    """;
             String tableName = testTable.getName();
             assertQuery("SELECT \"a,b\" FROM " + tableName + " where \"a,b\" < 2", "values (1)");
             assertQuery("SELECT \"a,b\" FROM " + tableName + " where \"a,b\" > 1", "values (2), (3)");
@@ -277,15 +317,16 @@ public class TestIgniteConnectorTest
         assertQueryFails("CREATE TABLE " + tableName + "(a bigint) WITH (primary_key = ARRAY['dummy_id'])",
                 "Column 'dummy_id' specified in property 'primary_key' doesn't exist in table");
 
-        assertQueryFails("CREATE TABLE " + tableName + "(a bigint) WITH (primary_key = ARRAY['A'])",
-                "Column 'A' specified in property 'primary_key' doesn't exist in table");
+        assertQueryFails("CREATE TABLE " + tableName + "(a bigint) WITH (primary_key = ARRAY['a'])",
+                "Column 'a' specified in property 'primary_key' doesn't exist in table");
     }
 
     @Test
     public void testCreateTableWithAllProperties()
     {
         String tableWithAllProperties = "test_create_with_all_properties";
-        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableWithAllProperties + " (a bigint, b double, c varchar, d date) WITH (primary_key = ARRAY['a', 'b'])");
+        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableWithAllProperties + " (a bigint, b double, c varchar, d date) WITH (primary_key = ARRAY['%s', '%s'])"
+                .formatted(canonicalize("a"), canonicalize("b")));
     }
 
     @Override
@@ -306,21 +347,23 @@ public class TestIgniteConnectorTest
     @Override
     public void testShowCreateTable()
     {
-        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE ignite.public.orders (\n" +
-                        "   orderkey bigint,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderstatus varchar(1),\n" +
-                        "   totalprice double,\n" +
-                        "   orderdate date,\n" +
-                        "   orderpriority varchar(15),\n" +
-                        "   clerk varchar(15),\n" +
-                        "   shippriority integer,\n" +
-                        "   comment varchar(79)\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   primary_key = ARRAY['dummy_id']\n" +
-                        ")");
+        assertThat(computeActual("SHOW CREATE TABLE \"orders\"").getOnlyValue())
+                .isEqualTo("""
+                        CREATE TABLE ignite.PUBLIC."orders" (
+                           "orderkey" bigint,
+                           "custkey" bigint,
+                           "orderstatus" varchar(1),
+                           "totalprice" double,
+                           "orderdate" date,
+                           "orderpriority" varchar(15),
+                           "clerk" varchar(15),
+                           "shippriority" integer,
+                           "comment" varchar(79)
+                        )
+                        WITH (
+                           primary_key = ARRAY['dummy_id']
+                        )\
+                        """);
     }
 
     @Test
@@ -368,11 +411,10 @@ public class TestIgniteConnectorTest
     protected Optional<String> filterColumnNameTestData(String columnName)
     {
         // https://issues.apache.org/jira/browse/IGNITE-18102
-        if ("a.dot".equals(columnName)) {
-            return Optional.empty();
-        }
-
-        return Optional.of(columnName);
+        return switch (columnName) {
+            case "a.dot", "a\"quote" -> Optional.empty();
+            default -> Optional.of(columnName);
+        };
     }
 
     @Override
@@ -494,9 +536,9 @@ public class TestIgniteConnectorTest
     public void testDateYearOfEraPredicate()
     {
         // Override because the connector throws an exception instead of an empty result when the value is out of supported range
-        assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
+        assertQuery("SELECT \"orderdate\" FROM \"orders\" WHERE \"orderdate\" = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
         assertQueryFails(
-                "SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'",
+                "SELECT * FROM \"orders\" WHERE \"orderdate\" = DATE '-1996-09-14'",
                 errorMessageForDateOutOfRange("-1996-09-14"));
     }
 
@@ -532,18 +574,18 @@ public class TestIgniteConnectorTest
         String tableName = "test_execute" + randomNameSuffix();
         String schemaTableName = getSession().getSchema().orElseThrow() + "." + tableName;
 
-        assertUpdate("CREATE TABLE " + schemaTableName + "(id int, data int) WITH (primary_key = ARRAY['id'])");
+        assertUpdate("CREATE TABLE " + schemaTableName + "(id int, data int) WITH (primary_key = ARRAY['%s'])".formatted(canonicalize("id")));
         try {
-            assertUpdate("CALL system.execute('INSERT INTO " + schemaTableName + " VALUES (1, 10)')");
+            assertUpdate("CALL \"system\".\"execute\"('INSERT INTO " + schemaTableName + " VALUES (1, 10)')");
             assertQuery("SELECT * FROM " + schemaTableName, "VALUES (1, 10)");
 
-            assertUpdate("CALL system.execute('UPDATE " + schemaTableName + " SET data = 100')");
+            assertUpdate("CALL \"system\".\"execute\"('UPDATE " + schemaTableName + " SET data = 100')");
             assertQuery("SELECT * FROM " + schemaTableName, "VALUES (1, 100)");
 
-            assertUpdate("CALL system.execute('DELETE FROM " + schemaTableName + "')");
+            assertUpdate("CALL \"system\".\"execute\"('DELETE FROM " + schemaTableName + "')");
             assertQueryReturnsEmptyResult("SELECT * FROM " + schemaTableName);
 
-            assertUpdate("CALL system.execute('DROP TABLE " + schemaTableName + "')");
+            assertUpdate("CALL \"system\".\"execute\"('DROP TABLE " + schemaTableName + "')");
             assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
         }
         finally {

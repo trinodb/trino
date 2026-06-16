@@ -5,7 +5,7 @@ SELECT
 , ((CAST("promotions" AS DECIMAL(15,4)) / CAST("total" AS DECIMAL(15,4))) * 100)
 FROM
   (
-   SELECT "sum"("ss_ext_sales_price") "promotions"
+   SELECT sum("ss_ext_sales_price") "promotions"
    FROM
      store_sales
    , store
@@ -30,7 +30,7 @@ FROM
       AND ("d_moy" = 11)
 )  promotional_sales
 , (
-   SELECT "sum"("ss_ext_sales_price") "total"
+   SELECT sum("ss_ext_sales_price") "total"
    FROM
      store_sales
    , store

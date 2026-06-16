@@ -1,4 +1,4 @@
-SELECT "sum"("cs_ext_discount_amt") "excess discount amount"
+SELECT sum("cs_ext_discount_amt") "excess discount amount"
 FROM
   ${database}.${schema}.catalog_sales
 , ${database}.${schema}.item

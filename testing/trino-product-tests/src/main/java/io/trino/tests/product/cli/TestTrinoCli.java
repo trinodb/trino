@@ -343,7 +343,7 @@ public class TestTrinoCli
         // cause an error that aborts the transaction
         trino.getProcessInput().println("select foo;");
         assertThat(trino.readLinesUntilPrompt()).extracting(TestTrinoCli::removePrefix)
-                .contains("line 1:8: Column 'foo' cannot be resolved");
+                .contains("line 1:8: Column 'foo' cannot be resolved, available candidates are: ''");
 
         // verify commands are rejected until rollback
         trino.getProcessInput().println("select * from nation;");

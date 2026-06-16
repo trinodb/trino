@@ -37,6 +37,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.EXACTLY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTpchConnectorTest
@@ -74,6 +75,12 @@ public class TestTpchConnectorTest
                  SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Test
@@ -149,7 +156,7 @@ public class TestTpchConnectorTest
 
         assertQuery(
                 "SELECT * FROM lineitem WHERE orderkey IS NOT NULL ORDER BY orderkey ASC NULLS FIRST LIMIT 10",
-                "SELECT * FROM lineitem ORDER BY orderkey ASC LIMIT 10");
+                "SELECT * FROM \"lineitem\" ORDER BY \"orderkey\" ASC LIMIT 10");
     }
 
     @Test

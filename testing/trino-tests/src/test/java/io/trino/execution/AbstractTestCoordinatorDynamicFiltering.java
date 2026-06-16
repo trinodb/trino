@@ -117,9 +117,9 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 ImmutableMap.of("tpch.partitioning-enabled", "false", "tpch.splits-per-node", "16"));
         getQueryRunner().createCatalog("tpcds", "tpcds", ImmutableMap.of());
         getQueryRunner().createCatalog("memory", "memory", ImmutableMap.of("memory.splits-per-node", "16"));
-        computeActual("CREATE TABLE lineitem AS SELECT * FROM tpch.tiny.lineitem");
-        computeActual("CREATE TABLE customer AS SELECT * FROM tpch.tiny.customer");
-        computeActual("CREATE TABLE store_sales AS SELECT * FROM tpcds.tiny.store_sales");
+        computeActual("CREATE TABLE \"lineitem\" AS SELECT * FROM tpch.tiny.lineitem");
+        computeActual("CREATE TABLE \"customer\" AS SELECT * FROM tpch.tiny.customer");
+        computeActual("CREATE TABLE \"store_sales\" AS SELECT * FROM tpcds.tiny.store_sales");
     }
 
     protected abstract RetryPolicy getRetryPolicy();
@@ -136,7 +136,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     {
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType),
-                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name = 'abc'",
+                "SELECT * FROM \"lineitem\" JOIN tpch.tiny.supplier ON \"lineitem\".\"suppkey\" = supplier.suppkey AND supplier.name = 'abc'",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.none());
     }
@@ -153,7 +153,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     {
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType),
-                "SELECT * FROM lineitem JOIN tpch.tiny.orders ON lineitem.orderkey = orders.orderkey",
+                "SELECT * FROM \"lineitem\" JOIN tpch.tiny.orders ON \"lineitem\".\"orderkey\"= orders.orderkey",
                 Set.of(ORDERKEY_HANDLE),
                 TupleDomain.all());
     }
@@ -171,8 +171,8 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
         // orderkey has high cardinality, suppkey has low cardinality due to filter
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType),
-                "SELECT * FROM lineitem l1 " +
-                        "JOIN tpch.tiny.lineitem l2 ON l1.orderkey = l2.orderkey AND l1.suppkey = l2.suppkey " +
+                "SELECT * FROM \"lineitem\" l1 " +
+                        "JOIN tpch.tiny.lineitem l2 ON l1.\"orderkey\" = l2.orderkey AND l1.\"suppkey\" = l2.suppkey " +
                         "WHERE l2.suppkey BETWEEN 1 AND 10",
                 Set.of(ORDERKEY_HANDLE, SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -191,7 +191,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     {
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType),
-                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name = 'Supplier#000000001'",
+                "SELECT * FROM \"lineitem\" JOIN tpch.tiny.supplier ON \"lineitem\".\"suppkey\" = supplier.suppkey AND supplier.name = 'Supplier#000000001'",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE, singleValue(BIGINT, 1L))));
@@ -202,22 +202,22 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     public void testInequalityJoinWithSelectiveBuildSide()
     {
         assertQueryDynamicFilters(
-                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey <= supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')",
+                "SELECT * FROM \"lineitem\" JOIN tpch.tiny.supplier ON \"lineitem\".\"suppkey\" <= supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 2L)), false))));
         assertQueryDynamicFilters(
-                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey < supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')",
+                "SELECT * FROM \"lineitem\" JOIN tpch.tiny.supplier ON \"lineitem\".\"suppkey\" < supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L)), false))));
         assertQueryDynamicFilters(
-                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey >= supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')",
+                "SELECT * FROM \"lineitem\" JOIN tpch.tiny.supplier ON \"lineitem\".\"suppkey\" >= supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 1L)), false))));
         assertQueryDynamicFilters(
-                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey > supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')",
+                "SELECT * FROM \"lineitem\" JOIN tpch.tiny.supplier ON \"lineitem\".\"suppkey\" > supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 1L)), false))));
@@ -228,17 +228,17 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     public void testIsNotDistinctFromJoinWithSelectiveBuildSide()
     {
         assertQueryDynamicFilters(
-                "SELECT * FROM store_sales JOIN tpcds.tiny.store ON store_sales.ss_sold_date_sk = store.s_closed_date_sk",
+                "SELECT * FROM \"store_sales\" JOIN tpcds.tiny.store ON \"store_sales\".\"ss_sold_date_sk\" = store.s_closed_date_sk",
                 Set.of(SS_SOLD_SK_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SS_SOLD_SK_HANDLE, Domain.create(ValueSet.of(BIGINT, 2451189L), false))));
         assertQueryDynamicFilters(
-                "SELECT * FROM store_sales JOIN tpcds.tiny.store ON store_sales.ss_sold_date_sk IS NOT DISTINCT FROM store.s_closed_date_sk",
+                "SELECT * FROM \"store_sales\" JOIN tpcds.tiny.store ON \"store_sales\".\"ss_sold_date_sk\" IS NOT DISTINCT FROM store.s_closed_date_sk",
                 Set.of(SS_SOLD_SK_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SS_SOLD_SK_HANDLE, Domain.create(ValueSet.of(BIGINT, 2451189L), true))));
         assertQueryDynamicFilters(
-                "SELECT * FROM store_sales JOIN tpcds.tiny.store ON store_sales.ss_sold_date_sk IS NOT DISTINCT FROM store.s_closed_date_sk AND store.s_closed_date_sk < 0",
+                "SELECT * FROM \"store_sales\" JOIN tpcds.tiny.store ON \"store_sales\".\"ss_sold_date_sk\" IS NOT DISTINCT FROM store.s_closed_date_sk AND store.s_closed_date_sk < 0",
                 Set.of(SS_SOLD_SK_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SS_SOLD_SK_HANDLE, Domain.onlyNull(BIGINT))));
@@ -249,23 +249,23 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     public void testJoinWithImplicitCoercion()
     {
         // setup fact table with integer suppkey
-        computeActual("CREATE TABLE memory.default.supplier_decimal AS SELECT name, CAST(suppkey as decimal(19, 0)) suppkey_decimal FROM tpch.tiny.supplier");
+        computeActual("CREATE TABLE memory.default.\"supplier_decimal\" AS SELECT name, CAST(suppkey as decimal(19, 0)) suppkey_decimal FROM tpch.tiny.supplier");
 
         assertQueryDynamicFilters(
-                "SELECT * FROM lineitem JOIN memory.default.supplier_decimal s ON lineitem.suppkey = s.suppkey_decimal AND s.name >= 'Supplier#000000080'",
+                "SELECT * FROM \"lineitem\" JOIN memory.default.\"supplier_decimal\" s ON \"lineitem\".\"suppkey\" = s.\"suppkey_decimal\" AND s.\"name\" >= 'Supplier#000000080'",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE, multipleValues(BIGINT, LongStream.rangeClosed(80L, 100L).boxed().collect(toImmutableList())))));
 
-        computeActual("CREATE TABLE memory.default.supplier_varchar AS SELECT name, CAST(address as varchar(42)) address FROM tpch.tiny.supplier");
+        computeActual("CREATE TABLE memory.default.\"supplier_varchar\" AS SELECT name, CAST(address as varchar(42)) address FROM tpch.tiny.supplier");
 
-        List<Slice> values = computeActual("SELECT address FROM memory.default.supplier_varchar WHERE name >= 'Supplier#000000080'")
+        List<Slice> values = computeActual("SELECT \"address\" FROM memory.default.\"supplier_varchar\" WHERE \"name\" >= 'Supplier#000000080'")
                 .getOnlyColumn()
                 .map(value -> utf8Slice((String) value))
                 .collect(toImmutableList());
 
         assertQueryDynamicFilters(
-                "SELECT * FROM customer JOIN memory.default.supplier_varchar s ON customer.address = s.address AND s.name >= 'Supplier#000000080'",
+                "SELECT * FROM \"customer\" JOIN memory.default.\"supplier_varchar\" s ON \"customer\".\"address\" = s.\"address\" AND s.\"name\" >= 'Supplier#000000080'",
                 Set.of(ADDRESS_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         ADDRESS_KEY_HANDLE, multipleValues(createVarcharType(40), values))));
@@ -283,7 +283,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     {
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType),
-                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey",
+                "SELECT * FROM \"lineitem\" JOIN tpch.tiny.supplier ON \"lineitem\".\"suppkey\" = supplier.suppkey",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE, Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 100L, true)), false))));
@@ -303,9 +303,9 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType),
                 "SELECT * FROM (" +
-                        "SELECT supplier.suppkey FROM " +
-                        "lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')" +
-                        ") t JOIN tpch.tiny.partsupp ON t.suppkey = partsupp.suppkey AND partsupp.suppkey IN (2, 3)",
+                        "SELECT \"supplier\".\"suppkey\" FROM " +
+                        "\"lineitem\" JOIN tpch.tiny.supplier ON \"lineitem\".\"suppkey\" = supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')" +
+                        ") t JOIN tpch.tiny.partsupp ON t.\"suppkey\" = partsupp.suppkey AND partsupp.suppkey IN (2, 3)",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE, singleValue(BIGINT, 2L))));
@@ -316,7 +316,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     public void testRightJoinWithEmptyBuildSide()
     {
         assertQueryDynamicFilters(
-                "SELECT * FROM lineitem RIGHT JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey WHERE supplier.name = 'abc'",
+                "SELECT * FROM \"lineitem\" RIGHT JOIN tpch.tiny.supplier ON \"lineitem\".\"suppkey\" = supplier.suppkey WHERE supplier.name = 'abc'",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.none());
     }
@@ -326,7 +326,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     public void testRightJoinWithNonSelectiveBuildSide()
     {
         assertQueryDynamicFilters(
-                "SELECT * FROM lineitem RIGHT JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey",
+                "SELECT * FROM \"lineitem\" RIGHT JOIN tpch.tiny.supplier ON \"lineitem\".\"suppkey\" = supplier.suppkey",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE, Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 100L, true)), false))));
@@ -337,7 +337,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     public void testRightJoinWithSelectiveBuildSide()
     {
         assertQueryDynamicFilters(
-                "SELECT * FROM lineitem RIGHT JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey WHERE supplier.name = 'Supplier#000000001'",
+                "SELECT * FROM \"lineitem\" RIGHT JOIN tpch.tiny.supplier ON \"lineitem\".\"suppkey\" = supplier.suppkey WHERE supplier.name = 'Supplier#000000001'",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE, singleValue(BIGINT, 1L))));
@@ -355,7 +355,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     {
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType),
-                "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier WHERE supplier.name = 'abc')",
+                "SELECT * FROM \"lineitem\" WHERE \"lineitem\".\"suppkey\" IN (SELECT supplier.suppkey FROM tpch.tiny.supplier WHERE supplier.name = 'abc')",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.none());
     }
@@ -372,7 +372,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     {
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType),
-                "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM tpch.tiny.orders)",
+                "SELECT * FROM \"lineitem\" WHERE \"lineitem\".\"orderkey\" IN (SELECT orders.orderkey FROM tpch.tiny.orders)",
                 Set.of(ORDERKEY_HANDLE),
                 TupleDomain.all());
     }
@@ -389,7 +389,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     {
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType),
-                "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier WHERE supplier.name = 'Supplier#000000001')",
+                "SELECT * FROM \"lineitem\" WHERE \"lineitem\".\"suppkey\" IN (SELECT supplier.suppkey FROM tpch.tiny.supplier WHERE supplier.name = 'Supplier#000000001')",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE, singleValue(BIGINT, 1L))));
@@ -407,7 +407,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     {
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType),
-                "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier)",
+                "SELECT * FROM \"lineitem\" WHERE \"lineitem\".\"suppkey\" IN (SELECT supplier.suppkey FROM tpch.tiny.supplier)",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE, Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 100L, true)), false))));
@@ -427,9 +427,9 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType),
                 "SELECT * FROM (" +
-                        "SELECT lineitem.suppkey FROM lineitem WHERE lineitem.suppkey IN " +
+                        "SELECT \"lineitem\".\"suppkey\" FROM \"lineitem\" WHERE \"lineitem\".\"suppkey\" IN " +
                         "(SELECT supplier.suppkey FROM tpch.tiny.supplier WHERE supplier.name IN ('Supplier#000000001', 'Supplier#000000002'))) t " +
-                        "WHERE t.suppkey IN (SELECT partsupp.suppkey FROM tpch.tiny.partsupp WHERE partsupp.suppkey IN (2, 3))",
+                        "WHERE t.\"suppkey\" IN (SELECT partsupp.suppkey FROM tpch.tiny.partsupp WHERE partsupp.suppkey IN (2, 3))",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE, singleValue(BIGINT, 2L))));

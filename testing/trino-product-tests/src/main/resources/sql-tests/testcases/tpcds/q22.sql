@@ -4,7 +4,7 @@ SELECT
 , "i_brand"
 , "i_class"
 , "i_category"
-, "avg"("inv_quantity_on_hand") "qoh"
+, avg("inv_quantity_on_hand") "qoh"
 FROM
   inventory
 , date_dim

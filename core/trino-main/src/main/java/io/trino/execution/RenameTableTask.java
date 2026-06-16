@@ -24,8 +24,10 @@ import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.RenameTable;
+import io.trino.sql.tree.Resolver;
 
 import java.util.List;
 
@@ -68,7 +70,7 @@ public class RenameTableTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getSource());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getSource(), metadata);
 
         if (metadata.isMaterializedView(session, tableName)) {
             throw semanticException(
@@ -98,7 +100,9 @@ public class RenameTableTask
 
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
         QualifiedObjectName source = redirectionAwareTableHandle.redirectedTableName().orElse(tableName);
-        QualifiedObjectName target = createTargetQualifiedObjectName(source, statement.getTarget());
+        Resolver resolver = metadata.getResolverManager().getResolver(session, source.catalogName());
+
+        QualifiedObjectName target = createTargetQualifiedObjectName(source, statement.getTarget(), resolver);
         if (metadata.getCatalogHandle(session, target.catalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' not found", target.catalogName());
         }
@@ -121,17 +125,17 @@ public class RenameTableTask
         return immediateVoidFuture();
     }
 
-    private static QualifiedObjectName createTargetQualifiedObjectName(QualifiedObjectName source, QualifiedName target)
+    private static QualifiedObjectName createTargetQualifiedObjectName(QualifiedObjectName source, QualifiedName target, Resolver resolver)
     {
         requireNonNull(target, "target is null");
-        if (target.getParts().size() > 3) {
+        if (target.getOriginalParts().size() > 3) {
             throw new TrinoException(SYNTAX_ERROR, format("Too many dots in table name: %s", target));
         }
 
-        List<String> parts = target.getParts().reversed();
-        String objectName = parts.get(0);
-        String schemaName = (parts.size() > 1) ? parts.get(1) : source.schemaName();
-        String catalogName = (parts.size() > 2) ? parts.get(2) : source.catalogName();
+        List<Identifier> parts = target.getOriginalParts().reversed();
+        String objectName = resolver.canonicalize(parts.get(0));
+        String schemaName = (parts.size() > 1) ? resolver.canonicalize(parts.get(1)) : source.schemaName();
+        String catalogName = (parts.size() > 2) ? parts.get(2).getValue() : source.catalogName();
 
         return new QualifiedObjectName(catalogName, schemaName, objectName);
     }

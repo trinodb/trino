@@ -64,7 +64,6 @@ import static io.trino.spi.block.ColumnarArray.toColumnarArray;
 import static io.trino.spi.block.ColumnarMap.toColumnarMap;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.UnaryOperator.identity;
@@ -196,7 +195,7 @@ public final class DeltaLakeWriter
     {
         Map</* lowercase */ String, Type> typeForColumn = columnHandles.stream()
                 // Lowercase because the subsequent logic expects lowercase
-                .collect(toImmutableMap(column -> column.basePhysicalColumnName().toLowerCase(ENGLISH), DeltaLakeColumnHandle::basePhysicalType));
+                .collect(toImmutableMap(column -> column.basePhysicalColumnName(), DeltaLakeColumnHandle::basePhysicalType));
 
         ImmutableMultimap.Builder<String, ColumnChunkMetadata> metadataForColumn = ImmutableMultimap.builder();
         for (BlockMetadata blockMetaData : parquetMetadata.getBlocks()) {

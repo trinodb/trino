@@ -86,6 +86,7 @@ import io.trino.sql.tree.FetchFirst;
 import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.FunctionCall.NullTreatment;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Join;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
@@ -177,7 +178,6 @@ import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
@@ -600,6 +600,9 @@ class QueryPlanner
 
     public PlanNode plan(Update node)
     {
+        // FIXME: The update plan must have a scope with a resolver present because
+        //        StatementAnalyzer::visitTable has necessarily been executed.
+        Function<Identifier, String> canonicalizer = analysis.getScope(node).getResolver().orElseThrow().getCanonicalizer();
         MergeAnalysis mergeAnalysis = analysis.getMergeAnalysis().orElseThrow();
         Table table = mergeAnalysis.getTargetTable();
 
@@ -613,10 +616,10 @@ class QueryPlanner
         }
         Map<String, ColumnHandle> nameToHandle = nameToHandleBuilder.buildOrThrow();
 
+        // FIXME: If we want UPDATE working, we need to take UpdateAssignment::getName as canonicalized value
         io.trino.sql.tree.Expression[] orderedColumnValuesArray = new io.trino.sql.tree.Expression[updatedColumnHandles.size()];
         node.getAssignments().forEach(assignment -> {
-            String name = assignment.getName().getValue().toLowerCase(ENGLISH);
-            ColumnHandle handle = nameToHandle.get(name);
+            ColumnHandle handle = nameToHandle.get(canonicalizer.apply(assignment.getName()));
             int index = updatedColumnHandles.indexOf(handle);
             if (index >= 0) {
                 orderedColumnValuesArray[index] = assignment.getValue();

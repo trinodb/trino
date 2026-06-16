@@ -420,7 +420,6 @@ import static java.lang.Boolean.parseBoolean;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.max;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.function.Function.identity;
@@ -553,6 +552,12 @@ public class IcebergMetadata
         this.materializedViewRefreshMaxSnapshotsToExpire = materializedViewRefreshMaxSnapshotsToExpire;
         this.materializedViewRefreshSnapshotRetentionPeriod = materializedViewRefreshSnapshotRetentionPeriod;
         this.tableCredentialsProvider = new IcebergTableCredentialsProvider(catalog);
+    }
+
+    @Override
+    public String canonicalize(String value)
+    {
+        return value;
     }
 
     @Override
@@ -1556,7 +1561,7 @@ public class IcebergMetadata
                 .distinct()
                 .collect(toImmutableList());
         List<String> partitioningColumnNames = partitioningColumns.stream()
-                .map(column -> column.getName().toLowerCase(ENGLISH))
+                .map(column -> column.getName())
                 .collect(toImmutableList());
 
         if (!forceRepartitioning && partitionSpec.fields().stream().allMatch(field -> field.transform().isIdentity())) {
@@ -4335,7 +4340,7 @@ public class IcebergMetadata
     private static CollectedStatistics processComputedTableStatistics(Table table, Collection<ComputedStatistics> computedStatistics)
     {
         Map<String, Integer> columnNameToId = table.schema().columns().stream()
-                .collect(toImmutableMap(nestedField -> nestedField.name().toLowerCase(ENGLISH), Types.NestedField::fieldId));
+                .collect(toImmutableMap(nestedField -> nestedField.name(), Types.NestedField::fieldId));
 
         ImmutableMap.Builder<Integer, CompactThetaSketch> ndvSketches = ImmutableMap.builder();
         for (ComputedStatistics computedStatistic : computedStatistics) {

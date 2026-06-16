@@ -32,12 +32,14 @@ import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.CreateFunction;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionSpecification;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.PropertiesCharacteristic;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.Resolver;
 
 import java.util.List;
 import java.util.Map;
@@ -96,7 +98,9 @@ public class CreateFunctionTask
         Session session = stateMachine.getSession();
 
         FunctionSpecification function = statement.getSpecification();
-        QualifiedObjectName name = qualifiedFunctionName(defaultFunctionSchema, statement, function.getName());
+        System.out.println("CreateFunctionTask.execute() 1 function: " + function.getName());
+        QualifiedObjectName name = qualifiedFunctionName(session, defaultFunctionSchema, statement, function.getName(), metadata);
+        System.out.println("CreateFunctionTask.execute() 2 function: " + name);
 
         accessControl.checkCanCreateFunction(session.toSecurityContext(), name);
 
@@ -177,19 +181,30 @@ public class CreateFunctionTask
         return combine(config.getDefaultFunctionCatalog(), config.getDefaultFunctionSchema(), CatalogSchemaName::new);
     }
 
-    public static QualifiedObjectName qualifiedFunctionName(Optional<CatalogSchemaName> functionSchema, Node node, QualifiedName name)
+    public static QualifiedObjectName qualifiedFunctionName(Session session, Optional<CatalogSchemaName> functionSchema, Node node, QualifiedName name, Metadata metadata)
     {
-        List<String> parts = name.getParts();
-        return switch (parts.size()) {
+        String catalog;
+        String schema;
+        Resolver resolver;
+        List<Identifier> parts = name.getOriginalParts();
+        switch (parts.size()) {
             case 1 -> {
-                CatalogSchemaName schema = functionSchema.orElseThrow(() ->
+                CatalogSchemaName catalogSchema = functionSchema.orElseThrow(() ->
                         semanticException(NOT_SUPPORTED, node, "Catalog and schema must be specified when function schema is not configured"));
-                yield new QualifiedObjectName(schema.getCatalogName(), schema.getSchemaName(), parts.get(0));
+                catalog = catalogSchema.getCatalogName();
+                resolver = metadata.getResolverManager().getResolver(session, catalog);
+                schema = catalogSchema.getSchemaName();
             }
             case 2 -> throw semanticException(NOT_SUPPORTED, node, "Function name must be unqualified or fully qualified with catalog and schema");
-            case 3 -> new QualifiedObjectName(parts.get(0), parts.get(1), parts.get(2));
+            case 3 -> {
+                catalog = parts.getFirst().getValue();
+                resolver = metadata.getResolverManager().getResolver(session, catalog);
+                schema = resolver.canonicalize(parts.get(1));
+            }
             default -> throw semanticException(SYNTAX_ERROR, node, "Too many dots in function name: %s", name);
-        };
+        }
+        String function = resolver.canonicalize(parts.getLast());
+        return new QualifiedObjectName(catalog, schema, function, Optional.of(resolver::predicate));
     }
 
     private static TrinoException formattingFailure(Throwable cause, String message, FunctionSpecification function, String sql)
