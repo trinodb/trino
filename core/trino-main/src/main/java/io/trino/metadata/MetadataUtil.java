@@ -208,7 +208,7 @@ public final class MetadataUtil
     {
         requireNonNull(target, "target is null");
         if (target.getParts().size() > 3) {
-            throw new TrinoException(SYNTAX_ERROR, format("Too many dots in table name: %s", target));
+            throw new TrinoException(SYNTAX_ERROR, format("Too many dots in name: %s", target));
         }
 
         List<String> parts = target.getParts().reversed();
