@@ -46,6 +46,7 @@ import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.RowValueBuilder;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.SqlRow;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateMetadata;
@@ -445,8 +446,6 @@ public final class StateCompiler
                 type(InOut.class),
                 type(InternalDataAccessor.class));
 
-        estimatedSize(definition);
-
         // Generate constructor
         MethodDefinition constructor = definition.declareConstructor(a(PUBLIC));
 
@@ -472,6 +471,15 @@ public final class StateCompiler
 
         constructor.getBody()
                 .ret();
+
+        if (type.getJavaType().isPrimitive()) {
+            estimatedSize(definition);
+        }
+        else {
+            // The stored object value (row, array, map, varchar, ...) is not part of the instance size,
+            // so account for its retained size explicitly.
+            inOutSingleEstimatedSize(definition, type, valueGetter, nullGetter);
+        }
 
         inOutSingleCopy(definition, valueField, nullField);
 
@@ -577,7 +585,7 @@ public final class StateCompiler
         generateInOutGetType(definition, sqlType);
         generateInOutIsNull(definition, nullGetter);
         generateInOutGetBlockBuilder(definition, sqlType, valueGetter);
-        generateInOutSetBlockPosition(definition, sqlType, setNullGenerator, setValueGenerator);
+        generateInOutSetBlockPosition(definition, type, sqlType, setNullGenerator, setValueGenerator);
         generateInOutSetInOut(definition, type, setNullGenerator, setValueGenerator);
         generateInOutGetValue(definition, type, valueGetter);
     }
@@ -698,6 +706,7 @@ public final class StateCompiler
 
     private static void generateInOutSetBlockPosition(
             ClassDefinition definition,
+            Type type,
             SqlTypeBytecodeExpression sqlType,
             Function<Scope, BytecodeNode> setNullGenerator,
             BiFunction<Scope, BytecodeExpression, BytecodeNode> setValueGenerator)
@@ -705,13 +714,68 @@ public final class StateCompiler
         Parameter blockArg = arg("block", Block.class);
         Parameter positionArg = arg("position", int.class);
         MethodDefinition setBlockBuilderMethod = definition.declareMethod(a(PUBLIC), "set", type(void.class), blockArg, positionArg);
+        Scope scope = setBlockBuilderMethod.getScope();
         BytecodeBlock body = setBlockBuilderMethod.getBody();
+
+        BytecodeNode setValue;
+        if (inOutValueRetainsSourcePage(type)) {
+            // Compact-copy the selected value into a single-position owned block so the state does not
+            // retain the entire source page the value was read from.
+            Variable single = scope.declareVariable(Block.class, "single");
+            BytecodeBlock objectSet = new BytecodeBlock();
+            objectSet.append(single.set(blockArg.invoke("getSingleValueBlock", ValueBlock.class, positionArg)));
+            objectSet.append(setValueGenerator.apply(scope, sqlType.getValue(single, constantInt(0))));
+            setValue = objectSet;
+        }
+        else {
+            setValue = setValueGenerator.apply(scope, sqlType.getValue(blockArg, positionArg));
+        }
 
         body.append(new IfStatement()
                 .condition(blockArg.invoke("isNull", boolean.class, positionArg))
-                .ifTrue(setNullGenerator.apply(setBlockBuilderMethod.getScope()))
-                .ifFalse(setValueGenerator.apply(setBlockBuilderMethod.getScope(), sqlType.getValue(blockArg, positionArg))));
+                .ifTrue(setNullGenerator.apply(scope))
+                .ifFalse(setValue));
         body.ret();
+    }
+
+    /**
+     * Whether the value object returned by {@code Type.getObject}/{@code getSlice} keeps a reference into the
+     * source page. Rows, arrays, maps and varchars/varbinaries view their backing block, so the InOut state
+     * must compact-copy them to avoid retaining the whole source page; other object-native types (e.g.
+     * {@code Int128}, long timestamps) are self-contained value objects that retain nothing else.
+     */
+    private static boolean inOutValueRetainsSourcePage(Type type)
+    {
+        Class<?> javaType = type.getJavaType();
+        return javaType == Slice.class || javaType == Block.class || javaType == SqlRow.class || javaType == SqlMap.class;
+    }
+
+    private static BytecodeExpression inOutValueRetainedSize(Type type, BytecodeExpression value)
+    {
+        Class<?> javaType = type.getJavaType();
+        if (javaType == Slice.class) {
+            return value.cast(Slice.class).invoke("getRetainedSize", long.class);
+        }
+        if (inOutValueRetainsSourcePage(type)) {
+            // Block, SqlRow and SqlMap all expose getRetainedSizeInBytes()
+            return value.cast(javaType).invoke("getRetainedSizeInBytes", long.class);
+        }
+        // Self-contained value objects (e.g. Int128, long timestamps) retain only themselves.
+        return constantLong(SizeOf.instanceSize(javaType));
+    }
+
+    private static void inOutSingleEstimatedSize(ClassDefinition definition, Type type, Function<Scope, BytecodeExpression> valueGetter, Function<Scope, BytecodeExpression> nullGetter)
+    {
+        FieldDefinition instanceSize = generateInstanceSize(definition);
+        MethodDefinition method = definition.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class));
+        Scope scope = method.getScope();
+        BytecodeBlock body = method.getBody();
+
+        Variable size = scope.declareVariable("size", body, getStatic(instanceSize));
+        body.append(new IfStatement()
+                .condition(nullGetter.apply(scope))
+                .ifFalse(size.set(add(size, inOutValueRetainedSize(type, valueGetter.apply(scope))))));
+        body.append(size.ret());
     }
 
     private static void generateInOutSetInOut(
