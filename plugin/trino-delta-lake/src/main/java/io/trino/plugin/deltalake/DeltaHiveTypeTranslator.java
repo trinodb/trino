@@ -120,7 +120,7 @@ public class DeltaHiveTypeTranslator
             return HIVE_DATE.getTypeInfo();
         }
         if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
-            verify(timestampWithTimeZoneType.getPrecision() == 3, "Unsupported type: %s", type);
+            verify(timestampWithTimeZoneType.getPrecision() == 3 || timestampWithTimeZoneType.getPrecision() == 6, "Unsupported type: %s", type);
             return HIVE_TIMESTAMP.getTypeInfo();
         }
         if (type instanceof TimestampType timestampType) {

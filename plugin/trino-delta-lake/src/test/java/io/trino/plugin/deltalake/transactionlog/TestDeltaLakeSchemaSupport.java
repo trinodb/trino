@@ -59,7 +59,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_SECONDS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -104,7 +104,7 @@ public class TestDeltaLakeSchemaSupport
                 ColumnMetadata.builder().setName("a").setType(DATE).setNullable(true).build());
         testSinglePrimitiveFieldSchema(
                 "{\"type\":\"struct\",\"fields\":[{\"name\":\"a\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}]}",
-                ColumnMetadata.builder().setName("a").setType(TIMESTAMP_TZ_MILLIS).setNullable(true).build());
+                ColumnMetadata.builder().setName("a").setType(TIMESTAMP_TZ_MICROS).setNullable(true).build());
     }
 
     private void testSinglePrimitiveFieldSchema(String json, ColumnMetadata metadata)
@@ -148,7 +148,7 @@ public class TestDeltaLakeSchemaSupport
         assertThat(schema.get(1).toString()).isEqualTo("ColumnMetadata{name='b', type=row(\"b1\" integer, \"b2\" row(\"b21\" varchar, \"b22\" boolean)), nullable}");
         assertThat(schema.get(2).toString()).isEqualTo("ColumnMetadata{name='c', type=array(integer), nullable}");
         assertThat(schema.get(3).toString()).isEqualTo("ColumnMetadata{name='d', type=array(row(\"d1\" integer)), nullable}");
-        assertThat(schema.get(4).toString()).isEqualTo("ColumnMetadata{name='e', type=map(varchar, row(\"e1\" date, \"e2\" timestamp(3) with time zone)), nullable}");
+        assertThat(schema.get(4).toString()).isEqualTo("ColumnMetadata{name='e', type=map(varchar, row(\"e1\" date, \"e2\" timestamp(6) with time zone)), nullable}");
     }
 
     @Test
@@ -278,10 +278,10 @@ public class TestDeltaLakeSchemaSupport
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(DATE)).doesNotThrowAnyException();
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(VARCHAR)).doesNotThrowAnyException();
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(DecimalType.createDecimalType(3))).doesNotThrowAnyException();
-        assertThatCode(() -> DeltaLakeSchemaSupport.validateType(TIMESTAMP_TZ_MILLIS)).doesNotThrowAnyException();
-        assertThatCode(() -> DeltaLakeSchemaSupport.validateType(new MapType(TIMESTAMP_TZ_MILLIS, TIMESTAMP_TZ_MILLIS, new TypeOperators()))).doesNotThrowAnyException();
-        assertThatCode(() -> DeltaLakeSchemaSupport.validateType(RowType.anonymous(ImmutableList.of(TIMESTAMP_TZ_MILLIS)))).doesNotThrowAnyException();
-        assertThatCode(() -> DeltaLakeSchemaSupport.validateType(new ArrayType(TIMESTAMP_TZ_MILLIS))).doesNotThrowAnyException();
+        assertThatCode(() -> DeltaLakeSchemaSupport.validateType(TIMESTAMP_TZ_MICROS)).doesNotThrowAnyException();
+        assertThatCode(() -> DeltaLakeSchemaSupport.validateType(new MapType(TIMESTAMP_TZ_MICROS, TIMESTAMP_TZ_MICROS, new TypeOperators()))).doesNotThrowAnyException();
+        assertThatCode(() -> DeltaLakeSchemaSupport.validateType(RowType.anonymous(ImmutableList.of(TIMESTAMP_TZ_MICROS)))).doesNotThrowAnyException();
+        assertThatCode(() -> DeltaLakeSchemaSupport.validateType(new ArrayType(TIMESTAMP_TZ_MICROS))).doesNotThrowAnyException();
     }
 
     @Test

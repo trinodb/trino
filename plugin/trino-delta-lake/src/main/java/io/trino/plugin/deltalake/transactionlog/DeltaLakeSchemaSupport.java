@@ -87,7 +87,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -430,7 +430,7 @@ public final class DeltaLakeSchemaSupport
     {
         if (serializeSupportedPrimitiveType(type).isEmpty() ||
                 (type instanceof TimestampType timestampType && timestampType.getPrecision() != 6) ||
-                (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && timestampWithTimeZoneType.getPrecision() != 3)) {
+                (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && timestampWithTimeZoneType.getPrecision() != 6)) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Unsupported type: " + type);
         }
     }
@@ -764,7 +764,7 @@ public final class DeltaLakeSchemaSupport
             // Spark/DeltaLake stores timestamps in UTC, but renders them in session time zone.
             // For more info, see https://delta-users.slack.com/archives/GKTUWT03T/p1585760533005400
             // and https://cwiki.apache.org/confluence/display/Hive/Different+TIMESTAMP+types
-            case "timestamp" -> TIMESTAMP_TZ_MILLIS;
+            case "timestamp" -> TIMESTAMP_TZ_MICROS;
             case "variant" -> typeManager.getType(new TypeDescriptor(JSON));
             default -> throw new TypeNotFoundException(primitiveType);
         };

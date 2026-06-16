@@ -33,6 +33,7 @@ import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
@@ -43,6 +44,7 @@ import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.nio.file.NoSuchFileException;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -69,7 +71,6 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTra
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -77,9 +78,10 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Double.parseDouble;
@@ -191,7 +193,7 @@ public final class TransactionLogParser
     }
 
     @VisibleForTesting
-    static Long readPartitionTimestampWithZone(String timestamp)
+    static LongTimestampWithTimeZone readPartitionTimestampWithZone(String timestamp)
     {
         ZonedDateTime zonedDateTime;
         try {
@@ -201,10 +203,11 @@ public final class TransactionLogParser
             // TODO: avoid this exception-driven logic
             zonedDateTime = ZonedDateTime.parse(timestamp, ISO_ZONED_DATE_TIME);
         }
-        return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), UTC_KEY);
+        Instant instant = zonedDateTime.toInstant();
+        return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(instant.getEpochSecond(), (long) instant.getNano() * PICOSECONDS_PER_NANOSECOND, UTC_KEY);
     }
 
-    public static Object deserializeColumnValue(DeltaLakeColumnHandle column, String valueString, Function<String, Long> timestampReader, Function<String, Long> timestampWithZoneReader)
+    public static Object deserializeColumnValue(DeltaLakeColumnHandle column, String valueString, Function<String, Long> timestampReader, Function<String, LongTimestampWithTimeZone> timestampWithZoneReader)
     {
         verify(column.isBaseColumn(), "Unexpected dereference: %s", column);
         Type type = column.baseType();
@@ -245,7 +248,7 @@ public final class TransactionLogParser
             if (type.equals(TIMESTAMP_MICROS)) {
                 return timestampReader.apply(valueString);
             }
-            if (type.equals(TIMESTAMP_TZ_MILLIS)) {
+            if (type.equals(TIMESTAMP_TZ_MICROS)) {
                 return timestampWithZoneReader.apply(valueString);
             }
             if (VARCHAR.equals(type)) {
