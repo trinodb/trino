@@ -367,6 +367,7 @@ import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.blockToNativeValue;
@@ -991,6 +992,9 @@ public class DeltaLakeMetadata
     {
         if (type instanceof TimestampType) {
             return TIMESTAMP_MICROS;
+        }
+        if (type instanceof TimestampWithTimeZoneType) {
+            return TIMESTAMP_TZ_MICROS;
         }
         if (type instanceof CharType) {
             return VARCHAR;
