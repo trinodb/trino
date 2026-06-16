@@ -47,8 +47,9 @@ public class TestCounterBasedAnonymizer
                 comparison(LESS_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 2L)),
                 comparison(EQUAL, new Reference(INTEGER, "c"), new Constant(INTEGER, 3L))));
         CounterBasedAnonymizer anonymizer = new CounterBasedAnonymizer();
+        // a > 1 is canonicalized to 1 < a (greater-than has no operator function), so it renders flipped.
         assertThat(anonymizer.anonymize(expression))
-                .isEqualTo("((\"symbol_1\" > 'integer_literal_1') AND (\"symbol_2\" < 'integer_literal_2') AND (\"symbol_3\" = 'integer_literal_3'))");
+                .isEqualTo("(('integer_literal_1' < \"symbol_1\") AND (\"symbol_2\" < 'integer_literal_2') AND (\"symbol_3\" = 'integer_literal_3'))");
     }
 
     @Test

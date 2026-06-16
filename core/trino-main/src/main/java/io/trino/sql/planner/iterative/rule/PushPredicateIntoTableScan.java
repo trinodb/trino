@@ -351,7 +351,7 @@ public class PushPredicateIntoTableScan
 
         // Make sure we produce an expression whose terms are consistent with the canonical form used in other optimizations
         // Otherwise, we'll end up ping-ponging among rules
-        expression = SimplifyExpressions.rewrite(expression, session, plannerContext.getExpressionOptimizer());
+        expression = SimplifyExpressions.rewrite(expression, session, plannerContext.getMetadata(), plannerContext.getExpressionOptimizer());
 
         return expression;
     }

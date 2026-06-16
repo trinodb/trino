@@ -16,7 +16,6 @@ package io.trino.sql.planner.iterative.rule;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.BuiltinFunctionCallBuilder;
@@ -25,6 +24,7 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.SampleNode;
 
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.planner.plan.Patterns.Sample.sampleType;
 import static io.trino.sql.planner.plan.Patterns.sample;
 import static io.trino.sql.planner.plan.SampleNode.Type.BERNOULLI;
@@ -66,7 +66,8 @@ public class ImplementBernoulliSampleAsFilter
         return Result.ofPlanNode(new FilterNode(
                 sample.getId(),
                 sample.getSource(),
-                new Comparison(
+                comparison(
+                        metadata,
                         ComparisonOperator.LESS_THAN,
                         BuiltinFunctionCallBuilder.resolve(metadata)
                                 .setName("rand")

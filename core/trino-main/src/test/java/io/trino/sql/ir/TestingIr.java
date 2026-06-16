@@ -13,14 +13,20 @@
  */
 package io.trino.sql.ir;
 
-/// Test helpers for building IR expressions.
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+
+/// Test helpers for building IR expressions whose construction needs a function resolver.
 public final class TestingIr
 {
     private TestingIr() {}
 
-    /// Builds a comparison expression.
+    /// Builds the canonical IR form of a comparison (a {@link Call} to the operator function),
+    /// resolving the operator against the shared testing planner context. Comparison operators
+    /// are builtin, so the resolved functions compare equal to those produced by any other
+    /// metadata instance — expressions built here match those produced by production code under
+    /// test.
     public static Expression comparison(ComparisonOperator operator, Expression left, Expression right)
     {
-        return new Comparison(operator, left, right);
+        return IrExpressions.comparison(PLANNER_CONTEXT.getMetadata(), operator, left, right);
     }
 }

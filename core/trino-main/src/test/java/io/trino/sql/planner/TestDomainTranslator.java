@@ -1556,7 +1556,10 @@ public class TestDomainTranslator
 
     private static Expression unprocessableExpression1(Symbol symbol)
     {
-        return comparison(GREATER_THAN, symbol.toSymbolReference(), symbol.toSymbolReference());
+        // Reference-vs-reference comparison that DomainTranslator cannot extract a domain from.
+        // Uses GREATER_THAN_OR_EQUAL so that, after canonicalization, it stays distinct from
+        // unprocessableExpression2 (a > a and a < a would otherwise both canonicalize to a < a).
+        return comparison(GREATER_THAN_OR_EQUAL, symbol.toSymbolReference(), symbol.toSymbolReference());
     }
 
     private static Expression unprocessableExpression2(Symbol symbol)

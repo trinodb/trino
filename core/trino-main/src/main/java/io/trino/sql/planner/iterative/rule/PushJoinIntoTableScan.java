@@ -243,7 +243,7 @@ public class PushJoinIntoTableScan
 
     public Expression getEffectiveFilter(JoinNode node)
     {
-        Expression effectiveFilter = and(node.getCriteria().stream().map(JoinNode.EquiJoinClause::toExpression).collect(toImmutableList()));
+        Expression effectiveFilter = and(node.getCriteria().stream().map(clause -> clause.toExpression(plannerContext.getMetadata())).collect(toImmutableList()));
         if (node.getFilter().isPresent()) {
             effectiveFilter = and(effectiveFilter, node.getFilter().get());
         }

@@ -42,12 +42,12 @@ import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
+import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
@@ -113,6 +113,8 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.ir.IrExpressions.comparison;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
@@ -469,7 +471,7 @@ public final class ConnectorExpressionTranslator
         {
             return translate(left, lambdaArguments).flatMap(leftTranslated ->
                     translate(right, lambdaArguments).map(rightTranslated ->
-                            new Comparison(operator, leftTranslated, rightTranslated)));
+                            comparison(plannerContext.getMetadata(), operator, leftTranslated, rightTranslated)));
         }
 
         private Optional<Expression> translateNullIf(ConnectorExpression first, ConnectorExpression second, Map<String, Symbol> lambdaArguments)
@@ -693,15 +695,10 @@ public final class ConnectorExpressionTranslator
             };
         }
 
-        @Override
-        protected Optional<ConnectorExpression> visitComparison(Comparison node, Context context)
+        private Optional<ConnectorExpression> translateComparison(Type type, Comparison comparison, Context context)
         {
-            if (!isComplexExpressionPushdown(session)) {
-                return Optional.empty();
-            }
-
-            return process(node.left(), context).flatMap(left -> process(node.right(), context).map(right ->
-                    new io.trino.spi.expression.Call(((Expression) node).type(), functionNameForComparisonOperator(node.operator()), ImmutableList.of(left, right))));
+            return process(comparison.left(), context).flatMap(left -> process(comparison.right(), context).map(right ->
+                    new io.trino.spi.expression.Call(type, functionNameForComparisonOperator(comparison.operator()), ImmutableList.of(left, right))));
         }
 
         @Override
@@ -754,6 +751,10 @@ public final class ConnectorExpressionTranslator
         {
             if (!isComplexExpressionPushdown(session)) {
                 return Optional.empty();
+            }
+
+            if (matchComparison(node) instanceof Comparison comparison) {
+                return translateComparison(node.type(), comparison, context);
             }
 
             CatalogSchemaFunctionName functionName = node.function().name();

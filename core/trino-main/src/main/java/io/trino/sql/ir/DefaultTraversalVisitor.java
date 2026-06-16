@@ -75,15 +75,6 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitComparison(Comparison node, C context)
-    {
-        process(node.left(), context);
-        process(node.right(), context);
-
-        return null;
-    }
-
-    @Override
     protected Void visitConstant(Constant node, C context)
     {
         // No sub-expressions

@@ -92,6 +92,7 @@ public class TestJoinStatsRule
     private static final JoinStatsRule JOIN_STATS_RULE = new JoinStatsRule(
             new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT), NORMALIZER),
             NORMALIZER,
+            PLANNER_CONTEXT.getMetadata(),
             1.0);
 
     @Test

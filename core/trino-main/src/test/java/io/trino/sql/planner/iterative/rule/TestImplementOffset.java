@@ -40,7 +40,7 @@ public class TestImplementOffset
     @Test
     public void testReplaceOffsetOverValues()
     {
-        tester().assertThat(new ImplementOffset())
+        tester().assertThat(new ImplementOffset(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -63,7 +63,7 @@ public class TestImplementOffset
     @Test
     public void testReplaceOffsetOverSort()
     {
-        tester().assertThat(new ImplementOffset())
+        tester().assertThat(new ImplementOffset(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

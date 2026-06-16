@@ -29,7 +29,6 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
@@ -74,6 +73,7 @@ import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.expressionOrNullSymbols;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
@@ -89,20 +89,6 @@ public class EffectivePredicateExtractor
 {
     private static final Predicate<Entry<Symbol, ? extends Expression>> SYMBOL_MATCHES_EXPRESSION =
             entry -> entry.getValue().equals(entry.getKey().toSymbolReference());
-
-    private static final Function<Entry<Symbol, ? extends Expression>, Expression> ENTRY_TO_EQUALITY =
-            entry -> {
-                Reference reference = entry.getKey().toSymbolReference();
-                Expression expression = entry.getValue();
-
-                if (expression instanceof Constant constant && constant.value() == null) {
-                    return new IsNull(reference);
-                }
-
-                // TODO: this is not correct with respect to NULLs ('reference IS NULL' would be correct, rather than 'reference = NULL')
-                // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
-                return new Comparison(EQUAL, reference, expression);
-            };
 
     private final PlannerContext plannerContext;
     private final boolean useTableProperties;
@@ -142,6 +128,20 @@ public class EffectivePredicateExtractor
             return TRUE;
         }
 
+        private Expression entryToEquality(Entry<Symbol, ? extends Expression> entry)
+        {
+            Reference reference = entry.getKey().toSymbolReference();
+            Expression expression = entry.getValue();
+
+            if (expression instanceof Constant constant && constant.value() == null) {
+                return new IsNull(reference);
+            }
+
+            // TODO: this is not correct with respect to NULLs ('reference IS NULL' would be correct, rather than 'reference = NULL')
+            // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
+            return comparison(metadata, EQUAL, reference, expression);
+        }
+
         @Override
         public Expression visitAggregation(AggregationNode node, Void context)
         {
@@ -169,7 +169,7 @@ public class EffectivePredicateExtractor
             if (underlying.getTupleDomain().isNone()) {
                 // Effective predicate extraction is incorrect in the presence of nulls, which manifests as a NONE domain
                 // In that case, ignore it and combine it into the filter directly
-                // See EffectivePredicateExtractor#ENTRY_TO_EQUALITY
+                // See EffectivePredicateExtractor.Visitor#entryToEquality
                 // TODO: this should be removed once EffectivePredicate extraction is fixed for null handling
                 return combineConjuncts(underlyingPredicate, node.getPredicate());
             }
@@ -222,7 +222,7 @@ public class EffectivePredicateExtractor
             List<Expression> projectionEqualities = nonIdentityAssignments.stream()
                     .filter(assignment -> assignment.getKey().type().isComparable() || assignment.getKey().type().isOrderable())
                     .filter(assignment -> Sets.intersection(SymbolsExtractor.extractUnique(assignment.getValue()), newlyAssignedSymbols).isEmpty())
-                    .map(ENTRY_TO_EQUALITY)
+                    .map(this::entryToEquality)
                     .collect(toImmutableList());
 
             return pullExpressionThroughSymbols(combineConjuncts(
@@ -314,7 +314,7 @@ public class EffectivePredicateExtractor
             Expression rightPredicate = node.getRight().accept(this, context);
 
             List<Expression> joinConjuncts = node.getCriteria().stream()
-                    .map(JoinNode.EquiJoinClause::toExpression)
+                    .map(clause -> clause.toExpression(metadata))
                     .collect(toImmutableList());
 
             return switch (node.getType()) {
@@ -552,7 +552,7 @@ public class EffectivePredicateExtractor
 
                 List<Expression> equalities = mapping.apply(i).stream()
                         .filter(SYMBOL_MATCHES_EXPRESSION.negate())
-                        .map(ENTRY_TO_EQUALITY)
+                        .map(this::entryToEquality)
                         .collect(toImmutableList());
 
                 sourceOutputConjuncts.add(ImmutableSet.copyOf(extractConjuncts(pullExpressionThroughSymbols(combineConjuncts(

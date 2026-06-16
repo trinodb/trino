@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
@@ -32,6 +32,7 @@ import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.mayBeNull;
 import static io.trino.sql.ir.IrExpressions.mayFail;
 import static io.trino.sql.ir.Logical.Operator.OR;
@@ -65,14 +66,26 @@ public class EvaluateIsNull
             return Optional.empty();
         }
 
-        return switch (isNull.value()) {
-            case Constant inner -> Optional.of(inner.value() == null ? TRUE : FALSE);
-            case Comparison inner when inner.operator() != IDENTICAL -> Optional.of(new Logical(OR, ImmutableList.of(
-                    new IsNull(inner.left()),
-                    new IsNull(inner.right()))));
-            case Call inner when inner.function().name().equals(builtinFunctionName("$not")) -> Optional.of(new IsNull(inner.arguments().getFirst()));
-            case Expression value when !mayBeNull(plannerContext, value) && !mayFail(plannerContext, value) -> Optional.of(FALSE);
-            default -> Optional.empty();
-        };
+        Expression value = isNull.value();
+
+        if (value instanceof Constant inner) {
+            return Optional.of(inner.value() == null ? TRUE : FALSE);
+        }
+
+        if (matchComparison(value) instanceof Comparison comparison && comparison.operator() != IDENTICAL) {
+            return Optional.of(new Logical(OR, ImmutableList.of(
+                    new IsNull(comparison.left()),
+                    new IsNull(comparison.right()))));
+        }
+
+        if (value instanceof Call inner && inner.function().name().equals(builtinFunctionName("$not"))) {
+            return Optional.of(new IsNull(inner.arguments().getFirst()));
+        }
+
+        if (!mayBeNull(plannerContext, value) && !mayFail(plannerContext, value)) {
+            return Optional.of(FALSE);
+        }
+
+        return Optional.empty();
     }
 }

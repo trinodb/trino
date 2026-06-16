@@ -23,7 +23,6 @@ import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
@@ -123,8 +122,8 @@ public class IrExpressionOptimizer
                 new EvaluateLogical(),
                 new FlattenLogical(),
                 new RemoveRedundantLogicalTerms(),
-                new DistributeComparisonOverMatch(),
-                new DistributeComparisonOverCase(),
+                new DistributeComparisonOverMatch(context),
+                new DistributeComparisonOverCase(context),
                 new SimplifyRedundantCase(context),
                 new SpecializeCastWithJsonParse(context),
                 new SpecializeTransformWithJsonParse(context)));
@@ -186,13 +185,6 @@ public class IrExpressionOptimizer
             case Reference _, Constant _ -> Optional.empty();
             case Cast cast -> process(cast.expression(), session, bindings).map(value -> new Cast(value, cast.type()));
             case IsNull isNull -> process(isNull.value(), session, bindings).map(value -> new IsNull(value));
-            case Comparison comparison -> {
-                Optional<Expression> left = process(comparison.left(), session, bindings);
-                Optional<Expression> right = process(comparison.right(), session, bindings);
-                yield left.isPresent() || right.isPresent() ?
-                        Optional.of(new Comparison(comparison.operator(), left.orElse(comparison.left()), right.orElse(comparison.right()))) :
-                        Optional.empty();
-            }
             case Logical logical -> process(logical.terms(), session, bindings).map(arguments -> new Logical(logical.operator(), arguments));
             case Call call -> process(call.arguments(), session, bindings).map(arguments -> new Call(call.function(), arguments));
             case Array array -> process(array.elements(), session, bindings).map(elements -> new Array(array.elementType(), elements));

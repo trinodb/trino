@@ -16,6 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.metadata.Metadata;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
@@ -32,12 +33,12 @@ import static java.util.Objects.requireNonNull;
 public class SimplifyExpressions
         extends ExpressionRewriteRuleSet
 {
-    public static Expression rewrite(Expression expression, Session session, IrExpressionOptimizer optimizer)
+    public static Expression rewrite(Expression expression, Session session, Metadata metadata, IrExpressionOptimizer optimizer)
     {
         if (expression instanceof Reference) {
             return expression;
         }
-        expression = pushDownNegations(expression);
+        expression = pushDownNegations(metadata, expression);
         expression = extractCommonPredicates(expression);
         expression = normalizeOrExpression(expression);
         return optimizer.process(expression, session, ImmutableMap.of()).orElse(expression);
@@ -63,6 +64,6 @@ public class SimplifyExpressions
     {
         requireNonNull(plannerContext, "plannerContext is null");
 
-        return (expression, context) -> rewrite(expression, context.getSession(), plannerContext.getExpressionOptimizer());
+        return (expression, context) -> rewrite(expression, context.getSession(), plannerContext.getMetadata(), plannerContext.getExpressionOptimizer());
     }
 }

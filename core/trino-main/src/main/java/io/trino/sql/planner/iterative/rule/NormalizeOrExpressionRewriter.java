@@ -16,11 +16,11 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.In;
+import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.Logical;
 
 import java.util.Collection;
@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.ir.Logical.Operator.AND;
@@ -70,8 +70,8 @@ public final class NormalizeOrExpressionRewriter
 
             Set<Expression> expressionToSkip = expressionToSkipBuilder.build();
             for (Expression expression : terms) {
-                if (expression instanceof Comparison comparison && comparison.operator() == EQUAL) {
-                    if (!expressionToSkip.contains(comparison.left())) {
+                if (matchComparison(expression) instanceof Comparison.Equal(Expression left, _)) {
+                    if (!expressionToSkip.contains(left)) {
                         othersExpressionBuilder.add(expression);
                     }
                 }
@@ -95,8 +95,8 @@ public final class NormalizeOrExpressionRewriter
         {
             LinkedHashSet<Expression> expressionValues = new LinkedHashSet<>();
             for (Expression expression : expressions) {
-                if (expression instanceof Comparison comparison && comparison.operator() == EQUAL) {
-                    expressionValues.add(comparison.right());
+                if (matchComparison(expression) instanceof Comparison.Equal(_, Expression right)) {
+                    expressionValues.add(right);
                 }
                 else if (expression instanceof In in) {
                     expressionValues.addAll(in.valueList());
@@ -113,8 +113,8 @@ public final class NormalizeOrExpressionRewriter
         {
             ImmutableMultimap.Builder<Expression, Expression> expressionBuilder = ImmutableMultimap.builder();
             for (Expression expression : terms) {
-                if (expression instanceof Comparison comparison && comparison.operator() == EQUAL) {
-                    expressionBuilder.put(comparison.left(), comparison);
+                if (matchComparison(expression) instanceof Comparison.Equal(Expression left, _)) {
+                    expressionBuilder.put(left, expression);
                 }
                 else if (expression instanceof In in) {
                     expressionBuilder.put(in.value(), in);

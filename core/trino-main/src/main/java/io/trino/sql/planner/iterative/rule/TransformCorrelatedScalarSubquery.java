@@ -159,7 +159,7 @@ public class TransformCorrelatedScalarSubquery
                 markDistinctNode,
                 new Match(
                         isDistinct.toSymbolReference(),
-                        ImmutableList.of(equalityClause(matchOperand, TRUE, TRUE)),
+                        ImmutableList.of(equalityClause(metadata, matchOperand, TRUE, TRUE)),
                         new Cast(
                                 failFunction(metadata, SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
                                 BOOLEAN)));

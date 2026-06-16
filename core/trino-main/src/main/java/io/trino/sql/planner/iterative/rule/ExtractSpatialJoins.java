@@ -48,9 +48,9 @@ import io.trino.split.SplitSource.SplitBatch;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.BuiltinFunctionCallBuilder;
 import io.trino.sql.planner.ResolvedFunctionCallBuilder;
@@ -86,8 +86,8 @@ import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
-import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.comparison;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.plan.JoinType.INNER;
@@ -216,8 +216,8 @@ public class ExtractSpatialJoins
                 }
             }
 
-            List<Comparison> spatialComparisons = extractSupportedSpatialComparisons(filter);
-            for (Comparison spatialComparison : spatialComparisons) {
+            List<Call> spatialComparisons = extractSupportedSpatialComparisons(filter);
+            for (Call spatialComparison : spatialComparisons) {
                 Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputSymbols(), spatialComparison, plannerContext, splitManager, pageSourceManager);
                 if (!result.isEmpty()) {
                     return result;
@@ -269,8 +269,8 @@ public class ExtractSpatialJoins
                 }
             }
 
-            List<Comparison> spatialComparisons = extractSupportedSpatialComparisons(filter);
-            for (Comparison spatialComparison : spatialComparisons) {
+            List<Call> spatialComparisons = extractSupportedSpatialComparisons(filter);
+            for (Call spatialComparison : spatialComparisons) {
                 Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputSymbols(), spatialComparison, plannerContext, splitManager, pageSourceManager);
                 if (!result.isEmpty()) {
                     return result;
@@ -287,44 +287,31 @@ public class ExtractSpatialJoins
             Expression filter,
             PlanNodeId nodeId,
             List<Symbol> outputSymbols,
-            Comparison spatialComparison,
+            Call spatialComparison,
             PlannerContext plannerContext,
             SplitManager splitManager,
             PageSourceManager pageSourceManager)
     {
+        // Comparisons are canonicalized to ST_Distance(a, b) <= r, with the ST_Distance(...) call on the left
+        // (see SpatialJoinUtils#extractSupportedSpatialComparisons).
+        Comparison comparison = matchComparison(spatialComparison);
+        Expression distance = comparison.left();
+        Expression radius = comparison.right();
+
         PlanNode leftNode = joinNode.getLeft();
         PlanNode rightNode = joinNode.getRight();
 
         List<Symbol> leftSymbols = leftNode.getOutputSymbols();
         List<Symbol> rightSymbols = rightNode.getOutputSymbols();
 
-        Expression radius;
-        Optional<Symbol> newRadiusSymbol;
-        Comparison newComparison;
-        if (spatialComparison.operator() == LESS_THAN || spatialComparison.operator() == LESS_THAN_OR_EQUAL) {
-            // ST_Distance(a, b) <= r
-            radius = spatialComparison.right();
-            Set<Symbol> radiusSymbols = extractUnique(radius);
-            if (radiusSymbols.isEmpty() || (rightSymbols.containsAll(radiusSymbols) && containsNone(leftSymbols, radiusSymbols))) {
-                newRadiusSymbol = newRadiusSymbol(context, radius);
-                newComparison = new Comparison(spatialComparison.operator(), spatialComparison.left(), toExpression(newRadiusSymbol, radius));
-            }
-            else {
-                return Result.empty();
-            }
+        Set<Symbol> radiusSymbols = extractUnique(radius);
+        if (!radiusSymbols.isEmpty() && !(rightSymbols.containsAll(radiusSymbols) && containsNone(leftSymbols, radiusSymbols))) {
+            return Result.empty();
         }
-        else {
-            // r >= ST_Distance(a, b)
-            radius = spatialComparison.left();
-            Set<Symbol> radiusSymbols = extractUnique(radius);
-            if (radiusSymbols.isEmpty() || (rightSymbols.containsAll(radiusSymbols) && containsNone(leftSymbols, radiusSymbols))) {
-                newRadiusSymbol = newRadiusSymbol(context, radius);
-                newComparison = new Comparison(spatialComparison.operator().flip(), spatialComparison.right(), toExpression(newRadiusSymbol, radius));
-            }
-            else {
-                return Result.empty();
-            }
-        }
+
+        Optional<Symbol> newRadiusSymbol = newRadiusSymbol(context, radius);
+        Expression newRadius = toExpression(newRadiusSymbol, radius);
+        Expression newComparison = comparison(plannerContext.getMetadata(), comparison.operator(), distance, newRadius);
 
         Expression newFilter = replaceExpression(filter, ImmutableMap.of(spatialComparison, newComparison));
         PlanNode newRightNode = newRadiusSymbol.map(symbol -> addProjection(context, rightNode, symbol, radius)).orElse(rightNode);
@@ -344,7 +331,7 @@ public class ExtractSpatialJoins
                 joinNode.getDynamicFilters(),
                 joinNode.getReorderJoinStatsAndCost());
 
-        return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputSymbols, (Call) newComparison.left(), Optional.of(newComparison.right()), plannerContext, splitManager, pageSourceManager);
+        return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputSymbols, (Call) distance, Optional.of(newRadius), plannerContext, splitManager, pageSourceManager);
     }
 
     private static Result tryCreateSpatialJoin(
