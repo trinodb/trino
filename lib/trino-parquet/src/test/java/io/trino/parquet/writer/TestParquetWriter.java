@@ -41,6 +41,8 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.VersionParser;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -50,6 +52,7 @@ import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.PageType;
 import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.Util;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.assertj.core.data.Percentage;
 import org.junit.jupiter.api.Test;
@@ -86,9 +89,18 @@ import static io.trino.parquet.ParquetTestUtils.generateInputPages;
 import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
 import static io.trino.parquet.metadata.HiddenColumnChunkMetadata.isHiddenColumn;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -749,6 +761,73 @@ public class TestParquetWriter
             }
         }
         assertThat(readBackBuilder.build()).isEqualTo(sliceValues);
+    }
+
+    @ParameterizedTest
+    @MethodSource("timestampTzRoundTripParams")
+    public void testTimestampTzRoundTrip(TimestampWithTimeZoneType type, LogicalTypeAnnotation.TimeUnit expectedTimeUnit)
+            throws IOException
+    {
+        List<Object> values = generateTimestampTzValues(type, 1_000);
+        List<String> columnNames = ImmutableList.of("timestamp_tz");
+        List<Type> types = ImmutableList.of(type);
+
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder().build(),
+                        types,
+                        columnNames,
+                        generateInputPages(types, 100, values)),
+                ParquetReaderOptions.defaultOptions());
+
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+
+        PrimitiveType parquetType = parquetMetadata.getFileMetaData().getSchema().getType(0).asPrimitiveType();
+        assertThat(parquetType.getLogicalTypeAnnotation())
+                .isEqualTo(LogicalTypeAnnotation.timestampType(true, expectedTimeUnit));
+
+        ImmutableList.Builder<Object> readBackBuilder = ImmutableList.builder();
+        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, types, columnNames)) {
+            SourcePage page;
+            while ((page = reader.nextPage()) != null) {
+                Block block = page.getBlock(0);
+                for (int i = 0; i < page.getPositionCount(); i++) {
+                    readBackBuilder.add(readTimestampTzValue(type, block, i));
+                }
+            }
+        }
+        assertThat(readBackBuilder.build()).isEqualTo(values);
+    }
+
+    public static Stream<Arguments> timestampTzRoundTripParams()
+    {
+        return Stream.of(
+                Arguments.of(TIMESTAMP_TZ_MILLIS, LogicalTypeAnnotation.TimeUnit.MILLIS),
+                Arguments.of(TIMESTAMP_TZ_MICROS, LogicalTypeAnnotation.TimeUnit.MICROS),
+                Arguments.of(TIMESTAMP_TZ_NANOS, LogicalTypeAnnotation.TimeUnit.NANOS));
+    }
+
+    private static List<Object> generateTimestampTzValues(TimestampWithTimeZoneType type, int count)
+    {
+        return LongStream.range(0, count)
+                .mapToObj(i -> {
+                    if (type.isShort()) {
+                        return packDateTimeWithZone(i, UTC_KEY);
+                    }
+                    int picosOfMilli = type.getPrecision() <= 6
+                            ? (int) ((i % MICROSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_MICROSECOND)
+                            : (int) ((i % NANOSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_NANOSECOND);
+                    return LongTimestampWithTimeZone.fromEpochMillisAndFraction(i, picosOfMilli, UTC_KEY);
+                })
+                .collect(toImmutableList());
+    }
+
+    private static Object readTimestampTzValue(TimestampWithTimeZoneType type, Block block, int position)
+    {
+        if (type.isShort()) {
+            return type.getLong(block, position);
+        }
+        return type.getObject(block, position);
     }
 
     public static Stream<Arguments> testWriteBloomFiltersParams()
