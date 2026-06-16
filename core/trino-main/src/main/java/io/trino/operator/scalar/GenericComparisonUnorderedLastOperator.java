@@ -23,6 +23,9 @@ import io.trino.spi.type.TypeOperators;
 
 import java.lang.invoke.MethodHandle;
 
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TypeTemplates.typeVariable;
@@ -42,7 +45,7 @@ public class GenericComparisonUnorderedLastOperator
                         .argumentType(typeVariable("T"))
                         .argumentType(typeVariable("T"))
                         .build())
-                .neverFails()
+                .neverFails(boundSignature -> typeOperators.getComparisonUnorderedLastOperatorHandle(boundSignature.getArgumentType(0), simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL)).isNeverFails())
                 .build());
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
     }

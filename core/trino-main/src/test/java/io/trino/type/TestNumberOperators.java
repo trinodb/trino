@@ -2097,8 +2097,7 @@ public class TestNumberOperators
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN, "NUMBER '37'", "NUMBER '37'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
     }
 
     @Test
@@ -2574,8 +2573,7 @@ public class TestNumberOperators
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER '37'", "NUMBER '37'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
     }
 
     @Test

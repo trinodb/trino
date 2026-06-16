@@ -2977,8 +2977,7 @@ public class TestTimestampWithTimeZone
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN, "TIMESTAMP '2020-05-01 12:34:56 UTC'", "TIMESTAMP '2020-05-01 12:34:56 UTC'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
 
         assertThat(assertions.expression("a <= b")
                 .binding("a", "TIMESTAMP '2020-05-01 12:34:56 UTC'")
@@ -2986,8 +2985,7 @@ public class TestTimestampWithTimeZone
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIMESTAMP '2020-05-01 12:34:56 UTC'", "TIMESTAMP '2020-05-01 12:34:56 UTC'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
 
         // long (precision > 3 → LongTimestampWithTimeZoneType)
         assertThat(assertions.expression("a = b")
@@ -3004,8 +3002,7 @@ public class TestTimestampWithTimeZone
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN, "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'", "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
 
         assertThat(assertions.expression("a <= b")
                 .binding("a", "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'")
@@ -3013,8 +3010,7 @@ public class TestTimestampWithTimeZone
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'", "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
     }
 
     private BiFunction<Session, QueryRunner, Object> timestampWithTimeZone(int precision, int year, int month, int day, int hour, int minute, int second, long picoOfSecond, TimeZoneKey timeZoneKey)

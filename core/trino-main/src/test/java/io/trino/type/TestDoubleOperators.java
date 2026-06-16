@@ -382,8 +382,7 @@ public class TestDoubleOperators
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN, "37.7E0", "37.7E0"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
     }
 
     @Test
@@ -416,8 +415,7 @@ public class TestDoubleOperators
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "37.7E0", "37.7E0"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
     }
 
     @Test

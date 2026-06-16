@@ -3408,8 +3408,7 @@ public class TestTimestamp
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN, "TIMESTAMP '2001-1-22 03:04:05.321'", "TIMESTAMP '2001-1-22 03:04:05.321'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
 
         // long timestamp (precision > 6 → LongTimestampType)
         assertThat(assertions.expression("a < b")
@@ -3418,8 +3417,7 @@ public class TestTimestamp
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN, "TIMESTAMP '2020-05-01 12:34:56.123456789'", "TIMESTAMP '2020-05-01 12:34:56.123456789'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
     }
 
     @Test
@@ -3450,8 +3448,7 @@ public class TestTimestamp
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIMESTAMP '2001-1-22 03:04:05.321'", "TIMESTAMP '2001-1-22 03:04:05.321'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
 
         // long timestamp (precision > 6 → LongTimestampType)
         assertThat(assertions.expression("a <= b")
@@ -3460,8 +3457,7 @@ public class TestTimestamp
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIMESTAMP '2020-05-01 12:34:56.123456789'", "TIMESTAMP '2020-05-01 12:34:56.123456789'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
     }
 
     @Test

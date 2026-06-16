@@ -283,8 +283,7 @@ public class TestIntegerOperators
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN, "INTEGER '17'", "INTEGER '17'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
     }
 
     @Test
@@ -308,8 +307,7 @@ public class TestIntegerOperators
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "INTEGER '17'", "INTEGER '17'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
     }
 
     @Test
