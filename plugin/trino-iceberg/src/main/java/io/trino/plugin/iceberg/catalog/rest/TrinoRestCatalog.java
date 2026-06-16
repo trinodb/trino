@@ -432,7 +432,7 @@ public class TrinoRestCatalog
             Catalog.TableBuilder tableBuilder = restSessionCatalog.buildTable(convert(session), toRemoteTable(session, schemaTableName, true), schema)
                     .withPartitionSpec(partitionSpec)
                     .withSortOrder(sortOrder)
-                    .withProperties(properties);
+                    .withProperties(stripEmptyValues(properties));
             if (location.isEmpty()) {
                 // TODO Replace with createTransaction once S3 Tables supports stage-create option
                 return tableBuilder.create().newTransaction();
@@ -459,12 +459,19 @@ public class TrinoRestCatalog
                     .withPartitionSpec(partitionSpec)
                     .withSortOrder(sortOrder)
                     .withLocation(location)
-                    .withProperties(properties)
+                    .withProperties(stripEmptyValues(properties))
                     .createOrReplaceTransaction();
         }
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to create transaction", e);
         }
+    }
+
+    private static Map<String, String> stripEmptyValues(Map<String, String> properties)
+    {
+        return properties.entrySet().stream()
+                .filter(entry -> !entry.getValue().isEmpty())
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     @Override
