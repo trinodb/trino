@@ -23,14 +23,14 @@ public class AnyCatalogPermissionsRule
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> roleRegex;
     private final Optional<Pattern> groupRegex;
-    private final Optional<Pattern> catalogRegex;
+    private final Optional<UserSubstitutingPattern> catalogPattern;
 
-    public AnyCatalogPermissionsRule(Optional<Pattern> userRegex, Optional<Pattern> roleRegex, Optional<Pattern> groupRegex, Optional<Pattern> catalogRegex)
+    public AnyCatalogPermissionsRule(Optional<Pattern> userRegex, Optional<Pattern> roleRegex, Optional<Pattern> groupRegex, Optional<UserSubstitutingPattern> catalogPattern)
     {
         this.userRegex = userRegex;
         this.roleRegex = roleRegex;
         this.groupRegex = groupRegex;
-        this.catalogRegex = catalogRegex;
+        this.catalogPattern = catalogPattern;
     }
 
     public boolean match(String user, Set<String> roles, Set<String> groups, String catalog)
@@ -38,7 +38,8 @@ public class AnyCatalogPermissionsRule
         return userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
                 roleRegex.map(regex -> roles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
                 groupRegex.map(regex -> groups.stream().anyMatch(group -> regex.matcher(group).matches())).orElse(true) &&
-                catalogRegex.map(regex -> regex.matcher(catalog).matches()).orElse(true);
+                // A {user}-bearing catalog pattern may match after substitution — treat as potentially matching
+                catalogPattern.map(p -> p.hasUserPlaceholder() || p.matches(user, catalog)).orElse(true);
     }
 
     @Override
@@ -54,7 +55,9 @@ public class AnyCatalogPermissionsRule
         return patternEquals(userRegex, that.userRegex) &&
                 patternEquals(roleRegex, that.roleRegex) &&
                 patternEquals(groupRegex, that.groupRegex) &&
-                patternEquals(catalogRegex, that.catalogRegex);
+                Objects.equals(
+                        catalogPattern.map(UserSubstitutingPattern::raw),
+                        that.catalogPattern.map(UserSubstitutingPattern::raw));
     }
 
     private static boolean patternEquals(Optional<Pattern> left, Optional<Pattern> right)
@@ -70,6 +73,6 @@ public class AnyCatalogPermissionsRule
     @Override
     public int hashCode()
     {
-        return Objects.hash(userRegex, roleRegex, groupRegex, catalogRegex);
+        return Objects.hash(userRegex, roleRegex, groupRegex, catalogPattern.map(UserSubstitutingPattern::raw));
     }
 }

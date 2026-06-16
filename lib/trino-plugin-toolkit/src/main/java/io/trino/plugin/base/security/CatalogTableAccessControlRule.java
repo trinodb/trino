@@ -15,6 +15,7 @@ package io.trino.plugin.base.security;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.security.ViewExpression;
@@ -31,7 +32,7 @@ public class CatalogTableAccessControlRule
     public static final CatalogTableAccessControlRule ALLOW_ALL = new CatalogTableAccessControlRule(TableAccessControlRule.ALLOW_ALL, Optional.empty());
 
     private final TableAccessControlRule tableAccessControlRule;
-    private final Optional<Pattern> catalogRegex;
+    private final Optional<UserSubstitutingPattern> catalogPattern;
 
     @JsonCreator
     public CatalogTableAccessControlRule(
@@ -42,23 +43,23 @@ public class CatalogTableAccessControlRule
             @JsonProperty("user") Optional<Pattern> userRegex,
             @JsonProperty("role") Optional<Pattern> roleRegex,
             @JsonProperty("group") Optional<Pattern> groupRegex,
-            @JsonProperty("schema") Optional<Pattern> schemaRegex,
-            @JsonProperty("table") Optional<Pattern> tableRegex,
-            @JsonProperty("catalog") Optional<Pattern> catalogRegex)
+            @JsonProperty("schema") @JsonDeserialize(contentUsing = UserSubstitutingPattern.Deserializer.class) Optional<UserSubstitutingPattern> schemaPattern,
+            @JsonProperty("table") @JsonDeserialize(contentUsing = UserSubstitutingPattern.Deserializer.class) Optional<UserSubstitutingPattern> tablePattern,
+            @JsonProperty("catalog") @JsonDeserialize(contentUsing = UserSubstitutingPattern.Deserializer.class) Optional<UserSubstitutingPattern> catalogPattern)
     {
-        this.tableAccessControlRule = new TableAccessControlRule(privileges, columns, filter, filterEnvironment, userRegex, roleRegex, groupRegex, schemaRegex, tableRegex);
-        this.catalogRegex = requireNonNull(catalogRegex, "catalogRegex is null");
+        this.tableAccessControlRule = new TableAccessControlRule(privileges, columns, filter, filterEnvironment, userRegex, roleRegex, groupRegex, schemaPattern, tablePattern);
+        this.catalogPattern = requireNonNull(catalogPattern, "catalogPattern is null");
     }
 
-    public CatalogTableAccessControlRule(TableAccessControlRule tableAccessControlRule, Optional<Pattern> catalogRegex)
+    public CatalogTableAccessControlRule(TableAccessControlRule tableAccessControlRule, Optional<UserSubstitutingPattern> catalogPattern)
     {
         this.tableAccessControlRule = tableAccessControlRule;
-        this.catalogRegex = catalogRegex;
+        this.catalogPattern = catalogPattern;
     }
 
     public boolean matches(String user, Set<String> roles, Set<String> groups, CatalogSchemaTableName table)
     {
-        if (!catalogRegex.map(regex -> regex.matcher(table.getCatalogName()).matches()).orElse(true)) {
+        if (!catalogPattern.map(p -> p.matches(user, table.getCatalogName())).orElse(true)) {
             return false;
         }
         return tableAccessControlRule.matches(user, roles, groups, table.getSchemaTableName());
@@ -98,7 +99,7 @@ public class CatalogTableAccessControlRule
                 tableAccessControlRule.getUserRegex(),
                 tableAccessControlRule.getRoleRegex(),
                 tableAccessControlRule.getGroupRegex(),
-                catalogRegex));
+                catalogPattern));
     }
 
     Optional<AnyCatalogSchemaPermissionsRule> toAnyCatalogSchemaPermissionsRule()
@@ -110,7 +111,7 @@ public class CatalogTableAccessControlRule
                 tableAccessControlRule.getUserRegex(),
                 tableAccessControlRule.getRoleRegex(),
                 tableAccessControlRule.getGroupRegex(),
-                catalogRegex,
-                tableAccessControlRule.getSchemaRegex()));
+                catalogPattern,
+                tableAccessControlRule.getSchemaPattern()));
     }
 }
