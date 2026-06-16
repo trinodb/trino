@@ -17,11 +17,10 @@ import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryPerformanceFetcher;
 import io.trino.execution.StageInfo;
 import io.trino.execution.StagesInfo;
-import io.trino.metadata.FunctionManager;
-import io.trino.metadata.Metadata;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
@@ -41,8 +40,7 @@ public class ExplainAnalyzeOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final QueryPerformanceFetcher queryPerformanceFetcher;
-        private final Metadata metadata;
-        private final FunctionManager functionManager;
+        private final PlannerContext plannerContext;
         private final boolean verbose;
         private final NodeVersion version;
         private boolean closed;
@@ -51,16 +49,14 @@ public class ExplainAnalyzeOperator
                 int operatorId,
                 PlanNodeId planNodeId,
                 QueryPerformanceFetcher queryPerformanceFetcher,
-                Metadata metadata,
-                FunctionManager functionManager,
+                PlannerContext plannerContext,
                 boolean verbose,
                 NodeVersion version)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
-            this.metadata = requireNonNull(metadata, "metadata is null");
-            this.functionManager = requireNonNull(functionManager, "functionManager is null");
+            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.verbose = verbose;
             this.version = requireNonNull(version, "version is null");
         }
@@ -70,7 +66,7 @@ public class ExplainAnalyzeOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ExplainAnalyzeOperator.class.getSimpleName());
-            return new ExplainAnalyzeOperator(operatorContext, queryPerformanceFetcher, metadata, functionManager, verbose, version);
+            return new ExplainAnalyzeOperator(operatorContext, queryPerformanceFetcher, plannerContext, verbose, version);
         }
 
         @Override
@@ -82,14 +78,13 @@ public class ExplainAnalyzeOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new ExplainAnalyzeOperatorFactory(operatorId, planNodeId, queryPerformanceFetcher, metadata, functionManager, verbose, version);
+            return new ExplainAnalyzeOperatorFactory(operatorId, planNodeId, queryPerformanceFetcher, plannerContext, verbose, version);
         }
     }
 
     private final OperatorContext operatorContext;
     private final QueryPerformanceFetcher queryPerformanceFetcher;
-    private final Metadata metadata;
-    private final FunctionManager functionManager;
+    private final PlannerContext plannerContext;
     private final boolean verbose;
     private final NodeVersion version;
     private boolean finishing;
@@ -98,15 +93,13 @@ public class ExplainAnalyzeOperator
     public ExplainAnalyzeOperator(
             OperatorContext operatorContext,
             QueryPerformanceFetcher queryPerformanceFetcher,
-            Metadata metadata,
-            FunctionManager functionManager,
+            PlannerContext plannerContext,
             boolean verbose,
             NodeVersion version)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.verbose = verbose;
         this.version = requireNonNull(version, "version is null");
     }
@@ -164,8 +157,7 @@ public class ExplainAnalyzeOperator
         String plan = textDistributedPlan(
                 stagesWithoutOutputStage,
                 queryInfo.getQueryStats(),
-                metadata,
-                functionManager,
+                plannerContext,
                 operatorContext.getSession(),
                 verbose,
                 version);

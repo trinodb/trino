@@ -247,6 +247,16 @@ public abstract class AbstractDistributedEngineOnlyQueries
     }
 
     @Test
+    public void testExplainAnalyzeVerboseExpressionFailability()
+    {
+        // The divisor (regionkey + 1) is never zero at runtime, so the query succeeds, but the division is
+        // statically failable and the verbose plan annotates the projection accordingly.
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT nationkey / (regionkey + 1) FROM nation",
+                ":= .*\\(faillible\\)");
+    }
+
+    @Test
     public void testExplainAnalyzeTopLevelTimes()
     {
         assertExplainAnalyze(

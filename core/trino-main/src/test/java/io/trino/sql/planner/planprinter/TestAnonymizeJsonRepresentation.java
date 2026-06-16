@@ -246,7 +246,8 @@ public class TestAnonymizeJsonRepresentation
                     Optional.empty(),
                     ImmutableMap.of(),
                     ImmutableMap.of(),
-                    new CounterBasedAnonymizer())
+                    new CounterBasedAnonymizer(),
+                    _ -> false)
                     .toJson();
             assertThat(jsonRenderedNode).isEqualTo(JSON_RENDERED_NODE_CODEC.toJson(expectedRepresentation));
             return null;

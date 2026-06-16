@@ -955,8 +955,7 @@ public class LocalExecutionPlanner
                     context.getNextOperatorId(),
                     node.getId(),
                     analyzeContext.getQueryPerformanceFetcher(),
-                    metadata,
-                    plannerContext.getFunctionManager(),
+                    plannerContext,
                     node.isVerbose(),
                     version);
             return new PhysicalOperation(operatorFactory, makeLayout(node), source);
