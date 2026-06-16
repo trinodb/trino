@@ -24,73 +24,9 @@ import static io.trino.sql.ir.IrUtils.validateType;
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
-public record Comparison(Operator operator, Expression left, Expression right)
+public record Comparison(ComparisonOperator operator, Expression left, Expression right)
         implements Expression
 {
-    public enum Operator
-    {
-        EQUAL("="),
-        NOT_EQUAL("<>"),
-        LESS_THAN("<"),
-        LESS_THAN_OR_EQUAL("<="),
-        GREATER_THAN(">"),
-        GREATER_THAN_OR_EQUAL(">="),
-        IDENTICAL("≡");
-
-        private final String value;
-
-        Operator(String value)
-        {
-            this.value = value;
-        }
-
-        public String getValue()
-        {
-            return value;
-        }
-
-        public Operator flip()
-        {
-            return switch (this) {
-                case EQUAL -> EQUAL;
-                case NOT_EQUAL -> NOT_EQUAL;
-                case LESS_THAN -> GREATER_THAN;
-                case LESS_THAN_OR_EQUAL -> GREATER_THAN_OR_EQUAL;
-                case GREATER_THAN -> LESS_THAN;
-                case GREATER_THAN_OR_EQUAL -> LESS_THAN_OR_EQUAL;
-                case IDENTICAL -> IDENTICAL;
-            };
-        }
-
-        public Operator negate()
-        {
-            switch (this) {
-                case EQUAL -> {
-                    return NOT_EQUAL;
-                }
-                case NOT_EQUAL -> {
-                    return EQUAL;
-                }
-                case LESS_THAN -> {
-                    return GREATER_THAN_OR_EQUAL;
-                }
-                case LESS_THAN_OR_EQUAL -> {
-                    return GREATER_THAN;
-                }
-                case GREATER_THAN -> {
-                    return LESS_THAN_OR_EQUAL;
-                }
-                case GREATER_THAN_OR_EQUAL -> {
-                    return LESS_THAN;
-                }
-                case IDENTICAL -> {
-                    // Cannot negate
-                }
-            }
-            throw new IllegalArgumentException("Unsupported comparison: " + this);
-        }
-    }
-
     public Comparison
     {
         requireNonNull(operator, "operator is null");

@@ -20,6 +20,7 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Logical;
@@ -30,10 +31,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.ir.Comparison.Operator;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.and;
@@ -279,7 +279,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 }).doesNotFire();
     }
 
-    private static Comparison comparison(Operator operator, Expression left, Expression right)
+    private static Comparison comparison(ComparisonOperator operator, Expression left, Expression right)
     {
         return new Comparison(operator, left, right);
     }

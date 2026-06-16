@@ -31,7 +31,7 @@ import java.util.Optional;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
 import static io.trino.sql.ir.IrExpressions.mayBeNull;
 import static io.trino.sql.ir.IrExpressions.mayFail;
 import static io.trino.sql.ir.Logical.Operator.OR;

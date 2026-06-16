@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.Reference;
@@ -207,14 +208,14 @@ public class EqualityInference
             if (scopeExpressions.size() >= 2) {
                 scopeExpressions.stream()
                         .filter(expression -> !expression.equals(matchingCanonical))
-                        .map(expression -> new Comparison(Comparison.Operator.EQUAL, matchingCanonical, expression))
+                        .map(expression -> new Comparison(ComparisonOperator.EQUAL, matchingCanonical, expression))
                         .forEach(scopeEqualities::add);
             }
             Expression complementCanonical = getCanonical(scopeComplementExpressions.stream());
             if (scopeComplementExpressions.size() >= 2) {
                 scopeComplementExpressions.stream()
                         .filter(expression -> !expression.equals(complementCanonical))
-                        .map(expression -> new Comparison(Comparison.Operator.EQUAL, complementCanonical, expression))
+                        .map(expression -> new Comparison(ComparisonOperator.EQUAL, complementCanonical, expression))
                         .forEach(scopeComplementEqualities::add);
             }
 
@@ -228,7 +229,7 @@ public class EqualityInference
                     .filter(expression -> SymbolsExtractor.extractAll(expression).isEmpty() || rewrite(expression, scope::contains, false) == null)
                     .min(canonicalComparator);
             if (matchingConnecting.isPresent() && complementConnecting.isPresent() && !matchingConnecting.equals(complementConnecting)) {
-                scopeStraddlingEqualities.add(new Comparison(Comparison.Operator.EQUAL, matchingConnecting.get(), complementConnecting.get()));
+                scopeStraddlingEqualities.add(new Comparison(ComparisonOperator.EQUAL, matchingConnecting.get(), complementConnecting.get()));
             }
 
             // Compile the scope straddling equality expressions.
@@ -247,7 +248,7 @@ public class EqualityInference
             if (connectingCanonical != null) {
                 straddlingExpressions.stream()
                         .filter(expression -> !expression.equals(connectingCanonical))
-                        .map(expression -> new Comparison(Comparison.Operator.EQUAL, connectingCanonical, expression))
+                        .map(expression -> new Comparison(ComparisonOperator.EQUAL, connectingCanonical, expression))
                         .forEach(scopeStraddlingEqualities::add);
             }
         }
@@ -263,7 +264,7 @@ public class EqualityInference
         if (expression instanceof Comparison comparison &&
                 isDeterministic(expression) &&
                 !mayReturnNullOnNonNullInput(plannerContext, expression)) {
-            if (comparison.operator() == Comparison.Operator.EQUAL) {
+            if (comparison.operator() == ComparisonOperator.EQUAL) {
                 // We should only consider equalities that have distinct left and right components
                 return !comparison.left().equals(comparison.right());
             }

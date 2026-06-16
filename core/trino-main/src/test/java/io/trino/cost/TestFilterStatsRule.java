@@ -27,7 +27,7 @@ import org.junit.jupiter.api.TestInstance;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 

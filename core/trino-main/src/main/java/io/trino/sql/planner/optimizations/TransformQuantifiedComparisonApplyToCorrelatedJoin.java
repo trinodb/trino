@@ -20,6 +20,7 @@ import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrUtils;
@@ -49,12 +50,12 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.equalityClause;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
@@ -225,7 +226,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
             throw new IllegalArgumentException("Unsupported quantified comparison: " + quantifiedComparison);
         }
 
-        private static Comparison.Operator mapOperator(ApplyNode.QuantifiedComparison quantifiedComparison)
+        private static ComparisonOperator mapOperator(ApplyNode.QuantifiedComparison quantifiedComparison)
         {
             return switch (quantifiedComparison.operator()) {
                 case EQUAL -> EQUAL;

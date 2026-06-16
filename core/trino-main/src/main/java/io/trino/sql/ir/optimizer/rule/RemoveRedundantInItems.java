@@ -20,6 +20,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
@@ -99,7 +100,7 @@ public class RemoveRedundantInItems
                 .build();
 
         if (newItems.size() == 1) {
-            return Optional.of(new Comparison(Comparison.Operator.EQUAL, value, newItems.getFirst()));
+            return Optional.of(new Comparison(ComparisonOperator.EQUAL, value, newItems.getFirst()));
         }
 
         return Optional.of(new In(value, newItems));

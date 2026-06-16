@@ -30,7 +30,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;

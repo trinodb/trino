@@ -41,6 +41,7 @@ import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
@@ -193,8 +194,8 @@ public class TestConnectorExpressionTranslator
                     new Logical(
                             operator,
                             List.of(
-                                    new Comparison(Comparison.Operator.LESS_THAN, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")),
-                                    new Comparison(Comparison.Operator.EQUAL, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")))),
+                                    new Comparison(ComparisonOperator.LESS_THAN, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")),
+                                    new Comparison(ComparisonOperator.EQUAL, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")))),
                     new io.trino.spi.expression.Call(
                             BOOLEAN,
                             operator == Logical.Operator.AND ? StandardFunctions.AND_FUNCTION_NAME : StandardFunctions.OR_FUNCTION_NAME,
@@ -219,7 +220,7 @@ public class TestConnectorExpressionTranslator
                         Logical.Operator.AND,
                         List.of(
                                 new Constant(BOOLEAN, true),
-                                new Comparison(Comparison.Operator.EQUAL, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")))),
+                                new Comparison(ComparisonOperator.EQUAL, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")))),
                 new io.trino.spi.expression.Call(
                         BOOLEAN,
                         StandardFunctions.AND_FUNCTION_NAME,
@@ -233,7 +234,7 @@ public class TestConnectorExpressionTranslator
     @Test
     public void testTranslateComparisonExpression()
     {
-        for (Comparison.Operator operator : Comparison.Operator.values()) {
+        for (ComparisonOperator operator : ComparisonOperator.values()) {
             assertTranslationRoundTrips(
                     new Comparison(operator, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")),
                     new io.trino.spi.expression.Call(

@@ -16,6 +16,7 @@ package io.trino.sql.ir.optimizer.rule;
 import io.trino.Session;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
@@ -26,10 +27,10 @@ import io.trino.sql.planner.Symbol;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 
 /**
  * Transforms:
@@ -44,12 +45,12 @@ public class DistributeComparisonOverCase
     @Override
     public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
     {
-        if (expression instanceof Comparison(Comparison.Operator operator, Case caseTerm, Expression target) &&
+        if (expression instanceof Comparison(ComparisonOperator operator, Case caseTerm, Expression target) &&
                 (target instanceof Reference || target instanceof Constant)) {
             return Optional.of(distribute(operator, caseTerm, target));
         }
 
-        if (expression instanceof Comparison(Comparison.Operator operator, Expression target, Case caseTerm) &&
+        if (expression instanceof Comparison(ComparisonOperator operator, Expression target, Case caseTerm) &&
                 (target instanceof Reference || target instanceof Constant)) {
             return Optional.of(distribute(flipOperator(operator), caseTerm, target));
         }
@@ -57,7 +58,7 @@ public class DistributeComparisonOverCase
         return Optional.empty();
     }
 
-    private Comparison.Operator flipOperator(Comparison.Operator operator)
+    private ComparisonOperator flipOperator(ComparisonOperator operator)
     {
         return switch (operator) {
             case IDENTICAL, EQUAL, NOT_EQUAL -> operator;
@@ -68,7 +69,7 @@ public class DistributeComparisonOverCase
         };
     }
 
-    private Expression distribute(Comparison.Operator operator, Case caseTerm, Expression target)
+    private Expression distribute(ComparisonOperator operator, Case caseTerm, Expression target)
     {
         return new Case(
                 caseTerm.whenClauses().stream()

@@ -25,6 +25,7 @@ import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -57,9 +58,9 @@ import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
@@ -339,7 +340,7 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitComparison(Comparison node, Void context)
         {
-            Comparison.Operator operator = node.operator();
+            ComparisonOperator operator = node.operator();
             Expression left = node.left();
             Expression right = node.right();
 

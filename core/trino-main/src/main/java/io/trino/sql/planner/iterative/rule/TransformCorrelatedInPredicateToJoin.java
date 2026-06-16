@@ -21,6 +21,7 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrUtils;
@@ -178,7 +179,7 @@ public class TransformCorrelatedInPredicateToJoin
         Expression joinExpression = and(
                 or(
                         new IsNull(probeSideSymbol.toSymbolReference()),
-                        new Comparison(Comparison.Operator.EQUAL, probeSideSymbol.toSymbolReference(), buildSideSymbol.toSymbolReference()),
+                        new Comparison(ComparisonOperator.EQUAL, probeSideSymbol.toSymbolReference(), buildSideSymbol.toSymbolReference()),
                         new IsNull(buildSideSymbol.toSymbolReference())),
                 correlationCondition);
 
@@ -262,7 +263,7 @@ public class TransformCorrelatedInPredicateToJoin
     private static Expression isGreaterThan(Symbol symbol, long value)
     {
         return new Comparison(
-                Comparison.Operator.GREATER_THAN,
+                ComparisonOperator.GREATER_THAN,
                 symbol.toSymbolReference(),
                 bigint(value));
     }

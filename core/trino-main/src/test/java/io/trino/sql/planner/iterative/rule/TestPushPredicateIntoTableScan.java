@@ -48,6 +48,7 @@ import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Logical;
@@ -75,7 +76,7 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -378,14 +379,14 @@ public class TestPushPredicateIntoTableScan
                     Symbol array = p.symbol("array_col", BIGINT_ARRAY);
                     Symbol capture = p.symbol("capture_col", BIGINT);
                     return p.filter(
-                            anyMatch(Comparison.Operator.GREATER_THAN_OR_EQUAL),
+                            anyMatch(ComparisonOperator.GREATER_THAN_OR_EQUAL),
                             p.tableScan(
                                     mockTableHandle(CONNECTOR_LAMBDA_TABLE_HANDLE),
                                     ImmutableList.of(array, capture),
                                     ImmutableMap.of(array, arrayColumn, capture, captureColumn)));
                 })
                 .matches(node(FilterNode.class, tableScan("lambda"))
-                        .with(FilterNode.class, filter -> filter.getPredicate().equals(desugaredAnyMatch(Comparison.Operator.GREATER_THAN))));
+                        .with(FilterNode.class, filter -> filter.getPredicate().equals(desugaredAnyMatch(ComparisonOperator.GREATER_THAN))));
     }
 
     @Test
@@ -451,7 +452,7 @@ public class TestPushPredicateIntoTableScan
                 .matches(values(ImmutableList.of("A"), ImmutableList.of()));
     }
 
-    private static Expression anyMatch(Comparison.Operator operator)
+    private static Expression anyMatch(ComparisonOperator operator)
     {
         Symbol lambdaCapture = new Symbol(BIGINT, "capture");
         Symbol lambdaArgument = new Symbol(BIGINT, "x");
@@ -466,7 +467,7 @@ public class TestPushPredicateIntoTableScan
                                         new Comparison(operator, lambdaArgument.toSymbolReference(), lambdaCapture.toSymbolReference())))));
     }
 
-    private static Expression desugaredAnyMatch(Comparison.Operator operator)
+    private static Expression desugaredAnyMatch(ComparisonOperator operator)
     {
         Symbol lambdaCapture = new Symbol(BIGINT, "capture_col_0");
         Symbol lambdaArgument = new Symbol(BIGINT, "x");

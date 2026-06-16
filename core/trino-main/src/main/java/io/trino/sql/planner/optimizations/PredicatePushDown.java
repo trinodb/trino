@@ -28,7 +28,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.Comparison;
-import io.trino.sql.ir.Comparison.Operator;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
@@ -88,12 +88,12 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.mayFail;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
@@ -113,7 +113,7 @@ import static java.util.Objects.requireNonNull;
 public class PredicatePushDown
         implements PlanOptimizer
 {
-    private static final Set<Operator> DYNAMIC_FILTERING_SUPPORTED_COMPARISONS = ImmutableSet.of(
+    private static final Set<ComparisonOperator> DYNAMIC_FILTERING_SUPPORTED_COMPARISONS = ImmutableSet.of(
             EQUAL,
             GREATER_THAN,
             GREATER_THAN_OR_EQUAL,
@@ -1273,7 +1273,7 @@ public class PredicatePushDown
 
         private boolean joinDynamicFilteringExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols)
         {
-            if (!(expression instanceof Comparison(Operator operator, Expression left, Expression right)) || !isDeterministic(expression)) {
+            if (!(expression instanceof Comparison(ComparisonOperator operator, Expression left, Expression right)) || !isDeterministic(expression)) {
                 return false;
             }
 

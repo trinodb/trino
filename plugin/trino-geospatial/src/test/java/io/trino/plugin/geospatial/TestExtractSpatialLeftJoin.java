@@ -19,6 +19,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
@@ -33,7 +34,7 @@ import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRA
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
-import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -105,7 +106,7 @@ public class TestExtractSpatialLeftJoin
                             p.values(a),
                             p.values(b),
                             new Comparison(
-                                    Comparison.Operator.GREATER_THAN,
+                                    ComparisonOperator.GREATER_THAN,
                                     distanceCall(a.toSymbolReference(), b.toSymbolReference()),
                                     new Constant(DOUBLE, 5.0)));
                 })
@@ -120,7 +121,7 @@ public class TestExtractSpatialLeftJoin
                             p.values(a),
                             p.values(b),
                             new Comparison(
-                                    Comparison.Operator.GREATER_THAN,
+                                    ComparisonOperator.GREATER_THAN,
                                     sphericalDistanceCall(a.toSymbolReference(), b.toSymbolReference()),
                                     new Constant(DOUBLE, 5.0)));
                 })
@@ -135,7 +136,7 @@ public class TestExtractSpatialLeftJoin
                             p.values(wkt),
                             p.values(point),
                             new Comparison(
-                                    Comparison.Operator.GREATER_THAN,
+                                    ComparisonOperator.GREATER_THAN,
                                     sphericalDistanceCall(toSphericalGeographyCall(wkt), point.toSymbolReference()),
                                     new Constant(DOUBLE, 5.0)));
                 })
