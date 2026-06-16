@@ -385,37 +385,48 @@ public final class TypeOperatorDeclaration
                     throw new RuntimeException(e);
                 }
 
+                boolean neverFails = scalarOperator.neverFails();
                 switch (operatorType) {
                     case READ_VALUE -> addReadValueOperator(new OperatorMethodHandle(
                             parseInvocationConvention(operatorType, typeJavaType, method, typeJavaType),
-                            methodHandle));
+                            methodHandle,
+                            neverFails));
                     case EQUAL -> addEqualOperator(new OperatorMethodHandle(
                             parseInvocationConvention(operatorType, typeJavaType, method, boolean.class),
-                            methodHandle));
+                            methodHandle,
+                            neverFails));
                     case HASH_CODE -> addHashCodeOperator(new OperatorMethodHandle(
                             parseInvocationConvention(operatorType, typeJavaType, method, long.class),
-                            methodHandle));
+                            methodHandle,
+                            neverFails));
                     case XX_HASH_64 -> addXxHash64Operator(new OperatorMethodHandle(
                             parseInvocationConvention(operatorType, typeJavaType, method, long.class),
-                            methodHandle));
+                            methodHandle,
+                            neverFails));
                     case IDENTICAL -> addIdenticalOperator(new OperatorMethodHandle(
                             parseInvocationConvention(operatorType, typeJavaType, method, boolean.class),
-                            methodHandle));
+                            methodHandle,
+                            neverFails));
                     case INDETERMINATE -> addIndeterminateOperator(new OperatorMethodHandle(
                             parseInvocationConvention(operatorType, typeJavaType, method, boolean.class),
-                            methodHandle));
+                            methodHandle,
+                            neverFails));
                     case COMPARISON_UNORDERED_LAST -> addComparisonUnorderedLastOperator(new OperatorMethodHandle(
                             parseInvocationConvention(operatorType, typeJavaType, method, long.class),
-                            methodHandle));
+                            methodHandle,
+                            neverFails));
                     case COMPARISON_UNORDERED_FIRST -> addComparisonUnorderedFirstOperator(new OperatorMethodHandle(
                             parseInvocationConvention(operatorType, typeJavaType, method, long.class),
-                            methodHandle));
+                            methodHandle,
+                            neverFails));
                     case LESS_THAN -> addLessThanOperator(new OperatorMethodHandle(
                             parseInvocationConvention(operatorType, typeJavaType, method, boolean.class),
-                            methodHandle));
+                            methodHandle,
+                            neverFails));
                     case LESS_THAN_OR_EQUAL -> addLessThanOrEqualOperator(new OperatorMethodHandle(
                             parseInvocationConvention(operatorType, typeJavaType, method, boolean.class),
-                            methodHandle));
+                            methodHandle,
+                            neverFails));
                     default -> throw new IllegalArgumentException(operatorType + " operator is not supported: " + method);
                 }
                 addedOperator = true;
