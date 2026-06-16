@@ -219,6 +219,35 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC, ICEBERG_NESSIE})
+    public void testTrinoReadingSparkWriteTableProperties()
+    {
+        String baseTableName = toLowerCase("test_trino_reading_spark_write_table_properties_" + randomNameSuffix());
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
+
+        onSpark().executeQuery(format(
+                "CREATE TABLE %s (a INT) USING ICEBERG " +
+                        "TBLPROPERTIES (" +
+                        "  'write.target-file-size-bytes' = '%s'," +
+                        "  'write.parquet.row-group-size-bytes' = '%s'" +
+                        ")",
+                sparkTableName,
+                100L * 1024 * 1024,
+                4L * 1024 * 1024));
+
+        try {
+            assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + trinoTableName).getOnlyValue())
+                    .contains("target_max_file_size = '100MB'")
+                    .contains("parquet_writer_row_group_size = '4MB'");
+        }
+        finally {
+            onSpark().executeQuery("DROP TABLE " + sparkTableName);
+        }
+    }
+
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC, ICEBERG_NESSIE}, dataProvider = "testSparkReadingTrinoDataDataProvider")
     public void testSparkReadingTrinoData(StorageFormat storageFormat, CreateMode createMode)
     {

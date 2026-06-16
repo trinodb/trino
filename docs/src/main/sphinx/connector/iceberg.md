@@ -1142,6 +1142,16 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
     Defaults to `false`. 
 * - `data_location`
   - Optionally specifies the file system location URI for the table's data files
+* - `target_max_file_size`
+  - Target maximum [](prop-type-data-size) of written files; the actual size may
+    be larger.
+    Defaults to the value of the `iceberg.target-max-file-size` catalog
+    configuration property.
+* - `parquet_writer_row_group_size`
+  - Target maximum [](prop-type-data-size) of a Parquet row group for files
+    written by this table.
+    Defaults to the value of the `parquet.writer.row-group-size` Parquet
+    writer configuration property.
 * - `extra_properties`
   - Additional properties added to an Iceberg table. The properties are not used by Trino,
     and are available in the `$properties` metadata table.

@@ -250,7 +250,7 @@ public class TestIcebergSplitSource
     {
         assertUpdate(
                 withSmallRowGroups(getSession()),
-                "CREATE TABLE test_row_group_merging WITH (format = 'PARQUET') AS SELECT * FROM tpch.tiny.nation",
+                "CREATE TABLE test_row_group_merging WITH (format = 'PARQUET', parquet_writer_row_group_size = '1kB') AS SELECT * FROM tpch.tiny.nation",
                 25);
         try {
             SchemaTableName schemaTableName = new SchemaTableName("tpch", "test_row_group_merging");
