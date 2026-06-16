@@ -16,6 +16,7 @@ package io.trino.sql.ir;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
@@ -28,6 +29,7 @@ import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.PlannerContext;
 import io.trino.type.TypeCoercion;
 
@@ -37,6 +39,9 @@ import java.util.List;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -167,7 +172,7 @@ public final class IrExpressions
                     mayFail(plannerContext, e.defaultValue());
             case Cast e -> mayFail(plannerContext, e);
             case Coalesce e -> e.operands().stream().anyMatch(argument -> mayFail(plannerContext, argument));
-            case Comparison e -> mayFail(plannerContext, e.left()) || mayFail(plannerContext, e.right());
+            case Comparison e -> mayFail(plannerContext, e) || mayFail(plannerContext, e.left()) || mayFail(plannerContext, e.right());
             case In e -> mayFail(plannerContext, e.value()) || e.valueList().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case IsNull e -> mayFail(plannerContext, e.value());
             case Logical e -> e.terms().stream().anyMatch(argument -> mayFail(plannerContext, argument));
@@ -175,6 +180,19 @@ public final class IrExpressions
             case Row e -> e.items().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case Switch e -> mayFail(plannerContext, e.operand()) || e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, clause.getOperand()) || mayFail(plannerContext, clause.getResult())) ||
                     mayFail(plannerContext, e.defaultValue());
+        };
+    }
+
+    private static boolean mayFail(PlannerContext plannerContext, Comparison comparison)
+    {
+        TypeOperators typeOperators = plannerContext.getTypeOperators();
+        Type operandType = comparison.left().type();
+        InvocationConvention convention = simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL);
+        return switch (comparison.operator()) {
+            // Required to be infallible
+            case EQUAL, NOT_EQUAL, IDENTICAL -> false;
+            case LESS_THAN, GREATER_THAN -> !typeOperators.getLessThanOperatorHandle(operandType, convention).isNeverFails();
+            case LESS_THAN_OR_EQUAL, GREATER_THAN_OR_EQUAL -> !typeOperators.getLessThanOrEqualOperatorHandle(operandType, convention).isNeverFails();
         };
     }
 
