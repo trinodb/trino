@@ -689,11 +689,15 @@ public class TrinoRestCatalog
                 .withProperties(properties.buildOrThrow())
                 .withLocation(viewLocation);
         try {
+            View view;
             if (replace) {
-                viewBuilder.createOrReplace();
+                view = viewBuilder.createOrReplace();
             }
             else {
-                viewBuilder.create();
+                view = viewBuilder.create();
+            }
+            if (replace && definition.getOwner().isEmpty() && view.properties().containsKey(ICEBERG_VIEW_RUN_AS_OWNER)) {
+                view.updateProperties().remove(ICEBERG_VIEW_RUN_AS_OWNER).commit();
             }
         }
         catch (RESTException e) {

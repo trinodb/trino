@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.catalog.jdbc;
 
 import io.trino.plugin.iceberg.catalog.jdbc.IcebergJdbcCatalogConfig.SchemaVersion;
+import org.junit.jupiter.api.Test;
 
 final class TestIcebergJdbcCatalogV1SchemaConnectorSmokeTest
         extends BaseIcebergJdbcCatalogConnectorSmokeTest
@@ -21,5 +22,11 @@ final class TestIcebergJdbcCatalogV1SchemaConnectorSmokeTest
     public TestIcebergJdbcCatalogV1SchemaConnectorSmokeTest()
     {
         super(SchemaVersion.V1);
+    }
+
+    @Test
+    void testCreateOrReplaceViewClearsRunAsOwner()
+    {
+        assertCreateOrReplaceViewClearsRunAsOwner();
     }
 }
