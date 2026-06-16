@@ -316,7 +316,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 "WITH (location = '" + getLocationForTable(bucketName, tableName) + "', partitioned_by = ARRAY['b'])");
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a', TIMESTAMP '2020-01-01 01:22:34.000 UTC')", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'b', TIMESTAMP '2021-01-01 01:22:34.000 UTC')", 1);
-        assertQuery("SELECT a, b, CAST(c AS VARCHAR) FROM " + tableName, "VALUES (1, 'a', '2020-01-01 01:22:34.000 UTC'), (2, 'b', '2021-01-01 01:22:34.000 UTC')");
+        assertQuery("SELECT a, b, CAST(c AS VARCHAR) FROM " + tableName, "VALUES (1, 'a', '2020-01-01 01:22:34.000000 UTC'), (2, 'b', '2021-01-01 01:22:34.000000 UTC')");
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -908,9 +908,9 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 3);
         assertQuery(
                 "SELECT CAST(ts_tz AS VARCHAR) FROM " + tableName,
-                "VALUES '2012-10-31 05:00:00.123 UTC', " +
-                        "'2012-10-31 08:00:00.123 UTC', " +
-                        "'2012-10-31 01:00:00.123 UTC'");
+                "VALUES '2012-10-31 05:00:00.123000 UTC', " +
+                        "'2012-10-31 08:00:00.123000 UTC', " +
+                        "'2012-10-31 01:00:00.123000 UTC'");
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -918,11 +918,16 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testTimestampWithTimeZoneMicro()
     {
         String tableName = "test_timestamp_with_time_zone_micro_" + randomNameSuffix();
-        assertQueryFails(
+        assertUpdate(
                 format("CREATE TABLE " + tableName + " (ts_tz) WITH (location = '%s') AS " +
                                 "VALUES timestamp '2012-10-31 01:00:00.123456 America/New_York', timestamp '2012-10-31 01:00:00.123456 America/Los_Angeles'",
                         getLocationForTable(bucketName, tableName)),
-                "Unsupported type:.*");
+                2);
+        assertQuery(
+                "SELECT CAST(ts_tz AS VARCHAR) FROM " + tableName,
+                "VALUES '2012-10-31 05:00:00.123456 UTC', " +
+                        "'2012-10-31 08:00:00.123456 UTC'");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -934,7 +939,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
         String values =
                 """
-                (1, ARRAY[timestamp '2012-01-01 01:02:03.123 UTC']),
+                (1, ARRAY[timestamp '2012-01-01 01:02:03.123000 UTC']),
                 (2, ARRAY[NULL]),
                 (3, NULL)
                 """;
@@ -942,7 +947,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES " + values);
-        assertThat(query("SELECT id FROM " + tableName + " WHERE data = ARRAY[timestamp '2012-01-01 01:02:03.123 UTC']"))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE data = ARRAY[timestamp '2012-01-01 01:02:03.123000 UTC']"))
                 .matches("VALUES 1");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -957,8 +962,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
         String values =
                 """
-                (1, MAP(ARRAY[timestamp '2012-01-01 01:02:03.123 UTC'], ARRAY[timestamp '2012-02-01 01:02:03.123 UTC'])),
-                (2, MAP(ARRAY[timestamp '2023-12-31 03:02:01.321 UTC'], ARRAY[NULL])),
+                (1, MAP(ARRAY[timestamp '2012-01-01 01:02:03.123000 UTC'], ARRAY[timestamp '2012-02-01 01:02:03.123000 UTC'])),
+                (2, MAP(ARRAY[timestamp '2023-12-31 03:02:01.321000 UTC'], ARRAY[NULL])),
                 (3, MAP(NULL, NULL)),
                 (4, NULL)
                 """;
@@ -966,7 +971,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES " + values);
-        assertThat(query("SELECT id FROM " + tableName + " WHERE data = MAP(ARRAY[timestamp '2012-01-01 01:02:03.123 UTC'], ARRAY[timestamp '2012-02-01 01:02:03.123 UTC'])"))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE data = MAP(ARRAY[timestamp '2012-01-01 01:02:03.123000 UTC'], ARRAY[timestamp '2012-02-01 01:02:03.123000 UTC'])"))
                 .matches("VALUES 1");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -981,15 +986,15 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
         String values =
                 """
-                (1, CAST(ROW(timestamp '2012-01-01 01:02:03.123 UTC') AS ROW(ts_tz timestamp with time zone))),
-                (2, CAST(ROW(NULL) AS ROW(ts_tz timestamp with time zone))),
-                (3, CAST(NULL AS ROW(ts_tz timestamp with time zone)))
+                (1, CAST(ROW(timestamp '2012-01-01 01:02:03.123000 UTC') AS ROW(ts_tz timestamp(6) with time zone))),
+                (2, CAST(ROW(NULL) AS ROW(ts_tz timestamp(6) with time zone))),
+                (3, CAST(NULL AS ROW(ts_tz timestamp(6) with time zone)))
                 """;
         assertUpdate("INSERT INTO " + tableName + " VALUES " + values, 3);
 
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES " + values);
-        assertThat(query("SELECT id FROM " + tableName + " WHERE data = ROW(timestamp '2012-01-01 01:02:03.123 UTC')"))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE data = ROW(timestamp '2012-01-01 01:02:03.123000 UTC')"))
                 .matches("VALUES 1");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -1004,36 +1009,18 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
         String values =
                 """
-                (1, CAST(ROW(ROW(timestamp '2012-01-01 01:02:03.123 UTC')) AS ROW(child ROW(grandchild timestamp with time zone)))),
-                (2, CAST(ROW(ROW(NULL)) AS ROW(child ROW(grandchild timestamp with time zone)))),
-                (3, CAST(NULL AS ROW(child ROW(grandchild timestamp with time zone))))
+                (1, CAST(ROW(ROW(timestamp '2012-01-01 01:02:03.123000 UTC')) AS ROW(child ROW(grandchild timestamp(6) with time zone)))),
+                (2, CAST(ROW(ROW(NULL)) AS ROW(child ROW(grandchild timestamp(6) with time zone)))),
+                (3, CAST(NULL AS ROW(child ROW(grandchild timestamp(6) with time zone))))
                 """;
         assertUpdate("INSERT INTO " + tableName + " VALUES " + values, 3);
 
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES " + values);
-        assertThat(query("SELECT id FROM " + tableName + " WHERE parent = ROW(ROW(timestamp '2012-01-01 01:02:03.123 UTC'))"))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE parent = ROW(ROW(timestamp '2012-01-01 01:02:03.123000 UTC'))"))
                 .matches("VALUES 1");
 
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testTimestampWithTimeZoneInComplexTypesFails()
-    {
-        String location = getLocationForTable("delta", "foo");
-        assertQueryFails(
-                "CREATE TABLE should_fail (a, b) WITH (location = '" + location + "') AS VALUES (ROW(timestamp '2012-10-31 01:00:00.1234 UTC', timestamp '2012-10-31 01:00:00.4321 UTC'), 1)",
-                "Unsupported type:.*");
-        assertQueryFails(
-                "CREATE TABLE should_fail (a) WITH (location = '" + location + "') AS VALUES ARRAY[timestamp '2012-10-31 01:00:00.1234 UTC', timestamp '2012-10-31 01:00:00.4321 UTC']",
-                "Unsupported type:.*");
-        assertQueryFails(
-                "CREATE TABLE should_fail (a) WITH (location = '" + location + "') AS VALUES MAP(ARRAY[ARRAY[timestamp '2012-10-31 01:00:00.1234 UTC', timestamp '2012-10-31 01:00:00.4321 UTC']], ARRAY[42])",
-                "Unsupported type:.*");
-        assertQueryFails(
-                "CREATE TABLE should_fail (a) WITH (location = '" + location + "') AS VALUES MAP(ARRAY[42], ARRAY[ARRAY[timestamp '2012-10-31 01:00:00.1234 UTC', timestamp '2012-10-31 01:00:00.4321 UTC']])",
-                "Unsupported type:.*");
     }
 
     @Test
@@ -1053,18 +1040,18 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         assertQuery(
                 "SELECT CAST(ts AS VARCHAR), i FROM old_timestamps",
-                "VALUES ('0099-12-30 01:02:03.000 UTC', 1), ('1582-10-15 01:02:03.000 UTC', 2), ('1960-01-01 01:02:03.000 UTC', 3), ('2020-01-01 01:02:03.000 UTC', 4);");
-        assertQuery("SELECT CAST(ts AS VARCHAR), i FROM old_timestamps WHERE ts = TIMESTAMP '0099-12-30 01:02:03 UTC'", "VALUES ('0099-12-30 01:02:03.000 UTC', 1)");
-        assertQuery("SELECT CAST(ts AS VARCHAR), i FROM old_timestamps WHERE ts = TIMESTAMP '1582-10-15 01:02:03 UTC'", "VALUES ('1582-10-15 01:02:03.000 UTC', 2)");
-        assertQuery("SELECT CAST(ts AS VARCHAR), i FROM old_timestamps WHERE ts = TIMESTAMP '1960-01-01 01:02:03 UTC'", "VALUES ('1960-01-01 01:02:03.000 UTC', 3)");
-        assertQuery("SELECT CAST(ts AS VARCHAR), i FROM old_timestamps WHERE ts = TIMESTAMP '2020-01-01 01:02:03 UTC'", "VALUES ('2020-01-01 01:02:03.000 UTC', 4)");
+                "VALUES ('0099-12-30 01:02:03.000000 UTC', 1), ('1582-10-15 01:02:03.000000 UTC', 2), ('1960-01-01 01:02:03.000000 UTC', 3), ('2020-01-01 01:02:03.000000 UTC', 4);");
+        assertQuery("SELECT CAST(ts AS VARCHAR), i FROM old_timestamps WHERE ts = TIMESTAMP '0099-12-30 01:02:03 UTC'", "VALUES ('0099-12-30 01:02:03.000000 UTC', 1)");
+        assertQuery("SELECT CAST(ts AS VARCHAR), i FROM old_timestamps WHERE ts = TIMESTAMP '1582-10-15 01:02:03 UTC'", "VALUES ('1582-10-15 01:02:03.000000 UTC', 2)");
+        assertQuery("SELECT CAST(ts AS VARCHAR), i FROM old_timestamps WHERE ts = TIMESTAMP '1960-01-01 01:02:03 UTC'", "VALUES ('1960-01-01 01:02:03.000000 UTC', 3)");
+        assertQuery("SELECT CAST(ts AS VARCHAR), i FROM old_timestamps WHERE ts = TIMESTAMP '2020-01-01 01:02:03 UTC'", "VALUES ('2020-01-01 01:02:03.000000 UTC', 4)");
     }
 
     @Test
     public void testSelectNestedTimestamps()
     {
-        assertQuery("SELECT CAST(col1[1].ts AS VARCHAR) FROM nested_timestamps", "VALUES '2010-02-03 12:11:10.000 UTC'");
-        assertQuery("SELECT CAST(col1[1].ts AS VARCHAR) FROM nested_timestamps_parquet_stats LIMIT 1", "VALUES '2010-02-03 12:11:10.000 UTC'");
+        assertQuery("SELECT CAST(col1[1].ts AS VARCHAR) FROM nested_timestamps", "VALUES '2010-02-03 12:11:10.000000 UTC'");
+        assertQuery("SELECT CAST(col1[1].ts AS VARCHAR) FROM nested_timestamps_parquet_stats LIMIT 1", "VALUES '2010-02-03 12:11:10.000000 UTC'");
     }
 
     @Test

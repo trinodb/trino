@@ -49,6 +49,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlTimestamp;
+import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
@@ -72,9 +73,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -104,7 +103,6 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ex
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnsMetadata;
 import static io.trino.plugin.deltalake.transactionlog.TemporalTimeTravelUtil.findLatestVersionUsingTemporal;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
-import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.SqlDecimal.decimal;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -211,7 +209,33 @@ public class TestDeltaLakeBasic
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
 
         assertThat(query("SELECT * FROM " + tableName + " WHERE x > 1 and y IS NOT NULL"))
-                .matches("VALUES (3, TIMESTAMP '2026-01-01 10:10:10.000 UTC')");
+                .matches("VALUES (3, TIMESTAMP '2026-01-01 10:10:10.000000 UTC')");
+    }
+
+    /**
+     * @see trino481.timestamp_tz_millis
+     */
+    @Test
+    public void testReadTimestampWithTimeZoneWrittenByLegacyTrino()
+            throws Exception
+    {
+        String tableName = "test_legacy_tz_millis_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("trino481/timestamp_tz_millis").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        // Legacy millisecond data surfaces at microsecond precision, read losslessly (no 1000x scaling)
+        assertThat(query("SELECT id, ts FROM " + tableName))
+                .matches("VALUES " +
+                        "(1, TIMESTAMP '2024-01-15 10:30:00.123000 UTC'), " +
+                        "(2, TIMESTAMP '2024-06-20 16:45:30.456000 UTC'), " +
+                        "(3, CAST(NULL AS TIMESTAMP(6) WITH TIME ZONE))");
+
+        // Predicate pushdown matches a legacy value coerced to microseconds
+        assertThat(query("SELECT id FROM " + tableName + " WHERE ts = TIMESTAMP '2024-01-15 10:30:00.123 UTC'"))
+                .matches("VALUES 1");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -558,13 +582,11 @@ public class TestDeltaLakeBasic
                     "timestamp",
                     ImmutableList.of("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-02 00:00:00'"),
                     ImmutableList.of(SqlTimestamp.newInstance(3, 0, 0), SqlTimestamp.newInstance(3, 86400000000L, 0)));
-            ZonedDateTime epochPlus1Day = LocalDateTime.of(1970, 1, 2, 0, 0, 0).atZone(UTC);
-            long epochPlus1DayMillis = packDateTimeWithZone(epochPlus1Day.toInstant().toEpochMilli(), UTC_KEY);
             testPartitionValuesParsedCheckpoint(
                     mode,
                     "timestamp with time zone",
                     ImmutableList.of("TIMESTAMP '1970-01-01 00:00:00 +00:00'", "TIMESTAMP '1970-01-02 00:00:00 +00:00'"),
-                    ImmutableList.of(SqlTimestamp.newInstance(3, 0, 0), SqlTimestamp.newInstance(3, epochPlus1DayMillis, 0)));
+                    ImmutableList.of(SqlTimestampWithTimeZone.newInstance(6, 0, 0, UTC_KEY), SqlTimestampWithTimeZone.newInstance(6, 86400000L, 0, UTC_KEY)));
             // array, map, row, varbinary types are unsupported as partition column type. This is tested in TestDeltaLakeConnectorTest.testCreateTableWithUnsupportedPartitionType.
         }
     }

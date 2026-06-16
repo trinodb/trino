@@ -254,8 +254,7 @@ public class TestDeltaLakeConnectorTest
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.equals("time") ||
-                typeName.equals("time(6)") ||
-                typeName.equals("timestamp(6) with time zone")) {
+                typeName.equals("time(6)")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
         if (typeName.equals("char(3)")) {
@@ -784,9 +783,9 @@ public class TestDeltaLakeConnectorTest
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES " +
                         "(1, NULL)," +
-                        "(2, TIMESTAMP '0001-01-01 00:00:00.000 UTC')," +
-                        "(3, TIMESTAMP '2023-07-20 02:02:04.000 UTC')," +
-                        "(4, TIMESTAMP '9999-12-31 23:59:59.999 UTC')");
+                        "(2, TIMESTAMP '0001-01-01 00:00:00.000000 UTC')," +
+                        "(3, TIMESTAMP '2023-07-20 02:02:03.999900 UTC')," +
+                        "(4, TIMESTAMP '9999-12-31 23:59:59.999000 UTC')");
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
@@ -799,7 +798,7 @@ public class TestDeltaLakeConnectorTest
         assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 2"))
                 .contains("/part=0001-01-01 00%3A00%3A00/");
         assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 3"))
-                .contains("/part=2023-07-20 02%3A02%3A04/");
+                .contains("/part=2023-07-20 02%3A02%3A03.9999/");
         assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 4"))
                 .contains("/part=9999-12-31 23%3A59%3A59.999/");
 
@@ -817,15 +816,15 @@ public class TestDeltaLakeConnectorTest
                         "(1, NULL)," +
                         "(2, TIMESTAMP '0001-01-01 00:00:00.000 UTC')," +
                         "(3, TIMESTAMP '2023-11-21 09:19:00.000 +02:00')," +
-                        "(4, TIMESTAMP '2005-09-10 13:00:00.000 UTC')",
+                        "(4, TIMESTAMP '2005-09-10 13:00:00.000000 UTC')",
                 4);
 
         // date_trunc optimization
         assertThat(query("SELECT * FROM " + tableName + " WHERE date_trunc('day', part) >= TIMESTAMP '2005-09-10 07:00:00.000 +07:00'"))
                 .isFullyPushedDown()
                 .matches("VALUES " +
-                        "(3, TIMESTAMP '2023-11-21 07:19:00.000 UTC')," +
-                        "(4, TIMESTAMP '2005-09-10 13:00:00.000 UTC')");
+                        "(3, TIMESTAMP '2023-11-21 07:19:00.000000 UTC')," +
+                        "(4, TIMESTAMP '2005-09-10 13:00:00.000000 UTC')");
 
         assertThat(query("SELECT * FROM " + tableName + " WHERE date_trunc('day', part) = TIMESTAMP '2005-09-10 00:00:00.000 +07:00'"))
                 .isReplacedWithEmptyValues();
@@ -833,7 +832,7 @@ public class TestDeltaLakeConnectorTest
         assertThat(query("SELECT * FROM " + tableName + " WHERE date_trunc('hour', part) >= TIMESTAMP '2005-09-10 13:00:00.001 +00:00'"))
                 .isFullyPushedDown()
                 .matches("VALUES " +
-                        "(3, TIMESTAMP '2023-11-21 07:19:00.000 UTC')");
+                        "(3, TIMESTAMP '2023-11-21 07:19:00.000000 UTC')");
 
         // the DATE is upcast to timestamp_tz using the session time zone (Asia/Kathmandu).
         // part is in UTC, so there is no match for date_trunc.
@@ -851,8 +850,8 @@ public class TestDeltaLakeConnectorTest
         assertThat(query("SELECT * FROM " + tableName + " WHERE cast(part AS date) >= DATE '2005-09-10'"))
                 .isFullyPushedDown()
                 .matches("VALUES " +
-                        "(3, TIMESTAMP '2023-11-21 07:19:00.000 UTC')," +
-                        "(4, TIMESTAMP '2005-09-10 13:00:00.000 UTC')");
+                        "(3, TIMESTAMP '2023-11-21 07:19:00.000000 UTC')," +
+                        "(4, TIMESTAMP '2005-09-10 13:00:00.000000 UTC')");
 
         assertThat(query("SELECT * FROM " + tableName + " WHERE cast(part AS date) = DATE '2005-10-10'"))
                 .isFullyPushedDown()
@@ -862,8 +861,8 @@ public class TestDeltaLakeConnectorTest
         assertThat(query("SELECT * FROM " + tableName + " WHERE year(part) >= 2005"))
                 .isFullyPushedDown()
                 .matches("VALUES " +
-                        "(3, TIMESTAMP '2023-11-21 07:19:00.000 UTC')," +
-                        "(4, TIMESTAMP '2005-09-10 13:00:00.000 UTC')");
+                        "(3, TIMESTAMP '2023-11-21 07:19:00.000000 UTC')," +
+                        "(4, TIMESTAMP '2005-09-10 13:00:00.000000 UTC')");
 
         assertThat(query("SELECT * FROM " + tableName + " WHERE year(part) = 2006"))
                 .isFullyPushedDown()

@@ -32,13 +32,11 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.format.FileMetaData;
@@ -62,11 +60,8 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatistic
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonEncodeMin;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
 import static io.trino.spi.block.ColumnarMap.toColumnarMap;
-import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.UnaryOperator.identity;
 
 public final class DeltaLakeWriter
@@ -267,9 +262,6 @@ public final class DeltaLakeWriter
         if (type instanceof RowType rowType) {
             return Optional.of(new RowCoercer(rowType));
         }
-        if (type instanceof TimestampWithTimeZoneType) {
-            return Optional.of(new TimestampCoercer());
-        }
         return Optional.empty();
     }
 
@@ -396,28 +388,6 @@ public final class DeltaLakeWriter
                 }
             }
             return newFields;
-        }
-    }
-
-    private static class TimestampCoercer
-            implements Function<Block, Block>
-    {
-        @Override
-        public Block apply(Block block)
-        {
-            int positionCount = block.getPositionCount();
-            long[] values = new long[positionCount];
-            boolean mayHaveNulls = block.mayHaveNull();
-            boolean[] valueIsNull = mayHaveNulls ? new boolean[positionCount] : null;
-
-            for (int position = 0; position < positionCount; position++) {
-                if (mayHaveNulls && block.isNull(position)) {
-                    valueIsNull[position] = true;
-                    continue;
-                }
-                values[position] = MILLISECONDS.toMicros(unpackMillisUtc(TIMESTAMP_TZ_MILLIS.getLong(block, position)));
-            }
-            return new LongArrayBlock(positionCount, Optional.ofNullable(valueIsNull), values);
         }
     }
 }

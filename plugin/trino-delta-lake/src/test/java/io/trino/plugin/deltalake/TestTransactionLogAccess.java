@@ -41,9 +41,9 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.DateTimeEncoding;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TypeManager;
 import io.trino.testing.TestingConnectorContext;
 import io.trino.testing.TestingConnectorSession;
@@ -789,7 +789,7 @@ public class TestTransactionLogAccess
 
         BigDecimal decValue = BigDecimal.valueOf(999999999999123L).movePointLeft(3);
         Map<String, Object> statsValues = ImmutableMap.<String, Object>builder()
-                .put("ts", DateTimeEncoding.packDateTimeWithZone(LocalDateTime.parse("2960-10-31T01:00:00").toInstant(UTC).toEpochMilli(), UTC_KEY))
+                .put("ts", LongTimestampWithTimeZone.fromEpochMillisAndFraction(LocalDateTime.parse("2960-10-31T01:00:00").toInstant(UTC).toEpochMilli(), 0, UTC_KEY))
                 .put("str", utf8Slice("a"))
                 .put("dec_short", 101L)
                 .put("dec_long", Decimals.valueOf(decValue))
