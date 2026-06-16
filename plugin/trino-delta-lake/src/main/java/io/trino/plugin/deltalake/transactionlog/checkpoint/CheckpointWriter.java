@@ -38,7 +38,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.DateTimeEncoding;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
@@ -351,8 +351,8 @@ public class CheckpointWriter
                 Map<String, Type> columnTypeMapping = getColumnTypeMapping(metadataEntry, protocolEntry);
                 DeltaLakeJsonFileStatistics jsonFileStatistics = new DeltaLakeJsonFileStatistics(
                         parquetFileStatistics.getNumRecords(),
-                        parquetFileStatistics.getMinValues().map(values -> toJsonValues(columnTypeMapping, values)),
-                        parquetFileStatistics.getMaxValues().map(values -> toJsonValues(columnTypeMapping, values)),
+                        parquetFileStatistics.getMinValues().map(values -> toJsonValues(columnTypeMapping, values, false)),
+                        parquetFileStatistics.getMaxValues().map(values -> toJsonValues(columnTypeMapping, values, true)),
                         parquetFileStatistics.getNullCount().map(nullCounts -> toNullCounts(columnTypeMapping, nullCounts)));
                 statsJson = getStatsString(jsonFileStatistics).orElse(null);
             }
@@ -508,7 +508,7 @@ public class CheckpointWriter
                                         if (type == TIMESTAMP_MILLIS) {
                                             // We need to remap TIMESTAMP WITH TIME ZONE -> TIMESTAMP here because of
                                             // inconsistency in what type is used for DL "timestamp" type in data processing and in min/max statistics map.
-                                            value = multiplyExact(DateTimeEncoding.unpackMillisUtc((long) value), MICROSECONDS_PER_MILLISECOND);
+                                            value = multiplyExact(((LongTimestampWithTimeZone) value).getEpochMillis(), MICROSECONDS_PER_MILLISECOND);
                                         }
                                         if (type == TIMESTAMP_MICROS) {
                                             // This is TIMESTAMP_NTZ type in Delta Lake
