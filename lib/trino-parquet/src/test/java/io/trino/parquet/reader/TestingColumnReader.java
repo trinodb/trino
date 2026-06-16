@@ -605,6 +605,18 @@ public class TestingColumnReader
         };
     }
 
+    private static Assertion<Number> assertLongTimestampWithTimeZoneMillis()
+    {
+        return (values, block, offset, blockOffset) ->
+        {
+            LongTimestampWithTimeZone packed = (LongTimestampWithTimeZone) TIMESTAMP_TZ_MICROS.getObject(block, blockOffset);
+            TimeZoneKey timeZoneKey = getTimeZoneKey(packed.getTimeZoneKey());
+            assertThat(timeZoneKey).isEqualTo(UTC_KEY);
+            assertThat(packed.getEpochMillis()).isEqualTo(values[offset].longValue());
+            assertThat(packed.getPicosOfMilli()).isEqualTo(0);
+        };
+    }
+
     private static Assertion<DecodedTimestamp> assertInt96LongTimestampWithTimeZone(int precision)
     {
         TimestampWithTimeZoneType type = createTimestampWithTimeZoneType(precision);
@@ -742,6 +754,7 @@ public class TestingColumnReader
                 new ColumnReaderFormat<>(INT64, timestampType(false, MILLIS), TIMESTAMP_MICROS, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, assertTime(TIME_MILLIS, 3)),
                 new ColumnReaderFormat<>(INT64, timestampType(false, MILLIS), TIMESTAMP_PICOS, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, assertTimestampNanos(9)),
                 new ColumnReaderFormat<>(INT64, timestampType(false, MILLIS), TIMESTAMP_TZ_MILLIS, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, assertTimestampWithTimeZoneMillis(0)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, MILLIS), TIMESTAMP_TZ_MICROS, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, assertLongTimestampWithTimeZoneMillis()),
                 new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_MILLIS, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, assertTime(TIME_MICROS, 0, 3)),
                 new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_MICROS, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, assertTime(TIME_MICROS, 0)),
                 new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_NANOS, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, assertTimestampNanos(6)),
