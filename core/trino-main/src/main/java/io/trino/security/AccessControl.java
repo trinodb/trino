@@ -26,6 +26,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.IdentitySwitchReason;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
@@ -54,6 +55,15 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanImpersonateUser(Identity identity, String userName);
+
+    /**
+     * Check if {@code identity} is allowed to evaluate part of a query as {@code targetIdentity},
+     * such as for SECURITY DEFINER views and functions or row filter and column mask identities.
+     * Explicit user impersonation is handled by {@link #checkCanImpersonateUser}.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanSetEffectiveIdentity(Identity identity, Identity targetIdentity, IdentitySwitchReason reason);
 
     /**
      * Check if identity is allowed to read system information such as statistics,

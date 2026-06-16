@@ -25,6 +25,7 @@ import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.IdentitySwitchReason;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 
@@ -89,6 +90,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRevokeTableBranchP
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectColumns;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.trino.spi.security.AccessDeniedException.denySetEffectiveIdentity;
 import static io.trino.spi.security.AccessDeniedException.denySetEntityAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetRole;
@@ -118,6 +120,12 @@ public class DenyAllAccessControl
     public void checkCanImpersonateUser(Identity identity, String userName)
     {
         denyImpersonateUser(identity.getUser(), userName);
+    }
+
+    @Override
+    public void checkCanSetEffectiveIdentity(Identity identity, Identity targetIdentity, IdentitySwitchReason reason)
+    {
+        denySetEffectiveIdentity(identity.getUser(), targetIdentity.getUser());
     }
 
     @Override
