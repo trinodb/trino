@@ -282,8 +282,7 @@ public class TestTinyintOperators
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN, "TINYINT '17'", "TINYINT '17'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
     }
 
     @Test
@@ -307,8 +306,7 @@ public class TestTinyintOperators
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TINYINT '17'", "TINYINT '17'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
     }
 
     @Test

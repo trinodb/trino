@@ -81,7 +81,6 @@ import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -1096,24 +1095,20 @@ public class TestRowOperators
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, rowConcrete, rowConcreteOther))
                 .couldFail();
 
-        // COMPARISON_UNORDERED_FIRST — throws at runtime, but GenericComparisonUnorderedFirstOperator
-        // declares neverFails=true. The runtime sanity check wraps the TrinoException with
-        // IllegalStateException("... declared as never failing threw ..."), which is itself
-        // evidence the declaration is wrong. No SQL form.
-        // TODO (https://github.com/trinodb/trino/issues/29891) GenericComparisonUnorderedFirstOperator.neverFails should not be hardcoded;
-        //   once fixed, replace assertThatThrownBy with assertTrinoExceptionThrownBy(...).hasErrorCode(NOT_SUPPORTED)
-        //   and replace .neverFails() with .couldFail().
-        assertThatThrownBy(assertions.operator(COMPARISON_UNORDERED_FIRST, rowWithNull, rowConcrete)::evaluate)
-                .hasMessageContaining("ROW comparison not supported for fields with null elements");
+        // COMPARISON_UNORDERED_FIRST — throws NOT_SUPPORTED at runtime. GenericComparisonUnorderedFirstOperator
+        // routes its neverFails declaration through TypeOperators per binding, so for ROW (whose comparison
+        // implementation is not declared neverFails) the planner correctly believes the operator may fail.
+        // No SQL form.
+        assertTrinoExceptionThrownBy(assertions.operator(COMPARISON_UNORDERED_FIRST, rowWithNull, rowConcrete)::evaluate)
+                .hasErrorCode(NOT_SUPPORTED);
         assertThat(assertions.operator(COMPARISON_UNORDERED_FIRST, rowConcrete, rowConcreteOther))
-                .neverFails();
+                .couldFail();
 
-        // COMPARISON_UNORDERED_LAST — same suspicion. No SQL form.
-        // TODO (https://github.com/trinodb/trino/issues/29891) GenericComparisonUnorderedLastOperator.neverFails should not be hardcoded.
-        assertThatThrownBy(assertions.operator(COMPARISON_UNORDERED_LAST, rowWithNull, rowConcrete)::evaluate)
-                .hasMessageContaining("ROW comparison not supported for fields with null elements");
+        // COMPARISON_UNORDERED_LAST — same as above. No SQL form.
+        assertTrinoExceptionThrownBy(assertions.operator(COMPARISON_UNORDERED_LAST, rowWithNull, rowConcrete)::evaluate)
+                .hasErrorCode(NOT_SUPPORTED);
         assertThat(assertions.operator(COMPARISON_UNORDERED_LAST, rowConcrete, rowConcreteOther))
-                .neverFails();
+                .couldFail();
 
         // HASH_CODE — hashing tolerates NULL fields; GenericHashCodeOperator declares neverFails=true. No SQL form.
         assertThat(assertions.operator(HASH_CODE, rowWithNull))

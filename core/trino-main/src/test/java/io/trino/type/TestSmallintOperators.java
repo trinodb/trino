@@ -284,8 +284,7 @@ public class TestSmallintOperators
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN, "SMALLINT '17'", "SMALLINT '17'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
     }
 
     @Test
@@ -309,8 +308,7 @@ public class TestSmallintOperators
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "SMALLINT '17'", "SMALLINT '17'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
     }
 
     @Test

@@ -2094,8 +2094,7 @@ public class TestTime
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN, "TIME '12:34:56'", "TIME '12:34:56'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
 
         assertThat(assertions.expression("a <= b")
                 .binding("a", "TIME '12:34:56'")
@@ -2103,8 +2102,7 @@ public class TestTime
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIME '12:34:56'", "TIME '12:34:56'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
     }
 
     private static BiFunction<Session, QueryRunner, Object> time(int precision, int hour, int minute, int second, long picoOfSecond)

@@ -142,8 +142,7 @@ public class TestBooleanOperators
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN, "false", "false"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
     }
 
     @Test
@@ -167,8 +166,7 @@ public class TestBooleanOperators
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "false", "false"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
     }
 
     @Test

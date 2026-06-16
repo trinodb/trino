@@ -89,7 +89,6 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -5959,22 +5958,19 @@ public class TestArrayOperators
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, arrayConcrete, arrayConcreteOther))
                 .couldFail();
 
-        // COMPARISON_UNORDERED_FIRST — throws at runtime when NULL ordering is reached, but
-        // GenericComparisonUnorderedFirstOperator declares neverFails=true (incorrect).
-        // The runtime sanity check wraps the TrinoException with IllegalStateException
-        // ("... declared as never failing threw ..."), which is itself evidence the declaration is wrong.
-        // TODO (https://github.com/trinodb/trino/issues/29891) GenericComparisonUnorderedFirstOperator.neverFails should not be hardcoded.
-        assertThatThrownBy(assertions.operator(COMPARISON_UNORDERED_FIRST, arrayWithNull, arrayConcrete)::evaluate)
-                .hasMessageContaining("ARRAY comparison not supported for arrays with null elements");
+        // COMPARISON_UNORDERED_FIRST — throws NOT_SUPPORTED at runtime. GenericComparisonUnorderedFirstOperator
+        // routes its neverFails declaration through TypeOperators per binding, so for ARRAY (whose comparison
+        // implementation is not declared neverFails) the planner correctly believes the operator may fail.
+        assertTrinoExceptionThrownBy(assertions.operator(COMPARISON_UNORDERED_FIRST, arrayWithNull, arrayConcrete)::evaluate)
+                .hasErrorCode(NOT_SUPPORTED);
         assertThat(assertions.operator(COMPARISON_UNORDERED_FIRST, arrayConcrete, arrayConcreteOther))
-                .neverFails();
+                .couldFail();
 
-        // COMPARISON_UNORDERED_LAST — same suspicion.
-        // TODO (https://github.com/trinodb/trino/issues/29891) GenericComparisonUnorderedLastOperator.neverFails should not be hardcoded.
-        assertThatThrownBy(assertions.operator(COMPARISON_UNORDERED_LAST, arrayWithNull, arrayConcrete)::evaluate)
-                .hasMessageContaining("ARRAY comparison not supported for arrays with null elements");
+        // COMPARISON_UNORDERED_LAST — same as above.
+        assertTrinoExceptionThrownBy(assertions.operator(COMPARISON_UNORDERED_LAST, arrayWithNull, arrayConcrete)::evaluate)
+                .hasErrorCode(NOT_SUPPORTED);
         assertThat(assertions.operator(COMPARISON_UNORDERED_LAST, arrayConcrete, arrayConcreteOther))
-                .neverFails();
+                .couldFail();
 
         // HASH_CODE — hashing tolerates NULL elements. GenericHashCodeOperator declares neverFails=true.
         assertThat(assertions.operator(HASH_CODE, arrayWithNull))
