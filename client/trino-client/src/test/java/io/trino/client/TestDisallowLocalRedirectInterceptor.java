@@ -13,15 +13,29 @@
  */
 package io.trino.client;
 
+import okhttp3.Authenticator;
+import okhttp3.Cache;
 import okhttp3.Call;
+import okhttp3.CertificatePinner;
 import okhttp3.Connection;
+import okhttp3.ConnectionPool;
+import okhttp3.CookieJar;
+import okhttp3.Dns;
+import okhttp3.EventListener;
 import okhttp3.Interceptor;
 import okhttp3.Protocol;
 import okhttp3.Request;
 import okhttp3.Response;
 import org.junit.jupiter.api.Test;
 
+import javax.net.SocketFactory;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.X509TrustManager;
+
 import java.io.IOException;
+import java.net.Proxy;
+import java.net.ProxySelector;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -155,6 +169,186 @@ public class TestDisallowLocalRedirectInterceptor
 
         @Override
         public Call call()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean getFollowSslRedirects()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean getFollowRedirects()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Dns getDns()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Interceptor.Chain withDns(Dns dns)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public SocketFactory getSocketFactory()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Interceptor.Chain withSocketFactory(SocketFactory socketFactory)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean getRetryOnConnectionFailure()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Interceptor.Chain withRetryOnConnectionFailure(boolean retryOnConnectionFailure)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Authenticator getAuthenticator()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Interceptor.Chain withAuthenticator(Authenticator authenticator)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CookieJar getCookieJar()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Interceptor.Chain withCookieJar(CookieJar cookieJar)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Cache getCache()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Interceptor.Chain withCache(Cache cache)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Proxy getProxy()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Interceptor.Chain withProxy(Proxy proxy)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ProxySelector getProxySelector()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Interceptor.Chain withProxySelector(ProxySelector proxySelector)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Authenticator getProxyAuthenticator()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Interceptor.Chain withProxyAuthenticator(Authenticator proxyAuthenticator)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public SSLSocketFactory getSslSocketFactoryOrNull()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Interceptor.Chain withSslSocketFactory(SSLSocketFactory sslSocketFactory, X509TrustManager trustManager)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public X509TrustManager getX509TrustManagerOrNull()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public HostnameVerifier getHostnameVerifier()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Interceptor.Chain withHostnameVerifier(HostnameVerifier hostnameVerifier)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CertificatePinner getCertificatePinner()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Interceptor.Chain withCertificatePinner(CertificatePinner certificatePinner)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ConnectionPool getConnectionPool()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Interceptor.Chain withConnectionPool(ConnectionPool connectionPool)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public EventListener getEventListener()
         {
             throw new UnsupportedOperationException();
         }
