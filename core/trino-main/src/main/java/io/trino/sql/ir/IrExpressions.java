@@ -166,7 +166,7 @@ public final class IrExpressions
 
             // These expressions need to verify their operands
             case Array e -> e.elements().stream().anyMatch(element -> mayFail(plannerContext, element));
-            case Between e -> mayFail(plannerContext, e.value()) || mayFail(plannerContext, e.min()) || mayFail(plannerContext, e.max());
+            case Between e -> mayFail(plannerContext, e) || mayFail(plannerContext, e.value()) || mayFail(plannerContext, e.min()) || mayFail(plannerContext, e.max());
             case Call e -> mayFail(e) || e.arguments().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case Case e -> e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, clause.getOperand()) || mayFail(plannerContext, clause.getResult())) ||
                     mayFail(plannerContext, e.defaultValue());
@@ -194,6 +194,14 @@ public final class IrExpressions
             case LESS_THAN, GREATER_THAN -> !typeOperators.getLessThanOperatorHandle(operandType, convention).isNeverFails();
             case LESS_THAN_OR_EQUAL, GREATER_THAN_OR_EQUAL -> !typeOperators.getLessThanOrEqualOperatorHandle(operandType, convention).isNeverFails();
         };
+    }
+
+    private static boolean mayFail(PlannerContext plannerContext, Between between)
+    {
+        TypeOperators typeOperators = plannerContext.getTypeOperators();
+        Type operandType = between.value().type();
+        InvocationConvention convention = simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL);
+        return !typeOperators.getLessThanOrEqualOperatorHandle(operandType, convention).isNeverFails();
     }
 
     // TODO: record "safety" (can the cast fail at runtime) in Cast node
