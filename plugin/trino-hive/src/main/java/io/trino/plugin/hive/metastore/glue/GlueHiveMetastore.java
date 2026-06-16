@@ -145,6 +145,7 @@ import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.function.Predicate.not;
+import static java.lang.String.format;
 import static java.util.function.UnaryOperator.identity;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toMap;
@@ -506,8 +507,40 @@ public class GlueHiveMetastore
         catch (EntityNotFoundException e) {
             return Optional.empty();
         }
+        catch (AccessDeniedException e) {
+            // Lake Formation returns AccessDeniedException (HTTP 400) for tables that do not exist
+            // in Glue, indistinguishable from a genuine permission denial. Perform a secondary
+            // GetTables probe (requires only database-level LF permission) to distinguish the two cases.
+            if (e.getMessage() != null && e.getMessage().contains("Lake Formation")) {
+                if (!glueTableExists(databaseName, tableName)) {
+                    throw new TableNotFoundException(
+                            new SchemaTableName(databaseName, tableName),
+                            format("Table '%s.%s' does not exist in Glue catalog.", databaseName, tableName),
+                            e);
+                }
+            }
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
         catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+    }
+
+    private boolean glueTableExists(String databaseName, String tableName)
+    {
+        try {
+            return stats.getGetTables().call(() -> glueClient
+                            .getTablesPaginator(builder -> builder
+                                    .databaseName(databaseName)
+                                    .expression(tableName)).stream()
+                            .map(GetTablesResponse::tableList)
+                            .flatMap(List::stream))
+                    .anyMatch(t -> t.name().equalsIgnoreCase(tableName));
+        }
+        catch (SdkException ignored) {
+            // If GetTables also fails (e.g. no database-level LF permission), we cannot determine
+            // whether the table exists. Return true to avoid masking genuine permission errors.
+            return true;
         }
     }
 
