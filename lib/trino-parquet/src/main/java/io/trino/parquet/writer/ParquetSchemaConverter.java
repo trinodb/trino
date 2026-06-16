@@ -23,6 +23,7 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
@@ -200,6 +201,17 @@ public class ParquetSchemaConverter
                 // Per https://github.com/apache/parquet-format/blob/master/LogicalTypes.md, nanosecond precision timestamp should be stored as INT64
                 // even though it can only hold values within 1677-09-21 00:12:43 and 2262-04-11 23:47:16 range.
                 return Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, repetition).as(LogicalTypeAnnotation.timestampType(false, LogicalTypeAnnotation.TimeUnit.NANOS)).named(name);
+            }
+        }
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+            if (timestampWithTimeZoneType.getPrecision() <= 3) {
+                return Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, repetition).as(LogicalTypeAnnotation.timestampType(true, LogicalTypeAnnotation.TimeUnit.MILLIS)).named(name);
+            }
+            if (timestampWithTimeZoneType.getPrecision() <= 6) {
+                return Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, repetition).as(LogicalTypeAnnotation.timestampType(true, LogicalTypeAnnotation.TimeUnit.MICROS)).named(name);
+            }
+            if (timestampWithTimeZoneType.getPrecision() <= 9) {
+                return Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, repetition).as(LogicalTypeAnnotation.timestampType(true, LogicalTypeAnnotation.TimeUnit.NANOS)).named(name);
             }
         }
         if (DOUBLE.equals(type)) {
