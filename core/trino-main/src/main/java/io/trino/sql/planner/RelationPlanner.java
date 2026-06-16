@@ -766,7 +766,7 @@ class RelationPlanner
         ImmutableList.Builder<Assignment> assignments = ImmutableList.builder();
         for (PatternInputAnalysis accessor : analysis.getPatternInputsAnalysis(expression)) {
             ValuePointer pointer = switch (accessor.descriptor()) {
-                case MatchNumberDescriptor descriptor -> new MatchNumberValuePointer();
+                case MatchNumberDescriptor _ -> new MatchNumberValuePointer();
                 case ClassifierDescriptor descriptor -> new ClassifierValuePointer(
                         planValuePointer(descriptor.label(), descriptor.navigation(), subsets));
                 case ScalarInputDescriptor descriptor -> new ScalarValuePointer(

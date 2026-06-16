@@ -179,7 +179,7 @@ public class UnwrapCastInComparison
                 };
             }
 
-            if (!(right instanceof Constant(Type type, Object rightValue))) {
+            if (!(right instanceof Constant(Type _, Object rightValue))) {
                 return expression;
             }
 

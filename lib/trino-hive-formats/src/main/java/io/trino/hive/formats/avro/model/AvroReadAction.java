@@ -181,7 +181,7 @@ public sealed interface AvroReadAction
                         .mapToInt(fieldAction -> switch (fieldAction) {
                             case DefaultValueFieldRecordFieldReadAction a -> a.outputChannel();
                             case ReadFieldAction b -> b.outputChannel();
-                            case SkipFieldRecordFieldReadAction ignore -> -1;
+                            case SkipFieldRecordFieldReadAction _ -> -1;
                         }).filter(a -> a >= 0)
                         .distinct()
                         .sum() == (recordAdjust.reader.getFields().size() * (recordAdjust.reader.getFields().size() - 1) / 2),
@@ -190,7 +190,7 @@ public sealed interface AvroReadAction
                 .mapToInt(fieldAction -> switch (fieldAction) {
                     case DefaultValueFieldRecordFieldReadAction a -> a.outputChannel();
                     case ReadFieldAction b -> b.outputChannel();
-                    case SkipFieldRecordFieldReadAction ignore -> -1;
+                    case SkipFieldRecordFieldReadAction _ -> -1;
                 })
                 .filter(a -> a >= 0)
                 .distinct().count() == (long) recordAdjust.reader.getFields().size(), "Every channel in output block builder must be accounted for");
