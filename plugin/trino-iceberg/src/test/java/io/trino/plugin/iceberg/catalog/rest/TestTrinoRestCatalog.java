@@ -123,6 +123,8 @@ public class TestTrinoRestCatalog
                 Security.NONE,
                 NONE,
                 ImmutableMap.of(),
+                Optional.empty(),
+                new UserTokenProvider(Optional.empty()),
                 nestedNamespaceEnabled,
                 "test",
                 TESTING_TYPE_MANAGER,
