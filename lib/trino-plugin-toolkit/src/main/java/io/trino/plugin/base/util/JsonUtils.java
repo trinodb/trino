@@ -108,8 +108,8 @@ public final class JsonUtils
         try (JsonParser parser = parserConstructor.createParser(mapper, input)) {
             return mapper.readValue(parser, javaType);
         }
-        catch (Exception e) {
-            throw mapException(e);
+        catch (IOException e) {
+            throw new UncheckedIOException("Could not parse JSON", e);
         }
     }
 
