@@ -235,12 +235,22 @@ public class TestConnectorExpressionTranslator
     public void testTranslateComparisonExpression()
     {
         for (ComparisonOperator operator : ComparisonOperator.values()) {
+            // Greater-than comparisons are canonicalized to less-than with flipped operands, so the
+            // round-tripped connector expression uses the flipped operator and operand order.
+            ComparisonOperator translatedOperator = switch (operator) {
+                case GREATER_THAN -> ComparisonOperator.LESS_THAN;
+                case GREATER_THAN_OR_EQUAL -> ComparisonOperator.LESS_THAN_OR_EQUAL;
+                default -> operator;
+            };
+            List<ConnectorExpression> operands = translatedOperator == operator
+                    ? List.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))
+                    : List.of(new Variable("double_symbol_2", DOUBLE), new Variable("double_symbol_1", DOUBLE));
             assertTranslationRoundTrips(
                     comparison(operator, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")),
                     new io.trino.spi.expression.Call(
                             BOOLEAN,
-                            ConnectorExpressionTranslator.functionNameForComparisonOperator(operator),
-                            List.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))));
+                            ConnectorExpressionTranslator.functionNameForComparisonOperator(translatedOperator),
+                            operands));
         }
     }
 

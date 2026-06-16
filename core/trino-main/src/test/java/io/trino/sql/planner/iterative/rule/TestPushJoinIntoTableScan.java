@@ -32,6 +32,8 @@ import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.expression.Call;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
@@ -56,7 +58,8 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.MULTIPLY_FUNCTION_NAME;
 import static io.trino.spi.predicate.Domain.onlyNull;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -143,11 +146,21 @@ public class TestPushJoinIntoTableScan
             assertThat(((MockConnectorTableHandle) left).getTableName()).isEqualTo(TABLE_A_SCHEMA_TABLE_NAME);
             assertThat(((MockConnectorTableHandle) right).getTableName()).isEqualTo(TABLE_B_SCHEMA_TABLE_NAME);
             assertThat(applyJoinType).isEqualTo(toSpiJoinType(joinType));
-            JoinCondition.Operator expectedOperator = filterComparisonOperator.map(this::getConditionOperator).orElse(JoinCondition.Operator.EQUAL);
+            ComparisonOperator expectedComparison = filterComparisonOperator.orElse(ComparisonOperator.EQUAL);
+            // Comparisons are canonicalized so that greater-than forms become less-than forms with flipped operands.
+            FunctionName expectedFunctionName = switch (expectedComparison) {
+                case GREATER_THAN -> LESS_THAN_OPERATOR_FUNCTION_NAME;
+                case GREATER_THAN_OR_EQUAL -> LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
+                default -> getConditionOperator(expectedComparison).getCallFunctionName();
+            };
+            List<ConnectorExpression> expectedArguments = switch (expectedComparison) {
+                case GREATER_THAN, GREATER_THAN_OR_EQUAL -> List.of(COLUMN_B1_VARIABLE, COLUMN_A1_VARIABLE);
+                default -> List.of(COLUMN_A1_VARIABLE, COLUMN_B1_VARIABLE);
+            };
             assertThat(joinCondition).isEqualTo(new Call(
                     BOOLEAN,
-                    expectedOperator.getCallFunctionName(),
-                    List.of(COLUMN_A1_VARIABLE, COLUMN_B1_VARIABLE)));
+                    expectedFunctionName,
+                    expectedArguments));
 
             return Optional.of(new JoinApplicationResult<>(
                     JOIN_CONNECTOR_TABLE_HANDLE,
@@ -243,15 +256,15 @@ public class TestPushJoinIntoTableScan
                     assertThat(joinCondition).as("joinCondition")
                             .isEqualTo(new Call(
                                     BOOLEAN,
-                                    GREATER_THAN_OPERATOR_FUNCTION_NAME,
+                                    LESS_THAN_OPERATOR_FUNCTION_NAME,
                                     List.of(
+                                            new Variable("columnb1", BIGINT),
                                             new Call(
                                                     BIGINT,
                                                     MULTIPLY_FUNCTION_NAME,
                                                     List.of(
                                                             new io.trino.spi.expression.Constant(44L, BIGINT),
-                                                            new Variable("columna1", BIGINT))),
-                                            new Variable("columnb1", BIGINT))));
+                                                            new Variable("columna1", BIGINT))))));
                     return Optional.of(new JoinApplicationResult<>(
                             JOIN_CONNECTOR_TABLE_HANDLE,
                             JOIN_TABLE_A_COLUMN_MAPPING,

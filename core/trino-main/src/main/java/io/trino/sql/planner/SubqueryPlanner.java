@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.graph.SuccessorsFunction;
 import com.google.common.graph.Traverser;
 import io.trino.Session;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
@@ -27,7 +28,6 @@ import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -72,6 +72,7 @@ import static com.google.common.collect.Streams.stream;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
@@ -483,7 +484,7 @@ class SubqueryPlanner
             valueFields = coerced.build();
         }
 
-        Expression innerFilter = buildRowMatchFilter(predicate.getType(), valueFields, subqueryFields);
+        Expression innerFilter = buildRowMatchFilter(plannerContext.getMetadata(), predicate.getType(), valueFields, subqueryFields);
         PlanNode filteredSubquery = new FilterNode(idAllocator.getNextId(), relationPlan.getRoot(), innerFilter);
 
         Symbol indicatorSymbol;
@@ -516,7 +517,7 @@ class SubqueryPlanner
                     joined,
                     Assignments.builder()
                             .putIdentities(joined.getOutputSymbols())
-                            .put(indicatorSymbol, new Comparison(ComparisonOperator.EQUAL, countSymbol.toSymbolReference(), new Constant(BIGINT, 1L)))
+                            .put(indicatorSymbol, comparison(plannerContext.getMetadata(), ComparisonOperator.EQUAL, countSymbol.toSymbolReference(), new Constant(BIGINT, 1L)))
                             .build());
         }
         else {
@@ -567,13 +568,13 @@ class SubqueryPlanner
         return fields.build();
     }
 
-    private static Expression buildRowMatchFilter(MatchPredicate.Type type, List<Symbol> valueFields, List<Symbol> subqueryFields)
+    private static Expression buildRowMatchFilter(Metadata metadata, MatchPredicate.Type type, List<Symbol> valueFields, List<Symbol> subqueryFields)
     {
         ImmutableList.Builder<Expression> conjuncts = ImmutableList.builderWithExpectedSize(valueFields.size());
         for (int i = 0; i < valueFields.size(); i++) {
             Expression r = valueFields.get(i).toSymbolReference();
             Expression s = subqueryFields.get(i).toSymbolReference();
-            Expression equality = new Comparison(ComparisonOperator.EQUAL, r, s);
+            Expression equality = comparison(metadata, ComparisonOperator.EQUAL, r, s);
             if (type == MatchPredicate.Type.PARTIAL) {
                 conjuncts.add(combineOr(new IsNull(r), equality));
             }

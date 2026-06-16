@@ -61,7 +61,6 @@ import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrUtils;
@@ -193,6 +192,7 @@ import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
@@ -1098,12 +1098,12 @@ class RelationPlanner
     private Expression translateComparison(ComparisonPredicate.Operator operator, Symbol left, Symbol right)
     {
         return switch (operator) {
-            case EQUAL -> new Comparison(EQUAL, left.toSymbolReference(), right.toSymbolReference());
-            case NOT_EQUAL -> new Comparison(NOT_EQUAL, left.toSymbolReference(), right.toSymbolReference());
-            case LESS_THAN -> new Comparison(LESS_THAN, left.toSymbolReference(), right.toSymbolReference());
-            case LESS_THAN_OR_EQUAL -> new Comparison(LESS_THAN_OR_EQUAL, left.toSymbolReference(), right.toSymbolReference());
-            case GREATER_THAN -> new Comparison(GREATER_THAN, left.toSymbolReference(), right.toSymbolReference());
-            case GREATER_THAN_OR_EQUAL -> new Comparison(GREATER_THAN_OR_EQUAL, left.toSymbolReference(), right.toSymbolReference());
+            case EQUAL -> comparison(plannerContext.getMetadata(), EQUAL, left.toSymbolReference(), right.toSymbolReference());
+            case NOT_EQUAL -> comparison(plannerContext.getMetadata(), NOT_EQUAL, left.toSymbolReference(), right.toSymbolReference());
+            case LESS_THAN -> comparison(plannerContext.getMetadata(), LESS_THAN, left.toSymbolReference(), right.toSymbolReference());
+            case LESS_THAN_OR_EQUAL -> comparison(plannerContext.getMetadata(), LESS_THAN_OR_EQUAL, left.toSymbolReference(), right.toSymbolReference());
+            case GREATER_THAN -> comparison(plannerContext.getMetadata(), GREATER_THAN, left.toSymbolReference(), right.toSymbolReference());
+            case GREATER_THAN_OR_EQUAL -> comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, left.toSymbolReference(), right.toSymbolReference());
         };
     }
 

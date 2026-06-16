@@ -24,11 +24,11 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
+import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
@@ -61,6 +61,8 @@ import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.comparison;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
@@ -283,8 +285,8 @@ public class FilterStatsCalculator
                 return PlanNodeStatsEstimate.unknown();
             }
 
-            Expression lowerBound = new Comparison(GREATER_THAN_OR_EQUAL, node.value(), node.min());
-            Expression upperBound = new Comparison(LESS_THAN_OR_EQUAL, node.value(), node.max());
+            Expression lowerBound = comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, node.value(), node.min());
+            Expression upperBound = comparison(plannerContext.getMetadata(), LESS_THAN_OR_EQUAL, node.value(), node.max());
 
             Expression transformed;
             if (isInfinite(valueStats.getLowValue())) {
@@ -302,7 +304,7 @@ public class FilterStatsCalculator
         protected PlanNodeStatsEstimate visitIn(In node, Void context)
         {
             List<PlanNodeStatsEstimate> equalityEstimates = node.valueList().stream()
-                    .map(inValue -> process(new Comparison(EQUAL, node.value(), inValue)))
+                    .map(inValue -> process(comparison(plannerContext.getMetadata(), EQUAL, node.value(), inValue)))
                     .collect(toImmutableList());
 
             if (equalityEstimates.stream().anyMatch(PlanNodeStatsEstimate::isOutputRowCountUnknown)) {
@@ -337,23 +339,18 @@ public class FilterStatsCalculator
         }
 
         @SuppressWarnings("ArgumentSelectionDefectChecker")
-        @Override
-        protected PlanNodeStatsEstimate visitComparison(Comparison node, Void context)
+        private PlanNodeStatsEstimate estimateComparison(ComparisonOperator operator, Expression left, Expression right)
         {
-            ComparisonOperator operator = node.operator();
-            Expression left = node.left();
-            Expression right = node.right();
-
             checkArgument(!(left instanceof Constant && right instanceof Constant), "Literal-to-literal not supported here, should be eliminated earlier");
 
             if (!(left instanceof Reference) && right instanceof Reference) {
                 // normalize so that symbol is on the left
-                return process(new Comparison(operator.flip(), right, left));
+                return estimateComparison(operator.flip(), right, left);
             }
 
             if (left instanceof Constant) {
                 // normalize so that literal is on the right
-                return process(new Comparison(operator.flip(), right, left));
+                return estimateComparison(operator.flip(), right, left);
             }
 
             if (left instanceof Reference && left.equals(right)) {
@@ -386,6 +383,10 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitCall(Call node, Void context)
         {
+            if (matchComparison(node) instanceof Comparison comparison) {
+                return estimateComparison(comparison.operator(), comparison.left(), comparison.right());
+            }
+
             if (isDynamicFilter(node)) {
                 return process(Booleans.TRUE, context);
             }

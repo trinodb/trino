@@ -120,6 +120,8 @@ public class TestExpressionVerifier
         assertThat(verifier.process(comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "y"), new Reference(BIGINT, "x")), comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))).isFalse();
         assertThat(verifier.process(comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "y"), new Reference(BIGINT, "x")), comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "b"), new Reference(BIGINT, "a")))).isFalse();
 
+        // EQUAL, NOT_EQUAL and IDENTICAL are commutative, so the verifier matches them regardless of
+        // operand order (a = b matches b = a), as the former Comparison node did via operator flipping.
         assertThat(verifier.process(comparison(EQUAL, new Reference(BIGINT, "x"), new Reference(BIGINT, "y")), comparison(EQUAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))).isTrue();
         assertThat(verifier.process(comparison(EQUAL, new Reference(BIGINT, "x"), new Reference(BIGINT, "y")), comparison(EQUAL, new Reference(BIGINT, "b"), new Reference(BIGINT, "a")))).isTrue();
         assertThat(verifier.process(comparison(EQUAL, new Reference(BIGINT, "y"), new Reference(BIGINT, "x")), comparison(EQUAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))).isTrue();

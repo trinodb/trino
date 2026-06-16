@@ -18,7 +18,6 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Case;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrExpressions;
@@ -101,12 +100,12 @@ public class SimplifyRedundantCase
         }
 
         List<Expression> falseTerms = clauses.subList(start, end).stream()
-                .map(clause -> IrExpressions.not(metadata, new Comparison(ComparisonOperator.IDENTICAL, clause.getOperand(), TRUE)))
+                .map(clause -> IrExpressions.not(metadata, IrExpressions.comparison(metadata, ComparisonOperator.IDENTICAL, clause.getOperand(), TRUE)))
                 .toList();
 
         if (end < clauses.size()) {
             List<Expression> terms = new ArrayList<>();
-            terms.add(new Comparison(ComparisonOperator.IDENTICAL, clauses.get(end).getOperand(), TRUE));
+            terms.add(IrExpressions.comparison(metadata, ComparisonOperator.IDENTICAL, clauses.get(end).getOperand(), TRUE));
             transformRecursive(end + 1, clauses, defaultExpression).ifPresent(terms::add);
 
             return Optional.of(IrUtils.and(

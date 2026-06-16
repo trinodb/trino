@@ -65,7 +65,8 @@ import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
-import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -484,10 +485,15 @@ public class TestPushPredicateIntoTableScan
 
     private static ConnectorExpression connectorAnyMatch(FunctionName comparison)
     {
+        // Comparisons are canonicalized so that greater-than forms become less-than forms with flipped operands.
+        ImmutableList<ConnectorExpression> arguments =
+                comparison.equals(LESS_THAN_OPERATOR_FUNCTION_NAME) || comparison.equals(LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME)
+                        ? ImmutableList.of(new Variable("capture_col", BIGINT), new Variable("x", BIGINT))
+                        : ImmutableList.of(new Variable("x", BIGINT), new Variable("capture_col", BIGINT));
         ConnectorExpression lambdaBody = new io.trino.spi.expression.Call(
                 BOOLEAN,
                 comparison,
-                ImmutableList.of(new Variable("x", BIGINT), new Variable("capture_col", BIGINT)));
+                arguments);
         return new io.trino.spi.expression.Call(
                 BOOLEAN,
                 new FunctionName("any_match"),
@@ -502,7 +508,7 @@ public class TestPushPredicateIntoTableScan
         builder
                 .withApplyFilter((_, tableHandle, constraint) -> {
                     if (tableHandle.equals(CONNECTOR_LAMBDA_TABLE_HANDLE)) {
-                        assertThat(constraint.getExpression()).isEqualTo(connectorAnyMatch(GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME));
+                        assertThat(constraint.getExpression()).isEqualTo(connectorAnyMatch(LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME));
                         return Optional.of(new ConstraintApplicationResult<>(
                                 CONNECTOR_LAMBDA_TABLE_HANDLE,
                                 TupleDomain.all(),

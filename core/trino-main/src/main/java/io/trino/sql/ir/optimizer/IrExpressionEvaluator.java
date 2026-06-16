@@ -32,7 +32,6 @@ import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
@@ -102,7 +101,6 @@ public class IrExpressionEvaluator
             case Case e -> evaluateInternal(e, session, bindings);
             case Cast e -> evaluateInternal(e, session, bindings);
             case Coalesce e -> evaluateInternal(e, session, bindings);
-            case Comparison e -> evaluateInternal(e, session, bindings);
             case Constant e -> e.value();
             case FieldReference e -> evaluateInternal(e, session, bindings);
             case In e -> evaluateInternal(e, session, bindings);
@@ -279,28 +277,6 @@ public class IrExpressionEvaluator
             return null;
         }
         return readNativeValue(expression.type(), row.getRawFieldBlock(expression.field()), row.getRawIndex());
-    }
-
-    private Object evaluateInternal(Comparison expression, Session session, Map<String, Object> bindings)
-    {
-        Object left = evaluate(expression.left(), session, bindings);
-        Type leftType = expression.left().type();
-
-        Object right = evaluate(expression.right(), session, bindings);
-        Type rightType = expression.right().type();
-
-        return switch (expression.operator()) {
-            case EQUAL -> evaluateOperator(OperatorType.EQUAL, leftType, rightType, left, right, session);
-            case NOT_EQUAL -> {
-                Object result = evaluateOperator(OperatorType.EQUAL, leftType, rightType, left, right, session);
-                yield result == null ? null : !(Boolean) result;
-            }
-            case LESS_THAN -> evaluateOperator(OperatorType.LESS_THAN, leftType, rightType, left, right, session);
-            case LESS_THAN_OR_EQUAL -> evaluateOperator(OperatorType.LESS_THAN_OR_EQUAL, leftType, rightType, left, right, session);
-            case GREATER_THAN -> evaluateOperator(OperatorType.LESS_THAN, rightType, leftType, right, left, session);
-            case GREATER_THAN_OR_EQUAL -> evaluateOperator(OperatorType.LESS_THAN_OR_EQUAL, rightType, leftType, right, left, session);
-            case IDENTICAL -> evaluateOperator(OperatorType.IDENTICAL, leftType, rightType, left, right, session);
-        };
     }
 
     private Object evaluateOperator(OperatorType operator, Type leftType, Type rightType, Object left, Object right, Session session)

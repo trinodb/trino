@@ -57,7 +57,6 @@ import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.TableStatisticType;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
@@ -718,7 +717,7 @@ public class PlanPrinter
         public Void visitJoin(JoinNode node, Context context)
         {
             List<Expression> criteriaExpressions = node.getCriteria().stream()
-                    .map(JoinNode.EquiJoinClause::toExpression)
+                    .map(clause -> clause.toExpression(valuePrinter.getMetadata()))
                     .collect(toImmutableList());
 
             NodeRepresentation nodeOutput;
@@ -820,18 +819,18 @@ public class PlanPrinter
         @Override
         public Void visitIndexJoin(IndexJoinNode node, Context context)
         {
-            List<Expression> joinExpressions = new ArrayList<>();
+            List<String> joinExpressions = new ArrayList<>();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
-                joinExpressions.add(new Comparison(
-                        ComparisonOperator.EQUAL,
-                        clause.getProbe().toSymbolReference(),
-                        clause.getIndex().toSymbolReference()));
+                joinExpressions.add("%s %s %s".formatted(
+                        anonymizer.anonymize(clause.getProbe().toSymbolReference()),
+                        ComparisonOperator.EQUAL.getValue(),
+                        anonymizer.anonymize(clause.getIndex().toSymbolReference())));
             }
 
             addNode(node,
                     format("%sIndexJoin", node.getType().getJoinLabel()),
                     ImmutableMap.of(
-                            "criteria", Joiner.on(" AND ").join(anonymizeExpressions(joinExpressions))),
+                            "criteria", Joiner.on(" AND ").join(joinExpressions)),
                     context);
             node.getProbeSource().accept(this, new Context(context.isInitialPlan()));
             node.getIndexSource().accept(this, new Context(context.isInitialPlan()));

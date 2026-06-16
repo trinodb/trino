@@ -97,7 +97,7 @@ public final class IrExpressions
     /// Because greater-than comparisons are canonicalized to `LessThan` / `LessThanOrEqual` with
     /// flipped operands, this never yields `GreaterThan` or `GreaterThanOrEqual`.
     @Nullable
-    public static ComparisonView matchComparison(Expression expression)
+    public static Comparison matchComparison(Expression expression)
     {
         if (!(expression instanceof Call call)) {
             return null;
@@ -105,8 +105,8 @@ public final class IrExpressions
 
         List<Expression> arguments = call.arguments();
         if (call.function().name().equals(builtinFunctionName("$not")) && arguments.size() == 1) {
-            if (matchComparison(arguments.get(0)) instanceof ComparisonView.Equal(Expression left, Expression right)) {
-                return new ComparisonView.NotEqual(left, right);
+            if (matchComparison(arguments.get(0)) instanceof Comparison.Equal(Expression left, Expression right)) {
+                return new Comparison.NotEqual(left, right);
             }
             return null;
         }
@@ -116,10 +116,10 @@ public final class IrExpressions
             return null;
         }
         return switch (operatorType.get()) {
-            case EQUAL -> new ComparisonView.Equal(arguments.get(0), arguments.get(1));
-            case LESS_THAN -> new ComparisonView.LessThan(arguments.get(0), arguments.get(1));
-            case LESS_THAN_OR_EQUAL -> new ComparisonView.LessThanOrEqual(arguments.get(0), arguments.get(1));
-            case IDENTICAL -> new ComparisonView.Identical(arguments.get(0), arguments.get(1));
+            case EQUAL -> new Comparison.Equal(arguments.get(0), arguments.get(1));
+            case LESS_THAN -> new Comparison.LessThan(arguments.get(0), arguments.get(1));
+            case LESS_THAN_OR_EQUAL -> new Comparison.LessThanOrEqual(arguments.get(0), arguments.get(1));
+            case IDENTICAL -> new Comparison.Identical(arguments.get(0), arguments.get(1));
             default -> null;
         };
     }
@@ -135,15 +135,15 @@ public final class IrExpressions
 
     /// A comparison recovered by {@link #matchComparison}, modeled as one of the five canonical
     /// operators so callers can pattern-match on it — for example
-    /// `matchComparison(e) instanceof ComparisonView.LessThan(Expression l, Expression r)` — with the
+    /// `matchComparison(e) instanceof Comparison.LessThan(Expression l, Expression r)` — with the
     /// compiler enforcing exhaustiveness. Greater-than forms never appear: they are canonicalized to
     /// flipped `LessThan` / `LessThanOrEqual`.
-    public sealed interface ComparisonView
-            permits ComparisonView.Equal,
-                    ComparisonView.Identical,
-                    ComparisonView.LessThan,
-                    ComparisonView.LessThanOrEqual,
-                    ComparisonView.NotEqual
+    public sealed interface Comparison
+            permits Comparison.Equal,
+                    Comparison.Identical,
+                    Comparison.LessThan,
+                    Comparison.LessThanOrEqual,
+                    Comparison.NotEqual
     {
         ComparisonOperator operator();
 
@@ -152,7 +152,7 @@ public final class IrExpressions
         Expression right();
 
         record Equal(Expression left, Expression right)
-                implements ComparisonView
+                implements Comparison
         {
             @Override
             public ComparisonOperator operator()
@@ -162,7 +162,7 @@ public final class IrExpressions
         }
 
         record NotEqual(Expression left, Expression right)
-                implements ComparisonView
+                implements Comparison
         {
             @Override
             public ComparisonOperator operator()
@@ -172,7 +172,7 @@ public final class IrExpressions
         }
 
         record LessThan(Expression left, Expression right)
-                implements ComparisonView
+                implements Comparison
         {
             @Override
             public ComparisonOperator operator()
@@ -182,7 +182,7 @@ public final class IrExpressions
         }
 
         record LessThanOrEqual(Expression left, Expression right)
-                implements ComparisonView
+                implements Comparison
         {
             @Override
             public ComparisonOperator operator()
@@ -192,7 +192,7 @@ public final class IrExpressions
         }
 
         record Identical(Expression left, Expression right)
-                implements ComparisonView
+                implements Comparison
         {
             @Override
             public ComparisonOperator operator()
@@ -217,12 +217,12 @@ public final class IrExpressions
     /// the operand-bound lambda parameter. The caller supplies `parameter` — it must be
     /// allocated through [io.trino.sql.planner.SymbolAllocator] so it cannot collide with a
     /// symbol referenced in `value` or one allocated later.
-    public static MatchClause equalityClause(Symbol parameter, Expression value, Expression result)
+    public static MatchClause equalityClause(Metadata metadata, Symbol parameter, Expression value, Expression result)
     {
         return new MatchClause(
                 new Lambda(
                         ImmutableList.of(parameter),
-                        new Comparison(EQUAL, new Reference(parameter.type(), parameter.name()), value)),
+                        comparison(metadata, EQUAL, new Reference(parameter.type(), parameter.name()), value)),
                 result);
     }
 
@@ -267,12 +267,17 @@ public final class IrExpressions
 
             // These expressions may return null based on their operands
             case Between e -> mayBeNull(plannerContext, e.value(), referencesMayBeNull) || mayBeNull(plannerContext, e.min(), referencesMayBeNull) || mayBeNull(plannerContext, e.max(), referencesMayBeNull);
-            case Call e -> mayBeNull(plannerContext, e.function(), e.arguments(), referencesMayBeNull);
+            case Call e -> switch (matchComparison(e)) {
+                case null -> mayBeNull(plannerContext, e.function(), e.arguments(), referencesMayBeNull);
+                // IDENTICAL is null-safe; other comparisons return null only when one of their operands is null.
+                case Comparison.Identical _ -> false;
+                case Comparison comparison -> mayBeNull(plannerContext, comparison.left(), referencesMayBeNull) ||
+                        mayBeNull(plannerContext, comparison.right(), referencesMayBeNull);
+            };
             case Case e -> e.whenClauses().stream().anyMatch(clause -> mayBeNull(plannerContext, clause.getResult(), referencesMayBeNull)) ||
                     mayBeNull(plannerContext, e.defaultValue(), referencesMayBeNull);
             case Cast e -> mayBeNull(plannerContext, e, referencesMayBeNull);
             case Coalesce e -> e.operands().stream().allMatch(operand -> mayBeNull(plannerContext, operand, referencesMayBeNull));
-            case Comparison e -> e.operator() != ComparisonOperator.IDENTICAL && (mayBeNull(plannerContext, e.left(), referencesMayBeNull) || mayBeNull(plannerContext, e.right(), referencesMayBeNull));
             case In e -> mayBeNull(plannerContext, e.value(), referencesMayBeNull) || e.valueList().stream().anyMatch(value -> mayBeNull(plannerContext, value, referencesMayBeNull));
             case Logical e -> e.terms().stream().anyMatch(term -> mayBeNull(plannerContext, term, referencesMayBeNull));
             case Match e -> e.clauses().stream().anyMatch(clause -> mayBeNull(plannerContext, clause.result(), referencesMayBeNull)) ||
@@ -319,12 +324,14 @@ public final class IrExpressions
             // These expressions need to verify their operands
             case Array e -> e.elements().stream().anyMatch(element -> mayFail(plannerContext, element));
             case Between e -> mayFail(plannerContext, e) || mayFail(plannerContext, e.value()) || mayFail(plannerContext, e.min()) || mayFail(plannerContext, e.max());
-            case Call e -> mayFail(e) || e.arguments().stream().anyMatch(argument -> mayFail(plannerContext, argument));
+            case Call e -> switch (matchComparison(e)) {
+                case null -> mayFail(e) || e.arguments().stream().anyMatch(argument -> mayFail(plannerContext, argument));
+                case Comparison comparison -> mayFail(plannerContext, comparison) || mayFail(plannerContext, comparison.left()) || mayFail(plannerContext, comparison.right());
+            };
             case Case e -> e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, clause.getOperand()) || mayFail(plannerContext, clause.getResult())) ||
                     mayFail(plannerContext, e.defaultValue());
             case Cast e -> mayFail(plannerContext, e);
             case Coalesce e -> e.operands().stream().anyMatch(argument -> mayFail(plannerContext, argument));
-            case Comparison e -> mayFail(plannerContext, e) || mayFail(plannerContext, e.left()) || mayFail(plannerContext, e.right());
             case In e -> mayFail(plannerContext, e.value()) || e.valueList().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case IsNull e -> mayFail(plannerContext, e.value());
             case Logical e -> e.terms().stream().anyMatch(argument -> mayFail(plannerContext, argument));

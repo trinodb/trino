@@ -53,7 +53,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
     @BeforeAll
     public void setUpBeforeClass()
     {
-        ruleSet = new PushInequalityFilterExpressionBelowJoinRuleSet();
+        ruleSet = new PushInequalityFilterExpressionBelowJoinRuleSet(FUNCTIONS.getMetadata());
     }
 
     @Test

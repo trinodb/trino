@@ -26,7 +26,6 @@ import io.trino.spi.type.FunctionType;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -53,6 +52,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -448,8 +448,8 @@ public class TestEqualityInference
 
     private static Set<Expression> equalityAsSet(Expression expression)
     {
-        checkArgument(expression instanceof Comparison);
-        Comparison comparison = (Comparison) expression;
+        IrExpressions.Comparison comparison = matchComparison(expression);
+        checkArgument(comparison != null, "Expected a comparison: %s", expression);
         checkArgument(comparison.operator() == EQUAL);
         return ImmutableSet.of(comparison.left(), comparison.right());
     }
@@ -467,6 +467,6 @@ public class TestEqualityInference
 
     private static MatchClause equalityClause(Expression value, Expression result)
     {
-        return IrExpressions.equalityClause(new Symbol(value.type(), "operand"), value, result);
+        return IrExpressions.equalityClause(PLANNER_CONTEXT.getMetadata(), new Symbol(value.type(), "operand"), value, result);
     }
 }

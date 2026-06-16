@@ -14,10 +14,12 @@
 package io.trino.sql.ir.optimizer.rule;
 
 import io.trino.Session;
-import io.trino.sql.ir.Comparison;
+import io.trino.metadata.Metadata;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
@@ -31,28 +33,39 @@ import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.comparison;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 
 /**
  * Transforms:
- * <pre>{@code Comparison(op, v, Match(x, When(c1, r1), When(c2, r2), ..)))}</pre>
+ * <pre>{@code op(v, Match(x, When(c1, r1), When(c2, r2), ..)))}</pre>
  *
  * into:
- * <pre>{@code Match(x, When(c1, Comparison(op, v, r1)), When(c2, Comparison(op, v, r2)), ..)))}</pre>
+ * <pre>{@code Match(x, When(c1, op(v, r1)), When(c2, op(v, r2)), ..)))}</pre>
  */
 public class DistributeComparisonOverMatch
         implements IrOptimizerRule
 {
+    private final Metadata metadata;
+
+    public DistributeComparisonOverMatch(PlannerContext context)
+    {
+        this.metadata = context.getMetadata();
+    }
+
     @Override
     public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
     {
-        if (expression instanceof Comparison(ComparisonOperator operator, Match match, Expression target) &&
-                (target instanceof Reference || target instanceof Constant)) {
-            return Optional.of(distribute(operator, match, target));
+        if (!(matchComparison(expression) instanceof Comparison comparison)) {
+            return Optional.empty();
         }
 
-        if (expression instanceof Comparison(ComparisonOperator operator, Expression target, Match match) &&
-                (target instanceof Reference || target instanceof Constant)) {
-            return Optional.of(distribute(flipOperator(operator), match, target));
+        if (comparison.left() instanceof Match match && (comparison.right() instanceof Reference || comparison.right() instanceof Constant)) {
+            return Optional.of(distribute(comparison.operator(), match, comparison.right()));
+        }
+
+        if (comparison.right() instanceof Match match && (comparison.left() instanceof Reference || comparison.left() instanceof Constant)) {
+            return Optional.of(distribute(flipOperator(comparison.operator()), match, comparison.left()));
         }
 
         return Optional.empty();
@@ -76,8 +89,8 @@ public class DistributeComparisonOverMatch
                 match.clauses().stream()
                         .map(clause -> new MatchClause(
                                 clause.predicate(),
-                                new Comparison(operator, clause.result(), target)))
+                                comparison(metadata, operator, clause.result(), target)))
                         .toList(),
-                new Comparison(operator, match.defaultValue(), target));
+                comparison(metadata, operator, match.defaultValue(), target));
     }
 }

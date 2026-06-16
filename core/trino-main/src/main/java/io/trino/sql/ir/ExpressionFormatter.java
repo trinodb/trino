@@ -17,6 +17,7 @@ import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.RowType;
+import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
@@ -24,6 +25,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -113,6 +115,12 @@ public final class ExpressionFormatter
         @Override
         protected String visitCall(Call node, Void context)
         {
+            // Render comparisons with their infix operator (e.g. (a = b)) rather than as a raw
+            // operator-function call, keeping plan and EXPLAIN output readable.
+            if (matchComparison(node) instanceof Comparison comparison) {
+                return "(" + process(comparison.left(), context) + " " + comparison.operator().getValue() + " " + process(comparison.right(), context) + ")";
+            }
+
             String name = isBuiltinFunctionName(node.function().name()) ?
                     node.function().name().functionName() :
                     node.function().name().toString();
@@ -167,12 +175,6 @@ public final class ExpressionFormatter
                             .map(term -> process(term, context))
                             .collect(joining(" " + node.operator().toString() + " ")) +
                     ")";
-        }
-
-        @Override
-        protected String visitComparison(Comparison node, Void context)
-        {
-            return formatBinaryExpression(node.operator().getValue(), node.left(), node.right());
         }
 
         @Override
@@ -255,11 +257,6 @@ public final class ExpressionFormatter
         protected String visitIn(In node, Void context)
         {
             return "(" + process(node.value(), context) + " IN (" + joinExpressions(node.valueList()) + "))";
-        }
-
-        private String formatBinaryExpression(String operator, Expression left, Expression right)
-        {
-            return '(' + process(left, null) + ' ' + operator + ' ' + process(right, null) + ')';
         }
 
         private String joinExpressions(List<Expression> expressions)

@@ -14,10 +14,13 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.metadata.Metadata;
 import io.trino.operator.join.SortedPositionLinks;
 import io.trino.sql.ir.Between;
-import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.Reference;
@@ -29,6 +32,8 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.comparison;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.planner.SymbolsExtractor.extractAll;
 import static java.util.Comparator.comparing;
 import static java.util.function.Function.identity;
@@ -57,10 +62,10 @@ public final class SortExpressionExtractor
      */
     private SortExpressionExtractor() {}
 
-    public static Optional<SortExpressionContext> extractSortExpression(Set<Symbol> buildSymbols, Expression filter)
+    public static Optional<SortExpressionContext> extractSortExpression(Set<Symbol> buildSymbols, Expression filter, Metadata metadata)
     {
         List<Expression> filterConjuncts = IrUtils.extractConjuncts(filter);
-        SortExpressionVisitor visitor = new SortExpressionVisitor(buildSymbols);
+        SortExpressionVisitor visitor = new SortExpressionVisitor(buildSymbols, metadata);
 
         List<SortExpressionContext> sortExpressionCandidates = ImmutableList.copyOf(filterConjuncts.stream()
                 .filter(DeterminismEvaluator::isDeterministic)
@@ -89,10 +94,12 @@ public final class SortExpressionExtractor
             extends IrVisitor<List<SortExpressionContext>, Void>
     {
         private final Set<Symbol> buildSymbols;
+        private final Metadata metadata;
 
-        public SortExpressionVisitor(Set<Symbol> buildSymbols)
+        public SortExpressionVisitor(Set<Symbol> buildSymbols, Metadata metadata)
         {
             this.buildSymbols = buildSymbols;
+            this.metadata = metadata;
         }
 
         @Override
@@ -102,18 +109,26 @@ public final class SortExpressionExtractor
         }
 
         @Override
-        protected List<SortExpressionContext> visitComparison(Comparison comparison, Void context)
+        protected List<SortExpressionContext> visitCall(Call node, Void context)
         {
-            return switch (comparison.operator()) {
+            if (!(matchComparison(node) instanceof Comparison comparison)) {
+                return List.of();
+            }
+            return extractSortExpression(comparison.operator(), comparison.left(), comparison.right(), node);
+        }
+
+        private List<SortExpressionContext> extractSortExpression(ComparisonOperator operator, Expression left, Expression right, Expression original)
+        {
+            return switch (operator) {
                 case GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> {
-                    Optional<Reference> sortChannel = asBuildSymbolReference(buildSymbols, comparison.right());
-                    boolean hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, comparison.left());
+                    Optional<Reference> sortChannel = asBuildSymbolReference(buildSymbols, right);
+                    boolean hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, left);
                     if (sortChannel.isEmpty()) {
-                        sortChannel = asBuildSymbolReference(buildSymbols, comparison.left());
-                        hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, comparison.right());
+                        sortChannel = asBuildSymbolReference(buildSymbols, left);
+                        hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, right);
                     }
                     if (sortChannel.isPresent() && !hasBuildReferencesOnOtherSide) {
-                        yield ImmutableList.of(new SortExpressionContext(sortChannel.get(), ImmutableList.of(comparison)));
+                        yield ImmutableList.of(new SortExpressionContext(sortChannel.get(), ImmutableList.of(original)));
                     }
                     yield List.of();
                 }
@@ -126,8 +141,8 @@ public final class SortExpressionExtractor
         {
             // Handle both side of BETWEEN as `GREATER_THAN_OR_EQUAL` expression and `LESS_THAN_OR_EQUAL` expression.
             return ImmutableList.<SortExpressionContext>builder()
-                    .addAll(visitComparison(new Comparison(GREATER_THAN_OR_EQUAL, node.value(), node.min()), context))
-                    .addAll(visitComparison(new Comparison(LESS_THAN_OR_EQUAL, node.value(), node.max()), context))
+                    .addAll(extractSortExpression(GREATER_THAN_OR_EQUAL, node.value(), node.min(), comparison(metadata, GREATER_THAN_OR_EQUAL, node.value(), node.min())))
+                    .addAll(extractSortExpression(LESS_THAN_OR_EQUAL, node.value(), node.max(), comparison(metadata, LESS_THAN_OR_EQUAL, node.value(), node.max())))
                     .build();
         }
     }

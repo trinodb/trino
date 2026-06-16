@@ -23,7 +23,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -83,7 +82,6 @@ public sealed interface FilterEvaluator
     {
         return switch (expression) {
             case Constant constant when constant.value() instanceof Boolean booleanValue -> booleanValue ? Optional.of(SelectAllEvaluator::new) : Optional.of(SelectNoneEvaluator::new);
-            case Comparison comparison -> createComparisonExpressionEvaluator(compiler, comparison, layout);
             case Call call -> {
                 if (isNotExpression(call)) {
                     // "not(is_null(reference))" is handled explicitly as it is easy.
@@ -179,16 +177,6 @@ public sealed interface FilterEvaluator
 
         Optional<Supplier<ColumnarFilter>> compiledFilter = compiler.generateFilter(isNull, layout);
         return compiledFilter.map(filterSupplier -> () -> createDictionaryAwareEvaluator(filterSupplier.get()));
-    }
-
-    private static Optional<Supplier<FilterEvaluator>> createComparisonExpressionEvaluator(ColumnarFilterCompiler compiler, Comparison comparison, Map<Symbol, Integer> layout)
-    {
-        Optional<Supplier<ColumnarFilter>> compiledFilter = compiler.generateFilter(comparison, layout);
-        return compiledFilter.map(filterSupplier -> () -> {
-            ColumnarFilter filter = filterSupplier.get();
-            // comparison operators are always deterministic
-            return filter.getInputChannels().size() == 1 ? createDictionaryAwareEvaluator(filter) : new ColumnarFilterEvaluator(filter);
-        });
     }
 
     private static FilterEvaluator createDictionaryAwareEvaluator(ColumnarFilter filter)

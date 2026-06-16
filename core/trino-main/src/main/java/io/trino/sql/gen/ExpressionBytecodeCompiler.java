@@ -26,7 +26,6 @@ import io.airlift.bytecode.control.IfStatement;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
@@ -37,7 +36,6 @@ import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
@@ -65,8 +63,6 @@ import static io.airlift.bytecode.instruction.Constant.loadBoolean;
 import static io.airlift.bytecode.instruction.Constant.loadDouble;
 import static io.airlift.bytecode.instruction.Constant.loadLong;
 import static io.airlift.bytecode.instruction.Constant.loadString;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.generateLambda;
 import static java.util.Objects.requireNonNull;
@@ -218,41 +214,6 @@ public class ExpressionBytecodeCompiler
                     ImmutableList.of(),
                     compiledLambdaMap.get(node),
                     context.lambdaInterface().get());
-        }
-
-        @Override
-        protected BytecodeNode visitComparison(Comparison node, Context context)
-        {
-            BytecodeGeneratorContext generatorContext = generatorContext(context.scope());
-            Expression left = node.left();
-            Expression right = node.right();
-
-            return switch (node.operator()) {
-                case NOT_EQUAL -> {
-                    ResolvedFunction equalsFunction = metadata.resolveOperator(
-                            OperatorType.EQUAL,
-                            ImmutableList.of(left.type(), right.type()));
-                    ResolvedFunction notFunction = metadata.resolveBuiltinFunction("$not", fromTypes(BOOLEAN));
-                    yield generatorContext.generateCall(notFunction,
-                            ImmutableList.of(generatorContext.generateCall(
-                                    equalsFunction,
-                                    ImmutableList.of(generatorContext.generate(left), generatorContext.generate(right)))));
-                }
-                case GREATER_THAN -> generateComparisonCall(generatorContext, OperatorType.LESS_THAN, right, left);
-                case GREATER_THAN_OR_EQUAL -> generateComparisonCall(generatorContext, OperatorType.LESS_THAN_OR_EQUAL, right, left);
-                case EQUAL -> generateComparisonCall(generatorContext, OperatorType.EQUAL, left, right);
-                case LESS_THAN -> generateComparisonCall(generatorContext, OperatorType.LESS_THAN, left, right);
-                case LESS_THAN_OR_EQUAL -> generateComparisonCall(generatorContext, OperatorType.LESS_THAN_OR_EQUAL, left, right);
-                case IDENTICAL -> generateComparisonCall(generatorContext, OperatorType.IDENTICAL, left, right);
-            };
-        }
-
-        private BytecodeNode generateComparisonCall(BytecodeGeneratorContext generatorContext, OperatorType operatorType, Expression left, Expression right)
-        {
-            ResolvedFunction function = metadata.resolveOperator(operatorType, ImmutableList.of(left.type(), right.type()));
-            return generatorContext.generateCall(
-                    function,
-                    ImmutableList.of(generatorContext.generate(left), generatorContext.generate(right)));
         }
 
         @Override

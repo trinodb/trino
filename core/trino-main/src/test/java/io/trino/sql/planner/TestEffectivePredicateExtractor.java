@@ -34,6 +34,7 @@ import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionNullability;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
@@ -133,6 +134,12 @@ public class TestEffectivePredicateExtractor
         public ResolvedFunction resolveBuiltinFunction(String name, List<TypeDescriptorProvider> parameterTypes)
         {
             return delegate.resolveBuiltinFunction(name, parameterTypes);
+        }
+
+        @Override
+        public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+        {
+            return delegate.resolveOperator(operatorType, argumentTypes);
         }
 
         @Override

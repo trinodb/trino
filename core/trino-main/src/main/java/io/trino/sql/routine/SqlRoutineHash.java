@@ -30,7 +30,6 @@ import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
@@ -236,11 +235,6 @@ public final class SqlRoutineHash
                             hasher.putBytes(output.slice().getBytes());
                         }
                     }
-                }
-                case Comparison comparison -> {
-                    hashString(comparison.operator().name());
-                    hashExpression(comparison.left());
-                    hashExpression(comparison.right());
                 }
                 case Logical logical -> {
                     hashString(logical.operator().name());

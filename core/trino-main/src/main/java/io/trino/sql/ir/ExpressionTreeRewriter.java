@@ -138,26 +138,6 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        public Expression visitComparison(Comparison node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteComparison(node, context.get(), ExpressionTreeRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            Expression left = rewrite(node.left(), context.get());
-            Expression right = rewrite(node.right(), context.get());
-
-            if (left != node.left() || right != node.right()) {
-                return new Comparison(node.operator(), left, right);
-            }
-
-            return node;
-        }
-
-        @Override
         protected Expression visitBetween(Between node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

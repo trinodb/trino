@@ -30,6 +30,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.TestingIr.comparison;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -121,6 +122,6 @@ public class TestDistributeComparisonOverCase
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new DistributeComparisonOverCase().apply(expression, testSession(), ImmutableMap.of());
+        return new DistributeComparisonOverCase(PLANNER_CONTEXT).apply(expression, testSession(), ImmutableMap.of());
     }
 }

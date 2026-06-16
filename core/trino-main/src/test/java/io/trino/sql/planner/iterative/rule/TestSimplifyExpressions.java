@@ -529,7 +529,7 @@ public class TestSimplifyExpressions
 
     private static void assertSimplifies(Expression expression, Expression expected)
     {
-        Expression simplified = normalize(rewrite(expression, TEST_SESSION, PLANNER_CONTEXT.getExpressionOptimizer()));
+        Expression simplified = normalize(rewrite(expression, TEST_SESSION, PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getExpressionOptimizer()));
         assertThat(simplified).isEqualTo(normalize(expected));
     }
 
@@ -653,7 +653,7 @@ public class TestSimplifyExpressions
 
     private static void assertSimplifiesNumericTypes(Expression expression, Expression expected)
     {
-        Expression rewritten = rewrite(expression, TEST_SESSION, PLANNER_CONTEXT.getExpressionOptimizer());
+        Expression rewritten = rewrite(expression, TEST_SESSION, PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getExpressionOptimizer());
         assertThat(normalize(rewritten)).isEqualTo(normalize(expected));
     }
 

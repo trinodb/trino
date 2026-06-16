@@ -19,11 +19,12 @@ import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
-import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
+import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
@@ -40,6 +41,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -166,24 +170,6 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitComparison(Comparison actual, Expression expectedExpression)
-    {
-        if (!(expectedExpression instanceof Comparison expected)) {
-            return false;
-        }
-
-        if (actual.operator() == expected.operator() &&
-                process(actual.left(), expected.left()) &&
-                process(actual.right(), expected.right())) {
-            return true;
-        }
-
-        return actual.operator() == expected.operator().flip() &&
-                process(actual.left(), expected.right()) &&
-                process(actual.right(), expected.left());
-    }
-
-    @Override
     protected Boolean visitBetween(Between actual, Expression expectedExpression)
     {
         if (!(expectedExpression instanceof Between expected)) {
@@ -300,8 +286,29 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return actual.function().name().equals(expected.function().name()) &&
-                process(actual.arguments(), expected.arguments());
+        if (!actual.function().name().equals(expected.function().name())) {
+            return false;
+        }
+
+        if (process(actual.arguments(), expected.arguments())) {
+            return true;
+        }
+
+        // The equality operator functions ($operator$EQUAL, $operator$IDENTICAL) are commutative,
+        // so a = b is allowed to match b = a (preserving the matching that the former Comparison
+        // node performed via operator flipping). Other comparisons are not commutative: greater-than
+        // is canonicalized to less-than with flipped operands, so both sides already agree on order.
+        Comparison actualComparison = matchComparison(actual);
+        Comparison expectedComparison = matchComparison(expected);
+        if (actualComparison != null && expectedComparison != null) {
+            ComparisonOperator operator = actualComparison.operator();
+            if ((operator == EQUAL || operator == IDENTICAL) && operator == expectedComparison.operator()) {
+                return process(actualComparison.left(), expectedComparison.right()) &&
+                        process(actualComparison.right(), expectedComparison.left());
+            }
+        }
+
+        return false;
     }
 
     @Override

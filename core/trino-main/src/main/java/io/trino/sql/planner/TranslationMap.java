@@ -45,7 +45,6 @@ import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Coalesce;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
@@ -164,6 +163,7 @@ import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.equalityClause;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.not;
@@ -512,7 +512,7 @@ public class TranslationMap
     {
         io.trino.sql.ir.Expression result = translateExpression(clause.getResult());
         return switch (clause.getMatch()) {
-            case Operand operand -> equalityClause(parameter, translateExpression(operand.expression()), result);
+            case Operand operand -> equalityClause(plannerContext.getMetadata(), parameter, translateExpression(operand.expression()), result);
             case Partial partial -> {
                 io.trino.sql.ir.Expression body = translatePartialClause(caseOperand, parameterReference, partial.predicate());
                 yield new MatchClause(new Lambda(ImmutableList.of(parameter), body), result);
@@ -601,17 +601,17 @@ public class TranslationMap
             case ComparisonPredicate predicate -> {
                 io.trino.sql.ir.Expression right = translateExpression(predicate.getRight());
                 yield switch (predicate.getOperator()) {
-                    case EQUAL -> new Comparison(EQUAL, value, right);
-                    case NOT_EQUAL -> new Comparison(NOT_EQUAL, value, right);
-                    case LESS_THAN -> new Comparison(LESS_THAN, value, right);
-                    case LESS_THAN_OR_EQUAL -> new Comparison(LESS_THAN_OR_EQUAL, value, right);
-                    case GREATER_THAN -> new Comparison(GREATER_THAN, value, right);
-                    case GREATER_THAN_OR_EQUAL -> new Comparison(GREATER_THAN_OR_EQUAL, value, right);
+                    case EQUAL -> comparison(plannerContext.getMetadata(), EQUAL, value, right);
+                    case NOT_EQUAL -> comparison(plannerContext.getMetadata(), NOT_EQUAL, value, right);
+                    case LESS_THAN -> comparison(plannerContext.getMetadata(), LESS_THAN, value, right);
+                    case LESS_THAN_OR_EQUAL -> comparison(plannerContext.getMetadata(), LESS_THAN_OR_EQUAL, value, right);
+                    case GREATER_THAN -> comparison(plannerContext.getMetadata(), GREATER_THAN, value, right);
+                    case GREATER_THAN_OR_EQUAL -> comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, value, right);
                 };
             }
             case DistinctFromPredicate predicate -> {
                 io.trino.sql.ir.Expression right = translateExpression(predicate.getRight());
-                io.trino.sql.ir.Expression identical = new Comparison(IDENTICAL, value, right);
+                io.trino.sql.ir.Expression identical = comparison(plannerContext.getMetadata(), IDENTICAL, value, right);
                 yield predicate.isNegated() ? identical : not(plannerContext.getMetadata(), identical);
             }
             case InPredicate predicate -> {

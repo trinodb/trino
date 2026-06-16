@@ -16,8 +16,6 @@ package io.trino.sql.planner.planprinter;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import io.trino.sql.ir.Comparison;
-import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Partitioning.ArgumentBinding;
@@ -501,9 +499,9 @@ public final class GraphvizPrinter
         @Override
         public Void visitJoin(JoinNode node, Void context)
         {
-            List<Expression> joinExpressions = new ArrayList<>();
+            List<String> joinExpressions = new ArrayList<>();
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
-                joinExpressions.add(clause.toExpression());
+                joinExpressions.add(clause.getLeft() + " = " + clause.getRight());
             }
 
             String criteria = Joiner.on(" AND ").join(joinExpressions);
@@ -585,12 +583,9 @@ public final class GraphvizPrinter
         @Override
         public Void visitIndexJoin(IndexJoinNode node, Void context)
         {
-            List<Expression> joinExpressions = new ArrayList<>();
+            List<String> joinExpressions = new ArrayList<>();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
-                joinExpressions.add(new Comparison(
-                        ComparisonOperator.EQUAL,
-                        clause.getProbe().toSymbolReference(),
-                        clause.getIndex().toSymbolReference()));
+                joinExpressions.add(clause.getProbe() + " = " + clause.getIndex());
             }
 
             String criteria = Joiner.on(" AND ").join(joinExpressions);

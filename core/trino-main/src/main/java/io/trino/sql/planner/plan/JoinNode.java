@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
-import io.trino.sql.ir.Comparison;
+import io.trino.metadata.Metadata;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
@@ -35,6 +35,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
@@ -333,9 +334,9 @@ public class JoinNode
             return right;
         }
 
-        public Comparison toExpression()
+        public Expression toExpression(Metadata metadata)
         {
-            return new Comparison(ComparisonOperator.EQUAL, left.toSymbolReference(), right.toSymbolReference());
+            return comparison(metadata, ComparisonOperator.EQUAL, left.toSymbolReference(), right.toSymbolReference());
         }
 
         public EquiJoinClause flip()
