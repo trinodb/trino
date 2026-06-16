@@ -23,7 +23,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Logical;
@@ -54,6 +53,7 @@ import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -170,7 +170,7 @@ public class TestDynamicFilter
                                 .right(
                                         exchange(
                                                 tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))
-                                .filter(new Comparison(LESS_THAN, new Reference(BIGINT, "LINEITEM_OK"), new Reference(BIGINT, "ORDERS_OK"))))));
+                                .filter(comparison(LESS_THAN, new Reference(BIGINT, "LINEITEM_OK"), new Reference(BIGINT, "ORDERS_OK"))))));
     }
 
     @Test
@@ -188,7 +188,7 @@ public class TestDynamicFilter
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey > l.orderkey",
                 anyTree(filter(
-                        new Comparison(GREATER_THAN, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")),
+                        comparison(GREATER_THAN, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")),
                         join(INNER, builder -> builder
                                 .addDynamicFilter("DF", "L_ORDERKEY")
                                 .left(
@@ -207,7 +207,7 @@ public class TestDynamicFilter
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey < o.orderkey",
                 anyTree(filter(
-                        new Comparison(GREATER_THAN, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")),
+                        comparison(GREATER_THAN, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")),
                         join(INNER, builder -> builder
                                 .addDynamicFilter("DF", "L_ORDERKEY")
                                 .left(
@@ -277,7 +277,7 @@ public class TestDynamicFilter
     {
         assertPlan("SELECT o.comment, l.comment FROM lineitem l, orders o WHERE o.comment < l.comment",
                 anyTree(filter(
-                        new Comparison(GREATER_THAN, new Cast(new Reference(VARCHAR, "L_COMMENT"), createVarcharType(79)), new Reference(createVarcharType(79), "O_COMMENT")),
+                        comparison(GREATER_THAN, new Cast(new Reference(VARCHAR, "L_COMMENT"), createVarcharType(79)), new Reference(createVarcharType(79), "O_COMMENT")),
                         join(INNER, builder -> builder
                                 .addDynamicFilter("DF", "O_COMMENT")
                                 .left(
@@ -308,7 +308,7 @@ public class TestDynamicFilter
                 anyTree(
                         project(
                                 filter(
-                                        new Comparison(LESS_THAN, new Reference(VARCHAR, "O_COMMENT"), new Reference(VARCHAR, "expr")),
+                                        comparison(LESS_THAN, new Reference(VARCHAR, "O_COMMENT"), new Reference(VARCHAR, "expr")),
                                         join(INNER, builder -> builder
                                                 .addDynamicFilter("DF", "expr")
                                                 .left(
@@ -366,7 +366,7 @@ public class TestDynamicFilter
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey IS NOT DISTINCT FROM o.orderkey",
                 anyTree(filter(
-                        new Comparison(IDENTICAL, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")),
+                        comparison(IDENTICAL, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")),
                         join(INNER, builder -> builder
                                 .addDynamicFilter("DF", "L_ORDERKEY")
                                 .left(
@@ -381,7 +381,7 @@ public class TestDynamicFilter
         // Dynamic filter is not supported for IS DISTINCT FROM
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey IS DISTINCT FROM o.orderkey",
                 anyTree(filter(
-                        not(getPlanTester().getPlannerContext().getMetadata(), new Comparison(IDENTICAL, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY"))),
+                        not(getPlanTester().getPlannerContext().getMetadata(), comparison(IDENTICAL, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY"))),
                         join(INNER, builder -> builder
                                 .left(tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))
                                 .right(
@@ -391,7 +391,7 @@ public class TestDynamicFilter
         // extendedprice and totalprice are of DOUBLE type, dynamic filter is not supported with IS NOT DISTINCT FROM clause on DOUBLE or REAL types
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.extendedprice IS NOT DISTINCT FROM o.totalprice",
                 anyTree(filter(
-                        new Comparison(IDENTICAL, new Reference(DOUBLE, "O_TOTALPRICE"), new Reference(DOUBLE, "L_EXTENDEDPRICE")),
+                        comparison(IDENTICAL, new Reference(DOUBLE, "O_TOTALPRICE"), new Reference(DOUBLE, "L_EXTENDEDPRICE")),
                         join(INNER, builder -> builder
                                 .left(tableScan("orders", ImmutableMap.of("O_TOTALPRICE", "totalprice")))
                                 .right(
@@ -561,7 +561,7 @@ public class TestDynamicFilter
                                 FilterNode.class,
                                 join(INNER, builder -> builder
                                         .equiCriteria("O_SHIPPRIORITY", "L_LINENUMBER")
-                                        .filter(new Comparison(LESS_THAN, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")))
+                                        .filter(comparison(LESS_THAN, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")))
                                         .addDynamicFilter("DF_SHIPPRIORITY", "L_LINENUMBER")
                                         .addDynamicFilter("DF_ORDERKEY", "L_ORDERKEY")
                                         .left(
@@ -776,7 +776,7 @@ public class TestDynamicFilter
                                         "S",
                                         dynamicFilter("DF"),
                                         filter(
-                                                new Comparison(GREATER_THAN, new Reference(BIGINT, "X"), new Constant(BIGINT, 0L)),
+                                                comparison(GREATER_THAN, new Reference(BIGINT, "X"), new Constant(BIGINT, 0L)),
                                                 dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "X")),
                                                 tableScan("orders", ImmutableMap.of("X", "orderkey"))),
                                         anyTree(
@@ -846,7 +846,7 @@ public class TestDynamicFilter
         assertPlan("SELECT o.orderkey FROM orders o JOIN lineitem l ON o.orderkey + 1 < l.orderkey",
                 anyTree(
                         filter(
-                                new Comparison(LESS_THAN, new Reference(BIGINT, "expr"), new Reference(BIGINT, "LINEITEM_OK")),
+                                comparison(LESS_THAN, new Reference(BIGINT, "expr"), new Reference(BIGINT, "LINEITEM_OK")),
                                 join(INNER, builder -> builder
                                         .left(
                                                 project(
@@ -863,7 +863,7 @@ public class TestDynamicFilter
         assertPlan("SELECT o.orderkey FROM orders o JOIN lineitem l ON o.orderkey < l.orderkey + 1",
                 anyTree(
                         filter(
-                                new Comparison(LESS_THAN, new Reference(BIGINT, "ORDERS_OK"), new Reference(BIGINT, "expr")),
+                                comparison(LESS_THAN, new Reference(BIGINT, "ORDERS_OK"), new Reference(BIGINT, "expr")),
                                 join(INNER, builder -> builder
                                         .addDynamicFilter("DF", "expr")
                                         .left(
@@ -883,7 +883,7 @@ public class TestDynamicFilter
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey + 1 < l.orderkey",
                 anyTree(filter(
-                        new Comparison(LESS_THAN, new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "ORDERS_OK"), new Constant(BIGINT, 1L))), new Reference(BIGINT, "LINEITEM_OK")),
+                        comparison(LESS_THAN, new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "ORDERS_OK"), new Constant(BIGINT, 1L))), new Reference(BIGINT, "LINEITEM_OK")),
                         join(INNER, builder -> builder
                                 .left(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))
                                 .right(exchange(
@@ -896,7 +896,7 @@ public class TestDynamicFilter
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey < l.orderkey + 1",
                 anyTree(
                         filter(
-                                new Comparison(LESS_THAN, new Reference(BIGINT, "ORDERS_OK"), new Reference(BIGINT, "expr")),
+                                comparison(LESS_THAN, new Reference(BIGINT, "ORDERS_OK"), new Reference(BIGINT, "expr")),
                                 join(INNER, builder -> builder
                                         .addDynamicFilter("DF", "expr")
                                         .left(
@@ -920,7 +920,7 @@ public class TestDynamicFilter
                         "WHERE f.nationkey >= mod(d.nationkey, 2) AND f.suppkey >= mod(d.nationkey, 2)",
                 anyTree(
                         filter(
-                                new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "nationkey"), new Reference(BIGINT, "mod")), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "suppkey"), new Reference(BIGINT, "mod")))),
+                                new Logical(AND, ImmutableList.of(comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "nationkey"), new Reference(BIGINT, "mod")), comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "suppkey"), new Reference(BIGINT, "mod")))),
                                 join(INNER, builder -> builder
                                         .addDynamicFilter("DF_MOD", "mod")
                                         .left(

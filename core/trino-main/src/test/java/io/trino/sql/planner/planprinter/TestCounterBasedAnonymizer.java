@@ -14,7 +14,6 @@
 package io.trino.sql.planner.planprinter;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
@@ -27,6 +26,7 @@ import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCounterBasedAnonymizer
@@ -43,9 +43,9 @@ public class TestCounterBasedAnonymizer
     public void testSymbolReferenceAnonymization()
     {
         Logical expression = new Logical(AND, ImmutableList.of(
-                new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)),
-                new Comparison(LESS_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 2L)),
-                new Comparison(EQUAL, new Reference(INTEGER, "c"), new Constant(INTEGER, 3L))));
+                comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)),
+                comparison(LESS_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 2L)),
+                comparison(EQUAL, new Reference(INTEGER, "c"), new Constant(INTEGER, 3L))));
         CounterBasedAnonymizer anonymizer = new CounterBasedAnonymizer();
         assertThat(anonymizer.anonymize(expression))
                 .isEqualTo("((\"symbol_1\" > 'integer_literal_1') AND (\"symbol_2\" < 'integer_literal_2') AND (\"symbol_3\" = 'integer_literal_3'))");

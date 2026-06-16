@@ -19,7 +19,6 @@ import io.trino.operator.join.JoinFilterFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -31,6 +30,7 @@ import java.util.Map;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -39,7 +39,7 @@ public class TestJoinFilterFunctionCompiler
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
 
     // left.col > right.col
-    private static final Expression JOIN_FILTER = new Comparison(
+    private static final Expression JOIN_FILTER = comparison(
             GREATER_THAN,
             new Reference(BIGINT, "left_col"),
             new Reference(BIGINT, "right_col"));
@@ -90,7 +90,7 @@ public class TestJoinFilterFunctionCompiler
                 FUNCTION_RESOLUTION.getMetadata(),
                 FUNCTION_RESOLUTION.getPlannerContext().getTypeManager());
 
-        Expression filter1 = new Comparison(
+        Expression filter1 = comparison(
                 GREATER_THAN,
                 new Reference(BIGINT, "a"),
                 new Reference(BIGINT, "b"));
@@ -98,7 +98,7 @@ public class TestJoinFilterFunctionCompiler
                 new Symbol(BIGINT, "a"), 0,
                 new Symbol(BIGINT, "b"), 1);
 
-        Expression filter2 = new Comparison(
+        Expression filter2 = comparison(
                 GREATER_THAN,
                 new Reference(BIGINT, "x"),
                 new Reference(BIGINT, "y"));

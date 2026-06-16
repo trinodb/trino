@@ -14,7 +14,6 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
@@ -24,6 +23,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
 public class TestRemoveTrivialFilters
@@ -34,7 +34,7 @@ public class TestRemoveTrivialFilters
     {
         tester().assertThat(new RemoveTrivialFilters())
                 .on(p -> p.filter(
-                        new Comparison(EQUAL, new Constant(INTEGER, 1L), new Constant(INTEGER, 1L)),
+                        comparison(EQUAL, new Constant(INTEGER, 1L), new Constant(INTEGER, 1L)),
                         p.values()))
                 .doesNotFire();
     }

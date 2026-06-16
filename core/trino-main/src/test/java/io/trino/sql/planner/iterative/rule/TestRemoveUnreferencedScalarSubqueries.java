@@ -14,7 +14,6 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -23,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
@@ -94,7 +94,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                             LEFT,
                             TRUE,
                             p.filter(
-                                    new Comparison(
+                                    comparison(
                                             LESS_THAN,
                                             b.toSymbolReference(),
                                             new Constant(BIGINT, 3L)),
@@ -111,7 +111,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                             FULL,
                             TRUE,
                             p.filter(
-                                    new Comparison(
+                                    comparison(
                                             LESS_THAN,
                                             b.toSymbolReference(),
                                             new Constant(BIGINT, 3L)),

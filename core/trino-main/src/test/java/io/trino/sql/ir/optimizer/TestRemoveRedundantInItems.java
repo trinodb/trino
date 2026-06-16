@@ -20,7 +20,6 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -38,6 +37,7 @@ import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,7 +55,7 @@ public class TestRemoveRedundantInItems
     {
         assertThat(optimize(
                 new In(new Reference(BIGINT, "x"), ImmutableList.of(new Reference(BIGINT, "y")))))
-                .isEqualTo(Optional.of(new Comparison(EQUAL, new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))));
+                .isEqualTo(Optional.of(comparison(EQUAL, new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))));
 
         assertThat(optimize(
                 new In(new Reference(BIGINT, "x"),

@@ -19,7 +19,6 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -33,6 +32,7 @@ import java.util.Optional;
 
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -73,7 +73,7 @@ public class TestRemoveRedundantDistinctAggregation
         tester().assertThat(new RemoveRedundantDistinctAggregation())
                 .on(TestRemoveRedundantDistinctAggregation::distinctWithFilterWithProjectWithGroupBy)
                 .matches(
-                        filter(new Comparison(GREATER_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 5L)),
+                        filter(comparison(GREATER_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 5L)),
                                 project(aggregation(singleGroupingSet("value"),
                                         ImmutableMap.of(),
                                         Optional.empty(),
@@ -95,7 +95,7 @@ public class TestRemoveRedundantDistinctAggregation
         tester().assertThat(new RemoveRedundantDistinctAggregation())
                 .on(TestRemoveRedundantDistinctAggregation::distinctWithSymbolReferenceWithGroupBy)
                 .matches(
-                        filter(new Comparison(GREATER_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 5L)),
+                        filter(comparison(GREATER_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 5L)),
                                 project(aggregation(singleGroupingSet("value"),
                                         ImmutableMap.of(),
                                         Optional.empty(),
@@ -129,7 +129,7 @@ public class TestRemoveRedundantDistinctAggregation
         Symbol value = p.symbol("value", INTEGER);
         return p.aggregation(b -> b
                 .singleGroupingSet(value)
-                .source(p.filter(new Comparison(GREATER_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 5L)),
+                .source(p.filter(comparison(GREATER_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 5L)),
                         p.project(Assignments.builder().putIdentity(value).build(),
                                 p.aggregation(builder -> builder
                                         .singleGroupingSet(value)
@@ -141,7 +141,7 @@ public class TestRemoveRedundantDistinctAggregation
         Symbol value = p.symbol("value", INTEGER);
         return p.aggregation(b -> b
                 .singleGroupingSet(value)
-                .source(p.filter(new Comparison(GREATER_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 5L)),
+                .source(p.filter(comparison(GREATER_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 5L)),
                         p.project(Assignments.builder().put(value, new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "x"), new Constant(INTEGER, 2L)))).build(),
                                 p.aggregation(builder -> builder
                                         .singleGroupingSet(value)
@@ -154,7 +154,7 @@ public class TestRemoveRedundantDistinctAggregation
         Symbol value2 = p.symbol("value2", INTEGER);
         return p.aggregation(b -> b
                 .singleGroupingSet(value2)
-                .source(p.filter(new Comparison(GREATER_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 5L)),
+                .source(p.filter(comparison(GREATER_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 5L)),
                         p.project(Assignments.builder().put(value2, value.toSymbolReference()).build(),
                                 p.aggregation(builder -> builder
                                         .singleGroupingSet(value)

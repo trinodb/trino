@@ -20,7 +20,6 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Coalesce;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -37,6 +36,7 @@ import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
@@ -174,7 +174,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                                         .source(p.aggregation(innerBuilder -> innerBuilder
                                                 .singleGroupingSet(p.symbol("a"))
                                                 .source(p.filter(
-                                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Reference(BIGINT, "corr")),
+                                                        comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Reference(BIGINT, "corr")),
                                                         p.values(p.symbol("a"), p.symbol("b"))))))))))
                 .matches(
                         project(ImmutableMap.of(
@@ -194,7 +194,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                                                 Optional.empty(),
                                                 SINGLE,
                                                 join(LEFT, builder -> builder
-                                                        .filter(new Comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Reference(BIGINT, "corr")))
+                                                        .filter(comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Reference(BIGINT, "corr")))
                                                         .left(
                                                                 assignUniqueId(
                                                                         "unique",
@@ -229,7 +229,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                                         .source(p.aggregation(innerBuilder -> innerBuilder
                                                 .singleGroupingSet(p.symbol("a"))
                                                 .source(p.filter(
-                                                        new Comparison(EQUAL, new Reference(BIGINT, "b"), new Reference(BIGINT, "corr")),
+                                                        comparison(EQUAL, new Reference(BIGINT, "b"), new Reference(BIGINT, "corr")),
                                                         p.values(p.symbol("a"), p.symbol("b"))))))))))
                 .matches(
                         project(ImmutableMap.of(
@@ -244,7 +244,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                                         Optional.empty(),
                                         SINGLE,
                                         join(LEFT, builder -> builder
-                                                .filter(new Comparison(EQUAL, new Reference(BIGINT, "b"), new Reference(BIGINT, "corr")))
+                                                .filter(comparison(EQUAL, new Reference(BIGINT, "b"), new Reference(BIGINT, "corr")))
                                                 .left(
                                                         assignUniqueId(
                                                                 "unique",

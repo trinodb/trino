@@ -16,7 +16,6 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.Coalesce;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
@@ -40,6 +39,7 @@ import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -59,7 +59,7 @@ public class TestPushFilterThroughBoolOrAggregation
                     Symbol bool = p.symbol("bool", BOOLEAN);
                     Symbol aggrBool = p.symbol("aggrbool", BOOLEAN);
                     return p.filter(
-                            new Comparison(EQUAL, aggrBool.toSymbolReference(), TRUE),
+                            comparison(EQUAL, aggrBool.toSymbolReference(), TRUE),
                             p.aggregation(builder -> builder
                                     .globalGrouping()
                                     .addAggregation(aggrBool, PlanBuilder.aggregation("bool_or", ImmutableList.of(bool.toSymbolReference())), ImmutableList.of(BOOLEAN), bool)
@@ -78,7 +78,7 @@ public class TestPushFilterThroughBoolOrAggregation
                     Symbol aggrBool = p.symbol("aggrbool", BOOLEAN);
                     Symbol avg = p.symbol("avg", BIGINT);
                     return p.filter(
-                            new Comparison(EQUAL, aggrBool.toSymbolReference(), TRUE),
+                            comparison(EQUAL, aggrBool.toSymbolReference(), TRUE),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
                                     .addAggregation(aggrBool, PlanBuilder.aggregation("bool_or", ImmutableList.of(bool.toSymbolReference())), ImmutableList.of(BOOLEAN), bool)
@@ -124,7 +124,7 @@ public class TestPushFilterThroughBoolOrAggregation
                     Symbol bool = p.symbol("bool", BOOLEAN);
                     Symbol avg = p.symbol("avg", DOUBLE);
                     return p.filter(
-                            new Comparison(GREATER_THAN, avg.toSymbolReference(), new Constant(DOUBLE, 0d)),
+                            comparison(GREATER_THAN, avg.toSymbolReference(), new Constant(DOUBLE, 0d)),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
                                     .addAggregation(
@@ -146,8 +146,8 @@ public class TestPushFilterThroughBoolOrAggregation
                     Symbol aggrBool = p.symbol("aggrbool", BOOLEAN);
                     return p.filter(
                             new Logical(AND,
-                                    ImmutableList.of(new Comparison(EQUAL, aggrBool.toSymbolReference(), TRUE),
-                                            new Comparison(EQUAL, aggrBool.toSymbolReference(), FALSE))),
+                                    ImmutableList.of(comparison(EQUAL, aggrBool.toSymbolReference(), TRUE),
+                                            comparison(EQUAL, aggrBool.toSymbolReference(), FALSE))),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
                                     .addAggregation(
@@ -285,7 +285,7 @@ public class TestPushFilterThroughBoolOrAggregation
                     return p.filter(
                             new Logical(AND,
                                     ImmutableList.of(
-                                            new Comparison(EQUAL, aggrBool.toSymbolReference(), TRUE),
+                                            comparison(EQUAL, aggrBool.toSymbolReference(), TRUE),
                                             new Coalesce(aggrBool.toSymbolReference(), FALSE))),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g, bool)
@@ -322,7 +322,7 @@ public class TestPushFilterThroughBoolOrAggregation
                     return p.filter(
                             new Logical(AND,
                                     ImmutableList.of(
-                                            new Comparison(GREATER_THAN, g.toSymbolReference(), new Constant(BIGINT, 5L)),
+                                            comparison(GREATER_THAN, g.toSymbolReference(), new Constant(BIGINT, 5L)),
                                             new Coalesce(aggrBool.toSymbolReference(), FALSE))),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g, bool)
@@ -334,7 +334,7 @@ public class TestPushFilterThroughBoolOrAggregation
                 })
                 .matches(
                         filter(
-                                new Comparison(GREATER_THAN, new Reference(BIGINT, "g"), new Constant(BIGINT, 5L)),
+                                comparison(GREATER_THAN, new Reference(BIGINT, "g"), new Constant(BIGINT, 5L)),
                                 project(
                                         ImmutableMap.of(
                                                 "g", expression(new Reference(BIGINT, "g")),
@@ -359,7 +359,7 @@ public class TestPushFilterThroughBoolOrAggregation
                     Symbol bool = p.symbol("bool", BOOLEAN);
                     Symbol aggrBool = p.symbol("aggrbool", BOOLEAN);
                     return p.filter(
-                            new Comparison(EQUAL, aggrBool.toSymbolReference(), TRUE),
+                            comparison(EQUAL, aggrBool.toSymbolReference(), TRUE),
                             p.project(
                                     Assignments.identity(aggrBool),
                                     p.aggregation(builder -> builder
@@ -391,7 +391,7 @@ public class TestPushFilterThroughBoolOrAggregation
                     return p.filter(
                             new Logical(AND,
                                     ImmutableList.of(
-                                            new Comparison(EQUAL, aggrBool.toSymbolReference(), TRUE),
+                                            comparison(EQUAL, aggrBool.toSymbolReference(), TRUE),
                                             new Coalesce(aggrBool.toSymbolReference(), FALSE))),
                             p.project(
                                     Assignments.identity(aggrBool, g),
@@ -424,7 +424,7 @@ public class TestPushFilterThroughBoolOrAggregation
                     return p.filter(
                             new Logical(AND,
                                     ImmutableList.of(
-                                            new Comparison(GREATER_THAN, g.toSymbolReference(), new Constant(BIGINT, 5L)),
+                                            comparison(GREATER_THAN, g.toSymbolReference(), new Constant(BIGINT, 5L)),
                                             new Coalesce(aggrBool.toSymbolReference(), FALSE))),
                             p.project(
                                     Assignments.identity(aggrBool, g),
@@ -435,7 +435,7 @@ public class TestPushFilterThroughBoolOrAggregation
                 })
                 .matches(
                         filter(
-                                new Comparison(GREATER_THAN, new Reference(BIGINT, "g"), new Constant(BIGINT, 5L)),
+                                comparison(GREATER_THAN, new Reference(BIGINT, "g"), new Constant(BIGINT, 5L)),
                                 project(
                                         ImmutableMap.of("aggrbool", expression(new Reference(BOOLEAN, "aggrbool")), "g", expression(new Reference(BIGINT, "g"))),
                                         project(
@@ -458,7 +458,7 @@ public class TestPushFilterThroughBoolOrAggregation
                     Symbol bool = p.symbol("bool", BOOLEAN);
                     Symbol aggrBool = p.symbol("aggrbool", BOOLEAN);
                     return p.filter(
-                            new Comparison(EQUAL, aggrBool.toSymbolReference(), TRUE),
+                            comparison(EQUAL, aggrBool.toSymbolReference(), TRUE),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
                                     .addAggregation(

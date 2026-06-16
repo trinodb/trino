@@ -54,6 +54,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.IrUtils.and;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -361,7 +362,7 @@ public class TestEqualityInference
 
     private static Expression someExpression(Expression expression1, Expression expression2)
     {
-        return new Comparison(GREATER_THAN, expression1, expression2);
+        return comparison(GREATER_THAN, expression1, expression2);
     }
 
     private static Expression add(String symbol1, String symbol2)
@@ -386,7 +387,7 @@ public class TestEqualityInference
 
     private static Expression equals(Expression expression1, Expression expression2)
     {
-        return new Comparison(EQUAL, expression1, expression2);
+        return comparison(EQUAL, expression1, expression2);
     }
 
     private static Constant number(long number)

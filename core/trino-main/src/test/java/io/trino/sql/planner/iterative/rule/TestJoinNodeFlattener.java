@@ -19,7 +19,6 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Plan;
@@ -57,6 +56,7 @@ import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrUtils.and;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.Lookup.noLookup;
@@ -280,10 +280,10 @@ public class TestJoinNodeFlattener
         ValuesNode valuesB = p.values(b1, b2);
         ValuesNode valuesC = p.values(c1, c2);
         Expression bcFilter = and(
-                new Comparison(GREATER_THAN, c2.toSymbolReference(), new Constant(BIGINT, 0L)),
-                new Comparison(NOT_EQUAL, c2.toSymbolReference(), new Constant(BIGINT, 7L)),
-                new Comparison(GREATER_THAN, b2.toSymbolReference(), c2.toSymbolReference()));
-        Comparison abcFilter = new Comparison(
+                comparison(GREATER_THAN, c2.toSymbolReference(), new Constant(BIGINT, 0L)),
+                comparison(NOT_EQUAL, c2.toSymbolReference(), new Constant(BIGINT, 7L)),
+                comparison(GREATER_THAN, b2.toSymbolReference(), c2.toSymbolReference()));
+        Expression abcFilter = comparison(
                 LESS_THAN,
                 new Call(ADD_BIGINT, ImmutableList.of(a1.toSymbolReference(), c1.toSymbolReference())),
                 b1.toSymbolReference());
@@ -304,7 +304,7 @@ public class TestJoinNodeFlattener
                 Optional.of(abcFilter));
         MultiJoinNode expected = new MultiJoinNode(
                 new LinkedHashSet<>(ImmutableList.of(valuesA, valuesB, valuesC)),
-                and(new Comparison(EQUAL, b1.toSymbolReference(), c1.toSymbolReference()), new Comparison(EQUAL, a1.toSymbolReference(), b1.toSymbolReference()), bcFilter, abcFilter),
+                and(comparison(EQUAL, b1.toSymbolReference(), c1.toSymbolReference()), comparison(EQUAL, a1.toSymbolReference(), b1.toSymbolReference()), bcFilter, abcFilter),
                 ImmutableList.of(a1, b1, b2, c1, c2),
                 false);
         assertThat(toMultiJoinNode(joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build())).isEqualTo(expected);
@@ -424,9 +424,9 @@ public class TestJoinNodeFlattener
         assertThat(toMultiJoinNode(joinNode, noLookup(), planNodeIdAllocator, 2, false, testSessionBuilder().build())).isEqualTo(expected);
     }
 
-    private Comparison createEqualsExpression(Symbol left, Symbol right)
+    private Expression createEqualsExpression(Symbol left, Symbol right)
     {
-        return new Comparison(EQUAL, left.toSymbolReference(), right.toSymbolReference());
+        return comparison(EQUAL, left.toSymbolReference(), right.toSymbolReference());
     }
 
     private EquiJoinClause equiJoinClause(Symbol symbol1, Symbol symbol2)

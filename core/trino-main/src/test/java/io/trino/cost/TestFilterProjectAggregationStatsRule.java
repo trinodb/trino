@@ -19,7 +19,6 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -38,6 +37,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.aggregation;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -74,7 +74,7 @@ public class TestFilterProjectAggregationStatsRule
     public void testFilterOverAggregationStats()
     {
         Function<PlanBuilder, PlanNode> planProvider = pb -> pb.filter(
-                new Comparison(GREATER_THAN, new Reference(INTEGER, "count_on_x"), new Constant(INTEGER, 0L)),
+                comparison(GREATER_THAN, new Reference(INTEGER, "count_on_x"), new Constant(INTEGER, 0L)),
                 pb.aggregation(ab -> ab
                         .addAggregation(pb.symbol("count_on_x", BIGINT), aggregation("count", ImmutableList.of(new Reference(BIGINT, "x"))), ImmutableList.of(BIGINT))
                         .singleGroupingSet(pb.symbol("y", BIGINT))
@@ -103,7 +103,7 @@ public class TestFilterProjectAggregationStatsRule
 
         // If filter estimate is known, approximation should not be applied
         tester().assertStatsFor(APPROXIMATION_ENABLED, pb -> pb.filter(
-                        new Comparison(EQUAL, new Reference(DOUBLE, "y"), new Constant(DOUBLE, 1.0)),
+                        comparison(EQUAL, new Reference(DOUBLE, "y"), new Constant(DOUBLE, 1.0)),
                         pb.aggregation(ab -> ab
                                 .addAggregation(pb.symbol("count_on_x", DOUBLE), aggregation("count", ImmutableList.of(new Reference(DOUBLE, "x"))), ImmutableList.of(DOUBLE))
                                 .singleGroupingSet(pb.symbol("y", DOUBLE))
@@ -126,7 +126,7 @@ public class TestFilterProjectAggregationStatsRule
                         pb -> {
                             Symbol aggregatedOutput = pb.symbol("count_on_x", BIGINT);
                             return pb.filter(
-                                    new Comparison(GREATER_THAN, new Reference(INTEGER, "count_on_x"), new Constant(INTEGER, 0L)),
+                                    comparison(GREATER_THAN, new Reference(INTEGER, "count_on_x"), new Constant(INTEGER, 0L)),
                                     // Narrowing identity projection
                                     pb.project(Assignments.identity(aggregatedOutput),
                                             pb.aggregation(ab -> ab
@@ -144,7 +144,7 @@ public class TestFilterProjectAggregationStatsRule
                         pb -> {
                             Symbol aggregatedOutput = pb.symbol("count_on_x", BIGINT);
                             return pb.filter(
-                                    new Comparison(GREATER_THAN, new Reference(INTEGER, "count_on_x"), new Constant(INTEGER, 0L)),
+                                    comparison(GREATER_THAN, new Reference(INTEGER, "count_on_x"), new Constant(INTEGER, 0L)),
                                     // Non-narrowing projection
                                     pb.project(Assignments.of(pb.symbol("x_1", INTEGER), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "x"), new Constant(INTEGER, 1L))), aggregatedOutput, aggregatedOutput.toSymbolReference()),
                                             pb.aggregation(ab -> ab

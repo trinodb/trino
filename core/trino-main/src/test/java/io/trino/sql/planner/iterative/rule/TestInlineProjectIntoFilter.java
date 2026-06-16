@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
@@ -32,6 +31,7 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -47,13 +47,13 @@ public class TestInlineProjectIntoFilter
                 .on(p -> p.filter(
                         new Reference(BOOLEAN, "a"),
                         p.project(
-                                Assignments.of(p.symbol("a", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
+                                Assignments.of(p.symbol("a", BOOLEAN), comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
                                 p.values(p.symbol("b", INTEGER)))))
                 .matches(
                         project(
                                 ImmutableMap.of("a", expression(TRUE)),
                                 filter(
-                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L)),
+                                        comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L)),
                                         project(
                                                 ImmutableMap.of("b", expression(new Reference(INTEGER, "b"))),
                                                 values("b")))));
@@ -65,7 +65,7 @@ public class TestInlineProjectIntoFilter
                     Symbol c = p.symbol("c", INTEGER);
                     Symbol d = p.symbol("d", INTEGER);
                     return p.filter(
-                            new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "a"), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Reference(INTEGER, "c")))),
+                            new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "a"), comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Reference(INTEGER, "c")))),
                             p.project(
                                     Assignments.builder()
                                             .put(a, new IsNull(new Reference(INTEGER, "d")))
@@ -78,7 +78,7 @@ public class TestInlineProjectIntoFilter
                         project(
                                 ImmutableMap.of("b", expression(new Reference(INTEGER, "b")), "c", expression(new Reference(INTEGER, "c")), "a", expression(TRUE)),
                                 filter(
-                                        new Logical(AND, ImmutableList.of(new IsNull(new Reference(INTEGER, "d")), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Reference(INTEGER, "c")))),
+                                        new Logical(AND, ImmutableList.of(new IsNull(new Reference(INTEGER, "d")), comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Reference(INTEGER, "c")))),
                                         project(
                                                 ImmutableMap.of("d", expression(new Reference(INTEGER, "d")), "b", expression(new Reference(INTEGER, "b")), "c", expression(new Reference(INTEGER, "c"))),
                                                 values("b", "c", "d")))));
@@ -91,7 +91,7 @@ public class TestInlineProjectIntoFilter
                 .on(p -> p.filter(
                         new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "a"), FALSE)),
                         p.project(
-                                Assignments.of(p.symbol("a", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
+                                Assignments.of(p.symbol("a", BOOLEAN), comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
                                 p.values(p.symbol("b", INTEGER)))))
                 .doesNotFire();
     }
@@ -103,7 +103,7 @@ public class TestInlineProjectIntoFilter
                 .on(p -> p.filter(
                         new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "a"), new Reference(BOOLEAN, "a"))),
                         p.project(
-                                Assignments.of(p.symbol("a", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
+                                Assignments.of(p.symbol("a", BOOLEAN), comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
                                 p.values(p.symbol("b", INTEGER)))))
                 .doesNotFire();
 
@@ -111,7 +111,7 @@ public class TestInlineProjectIntoFilter
                 .on(p -> p.filter(
                         new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "a"), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "a"), FALSE)))),
                         p.project(
-                                Assignments.of(p.symbol("a", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
+                                Assignments.of(p.symbol("a", BOOLEAN), comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
                                 p.values(p.symbol("b", INTEGER)))))
                 .doesNotFire();
     }
@@ -125,14 +125,14 @@ public class TestInlineProjectIntoFilter
                         p.project(
                                 Assignments.of(
                                         p.symbol("a", BOOLEAN),
-                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 0L)),
+                                        comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 0L)),
                                         p.symbol("b", BOOLEAN),
-                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 5L))),
+                                        comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 5L))),
                                 p.values(p.symbol("c", INTEGER)))))
                 .matches(
                         project(
                                 filter(
-                                        new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 0L)), new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 5L)))),
+                                        new Logical(AND, ImmutableList.of(comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 0L)), comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 5L)))),
                                         project(
                                                 ImmutableMap.of("c", expression(new Reference(INTEGER, "c"))),
                                                 values("c")))));
@@ -147,18 +147,18 @@ public class TestInlineProjectIntoFilter
                         p.project(
                                 Assignments.of(
                                         p.symbol("a", BOOLEAN),
-                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 0L)),
+                                        comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 0L)),
                                         p.symbol("b", BOOLEAN),
-                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 5L))),
+                                        comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 5L))),
                                 p.values(p.symbol("c", INTEGER)))))
                 .matches(
                         project(
                                 ImmutableMap.of("a", expression(new Reference(BOOLEAN, "a")), "b", expression(TRUE)),
                                 filter(
-                                        new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "a"), new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 5L)))), // combineConjuncts() removed duplicate conjunct `a`. The predicate is now eligible for further inlining.
+                                        new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "a"), comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 5L)))), // combineConjuncts() removed duplicate conjunct `a`. The predicate is now eligible for further inlining.
                                         project(
                                                 ImmutableMap.of(
-                                                        "a", expression(new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 0L))),
+                                                        "a", expression(comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 0L))),
                                                         "c", expression(new Reference(INTEGER, "c"))),
                                                 values("c")))));
     }
@@ -192,7 +192,7 @@ public class TestInlineProjectIntoFilter
                 .on(p -> p.filter(
                         new Reference(INTEGER, "corr"),
                         p.project(
-                                Assignments.of(p.symbol("a", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
+                                Assignments.of(p.symbol("a", BOOLEAN), comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
                                 p.values(p.symbol("b", INTEGER)))))
                 .doesNotFire();
     }

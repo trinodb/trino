@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
@@ -28,6 +27,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
@@ -82,7 +82,7 @@ public class TestTransformCorrelatedGroupedAggregationWithoutProjection
                                 .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
                                 .addAggregation(p.symbol("count"), PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())
                                 .source(p.filter(
-                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Reference(BIGINT, "corr")),
+                                        comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Reference(BIGINT, "corr")),
                                         p.values(p.symbol("a"), p.symbol("b")))))))
                 .matches(
                         project(ImmutableMap.of("corr", expression(new Reference(BIGINT, "corr")), "sum_agg", expression(new Reference(BIGINT, "sum_agg")), "count_agg", expression(new Reference(BIGINT, "count_agg"))),
@@ -92,7 +92,7 @@ public class TestTransformCorrelatedGroupedAggregationWithoutProjection
                                         Optional.empty(),
                                         SINGLE,
                                         join(JoinType.INNER, builder -> builder
-                                                .filter(new Comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Reference(BIGINT, "corr")))
+                                                .filter(comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Reference(BIGINT, "corr")))
                                                 .left(
                                                         assignUniqueId(
                                                                 "unique",
@@ -119,7 +119,7 @@ public class TestTransformCorrelatedGroupedAggregationWithoutProjection
                                 .source(p.aggregation(innerBuilder -> innerBuilder
                                         .singleGroupingSet(p.symbol("a"))
                                         .source(p.filter(
-                                                new Comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Reference(BIGINT, "corr")),
+                                                comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Reference(BIGINT, "corr")),
                                                 p.values(p.symbol("a"), p.symbol("b")))))))))
                 .matches(
                         project(ImmutableMap.of("corr", expression(new Reference(BIGINT, "corr")), "sum_agg", expression(new Reference(BIGINT, "sum_agg")), "count_agg", expression(new Reference(BIGINT, "count_agg"))),
@@ -134,7 +134,7 @@ public class TestTransformCorrelatedGroupedAggregationWithoutProjection
                                                 Optional.empty(),
                                                 SINGLE,
                                                 join(JoinType.INNER, builder -> builder
-                                                        .filter(new Comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Reference(BIGINT, "corr")))
+                                                        .filter(comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Reference(BIGINT, "corr")))
                                                         .left(
                                                                 assignUniqueId(
                                                                         "unique",
@@ -163,7 +163,7 @@ public class TestTransformCorrelatedGroupedAggregationWithoutProjection
                                 .source(p.aggregation(innerBuilder -> innerBuilder
                                         .singleGroupingSet(p.symbol("a"))
                                         .source(p.filter(
-                                                new Comparison(EQUAL, new Reference(BIGINT, "b"), new Reference(BIGINT, "corr")),
+                                                comparison(EQUAL, new Reference(BIGINT, "b"), new Reference(BIGINT, "corr")),
                                                 p.values(p.symbol("a"), p.symbol("b")))))))))
                 .matches(
                         project(ImmutableMap.of("corr", expression(new Reference(BIGINT, "corr")), "sum_agg", expression(new Reference(BIGINT, "sum_agg")), "count_agg", expression(new Reference(BIGINT, "count_agg"))),
@@ -173,7 +173,7 @@ public class TestTransformCorrelatedGroupedAggregationWithoutProjection
                                         Optional.empty(),
                                         SINGLE,
                                         join(JoinType.INNER, builder -> builder
-                                                .filter(new Comparison(EQUAL, new Reference(BIGINT, "b"), new Reference(BIGINT, "corr")))
+                                                .filter(comparison(EQUAL, new Reference(BIGINT, "b"), new Reference(BIGINT, "corr")))
                                                 .left(
                                                         assignUniqueId(
                                                                 "unique",

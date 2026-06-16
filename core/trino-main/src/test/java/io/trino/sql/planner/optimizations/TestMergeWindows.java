@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Reference;
@@ -45,6 +44,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -465,7 +465,7 @@ public class TestMergeWindows
 
         assertUnitPlan(sql,
                 anyTree(
-                        filter(new Comparison(EQUAL, new Reference(BIGINT, "SUM"), new Reference(BIGINT, "AVG")),
+                        filter(comparison(EQUAL, new Reference(BIGINT, "SUM"), new Reference(BIGINT, "AVG")),
                                 join(INNER, builder -> builder
                                         .left(
                                                 any(
