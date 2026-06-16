@@ -133,7 +133,7 @@ public class TestDeltaLakeDelete
         String tableName = "test_delete_timestamps";
         assertUpdate("CREATE TABLE " + tableName + " (ts) AS VALUES TIMESTAMP '2021-02-03 01:02:03.456 UTC', TIMESTAMP '2021-02-04 01:02:03.456 UTC'", 2);
         assertUpdate("DELETE FROM " + tableName + " WHERE ts = TIMESTAMP '2021-02-03 01:02:03.456 UTC'", 1);
-        assertQuery("SELECT CAST(ts AS VARCHAR) FROM " + tableName, "VALUES '2021-02-04 01:02:03.456 UTC'");
+        assertQuery("SELECT CAST(ts AS VARCHAR) FROM " + tableName, "VALUES '2021-02-04 01:02:03.456000 UTC'");
     }
 
     @Test

@@ -169,31 +169,32 @@ public class TestDeltaLakeInsertCompatibility
         try {
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES" +
                     "(1, TIMESTAMP '0001-01-01 00:00:00.000 UTC')," +
-                    "(2, TIMESTAMP '2023-01-02 01:02:03.999 +01:00')");
+                    "(2, TIMESTAMP '2023-01-02 01:02:03.999999 +01:00')");
             onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES" +
-                    "(3, TIMESTAMP '2023-03-04 01:02:03.999 -01:00')," +
-                    "(4, TIMESTAMP '9999-12-31 23:59:59.999 UTC')");
+                    "(3, TIMESTAMP '2023-03-04 01:02:03.999999 -01:00')," +
+                    "(4, TIMESTAMP '9999-12-31 23:59:59.999999 UTC')");
 
             List<Row> expectedRows = ImmutableList.<Row>builder()
-                    .add(row(1, "0001-01-01 00:00:00.000"))
-                    .add(row(2, "2023-01-02 00:02:03.999"))
-                    .add(row(3, "2023-03-04 02:02:03.999"))
-                    .add(row(4, "9999-12-31 23:59:59.999"))
+                    .add(row(1, "0001-01-01 00:00:00.000000"))
+                    .add(row(2, "2023-01-02 00:02:03.999999"))
+                    .add(row(3, "2023-03-04 02:02:03.999999"))
+                    .add(row(4, "9999-12-31 23:59:59.999999"))
                     .build();
 
-            assertThat(onDelta().executeQuery("SELECT id, date_format(part, \"yyyy-MM-dd HH:mm:ss.SSS\") FROM default." + tableName))
+            assertThat(onDelta().executeQuery("SELECT id, date_format(part, \"yyyy-MM-dd HH:mm:ss.SSSSSS\") FROM default." + tableName))
                     .containsOnly(expectedRows);
-            assertThat(onTrino().executeQuery("SELECT id, format_datetime(part, 'yyyy-MM-dd HH:mm:ss.SSS') FROM delta.default." + tableName))
+            // date_format rounds to millisecond precision, so render through a microsecond-exact varchar cast
+            assertThat(onTrino().executeQuery("SELECT id, replace(CAST(part AS varchar), ' UTC') FROM delta.default." + tableName))
                     .containsOnly(expectedRows);
 
             assertThat((String) onTrino().executeQuery("SELECT \"$path\" FROM delta.default." + tableName + " WHERE id = 1").getOnlyValue())
                     .contains("/part=0001-01-01 00%3A00%3A00/");
             assertThat((String) onTrino().executeQuery("SELECT \"$path\" FROM delta.default." + tableName + " WHERE id = 2").getOnlyValue())
-                    .contains("/part=2023-01-02 00%3A02%3A03.999/");
+                    .contains("/part=2023-01-02 00%3A02%3A03.999999/");
             assertThat((String) onTrino().executeQuery("SELECT \"$path\" FROM delta.default." + tableName + " WHERE id = 3").getOnlyValue())
-                    .contains("/part=2023-03-04 02%3A02%3A03.999/");
+                    .contains("/part=2023-03-04 02%3A02%3A03.999999/");
             assertThat((String) onTrino().executeQuery("SELECT \"$path\" FROM delta.default." + tableName + " WHERE id = 4").getOnlyValue())
-                    .contains("/part=9999-12-31 23%3A59%3A59.999/");
+                    .contains("/part=9999-12-31 23%3A59%3A59.999999/");
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
