@@ -95,7 +95,6 @@ import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
@@ -104,7 +103,6 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
-import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis.CorrespondingAnalysis;
@@ -800,52 +798,16 @@ class StatementAnalyzer
                 return false;
             }
 
-            /*
-            TODO enable coercions based on type compatibility for INSERT of structural types containing nested bounded character types.
-            It might require defining a new range of cast operators and changes in GlobalFunctionCatalog to ensure proper handling
-            of nested types.
-            Currently, INSERT for such structural types is only allowed in the case of strict type coercibility.
-            INSERT for other types is allowed in all cases described by the Standard. It is obtained
-            by emulating a "guarded cast" in LogicalPlanner, and without any changes to the actual operators.
-            */
+            // A value is assignable to a column whenever the two types are compatible. The planner emulates a
+            // "guarded cast" (see LogicalPlanner#noTruncationCast) that fails rather than silently truncating
+            // non-space characters, recursing through array, map and row to reach nested character types.
             for (int i = 0; i < tableTypes.size(); i++) {
-                if (hasNestedBoundedCharacterType(tableTypes.get(i))) {
-                    if (!typeCoercion.canCoerce(queryTypes.get(i), tableTypes.get(i))) {
-                        return false;
-                    }
-                }
-                else if (!typeCoercion.isCompatible(queryTypes.get(i), tableTypes.get(i))) {
+                if (!typeCoercion.isCompatible(queryTypes.get(i), tableTypes.get(i))) {
                     return false;
                 }
             }
 
             return true;
-        }
-
-        private boolean hasNestedBoundedCharacterType(Type type)
-        {
-            if (type instanceof ArrayType arrayType) {
-                return hasBoundedCharacterType(arrayType.getElementType());
-            }
-
-            if (type instanceof MapType mapType) {
-                return hasBoundedCharacterType(mapType.getKeyType()) || hasBoundedCharacterType(mapType.getValueType());
-            }
-
-            if (type instanceof RowType rowType) {
-                for (Type fieldType : rowType.getFieldTypes()) {
-                    if (hasBoundedCharacterType(fieldType)) {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        private boolean hasBoundedCharacterType(Type type)
-        {
-            return type instanceof CharType || (type instanceof VarcharType varcharType && !varcharType.isUnbounded()) || hasNestedBoundedCharacterType(type);
         }
 
         @Override

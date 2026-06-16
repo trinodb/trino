@@ -2470,9 +2470,8 @@ public class TestAnalyzer
         assertFails("INSERT INTO t8 (unbounded_varchar_column) VALUES (1)")
                 .hasErrorCode(TYPE_MISMATCH);
 
-        // coercion with potential loss is not allowed for nested bounded character string types
-        assertFails("INSERT INTO t8 (nested_bounded_varchar_column) VALUES (ROW(ROW(CAST('aa' AS varchar(10)))))")
-                .hasErrorCode(TYPE_MISMATCH);
+        // a value is assignable to a nested bounded character string type; truncation of non-space characters is checked at run time
+        analyze("INSERT INTO t8 (nested_bounded_varchar_column) VALUES (ROW(ROW(CAST('aa' AS varchar(10)))))");
     }
 
     @Test
