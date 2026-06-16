@@ -282,8 +282,36 @@ public class GlueHiveMetastore
         catch (EntityNotFoundException e) {
             return Optional.empty();
         }
+        catch (AccessDeniedException e) {
+            // Lake Formation returns AccessDeniedException (HTTP 400) for databases that do not exist
+            // in Glue, indistinguishable from a genuine permission denial. Perform a secondary
+            // GetDatabases probe (requires only catalog-level LF permission) to distinguish the two cases.
+            if (e.getMessage() != null && e.getMessage().contains("Lake Formation")) {
+                if (!glueDatabaseExists(databaseName)) {
+                    throw new SchemaNotFoundException(databaseName, e);
+                }
+            }
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
         catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+    }
+
+    private boolean glueDatabaseExists(String databaseName)
+    {
+        try {
+            return stats.getGetDatabases().call(() -> glueClient
+                            .getDatabasesPaginator(builder -> builder
+                                    .expression(databaseName)).stream()
+                            .map(GetDatabasesResponse::databaseList)
+                            .flatMap(List::stream))
+                    .anyMatch(db -> db.name().equalsIgnoreCase(databaseName));
+        }
+        catch (SdkException ignored) {
+            // If GetDatabases also fails (e.g. no catalog-level LF permission), we cannot determine
+            // whether the database exists. Return true to avoid masking genuine permission errors.
+            return true;
         }
     }
 
