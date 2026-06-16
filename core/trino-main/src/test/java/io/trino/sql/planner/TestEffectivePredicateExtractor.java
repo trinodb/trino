@@ -44,6 +44,7 @@ import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
@@ -100,7 +101,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
@@ -1054,17 +1055,17 @@ public class TestEffectivePredicateExtractor
 
     private static Comparison lessThan(Expression expression1, Expression expression2)
     {
-        return new Comparison(Comparison.Operator.LESS_THAN, expression1, expression2);
+        return new Comparison(ComparisonOperator.LESS_THAN, expression1, expression2);
     }
 
     private static Comparison lessThanOrEqual(Expression expression1, Expression expression2)
     {
-        return new Comparison(Comparison.Operator.LESS_THAN_OR_EQUAL, expression1, expression2);
+        return new Comparison(ComparisonOperator.LESS_THAN_OR_EQUAL, expression1, expression2);
     }
 
     private static Comparison greaterThan(Expression expression1, Expression expression2)
     {
-        return new Comparison(Comparison.Operator.GREATER_THAN, expression1, expression2);
+        return new Comparison(ComparisonOperator.GREATER_THAN, expression1, expression2);
     }
 
     private static IsNull isNull(Expression expression)

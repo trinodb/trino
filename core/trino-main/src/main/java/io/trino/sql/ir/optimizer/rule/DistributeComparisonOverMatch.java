@@ -15,6 +15,7 @@ package io.trino.sql.ir.optimizer.rule;
 
 import io.trino.Session;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Match;
@@ -26,10 +27,10 @@ import io.trino.sql.planner.Symbol;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 
 /**
  * Transforms:
@@ -44,12 +45,12 @@ public class DistributeComparisonOverMatch
     @Override
     public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
     {
-        if (expression instanceof Comparison(Comparison.Operator operator, Match match, Expression target) &&
+        if (expression instanceof Comparison(ComparisonOperator operator, Match match, Expression target) &&
                 (target instanceof Reference || target instanceof Constant)) {
             return Optional.of(distribute(operator, match, target));
         }
 
-        if (expression instanceof Comparison(Comparison.Operator operator, Expression target, Match match) &&
+        if (expression instanceof Comparison(ComparisonOperator operator, Expression target, Match match) &&
                 (target instanceof Reference || target instanceof Constant)) {
             return Optional.of(distribute(flipOperator(operator), match, target));
         }
@@ -57,7 +58,7 @@ public class DistributeComparisonOverMatch
         return Optional.empty();
     }
 
-    private Comparison.Operator flipOperator(Comparison.Operator operator)
+    private ComparisonOperator flipOperator(ComparisonOperator operator)
     {
         return switch (operator) {
             case IDENTICAL, EQUAL, NOT_EQUAL -> operator;
@@ -68,7 +69,7 @@ public class DistributeComparisonOverMatch
         };
     }
 
-    private Expression distribute(Comparison.Operator operator, Match match, Expression target)
+    private Expression distribute(ComparisonOperator operator, Match match, Expression target)
     {
         return new Match(
                 match.operand(),

@@ -32,7 +32,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.planner.plan.Patterns.Except.distinct;
 import static io.trino.sql.planner.plan.Patterns.except;
 import static java.util.Objects.requireNonNull;

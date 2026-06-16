@@ -22,6 +22,7 @@ import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
@@ -334,7 +335,7 @@ public class JoinNode
 
         public Comparison toExpression()
         {
-            return new Comparison(Comparison.Operator.EQUAL, left.toSymbolReference(), right.toSymbolReference());
+            return new Comparison(ComparisonOperator.EQUAL, left.toSymbolReference(), right.toSymbolReference());
         }
 
         public EquiJoinClause flip()

@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
 import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.gen.columnar.FilterEvaluator.isReorderingSafe;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static org.assertj.core.api.Assertions.assertThat;

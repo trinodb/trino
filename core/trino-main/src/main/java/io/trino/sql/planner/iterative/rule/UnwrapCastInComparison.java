@@ -36,6 +36,7 @@ import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
@@ -68,12 +69,12 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.TypeUtils.typeHasNaN;
 import static io.trino.sql.ir.Booleans.FALSE;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.or;
@@ -170,7 +171,7 @@ public class UnwrapCastInComparison
 
             Expression right = optimizer.process(expression.right(), session, ImmutableMap.of()).orElse(expression.right());
 
-            Comparison.Operator operator = expression.operator();
+            ComparisonOperator operator = expression.operator();
 
             if (right instanceof Constant constant && constant.value() == null) {
                 return switch (operator) {
@@ -346,7 +347,7 @@ public class UnwrapCastInComparison
             return new Comparison(operator, cast.expression(), new Constant(sourceType, literalInSourceType));
         }
 
-        private Optional<Expression> unwrapTimestampToDateCast(TimestampType sourceType, Comparison.Operator operator, Expression timestampExpression, long date)
+        private Optional<Expression> unwrapTimestampToDateCast(TimestampType sourceType, ComparisonOperator operator, Expression timestampExpression, long date)
         {
             ResolvedFunction targetToSource;
             try {

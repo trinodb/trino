@@ -20,6 +20,7 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -38,10 +39,10 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
@@ -78,7 +79,7 @@ import static java.util.stream.Collectors.partitioningBy;
  */
 public class PushInequalityFilterExpressionBelowJoinRuleSet
 {
-    private static final Set<Comparison.Operator> SUPPORTED_COMPARISONS = ImmutableSet.of(
+    private static final Set<ComparisonOperator> SUPPORTED_COMPARISONS = ImmutableSet.of(
             GREATER_THAN,
             GREATER_THAN_OR_EQUAL,
             LESS_THAN,

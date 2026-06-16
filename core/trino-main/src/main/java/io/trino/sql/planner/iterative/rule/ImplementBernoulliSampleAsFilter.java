@@ -17,6 +17,7 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.BuiltinFunctionCallBuilder;
 import io.trino.sql.planner.iterative.Rule;
@@ -66,7 +67,7 @@ public class ImplementBernoulliSampleAsFilter
                 sample.getId(),
                 sample.getSource(),
                 new Comparison(
-                        Comparison.Operator.LESS_THAN,
+                        ComparisonOperator.LESS_THAN,
                         BuiltinFunctionCallBuilder.resolve(metadata)
                                 .setName("rand")
                                 .build(),

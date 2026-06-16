@@ -204,6 +204,7 @@ import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.DynamicPageFilter;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
@@ -364,8 +365,8 @@ import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitionin
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.compileLambdaProvider;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
@@ -2568,7 +2569,7 @@ public class LocalExecutionPlanner
                 Optional<Expression> filterExpression,
                 Call spatialFunction,
                 Optional<Expression> radius,
-                Optional<Comparison.Operator> comparisonOperator)
+                Optional<ComparisonOperator> comparisonOperator)
         {
             List<Expression> arguments = spatialFunction.arguments();
             verify(arguments.size() == 2);
@@ -2633,7 +2634,7 @@ public class LocalExecutionPlanner
             return updatedJoinFilter.equals(TRUE) ? Optional.empty() : Optional.of(updatedJoinFilter);
         }
 
-        private SpatialPredicate spatialTest(Call call, boolean probeFirst, Optional<Comparison.Operator> comparisonOperator)
+        private SpatialPredicate spatialTest(Call call, boolean probeFirst, Optional<ComparisonOperator> comparisonOperator)
         {
             CatalogSchemaFunctionName functionName = call.function().name();
             if (functionName.equals(builtinFunctionName(ST_CONTAINS))) {

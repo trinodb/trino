@@ -28,6 +28,7 @@ import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
@@ -515,7 +516,7 @@ class SubqueryPlanner
                     joined,
                     Assignments.builder()
                             .putIdentities(joined.getOutputSymbols())
-                            .put(indicatorSymbol, new Comparison(Comparison.Operator.EQUAL, countSymbol.toSymbolReference(), new Constant(BIGINT, 1L)))
+                            .put(indicatorSymbol, new Comparison(ComparisonOperator.EQUAL, countSymbol.toSymbolReference(), new Constant(BIGINT, 1L)))
                             .build());
         }
         else {
@@ -572,7 +573,7 @@ class SubqueryPlanner
         for (int i = 0; i < valueFields.size(); i++) {
             Expression r = valueFields.get(i).toSymbolReference();
             Expression s = subqueryFields.get(i).toSymbolReference();
-            Expression equality = new Comparison(Comparison.Operator.EQUAL, r, s);
+            Expression equality = new Comparison(ComparisonOperator.EQUAL, r, s);
             if (type == MatchPredicate.Type.PARTIAL) {
                 conjuncts.add(combineOr(new IsNull(r), equality));
             }

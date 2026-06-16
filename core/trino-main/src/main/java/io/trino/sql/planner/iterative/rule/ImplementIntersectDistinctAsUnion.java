@@ -27,7 +27,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.plan.Patterns.Intersect.distinct;
 import static io.trino.sql.planner.plan.Patterns.intersect;

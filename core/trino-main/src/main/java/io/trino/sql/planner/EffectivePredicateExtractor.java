@@ -73,7 +73,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.expressionOrNullSymbols;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;

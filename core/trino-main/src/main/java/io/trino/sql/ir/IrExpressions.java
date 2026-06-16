@@ -50,7 +50,7 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 
 public final class IrExpressions
 {
@@ -136,7 +136,7 @@ public final class IrExpressions
                     mayBeNull(plannerContext, e.defaultValue(), referencesMayBeNull);
             case Cast e -> mayBeNull(plannerContext, e, referencesMayBeNull);
             case Coalesce e -> e.operands().stream().allMatch(operand -> mayBeNull(plannerContext, operand, referencesMayBeNull));
-            case Comparison e -> e.operator() != Comparison.Operator.IDENTICAL && (mayBeNull(plannerContext, e.left(), referencesMayBeNull) || mayBeNull(plannerContext, e.right(), referencesMayBeNull));
+            case Comparison e -> e.operator() != ComparisonOperator.IDENTICAL && (mayBeNull(plannerContext, e.left(), referencesMayBeNull) || mayBeNull(plannerContext, e.right(), referencesMayBeNull));
             case In e -> mayBeNull(plannerContext, e.value(), referencesMayBeNull) || e.valueList().stream().anyMatch(value -> mayBeNull(plannerContext, value, referencesMayBeNull));
             case Logical e -> e.terms().stream().anyMatch(term -> mayBeNull(plannerContext, term, referencesMayBeNull));
             case Match e -> e.clauses().stream().anyMatch(clause -> mayBeNull(plannerContext, clause.result(), referencesMayBeNull)) ||

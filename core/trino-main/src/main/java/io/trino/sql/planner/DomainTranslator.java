@@ -42,6 +42,7 @@ import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -89,13 +90,13 @@ import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.TypeUtils.typeHasNaN;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
@@ -501,7 +502,7 @@ public final class DomainTranslator
                 Comparison originalExpression)
         {
             Expression sourceExpression = ((Cast) comparison.getSymbolExpression()).expression();
-            Comparison.Operator operator = comparison.getComparisonOperator();
+            ComparisonOperator operator = comparison.getComparisonOperator();
             NullableValue value = comparison.getValue();
 
             if (complement || value.isNull()) {
@@ -598,7 +599,7 @@ public final class DomainTranslator
             return (SortedRangeSet) ValueSet.ofRanges(valueRanges);
         }
 
-        private static Optional<ExtractionResult> createComparisonExtractionResult(Comparison.Operator comparisonOperator, Symbol column, Type type, @Nullable Object value, boolean complement)
+        private static Optional<ExtractionResult> createComparisonExtractionResult(ComparisonOperator comparisonOperator, Symbol column, Type type, @Nullable Object value, boolean complement)
         {
             if (value == null) {
                 return switch (comparisonOperator) {
@@ -624,7 +625,7 @@ public final class DomainTranslator
             throw new AssertionError("Type cannot be used in a comparison expression (should have been caught in analysis): " + type);
         }
 
-        private static Optional<Domain> extractOrderableDomain(Comparison.Operator comparisonOperator, Type type, Object value, boolean complement)
+        private static Optional<Domain> extractOrderableDomain(ComparisonOperator comparisonOperator, Type type, Object value, boolean complement)
         {
             checkArgument(value != null);
 
@@ -683,7 +684,7 @@ public final class DomainTranslator
             };
         }
 
-        private static Domain extractEquatableDomain(Comparison.Operator comparisonOperator, Type type, Object value, boolean complement)
+        private static Domain extractEquatableDomain(ComparisonOperator comparisonOperator, Type type, Object value, boolean complement)
         {
             checkArgument(value != null);
             return switch (comparisonOperator) {
@@ -698,7 +699,7 @@ public final class DomainTranslator
                 Type symbolExpressionType,
                 Expression symbolExpression,
                 NullableValue nullableValue,
-                Comparison.Operator comparisonOperator)
+                ComparisonOperator comparisonOperator)
         {
             requireNonNull(nullableValue, "nullableValue is null");
             if (nullableValue.isNull()) {
@@ -727,7 +728,7 @@ public final class DomainTranslator
                 Type valueType,
                 Object originalValue,
                 Object coercedValue,
-                Comparison.Operator comparisonOperator)
+                ComparisonOperator comparisonOperator)
         {
             int originalComparedToCoerced = compareOriginalValueToCoerced(valueType, originalValue, symbolExpressionType, coercedValue);
             boolean coercedValueIsEqualToOriginal = originalComparedToCoerced == 0;
@@ -1089,10 +1090,10 @@ public final class DomainTranslator
     private static class NormalizedSimpleComparison
     {
         private final Expression symbolExpression;
-        private final Comparison.Operator comparisonOperator;
+        private final ComparisonOperator comparisonOperator;
         private final NullableValue value;
 
-        public NormalizedSimpleComparison(Expression symbolExpression, Comparison.Operator comparisonOperator, NullableValue value)
+        public NormalizedSimpleComparison(Expression symbolExpression, ComparisonOperator comparisonOperator, NullableValue value)
         {
             this.symbolExpression = requireNonNull(symbolExpression, "symbolExpression is null");
             this.comparisonOperator = requireNonNull(comparisonOperator, "comparisonOperator is null");
@@ -1104,7 +1105,7 @@ public final class DomainTranslator
             return symbolExpression;
         }
 
-        public Comparison.Operator getComparisonOperator()
+        public ComparisonOperator getComparisonOperator()
         {
             return comparisonOperator;
         }

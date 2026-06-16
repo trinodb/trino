@@ -34,6 +34,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -1234,7 +1235,7 @@ public class TestPostgreSqlConnectorTest
                                                                     new Reference(VARCHAR, "colb"))))),
                                             filter(
                                                     new Comparison(
-                                                            Comparison.Operator.EQUAL,
+                                                            ComparisonOperator.EQUAL,
                                                             new Call(
                                                                     concatFunction,
                                                                     ImmutableList.of(

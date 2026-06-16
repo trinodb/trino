@@ -53,6 +53,7 @@ import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.gen.columnar.FilterEvaluator;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -85,12 +86,12 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.gen.columnar.FilterEvaluator.createColumnarFilterEvaluator;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.ir.IrExpressions.constantNull;
 import static io.trino.testing.DataProviders.cartesianProduct;
@@ -152,7 +153,7 @@ public class TestColumnarFilters
         List<Page> inputPages = createInputPages(NullsProvider.RANDOM_NULLS, false);
         // col IS DISTINCT FROM constant
         Expression isDistinctFromFilter = createNotExpression(new Comparison(
-                Comparison.Operator.IDENTICAL,
+                ComparisonOperator.IDENTICAL,
                 new Constant(INTEGER, CONSTANT),
                 new Reference(INTEGER, COL_INT_A)));
         // IS DISTINCT is not supported in columnar evaluation yet
@@ -161,7 +162,7 @@ public class TestColumnarFilters
 
         // colA IS DISTINCT FROM colB
         isDistinctFromFilter = createNotExpression(new Comparison(
-                Comparison.Operator.IDENTICAL,
+                ComparisonOperator.IDENTICAL,
                 new Reference(INTEGER, COL_INT_B),
                 new Reference(INTEGER, COL_INT_A)));
         // IS DISTINCT is not supported in columnar evaluation yet
@@ -255,7 +256,7 @@ public class TestColumnarFilters
     {
         List<Page> inputPages = createInputPages(NullsProvider.RANDOM_NULLS, false);
         Expression notEqualFilter = new Comparison(
-                Comparison.Operator.NOT_EQUAL,
+                ComparisonOperator.NOT_EQUAL,
                 new Constant(INTEGER, CONSTANT),
                 new Reference(INTEGER, COL_INT_A));
         // NOT_EQUAL is not supported in columnar evaluation yet
@@ -281,7 +282,7 @@ public class TestColumnarFilters
     public void testComparison(NullsProvider nullsProvider, boolean dictionaryEncoded)
     {
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
-        for (Comparison.Operator operator : List.of(
+        for (ComparisonOperator operator : List.of(
                 EQUAL,
                 LESS_THAN,
                 LESS_THAN_OR_EQUAL,

@@ -43,6 +43,7 @@ import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
@@ -184,7 +185,7 @@ public final class ConnectorExpressionTranslator
     }
 
     @VisibleForTesting
-    static FunctionName functionNameForComparisonOperator(Comparison.Operator operator)
+    static FunctionName functionNameForComparisonOperator(ComparisonOperator operator)
     {
         return switch (operator) {
             case EQUAL -> EQUAL_OPERATOR_FUNCTION_NAME;
@@ -328,7 +329,7 @@ public final class ConnectorExpressionTranslator
 
             // comparisons
             if (call.getArguments().size() == 2) {
-                Optional<Comparison.Operator> operator = comparisonOperatorForFunctionName(call.getFunctionName());
+                Optional<ComparisonOperator> operator = comparisonOperatorForFunctionName(call.getFunctionName());
                 if (operator.isPresent()) {
                     return translateComparison(operator.get(), call.getArguments().get(0), call.getArguments().get(1), lambdaArguments);
                 }
@@ -464,7 +465,7 @@ public final class ConnectorExpressionTranslator
             return translatedArguments.map(expressions -> new Logical(operator, expressions));
         }
 
-        private Optional<Expression> translateComparison(Comparison.Operator operator, ConnectorExpression left, ConnectorExpression right, Map<String, Symbol> lambdaArguments)
+        private Optional<Expression> translateComparison(ComparisonOperator operator, ConnectorExpression left, ConnectorExpression right, Map<String, Symbol> lambdaArguments)
         {
             return translate(left, lambdaArguments).flatMap(leftTranslated ->
                     translate(right, lambdaArguments).map(rightTranslated ->
@@ -488,28 +489,28 @@ public final class ConnectorExpressionTranslator
                     .map(Coalesce::new);
         }
 
-        private Optional<Comparison.Operator> comparisonOperatorForFunctionName(FunctionName functionName)
+        private Optional<ComparisonOperator> comparisonOperatorForFunctionName(FunctionName functionName)
         {
             if (EQUAL_OPERATOR_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(Comparison.Operator.EQUAL);
+                return Optional.of(ComparisonOperator.EQUAL);
             }
             if (NOT_EQUAL_OPERATOR_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(Comparison.Operator.NOT_EQUAL);
+                return Optional.of(ComparisonOperator.NOT_EQUAL);
             }
             if (LESS_THAN_OPERATOR_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(Comparison.Operator.LESS_THAN);
+                return Optional.of(ComparisonOperator.LESS_THAN);
             }
             if (LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(Comparison.Operator.LESS_THAN_OR_EQUAL);
+                return Optional.of(ComparisonOperator.LESS_THAN_OR_EQUAL);
             }
             if (GREATER_THAN_OPERATOR_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(Comparison.Operator.GREATER_THAN);
+                return Optional.of(ComparisonOperator.GREATER_THAN);
             }
             if (GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(Comparison.Operator.GREATER_THAN_OR_EQUAL);
+                return Optional.of(ComparisonOperator.GREATER_THAN_OR_EQUAL);
             }
             if (IDENTICAL_OPERATOR_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(Comparison.Operator.IDENTICAL);
+                return Optional.of(ComparisonOperator.IDENTICAL);
             }
             return Optional.empty();
         }

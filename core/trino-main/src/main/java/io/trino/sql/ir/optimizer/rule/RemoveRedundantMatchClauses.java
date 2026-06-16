@@ -21,6 +21,7 @@ import io.trino.spi.function.OperatorType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
@@ -39,7 +40,7 @@ import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 
 /// Remove duplicated and redundant equality clauses in Match. E.g.,
@@ -145,7 +146,7 @@ public class RemoveRedundantMatchClauses
         }
         Lambda predicate = clause.lambda();
         Symbol parameter = getOnlyElement(predicate.arguments());
-        if (!(predicate.body() instanceof Comparison(Comparison.Operator operator, Expression left, Expression right))) {
+        if (!(predicate.body() instanceof Comparison(ComparisonOperator operator, Expression left, Expression right))) {
             return Optional.empty();
         }
         if (operator != EQUAL) {

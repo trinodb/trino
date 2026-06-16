@@ -23,7 +23,7 @@ import io.trino.sql.planner.plan.SampleNode.Type;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
 public class TestEvaluateZeroSample

@@ -18,7 +18,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
-import io.trino.sql.ir.Comparison.Operator;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
@@ -29,11 +29,11 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.TypeUtils.typeHasNaN;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrUtils.combinePredicates;
 import static io.trino.sql.ir.IrUtils.extractPredicates;
 
@@ -62,7 +62,7 @@ public final class PushDownNegationsExpressionRewriter
                     return combinePredicates(child.operator().flip(), negatedPredicates);
                 }
                 if (argument instanceof Comparison child && child.operator() != IDENTICAL) {
-                    Operator operator = child.operator();
+                    ComparisonOperator operator = child.operator();
                     Expression left = child.left();
                     Expression right = child.right();
                     Type leftType = left.type();
