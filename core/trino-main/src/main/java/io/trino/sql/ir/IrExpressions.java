@@ -16,7 +16,9 @@ package io.trino.sql.ir;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
@@ -33,12 +35,17 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
 import io.trino.type.TypeCoercion;
+import jakarta.annotation.Nullable;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
+import static io.trino.metadata.OperatorNameUtil.isOperatorName;
+import static io.trino.metadata.OperatorNameUtil.unmangleOperator;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -64,6 +71,135 @@ public final class IrExpressions
     public static Call call(ResolvedFunction function, Expression... arguments)
     {
         return new Call(function, Arrays.asList(arguments));
+    }
+
+    public static Expression comparison(Metadata metadata, ComparisonOperator operator, Expression left, Expression right)
+    {
+        return switch (operator) {
+            case EQUAL -> operatorCall(metadata, OperatorType.EQUAL, left, right);
+            case NOT_EQUAL -> not(metadata, operatorCall(metadata, OperatorType.EQUAL, left, right));
+            case LESS_THAN -> operatorCall(metadata, OperatorType.LESS_THAN, left, right);
+            case LESS_THAN_OR_EQUAL -> operatorCall(metadata, OperatorType.LESS_THAN_OR_EQUAL, left, right);
+            case GREATER_THAN -> operatorCall(metadata, OperatorType.LESS_THAN, right, left);
+            case GREATER_THAN_OR_EQUAL -> operatorCall(metadata, OperatorType.LESS_THAN_OR_EQUAL, right, left);
+            case IDENTICAL -> operatorCall(metadata, OperatorType.IDENTICAL, left, right);
+        };
+    }
+
+    private static Call operatorCall(Metadata metadata, OperatorType operator, Expression left, Expression right)
+    {
+        return call(metadata.resolveOperator(operator, ImmutableList.of(left.type(), right.type())), left, right);
+    }
+
+    /// Decodes the canonical IR form of a comparison back into its operator and operands, or
+    /// returns null when the expression is not a comparison. Recognizes the operator-function calls
+    /// produced by {@link #comparison} as well as the `$not($operator$EQUAL(...))` form of `<>`.
+    /// Because greater-than comparisons are canonicalized to `LessThan` / `LessThanOrEqual` with
+    /// flipped operands, this never yields `GreaterThan` or `GreaterThanOrEqual`.
+    @Nullable
+    public static ComparisonView matchComparison(Expression expression)
+    {
+        if (!(expression instanceof Call call)) {
+            return null;
+        }
+
+        List<Expression> arguments = call.arguments();
+        if (call.function().name().equals(builtinFunctionName("$not")) && arguments.size() == 1) {
+            if (matchComparison(arguments.get(0)) instanceof ComparisonView.Equal(Expression left, Expression right)) {
+                return new ComparisonView.NotEqual(left, right);
+            }
+            return null;
+        }
+
+        Optional<OperatorType> operatorType = operatorType(call);
+        if (operatorType.isEmpty()) {
+            return null;
+        }
+        return switch (operatorType.get()) {
+            case EQUAL -> new ComparisonView.Equal(arguments.get(0), arguments.get(1));
+            case LESS_THAN -> new ComparisonView.LessThan(arguments.get(0), arguments.get(1));
+            case LESS_THAN_OR_EQUAL -> new ComparisonView.LessThanOrEqual(arguments.get(0), arguments.get(1));
+            case IDENTICAL -> new ComparisonView.Identical(arguments.get(0), arguments.get(1));
+            default -> null;
+        };
+    }
+
+    private static Optional<OperatorType> operatorType(Call call)
+    {
+        CatalogSchemaFunctionName name = call.function().name();
+        if (isBuiltinFunctionName(name) && isOperatorName(name.functionName())) {
+            return Optional.of(unmangleOperator(name.functionName()));
+        }
+        return Optional.empty();
+    }
+
+    /// A comparison recovered by {@link #matchComparison}, modeled as one of the five canonical
+    /// operators so callers can pattern-match on it — for example
+    /// `matchComparison(e) instanceof ComparisonView.LessThan(Expression l, Expression r)` — with the
+    /// compiler enforcing exhaustiveness. Greater-than forms never appear: they are canonicalized to
+    /// flipped `LessThan` / `LessThanOrEqual`.
+    public sealed interface ComparisonView
+            permits ComparisonView.Equal,
+                    ComparisonView.Identical,
+                    ComparisonView.LessThan,
+                    ComparisonView.LessThanOrEqual,
+                    ComparisonView.NotEqual
+    {
+        ComparisonOperator operator();
+
+        Expression left();
+
+        Expression right();
+
+        record Equal(Expression left, Expression right)
+                implements ComparisonView
+        {
+            @Override
+            public ComparisonOperator operator()
+            {
+                return ComparisonOperator.EQUAL;
+            }
+        }
+
+        record NotEqual(Expression left, Expression right)
+                implements ComparisonView
+        {
+            @Override
+            public ComparisonOperator operator()
+            {
+                return ComparisonOperator.NOT_EQUAL;
+            }
+        }
+
+        record LessThan(Expression left, Expression right)
+                implements ComparisonView
+        {
+            @Override
+            public ComparisonOperator operator()
+            {
+                return ComparisonOperator.LESS_THAN;
+            }
+        }
+
+        record LessThanOrEqual(Expression left, Expression right)
+                implements ComparisonView
+        {
+            @Override
+            public ComparisonOperator operator()
+            {
+                return ComparisonOperator.LESS_THAN_OR_EQUAL;
+            }
+        }
+
+        record Identical(Expression left, Expression right)
+                implements ComparisonView
+        {
+            @Override
+            public ComparisonOperator operator()
+            {
+                return ComparisonOperator.IDENTICAL;
+            }
+        }
     }
 
     public static Expression ifExpression(Expression condition, Expression trueCase)

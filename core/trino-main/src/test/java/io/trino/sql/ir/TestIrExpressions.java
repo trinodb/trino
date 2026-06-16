@@ -14,8 +14,10 @@
 package io.trino.sql.ir;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.sql.ir.IrExpressions.ComparisonView;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -26,8 +28,15 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.constantNull;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.mayBeNull;
 import static io.trino.sql.ir.IrExpressions.mayReturnNullOnNonNullInput;
 import static io.trino.sql.ir.IrExpressions.not;
@@ -99,5 +108,33 @@ public class TestIrExpressions
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, new Coalesce(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isFalse();
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, new NullIf(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isTrue();
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, new Cast(new Constant(JSON, utf8Slice("null")), BIGINT))).isTrue();
+    }
+
+    @Test
+    public void testComparisonRoundTrip()
+    {
+        Metadata metadata = PLANNER_CONTEXT.getMetadata();
+        Reference left = new Reference(BIGINT, "x");
+        Constant right = new Constant(BIGINT, 1L);
+
+        // Operators with a dedicated operator function keep their operands as-is.
+        assertThat(matchComparison(comparison(metadata, EQUAL, left, right))).isEqualTo(new ComparisonView.Equal(left, right));
+        assertThat(matchComparison(comparison(metadata, LESS_THAN, left, right))).isEqualTo(new ComparisonView.LessThan(left, right));
+        assertThat(matchComparison(comparison(metadata, LESS_THAN_OR_EQUAL, left, right))).isEqualTo(new ComparisonView.LessThanOrEqual(left, right));
+        assertThat(matchComparison(comparison(metadata, IDENTICAL, left, right))).isEqualTo(new ComparisonView.Identical(left, right));
+
+        // NOT_EQUAL is canonicalized to $not of EQUAL, and decoded back to NOT_EQUAL.
+        assertThat(matchComparison(comparison(metadata, NOT_EQUAL, left, right))).isEqualTo(new ComparisonView.NotEqual(left, right));
+
+        // Greater-than is canonicalized to less-than with flipped operands.
+        assertThat(comparison(metadata, GREATER_THAN, left, right)).isEqualTo(comparison(metadata, LESS_THAN, right, left));
+        assertThat(matchComparison(comparison(metadata, GREATER_THAN, left, right))).isEqualTo(new ComparisonView.LessThan(right, left));
+        assertThat(comparison(metadata, GREATER_THAN_OR_EQUAL, left, right)).isEqualTo(comparison(metadata, LESS_THAN_OR_EQUAL, right, left));
+        assertThat(matchComparison(comparison(metadata, GREATER_THAN_OR_EQUAL, left, right))).isEqualTo(new ComparisonView.LessThanOrEqual(right, left));
+
+        // Non-comparison expressions decode to null.
+        assertThat(matchComparison(new Reference(BIGINT, "x"))).isNull();
+        assertThat(matchComparison(not(metadata, TRUE))).isNull();
+        assertThat(matchComparison(new Call(LENGTH, ImmutableList.of(new Constant(VARCHAR, utf8Slice("hello")))))).isNull();
     }
 }
