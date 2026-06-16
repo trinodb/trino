@@ -30,7 +30,8 @@ public class TestAccessControlConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(AccessControlConfig.class)
-                .setAccessControlFiles(ImmutableList.of()));
+                .setAccessControlFiles(ImmutableList.of())
+                .setImpersonationEnabled(true));
     }
 
     @Test
@@ -40,10 +41,14 @@ public class TestAccessControlConfig
         Path config1 = Files.createTempFile(tempDir, null, null);
         Path config2 = Files.createTempFile(tempDir, null, null);
 
-        Map<String, String> properties = ImmutableMap.of("access-control.config-files", config1.toString() + "," + config2.toString());
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("access-control.config-files", config1.toString() + "," + config2.toString())
+                .put("security.impersonation-enabled", "false")
+                .buildOrThrow();
 
         AccessControlConfig expected = new AccessControlConfig()
-                .setAccessControlFiles(ImmutableList.of(config1.toFile().getAbsolutePath(), config2.toFile().getAbsolutePath()));
+                .setAccessControlFiles(ImmutableList.of(config1.toFile().getAbsolutePath(), config2.toFile().getAbsolutePath()))
+                .setImpersonationEnabled(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

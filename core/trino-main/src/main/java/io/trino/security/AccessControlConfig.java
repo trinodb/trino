@@ -15,6 +15,7 @@ package io.trino.security;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.validation.FileExists;
 import jakarta.validation.constraints.NotNull;
 
@@ -26,6 +27,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 public class AccessControlConfig
 {
     private List<File> accessControlFiles = ImmutableList.of();
+    private boolean impersonationEnabled = true;
 
     @NotNull
     public List<@FileExists File> getAccessControlFiles()
@@ -39,6 +41,19 @@ public class AccessControlConfig
         this.accessControlFiles = accessControlFiles.stream()
                 .map(File::new)
                 .collect(toImmutableList());
+        return this;
+    }
+
+    public boolean isImpersonationEnabled()
+    {
+        return impersonationEnabled;
+    }
+
+    @Config("security.impersonation-enabled")
+    @ConfigDescription("Allow the query identity to be switched to a different user via user impersonation, SET SESSION AUTHORIZATION, SECURITY DEFINER views and functions, and row filter and column mask identities")
+    public AccessControlConfig setImpersonationEnabled(boolean impersonationEnabled)
+    {
+        this.impersonationEnabled = impersonationEnabled;
         return this;
     }
 }

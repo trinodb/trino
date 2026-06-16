@@ -249,6 +249,25 @@ public class TestColumnMask
     }
 
     @Test
+    public void testMaskWithDeniedEffectiveIdentity()
+    {
+        // deny the identity switch, as security.impersonation-enabled=false would
+        accessControl.reset();
+        accessControl.denyEffectiveIdentity((_, _) -> false);
+        accessControl.columnMask(
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                "custkey",
+                USER,
+                ViewExpression.builder()
+                        .identity(RUN_AS_USER)
+                        .expression("-custkey")
+                        .build());
+        assertThat(assertions.query("SELECT custkey FROM orders WHERE orderkey = 1"))
+                .failure()
+                .hasMessageContaining("cannot run as user " + RUN_AS_USER);
+    }
+
+    @Test
     public void testSimpleMaskOnBranch()
     {
         accessControl.reset();
