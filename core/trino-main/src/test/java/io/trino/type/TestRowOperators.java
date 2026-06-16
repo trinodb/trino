@@ -1110,6 +1110,14 @@ public class TestRowOperators
         assertThat(assertions.operator(COMPARISON_UNORDERED_LAST, rowConcrete, rowConcreteOther))
                 .couldFail();
 
+        // BETWEEN
+        assertTrinoExceptionThrownBy(assertions.expression("a BETWEEN b AND c")
+                .binding("a", rowWithNull).binding("b", rowConcrete).binding("c", rowConcreteOther)::evaluate)
+                .hasErrorCode(NOT_SUPPORTED);
+        assertThat(assertions.expression("a BETWEEN b AND c")
+                .binding("a", rowConcrete).binding("b", rowConcrete).binding("c", rowConcreteOther))
+                .couldFail();
+
         // HASH_CODE — hashing tolerates NULL fields; GenericHashCodeOperator declares neverFails=true. No SQL form.
         assertThat(assertions.operator(HASH_CODE, rowWithNull))
                 .neverFails();

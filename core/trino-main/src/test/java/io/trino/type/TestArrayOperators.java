@@ -5972,6 +5972,14 @@ public class TestArrayOperators
         assertThat(assertions.operator(COMPARISON_UNORDERED_LAST, arrayConcrete, arrayConcreteOther))
                 .couldFail();
 
+        // BETWEEN
+        assertTrinoExceptionThrownBy(assertions.expression("a BETWEEN b AND c")
+                .binding("a", arrayWithNull).binding("b", arrayConcrete).binding("c", arrayConcreteOther)::evaluate)
+                .hasErrorCode(NOT_SUPPORTED);
+        assertThat(assertions.expression("a BETWEEN b AND c")
+                .binding("a", arrayConcrete).binding("b", arrayConcrete).binding("c", arrayConcreteOther))
+                .couldFail();
+
         // HASH_CODE — hashing tolerates NULL elements. GenericHashCodeOperator declares neverFails=true.
         assertThat(assertions.operator(HASH_CODE, arrayWithNull))
                 .neverFails();
