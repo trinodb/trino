@@ -26,7 +26,6 @@ import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
@@ -68,6 +67,7 @@ import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -164,26 +164,26 @@ public class TestExpressionInterpreter
     public void testComparison()
     {
         assertOptimizedEquals(
-                new Comparison(EQUAL, new Constant(UNKNOWN, null), new Constant(UNKNOWN, null)),
+                comparison(EQUAL, new Constant(UNKNOWN, null), new Constant(UNKNOWN, null)),
                 new Constant(BOOLEAN, null));
 
         assertOptimizedEquals(
-                new Comparison(EQUAL, new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(VARCHAR, Slices.utf8Slice("b"))),
+                comparison(EQUAL, new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(VARCHAR, Slices.utf8Slice("b"))),
                 FALSE);
         assertOptimizedEquals(
-                new Comparison(EQUAL, new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(VARCHAR, Slices.utf8Slice("a"))),
+                comparison(EQUAL, new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(VARCHAR, Slices.utf8Slice("a"))),
                 TRUE);
         assertOptimizedEquals(
-                new Comparison(EQUAL, new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(VARCHAR, null)),
+                comparison(EQUAL, new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(VARCHAR, null)),
                 new Constant(BOOLEAN, null));
         assertOptimizedEquals(
-                new Comparison(EQUAL, new Constant(VARCHAR, null), new Constant(VARCHAR, Slices.utf8Slice("a"))),
+                comparison(EQUAL, new Constant(VARCHAR, null), new Constant(VARCHAR, Slices.utf8Slice("a"))),
                 new Constant(BOOLEAN, null));
         assertOptimizedEquals(
-                new Comparison(EQUAL, new Reference(INTEGER, "bound_value"), new Constant(INTEGER, 1234L)),
+                comparison(EQUAL, new Reference(INTEGER, "bound_value"), new Constant(INTEGER, 1234L)),
                 TRUE);
         assertOptimizedEquals(
-                new Comparison(EQUAL, new Reference(INTEGER, "bound_value"), new Constant(INTEGER, 1L)),
+                comparison(EQUAL, new Reference(INTEGER, "bound_value"), new Constant(INTEGER, 1L)),
                 FALSE);
     }
 
@@ -191,30 +191,30 @@ public class TestExpressionInterpreter
     public void testIdentical()
     {
         assertOptimizedEquals(
-                new Comparison(IDENTICAL, new Constant(UNKNOWN, null), new Constant(UNKNOWN, null)),
+                comparison(IDENTICAL, new Constant(UNKNOWN, null), new Constant(UNKNOWN, null)),
                 TRUE);
 
         assertOptimizedEquals(
-                new Comparison(IDENTICAL, new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
+                comparison(IDENTICAL, new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
                 FALSE);
         assertOptimizedEquals(
-                new Comparison(IDENTICAL, new Constant(INTEGER, 3L), new Constant(INTEGER, 3L)),
+                comparison(IDENTICAL, new Constant(INTEGER, 3L), new Constant(INTEGER, 3L)),
                 TRUE);
         assertOptimizedEquals(
-                new Comparison(IDENTICAL, new Constant(INTEGER, 3L), new Constant(INTEGER, null)),
+                comparison(IDENTICAL, new Constant(INTEGER, 3L), new Constant(INTEGER, null)),
                 FALSE);
         assertOptimizedEquals(
-                new Comparison(IDENTICAL, new Constant(INTEGER, null), new Constant(INTEGER, 3L)),
+                comparison(IDENTICAL, new Constant(INTEGER, null), new Constant(INTEGER, 3L)),
                 FALSE);
 
         assertOptimizedMatches(
-                new Comparison(IDENTICAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)),
-                new Comparison(IDENTICAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)));
+                comparison(IDENTICAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)),
+                comparison(IDENTICAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)));
         assertOptimizedMatches(
-                new Comparison(IDENTICAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, null)),
+                comparison(IDENTICAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, null)),
                 new IsNull(new Reference(INTEGER, "unbound_value")));
         assertOptimizedMatches(
-                new Comparison(IDENTICAL, new Constant(INTEGER, null), new Reference(INTEGER, "unbound_value")),
+                comparison(IDENTICAL, new Constant(INTEGER, null), new Reference(INTEGER, "unbound_value")),
                 new IsNull(new Reference(INTEGER, "unbound_value")));
     }
 
@@ -290,8 +290,8 @@ public class TestExpressionInterpreter
                 not(PLANNER_CONTEXT.getMetadata(), new Constant(BOOLEAN, null)),
                 new Constant(BOOLEAN, null));
         assertOptimizedEquals(
-                not(PLANNER_CONTEXT.getMetadata(), new Comparison(EQUAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L))),
-                not(PLANNER_CONTEXT.getMetadata(), new Comparison(EQUAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L))));
+                not(PLANNER_CONTEXT.getMetadata(), comparison(EQUAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L))),
+                not(PLANNER_CONTEXT.getMetadata(), comparison(EQUAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L))));
     }
 
     @Test
@@ -388,7 +388,7 @@ public class TestExpressionInterpreter
 
         assertOptimizedEquals(
                 new In(new Reference(INTEGER, "unbound_value"), ImmutableList.of(new Constant(INTEGER, 1L))),
-                new Comparison(EQUAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)));
+                comparison(EQUAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)));
 
         assertOptimizedEquals(
                 new In(new Constant(INTEGER, 3L), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 0L))))),
@@ -416,7 +416,7 @@ public class TestExpressionInterpreter
                 new In(new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L))));
         assertOptimizedEquals(
                 new In(new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 2L))),
-                new Comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 2L)));
+                comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 2L)));
     }
 
     @Test
@@ -463,7 +463,7 @@ public class TestExpressionInterpreter
 
         assertOptimizedEquals(
                 new Case(ImmutableList.of(
-                        new WhenClause(new Comparison(EQUAL, new Reference(INTEGER, "bound_value"), new Constant(INTEGER, 1234L)), new Constant(INTEGER, 33L))),
+                        new WhenClause(comparison(EQUAL, new Reference(INTEGER, "bound_value"), new Constant(INTEGER, 1234L)), new Constant(INTEGER, 33L))),
                         new Constant(INTEGER, null)),
                 new Constant(INTEGER, 33L));
         assertOptimizedEquals(
@@ -479,44 +479,44 @@ public class TestExpressionInterpreter
 
         assertOptimizedEquals(
                 new Case(ImmutableList.of(
-                        new WhenClause(new Comparison(EQUAL, new Reference(INTEGER, "bound_value"), new Constant(INTEGER, 1234L)), new Constant(INTEGER, 33L))),
+                        new WhenClause(comparison(EQUAL, new Reference(INTEGER, "bound_value"), new Constant(INTEGER, 1234L)), new Constant(INTEGER, 33L))),
                         new Reference(INTEGER, "unbound_value")),
                 new Constant(INTEGER, 33L));
 
         assertOptimizedMatches(
                 new Case(ImmutableList.of(
-                        new WhenClause(new Comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))),
+                        new WhenClause(comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))),
                         new Constant(INTEGER, null)),
                 new Case(ImmutableList.of(
-                        new WhenClause(new Comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))),
+                        new WhenClause(comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))),
                         new Constant(INTEGER, null)));
 
         assertOptimizedEquals(
                 new Case(ImmutableList.of(
-                        new WhenClause(TRUE, new Constant(VARCHAR, Slices.utf8Slice("a"))), new WhenClause(new Comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(VARCHAR, Slices.utf8Slice("b")))),
+                        new WhenClause(TRUE, new Constant(VARCHAR, Slices.utf8Slice("a"))), new WhenClause(comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(VARCHAR, Slices.utf8Slice("b")))),
                         new Constant(VARCHAR, Slices.utf8Slice("c"))),
                 new Constant(VARCHAR, Slices.utf8Slice("a")));
         assertOptimizedEquals(
                 new Case(ImmutableList.of(
-                        new WhenClause(new Comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(VARCHAR, Slices.utf8Slice("a"))), new WhenClause(TRUE, new Constant(VARCHAR, Slices.utf8Slice("b")))),
+                        new WhenClause(comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(VARCHAR, Slices.utf8Slice("a"))), new WhenClause(TRUE, new Constant(VARCHAR, Slices.utf8Slice("b")))),
                         new Constant(VARCHAR, Slices.utf8Slice("c"))),
                 new Case(ImmutableList.of(
-                        new WhenClause(new Comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(VARCHAR, Slices.utf8Slice("a")))),
+                        new WhenClause(comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(VARCHAR, Slices.utf8Slice("a")))),
                         new Constant(VARCHAR, Slices.utf8Slice("b"))));
         assertOptimizedEquals(
                 new Case(ImmutableList.of(
-                        new WhenClause(new Comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(VARCHAR, Slices.utf8Slice("a"))), new WhenClause(FALSE, new Constant(VARCHAR, Slices.utf8Slice("b")))),
+                        new WhenClause(comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(VARCHAR, Slices.utf8Slice("a"))), new WhenClause(FALSE, new Constant(VARCHAR, Slices.utf8Slice("b")))),
                         new Constant(VARCHAR, Slices.utf8Slice("c"))),
                 new Case(ImmutableList.of(
-                        new WhenClause(new Comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(VARCHAR, Slices.utf8Slice("a")))),
+                        new WhenClause(comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(VARCHAR, Slices.utf8Slice("a")))),
                         new Constant(VARCHAR, Slices.utf8Slice("c"))));
         assertOptimizedEquals(
                 new Case(ImmutableList.of(
-                        new WhenClause(new Comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(VARCHAR, Slices.utf8Slice("a"))),
+                        new WhenClause(comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(VARCHAR, Slices.utf8Slice("a"))),
                         new WhenClause(FALSE, new Constant(VARCHAR, Slices.utf8Slice("b")))),
                         new Constant(VARCHAR, null)),
                 new Case(ImmutableList.of(
-                        new WhenClause(new Comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(VARCHAR, Slices.utf8Slice("a")))),
+                        new WhenClause(comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(VARCHAR, Slices.utf8Slice("a")))),
                         new Constant(VARCHAR, null)));
         assertOptimizedEquals(
                 new Case(ImmutableList.of(
@@ -551,7 +551,7 @@ public class TestExpressionInterpreter
         MatchClause greaterThan100 = new MatchClause(
                 new Lambda(
                         ImmutableList.of(parameter),
-                        new Comparison(GREATER_THAN, new Reference(INTEGER, parameter.name()), new Constant(INTEGER, 100L))),
+                        comparison(GREATER_THAN, new Reference(INTEGER, parameter.name()), new Constant(INTEGER, 100L))),
                 new Constant(INTEGER, 33L));
 
         assertOptimizedEquals(
@@ -632,14 +632,14 @@ public class TestExpressionInterpreter
                 new Match(
                         TRUE,
                         ImmutableList.of(
-                                equalityClause(new Comparison(EQUAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L)),
-                                equalityClause(new Comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(INTEGER, 2L))),
+                                equalityClause(comparison(EQUAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L)),
+                                equalityClause(comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(INTEGER, 2L))),
                         new Constant(INTEGER, 33L)),
                 new Match(
                         TRUE,
                         ImmutableList.of(
-                                equalityClause(new Comparison(EQUAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L)),
-                                equalityClause(new Comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(INTEGER, 2L))),
+                                equalityClause(comparison(EQUAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L)),
+                                equalityClause(comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(INTEGER, 2L))),
                         new Constant(INTEGER, 33L)));
 
         assertOptimizedMatches(
@@ -811,10 +811,10 @@ public class TestExpressionInterpreter
     public void testIf()
     {
         assertOptimizedEquals(
-                ifExpression(new Comparison(EQUAL, new Constant(INTEGER, 2L), new Constant(INTEGER, 2L)), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
+                ifExpression(comparison(EQUAL, new Constant(INTEGER, 2L), new Constant(INTEGER, 2L)), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
                 new Constant(INTEGER, 3L));
         assertOptimizedEquals(
-                ifExpression(new Comparison(EQUAL, new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
+                ifExpression(comparison(EQUAL, new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
                 new Constant(INTEGER, 4L));
 
         assertOptimizedEquals(
@@ -859,8 +859,8 @@ public class TestExpressionInterpreter
                 ifExpression(FALSE, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 1L)),
                 new Constant(INTEGER, 1L));
         assertOptimizedEquals(
-                ifExpression(new Comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)),
-                ifExpression(new Comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)));
+                ifExpression(comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)),
+                ifExpression(comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)));
 
         assertEvaluatedEquals(
                 ifExpression(TRUE, new Constant(INTEGER, 1L), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)))),
@@ -868,7 +868,7 @@ public class TestExpressionInterpreter
         assertEvaluatedEquals(
                 ifExpression(FALSE, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 1L)),
                 new Constant(INTEGER, 1L));
-        assertTrinoExceptionThrownBy(() -> evaluate(ifExpression(new Comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))))
+        assertTrinoExceptionThrownBy(() -> evaluate(ifExpression(comparison(EQUAL, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))))
                 .hasErrorCode(DIVISION_BY_ZERO);
     }
 

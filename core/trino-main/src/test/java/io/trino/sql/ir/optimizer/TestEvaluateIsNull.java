@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
@@ -39,6 +38,7 @@ import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.OR;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -70,10 +70,10 @@ public class TestEvaluateIsNull
                 .describedAs("array expressions are never null")
                 .isEqualTo(Optional.of(FALSE));
 
-        assertThat(optimize(new IsNull(new Comparison(EQUAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))))
+        assertThat(optimize(new IsNull(comparison(EQUAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))))
                 .isEqualTo(Optional.of(new Logical(OR, ImmutableList.of(new IsNull(new Reference(BIGINT, "a")), new IsNull(new Reference(BIGINT, "b"))))));
 
-        assertThat(optimize(new IsNull(new Comparison(IDENTICAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))))
+        assertThat(optimize(new IsNull(comparison(IDENTICAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))))
                 .isEqualTo(Optional.of(FALSE));
 
         assertThat(optimize(new IsNull(new Reference(BIGINT, "a"))))

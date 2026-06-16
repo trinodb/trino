@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
@@ -26,6 +25,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
@@ -38,12 +38,12 @@ public class TestMergeFilters
         tester().assertThat(new MergeFilters())
                 .on(p ->
                         p.filter(
-                                new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 44L)),
+                                comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 44L)),
                                 p.filter(
-                                        new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 42L)),
+                                        comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 42L)),
                                         p.values(p.symbol("a"), p.symbol("b")))))
                 .matches(filter(
-                        new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 42L)), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 44L)))),
+                        new Logical(AND, ImmutableList.of(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 42L)), comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 44L)))),
                         values(ImmutableMap.of("a", 0, "b", 1))));
     }
 }

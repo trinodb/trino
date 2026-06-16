@@ -14,7 +14,6 @@
 package io.trino.sql.ir.optimizer;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
@@ -35,6 +34,7 @@ import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -45,42 +45,42 @@ public class TestEvaluateComparison
     void testIdentical()
     {
         assertThat(optimize(
-                new Comparison(IDENTICAL, new Constant(BIGINT, 1L), new Constant(BIGINT, 1L))))
+                comparison(IDENTICAL, new Constant(BIGINT, 1L), new Constant(BIGINT, 1L))))
                 .describedAs("equal constants")
                 .isEqualTo(Optional.of(TRUE));
 
         assertThat(optimize(
-                new Comparison(IDENTICAL, new Constant(BIGINT, 1L), new Constant(BIGINT, 2L))))
+                comparison(IDENTICAL, new Constant(BIGINT, 1L), new Constant(BIGINT, 2L))))
                 .describedAs("different constants")
                 .isEqualTo(Optional.of(FALSE));
 
         assertThat(optimize(
-                new Comparison(IDENTICAL, new Constant(BIGINT, 1L), new Constant(BIGINT, null))))
+                comparison(IDENTICAL, new Constant(BIGINT, 1L), new Constant(BIGINT, null))))
                 .describedAs("constant vs null")
                 .isEqualTo(Optional.of(FALSE));
 
         assertThat(optimize(
-                new Comparison(IDENTICAL, new Constant(BIGINT, null), new Constant(BIGINT, 1L))))
+                comparison(IDENTICAL, new Constant(BIGINT, null), new Constant(BIGINT, 1L))))
                 .describedAs("constant vs null")
                 .isEqualTo(Optional.of(FALSE));
 
         assertThat(optimize(
-                new Comparison(IDENTICAL, new Constant(BIGINT, null), new Constant(BIGINT, null))))
+                comparison(IDENTICAL, new Constant(BIGINT, null), new Constant(BIGINT, null))))
                 .describedAs("both null")
                 .isEqualTo(Optional.of(TRUE));
 
         assertThat(optimize(
-                new Comparison(IDENTICAL, new Reference(BIGINT, "x"), new Constant(BIGINT, null))))
+                comparison(IDENTICAL, new Reference(BIGINT, "x"), new Constant(BIGINT, null))))
                 .describedAs("non-constant vs null")
                 .isEqualTo(Optional.of(new IsNull(new Reference(BIGINT, "x"))));
 
         assertThat(optimize(
-                new Comparison(IDENTICAL, new Constant(BIGINT, null), new Reference(BIGINT, "x"))))
+                comparison(IDENTICAL, new Constant(BIGINT, null), new Reference(BIGINT, "x"))))
                 .describedAs("non-constant vs null")
                 .isEqualTo(Optional.of(new IsNull(new Reference(BIGINT, "x"))));
 
         assertThat(optimize(
-                new Comparison(IDENTICAL, new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))))
+                comparison(IDENTICAL, new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))))
                 .describedAs("non-constants")
                 .isEqualTo(Optional.empty());
     }
@@ -89,40 +89,40 @@ public class TestEvaluateComparison
     void testEqual()
     {
         assertThat(optimize(
-                new Comparison(EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, 2L))))
+                comparison(EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, 2L))))
                 .isEqualTo(Optional.of(FALSE));
 
         assertThat(optimize(
-                new Comparison(EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, 1L))))
+                comparison(EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, 1L))))
                 .isEqualTo(Optional.of(TRUE));
 
         assertThat(optimize(
-                new Comparison(EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, null))))
+                comparison(EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, null))))
                 .describedAs("constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, 1L))))
+                comparison(EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, 1L))))
                 .describedAs("constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, null))))
+                comparison(EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, null))))
                 .describedAs("both null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, null))))
+                comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, null))))
                 .describedAs("non-constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(EQUAL, new Constant(BIGINT, null), new Reference(BIGINT, "x"))))
+                comparison(EQUAL, new Constant(BIGINT, null), new Reference(BIGINT, "x"))))
                 .describedAs("non-constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(EQUAL, new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))))
+                comparison(EQUAL, new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))))
                 .describedAs("non-constants")
                 .isEqualTo(Optional.empty());
     }
@@ -131,40 +131,40 @@ public class TestEvaluateComparison
     void testNotEqual()
     {
         assertThat(optimize(
-                new Comparison(NOT_EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, 1L))))
+                comparison(NOT_EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, 1L))))
                 .isEqualTo(Optional.of(FALSE));
 
         assertThat(optimize(
-                new Comparison(NOT_EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, 2L))))
+                comparison(NOT_EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, 2L))))
                 .isEqualTo(Optional.of(TRUE));
 
         assertThat(optimize(
-                new Comparison(NOT_EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, null))))
+                comparison(NOT_EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, null))))
                 .describedAs("constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(NOT_EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, 1L))))
+                comparison(NOT_EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, 1L))))
                 .describedAs("constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(NOT_EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, null))))
+                comparison(NOT_EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, null))))
                 .describedAs("both null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(NOT_EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, null))))
+                comparison(NOT_EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, null))))
                 .describedAs("non-constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(NOT_EQUAL, new Constant(BIGINT, null), new Reference(BIGINT, "x"))))
+                comparison(NOT_EQUAL, new Constant(BIGINT, null), new Reference(BIGINT, "x"))))
                 .describedAs("non-constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(NOT_EQUAL, new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))))
+                comparison(NOT_EQUAL, new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))))
                 .describedAs("non-constants")
                 .isEqualTo(Optional.empty());
     }
@@ -173,40 +173,40 @@ public class TestEvaluateComparison
     void testLessThan()
     {
         assertThat(optimize(
-                new Comparison(LESS_THAN, new Constant(BIGINT, 1L), new Constant(BIGINT, 1L))))
+                comparison(LESS_THAN, new Constant(BIGINT, 1L), new Constant(BIGINT, 1L))))
                 .isEqualTo(Optional.of(FALSE));
 
         assertThat(optimize(
-                new Comparison(LESS_THAN, new Constant(BIGINT, 1L), new Constant(BIGINT, 2L))))
+                comparison(LESS_THAN, new Constant(BIGINT, 1L), new Constant(BIGINT, 2L))))
                 .isEqualTo(Optional.of(TRUE));
 
         assertThat(optimize(
-                new Comparison(LESS_THAN, new Constant(BIGINT, 1L), new Constant(BIGINT, null))))
+                comparison(LESS_THAN, new Constant(BIGINT, 1L), new Constant(BIGINT, null))))
                 .describedAs("constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(LESS_THAN, new Constant(BIGINT, null), new Constant(BIGINT, 1L))))
+                comparison(LESS_THAN, new Constant(BIGINT, null), new Constant(BIGINT, 1L))))
                 .describedAs("constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(LESS_THAN, new Constant(BIGINT, null), new Constant(BIGINT, null))))
+                comparison(LESS_THAN, new Constant(BIGINT, null), new Constant(BIGINT, null))))
                 .describedAs("both null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(LESS_THAN, new Reference(BIGINT, "x"), new Constant(BIGINT, null))))
+                comparison(LESS_THAN, new Reference(BIGINT, "x"), new Constant(BIGINT, null))))
                 .describedAs("non-constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(LESS_THAN, new Constant(BIGINT, null), new Reference(BIGINT, "x"))))
+                comparison(LESS_THAN, new Constant(BIGINT, null), new Reference(BIGINT, "x"))))
                 .describedAs("non-constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(LESS_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))))
+                comparison(LESS_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))))
                 .describedAs("non-constants")
                 .isEqualTo(Optional.empty());
     }
@@ -215,40 +215,40 @@ public class TestEvaluateComparison
     void testLessThanOrEqual()
     {
         assertThat(optimize(
-                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, 0L))))
+                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, 0L))))
                 .isEqualTo(Optional.of(FALSE));
 
         assertThat(optimize(
-                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, 1L))))
+                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, 1L))))
                 .isEqualTo(Optional.of(TRUE));
 
         assertThat(optimize(
-                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, null))))
+                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, null))))
                 .describedAs("constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, 1L))))
+                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, 1L))))
                 .describedAs("constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, null))))
+                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, null))))
                 .describedAs("both null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, null))))
+                comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, null))))
                 .describedAs("non-constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, null), new Reference(BIGINT, "x"))))
+                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, null), new Reference(BIGINT, "x"))))
                 .describedAs("non-constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))))
+                comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))))
                 .describedAs("non-constants")
                 .isEqualTo(Optional.empty());
     }
@@ -257,40 +257,40 @@ public class TestEvaluateComparison
     void testGreaterThan()
     {
         assertThat(optimize(
-                new Comparison(GREATER_THAN, new Constant(BIGINT, 1L), new Constant(BIGINT, 1L))))
+                comparison(GREATER_THAN, new Constant(BIGINT, 1L), new Constant(BIGINT, 1L))))
                 .isEqualTo(Optional.of(FALSE));
 
         assertThat(optimize(
-                new Comparison(GREATER_THAN, new Constant(BIGINT, 2L), new Constant(BIGINT, 1L))))
+                comparison(GREATER_THAN, new Constant(BIGINT, 2L), new Constant(BIGINT, 1L))))
                 .isEqualTo(Optional.of(TRUE));
 
         assertThat(optimize(
-                new Comparison(GREATER_THAN, new Constant(BIGINT, 1L), new Constant(BIGINT, null))))
+                comparison(GREATER_THAN, new Constant(BIGINT, 1L), new Constant(BIGINT, null))))
                 .describedAs("constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(GREATER_THAN, new Constant(BIGINT, null), new Constant(BIGINT, 1L))))
+                comparison(GREATER_THAN, new Constant(BIGINT, null), new Constant(BIGINT, 1L))))
                 .describedAs("constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(GREATER_THAN, new Constant(BIGINT, null), new Constant(BIGINT, null))))
+                comparison(GREATER_THAN, new Constant(BIGINT, null), new Constant(BIGINT, null))))
                 .describedAs("both null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(GREATER_THAN, new Reference(BIGINT, "x"), new Constant(BIGINT, null))))
+                comparison(GREATER_THAN, new Reference(BIGINT, "x"), new Constant(BIGINT, null))))
                 .describedAs("non-constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(GREATER_THAN, new Constant(BIGINT, null), new Reference(BIGINT, "x"))))
+                comparison(GREATER_THAN, new Constant(BIGINT, null), new Reference(BIGINT, "x"))))
                 .describedAs("non-constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(GREATER_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))))
+                comparison(GREATER_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))))
                 .describedAs("non-constants")
                 .isEqualTo(Optional.empty());
     }
@@ -299,40 +299,40 @@ public class TestEvaluateComparison
     void testGreaterThanOrEqual()
     {
         assertThat(optimize(
-                new Comparison(GREATER_THAN_OR_EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, 2L))))
+                comparison(GREATER_THAN_OR_EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, 2L))))
                 .isEqualTo(Optional.of(FALSE));
 
         assertThat(optimize(
-                new Comparison(GREATER_THAN_OR_EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, 1L))))
+                comparison(GREATER_THAN_OR_EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, 1L))))
                 .isEqualTo(Optional.of(TRUE));
 
         assertThat(optimize(
-                new Comparison(GREATER_THAN_OR_EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, null))))
+                comparison(GREATER_THAN_OR_EQUAL, new Constant(BIGINT, 1L), new Constant(BIGINT, null))))
                 .describedAs("constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(GREATER_THAN_OR_EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, 1L))))
+                comparison(GREATER_THAN_OR_EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, 1L))))
                 .describedAs("constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(GREATER_THAN_OR_EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, null))))
+                comparison(GREATER_THAN_OR_EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, null))))
                 .describedAs("both null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, null))))
+                comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, null))))
                 .describedAs("non-constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(GREATER_THAN_OR_EQUAL, new Constant(BIGINT, null), new Reference(BIGINT, "x"))))
+                comparison(GREATER_THAN_OR_EQUAL, new Constant(BIGINT, null), new Reference(BIGINT, "x"))))
                 .describedAs("non-constant vs null")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new Comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))))
+                comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))))
                 .describedAs("non-constants")
                 .isEqualTo(Optional.empty());
     }

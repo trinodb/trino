@@ -43,7 +43,6 @@ import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -106,6 +105,7 @@ import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.or;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
@@ -643,8 +643,8 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(
                                 new Row(ImmutableList.of(bigintLiteral(1), new Constant(BIGINT, null))),
                                 new Row(ImmutableList.of(new Constant(BIGINT, null), bigintLiteral(200))))))).isEqualTo(and(
-                or(new IsNull(new Reference(BIGINT, "a")), new Comparison(EQUAL, new Reference(BIGINT, "a"), bigintLiteral(1))),
-                or(new IsNull(new Reference(BIGINT, "b")), new Comparison(EQUAL, new Reference(BIGINT, "b"), bigintLiteral(200)))));
+                or(new IsNull(new Reference(BIGINT, "a")), comparison(EQUAL, new Reference(BIGINT, "a"), bigintLiteral(1))),
+                or(new IsNull(new Reference(BIGINT, "b")), comparison(EQUAL, new Reference(BIGINT, "b"), bigintLiteral(200)))));
 
         // non-deterministic
         ResolvedFunction rand = functionResolution.resolveFunction("rand", ImmutableList.of());
@@ -652,7 +652,7 @@ public class TestEffectivePredicateExtractor
                 newId(),
                 ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b")),
                 ImmutableList.of(new Row(ImmutableList.of(bigintLiteral(1), new Call(rand, ImmutableList.of())))));
-        assertThat(extract(node)).isEqualTo(new Comparison(EQUAL, new Reference(BIGINT, "a"), bigintLiteral(1)));
+        assertThat(extract(node)).isEqualTo(comparison(EQUAL, new Reference(BIGINT, "a"), bigintLiteral(1)));
 
         // non-constant
         assertThat(effectivePredicateExtractor.extract(
@@ -1048,24 +1048,24 @@ public class TestEffectivePredicateExtractor
         return new Constant(DOUBLE, value);
     }
 
-    private static Comparison equals(Expression expression1, Expression expression2)
+    private static Expression equals(Expression expression1, Expression expression2)
     {
-        return new Comparison(EQUAL, expression1, expression2);
+        return comparison(EQUAL, expression1, expression2);
     }
 
-    private static Comparison lessThan(Expression expression1, Expression expression2)
+    private static Expression lessThan(Expression expression1, Expression expression2)
     {
-        return new Comparison(ComparisonOperator.LESS_THAN, expression1, expression2);
+        return comparison(ComparisonOperator.LESS_THAN, expression1, expression2);
     }
 
-    private static Comparison lessThanOrEqual(Expression expression1, Expression expression2)
+    private static Expression lessThanOrEqual(Expression expression1, Expression expression2)
     {
-        return new Comparison(ComparisonOperator.LESS_THAN_OR_EQUAL, expression1, expression2);
+        return comparison(ComparisonOperator.LESS_THAN_OR_EQUAL, expression1, expression2);
     }
 
-    private static Comparison greaterThan(Expression expression1, Expression expression2)
+    private static Expression greaterThan(Expression expression1, Expression expression2)
     {
-        return new Comparison(ComparisonOperator.GREATER_THAN, expression1, expression2);
+        return comparison(ComparisonOperator.GREATER_THAN, expression1, expression2);
     }
 
     private static IsNull isNull(Expression expression)

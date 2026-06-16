@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
@@ -36,6 +35,7 @@ import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -81,7 +81,7 @@ public class TestReplaceJoinOverConstantWithProject
                         p.join(INNER,
                                 p.values(1, p.symbol("a")),
                                 p.values(5, p.symbol("b")),
-                                new Comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))))
+                                comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))))
                 .doesNotFire();
     }
 
@@ -126,7 +126,7 @@ public class TestReplaceJoinOverConstantWithProject
                         p.join(LEFT,
                                 p.values(1, p.symbol("a")),
                                 p.filter(
-                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 5L)),
+                                        comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 5L)),
                                         p.values(10, p.symbol("b")))))
                 .doesNotFire();
 
@@ -134,7 +134,7 @@ public class TestReplaceJoinOverConstantWithProject
                 .on(p ->
                         p.join(RIGHT,
                                 p.filter(
-                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)),
+                                        comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)),
                                         p.values(10, p.symbol("a"))),
                                 p.values(1, p.symbol("b"))))
                 .doesNotFire();
@@ -144,7 +144,7 @@ public class TestReplaceJoinOverConstantWithProject
                         p.join(FULL,
                                 p.values(1, p.symbol("a")),
                                 p.filter(
-                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 5L)),
+                                        comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 5L)),
                                         p.values(10, p.symbol("b")))))
                 .doesNotFire();
 
@@ -152,7 +152,7 @@ public class TestReplaceJoinOverConstantWithProject
                 .on(p ->
                         p.join(FULL,
                                 p.filter(
-                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)),
+                                        comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)),
                                         p.values(10, p.symbol("a"))),
                                 p.values(1, p.symbol("b"))))
                 .doesNotFire();

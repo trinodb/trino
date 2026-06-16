@@ -16,7 +16,6 @@ package io.trino.sql.ir.optimizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.Between;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
@@ -36,6 +35,7 @@ import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,8 +51,8 @@ public class TestDesugarBetween
                 .isEqualTo(Optional.of(new Logical(
                         AND,
                         ImmutableList.of(
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 0L), new Constant(BIGINT, null)),
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, 5L))))));
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 0L), new Constant(BIGINT, null)),
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, 5L))))));
 
         assertThat(optimize(
                 new Between(new Constant(BIGINT, null), new Constant(BIGINT, 5L), new Constant(BIGINT, 0L))))
@@ -60,8 +60,8 @@ public class TestDesugarBetween
                 .isEqualTo(Optional.of(new Logical(
                         AND,
                         ImmutableList.of(
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 5L), new Constant(BIGINT, null)),
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, 0L))))));
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 5L), new Constant(BIGINT, null)),
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, 0L))))));
 
         assertThat(optimize(
                 new Between(new Constant(BIGINT, null), new Reference(BIGINT, "min"), new Reference(BIGINT, "max"))))
@@ -69,8 +69,8 @@ public class TestDesugarBetween
                 .isEqualTo(Optional.of(new Logical(
                         AND,
                         ImmutableList.of(
-                                new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "min"), new Constant(BIGINT, null)),
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, null), new Reference(BIGINT, "max"))))));
+                                comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "min"), new Constant(BIGINT, null)),
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, null), new Reference(BIGINT, "max"))))));
 
         assertThat(optimize(
                 new Between(new Reference(BIGINT, "x"), new Constant(BIGINT, 0L), new Constant(BIGINT, 5L))))
@@ -88,8 +88,8 @@ public class TestDesugarBetween
                 .isEqualTo(Optional.of(new Logical(
                         AND,
                         ImmutableList.of(
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 5L), new Constant(BIGINT, 3L)),
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 3L), new Constant(BIGINT, 0L))))));
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 5L), new Constant(BIGINT, 3L)),
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 3L), new Constant(BIGINT, 0L))))));
 
         assertThat(optimize(
                 new Between(new Constant(BIGINT, 0L), new Constant(BIGINT, 5L), new Constant(BIGINT, 10L))))
@@ -97,8 +97,8 @@ public class TestDesugarBetween
                 .isEqualTo(Optional.of(new Logical(
                         AND,
                         ImmutableList.of(
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 5L), new Constant(BIGINT, 0L)),
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 0L), new Constant(BIGINT, 10L))))));
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 5L), new Constant(BIGINT, 0L)),
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 0L), new Constant(BIGINT, 10L))))));
 
         assertThat(optimize(
                 new Between(new Constant(BIGINT, 7L), new Constant(BIGINT, 5L), new Constant(BIGINT, 10L))))
@@ -106,8 +106,8 @@ public class TestDesugarBetween
                 .isEqualTo(Optional.of(new Logical(
                         AND,
                         ImmutableList.of(
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 5L), new Constant(BIGINT, 7L)),
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 7L), new Constant(BIGINT, 10L))))));
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 5L), new Constant(BIGINT, 7L)),
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 7L), new Constant(BIGINT, 10L))))));
 
         assertThat(optimize(
                 new Between(new Constant(BIGINT, 20L), new Constant(BIGINT, 5L), new Constant(BIGINT, 10L))))
@@ -115,8 +115,8 @@ public class TestDesugarBetween
                 .isEqualTo(Optional.of(new Logical(
                         AND,
                         ImmutableList.of(
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 5L), new Constant(BIGINT, 20L)),
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 20L), new Constant(BIGINT, 10L))))));
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 5L), new Constant(BIGINT, 20L)),
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 20L), new Constant(BIGINT, 10L))))));
 
         assertThat(optimize(
                 new Between(new Constant(BIGINT, 20L), new Constant(BIGINT, null), new Constant(BIGINT, 10L))))
@@ -124,8 +124,8 @@ public class TestDesugarBetween
                 .isEqualTo(Optional.of(new Logical(
                         AND,
                         ImmutableList.of(
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, 20L)),
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 20L), new Constant(BIGINT, 10L))))));
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, 20L)),
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 20L), new Constant(BIGINT, 10L))))));
 
         assertThat(optimize(
                 new Between(new Constant(BIGINT, 0L), new Constant(BIGINT, 10L), new Constant(BIGINT, null))))
@@ -133,8 +133,8 @@ public class TestDesugarBetween
                 .isEqualTo(Optional.of(new Logical(
                         AND,
                         ImmutableList.of(
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 10L), new Constant(BIGINT, 0L)),
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 0L), new Constant(BIGINT, null))))));
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 10L), new Constant(BIGINT, 0L)),
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 0L), new Constant(BIGINT, null))))));
 
         assertThat(optimize(
                 new Between(new Constant(BIGINT, 5L), new Constant(BIGINT, null), new Constant(BIGINT, 10L))))
@@ -142,8 +142,8 @@ public class TestDesugarBetween
                 .isEqualTo(Optional.of(new Logical(
                         AND,
                         ImmutableList.of(
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, 5L)),
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 5L), new Constant(BIGINT, 10L))))));
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, 5L)),
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 5L), new Constant(BIGINT, 10L))))));
 
         assertThat(optimize(
                 new Between(new Constant(BIGINT, 20L), new Constant(BIGINT, 10L), new Constant(BIGINT, null))))
@@ -151,18 +151,18 @@ public class TestDesugarBetween
                 .isEqualTo(Optional.of(new Logical(
                         AND,
                         ImmutableList.of(
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 10L), new Constant(BIGINT, 20L)),
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 20L), new Constant(BIGINT, null))))));
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 10L), new Constant(BIGINT, 20L)),
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 20L), new Constant(BIGINT, null))))));
 
         assertThat(optimize(
                 new Between(new Reference(BIGINT, "x"), new Constant(BIGINT, 10L), new Constant(BIGINT, null))))
                 .describedAs("null max, non-constant value")
-                .isEqualTo(Optional.of(ifExpression(new Comparison(LESS_THAN, new Reference(BIGINT, "x"), new Constant(BIGINT, 10L)), FALSE)));
+                .isEqualTo(Optional.of(ifExpression(comparison(LESS_THAN, new Reference(BIGINT, "x"), new Constant(BIGINT, 10L)), FALSE)));
 
         assertThat(optimize(
                 new Between(new Reference(BIGINT, "x"), new Constant(BIGINT, null), new Constant(BIGINT, 10L))))
                 .describedAs("null min, non-constant value")
-                .isEqualTo(Optional.of(ifExpression(new Comparison(GREATER_THAN, new Reference(BIGINT, "x"), new Constant(BIGINT, 10L)), FALSE)));
+                .isEqualTo(Optional.of(ifExpression(comparison(GREATER_THAN, new Reference(BIGINT, "x"), new Constant(BIGINT, 10L)), FALSE)));
 
         assertThat(optimize(
                 new Between(new Reference(BIGINT, "x"), new Constant(BIGINT, null), new Constant(BIGINT, null))))
@@ -175,18 +175,18 @@ public class TestDesugarBetween
                 .isEqualTo(Optional.of(new Logical(
                         AND,
                         ImmutableList.of(
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, 0L)),
-                                new Comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 0L), new Constant(BIGINT, null))))));
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, null), new Constant(BIGINT, 0L)),
+                                comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 0L), new Constant(BIGINT, null))))));
 
         assertThat(optimize(
                 new Between(new Reference(BIGINT, "x"), new Reference(BIGINT, "min"), new Constant(BIGINT, null))))
                 .describedAs("null max, non-constant min")
-                .isEqualTo(Optional.of(ifExpression(new Comparison(LESS_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "min")), FALSE)));
+                .isEqualTo(Optional.of(ifExpression(comparison(LESS_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "min")), FALSE)));
 
         assertThat(optimize(
                 new Between(new Reference(BIGINT, "x"), new Constant(BIGINT, null), new Reference(BIGINT, "max"))))
                 .describedAs("null min, non-constant max")
-                .isEqualTo(Optional.of(ifExpression(new Comparison(GREATER_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "max")), FALSE)));
+                .isEqualTo(Optional.of(ifExpression(comparison(GREATER_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "max")), FALSE)));
 
         assertThat(optimize(
                 new Between(new Reference(BIGINT, "x"), new Constant(BIGINT, null), new Constant(BIGINT, null))))

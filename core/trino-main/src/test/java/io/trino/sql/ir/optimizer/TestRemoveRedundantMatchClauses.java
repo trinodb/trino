@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrExpressions;
@@ -36,6 +35,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -131,7 +131,7 @@ public class TestRemoveRedundantMatchClauses
         MatchClause nonEquality = new MatchClause(
                 new Lambda(
                         ImmutableList.of(parameter),
-                        new Comparison(GREATER_THAN, new Reference(BIGINT, parameter.name()), new Constant(BIGINT, 100L))),
+                        comparison(GREATER_THAN, new Reference(BIGINT, parameter.name()), new Constant(BIGINT, 100L))),
                 new Reference(VARCHAR, "barrier"));
 
         assertThat(optimize(

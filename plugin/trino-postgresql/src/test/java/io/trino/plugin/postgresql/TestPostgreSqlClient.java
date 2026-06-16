@@ -40,7 +40,6 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Coalesce;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -72,6 +71,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ir.IrExpressions.not;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -242,8 +242,8 @@ public class TestPostgreSqlClient
                                 new Logical(
                                         Logical.Operator.OR,
                                         List.of(
-                                                new Comparison(ComparisonOperator.EQUAL, new Reference(BIGINT, "c_bigint_symbol"), new Constant(BIGINT, 42L)),
-                                                new Comparison(ComparisonOperator.EQUAL, new Reference(BIGINT, "c_bigint_symbol_2"), new Constant(BIGINT, 415L))))),
+                                                comparison(ComparisonOperator.EQUAL, new Reference(BIGINT, "c_bigint_symbol"), new Constant(BIGINT, 42L)),
+                                                comparison(ComparisonOperator.EQUAL, new Reference(BIGINT, "c_bigint_symbol_2"), new Constant(BIGINT, 415L))))),
                         Map.of(
                                 "c_bigint_symbol", BIGINT_COLUMN,
                                 "c_bigint_symbol_2", BIGINT_COLUMN))
@@ -263,12 +263,12 @@ public class TestPostgreSqlClient
                                 new Logical(
                                         Logical.Operator.OR,
                                         List.of(
-                                                new Comparison(ComparisonOperator.EQUAL, new Reference(BIGINT, "c_bigint_symbol"), new Constant(BIGINT, 42L)),
+                                                comparison(ComparisonOperator.EQUAL, new Reference(BIGINT, "c_bigint_symbol"), new Constant(BIGINT, 42L)),
                                                 new Logical(
                                                         Logical.Operator.AND,
                                                         List.of(
-                                                                new Comparison(ComparisonOperator.EQUAL, new Reference(BIGINT, "c_bigint_symbol"), new Constant(BIGINT, 43L)),
-                                                                new Comparison(ComparisonOperator.EQUAL, new Reference(BIGINT, "c_bigint_symbol_2"), new Constant(BIGINT, 44L))))))),
+                                                                comparison(ComparisonOperator.EQUAL, new Reference(BIGINT, "c_bigint_symbol"), new Constant(BIGINT, 43L)),
+                                                                comparison(ComparisonOperator.EQUAL, new Reference(BIGINT, "c_bigint_symbol_2"), new Constant(BIGINT, 44L))))))),
                         Map.of(
                                 "c_bigint_symbol", BIGINT_COLUMN,
                                 "c_bigint_symbol_2", BIGINT_COLUMN))
@@ -287,7 +287,7 @@ public class TestPostgreSqlClient
             Optional<ParameterizedExpression> converted = JDBC_CLIENT.convertPredicate(
                     SESSION,
                     translateToConnectorExpression(
-                            new Comparison(operator, new Reference(BIGINT, "c_bigint_symbol"), new Constant(BIGINT, 42L))),
+                            comparison(operator, new Reference(BIGINT, "c_bigint_symbol"), new Constant(BIGINT, 42L))),
                     Map.of("c_bigint_symbol", BIGINT_COLUMN));
 
             switch (operator) {

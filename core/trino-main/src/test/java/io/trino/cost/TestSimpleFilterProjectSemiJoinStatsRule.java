@@ -14,7 +14,6 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
@@ -30,6 +29,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 
 public class TestSimpleFilterProjectSemiJoinStatsRule
@@ -165,7 +165,7 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
                     Symbol c = pb.symbol("c", DOUBLE);
                     Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
                     return pb.filter(
-                            new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "sjo"), new Comparison(LESS_THAN, new Reference(DOUBLE, "a"), new Constant(DOUBLE, 8.0)))),
+                            new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "sjo"), comparison(LESS_THAN, new Reference(DOUBLE, "a"), new Constant(DOUBLE, 8.0)))),
                             pb.semiJoin(
                                     pb.values(LEFT_SOURCE_ID, a, b),
                                     pb.values(RIGHT_SOURCE_ID, c),

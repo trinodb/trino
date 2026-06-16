@@ -19,8 +19,6 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
-import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
@@ -34,6 +32,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeterminismEvaluator
@@ -77,11 +76,6 @@ public class TestDeterminismEvaluator
                 .functionCallBuilder(name)
                 .setArguments(types, arguments)
                 .build();
-    }
-
-    private static Comparison comparison(ComparisonOperator operator, Expression left, Expression right)
-    {
-        return new Comparison(operator, left, right);
     }
 
     private static Lambda lambda(Symbol symbol, Expression body)

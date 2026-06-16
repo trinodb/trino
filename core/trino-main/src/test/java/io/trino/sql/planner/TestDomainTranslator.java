@@ -27,13 +27,13 @@ import io.trino.spi.type.Type;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.TestingIr;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import io.trino.type.LikePattern;
 import io.trino.type.LikePatternType;
@@ -1572,32 +1572,32 @@ public class TestDomainTranslator
         return comparison(GREATER_THAN, symbol.toSymbolReference(), cast(rand, type));
     }
 
-    private static Comparison equal(Symbol symbol, Expression expression)
+    private static Expression equal(Symbol symbol, Expression expression)
     {
         return equal(symbol.toSymbolReference(), expression);
     }
 
-    private static Comparison notEqual(Symbol symbol, Expression expression)
+    private static Expression notEqual(Symbol symbol, Expression expression)
     {
         return notEqual(symbol.toSymbolReference(), expression);
     }
 
-    private static Comparison greaterThan(Symbol symbol, Expression expression)
+    private static Expression greaterThan(Symbol symbol, Expression expression)
     {
         return greaterThan(symbol.toSymbolReference(), expression);
     }
 
-    private static Comparison greaterThanOrEqual(Symbol symbol, Expression expression)
+    private static Expression greaterThanOrEqual(Symbol symbol, Expression expression)
     {
         return greaterThanOrEqual(symbol.toSymbolReference(), expression);
     }
 
-    private static Comparison lessThan(Symbol symbol, Expression expression)
+    private static Expression lessThan(Symbol symbol, Expression expression)
     {
         return lessThan(symbol.toSymbolReference(), expression);
     }
 
-    private static Comparison lessThanOrEqual(Symbol symbol, Expression expression)
+    private static Expression lessThanOrEqual(Symbol symbol, Expression expression)
     {
         return lessThanOrEqual(symbol.toSymbolReference(), expression);
     }
@@ -1679,32 +1679,32 @@ public class TestDomainTranslator
         return new Between(expression, min, max);
     }
 
-    private static Comparison equal(Expression left, Expression right)
+    private static Expression equal(Expression left, Expression right)
     {
         return comparison(EQUAL, left, right);
     }
 
-    private static Comparison notEqual(Expression left, Expression right)
+    private static Expression notEqual(Expression left, Expression right)
     {
         return comparison(NOT_EQUAL, left, right);
     }
 
-    private static Comparison greaterThan(Expression left, Expression right)
+    private static Expression greaterThan(Expression left, Expression right)
     {
         return comparison(GREATER_THAN, left, right);
     }
 
-    private static Comparison greaterThanOrEqual(Expression left, Expression right)
+    private static Expression greaterThanOrEqual(Expression left, Expression right)
     {
         return comparison(GREATER_THAN_OR_EQUAL, left, right);
     }
 
-    private static Comparison lessThan(Expression left, Expression expression)
+    private static Expression lessThan(Expression left, Expression expression)
     {
         return comparison(LESS_THAN, left, expression);
     }
 
-    private static Comparison lessThanOrEqual(Expression left, Expression right)
+    private static Expression lessThanOrEqual(Expression left, Expression right)
     {
         return comparison(LESS_THAN_OR_EQUAL, left, right);
     }
@@ -1714,9 +1714,9 @@ public class TestDomainTranslator
         return IrExpressions.not(PLANNER_CONTEXT.getMetadata(), expression);
     }
 
-    private static Comparison comparison(ComparisonOperator operator, Expression expression1, Expression expression2)
+    private static Expression comparison(ComparisonOperator operator, Expression expression1, Expression expression2)
     {
-        return new Comparison(operator, expression1, expression2);
+        return TestingIr.comparison(operator, expression1, expression2);
     }
 
     private static Constant bigintLiteral(long value)

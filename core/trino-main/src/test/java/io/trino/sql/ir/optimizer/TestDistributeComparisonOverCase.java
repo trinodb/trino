@@ -16,7 +16,6 @@ package io.trino.sql.ir.optimizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.Case;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
@@ -30,6 +29,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -39,7 +39,7 @@ public class TestDistributeComparisonOverCase
     void test()
     {
         assertThat(optimize(
-                new Comparison(
+                comparison(
                         LESS_THAN,
                         new Case(
                                 ImmutableList.of(
@@ -52,14 +52,14 @@ public class TestDistributeComparisonOverCase
                         ImmutableList.of(
                                 new WhenClause(
                                         new Reference(BOOLEAN, "a"),
-                                        new Comparison(LESS_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "m"))),
+                                        comparison(LESS_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "m"))),
                                 new WhenClause(
                                         new Reference(BOOLEAN, "b"),
-                                        new Comparison(LESS_THAN, new Reference(BIGINT, "y"), new Reference(BIGINT, "m")))),
-                        new Comparison(LESS_THAN, new Reference(BIGINT, "z"), new Reference(BIGINT, "m")))));
+                                        comparison(LESS_THAN, new Reference(BIGINT, "y"), new Reference(BIGINT, "m")))),
+                        comparison(LESS_THAN, new Reference(BIGINT, "z"), new Reference(BIGINT, "m")))));
 
         assertThat(optimize(
-                new Comparison(
+                comparison(
                         LESS_THAN,
                         new Case(
                                 ImmutableList.of(
@@ -72,14 +72,14 @@ public class TestDistributeComparisonOverCase
                         ImmutableList.of(
                                 new WhenClause(
                                         new Reference(BOOLEAN, "a"),
-                                        new Comparison(LESS_THAN, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L))),
+                                        comparison(LESS_THAN, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L))),
                                 new WhenClause(
                                         new Reference(BOOLEAN, "b"),
-                                        new Comparison(LESS_THAN, new Reference(BIGINT, "y"), new Constant(BIGINT, 1L)))),
-                        new Comparison(LESS_THAN, new Reference(BIGINT, "z"), new Constant(BIGINT, 1L)))));
+                                        comparison(LESS_THAN, new Reference(BIGINT, "y"), new Constant(BIGINT, 1L)))),
+                        comparison(LESS_THAN, new Reference(BIGINT, "z"), new Constant(BIGINT, 1L)))));
 
         assertThat(optimize(
-                new Comparison(
+                comparison(
                         LESS_THAN,
                         new Reference(BIGINT, "m"),
                         new Case(
@@ -92,14 +92,14 @@ public class TestDistributeComparisonOverCase
                         ImmutableList.of(
                                 new WhenClause(
                                         new Reference(BOOLEAN, "a"),
-                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "m"))),
+                                        comparison(GREATER_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "m"))),
                                 new WhenClause(
                                         new Reference(BOOLEAN, "b"),
-                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "y"), new Reference(BIGINT, "m")))),
-                        new Comparison(GREATER_THAN, new Reference(BIGINT, "z"), new Reference(BIGINT, "m")))));
+                                        comparison(GREATER_THAN, new Reference(BIGINT, "y"), new Reference(BIGINT, "m")))),
+                        comparison(GREATER_THAN, new Reference(BIGINT, "z"), new Reference(BIGINT, "m")))));
 
         assertThat(optimize(
-                new Comparison(
+                comparison(
                         LESS_THAN,
                         new Constant(BIGINT, 1L),
                         new Case(
@@ -112,11 +112,11 @@ public class TestDistributeComparisonOverCase
                         ImmutableList.of(
                                 new WhenClause(
                                         new Reference(BOOLEAN, "a"),
-                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L))),
+                                        comparison(GREATER_THAN, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L))),
                                 new WhenClause(
                                         new Reference(BOOLEAN, "b"),
-                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "y"), new Constant(BIGINT, 1L)))),
-                        new Comparison(GREATER_THAN, new Reference(BIGINT, "z"), new Constant(BIGINT, 1L)))));
+                                        comparison(GREATER_THAN, new Reference(BIGINT, "y"), new Constant(BIGINT, 1L)))),
+                        comparison(GREATER_THAN, new Reference(BIGINT, "z"), new Constant(BIGINT, 1L)))));
     }
 
     private Optional<Expression> optimize(Expression expression)
