@@ -146,15 +146,24 @@ public final class UtcConstraintExtractor
         if (call.getArguments().size() == 2) {
             ConnectorExpression firstArgument = call.getArguments().get(0);
             ConnectorExpression secondArgument = call.getArguments().get(1);
+            FunctionName functionName = call.getFunctionName();
 
-            // Note: CanonicalizeExpressionRewriter ensures that constants are the second comparison argument.
+            // The order of a comparison's operands is not part of the connector expression contract, so
+            // normalize to <expression> <operator> <constant>. In particular, the engine canonicalizes
+            // greater-than comparisons to less-than forms with flipped operands, putting the constant first.
+            if (firstArgument instanceof Constant && !(secondArgument instanceof Constant)) {
+                ConnectorExpression swappedArgument = firstArgument;
+                firstArgument = secondArgument;
+                secondArgument = swappedArgument;
+                functionName = flipComparison(functionName);
+            }
 
             if (firstArgument instanceof Call firstAsCall && firstAsCall.getFunctionName().equals(CAST_FUNCTION_NAME) &&
                     secondArgument instanceof Constant constant &&
                     // if type do no match, this cannot be a comparison function
                     firstArgument.getType().equals(secondArgument.getType())) {
                 return unwrapCastInComparison(
-                        call.getFunctionName(),
+                        functionName,
                         getOnlyElement(firstAsCall.getArguments()),
                         constant,
                         assignments);
@@ -167,7 +176,7 @@ public final class UtcConstraintExtractor
                     // if type do no match, this cannot be a comparison function
                     firstArgument.getType().equals(secondArgument.getType())) {
                 return unwrapDateTruncInComparison(
-                        call.getFunctionName(),
+                        functionName,
                         unit,
                         firstAsCall.getArguments().get(1),
                         constant,
@@ -182,7 +191,7 @@ public final class UtcConstraintExtractor
                     // if types do no match, this cannot be a comparison function
                     firstArgument.getType().equals(secondArgument.getType())) {
                 return unwrapYearInTimestampTzComparison(
-                        call.getFunctionName(),
+                        functionName,
                         getOnlyElement(firstAsCall.getArguments()),
                         constant,
                         assignments);
@@ -190,6 +199,24 @@ public final class UtcConstraintExtractor
         }
 
         return Optional.empty();
+    }
+
+    private static FunctionName flipComparison(FunctionName functionName)
+    {
+        if (functionName.equals(LESS_THAN_OPERATOR_FUNCTION_NAME)) {
+            return GREATER_THAN_OPERATOR_FUNCTION_NAME;
+        }
+        if (functionName.equals(LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME)) {
+            return GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
+        }
+        if (functionName.equals(GREATER_THAN_OPERATOR_FUNCTION_NAME)) {
+            return LESS_THAN_OPERATOR_FUNCTION_NAME;
+        }
+        if (functionName.equals(GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME)) {
+            return LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
+        }
+        // EQUAL and NOT_EQUAL are symmetric under operand swap
+        return functionName;
     }
 
     private static Optional<TupleDomain<ColumnHandle>> unwrapCastInComparison(
