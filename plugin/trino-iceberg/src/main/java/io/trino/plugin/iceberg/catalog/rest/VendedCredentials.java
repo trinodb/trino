@@ -20,6 +20,7 @@ import java.util.Optional;
 sealed interface VendedCredentials
         permits AzureVendedCredentials,
                 GcsVendedCredentials,
+                OssVendedCredentials,
                 S3VendedCredentials
 {
     Map<String, String> toExtraCredentials();
