@@ -30,6 +30,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.table.TableFunctionProcessorState;
 import io.trino.spi.function.table.TableFunctionSplitProcessor;
@@ -200,6 +201,8 @@ public class TableChangesFunctionProcessor
             case DATA_FILE -> handle.columns();
         };
 
+        // TODO (https://github.com/trinodb/trino/issues/29958) memory usage reporting
+        MemoryContext memoryContext = MemoryContext.NO_LIMIT;
         ConnectorPageSource pageSource = ParquetPageSourceFactory.createPageSource(
                 inputFile,
                 0,
@@ -213,7 +216,8 @@ public class TableChangesFunctionProcessor
                 Optional.empty(),
                 Optional.empty(),
                 domainCompactionThreshold,
-                OptionalLong.empty());
+                OptionalLong.empty(),
+                memoryContext);
 
         return DeltaLakePageSourceProvider.projectColumns(
                 splitColumns,

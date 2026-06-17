@@ -37,6 +37,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -329,7 +330,8 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
                 tableHandle.connectorHandle(),
                 Optional.empty(),
                 columns,
-                dynamicFilter);
+                dynamicFilter,
+                MemoryContext.NO_LIMIT);
     }
 
     private static TestingConnectorSession getSession(DeltaLakeConfig deltaLakeConfig)
