@@ -37,6 +37,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
@@ -465,7 +466,7 @@ public class ExtractSpatialJoins
                 List<Split> splits = splitBatch.getSplits();
 
                 for (Split split : splits) {
-                    try (ConnectorPageSource pageSource = statefulPageSourceProvider.createPageSource(session, split, tableHandle, tableCredentials, ImmutableList.of(kdbTreeColumn), DynamicFilter.EMPTY)) {
+                    try (ConnectorPageSource pageSource = statefulPageSourceProvider.createPageSource(session, split, tableHandle, tableCredentials, ImmutableList.of(kdbTreeColumn), DynamicFilter.EMPTY, MemoryContext.NO_LIMIT)) {
                         do {
                             getFutureValue(pageSource.isBlocked());
                             SourcePage page = pageSource.getNextSourcePage();
