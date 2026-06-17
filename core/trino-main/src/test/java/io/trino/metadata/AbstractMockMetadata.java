@@ -1119,6 +1119,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Optional<QualifiedObjectName> getRedirectedViewName(Session session, QualifiedObjectName viewName)
+    {
+        return getRedirectionAwareView(session, viewName).redirectedTableName();
+    }
+
+    @Override
     public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
     {
         throw new UnsupportedOperationException();
