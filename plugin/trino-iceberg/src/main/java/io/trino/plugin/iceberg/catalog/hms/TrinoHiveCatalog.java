@@ -905,6 +905,26 @@ public class TrinoHiveCatalog
     }
 
     @Override
+    public Optional<CatalogSchemaTableName> redirectView(ConnectorSession session, SchemaTableName viewName, String hiveCatalogName)
+    {
+        requireNonNull(session, "session is null");
+        requireNonNull(viewName, "viewName is null");
+        requireNonNull(hiveCatalogName, "hiveCatalogName is null");
+
+        if (isHiveSystemSchema(viewName.getSchemaName())) {
+            return Optional.empty();
+        }
+
+        Optional<Table> table = metastore.getTable(viewName.getSchemaName(), viewName.getTableName());
+
+        if (table.isEmpty() || !isSomeKindOfAView(table.get()) || isTrinoMaterializedView(table.get())) {
+            return Optional.empty();
+        }
+        // Redirect Hive/Presto views to the Hive catalog
+        return Optional.of(new CatalogSchemaTableName(hiveCatalogName, viewName));
+    }
+
+    @Override
     public Metrics getMetrics()
     {
         return metastore.getMetrics();
