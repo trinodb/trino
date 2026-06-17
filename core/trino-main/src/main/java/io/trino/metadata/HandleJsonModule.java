@@ -13,9 +13,11 @@
  */
 package io.trino.metadata;
 
+import com.fasterxml.jackson.module.blackbird.BlackbirdModule;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import com.google.inject.multibindings.ProvidesIntoSet;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorIndexHandle;
@@ -31,6 +33,9 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+
+import java.lang.invoke.MethodHandles;
+import java.util.function.Function;
 
 public class HandleJsonModule
         implements Module
@@ -123,5 +128,34 @@ public class HandleJsonModule
     public static com.fasterxml.jackson.databind.Module tableCredentialsModule(HandleResolver resolver)
     {
         return new AbstractTypedJacksonModule<>(ConnectorTableCredentials.class, resolver::getId, resolver::getHandleClass) {};
+    }
+
+    @ProvidesIntoSet
+    @Singleton
+    // Fully qualified so not to confuse with Guice's Module
+    public static com.fasterxml.jackson.databind.Module engineBlackbirdModule()
+    {
+        return EngineBlackbirdModule.create();
+    }
+
+    public static final class EngineBlackbirdModule
+    {
+        private static final ClassLoader ENGINE_LOADER = EngineBlackbirdModule.class.getClassLoader();
+
+        private EngineBlackbirdModule() {}
+
+        public static com.fasterxml.jackson.databind.Module create()
+        {
+            Function<Class<?>, MethodHandles.Lookup> lookups = beanClass -> {
+                // Only optimize beans owned by the engine classloader. For a connector bean
+                // (plugin classloader) Blackbird would spin the accessor lambda in the plugin
+                // cast to the engine's copy. null => fall back to reflection.
+                if (beanClass.getClassLoader() != ENGINE_LOADER) {
+                    return null;
+                }
+                return MethodHandles.lookup();
+            };
+            return new BlackbirdModule(lookups);
+        }
     }
 }
