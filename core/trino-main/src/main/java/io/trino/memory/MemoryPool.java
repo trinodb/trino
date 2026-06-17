@@ -380,7 +380,8 @@ public class MemoryPool
         }
     }
 
-    private synchronized void updateTaggedMemoryAllocations(QueryId queryId, String allocationTag, long delta)
+    @GuardedBy("this")
+    private void updateTaggedMemoryAllocations(QueryId queryId, String allocationTag, long delta)
     {
         if (delta == 0) {
             return;
