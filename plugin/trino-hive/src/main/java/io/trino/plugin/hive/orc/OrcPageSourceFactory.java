@@ -51,6 +51,7 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -76,7 +77,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.hive.formats.HiveClassNames.ORC_SERDE_CLASS;
-import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.memory.context.AggregatedMemoryContext.newAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.orc.OrcReader.NameBasedProjectedLayout.createProjectedLayout;
 import static io.trino.orc.OrcReader.fullyProjectedLayout;
@@ -186,7 +187,8 @@ public class OrcPageSourceFactory
             Optional<AcidInfo> acidInfo,
             OptionalInt bucketNumber,
             boolean originalFile,
-            AcidTransaction transaction)
+            AcidTransaction transaction,
+            MemoryContext memoryContext)
     {
         if (!ORC_SERDE_CLASS.equals(schema.serializationLibraryName())) {
             return Optional.empty();
@@ -217,7 +219,8 @@ public class OrcPageSourceFactory
                 bucketNumber,
                 originalFile,
                 transaction,
-                stats));
+                stats,
+                memoryContext));
     }
 
     private ConnectorPageSource createOrcPageSource(
@@ -237,7 +240,8 @@ public class OrcPageSourceFactory
             OptionalInt bucketNumber,
             boolean originalFile,
             AcidTransaction transaction,
-            FileFormatDataSourceStats stats)
+            FileFormatDataSourceStats stats,
+            MemoryContext memoryContext)
     {
         for (HiveColumnHandle column : columns) {
             checkArgument(column.getColumnType() == REGULAR, "column type must be regular: %s", column);
@@ -260,7 +264,7 @@ public class OrcPageSourceFactory
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
         }
 
-        AggregatedMemoryContext memoryUsage = newSimpleAggregatedMemoryContext();
+        AggregatedMemoryContext memoryUsage = newAggregatedMemoryContext(memoryContext);
         try {
             Optional<OrcReader> optionalOrcReader = OrcReader.createOrcReader(orcDataSource, options);
             if (optionalOrcReader.isEmpty()) {
