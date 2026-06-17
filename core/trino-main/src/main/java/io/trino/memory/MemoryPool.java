@@ -391,7 +391,7 @@ public class MemoryPool
             if (oldValue == null) {
                 return delta;
             }
-            long newValue = oldValue.longValue() + delta;
+            long newValue = oldValue + delta;
             if (newValue == 0) {
                 return null;
             }
