@@ -194,9 +194,9 @@ public class ScanFilterAndProjectOperator
         final List<ColumnHandle> columns;
         final DynamicFilter dynamicFilter;
         final List<Type> types;
+        final LocalMemoryContext pageSourceMemoryContext;
         final LocalMemoryContext memoryContext;
         final AggregatedMemoryContext localAggregatedMemoryContext;
-        final LocalMemoryContext pageSourceMemoryContext;
         final LocalMemoryContext outputMemoryContext;
         final DataSize minOutputPageSize;
         final int minOutputPageRowCount;
@@ -224,9 +224,9 @@ public class ScanFilterAndProjectOperator
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            this.pageSourceMemoryContext = aggregatedMemoryContext.newLocalMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
             this.memoryContext = aggregatedMemoryContext.newLocalMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
             this.localAggregatedMemoryContext = newSimpleAggregatedMemoryContext();
-            this.pageSourceMemoryContext = localAggregatedMemoryContext.newLocalMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
             this.outputMemoryContext = localAggregatedMemoryContext.newLocalMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
             this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
             this.minOutputPageRowCount = minOutputPageRowCount;
