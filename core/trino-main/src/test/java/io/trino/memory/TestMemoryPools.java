@@ -275,7 +275,7 @@ class TestMemoryPools
 
         // try to reserve more than allocated by task
         assertThatThrownBy(() -> testPool.free(q1task1, "tag", 9))
-                .hasMessage("tried to free more memory than is reserved by task");
+                .hasMessage("New counter value is negative: -1, old value: 8, new delta: -9");
         assertThat(testPool.getQueryMemoryReservations().keySet()).hasSize(2);
         assertThat(testPool.getQueryMemoryReservation(query1)).isEqualTo(15L);
         assertThat(testPool.getQueryMemoryReservation(query2)).isEqualTo(9L);
@@ -378,7 +378,7 @@ class TestMemoryPools
 
         // try to reserve more than allocated by task
         assertThatThrownBy(() -> testPool.freeRevocable(q1task1, 9))
-                .hasMessage("tried to free more revocable memory than is reserved by task");
+                .hasMessage("New counter value is negative: -1, old value: 8, new delta: -9");
         assertThat(testPool.getTaskRevocableMemoryReservations().keySet()).hasSize(3);
         assertThat(testPool.getTaskRevocableMemoryReservation(q1task1)).isEqualTo(8L);
         assertThat(testPool.getTaskRevocableMemoryReservation(q1task2)).isEqualTo(7L);

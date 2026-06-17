@@ -37,9 +37,11 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.operator.Operator.NOT_BLOCKED;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class MemoryPool
 {
@@ -226,30 +228,13 @@ public class MemoryPool
         }
 
         QueryId queryId = taskId.queryId();
-        Long queryReservation = queryMemoryReservations.get(queryId);
-        requireNonNull(queryReservation, "queryReservation is null");
-        checkArgument(queryReservation >= bytes, "tried to free more memory than is reserved by query");
-
-        Long taskReservation = taskMemoryReservations.get(taskId);
-        requireNonNull(taskReservation, "taskReservation is null");
-        checkArgument(taskReservation >= bytes, "tried to free more memory than is reserved by task");
-
-        queryReservation -= bytes;
+        updateCounter(taskMemoryReservations, taskId, -bytes, false);
+        long queryReservation = updateCounter(queryMemoryReservations, queryId, -bytes, false);
         if (queryReservation == 0) {
-            queryMemoryReservations.remove(queryId);
             taggedMemoryAllocations.remove(queryId);
         }
         else {
-            queryMemoryReservations.put(queryId, queryReservation);
             updateTaggedMemoryAllocations(queryId, allocationTag, -bytes);
-        }
-
-        taskReservation -= bytes;
-        if (taskReservation == 0) {
-            taskMemoryReservations.remove(taskId);
-        }
-        else {
-            taskMemoryReservations.put(taskId, taskReservation);
         }
 
         reservedBytes -= bytes;
@@ -268,17 +253,7 @@ public class MemoryPool
             return;
         }
 
-        Long taskReservation = taskRevocableMemoryReservations.get(taskId);
-        requireNonNull(taskReservation, "taskReservation is null");
-        checkArgument(taskReservation >= bytes, "tried to free more revocable memory than is reserved by task");
-
-        taskReservation -= bytes;
-        if (taskReservation == 0) {
-            taskRevocableMemoryReservations.remove(taskId);
-        }
-        else {
-            taskRevocableMemoryReservations.put(taskId, taskReservation);
-        }
+        updateCounter(taskRevocableMemoryReservations, taskId, -bytes, false);
 
         reservedRevocableBytes -= bytes;
         if (getFreeBytes() > 0 && future != null) {
@@ -386,18 +361,10 @@ public class MemoryPool
         if (delta == 0) {
             return;
         }
-
         Map<String, Long> allocations = taggedMemoryAllocations.computeIfAbsent(queryId, _ -> new HashMap<>());
-        allocations.compute(allocationTag, (_, oldValue) -> {
-            if (oldValue == null) {
-                return delta;
-            }
-            long newValue = oldValue + delta;
-            if (newValue == 0) {
-                return null;
-            }
-            return newValue;
-        });
+        // Aggregated memory context's close() uses fake allocation tag (FORCE_FREE_TAG)
+        boolean allowNegative = true;
+        updateCounter(allocations, allocationTag, delta, allowNegative);
     }
 
     @VisibleForTesting
@@ -429,5 +396,20 @@ public class MemoryPool
     synchronized Map<TaskId, Long> getTaskRevocableMemoryReservations()
     {
         return ImmutableMap.copyOf(taskRevocableMemoryReservations);
+    }
+
+    private static <K> long updateCounter(Map<K, Long> counters, K key, long delta, boolean allowNegative)
+    {
+        requireNonNull(key, "key is null");
+        Long value = counters.compute(key, (_, oldValue) -> {
+            long newValue = requireNonNullElse(oldValue, 0L) + delta;
+            if (newValue == 0) {
+                // Remove the entry
+                return null;
+            }
+            verify(allowNegative || newValue > 0, "New counter value is negative: %s, old value: %s, new delta: %s", newValue, oldValue, delta);
+            return newValue;
+        });
+        return requireNonNullElse(value, 0L);
     }
 }
