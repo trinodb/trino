@@ -73,6 +73,13 @@ public class PluginManager
     private static final List<String> SPI_PACKAGES = ImmutableList.<String>builder()
             .add("io.trino.spi.")
             .add("com.fasterxml.jackson.annotation.")
+            // The engine registers Jackson Blackbird on its ObjectMapper (see ServerMainModule.blackbirdModule).
+            // Blackbird generates field accessors via LambdaMetafactory; for a connector bean the accessor lambda
+            // is defined in the plugin classloader, so the leaf functional interfaces it implements must be a single
+            // class identity shared with the engine, otherwise the engine's cast fails with a ClassCastException.
+            // Only these leaf interfaces are shared (not databind/core), so per-plugin Jackson isolation is preserved.
+            .add("com.fasterxml.jackson.module.blackbird.ser.")
+            .add("com.fasterxml.jackson.module.blackbird.deser.")
             .add("io.airlift.slice.")
             .add("io.opentelemetry.api.")
             .add("io.opentelemetry.context.")

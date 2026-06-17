@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import com.fasterxml.jackson.module.blackbird.BlackbirdModule;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Key;
@@ -157,10 +158,12 @@ import io.trino.type.TypeOperatorsCache;
 import io.trino.util.EmbedVersion;
 import io.trino.util.FinalizerService;
 
+import java.lang.invoke.MethodHandles;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Supplier;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -529,6 +532,19 @@ public class ServerMainModule
                 new JsonExistsFunction(functionManager, metadata, typeManager),
                 new JsonValueFunction(functionManager, metadata, typeManager),
                 new JsonQueryFunction(functionManager, metadata, typeManager));
+    }
+
+    @ProvidesIntoSet
+    @Singleton
+    // Fully qualified so not to confuse with Guice's Module
+    public static com.fasterxml.jackson.databind.Module blackbirdModule()
+    {
+        // Register Jackson Blackbird on the engine ObjectMapper for faster (reflection-free) bean access.
+        // The Supplier-based constructor skips java.*/sun.misc.* beans; MethodHandles.lookup() is evaluated
+        // here, so accessors for engine beans are generated in the engine classloader. Accessors for connector
+        // beans are generated in the plugin classloader, which works because the leaf accessor interfaces are
+        // shared parent-first (see PluginManager.SPI_PACKAGES, com.fasterxml.jackson.module.blackbird.{ser,deser}.).
+        return new BlackbirdModule((Supplier<MethodHandles.Lookup>) MethodHandles::lookup);
     }
 
     // working around circular dependency Type <-> TypeManager
