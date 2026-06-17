@@ -65,4 +65,5 @@ URL                 <functions/url>
 UUID                <functions/uuid>
 Variant             <functions/variant>
 Window              <functions/window>
+XPath               <functions/xpath>
 ```
