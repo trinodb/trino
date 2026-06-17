@@ -57,6 +57,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.FixedPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -155,7 +156,8 @@ public class DeltaLakePageSourceProvider
             ConnectorTableHandle connectorTable,
             Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            MemoryContext memoryContext)
     {
         DeltaLakeSplit split = (DeltaLakeSplit) connectorSplit;
         DeltaLakeTableHandle table = (DeltaLakeTableHandle) connectorTable;
@@ -269,7 +271,8 @@ public class DeltaLakePageSourceProvider
                 Optional.empty(),
                 Optional.empty(),
                 domainCompactionThreshold,
-                OptionalLong.of(split.fileSize()));
+                OptionalLong.of(split.fileSize()),
+                memoryContext);
 
         if (split.deletionVector().isPresent()) {
             var pageFilterSupplier = Suppliers.memoize(() -> {

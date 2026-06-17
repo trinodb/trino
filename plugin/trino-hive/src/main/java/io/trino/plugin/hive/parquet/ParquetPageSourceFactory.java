@@ -54,6 +54,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -84,7 +85,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.HiveClassNames.PARQUET_HIVE_SERDE_CLASS;
-import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.memory.context.AggregatedMemoryContext.newAggregatedMemoryContext;
 import static io.trino.metastore.type.Category.PRIMITIVE;
 import static io.trino.parquet.ParquetTypeUtils.constructField;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
@@ -180,7 +181,8 @@ public class ParquetPageSourceFactory
             Optional<AcidInfo> acidInfo,
             OptionalInt bucketNumber,
             boolean originalFile,
-            AcidTransaction transaction)
+            AcidTransaction transaction,
+            MemoryContext memoryContext)
     {
         if (!isParquetSerde(schema.serializationLibraryName())) {
             return Optional.empty();
@@ -212,7 +214,8 @@ public class ParquetPageSourceFactory
                 Optional.empty(),
                 fileDecryptionProperties,
                 domainCompactionThreshold,
-                OptionalLong.of(estimatedFileSize)));
+                OptionalLong.of(estimatedFileSize),
+                memoryContext));
     }
 
     /**
@@ -231,14 +234,15 @@ public class ParquetPageSourceFactory
             Optional<ParquetWriteValidation> parquetWriteValidation,
             Optional<FileDecryptionProperties> fileDecryptionProperties,
             int domainCompactionThreshold,
-            OptionalLong estimatedFileSize)
+            OptionalLong estimatedFileSize,
+            MemoryContext externalMemoryContext)
     {
         MessageType fileSchema;
         MessageType requestedSchema;
         MessageColumnIO messageColumn;
         ParquetDataSource dataSource = null;
         try {
-            AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
+            AggregatedMemoryContext memoryContext = newAggregatedMemoryContext(externalMemoryContext);
             dataSource = createDataSource(inputFile, estimatedFileSize, options, memoryContext, stats);
 
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, options, parquetWriteValidation, fileDecryptionProperties);

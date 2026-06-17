@@ -43,6 +43,7 @@ import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -711,7 +712,9 @@ public class DeltaLakeMergeSink
                 Optional.empty(),
                 Optional.empty(),
                 domainCompactionThreshold,
-                OptionalLong.of(fileSize));
+                OptionalLong.of(fileSize),
+                // TODO (https://github.com/trinodb/trino/issues/29956) report memory usage
+                MemoryContext.NO_LIMIT);
     }
 
     private String getReferencedPath(String basePath, String sourcePath)
