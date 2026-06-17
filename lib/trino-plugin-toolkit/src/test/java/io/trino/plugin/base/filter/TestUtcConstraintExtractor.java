@@ -146,6 +146,47 @@ public class TestUtcConstraintExtractor
                         columnHandle, Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfDateUtc, true, startOfNextDateUtc, false)), false))));
     }
 
+    @Test
+    public void testExtractTimestampTzDateComparisonWithConstantOnLeft()
+    {
+        // The engine canonicalizes greater-than comparisons to less-than forms with flipped operands, which
+        // places the constant first. Operand order is not part of the connector expression contract, so these
+        // must extract the same domain as the equivalent column-first comparison.
+        String timestampTzColumnSymbol = "timestamp_tz_symbol";
+        TimestampWithTimeZoneType columnType = TIMESTAMP_TZ_MILLIS;
+        ColumnHandle columnHandle = new TestingColumnHandle(timestampTzColumnSymbol);
+
+        ConnectorExpression castOfColumn = new Call(DATE, CAST_FUNCTION_NAME, ImmutableList.of(new Variable(timestampTzColumnSymbol, columnType)));
+
+        LocalDate someDate = LocalDate.of(2005, 9, 10);
+        ConnectorExpression someDateExpression = new Constant(someDate.toEpochDay(), DATE);
+
+        long startOfDateUtcEpochMillis = someDate.atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND;
+        long startOfDateUtc = timestampTzMillisFromEpochMillis(startOfDateUtcEpochMillis);
+        long startOfNextDateUtc = timestampTzMillisFromEpochMillis(startOfDateUtcEpochMillis + MILLISECONDS_PER_DAY);
+
+        // someDate < CAST(col)  <=>  CAST(col) > someDate
+        assertThat(extract(
+                constraint(
+                        new Call(BOOLEAN, LESS_THAN_OPERATOR_FUNCTION_NAME, ImmutableList.of(someDateExpression, castOfColumn)),
+                        Map.of(timestampTzColumnSymbol, columnHandle))))
+                .isEqualTo(TupleDomain.withColumnDomains(Map.of(columnHandle, domain(Range.greaterThanOrEqual(columnType, startOfNextDateUtc)))));
+
+        // someDate <= CAST(col)  <=>  CAST(col) >= someDate
+        assertThat(extract(
+                constraint(
+                        new Call(BOOLEAN, LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(someDateExpression, castOfColumn)),
+                        Map.of(timestampTzColumnSymbol, columnHandle))))
+                .isEqualTo(TupleDomain.withColumnDomains(Map.of(columnHandle, domain(Range.greaterThanOrEqual(columnType, startOfDateUtc)))));
+
+        // EQUAL is symmetric: someDate = CAST(col)
+        assertThat(extract(
+                constraint(
+                        new Call(BOOLEAN, EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(someDateExpression, castOfColumn)),
+                        Map.of(timestampTzColumnSymbol, columnHandle))))
+                .isEqualTo(TupleDomain.withColumnDomains(Map.of(columnHandle, domain(Range.range(columnType, startOfDateUtc, true, startOfNextDateUtc, false)))));
+    }
+
     /**
      * Test equivalent of {@code io.trino.sql.planner.iterative.rule.UnwrapCastInComparison} for {@link TimestampWithTimeZoneType}.
      * {@code UnwrapCastInComparison} handles {@link DateType} and {@link TimestampType}, but cannot handle
