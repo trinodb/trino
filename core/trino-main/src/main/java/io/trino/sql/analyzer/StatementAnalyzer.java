@@ -5387,7 +5387,7 @@ class StatementAnalyzer
                             column.name(),
                             type));
                 }
-                if (!typeCoercion.canCoerce(field.getType(), type)) {
+                if (!typeCoercion.isStoreAssignable(field.getType(), type)) {
                     return Optional.of(format(
                             "column [%s] of type %s projected from query view at position %s cannot be coerced to column [%s] of type %s stored in view definition",
                             fieldName,
