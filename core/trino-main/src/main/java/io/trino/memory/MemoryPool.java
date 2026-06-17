@@ -132,8 +132,8 @@ public class MemoryPool
                 queryMemoryReservations.merge(queryId, bytes, Long::sum);
                 updateTaggedMemoryAllocations(queryId, allocationTag, bytes);
                 taskMemoryReservations.merge(taskId, bytes, Long::sum);
+                reservedBytes += bytes;
             }
-            reservedBytes += bytes;
             if (getFreeBytes() <= 0) {
                 if (future == null) {
                     future = NonCancellableMemoryFuture.create();
@@ -163,8 +163,8 @@ public class MemoryPool
         synchronized (this) {
             if (bytes != 0) {
                 taskRevocableMemoryReservations.merge(taskId, bytes, Long::sum);
+                reservedRevocableBytes += bytes;
             }
-            reservedRevocableBytes += bytes;
             if (getFreeBytes() <= 0) {
                 if (future == null) {
                     future = NonCancellableMemoryFuture.create();
@@ -191,12 +191,12 @@ public class MemoryPool
             if (getFreeBytes() - bytes < 0) {
                 return false;
             }
-            reservedBytes += bytes;
             if (bytes != 0) {
                 QueryId queryId = taskId.queryId();
                 queryMemoryReservations.merge(queryId, bytes, Long::sum);
                 updateTaggedMemoryAllocations(queryId, allocationTag, bytes);
                 taskMemoryReservations.merge(taskId, bytes, Long::sum);
+                reservedBytes += bytes;
             }
         }
 
