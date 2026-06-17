@@ -65,7 +65,9 @@ public interface ConnectorPageSource
      * This memory should include any buffers, etc. that are used for reading data.
      *
      * @return the memory used so far in table read
+     * @deprecated Implementations should report memory through the {@link MemoryContext} supplied to {@link ConnectorPageSourceProvider}.
      */
+    @Deprecated
     default long getMemoryUsage()
     {
         return 0;

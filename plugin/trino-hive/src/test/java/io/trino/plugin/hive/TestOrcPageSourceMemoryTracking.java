@@ -44,6 +44,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.MemoryUsageReportingPageSource;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -595,7 +596,7 @@ public class TestOrcPageSourceMemoryTracking
                     0,
                     new PlanNodeId("0"),
                     new PlanNodeId("0"),
-                    _ -> (_, _, _, _, _, _) -> pageSource,
+                    _ -> (_, _, _, _, _, _, memoryContext) -> new MemoryUsageReportingPageSource(pageSource, memoryContext),
                     TEST_TABLE_HANDLE,
                     Optional.empty(),
                     columns.stream().map(ColumnHandle.class::cast).collect(toImmutableList()),
@@ -618,7 +619,7 @@ public class TestOrcPageSourceMemoryTracking
                     0,
                     new PlanNodeId("test"),
                     new PlanNodeId("0"),
-                    _ -> (_, _, _, _, _, _) -> pageSource,
+                    _ -> (_, _, _, _, _, _, _) -> pageSource,
                     _ -> pageProcessor.get(),
                     TEST_TABLE_HANDLE,
                     Optional.empty(),

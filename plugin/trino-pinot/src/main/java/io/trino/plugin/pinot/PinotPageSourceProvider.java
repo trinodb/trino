@@ -59,6 +59,7 @@ public class PinotPageSourceProvider
     }
 
     @Override
+    @SuppressWarnings("deprecation") // TODO (https://github.com/trinodb/trino/issues/29959) migrate to non-deprecated createPageSource overload
     public ConnectorPageSource createPageSource(
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
