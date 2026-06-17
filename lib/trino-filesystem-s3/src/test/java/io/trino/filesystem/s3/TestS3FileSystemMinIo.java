@@ -36,7 +36,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestS3FileSystemMinIo
         extends AbstractTestS3FileSystem
 {
-    private final String bucket = "test-bucket-test-s3-file-system-minio";
+    private static final String BUCKET = "test-bucket-test-s3-file-system-minio";
 
     private Minio minio;
 
@@ -45,7 +45,7 @@ public class TestS3FileSystemMinIo
     {
         minio = Minio.builder().build();
         minio.start();
-        minio.createBucket(bucket);
+        minio.createBucket(bucket());
     }
 
     @AfterAll
@@ -60,7 +60,7 @@ public class TestS3FileSystemMinIo
     @Override
     protected String bucket()
     {
-        return bucket;
+        return BUCKET;
     }
 
     @Override
@@ -100,7 +100,7 @@ public class TestS3FileSystemMinIo
         assertThatThrownBy(super::testPaths)
                 .isInstanceOf(IOException.class)
                 // MinIO does not support object keys with directory navigation ("/./" or "/../") or with double slashes ("//")
-                .hasMessage("S3 HEAD request failed for file: s3://" + bucket + "/test/.././/file");
+                .hasMessage("S3 HEAD request failed for file: %s://%s/test/.././/file".formatted(scheme(), bucket()));
     }
 
     @Test

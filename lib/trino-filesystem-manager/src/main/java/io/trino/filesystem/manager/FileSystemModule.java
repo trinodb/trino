@@ -101,6 +101,7 @@ public class FileSystemModule
             factories.addBinding("s3").to(Key.get(TrinoFileSystemFactory.class, FileSystemS3.class));
             factories.addBinding("s3a").to(Key.get(TrinoFileSystemFactory.class, FileSystemS3.class));
             factories.addBinding("s3n").to(Key.get(TrinoFileSystemFactory.class, FileSystemS3.class));
+            factories.addBinding("oss").to(Key.get(TrinoFileSystemFactory.class, FileSystemS3.class));
         }
 
         if (config.isGcsEnabled()) {

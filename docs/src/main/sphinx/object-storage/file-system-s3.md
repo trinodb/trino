@@ -159,7 +159,7 @@ The following match criteria are available:
 - `group`: Regular expression to match against any of the groups that the user
   belongs to. Example: `finance|sales`
 - `prefix`: S3 URL prefix. You can specify an entire bucket or a path within a
-  bucket. The URL must start with `s3://` but also matches for `s3a` or `s3n`.
+  bucket. The URL must start with `s3://` but also matches for `s3a`, `s3n`, or `oss`.
   Example: `s3://bucket-name/abc/xyz/`
 
 The security mapping must provide one or more configuration settings:
