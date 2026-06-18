@@ -37,10 +37,8 @@ import com.datastax.oss.driver.api.core.type.MapType;
 import com.datastax.oss.driver.api.core.type.SetType;
 import com.datastax.oss.driver.api.core.type.TupleType;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
-import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
 import com.datastax.oss.driver.api.querybuilder.relation.Relation;
 import com.datastax.oss.driver.api.querybuilder.select.Select;
-import com.datastax.oss.driver.api.querybuilder.term.Term;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
@@ -472,18 +470,6 @@ public class CassandraSession
         return executeWithSession(session -> session.execute(statement));
     }
 
-    private Iterable<Row> queryPartitionKeysWithInClauses(CassandraTable table, List<Set<Object>> filterPrefixes)
-    {
-        CassandraNamedRelationHandle tableHandle = table.tableHandle();
-        List<CassandraColumnHandle> partitionKeyColumns = table.partitionKeyColumns();
-
-        Select partitionKeys = selectDistinctFrom(tableHandle, partitionKeyColumns)
-                .where(getInRelations(partitionKeyColumns, filterPrefixes));
-
-        log.debug("Execute cql for partition keys with IN clauses: %s", partitionKeys);
-        return execute(partitionKeys.build()).all();
-    }
-
     private Iterable<Row> queryPartitionKeysLegacyWithMultipleQueries(CassandraTable table, List<Set<Object>> filterPrefixes)
     {
         CassandraNamedRelationHandle tableHandle = table.tableHandle();
@@ -504,25 +490,6 @@ public class CassandraSession
         }
 
         return rowList.build();
-    }
-
-    private List<Relation> getInRelations(List<CassandraColumnHandle> partitionKeyColumns, List<Set<Object>> filterPrefixes)
-    {
-        return IntStream
-                .range(0, Math.min(partitionKeyColumns.size(), filterPrefixes.size()))
-                .mapToObj(i -> getInRelation(partitionKeyColumns.get(i), filterPrefixes.get(i)))
-                .collect(toImmutableList());
-    }
-
-    private Relation getInRelation(CassandraColumnHandle column, Set<Object> filterPrefixes)
-    {
-        List<Term> values = filterPrefixes
-                .stream()
-                .map(value -> cassandraTypeManager.getJavaValue(column.cassandraType().kind(), value))
-                .map(QueryBuilder::literal)
-                .collect(toList());
-
-        return Relation.column(CassandraCqlUtils.validColumnName(column.name())).in(values);
     }
 
     private List<Relation> getEqualityRelations(List<CassandraColumnHandle> partitionKeyColumns, List<Object> filterPrefix)
