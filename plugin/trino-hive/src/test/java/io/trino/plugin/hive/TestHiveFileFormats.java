@@ -61,6 +61,7 @@ import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.ArrayType;
@@ -1049,7 +1050,8 @@ public final class TestHiveFileFormats
                         Optional.empty(),
                         false,
                         NO_ACID_TRANSACTION,
-                        columnMappings)
+                        columnMappings,
+                        MemoryContext.NO_LIMIT)
                 .orElseThrow();
         checkPageSource(pageSource, testReadColumns, rowCount);
     }
