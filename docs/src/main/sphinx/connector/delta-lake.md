@@ -198,9 +198,23 @@ values. Typical usage does not require you to configure them.
     is parallelized.
   - `8`
 * - `delta.checkpoint-processing.parallelism`
-  - Number of threads used for retrieving checkpoint files of each table. Currently, only 
-    retrievals of V2 Checkpoint's sidecar files are parallelized.
+  - Number of threads used for processing Parquet checkpoint files for each
+    table
   - `4`
+* - `delta.checkpoint-processing.v1-parallel-processing.enabled`
+  - Enable parallel processing for V1 checkpoints
+  - `false`
+* - `delta.checkpoint-processing.v2-parallel-processing.enabled`
+  - Enable fully parallel processing for V2 checkpoint sidecar files (by
+    default, sidecar files are opened in parallel but read serially)
+  - `false`
+* - `delta.checkpoint-processing.intra-file-parallel-processing.enabled`
+  - Enable parallel processing of individual checkpoint Parquet files by
+    subdividing into splits
+  - `false`
+* - `delta.checkpoint-processing.intra-file-parallel-processing.split-size`
+  - Goal split size for parallel processing of individual checkpoint Parquet files
+  - `128MB`
 * - `delta.load-metadata-from-checksum-file`
   - Speed up query planning by reading table metadata and protocol
     entries from the Delta version checksum file (`<version>.crc`) when
