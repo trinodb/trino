@@ -165,9 +165,11 @@ public class TrinoNumber
             case BigDecimalValue(BigDecimal bigDecimal) -> {
                 BigDecimal normalized = bigDecimal.stripTrailingZeros();
                 if (normalized.precision() > maxDecimalPrecision) {
-                    normalized = normalized.setScale(
-                            normalized.scale() - (normalized.precision() - maxDecimalPrecision),
-                            HALF_UP);
+                    normalized = normalized
+                            .setScale(
+                                    normalized.scale() - (normalized.precision() - maxDecimalPrecision),
+                                    HALF_UP)
+                            .stripTrailingZeros();
                 }
                 BigInteger unscaledValue = normalized.unscaledValue();
                 boolean negated = unscaledValue.signum() < 0;
