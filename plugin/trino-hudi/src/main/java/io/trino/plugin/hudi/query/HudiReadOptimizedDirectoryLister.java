@@ -14,7 +14,6 @@
 package io.trino.plugin.hudi.query;
 
 import io.airlift.log.Logger;
-import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
@@ -37,8 +36,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static org.apache.hudi.common.table.view.HoodieTableFileSystemView.fileListingBasedFileSystemView;
 
@@ -46,11 +43,11 @@ public class HudiReadOptimizedDirectoryLister
         implements HudiDirectoryLister
 {
     private static final Logger LOG = Logger.get(HudiReadOptimizedDirectoryLister.class);
-    private static final long MIN_BLOCK_SIZE = DataSize.of(32, MEGABYTE).toBytes();
 
     private final HoodieTableFileSystemView fileSystemView;
     private final List<Column> partitionColumns;
     private final Map<String, HudiPartitionInfo> allPartitionInfoMap;
+    private final long maxSplitSize;
 
     public HudiReadOptimizedDirectoryLister(
             HudiTableHandle tableHandle,
@@ -59,13 +56,15 @@ public class HudiReadOptimizedDirectoryLister
             Table hiveTable,
             List<HiveColumnHandle> partitionColumnHandles,
             List<String> hivePartitionNames,
-            boolean ignoreAbsentPartitions)
+            boolean ignoreAbsentPartitions,
+            long maxSplitSize)
     {
         this.fileSystemView = fileListingBasedFileSystemView(
                 new HoodieLocalEngineContext(metaClient.getStorageConf()),
                 metaClient,
                 metaClient.getActiveTimeline().getCommitsTimeline().filterCompletedInstants());
         this.partitionColumns = hiveTable.getPartitionColumns();
+        this.maxSplitSize = maxSplitSize;
         this.allPartitionInfoMap = hivePartitionNames.stream()
                 .collect(Collectors.toMap(
                         Function.identity(),
@@ -89,7 +88,7 @@ public class HudiReadOptimizedDirectoryLister
                         false,
                         fileEntry.getLength(),
                         fileEntry.getModificationTime(),
-                        max(fileEntry.getBlockSize(), min(fileEntry.getLength(), MIN_BLOCK_SIZE))))
+                        min(fileEntry.getLength(), maxSplitSize)))
                 .collect(toImmutableList());
     }
 

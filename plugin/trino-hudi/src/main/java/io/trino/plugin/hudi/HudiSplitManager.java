@@ -57,6 +57,7 @@ public class HudiSplitManager
     private final ExecutorService executor;
     private final ScheduledExecutorService splitLoaderExecutorService;
     private final SplitAffinityProvider splitAffinityProvider;
+    private final long maxSplitSize;
 
     @Inject
     public HudiSplitManager(
@@ -65,7 +66,8 @@ public class HudiSplitManager
             @ForHudiSplitManager ExecutorService executor,
             TrinoFileSystemFactory fileSystemFactory,
             @ForHudiSplitSource ScheduledExecutorService splitLoaderExecutorService,
-            SplitAffinityProvider splitAffinityProvider)
+            SplitAffinityProvider splitAffinityProvider,
+            HudiConfig hudiConfig)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -73,6 +75,7 @@ public class HudiSplitManager
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.splitLoaderExecutorService = requireNonNull(splitLoaderExecutorService, "splitLoaderExecutorService is null");
         this.splitAffinityProvider = requireNonNull(splitAffinityProvider, "splitAffinityProvider is null");
+        this.maxSplitSize = requireNonNull(hudiConfig, "hudiConfig is null").getMaxSplitSize().toBytes();
     }
 
     @Override
@@ -105,6 +108,7 @@ public class HudiSplitManager
                 getMaxSplitsPerSecond(session),
                 getMaxOutstandingSplits(session),
                 splitAffinityProvider,
+                maxSplitSize,
                 partitions);
         return new ClassLoaderSafeConnectorSplitSource(splitSource, HudiSplitManager.class.getClassLoader());
     }
