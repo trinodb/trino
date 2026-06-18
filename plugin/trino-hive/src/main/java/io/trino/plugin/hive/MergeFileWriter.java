@@ -29,7 +29,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.MergePage;
 import io.trino.spi.type.TypeManager;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -183,14 +182,14 @@ public final class MergeFileWriter
     }
 
     @Override
-    public Closeable commit()
+    public RollbackAction commit()
     {
-        Optional<Closeable> deleteRollbackAction = deleteFileWriter.map(FileWriter::commit);
-        Optional<Closeable> insertRollbackAction = insertFileWriter.map(FileWriter::commit);
+        Optional<RollbackAction> deleteRollbackAction = deleteFileWriter.map(FileWriter::commit);
+        Optional<RollbackAction> insertRollbackAction = insertFileWriter.map(FileWriter::commit);
         return () -> {
             try (Closer closer = Closer.create()) {
-                insertRollbackAction.ifPresent(closer::register);
-                deleteRollbackAction.ifPresent(closer::register);
+                insertRollbackAction.ifPresent(rollbackAction -> closer.register(rollbackAction::run));
+                deleteRollbackAction.ifPresent(rollbackAction -> closer.register(rollbackAction::run));
             }
         };
     }

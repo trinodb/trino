@@ -30,7 +30,6 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
@@ -128,11 +127,11 @@ public final class SortingFileWriter
     }
 
     @Override
-    public Closeable commit()
+    public RollbackAction commit()
     {
         flushed = true;
 
-        Closeable rollbackAction = createRollbackAction(fileSystem, tempFiles);
+        RollbackAction rollbackAction = createRollbackAction(fileSystem, tempFiles);
         if (!sortBuffer.isEmpty()) {
             // skip temporary files entirely if the total output size is small
             if (tempFiles.isEmpty()) {
@@ -158,17 +157,17 @@ public final class SortingFileWriter
     @Override
     public void rollback()
     {
-        Closeable rollbackAction = createRollbackAction(fileSystem, tempFiles);
+        RollbackAction rollbackAction = createRollbackAction(fileSystem, tempFiles);
         try (Closer closer = Closer.create()) {
             closer.register(outputWriter::rollback);
-            closer.register(rollbackAction);
+            closer.register(rollbackAction::run);
         }
         catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private static Closeable createRollbackAction(TrinoFileSystem fileSystem, Queue<TempFile> tempFiles)
+    private static RollbackAction createRollbackAction(TrinoFileSystem fileSystem, Queue<TempFile> tempFiles)
     {
         return () -> {
             for (TempFile file : tempFiles) {

@@ -32,6 +32,7 @@ import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.delete.RoaringBitmapArray;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
+import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
@@ -51,7 +52,6 @@ import jakarta.annotation.Nullable;
 import org.apache.parquet.format.CompressionCodec;
 import org.joda.time.DateTimeZone;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -528,7 +528,7 @@ public class DeltaLakeMergeSink
                 .orElseThrow(); // validated on the session property level
 
         try {
-            Closeable rollbackAction = () -> fileSystem.deleteFile(path);
+            RollbackAction rollbackAction = () -> fileSystem.deleteFile(path);
             dataColumns.forEach(column -> verify(column.isBaseColumn(), "Unexpected dereference: %s", column));
 
             List<Type> parquetTypes = dataColumns.stream()
