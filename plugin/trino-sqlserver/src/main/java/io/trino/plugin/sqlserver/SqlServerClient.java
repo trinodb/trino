@@ -52,6 +52,7 @@ import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.PredicatePushdownController;
+import io.trino.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
@@ -272,6 +273,27 @@ public class SqlServerClient
             return DISABLE_PUSHDOWN.apply(session, domain);
         }
         return FULL_PUSHDOWN.apply(session, simplifiedDomain);
+    };
+
+    private static final PredicatePushdownController SQLSERVER_VARCHAR_PUSHDOWN = (session, domain) -> {
+        // SQL Server compares varchar with PAD SPACE semantics: trailing spaces are not significant, so a pushed
+        // equality or IN predicate can match values that differ only in trailing spaces, returning more rows than
+        // Trino's NO PAD comparison. Push equality / IN down only as a superset pre-filter and keep the engine filter
+        // to re-apply the exact comparison; disable inequality and range, which cannot be expressed as a safe superset.
+        if (domain.isOnlyNull()) {
+            return FULL_PUSHDOWN.apply(session, domain);
+        }
+
+        if (!domain.getValues().isDiscreteSet()) {
+            return DISABLE_PUSHDOWN.apply(session, domain);
+        }
+
+        Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
+        if (!simplifiedDomain.getValues().isDiscreteSet()) {
+            // Domain#simplify can turn a discrete set into a range predicate
+            return DISABLE_PUSHDOWN.apply(session, domain);
+        }
+        return new DomainPushdownResult(simplifiedDomain, domain);
     };
 
     // Dates prior to the Gregorian calendar switch in 1582 can cause incorrect results when pushed down,
@@ -1324,7 +1346,7 @@ public class SqlServerClient
                 varcharType,
                 varcharReadFunction(varcharType),
                 varcharWriteFunction(),
-                isCaseSensitive ? SQLSERVER_CHARACTER_PUSHDOWN : CASE_INSENSITIVE_CHARACTER_PUSHDOWN);
+                isCaseSensitive ? SQLSERVER_VARCHAR_PUSHDOWN : CASE_INSENSITIVE_CHARACTER_PUSHDOWN);
     }
 
     private ColumnMapping jsonColumnMapping()
