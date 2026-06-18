@@ -27,6 +27,7 @@ import io.trino.metastore.Partitions;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.deltalake.DataFileInfo.DataFileType;
 import io.trino.plugin.deltalake.util.DeltaLakeWriteUtils;
+import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.spi.Page;
 import io.trino.spi.PageIndexer;
@@ -39,7 +40,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import org.apache.parquet.format.CompressionCodec;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -104,7 +104,7 @@ public abstract class AbstractDeltaLakePageSink
     private long memoryUsage;
     private long validationCpuNanos;
 
-    private final List<Closeable> closedWriterRollbackActions = new ArrayList<>();
+    private final List<RollbackAction> closedWriterRollbackActions = new ArrayList<>();
     private final List<Boolean> activeWriters = new ArrayList<>();
     protected final ImmutableList.Builder<DataFileInfo> dataFileInfos = ImmutableList.builder();
     private final DeltaLakeParquetSchemaMapping parquetSchemaMapping;
@@ -238,7 +238,7 @@ public abstract class AbstractDeltaLakePageSink
     @Override
     public void abort()
     {
-        List<Closeable> rollbackActions = Streams.concat(
+        List<RollbackAction> rollbackActions = Streams.concat(
                         writers.stream()
                                 // writers can contain nulls if an exception is thrown when doAppend expands the writer list
                                 .filter(Objects::nonNull)
@@ -246,9 +246,9 @@ public abstract class AbstractDeltaLakePageSink
                         closedWriterRollbackActions.stream())
                 .collect(toImmutableList());
         RuntimeException rollbackException = null;
-        for (Closeable rollbackAction : rollbackActions) {
+        for (RollbackAction rollbackAction : rollbackActions) {
             try {
-                rollbackAction.close();
+                rollbackAction.run();
             }
             catch (Throwable t) {
                 if (rollbackException == null) {
@@ -476,7 +476,7 @@ public abstract class AbstractDeltaLakePageSink
                 .orElseThrow(); // validated on the session property level
 
         try {
-            Closeable rollbackAction = () -> fileSystem.deleteFile(path);
+            RollbackAction rollbackAction = () -> fileSystem.deleteFile(path);
 
             List<Type> parquetTypes = dataColumnTypes.stream()
                     .map(type -> toParquetType(typeOperators, type))

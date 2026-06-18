@@ -23,6 +23,7 @@ import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.geospatial.serde.JtsGeometrySerde;
+import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.spi.Page;
 import io.trino.spi.PageIndexer;
@@ -59,7 +60,6 @@ import org.apache.iceberg.types.Type.PrimitiveType;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 
-import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -148,7 +148,7 @@ public class IcebergPageSink
     private final Map<Integer, org.apache.iceberg.types.Type> columnsWithGeometry;
 
     private final List<WriteContext> writers = new ArrayList<>();
-    private final List<Closeable> closedWriterRollbackActions = new ArrayList<>();
+    private final List<RollbackAction> closedWriterRollbackActions = new ArrayList<>();
     private final Collection<Slice> commitTasks = new ArrayList<>();
     private final List<Boolean> activeWriters = new ArrayList<>();
 
@@ -280,16 +280,16 @@ public class IcebergPageSink
     @Override
     public void abort()
     {
-        List<Closeable> rollbackActions = Streams.concat(
+        List<RollbackAction> rollbackActions = Streams.concat(
                         writers.stream()
                                 .filter(Objects::nonNull)
                                 .map(writer -> writer::rollback),
                         closedWriterRollbackActions.stream())
                 .collect(toImmutableList());
         RuntimeException error = null;
-        for (Closeable rollbackAction : rollbackActions) {
+        for (RollbackAction rollbackAction : rollbackActions) {
             try {
-                rollbackAction.close();
+                rollbackAction.run();
             }
             catch (Throwable t) {
                 if (error == null) {

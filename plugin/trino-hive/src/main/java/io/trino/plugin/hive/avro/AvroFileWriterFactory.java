@@ -29,6 +29,7 @@ import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveFileWriterFactory;
 import io.trino.plugin.hive.HiveTimestampPrecision;
+import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.spi.NodeVersion;
@@ -38,7 +39,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.avro.Schema;
 
-import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -118,7 +118,7 @@ public class AvroFileWriterFactory
             TrinoOutputFile outputFile = fileSystem.newOutputFile(location);
             AggregatedMemoryContext outputStreamMemoryContext = newSimpleAggregatedMemoryContext();
 
-            Closeable rollbackAction = () -> fileSystem.deleteFile(location);
+            RollbackAction rollbackAction = () -> fileSystem.deleteFile(location);
 
             return Optional.of(new AvroHiveFileWriter(
                     outputFile.create(outputStreamMemoryContext),

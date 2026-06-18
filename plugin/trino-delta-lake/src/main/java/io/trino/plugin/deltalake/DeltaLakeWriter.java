@@ -25,6 +25,7 @@ import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.plugin.deltalake.DataFileInfo.DataFileType;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 import io.trino.plugin.hive.FileWriter;
+import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlock;
@@ -43,7 +44,6 @@ import io.trino.spi.type.Type;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.format.FileMetaData;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Collection;
@@ -152,7 +152,7 @@ public final class DeltaLakeWriter
     }
 
     @Override
-    public Closeable commit()
+    public RollbackAction commit()
     {
         return fileWriter.commit();
     }

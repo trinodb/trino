@@ -13,22 +13,10 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.spi.Page;
+import java.io.IOException;
 
-public interface FileWriter
+public interface RollbackAction
 {
-    long getWrittenBytes();
-
-    long getMemoryUsage();
-
-    void appendRows(Page dataPage);
-
-    /**
-     * Commits written data. Returns rollback action which can be used to clean up on failure.
-     */
-    RollbackAction commit();
-
-    void rollback();
-
-    long getValidationCpuNanos();
+    void run()
+            throws IOException;
 }
