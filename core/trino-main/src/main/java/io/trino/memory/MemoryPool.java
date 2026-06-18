@@ -405,7 +405,6 @@ public class MemoryPool
         return ImmutableMap.copyOf(queryMemoryReservations);
     }
 
-    @VisibleForTesting
     public synchronized Map<QueryId, Map<String, Long>> getTaggedMemoryAllocations()
     {
         return ImmutableMap.copyOf(taggedMemoryAllocations);
@@ -418,7 +417,7 @@ public class MemoryPool
     }
 
     @VisibleForTesting
-    public synchronized Map<TaskId, Long> getTaskRevocableMemoryReservations()
+    synchronized Map<TaskId, Long> getTaskRevocableMemoryReservations()
     {
         return ImmutableMap.copyOf(taskRevocableMemoryReservations);
     }
