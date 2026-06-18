@@ -1,0 +1,2 @@
+rm -rf /var/lib/trino/bin/trino-cli-*-executable.jar > /dev/null 2>&1
+rm -rf /var/lib/trino/bin/trino-cli > /dev/null 2>&1

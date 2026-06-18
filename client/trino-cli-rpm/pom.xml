@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
+        <version>480</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>trino-cli-rpm</artifactId>
+    <name>trino-cli-rpm</name>
+    <packaging>rpm</packaging>
+
+    <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+
+        <cli.jar.dir>trino-cli-${project.version}</cli.jar.dir>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-cli</artifactId>
+            <type>jar</type>
+            <version>${project.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <!-- copy trino-cli to target build folder -->
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                  <execution>
+                    <id>copy-resources</id>
+                    <phase>validate</phase>
+                    <goals>
+                      <goal>copy-resources</goal>
+                    </goals>
+                    <configuration>
+                      <outputDirectory>${project.build.outputDirectory}/${cli.jar.dir}</outputDirectory>
+                      <resources>
+                        <resource>
+                          <directory>${project.parent.basedir}/client/trino-cli/src/main/bin</directory>
+                          <includes>
+                            <include>trino-cli</include>
+                          </includes>
+                        </resource>
+                      </resources>
+                    </configuration>
+                  </execution>
+                </executions>
+            </plugin>
+
+            <!-- Build trino-cli rpm using the trino-cli-${project.version}-executable.jar -->
+            <plugin>
+                <groupId>io.airlift.maven.plugins</groupId>
+                <artifactId>redlinerpm-maven-plugin</artifactId>
+                <version>2.1.7</version>
+                <extensions>true</extensions>
+
+                <configuration>
+                    <performCheckingForExtraFiles>false</performCheckingForExtraFiles>
+
+                    <packages>
+                        <package>
+                            <name>trino-cli-rpm</name>
+                            <nameOverride>trino-cli-rpm-${project.version}.noarch.rpm</nameOverride>
+                            <version>${project.version}</version>
+                            <release>1</release>
+
+                            <group>Applications/Databases</group>
+                            <description>Trino Cli RPM Package.</description>
+                            <architecture>noarch</architecture>
+                            <preInstallScriptFile>src/main/rpm/preinstall</preInstallScriptFile>
+                            <postInstallScriptFile>src/main/rpm/postinstall</postInstallScriptFile>
+                            <preUninstallScriptFile>src/main/rpm/preremove</preUninstallScriptFile>
+                            <postUninstallScriptFile>src/main/rpm/postremove</postUninstallScriptFile>
+
+                            <dependencies>
+                                <dependency>
+                                    <name>python</name>
+                                    <version>[2.4,)</version>
+                                </dependency>
+                                <dependency>
+                                    <name>/usr/sbin/useradd</name>
+                                </dependency>
+                                <dependency>
+                                    <name>/usr/sbin/groupadd</name>
+                                </dependency>
+                                <dependency>
+                                    <!-- Used e.g. by service launcher -->
+                                    <name>/usr/bin/sudo</name>
+                                </dependency>
+                            </dependencies>
+
+                            <rules>
+                                <rule>
+                                    <destination>/usr/lib/trino/bin</destination>
+                                    <base>${cli.jar.dir}</base>
+                                    <!-- make sure launcher scripts are executable -->
+                                    <fileMode>0755</fileMode>
+                                    <includes>
+                                        <include>trino-cli</include>
+                                    </includes>
+                                </rule>
+                            </rules>
+                        </package>
+                    </packages>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

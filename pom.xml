@@ -29,7 +29,9 @@
 
     <modules>
         <module>client/trino-cli</module>
+        <module>client/trino-cli-rpm</module>
         <module>client/trino-client</module>
+        <module>client/trino-encrypt</module>
         <module>client/trino-jdbc</module>
         <module>core/trino-grammar</module>
         <module>core/trino-main</module>
@@ -60,13 +62,16 @@
         <module>lib/trino-plugin-toolkit</module>
         <module>lib/trino-record-decoder</module>
         <module>plugin/trino-ai-functions</module>
+        <module>plugin/trino-antdb</module>
         <module>plugin/trino-base-jdbc</module>
         <module>plugin/trino-bigquery</module>
         <module>plugin/trino-blackhole</module>
         <module>plugin/trino-cassandra</module>
         <module>plugin/trino-clickhouse</module>
+        <module>plugin/trino-cluster</module>
         <module>plugin/trino-datasketches</module>
         <module>plugin/trino-delta-lake</module>
+        <module>plugin/trino-doris</module>
         <module>plugin/trino-druid</module>
         <module>plugin/trino-duckdb</module>
         <module>plugin/trino-elasticsearch</module>
@@ -77,6 +82,7 @@
         <module>plugin/trino-exchange-hdfs</module>
         <module>plugin/trino-faker</module>
         <module>plugin/trino-functions-python</module>
+        <module>plugin/trino-gbase</module>
         <module>plugin/trino-geospatial</module>
         <module>plugin/trino-google-sheets</module>
         <module>plugin/trino-hive</module>
@@ -92,6 +98,7 @@
         <module>plugin/trino-ldap-group-provider</module>
         <module>plugin/trino-loki</module>
         <module>plugin/trino-mariadb</module>
+        <module>plugin/trino-maxcompute</module>
         <module>plugin/trino-memory</module>
         <module>plugin/trino-ml</module>
         <module>plugin/trino-mongodb</module>
@@ -945,6 +952,12 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-antdb</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-base-jdbc</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -988,6 +1001,12 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-cli-rpm</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -1003,6 +1022,24 @@
                 <artifactId>trino-delta-lake</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-cluster</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-doris</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-encrypt</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -1046,6 +1083,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-filesystem</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-gbase</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -1214,6 +1257,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-mariadb</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-maxcompute</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

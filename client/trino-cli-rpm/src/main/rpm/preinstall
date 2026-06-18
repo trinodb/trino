@@ -1,0 +1,5 @@
+rm -rf /var/lib/trino/bin/trino-cli > /dev/null 2>&1
+rm -rf /var/lib/trino/bin/trino-cli-*-executable.jar > /dev/null 2>&1
+getent group trino >/dev/null || /usr/sbin/groupadd -r trino
+getent passwd trino >/dev/null || /usr/sbin/useradd --comment "Trino" -s /sbin/nologin -g trino -r -d /var/lib/trino trino
+
