@@ -445,12 +445,6 @@ public class TestScanFilterAndProjectOperator
         }
 
         @Override
-        public long getMemoryUsage()
-        {
-            return 0;
-        }
-
-        @Override
         public boolean isFinished()
         {
             return page == null;

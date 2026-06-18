@@ -140,12 +140,6 @@ public class ScanQueryPageSource
     }
 
     @Override
-    public long getMemoryUsage()
-    {
-        return 0;
-    }
-
-    @Override
     public void close()
     {
         iterator.close();

@@ -66,7 +66,10 @@ public interface ConnectorPageSource
      *
      * @return the memory used so far in table read
      */
-    long getMemoryUsage();
+    default long getMemoryUsage()
+    {
+        return 0;
+    }
 
     /**
      * Immediately finishes this page source.  Trino will always call this method.
