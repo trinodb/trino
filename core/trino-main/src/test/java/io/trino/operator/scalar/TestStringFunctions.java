@@ -2107,7 +2107,7 @@ public class TestStringFunctions
 
         assertThat(assertions.function("initcap", "'hello-world'"))
                 .hasType(createVarcharType(11))
-                .isEqualTo("Hello-World");
+                .isEqualTo("Hello-world");
 
         assertThat(assertions.function("initcap", "'hello   world'"))
                 .hasType(createVarcharType(13))

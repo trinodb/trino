@@ -672,36 +672,7 @@ public final class StringFunctions
     @SqlType("varchar(x)")
     public static Slice initcap(@SqlType("varchar(x)") Slice utf8)
     {
-        if (utf8.length() == 0) {
-            return utf8;
-        }
-
-        Slice result = Slices.allocate(utf8.length());
-        int inputPosition = 0;
-        int outputPosition = 0;
-        boolean startOfWord = true;
-
-        while (inputPosition < utf8.length()) {
-            int codePoint = tryGetCodePointAt(utf8, inputPosition);
-
-            if (codePoint < 0) {
-                // Invalid UTF-8: copy the byte unchanged, do not alter word-boundary state
-                result.setByte(outputPosition, utf8.getByte(inputPosition));
-                inputPosition++;
-                outputPosition++;
-                continue;
-            }
-
-            int inputLength = lengthOfCodePoint(codePoint);
-            int converted = startOfWord ? Character.toTitleCase(codePoint) : Character.toLowerCase(codePoint);
-            startOfWord = !Character.isLetterOrDigit(codePoint);
-
-            result = Slices.ensureSize(result, outputPosition + lengthOfCodePoint(converted));
-            outputPosition += setCodePointAt(converted, result, outputPosition);
-            inputPosition += inputLength;
-        }
-
-        return result.slice(0, outputPosition);
+        return SliceUtf8.toTitleCase(utf8);
     }
 
     @Description("Converts the string to title case")
@@ -710,7 +681,7 @@ public final class StringFunctions
     @SqlType("char(x)")
     public static Slice charInitcap(@SqlType("char(x)") Slice utf8)
     {
-        return initcap(utf8);
+        return SliceUtf8.toTitleCase(utf8);
     }
 
     private static Slice pad(Slice text, long targetLength, Slice padString, int paddingOffset)
