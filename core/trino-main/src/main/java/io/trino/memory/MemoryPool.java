@@ -405,9 +405,17 @@ public class MemoryPool
         return ImmutableMap.copyOf(queryMemoryReservations);
     }
 
+    public synchronized Map<String, Long> getTaggedMemoryAllocations(QueryId queryId)
+    {
+        requireNonNull(queryId, "queryId is null");
+        return ImmutableMap.copyOf(taggedMemoryAllocations.getOrDefault(queryId, ImmutableMap.of()));
+    }
+
+    @VisibleForTesting
     public synchronized Map<QueryId, Map<String, Long>> getTaggedMemoryAllocations()
     {
-        return ImmutableMap.copyOf(taggedMemoryAllocations);
+        return taggedMemoryAllocations.entrySet().stream()
+                .collect(toImmutableMap(Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
     }
 
     @VisibleForTesting

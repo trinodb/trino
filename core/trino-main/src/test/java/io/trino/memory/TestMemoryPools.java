@@ -37,7 +37,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
@@ -193,27 +192,28 @@ class TestMemoryPools
     @Test
     void testTaggedAllocations()
     {
-        TaskId testTask = new TaskId(new StageId(new QueryId("test_query"), 0), 0, 0);
+        QueryId queryId = new QueryId("test_query");
+        TaskId testTask = new TaskId(new StageId(queryId, 0), 0, 0);
         MemoryPool testPool = new MemoryPool(DataSize.ofBytes(1000));
 
         testPool.reserve(testTask, "test_tag", 10);
 
-        Map<String, Long> allocations = testPool.getTaggedMemoryAllocations().get(new QueryId("test_query"));
-        assertThat(allocations).isEqualTo(ImmutableMap.of("test_tag", 10L));
+        assertThat(testPool.getTaggedMemoryAllocations(queryId)).isEqualTo(ImmutableMap.of("test_tag", 10L));
 
         // free 5 bytes for test_tag
         testPool.free(testTask, "test_tag", 5);
-        assertThat(allocations).isEqualTo(ImmutableMap.of("test_tag", 5L));
+        assertThat(testPool.getTaggedMemoryAllocations(queryId)).isEqualTo(ImmutableMap.of("test_tag", 5L));
 
         testPool.reserve(testTask, "test_tag2", 20);
-        assertThat(allocations).isEqualTo(ImmutableMap.of("test_tag", 5L, "test_tag2", 20L));
+        assertThat(testPool.getTaggedMemoryAllocations(queryId)).isEqualTo(ImmutableMap.of("test_tag", 5L, "test_tag2", 20L));
 
         // free the remaining 5 bytes for test_tag
         testPool.free(testTask, "test_tag", 5);
-        assertThat(allocations).isEqualTo(ImmutableMap.of("test_tag2", 20L));
+        assertThat(testPool.getTaggedMemoryAllocations(queryId)).isEqualTo(ImmutableMap.of("test_tag2", 20L));
 
         // free all for test_tag2
         testPool.free(testTask, "test_tag2", 20);
+        assertThat(testPool.getTaggedMemoryAllocations(queryId)).isEmpty();
         assertThat(testPool.getTaggedMemoryAllocations()).isEmpty();
     }
 
