@@ -337,13 +337,13 @@ public class QueryContext
     @GuardedBy("this")
     private String getAdditionalFailureInfo(long allocated, long delta)
     {
-        Map<String, Long> queryAllocations = memoryPool.getTaggedMemoryAllocations().get(queryId);
+        Map<String, Long> queryAllocations = memoryPool.getTaggedMemoryAllocations(queryId);
 
         String additionalInfo = format("Allocated: %s, Delta: %s", succinctBytes(allocated), succinctBytes(delta));
 
         // It's possible that a query tries allocating more than the available memory
         // failing immediately before any allocation of that query is tagged
-        if (queryAllocations == null) {
+        if (queryAllocations.isEmpty()) {
             return additionalInfo;
         }
 
