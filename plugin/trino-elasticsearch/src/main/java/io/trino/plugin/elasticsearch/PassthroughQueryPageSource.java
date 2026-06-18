@@ -76,12 +76,6 @@ public class PassthroughQueryPageSource
     }
 
     @Override
-    public long getMemoryUsage()
-    {
-        return 0;
-    }
-
-    @Override
     public void close()
             throws IOException
     {}
