@@ -1073,7 +1073,7 @@ public class PlanPrinter
                                     .collect(joining(", ", "{", "}")));
                     case ScalarValuePointer pointer -> format("%s[%s]", anonymizer.anonymize(pointer.getInputSymbol()), formatLogicalIndexPointer(pointer.getLogicalIndexPointer()));
                     case ClassifierValuePointer pointer -> format("%s[%s]", "classifier", formatLogicalIndexPointer(pointer.getLogicalIndexPointer()));
-                    case MatchNumberValuePointer pointer -> "match_number";
+                    case MatchNumberValuePointer _ -> "match_number";
                 };
 
                 nodeOutput.appendDetails("%s%s := %s", indentString(1), anonymizer.anonymize(assignment.symbol()), value);

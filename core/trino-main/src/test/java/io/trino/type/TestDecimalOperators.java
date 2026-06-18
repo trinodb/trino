@@ -1393,8 +1393,7 @@ public class TestDecimalOperators
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN, "DECIMAL '37'", "DECIMAL '37'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
     }
 
     @Test
@@ -1735,8 +1734,7 @@ public class TestDecimalOperators
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "DECIMAL '37'", "DECIMAL '37'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
     }
 
     @Test

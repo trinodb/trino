@@ -30,7 +30,7 @@ import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentDate;
@@ -42,6 +42,7 @@ import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DateTimeDataType;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DereferenceExpression;
+import io.trino.sql.tree.DistinctFromPredicate;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
@@ -62,7 +63,6 @@ import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IntervalDataType;
 import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
-import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonExists;
@@ -87,8 +87,9 @@ import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.NumericParameter;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.QuantifiedComparisonExpression;
+import io.trino.sql.tree.QuantifiedComparisonPredicate;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.SearchedCaseExpression;
@@ -573,21 +574,52 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitComparisonExpression(ComparisonExpression node, Void context)
+        protected String visitPredicated(Predicated node, Void context)
         {
-            return formatBinaryExpression(node.getOperator().getValue(), node.getLeft(), node.getRight());
+            return "(" + process(node.getValue(), context) + " " + process(node.getPredicate(), context) + ")";
+        }
+
+        @Override
+        protected String visitBetweenPredicate(BetweenPredicate node, Void context)
+        {
+            return (node.isNegated() ? "NOT BETWEEN " : "BETWEEN ") + process(node.getMin(), context) + " AND " + process(node.getMax(), context);
+        }
+
+        @Override
+        protected String visitComparisonPredicate(ComparisonPredicate node, Void context)
+        {
+            return node.getOperator().getValue() + " " + process(node.getRight(), context);
+        }
+
+        @Override
+        protected String visitDistinctFromPredicate(DistinctFromPredicate node, Void context)
+        {
+            return (node.isNegated() ? "IS NOT DISTINCT FROM " : "IS DISTINCT FROM ") + process(node.getRight(), context);
+        }
+
+        @Override
+        protected String visitInPredicate(InPredicate node, Void context)
+        {
+            return (node.isNegated() ? "NOT IN " : "IN ") + process(node.getValueList(), context);
         }
 
         @Override
         protected String visitIsNullPredicate(IsNullPredicate node, Void context)
         {
-            return "(" + process(node.getValue(), context) + " IS NULL)";
+            return node.isNegated() ? "IS NOT NULL" : "IS NULL";
         }
 
         @Override
-        protected String visitIsNotNullPredicate(IsNotNullPredicate node, Void context)
+        protected String visitLikePredicate(LikePredicate node, Void context)
         {
-            return "(" + process(node.getValue(), context) + " IS NOT NULL)";
+            return (node.isNegated() ? "NOT LIKE " : "LIKE ") + process(node.getPattern(), context)
+                    + node.getEscape().map(escape -> " ESCAPE " + process(escape, context)).orElse("");
+        }
+
+        @Override
+        protected String visitQuantifiedComparisonPredicate(QuantifiedComparisonPredicate node, Void context)
+        {
+            return node.getOperator().getValue() + " " + node.getQuantifier() + " " + process(node.getSubquery(), context);
         }
 
         @Override
@@ -641,24 +673,6 @@ public final class ExpressionFormatter
         protected String visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
         {
             return formatBinaryExpression(node.getOperator().getValue(), node.getLeft(), node.getRight());
-        }
-
-        @Override
-        protected String visitLikePredicate(LikePredicate node, Void context)
-        {
-            StringBuilder builder = new StringBuilder();
-
-            builder.append('(')
-                    .append(process(node.getValue(), context))
-                    .append(" LIKE ")
-                    .append(process(node.getPattern(), context));
-
-            node.getEscape().ifPresent(escape -> builder.append(" ESCAPE ")
-                    .append(process(escape, context)));
-
-            builder.append(')');
-
-            return builder.toString();
         }
 
         @Override
@@ -731,20 +745,11 @@ public final class ExpressionFormatter
         @Override
         protected String visitWhenClause(WhenClause node, Void context)
         {
-            return "WHEN " + process(node.getOperand(), context) + " THEN " + process(node.getResult(), context);
-        }
-
-        @Override
-        protected String visitBetweenPredicate(BetweenPredicate node, Void context)
-        {
-            return "(" + process(node.getValue(), context) + " BETWEEN " +
-                    process(node.getMin(), context) + " AND " + process(node.getMax(), context) + ")";
-        }
-
-        @Override
-        protected String visitInPredicate(InPredicate node, Void context)
-        {
-            return "(" + process(node.getValue(), context) + " IN " + process(node.getValueList(), context) + ")";
+            String match = switch (node.getMatch()) {
+                case WhenClause.Operand operand -> process(operand.expression(), context);
+                case WhenClause.Partial partial -> process(partial.predicate(), context);
+            };
+            return "WHEN " + match + " THEN " + process(node.getResult(), context);
         }
 
         @Override
@@ -756,16 +761,6 @@ public final class ExpressionFormatter
         private String visitFilter(Expression node, Void context)
         {
             return "(WHERE " + process(node, context) + ')';
-        }
-
-        @Override
-        protected String visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, Void context)
-        {
-            return "(%s %s %s %s)".formatted(
-                    process(node.getValue(), context),
-                    node.getOperator().getValue(),
-                    node.getQuantifier(),
-                    process(node.getSubquery(), context));
         }
 
         @Override

@@ -41,7 +41,7 @@ public class TestEvaluateRow
                 .isPresent()
                 .get()
                 .satisfies(row -> {
-                    if (!(row instanceof Constant(RowType type, SqlRow value))) {
+                    if (!(row instanceof Constant(RowType _, SqlRow value))) {
                         throw new AssertionError("Expected SqlRow");
                     }
 

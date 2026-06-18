@@ -164,7 +164,7 @@ public class UnwrapYearInComparison
                 };
             }
 
-            if (!(right instanceof Constant(Type rightType, Object rightValue))) {
+            if (!(right instanceof Constant(Type _, Object rightValue))) {
                 return expression;
             }
             if (argumentType instanceof TimestampWithTimeZoneType) {

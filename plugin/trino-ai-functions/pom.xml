@@ -56,11 +56,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.opentelemetry.semconv</groupId>
-            <artifactId>opentelemetry-semconv-incubating</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-cache</artifactId>
         </dependency>

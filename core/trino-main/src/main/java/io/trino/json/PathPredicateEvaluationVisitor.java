@@ -37,7 +37,7 @@ import io.trino.operator.scalar.StringFunctions;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
-import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.type.JoniRegexp;
 
 import java.util.List;
@@ -257,24 +257,24 @@ class PathPredicateEvaluationVisitor
     private Boolean compare(IrComparisonPredicate node, TypedValue left, TypedValue right)
     {
         IrComparisonPredicate.Operator comparisonOperator = node.operator();
-        ComparisonExpression.Operator operator;
+        ComparisonPredicate.Operator operator;
         Type firstType = left.getType();
         Object firstValue = left.getValueAsObject();
         Type secondType = right.getType();
         Object secondValue = right.getValueAsObject();
         switch (comparisonOperator) {
-            case EQUAL, NOT_EQUAL -> operator = ComparisonExpression.Operator.EQUAL;
-            case LESS_THAN -> operator = ComparisonExpression.Operator.LESS_THAN;
+            case EQUAL, NOT_EQUAL -> operator = ComparisonPredicate.Operator.EQUAL;
+            case LESS_THAN -> operator = ComparisonPredicate.Operator.LESS_THAN;
             case GREATER_THAN -> {
-                operator = ComparisonExpression.Operator.LESS_THAN;
+                operator = ComparisonPredicate.Operator.LESS_THAN;
                 firstType = right.getType();
                 firstValue = right.getValueAsObject();
                 secondType = left.getType();
                 secondValue = left.getValueAsObject();
             }
-            case LESS_THAN_OR_EQUAL -> operator = ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+            case LESS_THAN_OR_EQUAL -> operator = ComparisonPredicate.Operator.LESS_THAN_OR_EQUAL;
             case GREATER_THAN_OR_EQUAL -> {
-                operator = ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+                operator = ComparisonPredicate.Operator.LESS_THAN_OR_EQUAL;
                 firstType = right.getType();
                 firstValue = right.getValueAsObject();
                 secondType = left.getType();

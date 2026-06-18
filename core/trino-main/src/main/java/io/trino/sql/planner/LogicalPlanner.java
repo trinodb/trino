@@ -519,7 +519,7 @@ public class LogicalPlanner
 
         List<Symbol> visibleFieldMappings = visibleFields(plan);
 
-        PlanBuilder planBuilder = newPlanBuilder(plan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext);
+        PlanBuilder planBuilder = newPlanBuilder(plan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext, symbolAllocator);
 
         Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, tableHandle);
         Map<ColumnHandle, io.trino.sql.tree.Expression> defaultColumnValues = analysis.getDefaultColumnValues(table);
@@ -983,7 +983,7 @@ public class LogicalPlanner
 
         TableHandle tableHandle = analysis.getTableHandle(table);
         RelationPlan tableScanPlan = createRelationPlan(analysis, table);
-        PlanBuilder sourcePlanBuilder = newPlanBuilder(tableScanPlan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext);
+        PlanBuilder sourcePlanBuilder = newPlanBuilder(tableScanPlan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext, symbolAllocator);
         if (statement.getWhere().isPresent()) {
             SubqueryPlanner subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of());
             io.trino.sql.tree.Expression whereExpression = statement.getWhere().get();

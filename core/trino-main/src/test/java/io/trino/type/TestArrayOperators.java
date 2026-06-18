@@ -48,8 +48,15 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
+import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -5889,5 +5896,96 @@ public class TestArrayOperators
         assertThat(assertions.function("flatten", "ARRAY[NULL, ARRAY[MAP(ARRAY[3, 4], ARRAY[3, 4])]]"))
                 .hasType(new ArrayType(mapType(INTEGER, INTEGER)))
                 .isEqualTo(ImmutableList.of(ImmutableMap.of(3, 3, 4, 4)));
+    }
+
+    /**
+     * Probe every {@code Generic*Operator} class on an ARRAY with a NULL element, in both SQL form
+     * (when one exists) and the mangled {@code "$operator$x"(...)} form. The assertions document
+     * which {@code Generic*Operator.neverFails} declarations match the operator's actual runtime
+     * behavior. A mismatch (planner-belief {@code .neverFails()} passing while the runtime
+     * assertion proves the operator can throw) indicates the declaration is incorrect — see
+     * https://github.com/trinodb/trino/issues/29891.
+     *
+     * Planner-belief assertions use NULL-free input of the same type, since the planner reasons
+     * type-wise, not value-wise.
+     */
+    @Test
+    public void testOperatorsOnArrayWithNullElement()
+    {
+        String arrayWithNull = "ARRAY[1, CAST(NULL AS INTEGER)]";
+        String arrayConcrete = "ARRAY[1, 2]";
+        String arrayConcreteOther = "ARRAY[3, 4]";
+
+        // EQUAL — returns NULL when comparison hits a NULL element; GenericEqualOperator declares neverFails=true.
+        // Runtime — SQL form
+        assertThat(assertions.expression("a = b").binding("a", arrayWithNull).binding("b", arrayConcrete))
+                .isNull(BOOLEAN);
+        // Runtime — mangled form
+        assertThat(assertions.operator(EQUAL, arrayWithNull, arrayConcrete))
+                .isNull(BOOLEAN);
+        // Planner belief
+        assertThat(assertions.operator(EQUAL, arrayConcrete, arrayConcreteOther))
+                .neverFails();
+
+        // IDENTICAL — NULL-aware; GenericIdenticalOperator declares neverFails=true.
+        assertThat(assertions.expression("a IS NOT DISTINCT FROM b").binding("a", arrayWithNull).binding("b", arrayWithNull))
+                .isEqualTo(true);
+        assertThat(assertions.operator(IDENTICAL, arrayWithNull, arrayWithNull))
+                .isEqualTo(true);
+        assertThat(assertions.operator(IDENTICAL, arrayConcrete, arrayConcreteOther))
+                .neverFails();
+
+        // INDETERMINATE — detects NULL; GenericIndeterminateOperator declares neverFails=true.
+        assertThat(assertions.operator(INDETERMINATE, arrayWithNull))
+                .isEqualTo(true);
+        assertThat(assertions.operator(INDETERMINATE, arrayConcrete))
+                .neverFails();
+
+        // LESS_THAN — array ordering must skip past NULL elements; GenericLessThanOperator does NOT declare neverFails (correct).
+        // ARRAY ordering currently throws NOT_SUPPORTED when a NULL element forces comparison.
+        assertTrinoExceptionThrownBy(assertions.expression("a < b").binding("a", arrayWithNull).binding("b", arrayConcrete)::evaluate)
+                .hasErrorCode(NOT_SUPPORTED);
+        assertTrinoExceptionThrownBy(assertions.operator(LESS_THAN, arrayWithNull, arrayConcrete)::evaluate)
+                .hasErrorCode(NOT_SUPPORTED);
+        assertThat(assertions.operator(LESS_THAN, arrayConcrete, arrayConcreteOther))
+                .couldFail();
+
+        // LESS_THAN_OR_EQUAL — same as LESS_THAN. Declaration was fixed in 72cdd389025.
+        assertTrinoExceptionThrownBy(assertions.expression("a <= b").binding("a", arrayWithNull).binding("b", arrayConcrete)::evaluate)
+                .hasErrorCode(NOT_SUPPORTED);
+        assertTrinoExceptionThrownBy(assertions.operator(LESS_THAN_OR_EQUAL, arrayWithNull, arrayConcrete)::evaluate)
+                .hasErrorCode(NOT_SUPPORTED);
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, arrayConcrete, arrayConcreteOther))
+                .couldFail();
+
+        // COMPARISON_UNORDERED_FIRST — throws NOT_SUPPORTED at runtime. GenericComparisonUnorderedFirstOperator
+        // routes its neverFails declaration through TypeOperators per binding, so for ARRAY (whose comparison
+        // implementation is not declared neverFails) the planner correctly believes the operator may fail.
+        assertTrinoExceptionThrownBy(assertions.operator(COMPARISON_UNORDERED_FIRST, arrayWithNull, arrayConcrete)::evaluate)
+                .hasErrorCode(NOT_SUPPORTED);
+        assertThat(assertions.operator(COMPARISON_UNORDERED_FIRST, arrayConcrete, arrayConcreteOther))
+                .couldFail();
+
+        // COMPARISON_UNORDERED_LAST — same as above.
+        assertTrinoExceptionThrownBy(assertions.operator(COMPARISON_UNORDERED_LAST, arrayWithNull, arrayConcrete)::evaluate)
+                .hasErrorCode(NOT_SUPPORTED);
+        assertThat(assertions.operator(COMPARISON_UNORDERED_LAST, arrayConcrete, arrayConcreteOther))
+                .couldFail();
+
+        // BETWEEN
+        assertTrinoExceptionThrownBy(assertions.expression("a BETWEEN b AND c")
+                .binding("a", arrayWithNull).binding("b", arrayConcrete).binding("c", arrayConcreteOther)::evaluate)
+                .hasErrorCode(NOT_SUPPORTED);
+        assertThat(assertions.expression("a BETWEEN b AND c")
+                .binding("a", arrayConcrete).binding("b", arrayConcrete).binding("c", arrayConcreteOther))
+                .couldFail();
+
+        // HASH_CODE — hashing tolerates NULL elements. GenericHashCodeOperator declares neverFails=true.
+        assertThat(assertions.operator(HASH_CODE, arrayWithNull))
+                .neverFails();
+
+        // XX_HASH_64 — same as HASH_CODE.
+        assertThat(assertions.operator(XX_HASH_64, arrayWithNull))
+                .neverFails();
     }
 }

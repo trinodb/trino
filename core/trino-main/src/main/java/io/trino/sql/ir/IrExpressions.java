@@ -16,6 +16,7 @@ package io.trino.sql.ir;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
@@ -28,7 +29,9 @@ import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.Symbol;
 import io.trino.type.TypeCoercion;
 
 import java.math.BigDecimal;
@@ -37,6 +40,9 @@ import java.util.List;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -44,6 +50,7 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 
 public final class IrExpressions
 {
@@ -67,6 +74,20 @@ public final class IrExpressions
     public static Expression ifExpression(Expression condition, Expression trueCase, Expression falseCase)
     {
         return new Case(ImmutableList.of(new WhenClause(condition, trueCase)), falseCase);
+    }
+
+    /// Build a [MatchClause] that matches when the [Match] operand equals `value`.
+    /// The clause's lambda is `(parameter) -> parameter = value`, where `parameter` is
+    /// the operand-bound lambda parameter. The caller supplies `parameter` — it must be
+    /// allocated through [io.trino.sql.planner.SymbolAllocator] so it cannot collide with a
+    /// symbol referenced in `value` or one allocated later.
+    public static MatchClause equalityClause(Symbol parameter, Expression value, Expression result)
+    {
+        return new MatchClause(
+                new Lambda(
+                        ImmutableList.of(parameter),
+                        new Comparison(EQUAL, new Reference(parameter.type(), parameter.name()), value)),
+                result);
     }
 
     public static Constant row(List<Constant> fields)
@@ -118,7 +139,7 @@ public final class IrExpressions
             case Comparison e -> e.operator() != Comparison.Operator.IDENTICAL && (mayBeNull(plannerContext, e.left(), referencesMayBeNull) || mayBeNull(plannerContext, e.right(), referencesMayBeNull));
             case In e -> mayBeNull(plannerContext, e.value(), referencesMayBeNull) || e.valueList().stream().anyMatch(value -> mayBeNull(plannerContext, value, referencesMayBeNull));
             case Logical e -> e.terms().stream().anyMatch(term -> mayBeNull(plannerContext, term, referencesMayBeNull));
-            case Switch e -> e.whenClauses().stream().anyMatch(clause -> mayBeNull(plannerContext, clause.getResult(), referencesMayBeNull)) ||
+            case Match e -> e.clauses().stream().anyMatch(clause -> mayBeNull(plannerContext, clause.result(), referencesMayBeNull)) ||
                     mayBeNull(plannerContext, e.defaultValue(), referencesMayBeNull);
 
             // These expressions may return null based on their own semantics
@@ -161,21 +182,42 @@ public final class IrExpressions
 
             // These expressions need to verify their operands
             case Array e -> e.elements().stream().anyMatch(element -> mayFail(plannerContext, element));
-            case Between e -> mayFail(plannerContext, e.value()) || mayFail(plannerContext, e.min()) || mayFail(plannerContext, e.max());
+            case Between e -> mayFail(plannerContext, e) || mayFail(plannerContext, e.value()) || mayFail(plannerContext, e.min()) || mayFail(plannerContext, e.max());
             case Call e -> mayFail(e) || e.arguments().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case Case e -> e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, clause.getOperand()) || mayFail(plannerContext, clause.getResult())) ||
                     mayFail(plannerContext, e.defaultValue());
             case Cast e -> mayFail(plannerContext, e);
             case Coalesce e -> e.operands().stream().anyMatch(argument -> mayFail(plannerContext, argument));
-            case Comparison e -> mayFail(plannerContext, e.left()) || mayFail(plannerContext, e.right());
+            case Comparison e -> mayFail(plannerContext, e) || mayFail(plannerContext, e.left()) || mayFail(plannerContext, e.right());
             case In e -> mayFail(plannerContext, e.value()) || e.valueList().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case IsNull e -> mayFail(plannerContext, e.value());
             case Logical e -> e.terms().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case NullIf e -> mayFail(plannerContext, e.first()) || mayFail(plannerContext, e.second());
             case Row e -> e.items().stream().anyMatch(argument -> mayFail(plannerContext, argument));
-            case Switch e -> mayFail(plannerContext, e.operand()) || e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, clause.getOperand()) || mayFail(plannerContext, clause.getResult())) ||
+            case Match e -> mayFail(plannerContext, e.operand()) || e.clauses().stream().anyMatch(clause -> mayFail(plannerContext, clause.lambda().body()) || mayFail(plannerContext, clause.result())) ||
                     mayFail(plannerContext, e.defaultValue());
         };
+    }
+
+    private static boolean mayFail(PlannerContext plannerContext, Comparison comparison)
+    {
+        TypeOperators typeOperators = plannerContext.getTypeOperators();
+        Type operandType = comparison.left().type();
+        InvocationConvention convention = simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL);
+        return switch (comparison.operator()) {
+            // Required to be infallible
+            case EQUAL, NOT_EQUAL, IDENTICAL -> false;
+            case LESS_THAN, GREATER_THAN -> !typeOperators.getLessThanOperatorHandle(operandType, convention).isNeverFails();
+            case LESS_THAN_OR_EQUAL, GREATER_THAN_OR_EQUAL -> !typeOperators.getLessThanOrEqualOperatorHandle(operandType, convention).isNeverFails();
+        };
+    }
+
+    private static boolean mayFail(PlannerContext plannerContext, Between between)
+    {
+        TypeOperators typeOperators = plannerContext.getTypeOperators();
+        Type operandType = between.value().type();
+        InvocationConvention convention = simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL);
+        return !typeOperators.getLessThanOrEqualOperatorHandle(operandType, convention).isNeverFails();
     }
 
     // TODO: record "safety" (can the cast fail at runtime) in Cast node

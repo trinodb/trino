@@ -23,7 +23,7 @@ import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrUtils;
-import io.trino.sql.ir.Switch;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -55,6 +55,7 @@ import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.IrExpressions.equalityClause;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
@@ -187,9 +188,11 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
             }
             Expression comparisonWithExtremeValue = getBoundComparisons(quantifiedComparison, minValue, maxValue);
 
-            return new Switch(
+            Symbol matchOperand = symbolAllocator.newSymbol("match_operand", BIGINT);
+            return new Match(
                     countAllValue.toSymbolReference(),
-                    ImmutableList.of(new WhenClause(
+                    ImmutableList.of(equalityClause(
+                            matchOperand,
                             new Constant(BIGINT, 0L),
                             emptySetResult)),
                     quantifier.apply(ImmutableList.of(

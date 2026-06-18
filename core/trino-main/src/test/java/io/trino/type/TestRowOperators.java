@@ -45,14 +45,19 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -1024,6 +1029,102 @@ public class TestRowOperators
             }
         }
         return types;
+    }
+
+    /**
+     * Probe every {@code Generic*Operator} class on a ROW with a NULL field, in both SQL form
+     * (when one exists) and the mangled {@code "$operator$x"(...)} form. The assertions document
+     * which {@code Generic*Operator.neverFails} declarations match the operator's actual runtime
+     * behavior. A mismatch (planner-belief {@code .neverFails()} passing while the runtime
+     * assertion proves the operator can throw) indicates the declaration is incorrect — see
+     * https://github.com/trinodb/trino/issues/29891.
+     *
+     * Note: the planner's fallibility belief is type-driven, not value-driven, so the planner-belief
+     * assertions use a NULL-free row of the same type — they would be unreachable on a value that
+     * actually throws.
+     */
+    @Test
+    public void testOperatorsOnRowWithNullField()
+    {
+        String rowWithNull = "row(1, CAST(NULL AS INTEGER))";
+        String rowConcrete = "row(1, 2)";
+        String rowConcreteOther = "row(3, 4)";
+
+        // EQUAL — returns NULL per SQL standard; GenericEqualOperator declares neverFails=true (correct).
+        // Runtime — SQL form
+        assertThat(assertions.expression("a = b").binding("a", rowWithNull).binding("b", rowConcrete))
+                .isNull(BOOLEAN);
+        // Runtime — mangled form
+        assertThat(assertions.operator(EQUAL, rowWithNull, rowConcrete))
+                .isNull(BOOLEAN);
+        // Planner belief (uses NULL-free input; planner reasons type-wise)
+        assertThat(assertions.operator(EQUAL, rowConcrete, rowConcreteOther))
+                .neverFails();
+
+        // IDENTICAL — NULL-aware (NULL ≡ NULL is TRUE); GenericIdenticalOperator declares neverFails=true (correct).
+        assertThat(assertions.expression("a IS NOT DISTINCT FROM b").binding("a", rowWithNull).binding("b", rowWithNull))
+                .isEqualTo(true);
+        assertThat(assertions.operator(IDENTICAL, rowWithNull, rowWithNull))
+                .isEqualTo(true);
+        assertThat(assertions.operator(IDENTICAL, rowConcrete, rowConcreteOther))
+                .neverFails();
+
+        // INDETERMINATE — exists to detect NULL; GenericIndeterminateOperator declares neverFails=true (correct).
+        // No SQL form.
+        assertThat(assertions.operator(INDETERMINATE, rowWithNull))
+                .isEqualTo(true);
+        assertThat(assertions.operator(INDETERMINATE, rowConcrete))
+                .neverFails();
+
+        // LESS_THAN — throws NOT_SUPPORTED when NULL ordering is reached; GenericLessThanOperator does NOT declare neverFails (correct).
+        // Runtime — SQL form
+        assertTrinoExceptionThrownBy(assertions.expression("a < b").binding("a", rowWithNull).binding("b", rowConcrete)::evaluate)
+                .hasErrorCode(NOT_SUPPORTED);
+        // Runtime — mangled form
+        assertTrinoExceptionThrownBy(assertions.operator(LESS_THAN, rowWithNull, rowConcrete)::evaluate)
+                .hasErrorCode(NOT_SUPPORTED);
+        // Planner belief (uses NULL-free input; planner is type-driven and conservative for this op)
+        assertThat(assertions.operator(LESS_THAN, rowConcrete, rowConcreteOther))
+                .couldFail();
+
+        // LESS_THAN_OR_EQUAL — same as LESS_THAN; declaration fixed in 72cdd389025 to omit neverFails (correct).
+        assertTrinoExceptionThrownBy(assertions.expression("a <= b").binding("a", rowWithNull).binding("b", rowConcrete)::evaluate)
+                .hasErrorCode(NOT_SUPPORTED);
+        assertTrinoExceptionThrownBy(assertions.operator(LESS_THAN_OR_EQUAL, rowWithNull, rowConcrete)::evaluate)
+                .hasErrorCode(NOT_SUPPORTED);
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, rowConcrete, rowConcreteOther))
+                .couldFail();
+
+        // COMPARISON_UNORDERED_FIRST — throws NOT_SUPPORTED at runtime. GenericComparisonUnorderedFirstOperator
+        // routes its neverFails declaration through TypeOperators per binding, so for ROW (whose comparison
+        // implementation is not declared neverFails) the planner correctly believes the operator may fail.
+        // No SQL form.
+        assertTrinoExceptionThrownBy(assertions.operator(COMPARISON_UNORDERED_FIRST, rowWithNull, rowConcrete)::evaluate)
+                .hasErrorCode(NOT_SUPPORTED);
+        assertThat(assertions.operator(COMPARISON_UNORDERED_FIRST, rowConcrete, rowConcreteOther))
+                .couldFail();
+
+        // COMPARISON_UNORDERED_LAST — same as above. No SQL form.
+        assertTrinoExceptionThrownBy(assertions.operator(COMPARISON_UNORDERED_LAST, rowWithNull, rowConcrete)::evaluate)
+                .hasErrorCode(NOT_SUPPORTED);
+        assertThat(assertions.operator(COMPARISON_UNORDERED_LAST, rowConcrete, rowConcreteOther))
+                .couldFail();
+
+        // BETWEEN
+        assertTrinoExceptionThrownBy(assertions.expression("a BETWEEN b AND c")
+                .binding("a", rowWithNull).binding("b", rowConcrete).binding("c", rowConcreteOther)::evaluate)
+                .hasErrorCode(NOT_SUPPORTED);
+        assertThat(assertions.expression("a BETWEEN b AND c")
+                .binding("a", rowConcrete).binding("b", rowConcrete).binding("c", rowConcreteOther))
+                .couldFail();
+
+        // HASH_CODE — hashing tolerates NULL fields; GenericHashCodeOperator declares neverFails=true. No SQL form.
+        assertThat(assertions.operator(HASH_CODE, rowWithNull))
+                .neverFails();
+
+        // XX_HASH_64 — same as HASH_CODE. No SQL form.
+        assertThat(assertions.operator(XX_HASH_64, rowWithNull))
+                .neverFails();
     }
 
     private void assertComparisonCombination(String base, String greater)
