@@ -153,7 +153,7 @@ public class NumberType
     }
 
     @ScalarOperator(value = EQUAL, neverFails = true)
-    private static boolean equalOperator(TrinoNumber left, TrinoNumber right)
+    static boolean equalOperator(TrinoNumber left, TrinoNumber right)
     {
         if (left.isNaN() || right.isNaN()) {
             // NaN is not equal to any value, including itself
@@ -163,7 +163,7 @@ public class NumberType
     }
 
     @ScalarOperator(value = IDENTICAL, neverFails = true)
-    private static boolean identicalOperator(@SqlNullable TrinoNumber left, @SqlNullable TrinoNumber right)
+    static boolean identicalOperator(@SqlNullable TrinoNumber left, @SqlNullable TrinoNumber right)
     {
         if (left == null || right == null) {
             return left == right;
