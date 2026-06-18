@@ -42,6 +42,7 @@ import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -199,7 +200,8 @@ class TestOrcPredicates
                         Optional.empty(),
                         false,
                         NO_ACID_TRANSACTION,
-                        columnMappings)
+                        columnMappings,
+                        MemoryContext.NO_LIMIT)
                 .orElseThrow();
     }
 
