@@ -193,7 +193,7 @@ public class StreamingAggregationOperator
                 AggregationMetrics aggregationMetrics)
         {
             requireNonNull(processorContext, "processorContext is null");
-            this.userMemoryContext = processorContext.getMemoryTrackingContext().localUserMemoryContext();
+            this.userMemoryContext = processorContext.getOperatorContext().newLocalUserMemoryContext(StreamingAggregationOperator.class.getSimpleName());
             this.groupByTypes = ImmutableList.copyOf(requireNonNull(groupByTypes, "groupByTypes is null"));
             this.groupByChannels = Ints.toArray(requireNonNull(groupByChannels, "groupByChannels is null"));
             this.aggregatorFactories = requireNonNull(aggregatorFactories, "aggregatorFactories is null");
@@ -228,6 +228,7 @@ public class StreamingAggregationOperator
                 }
 
                 if (outputPages.isEmpty()) {
+                    userMemoryContext.close();
                     return finished();
                 }
 
