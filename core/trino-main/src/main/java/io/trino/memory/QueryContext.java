@@ -22,6 +22,7 @@ import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskStateMachine;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.MemoryReservationHandler;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.TaskContext;
@@ -246,17 +247,19 @@ public class QueryContext
     {
         TaskId taskId = taskStateMachine.getTaskId();
 
-        MemoryTrackingContext taskMemoryContext = new MemoryTrackingContext(
-                newRootAggregatedMemoryContext(
-                        new QueryMemoryReservationHandler(
-                                (tag, delta) -> updateUserMemory(taskId, tag, delta),
-                                (tag, delta) -> tryUpdateUserMemory(taskId, tag, delta)),
-                        guaranteedMemory),
-                newRootAggregatedMemoryContext(
-                        new QueryMemoryReservationHandler(
-                                (_, delta) -> updateRevocableMemory(taskId, delta),
-                                (_, _) -> tryReserveMemoryNotSupported()),
-                        0L));
+        // Note that task user memory cannot be closed even when TaskStateMachine reaches a terminal state.
+        // Task output buffers may be still live and waiting for consumer to release them.
+        AggregatedMemoryContext taskUserMemory = newRootAggregatedMemoryContext(
+                new QueryMemoryReservationHandler(
+                        (tag, delta) -> updateUserMemory(taskId, tag, delta),
+                        (tag, delta) -> tryUpdateUserMemory(taskId, tag, delta)),
+                guaranteedMemory);
+        AggregatedMemoryContext taskRevocableMemory = newRootAggregatedMemoryContext(
+                new QueryMemoryReservationHandler(
+                        (_, delta) -> updateRevocableMemory(taskId, delta),
+                        (_, _) -> tryReserveMemoryNotSupported()),
+                0L);
+        MemoryTrackingContext taskMemoryContext = new MemoryTrackingContext(taskUserMemory, taskRevocableMemory);
 
         TaskContext taskContext = createTaskContext(
                 this,
