@@ -15,7 +15,6 @@ package io.trino.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.metrics.Metrics;
@@ -58,9 +57,6 @@ public class WorkProcessorSourceOperatorAdapter
         this.sourceOperator = sourceOperatorFactory
                 .create(
                         operatorContext,
-                        new MemoryTrackingContext(
-                                operatorContext.aggregateUserMemoryContext(),
-                                operatorContext.aggregateRevocableMemoryContext()),
                         operatorContext.getDriverContext().getYieldSignal(),
                         WorkProcessor.create(splitBuffer));
         this.pages = sourceOperator.getOutputPages()

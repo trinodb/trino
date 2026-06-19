@@ -21,7 +21,6 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.WorkProcessor.ProcessState;
@@ -83,8 +82,7 @@ public class ScanFilterAndProjectOperator
     private Metrics metrics = Metrics.EMPTY;
 
     private ScanFilterAndProjectOperator(
-            Session session,
-            MemoryTrackingContext memoryTrackingContext,
+            OperatorContext operatorContext,
             DriverYieldSignal yieldSignal,
             WorkProcessor<Split> split,
             PageSourceProvider pageSourceProvider,
@@ -100,7 +98,7 @@ public class ScanFilterAndProjectOperator
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         pages = split.flatTransform(
                 new SplitToPages(
-                        session,
+                        operatorContext.getSession(),
                         yieldSignal,
                         pageSourceProvider,
                         pageProcessor,
@@ -109,7 +107,7 @@ public class ScanFilterAndProjectOperator
                         columns,
                         dynamicFilter,
                         types,
-                        memoryTrackingContext.aggregateUserMemoryContext(),
+                        operatorContext.aggregateUserMemoryContext(),
                         minOutputPageSize,
                         minOutputPageRowCount));
     }
@@ -445,13 +443,11 @@ public class ScanFilterAndProjectOperator
         @Override
         public WorkProcessorSourceOperator create(
                 OperatorContext operatorContext,
-                MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
                 WorkProcessor<Split> split)
         {
             return new ScanFilterAndProjectOperator(
-                    operatorContext.getSession(),
-                    memoryTrackingContext,
+                    operatorContext,
                     yieldSignal,
                     split,
                     pageSourceProvider,
