@@ -26,7 +26,7 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.TaskId;
 import io.trino.memory.QueryContextVisitor;
-import io.trino.memory.context.LocalMemoryContext;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.spi.metrics.Metrics;
 
@@ -110,7 +110,6 @@ public class PipelineContext
     private final ConcurrentMap<Integer, Metrics> pipelineOperatorMetrics = new ConcurrentHashMap<>();
 
     private final MemoryTrackingContext pipelineMemoryContext;
-    private final LocalMemoryContext pipelineLocalMemoryContext;
 
     public PipelineContext(int pipelineId, TaskContext taskContext, Executor notificationExecutor, ScheduledExecutorService yieldExecutor, ScheduledExecutorService timeoutExecutor, MemoryTrackingContext pipelineMemoryContext, boolean inputPipeline, boolean outputPipeline, boolean partitioned)
     {
@@ -123,9 +122,6 @@ public class PipelineContext
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.pipelineMemoryContext = requireNonNull(pipelineMemoryContext, "pipelineMemoryContext is null");
-        // Initialize the local memory contexts with the ExchangeOperator tag as ExchangeOperator will do the local memory allocations
-        // TODO move the tagging to the caller
-        this.pipelineLocalMemoryContext = pipelineMemoryContext.aggregateUserMemoryContext().newLocalMemoryContext(ExchangeOperator.class.getSimpleName());
     }
 
     public TaskContext getTaskContext()
@@ -277,9 +273,9 @@ public class PipelineContext
         taskContext.freeSpill(bytes);
     }
 
-    public LocalMemoryContext localMemoryContext()
+    public AggregatedMemoryContext aggregateUserMemoryContext()
     {
-        return pipelineLocalMemoryContext;
+        return pipelineMemoryContext.aggregateUserMemoryContext();
     }
 
     public boolean isPerOperatorCpuTimerEnabled()
