@@ -347,9 +347,15 @@ public class TrinoGlueCatalog
     }
 
     @Override
-    public List<SchemaTableName> listIcebergTables(ConnectorSession session, Optional<String> namespace)
+    public List<SchemaTableName> listIcebergTables(ConnectorSession session, List<String> filter)
     {
-        return listTables(session, namespace, table -> isIcebergTable(table.parameters())).stream()
+        if (filter.isEmpty()) {
+            return listTables(session, Optional.empty(), table -> isIcebergTable(table.parameters())).stream()
+                    .map(TableInfo::tableName)
+                    .collect(toImmutableList());
+        }
+        return filter.stream()
+                .flatMap(namespace -> listTables(session, Optional.of(namespace), table -> isIcebergTable(table.parameters())).stream())
                 .map(TableInfo::tableName)
                 .collect(toImmutableList());
     }

@@ -176,9 +176,15 @@ public class TrinoNessieCatalog
     }
 
     @Override
-    public List<SchemaTableName> listIcebergTables(ConnectorSession session, Optional<String> namespace)
+    public List<SchemaTableName> listIcebergTables(ConnectorSession session, List<String> filter)
     {
-        return listTables(session, namespace).stream()
+        if (filter.isEmpty()) {
+            return listTables(session, Optional.empty()).stream()
+                    .map(TableInfo::tableName)
+                    .collect(toImmutableList());
+        }
+        return filter.stream()
+                .flatMap(namespace -> listTables(session, Optional.of(namespace)).stream())
                 .map(TableInfo::tableName)
                 .collect(toImmutableList());
     }
