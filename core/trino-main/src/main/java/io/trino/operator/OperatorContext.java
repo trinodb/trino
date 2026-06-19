@@ -116,6 +116,8 @@ public class OperatorContext
     private Runnable memoryRevocationRequestListener;
 
     private final MemoryTrackingContext operatorMemoryContext;
+    private final AggregatedMemoryContext aggregateUserMemoryContext;
+    private final AggregatedMemoryContext aggregateRevocableMemoryContext;
     private final LocalMemoryContext localUserMemoryContext;
     private final LocalMemoryContext localRevocableMemoryContext;
 
@@ -141,6 +143,8 @@ public class OperatorContext
         this.revocableMemoryFuture = new AtomicReference<>(SettableFuture.create());
         this.revocableMemoryFuture.get().set(null);
         this.operatorMemoryContext = requireNonNull(operatorMemoryContext, "operatorMemoryContext is null");
+        this.aggregateUserMemoryContext = new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateUserMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, false);
+        this.aggregateRevocableMemoryContext = new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateRevocableMemoryContext(), revocableMemoryFuture, this::updatePeakMemoryReservations, false);
         this.localUserMemoryContext = new InternalLocalMemoryContext(operatorMemoryContext.aggregateUserMemoryContext().newLocalMemoryContext(operatorType), memoryFuture, this::updatePeakMemoryReservations, false);
         this.localRevocableMemoryContext = new InternalLocalMemoryContext(operatorMemoryContext.aggregateRevocableMemoryContext().newLocalMemoryContext(operatorType), revocableMemoryFuture, this::updatePeakMemoryReservations, false);
     }
@@ -325,13 +329,13 @@ public class OperatorContext
     // caller shouldn't close this context as it's managed by the OperatorContext
     public AggregatedMemoryContext aggregateUserMemoryContext()
     {
-        return new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateUserMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, false);
+        return aggregateUserMemoryContext;
     }
 
     // caller shouldn't close this context as it's managed by the OperatorContext
     public AggregatedMemoryContext aggregateRevocableMemoryContext()
     {
-        return new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateRevocableMemoryContext(), revocableMemoryFuture, this::updatePeakMemoryReservations, false);
+        return aggregateRevocableMemoryContext;
     }
 
     // caller should close this context as it's a new context
