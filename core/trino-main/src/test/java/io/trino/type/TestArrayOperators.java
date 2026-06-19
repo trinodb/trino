@@ -300,6 +300,24 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testArrayUnionSize()
+    {
+        int size = toIntExact(MAX_FUNCTION_MEMORY.toBytes() + 1);
+        assertTrinoExceptionThrownBy(
+                () -> assertions.expression("array_union(ARRAY[lpad('', %1$s , 'x')], ARRAY[lpad('', %1$s , 'y'), lpad('', %1$s , 'z')])".formatted(size)).evaluate())
+                .hasErrorCode(EXCEEDED_FUNCTION_MEMORY_LIMIT);
+    }
+
+    @Test
+    public void testArrayIntersectSize()
+    {
+        int size = toIntExact(MAX_FUNCTION_MEMORY.toBytes() + 1);
+        assertTrinoExceptionThrownBy(
+                () -> assertions.expression("array_intersect(ARRAY[lpad('', %1$s , 'x'), lpad('', %1$s , 'y')], ARRAY[lpad('', %1$s , 'x'), lpad('', %1$s , 'y')])".formatted(size)).evaluate())
+                .hasErrorCode(EXCEEDED_FUNCTION_MEMORY_LIMIT);
+    }
+
+    @Test
     public void testArrayToJsonSmoke()
     {
         assertThat(assertions.expression("CAST(a AS JSON)")
