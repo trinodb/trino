@@ -116,6 +116,8 @@ public class OperatorContext
     private Runnable memoryRevocationRequestListener;
 
     private final MemoryTrackingContext operatorMemoryContext;
+    private final LocalMemoryContext localUserMemoryContext;
+    private final LocalMemoryContext localRevocableMemoryContext;
 
     public OperatorContext(
             int operatorId,
@@ -139,7 +141,8 @@ public class OperatorContext
         this.revocableMemoryFuture = new AtomicReference<>(SettableFuture.create());
         this.revocableMemoryFuture.get().set(null);
         this.operatorMemoryContext = requireNonNull(operatorMemoryContext, "operatorMemoryContext is null");
-        operatorMemoryContext.initializeLocalMemoryContexts(operatorType);
+        this.localUserMemoryContext = new InternalLocalMemoryContext(operatorMemoryContext.aggregateUserMemoryContext().newLocalMemoryContext(operatorType), memoryFuture, this::updatePeakMemoryReservations, false);
+        this.localRevocableMemoryContext = new InternalLocalMemoryContext(operatorMemoryContext.aggregateRevocableMemoryContext().newLocalMemoryContext(operatorType), revocableMemoryFuture, this::updatePeakMemoryReservations, false);
     }
 
     public int getOperatorId()
@@ -304,19 +307,19 @@ public class OperatorContext
     // caller should close this context as it's a new context
     public LocalMemoryContext newLocalUserMemoryContext(String allocationTag)
     {
-        return new InternalLocalMemoryContext(operatorMemoryContext.newUserMemoryContext(allocationTag), memoryFuture, this::updatePeakMemoryReservations, true);
+        return new InternalLocalMemoryContext(operatorMemoryContext.aggregateUserMemoryContext().newLocalMemoryContext(allocationTag), memoryFuture, this::updatePeakMemoryReservations, true);
     }
 
     // caller shouldn't close this context as it's managed by the OperatorContext
     public LocalMemoryContext localUserMemoryContext()
     {
-        return new InternalLocalMemoryContext(operatorMemoryContext.localUserMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, false);
+        return localUserMemoryContext;
     }
 
     // caller shouldn't close this context as it's managed by the OperatorContext
     public LocalMemoryContext localRevocableMemoryContext()
     {
-        return new InternalLocalMemoryContext(operatorMemoryContext.localRevocableMemoryContext(), revocableMemoryFuture, this::updatePeakMemoryReservations, false);
+        return localRevocableMemoryContext;
     }
 
     // caller shouldn't close this context as it's managed by the OperatorContext

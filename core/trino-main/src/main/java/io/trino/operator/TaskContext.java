@@ -110,6 +110,7 @@ public class TaskContext
     private long lastTaskStatCallNanos;
 
     private final MemoryTrackingContext taskMemoryContext;
+    private final LocalMemoryContext taskLocalMemoryContext;
     private final DynamicFiltersCollector dynamicFiltersCollector;
 
     // The collector is shared for dynamic filters collected from coordinator
@@ -171,9 +172,9 @@ public class TaskContext
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.session = session;
         this.taskMemoryContext = requireNonNull(taskMemoryContext, "taskMemoryContext is null");
-
         // Initialize the local memory contexts with the LazyOutputBuffer tag as LazyOutputBuffer will do the local memory allocations
-        this.taskMemoryContext.initializeLocalMemoryContexts(LazyOutputBuffer.class.getSimpleName());
+        // TODO move the tagging to the caller
+        this.taskLocalMemoryContext = taskMemoryContext.aggregateUserMemoryContext().newLocalMemoryContext(LazyOutputBuffer.class.getSimpleName());
         this.dynamicFiltersCollector = new DynamicFiltersCollector(notifyStatusChanged);
         this.localDynamicFiltersCollector = new LocalDynamicFiltersCollector(session);
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
@@ -312,7 +313,7 @@ public class TaskContext
 
     public LocalMemoryContext localMemoryContext()
     {
-        return taskMemoryContext.localUserMemoryContext();
+        return taskLocalMemoryContext;
     }
 
     public AggregatedMemoryContext newAggregateMemoryContext()
