@@ -83,7 +83,7 @@ public class SpoolingExchangeOutputBuffer
     public OutputBufferInfo getInfo()
     {
         BufferState state = stateMachine.getState();
-        LocalMemoryContext memoryContext = getSystemMemoryContextOrNull();
+        LocalMemoryContext memoryContext = getMemoryContextOrNull();
         return new OutputBufferInfo(
                 "EXTERNAL",
                 state,
@@ -287,7 +287,7 @@ public class SpoolingExchangeOutputBuffer
 
     private void updateMemoryUsage(long bytes)
     {
-        LocalMemoryContext context = getSystemMemoryContextOrNull();
+        LocalMemoryContext context = getMemoryContextOrNull();
         if (context != null) {
             context.setBytes(bytes);
         }
@@ -309,13 +309,13 @@ public class SpoolingExchangeOutputBuffer
 
     private void forceFreeMemory()
     {
-        LocalMemoryContext context = getSystemMemoryContextOrNull();
+        LocalMemoryContext context = getMemoryContextOrNull();
         if (context != null) {
             context.close();
         }
     }
 
-    private LocalMemoryContext getSystemMemoryContextOrNull()
+    private LocalMemoryContext getMemoryContextOrNull()
     {
         try {
             return memoryContextSupplier.get();
