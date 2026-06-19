@@ -23,6 +23,7 @@ public class ProcessorContext
 {
     private final Session session;
     private final MemoryTrackingContext memoryTrackingContext;
+    private final OperatorContext operatorContext;
     private final DriverYieldSignal driverYieldSignal;
     private final SpillContext spillContext;
     private final TaskId taskId;
@@ -32,6 +33,7 @@ public class ProcessorContext
         this.session = requireNonNull(session, "session is null");
         this.memoryTrackingContext = requireNonNull(memoryTrackingContext, "memoryTrackingContext is null");
         requireNonNull(operatorContext, "operatorContext is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.driverYieldSignal = operatorContext.getDriverContext().getYieldSignal();
         this.spillContext = operatorContext.getSpillContext();
         this.taskId = operatorContext.getDriverContext().getTaskId();
@@ -45,6 +47,11 @@ public class ProcessorContext
     public MemoryTrackingContext getMemoryTrackingContext()
     {
         return memoryTrackingContext;
+    }
+
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
     }
 
     public DriverYieldSignal getDriverYieldSignal()
