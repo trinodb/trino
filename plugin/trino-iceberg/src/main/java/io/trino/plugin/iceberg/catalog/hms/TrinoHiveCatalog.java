@@ -380,9 +380,12 @@ public class TrinoHiveCatalog
     }
 
     @Override
-    public List<SchemaTableName> listIcebergTables(ConnectorSession session, Optional<String> namespace)
+    public List<SchemaTableName> listIcebergTables(ConnectorSession session, List<String> filter)
     {
-        List<Callable<List<SchemaTableName>>> tasks = listNamespaces(session, namespace).stream()
+        List<String> namespaces = filter.isEmpty()
+                ? listNamespaces(session)
+                : filter.stream().filter(namespace -> !isHiveSystemSchema(namespace)).collect(toImmutableList());
+        List<Callable<List<SchemaTableName>>> tasks = namespaces.stream()
                 .map(schema -> (Callable<List<SchemaTableName>>) () -> metastore.getTableNamesWithParameters(schema, TABLE_TYPE_PROP, ImmutableSet.of(
                                 // Get tables with parameter table_type set to  "ICEBERG" or "iceberg". This is required because
                                 // Trino uses lowercase value whereas Spark and Flink use uppercase.

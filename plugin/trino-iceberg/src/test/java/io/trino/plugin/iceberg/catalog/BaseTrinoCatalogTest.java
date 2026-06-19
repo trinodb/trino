@@ -573,13 +573,13 @@ public abstract class BaseTrinoCatalogTest
 
             // No namespace provided, all tables across all namespaces should be returned
             assertThat(catalog.listTables(SESSION, Optional.empty())).containsAll(allTables.build());
-            assertThat(catalog.listIcebergTables(SESSION, Optional.empty())).containsAll(icebergTables.build());
+            assertThat(catalog.listIcebergTables(SESSION, ImmutableList.of())).containsAll(icebergTables.build());
             // Namespace is provided and exists
             assertThat(catalog.listTables(SESSION, Optional.of(ns1))).containsExactly(new TableInfo(table1, TABLE));
-            assertThat(catalog.listIcebergTables(SESSION, Optional.of(ns1))).containsExactly(table1);
+            assertThat(catalog.listIcebergTables(SESSION, ImmutableList.of(ns1))).containsExactly(table1);
             // Namespace is provided and does not exist
             assertThat(catalog.listTables(SESSION, Optional.of("non_existing"))).isEmpty();
-            assertThat(catalog.listIcebergTables(SESSION, Optional.of("non_existing"))).isEmpty();
+            assertThat(catalog.listIcebergTables(SESSION, ImmutableList.of("non_existing"))).isEmpty();
         }
     }
 

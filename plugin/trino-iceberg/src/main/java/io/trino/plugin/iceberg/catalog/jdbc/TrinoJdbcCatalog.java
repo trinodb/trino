@@ -210,9 +210,11 @@ public class TrinoJdbcCatalog
     }
 
     @Override
-    public List<SchemaTableName> listIcebergTables(ConnectorSession session, Optional<String> namespace)
+    public List<SchemaTableName> listIcebergTables(ConnectorSession session, List<String> filter)
     {
-        List<String> namespaces = listNamespaces(session, namespace);
+        List<String> namespaces = filter.isEmpty()
+                ? listNamespaces(session)
+                : filter.stream().filter(namespace -> namespaceExists(session, namespace)).collect(toImmutableList());
 
         // Build as a set and convert to list for removing duplicate entries due to case difference
         Set<SchemaTableName> tablesListBuilder = new HashSet<>();
