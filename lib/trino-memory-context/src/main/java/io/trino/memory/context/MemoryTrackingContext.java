@@ -13,10 +13,7 @@
  */
 package io.trino.memory.context;
 
-import com.google.common.io.Closer;
 import com.google.errorprone.annotations.ThreadSafe;
-
-import java.io.IOException;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -34,17 +31,6 @@ public final class MemoryTrackingContext
     {
         this.userAggregateMemoryContext = requireNonNull(userAggregateMemoryContext, "userAggregateMemoryContext is null");
         this.revocableAggregateMemoryContext = requireNonNull(revocableAggregateMemoryContext, "revocableAggregateMemoryContext is null");
-    }
-
-    public void close()
-    {
-        try (Closer closer = Closer.create()) {
-            closer.register(userAggregateMemoryContext::close);
-            closer.register(revocableAggregateMemoryContext::close);
-        }
-        catch (IOException e) {
-            throw new RuntimeException("Exception closing memory tracking context", e);
-        }
     }
 
     public AggregatedMemoryContext aggregateUserMemoryContext()

@@ -31,6 +31,7 @@ import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.OperationTimer.OperationTiming;
 import io.trino.operator.ResourceUsageTimeSeriesRecorder.ResourceUsageTimeSeriesSnapshot;
 import io.trino.plugin.base.metrics.TDigestHistogram;
+import io.trino.plugin.base.util.UncheckedCloser;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.metrics.Metrics;
@@ -403,7 +404,10 @@ public class OperatorContext
             this.infoSupplier.set(info == null ? null : Suppliers.ofInstance(info));
         }
 
-        operatorMemoryContext.close();
+        try (var closer = UncheckedCloser.create()) {
+            closer.register(operatorMemoryContext.aggregateUserMemoryContext()::close);
+            closer.register(operatorMemoryContext.aggregateRevocableMemoryContext()::close);
+        }
 
         if (operatorMemoryContext.getUserMemory() != 0) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Operator %s has non-zero user memory (%d bytes) after destroy()", this, operatorMemoryContext.getUserMemory()));
