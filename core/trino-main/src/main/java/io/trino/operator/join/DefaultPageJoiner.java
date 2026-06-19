@@ -19,7 +19,6 @@ import io.airlift.units.DataSize;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.HashGenerator;
 import io.trino.operator.OperatorContext;
-import io.trino.operator.ProcessorContext;
 import io.trino.operator.SpillContext;
 import io.trino.operator.SpillMetrics;
 import io.trino.operator.WorkProcessor;
@@ -94,7 +93,7 @@ public class DefaultPageJoiner
     private ListenableFuture<DataSize> spillInProgress = immediateFuture(DataSize.ofBytes(0));
 
     public DefaultPageJoiner(
-            ProcessorContext processorContext,
+            OperatorContext operatorContext,
             List<Type> probeTypes,
             List<Type> buildOutputTypes,
             JoinType joinType,
@@ -108,9 +107,9 @@ public class DefaultPageJoiner
             JoinStatisticsCounter statisticsCounter,
             Iterator<SavedRow> savedRows)
     {
-        this.operatorContext = processorContext.getOperatorContext();
-        this.spillContext = processorContext.getSpillContext();
-        this.yieldSignal = processorContext.getDriverYieldSignal();
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.spillContext = operatorContext.getSpillContext();
+        this.yieldSignal = operatorContext.getDriverContext().getYieldSignal();
         this.probeTypes = requireNonNull(probeTypes, "probeTypes is null");
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
         this.lookupSourceProviderFuture = requireNonNull(lookupSourceProvider, "lookupSourceProvider is null");

@@ -123,11 +123,11 @@ public class FilterAndProjectOperator
         }
 
         @Override
-        public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
+        public WorkProcessorOperator create(OperatorContext operatorContext, WorkProcessor<Page> sourcePages)
         {
             checkState(!closed, "Factory is already closed");
             return new FilterAndProjectOperator(
-                    processorContext.getOperatorContext(),
+                    operatorContext,
                     sourcePages,
                     processor.get(),
                     types,

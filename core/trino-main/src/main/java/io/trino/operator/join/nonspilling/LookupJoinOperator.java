@@ -15,8 +15,8 @@ package io.trino.operator.join.nonspilling;
 
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorInfo;
-import io.trino.operator.ProcessorContext;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.WorkProcessorOperator;
 import io.trino.operator.join.JoinStatisticsCounter;
@@ -57,14 +57,14 @@ public class LookupJoinOperator
             PartitionedLookupSourceFactory lookupSourceFactory,
             JoinProbeFactory joinProbeFactory,
             Runnable afterClose,
-            ProcessorContext processorContext,
+            OperatorContext operatorContext,
             WorkProcessor<Page> sourcePages)
     {
         this.statisticsCounter = new JoinStatisticsCounter(joinType);
         lookupSourceFuture = lookupSourceFactory.createLookupSource();
         this.afterClose = requireNonNull(afterClose, "afterClose is null");
         sourcePagesJoiner = new PageJoiner(
-                processorContext,
+                operatorContext,
                 buildOutputTypes,
                 joinType,
                 outputSingleMatch,

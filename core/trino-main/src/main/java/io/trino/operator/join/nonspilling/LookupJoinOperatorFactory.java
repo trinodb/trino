@@ -15,8 +15,8 @@ package io.trino.operator.join.nonspilling;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.JoinOperatorType;
+import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
-import io.trino.operator.ProcessorContext;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.WorkProcessorOperator;
 import io.trino.operator.WorkProcessorOperatorFactory;
@@ -134,7 +134,7 @@ public class LookupJoinOperatorFactory
     }
 
     @Override
-    public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
+    public WorkProcessorOperator create(OperatorContext operatorContext, WorkProcessor<Page> sourcePages)
     {
         checkState(!closed, "Factory is already closed");
         PartitionedLookupSourceFactory lookupSourceFactory = joinBridgeManager.getJoinBridge();
@@ -148,7 +148,7 @@ public class LookupJoinOperatorFactory
                 lookupSourceFactory,
                 joinProbeFactory,
                 joinBridgeManager::probeOperatorClosed,
-                processorContext,
+                operatorContext,
                 sourcePages);
     }
 
