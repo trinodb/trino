@@ -23,6 +23,7 @@ import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.MemoryReservationHandler;
 import io.trino.memory.context.SimpleLocalMemoryContext;
+import io.trino.plugin.base.util.Lazy;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.type.Type;
@@ -1166,7 +1167,7 @@ public class TestBroadcastOutputBuffer
                 TASK_INSTANCE_ID,
                 new OutputBufferStateMachine(new TaskId(new StageId(new QueryId("query"), 0), 0, 0), stateNotificationExecutor),
                 dataSize,
-                () -> memoryContext.newLocalMemoryContext("test"),
+                Lazy.from(() -> memoryContext.newLocalMemoryContext("test")),
                 notificationExecutor,
                 () -> {});
         buffer.setOutputBuffers(outputBuffers);
@@ -1232,7 +1233,7 @@ public class TestBroadcastOutputBuffer
                 TASK_INSTANCE_ID,
                 new OutputBufferStateMachine(new TaskId(new StageId(new QueryId("query"), 0), 0, 0), stateNotificationExecutor),
                 dataSize,
-                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                Lazy.from(() -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test")),
                 stateNotificationExecutor,
                 notifyStatusChanged);
         buffer.setOutputBuffers(outputBuffers);

@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.StateMachine;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.plugin.base.util.Lazy;
 import io.trino.spi.exchange.ExchangeSink;
 import io.trino.spi.metrics.Metrics;
 
@@ -27,7 +28,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
@@ -48,7 +48,7 @@ public class SpoolingExchangeOutputBuffer
     // It is modified (assigned to null) when the OutputBuffer is destroyed (either finished or aborted).
     private volatile ExchangeSink exchangeSink;
     private Optional<Metrics> finalSinkMetrics;
-    private final Supplier<LocalMemoryContext> memoryContextSupplier;
+    private final Lazy<LocalMemoryContext> memoryContextSupplier;
 
     private final AtomicLong peakMemoryUsage = new AtomicLong();
     private final LongAdder totalPagesAdded = new LongAdder();
@@ -60,7 +60,7 @@ public class SpoolingExchangeOutputBuffer
             OutputBufferStateMachine stateMachine,
             SpoolingOutputBuffers outputBuffers,
             ExchangeSink exchangeSink,
-            Supplier<LocalMemoryContext> memoryContextSupplier)
+            Lazy<LocalMemoryContext> memoryContextSupplier)
     {
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.outputBuffers = requireNonNull(outputBuffers, "outputBuffers is null");
