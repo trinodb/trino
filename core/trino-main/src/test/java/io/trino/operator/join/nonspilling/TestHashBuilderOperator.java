@@ -131,7 +131,7 @@ public class TestHashBuilderOperator
             assertThat(operator.isFinished()).isFalse();
             assertThat(operator.getState()).isEqualTo(CONSUMING_INPUT);
 
-            anotherOperatorContext.getOperatorMemoryContext().localUserMemoryContext().setBytes(memoryPoolSizeInBytes);
+            anotherOperatorContext.localUserMemoryContext().setBytes(memoryPoolSizeInBytes);
 
             operator.finish();
 
@@ -148,7 +148,7 @@ public class TestHashBuilderOperator
             assertThat(whenBuildFinishes).isNotDone();
             assertThat(operatorContext.isWaitingForMemory()).isNotDone();
 
-            anotherOperatorContext.getOperatorMemoryContext().localUserMemoryContext().setBytes(0);
+            anotherOperatorContext.localUserMemoryContext().setBytes(0);
 
             operator.finish();
 
