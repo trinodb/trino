@@ -85,12 +85,6 @@ public class WorkProcessorOperatorAdapter
 
             return lookupJoin.createOuterOperatorFactory();
         }
-
-        @VisibleForTesting
-        public WorkProcessorOperatorFactory getWorkProcessorOperatorFactory()
-        {
-            return operatorFactory;
-        }
     }
 
     private final OperatorContext operatorContext;
