@@ -340,12 +340,6 @@ public class OperatorContext
         return new InternalAggregatedMemoryContext(operatorMemoryContext.newAggregateUserMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, true);
     }
 
-    // caller should close this context as it's a new context
-    public AggregatedMemoryContext newAggregateRevocableMemoryContext()
-    {
-        return new InternalAggregatedMemoryContext(operatorMemoryContext.newAggregateRevocableMemoryContext(), revocableMemoryFuture, this::updatePeakMemoryReservations, true);
-    }
-
     // listen to all memory allocations and update the peak memory reservations accordingly
     private void updatePeakMemoryReservations()
     {
