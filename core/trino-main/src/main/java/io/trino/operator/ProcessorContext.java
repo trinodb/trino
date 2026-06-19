@@ -15,23 +15,20 @@ package io.trino.operator;
 
 import io.trino.Session;
 import io.trino.execution.TaskId;
-import io.trino.memory.context.MemoryTrackingContext;
 
 import static java.util.Objects.requireNonNull;
 
 public class ProcessorContext
 {
     private final Session session;
-    private final MemoryTrackingContext memoryTrackingContext;
     private final OperatorContext operatorContext;
     private final DriverYieldSignal driverYieldSignal;
     private final SpillContext spillContext;
     private final TaskId taskId;
 
-    public ProcessorContext(Session session, MemoryTrackingContext memoryTrackingContext, OperatorContext operatorContext)
+    public ProcessorContext(Session session, OperatorContext operatorContext)
     {
         this.session = requireNonNull(session, "session is null");
-        this.memoryTrackingContext = requireNonNull(memoryTrackingContext, "memoryTrackingContext is null");
         requireNonNull(operatorContext, "operatorContext is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.driverYieldSignal = operatorContext.getDriverContext().getYieldSignal();
@@ -42,11 +39,6 @@ public class ProcessorContext
     public Session getSession()
     {
         return session;
-    }
-
-    public MemoryTrackingContext getMemoryTrackingContext()
-    {
-        return memoryTrackingContext;
     }
 
     public OperatorContext getOperatorContext()
