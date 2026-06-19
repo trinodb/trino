@@ -15,10 +15,8 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.trino.Session;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProcessorMetrics;
 import io.trino.spi.Page;
@@ -44,18 +42,18 @@ public class FilterAndProjectOperator
     private final PageProcessorMetrics metrics = new PageProcessorMetrics();
 
     private FilterAndProjectOperator(
-            Session session,
-            MemoryTrackingContext memoryTrackingContext,
-            DriverYieldSignal yieldSignal,
+            OperatorContext operatorContext,
             WorkProcessor<Page> sourcePages,
             PageProcessor pageProcessor,
             List<Type> types,
             DataSize minOutputPageSize,
             int minOutputPageRowCount)
     {
+        LocalMemoryContext operatorMemoryContext = operatorContext.newLocalUserMemoryContext(FilterAndProjectOperator.class.getSimpleName());
         AggregatedMemoryContext localAggregatedMemoryContext = newSimpleAggregatedMemoryContext();
         LocalMemoryContext outputMemoryContext = localAggregatedMemoryContext.newLocalMemoryContext(FilterAndProjectOperator.class.getSimpleName());
-        ConnectorSession connectorSession = session.toConnectorSession();
+        ConnectorSession connectorSession = operatorContext.getSession().toConnectorSession();
+        DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
 
         this.pages = sourcePages
                 .flatMap(page -> pageProcessor.createWorkProcessor(
@@ -65,7 +63,7 @@ public class FilterAndProjectOperator
                         metrics,
                         SourcePage.create(page)))
                 .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
-                .blocking(() -> memoryTrackingContext.localUserMemoryContext().setBytes(localAggregatedMemoryContext.getBytes()));
+                .blocking(() -> operatorMemoryContext.setBytes(localAggregatedMemoryContext.getBytes()));
     }
 
     @Override
@@ -129,9 +127,7 @@ public class FilterAndProjectOperator
         {
             checkState(!closed, "Factory is already closed");
             return new FilterAndProjectOperator(
-                    processorContext.getSession(),
-                    processorContext.getMemoryTrackingContext(),
-                    processorContext.getDriverYieldSignal(),
+                    processorContext.getOperatorContext(),
                     sourcePages,
                     processor.get(),
                     types,
