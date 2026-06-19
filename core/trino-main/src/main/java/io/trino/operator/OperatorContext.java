@@ -311,7 +311,7 @@ public class OperatorContext
     // caller should close this context as it's a new context
     public LocalMemoryContext newLocalUserMemoryContext(String allocationTag)
     {
-        return new InternalLocalMemoryContext(operatorMemoryContext.aggregateUserMemoryContext().newLocalMemoryContext(allocationTag), memoryFuture, this::updatePeakMemoryReservations, true);
+        return aggregateUserMemoryContext.newLocalMemoryContext(allocationTag);
     }
 
     // caller shouldn't close this context as it's managed by the OperatorContext
@@ -341,7 +341,7 @@ public class OperatorContext
     // caller should close this context as it's a new context
     public AggregatedMemoryContext newAggregateUserMemoryContext()
     {
-        return new InternalAggregatedMemoryContext(operatorMemoryContext.newAggregateUserMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, true);
+        return aggregateUserMemoryContext.newAggregatedMemoryContext();
     }
 
     // listen to all memory allocations and update the peak memory reservations accordingly
