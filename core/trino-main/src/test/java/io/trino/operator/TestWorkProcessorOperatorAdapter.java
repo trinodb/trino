@@ -83,7 +83,7 @@ public class TestWorkProcessorOperatorAdapter
             implements WorkProcessorOperatorFactory
     {
         @Override
-        public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
+        public WorkProcessorOperator create(OperatorContext operatorContext, WorkProcessor<Page> sourcePages)
         {
             return new TestWorkProcessorOperator();
         }

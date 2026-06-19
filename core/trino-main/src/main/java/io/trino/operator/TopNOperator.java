@@ -67,12 +67,12 @@ public class TopNOperator
 
         @Override
         public WorkProcessorOperator create(
-                ProcessorContext processorContext,
+                OperatorContext operatorContext,
                 WorkProcessor<Page> sourcePages)
         {
             checkState(!closed, "Factory is already closed");
             return new TopNOperator(
-                    processorContext.getOperatorContext(),
+                    operatorContext,
                     sourcePages,
                     sourceTypes,
                     n,

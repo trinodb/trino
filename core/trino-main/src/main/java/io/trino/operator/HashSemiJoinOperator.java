@@ -75,10 +75,10 @@ public class HashSemiJoinOperator
         }
 
         @Override
-        public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
+        public WorkProcessorOperator create(OperatorContext operatorContext, WorkProcessor<Page> sourcePages)
         {
             checkState(!closed, "Factory is already closed");
-            return new HashSemiJoinOperator(processorContext.getOperatorContext(), sourcePages, setSupplier, probeJoinChannel);
+            return new HashSemiJoinOperator(operatorContext, sourcePages, setSupplier, probeJoinChannel);
         }
 
         @Override
