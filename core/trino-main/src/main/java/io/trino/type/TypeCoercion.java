@@ -160,6 +160,18 @@ public final class TypeCoercion
         return typeCompatibility.isCompatible();
     }
 
+    /// Whether a value of `sourceType` may be assigned to a column of `targetType` in a store-assignment
+    /// context such as `INSERT`, `UPDATE` or `MERGE`.
+    ///
+    /// Store assignment is broader than implicit coercion: a value may be assignable even when its type does
+    /// not implicitly coerce to the target. A positive result means only that the assignment is permitted,
+    /// not that it always succeeds — at execution it may fail rather than silently lose data (for example,
+    /// storing a longer string into a shorter character column).
+    public boolean isStoreAssignable(Type sourceType, Type targetType)
+    {
+        return isCompatible(sourceType, targetType);
+    }
+
     public boolean canCoerce(Type fromType, Type toType)
     {
         TypeCompatibility typeCompatibility = compatibility(fromType, toType);
