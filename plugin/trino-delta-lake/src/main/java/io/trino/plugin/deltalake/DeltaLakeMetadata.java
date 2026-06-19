@@ -262,12 +262,14 @@ import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHECKPOINT_INTE
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.COLUMN_MAPPING_MODE_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.DELETION_VECTORS_ENABLED_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.LOCATION_PROPERTY;
+import static io.trino.plugin.deltalake.DeltaLakeTableProperties.OBJECT_STORE_LAYOUT_ENABLED_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getChangeDataFeedEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getCheckpointInterval;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getColumnMappingMode;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getDeletionVectorsEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getLocation;
+import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getObjectStoreLayoutEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getPartitionedBy;
 import static io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.containsSchemaString;
 import static io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.getLastTransactionVersion;
@@ -299,6 +301,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ge
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getMaxColumnId;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isAppendOnly;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isRandomizeFilePrefixesEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeColumnType;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeSchemaAsJson;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
@@ -307,6 +310,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ve
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.unsupportedReaderFeatures;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.unsupportedWriterFeatures;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY;
+import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_RANDOMIZE_FILE_PREFIXES_PROPERTY;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.configurationForNewTable;
 import static io.trino.plugin.deltalake.transactionlog.TemporalTimeTravelUtil.findLatestVersionUsingTemporal;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.findLatestCommitVersion;
@@ -447,7 +451,7 @@ public class DeltaLakeMetadata
             .add(NUMBER_OF_NON_NULL_VALUES)
             .build();
     private static final String ENABLE_NON_CONCURRENT_WRITES_CONFIGURATION_KEY = "delta.enable-non-concurrent-writes";
-    public static final Set<String> UPDATABLE_TABLE_PROPERTIES = ImmutableSet.of(CHANGE_DATA_FEED_ENABLED_PROPERTY);
+    public static final Set<String> UPDATABLE_TABLE_PROPERTIES = ImmutableSet.of(CHANGE_DATA_FEED_ENABLED_PROPERTY, OBJECT_STORE_LAYOUT_ENABLED_PROPERTY);
 
     public static final Set<String> CHANGE_DATA_FEED_COLUMN_NAMES = ImmutableSet.<String>builder()
             .add("_change_type")
@@ -1046,6 +1050,8 @@ public class DeltaLakeMetadata
             properties.put(DELETION_VECTORS_ENABLED_PROPERTY, true);
         }
 
+        properties.put(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY, isRandomizeFilePrefixesEnabled(metadataEntry));
+
         ColumnMappingMode columnMappingMode = getColumnMappingMode(metadataEntry, protocolEntry);
         if (columnMappingMode != NONE) {
             properties.put(COLUMN_MAPPING_MODE_PROPERTY, columnMappingMode.name());
@@ -1501,6 +1507,7 @@ public class DeltaLakeMetadata
         Optional<Boolean> changeDataFeedEnabled = getChangeDataFeedEnabled(tableMetadata.getProperties());
         ColumnMappingMode columnMappingMode = getColumnMappingMode(tableMetadata.getProperties());
         boolean deletionVectorsEnabled = getDeletionVectorsEnabled(tableMetadata.getProperties());
+        boolean objectStoreLayoutEnabled = getObjectStoreLayoutEnabled(tableMetadata.getProperties());
         AtomicInteger fieldId = new AtomicInteger();
 
         validateTableColumns(tableMetadata);
@@ -1556,11 +1563,12 @@ public class DeltaLakeMetadata
                     protocolEntry = protocolEntryForTable(ProtocolEntry.builder(DEFAULT_READER_VERSION, DEFAULT_WRITER_VERSION), containsTimestampType, tableMetadata.getProperties());
                 }
 
+                Map<String, String> configuration = configurationForNewTable(checkpointInterval, changeDataFeedEnabled, deletionVectorsEnabled, objectStoreLayoutEnabled, columnMappingMode, maxFieldId);
                 MetadataEntry metadataEntry = MetadataEntry.builder()
                         .setDescription(tableMetadata.getComment())
                         .setSchemaString(serializeSchemaAsJson(deltaTable.build()))
                         .setPartitionColumns(getPartitionedBy(tableMetadata.getProperties()))
-                        .setConfiguration(configurationForNewTable(checkpointInterval, changeDataFeedEnabled, deletionVectorsEnabled, columnMappingMode, maxFieldId))
+                        .setConfiguration(configuration)
                         .build();
                 appendTableEntries(
                         commitVersion,
@@ -1665,6 +1673,7 @@ public class DeltaLakeMetadata
             handle = checkValidTableHandle(connectorTableHandle);
         }
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
+        boolean objectStoreLayoutEnabled = getObjectStoreLayoutEnabled(tableMetadata.getProperties());
 
         boolean replaceExistingTable = handle != null && replace;
 
@@ -1758,6 +1767,7 @@ public class DeltaLakeMetadata
                 tableMetadata.getComment(),
                 getChangeDataFeedEnabled(tableMetadata.getProperties()),
                 getDeletionVectorsEnabled(tableMetadata.getProperties()),
+                objectStoreLayoutEnabled,
                 serializeSchemaAsJson(deltaTable.build()),
                 columnMappingMode,
                 maxFieldId,
@@ -1929,18 +1939,20 @@ public class DeltaLakeMetadata
                 }
                 transactionLogWriter = transactionLogWriterFactory.createFileSystemWriter(session, location, tableCredentials);
             }
+            Map<String, String> configuration = configurationForNewTable(handle.checkpointInterval(), handle.changeDataFeedEnabled(), handle.deletionVectorsEnabled(), handle.objectStoreLayoutEnabled(), columnMappingMode, handle.maxColumnId());
+            MetadataEntry metadataEntry = MetadataEntry.builder()
+                    .setDescription(handle.comment())
+                    .setSchemaString(schemaString)
+                    .setPartitionColumns(handle.partitionedBy())
+                    .setConfiguration(configuration)
+                    .build();
             appendTableEntries(
                     commitVersion,
                     transactionLogWriter,
                     handle.replace() ? CREATE_OR_REPLACE_TABLE_AS_OPERATION : CREATE_TABLE_AS_OPERATION,
                     session,
                     handle.protocolEntry(),
-                    MetadataEntry.builder()
-                            .setDescription(handle.comment())
-                            .setSchemaString(schemaString)
-                            .setPartitionColumns(handle.partitionedBy())
-                            .setConfiguration(configurationForNewTable(handle.checkpointInterval(), handle.changeDataFeedEnabled(), handle.deletionVectorsEnabled(), columnMappingMode, handle.maxColumnId()))
-                            .build());
+                    metadataEntry);
             appendAddFileEntries(transactionLogWriter, dataFileInfos, physicalPartitionNames, columnNames, true);
             if (handle.readVersion().isPresent()) {
                 long writeTimestamp = Instant.now().toEpochMilli();
@@ -2514,7 +2526,7 @@ public class DeltaLakeMetadata
                 .map(dataFileInfoCodec::fromJson)
                 .collect(toImmutableList());
 
-        if (handle.retriesEnabled()) {
+        if (shouldCleanExtraOutputFiles(handle.retriesEnabled(), handle.metadataEntry())) {
             cleanExtraOutputFiles(fileSystemFactory.create(session, tableCredentials), session.getQueryId(), Location.of(handle.location()), dataFileInfos);
         }
 
@@ -2896,7 +2908,7 @@ public class DeltaLakeMetadata
                 .flatMap(Optional::stream)
                 .collect(toImmutableList());
 
-        if (mergeHandle.insertTableHandle().retriesEnabled()) {
+        if (shouldCleanExtraOutputFiles(mergeHandle.insertTableHandle().retriesEnabled(), handle.getMetadataEntry())) {
             cleanExtraOutputFiles(fileSystemFactory.create(session, tableCredentials), session.getQueryId(), Location.of(handle.getLocation()), allFiles);
         }
 
@@ -3176,7 +3188,7 @@ public class DeltaLakeMetadata
                 .map(dataFileInfoCodec::fromJson)
                 .collect(toImmutableList());
 
-        if (optimizeHandle.isRetriesEnabled()) {
+        if (shouldCleanExtraOutputFiles(optimizeHandle.isRetriesEnabled(), optimizeHandle.getMetadataEntry())) {
             cleanExtraOutputFiles(fileSystemFactory.create(session, tableCredentials), session.getQueryId(), Location.of(executeHandle.tableLocation()), dataFileInfos);
         }
 
@@ -3582,7 +3594,8 @@ public class DeltaLakeMetadata
         long createdTime = Instant.now().toEpochMilli();
 
         int requiredWriterVersion = currentProtocolEntry.minWriterVersion();
-        Optional<MetadataEntry> metadataEntry = Optional.empty();
+        Map<String, String> configuration = new HashMap<>(handle.getMetadataEntry().getConfiguration());
+        boolean metadataUpdated = false;
         if (properties.containsKey(CHANGE_DATA_FEED_ENABLED_PROPERTY)) {
             boolean changeDataFeedEnabled = (Boolean) properties.get(CHANGE_DATA_FEED_ENABLED_PROPERTY)
                     .orElseThrow(() -> new IllegalArgumentException("The change_data_feed_enabled property cannot be empty"));
@@ -3594,10 +3607,18 @@ public class DeltaLakeMetadata
                 }
                 requiredWriterVersion = max(requiredWriterVersion, CDF_SUPPORTED_WRITER_VERSION);
             }
-            Map<String, String> configuration = new HashMap<>(handle.getMetadataEntry().getConfiguration());
             configuration.put(DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY, String.valueOf(changeDataFeedEnabled));
-            metadataEntry = Optional.of(buildMetadataEntry(handle.getMetadataEntry(), configuration, createdTime));
+            metadataUpdated = true;
         }
+        if (properties.containsKey(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY)) {
+            boolean objectStoreLayoutEnabled = (Boolean) properties.get(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY)
+                    .orElseThrow(() -> new IllegalArgumentException("The object_store_layout_enabled property cannot be empty"));
+            configuration.put(DELTA_RANDOMIZE_FILE_PREFIXES_PROPERTY, String.valueOf(objectStoreLayoutEnabled));
+            metadataUpdated = true;
+        }
+        Optional<MetadataEntry> metadataEntry = metadataUpdated
+                ? Optional.of(buildMetadataEntry(handle.getMetadataEntry(), configuration, createdTime))
+                : Optional.empty();
 
         long readVersion = handle.getReadVersion();
         long commitVersion = readVersion + 1;
@@ -4422,6 +4443,13 @@ public class DeltaLakeMetadata
                 .collect(toImmutableSet());
 
         cleanExtraOutputFiles(fileSystem, queryId, writtenFilePaths);
+    }
+
+    private static boolean shouldCleanExtraOutputFiles(boolean retriesEnabled, MetadataEntry metadataEntry)
+    {
+        // Object store layout gives files near-unique parent directories, so these scans are expensive and cannot find
+        // failed-attempt files in sibling hash directories.
+        return retriesEnabled && !isRandomizeFilePrefixesEnabled(metadataEntry);
     }
 
     private void cleanExtraOutputFiles(TrinoFileSystem fileSystem, String queryId, Set<Location> validWrittenFilePaths)

@@ -137,6 +137,7 @@ public class TestDeltaLakeSystemTables
             assertQuery("SELECT * FROM \"" + tableName + "$properties\" WHERE key LIKE 'delta%'", "VALUES " +
                     "('delta.enableChangeDataFeed', 'true')," +
                     "('delta.enableDeletionVectors', 'false')," +
+                    "('delta.randomizeFilePrefixes', 'false')," +
                     "('delta.checkpointInterval', '5')," +
                     "('delta.minReaderVersion', '1')," +
                     "('delta.minWriterVersion', '4')");

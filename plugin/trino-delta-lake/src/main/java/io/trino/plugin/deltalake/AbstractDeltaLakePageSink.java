@@ -23,7 +23,6 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.metastore.Partitions;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.deltalake.DataFileInfo.DataFileType;
 import io.trino.plugin.deltalake.util.DeltaLakeWriteUtils;
@@ -50,12 +49,10 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.metastore.Partitions.HIVE_DEFAULT_DYNAMIC_PARTITION;
-import static io.trino.metastore.Partitions.escapePathName;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressionCodec;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
@@ -63,6 +60,7 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWri
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterRowGroupMaxRowCount;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterRowGroupSize;
 import static io.trino.plugin.deltalake.DeltaLakeTypes.toParquetType;
+import static io.trino.plugin.deltalake.util.DeltaLakeWriteUtils.createDataFilePath;
 import static io.trino.plugin.hive.HiveCompressionCodecs.toCompressionCodec;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -94,10 +92,10 @@ public abstract class AbstractDeltaLakePageSink
     private final List<DeltaLakeWriter> writers = new ArrayList<>();
 
     private final Location tableLocation;
-    protected final Location outputPathDirectory;
     private final ConnectorSession session;
     private final DeltaLakeWriterStats stats;
     private final String trinoVersion;
+    private final boolean objectStoreLayoutEnabled;
     private final long targetMaxFileSize;
     private final long idleWriterMinFileSize;
     private long writtenBytes;
@@ -121,7 +119,7 @@ public abstract class AbstractDeltaLakePageSink
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             Location tableLocation,
             Optional<DeltaLakeTableCredentials> tableCredentials,
-            Location outputPathDirectory,
+            boolean objectStoreLayoutEnabled,
             ConnectorSession session,
             DeltaLakeWriterStats stats,
             String trinoVersion,
@@ -186,9 +184,9 @@ public abstract class AbstractDeltaLakePageSink
         this.pageIndexer = pageIndexerFactory.createPageIndexer(this.partitionColumnTypes);
 
         this.tableLocation = tableLocation;
-        this.outputPathDirectory = outputPathDirectory;
         this.session = requireNonNull(session, "session is null");
         this.stats = stats;
+        this.objectStoreLayoutEnabled = objectStoreLayoutEnabled;
 
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.targetMaxFileSize = DeltaLakeSessionProperties.getTargetMaxFileSize(session);
@@ -359,25 +357,17 @@ public abstract class AbstractDeltaLakePageSink
                 closeWriter(writerIndex);
             }
 
-            Location filePath = outputPathDirectory;
-
             List<String> partitionValues = createPartitionValues(partitionColumnTypes, partitionColumns, position);
-            Optional<String> partitionName = Optional.empty();
-            if (!originalPartitionColumnNames.isEmpty()) {
-                String partName = makePartName(originalPartitionColumnNames, partitionValues);
-                filePath = filePath.appendPath(partName);
-                partitionName = Optional.of(partName);
-            }
-
             String fileName = session.getQueryId() + "_" + randomUUID();
-            filePath = filePath.appendPath(fileName);
+            String relativeFilePath = getRelativeFilePath(partitionValues, fileName);
+            Location filePath = tableLocation.appendPath(relativeFilePath);
 
             ParquetFileWriter fileWriter = createParquetFileWriter(filePath);
 
             DeltaLakeWriter writer = new DeltaLakeWriter(
                     fileWriter,
                     tableLocation,
-                    getRelativeFilePath(partitionName, fileName),
+                    relativeFilePath,
                     partitionValues,
                     stats,
                     dataColumnHandles,
@@ -396,15 +386,13 @@ public abstract class AbstractDeltaLakePageSink
         return writerIndexes;
     }
 
-    private String getRelativeFilePath(Optional<String> partitionName, String fileName)
+    private String getRelativeFilePath(List<String> partitionValues, String fileName)
     {
-        return getPathPrefix() + partitionName
-                .map(partition -> {
-                    // partition is escaped by makePartName
-                    checkArgument(!partition.endsWith("/"), "Partition name should not end with '/'");
-                    return partition + "/" + fileName;
-                })
-                .orElse(fileName);
+        return getPathPrefix() + createDataFilePath(
+                fileName,
+                objectStoreLayoutEnabled,
+                originalPartitionColumnNames,
+                partitionValues);
     }
 
     protected void closeWriter(int writerIndex)
@@ -434,26 +422,6 @@ public abstract class AbstractDeltaLakePageSink
             LOG.warn("exception '%s' while finishing write on %s", e, writer);
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Error committing Parquet file to Delta Lake", e);
         }
-    }
-
-    /**
-     * Copy of {@link Partitions#makePartName} modified to preserve case of partition columns.
-     */
-    private static String makePartName(List<String> partitionColumns, List<String> partitionValues)
-    {
-        StringBuilder name = new StringBuilder();
-
-        for (int i = 0; i < partitionColumns.size(); ++i) {
-            if (i > 0) {
-                name.append("/");
-            }
-
-            name.append(escapePathName(partitionColumns.get(i)));
-            name.append('=');
-            name.append(escapePathName(partitionValues.get(i)));
-        }
-
-        return name.toString();
     }
 
     public static List<String> createPartitionValues(List<Type> partitionColumnTypes, Page partitionColumns, int position)

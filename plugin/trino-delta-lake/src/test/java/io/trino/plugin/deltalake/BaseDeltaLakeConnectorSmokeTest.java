@@ -484,6 +484,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                                 ")\n" +
                                 "WITH (\n" +
                                 "   location = '%s',\n" +
+                                "   object_store_layout_enabled = false,\n" +
                                 "   partitioned_by = ARRAY['age']\n" +
                                 ")",
                         SCHEMA,
@@ -598,6 +599,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                                 ")\n" +
                                 "WITH (\n" +
                                 "   location = '%s',\n" +
+                                "   object_store_layout_enabled = false,\n" +
                                 "   partitioned_by = ARRAY['regionkey']\n" +
                                 ")",
                         DELTA_CATALOG,
@@ -1637,7 +1639,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         "   another_string varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   location = '" + newLocation + "'" + (secondPartitioned ? "," : "") + "\n" +
+                        "   location = '" + newLocation + "',\n" +
+                        "   object_store_layout_enabled = false" + (secondPartitioned ? "," : "") + "\n" +
                         (secondPartitioned ? "   partitioned_by = ARRAY['a_number']\n" : "") +
                         ")");
     }

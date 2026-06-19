@@ -33,6 +33,7 @@ import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.CdcEntry;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
@@ -91,6 +92,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -104,6 +106,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ex
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnsMetadata;
 import static io.trino.plugin.deltalake.transactionlog.TemporalTimeTravelUtil.findLatestVersionUsingTemporal;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
+import static io.trino.plugin.deltalake.util.DeltaLakeWriteUtils.createDataFilePath;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.SqlDecimal.decimal;
@@ -242,6 +245,181 @@ public class TestDeltaLakeBasic
             assertQuery(format("SELECT DISTINCT gender FROM %s", table.tableName()), "VALUES ('M'), ('F'), (null)");
             assertQuery(format("SELECT DISTINCT age FROM %s", table.tableName()), "VALUES (21), (25), (28), (29), (30), (42)");
             assertQuery(format("SELECT name FROM %s WHERE age = 42", table.tableName()), "VALUES ('Alice'), ('Emma')");
+        }
+    }
+
+    @Test
+    public void testBinaryDataFilePathsForCtasInsertAndReplace()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable(
+                "test_binary_paths_",
+                "WITH (partitioned_by = ARRAY['part'], object_store_layout_enabled = true) AS SELECT * FROM (VALUES (1, 'one'), (2, 'two')) t(id, part)")) {
+            Path tableLocation = Path.of(URI.create(getTableLocation(table.getName())));
+
+            List<AddFileEntry> ctasFiles = getAddedFiles(0, tableLocation);
+            assertBinaryDataFiles(tableLocation, ctasFiles);
+            assertThat(ctasFiles)
+                    .extracting(file -> file.getCanonicalPartitionValues().get("part"))
+                    .containsExactlyInAnyOrder(Optional.of("one"), Optional.of("two"));
+            assertQuery("SELECT id FROM " + table.getName() + " WHERE part = 'one'", "VALUES 1");
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 'one'), (4, 'three')", 2);
+            List<AddFileEntry> insertFiles = getAddedFiles(1, tableLocation);
+            assertBinaryDataFiles(tableLocation, insertFiles);
+            assertThat(insertFiles)
+                    .extracting(file -> file.getCanonicalPartitionValues().get("part"))
+                    .containsExactlyInAnyOrder(Optional.of("one"), Optional.of("three"));
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 'one'), (2, 'two'), (3, 'one'), (4, 'three')");
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " WITH (partitioned_by = ARRAY['part'], object_store_layout_enabled = true) " +
+                    "AS SELECT * FROM (VALUES (5, 'five')) t(id, part)", 1);
+            List<AddFileEntry> replaceFiles = getAddedFiles(2, tableLocation);
+            assertBinaryDataFiles(tableLocation, replaceFiles);
+            assertThat(replaceFiles)
+                    .extracting(file -> file.getCanonicalPartitionValues().get("part"))
+                    .containsExactly(Optional.of("five"));
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (5, 'five')");
+        }
+    }
+
+    @Test
+    public void testDataFilePathsHonorDisabledRandomPrefixesMetadata()
+            throws Exception
+    {
+        String tableName = "test_disabled_random_prefixes_" + randomNameSuffix();
+        Path tableLocation = registerCaseSensitiveTableWithRandomPrefixMetadata(tableName, false, 0);
+        try {
+            MetadataEntry metadataEntry = loadMetadataEntry(0, tableLocation);
+            assertThat(metadataEntry.getConfiguration())
+                    .containsEntry("delta.randomizeFilePrefixes", "false")
+                    .containsEntry("delta.randomPrefixLength", "0");
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 11)", 1);
+            List<AddFileEntry> files = getAddedFiles(1, tableLocation);
+            assertThat(files).singleElement().satisfies(file -> {
+                assertThat(file.getPath()).matches("PART=11/[^/]+");
+                assertThat(file.getCanonicalPartitionValues()).containsEntry("PART", Optional.of("11"));
+                assertThat(Files.isRegularFile(tableLocation.resolve(file.getPath()))).isTrue();
+            });
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11)");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testDataFilePathsHonorMissingRandomPrefixesMetadata()
+            throws Exception
+    {
+        String tableName = "test_missing_random_prefixes_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/case_sensitive").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+        try {
+            assertThat(loadMetadataEntry(0, tableLocation).getConfiguration())
+                    .doesNotContainKey("delta.randomizeFilePrefixes");
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 11)", 1);
+            List<AddFileEntry> files = getAddedFiles(1, tableLocation);
+            assertThat(files).singleElement().satisfies(file -> {
+                assertThat(file.getPath()).matches("PART=11/[^/]+");
+                assertThat(file.getCanonicalPartitionValues()).containsEntry("PART", Optional.of("11"));
+                assertThat(Files.isRegularFile(tableLocation.resolve(file.getPath()))).isTrue();
+            });
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11)");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testBinaryDataFilePathsIgnoreRandomPrefixLength()
+            throws Exception
+    {
+        String tableName = "test_random_prefix_length_" + randomNameSuffix();
+        Path tableLocation = registerCaseSensitiveTableWithRandomPrefixMetadata(tableName, true, 0);
+        try {
+            MetadataEntry metadataEntry = loadMetadataEntry(0, tableLocation);
+            assertThat(metadataEntry.getConfiguration())
+                    .containsEntry("delta.randomizeFilePrefixes", "true")
+                    .containsEntry("delta.randomPrefixLength", "0");
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 11)", 1);
+            assertBinaryDataFiles(tableLocation, getAddedFiles(1, tableLocation));
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11)");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testBinaryDataFilePathsForMergeDeleteAndOptimize()
+            throws Exception
+    {
+        String tableName = "test_binary_merge_optimize_" + randomNameSuffix();
+        Session singleWriterSession = Session.builder(getSession())
+                .setSystemProperty("task_min_writer_count", "1")
+                .build();
+        assertUpdate(singleWriterSession, "CREATE TABLE " + tableName + " WITH (object_store_layout_enabled = true) AS " +
+                "SELECT * FROM (VALUES (1, 'one'), (2, 'two')) t(id, name)", 2);
+        try {
+            Path tableLocation = Path.of(URI.create(getTableLocation(tableName)));
+            String originalPath = (String) computeScalar("SELECT DISTINCT \"$path\" FROM " + tableName);
+
+            assertUpdate(singleWriterSession, "MERGE INTO " + tableName + " target USING (VALUES 1) source(id) ON target.id = source.id " +
+                    "WHEN MATCHED THEN UPDATE SET name = 'updated'", 1);
+            List<AddFileEntry> mergeFiles = getAddedFiles(1, tableLocation);
+            assertBinaryDataFiles(tableLocation, mergeFiles);
+            assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 2"))
+                    .isNotEqualTo(originalPath);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'updated'), (2, 'two')");
+
+            assertUpdate(singleWriterSession, "INSERT INTO " + tableName + " VALUES (3, 'three'), (4, 'four')", 2);
+            assertUpdate(singleWriterSession, "DELETE FROM " + tableName + " WHERE id = 3", 1);
+            assertBinaryDataFiles(tableLocation, getAddedFiles(3, tableLocation));
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'updated'), (2, 'two'), (4, 'four')");
+
+            assertUpdate(singleWriterSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+            List<AddFileEntry> optimizeFiles = getAddedFiles(4, tableLocation);
+            assertBinaryDataFiles(tableLocation, optimizeFiles);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'updated'), (2, 'two'), (4, 'four')");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testBinaryChangeDataFeedPaths()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable(
+                "test_binary_cdf_",
+                "(id integer, part varchar) WITH (change_data_feed_enabled = true, partitioned_by = ARRAY['part'], object_store_layout_enabled = true)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'one')", 1);
+            assertUpdate("UPDATE " + table.getName() + " SET id = 2 WHERE id = 1", 1);
+
+            Path tableLocation = Path.of(URI.create(getTableLocation(table.getName())));
+            List<CdcEntry> cdcFiles = getEntriesFromJson(2, tableLocation.resolve("_delta_log").toString()).stream()
+                    .map(DeltaLakeTransactionLogEntry::getCDC)
+                    .filter(Objects::nonNull)
+                    .collect(toImmutableList());
+            assertThat(cdcFiles).isNotEmpty();
+            cdcFiles.forEach(file -> {
+                assertThat(file.getPath()).startsWith("_change_data/");
+                assertBinaryDataFilePath(file.getPath().substring("_change_data/".length()));
+                assertThat(file.getPath()).doesNotContain("part=");
+                assertThat(file.getPartitionValues()).containsEntry("part", "one");
+                assertThat(Files.isRegularFile(tableLocation.resolve(file.getPath()))).isTrue();
+            });
+            assertQuery(
+                    "SELECT id, part, _change_type, _commit_version FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + table.getName() + "', 1))",
+                    "VALUES (1, 'one', 'update_preimage', CAST(2 AS BIGINT)), " +
+                            "(2, 'one', 'update_postimage', CAST(2 AS BIGINT))");
         }
     }
 
@@ -1683,6 +1861,7 @@ public class TestDeltaLakeBasic
         assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
 
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, 10), (2, 20), (3, 30)", 3);
+        assertBinaryDataFiles(tableLocation, getAddedFiles(1, tableLocation));
         assertUpdate("DELETE FROM " + tableName + " WHERE a = 1", 1);
         assertQuery("SELECT * FROM " + tableName, "VALUES (2, 20), (3, 30)");
 
@@ -2990,6 +3169,51 @@ public class TestDeltaLakeBasic
                         }
                     });
         }
+    }
+
+    private static List<AddFileEntry> getAddedFiles(long version, Path tableLocation)
+            throws IOException
+    {
+        return getEntriesFromJson(version, tableLocation.resolve("_delta_log").toString()).stream()
+                .map(DeltaLakeTransactionLogEntry::getAdd)
+                .filter(Objects::nonNull)
+                .collect(toImmutableList());
+    }
+
+    private Path registerCaseSensitiveTableWithRandomPrefixMetadata(String tableName, boolean randomizeFilePrefixes, int randomPrefixLength)
+            throws Exception
+    {
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/case_sensitive").toURI()).toPath(), tableLocation);
+
+        Path transactionLog = tableLocation.resolve("_delta_log/00000000000000000000.json");
+        String originalTransactionLog = Files.readString(transactionLog);
+        String modifiedTransactionLog = originalTransactionLog.replace(
+                "\"configuration\":{}",
+                "\"configuration\":{\"delta.randomizeFilePrefixes\":\"%s\",\"delta.randomPrefixLength\":\"%s\"}"
+                        .formatted(randomizeFilePrefixes, randomPrefixLength));
+        assertThat(modifiedTransactionLog).isNotEqualTo(originalTransactionLog);
+        Files.writeString(transactionLog, modifiedTransactionLog);
+
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+        return tableLocation;
+    }
+
+    private static void assertBinaryDataFiles(Path tableLocation, List<AddFileEntry> files)
+    {
+        assertThat(files).isNotEmpty();
+        files.forEach(file -> {
+            assertBinaryDataFilePath(file.getPath());
+            assertThat(Files.isRegularFile(tableLocation.resolve(file.getPath()))).isTrue();
+        });
+    }
+
+    private static void assertBinaryDataFilePath(String path)
+    {
+        String fileName = path.substring(path.lastIndexOf('/') + 1);
+        assertThat(path)
+                .matches("[01]{4}/[01]{4}/[01]{4}/[01]{8}/[^/]+")
+                .isEqualTo(createDataFilePath(fileName));
     }
 
     private static MetadataEntry loadMetadataEntry(long entryNumber, Path tableLocation)

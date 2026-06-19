@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static io.trino.plugin.deltalake.util.DeltaLakeWriteUtils.createDataFilePath;
 import static io.trino.plugin.deltalake.util.DeltaLakeWriteUtils.createPartitionValues;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.writeBigDecimal;
@@ -32,6 +33,35 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeWriteUtils
 {
+    @Test
+    public void testCreateDataFilePath()
+    {
+        assertThat(createDataFilePath("filename.parquet"))
+                .isEqualTo("0011/0110/1111/00101100/filename.parquet");
+    }
+
+    @Test
+    public void testCreateDataFilePathPreservesLeadingZeroes()
+    {
+        String path = createDataFilePath("file-37.parquet");
+
+        assertThat(path)
+                .isEqualTo("0000/1000/1010/01111000/file-37.parquet")
+                .matches("[01]{4}/[01]{4}/[01]{4}/[01]{8}/file-37\\.parquet");
+        assertThat(createDataFilePath("file-37.parquet")).isEqualTo(path);
+    }
+
+    @Test
+    public void testCreateDataFilePathUsesConfiguredLayout()
+    {
+        assertThat(createDataFilePath("filename.parquet", true, List.of("Part"), List.of("value")))
+                .isEqualTo("0011/0110/1111/00101100/filename.parquet");
+        assertThat(createDataFilePath("filename.parquet", false, List.of(), List.of()))
+                .isEqualTo("filename.parquet");
+        assertThat(createDataFilePath("filename.parquet", false, List.of("Part"), List.of("value")))
+                .isEqualTo("Part=value/filename.parquet");
+    }
+
     @Test
     public void testCreatePartitionValuesDecimal()
     {

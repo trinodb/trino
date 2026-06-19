@@ -160,6 +160,7 @@ public abstract class BaseLakehouseConnectorSmokeTest
                 )
                 WITH (
                    location = \\E's3://test-bucket-.*/tpch/create_delta-.*'\\Q,
+                   object_store_layout_enabled = false,
                    type = 'DELTA'
                 )\\E""");
 
