@@ -798,11 +798,8 @@ class StatementAnalyzer
                 return false;
             }
 
-            // A value is assignable to a column whenever the two types are compatible. The planner emulates a
-            // "guarded cast" (see LogicalPlanner#noTruncationCast) that fails rather than silently truncating
-            // non-space characters, recursing through array, map and row to reach nested character types.
             for (int i = 0; i < tableTypes.size(); i++) {
-                if (!typeCoercion.isCompatible(queryTypes.get(i), tableTypes.get(i))) {
+                if (!typeCoercion.isStoreAssignable(queryTypes.get(i), tableTypes.get(i))) {
                     return false;
                 }
             }
