@@ -223,7 +223,8 @@ public class TestJsonRepresentation
                     Optional.empty(),
                     ImmutableMap.of(),
                     ImmutableMap.of(),
-                    new NoOpAnonymizer())
+                    new NoOpAnonymizer(),
+                    _ -> false)
                     .toJson();
             assertThat(jsonRenderedNode).isEqualTo(JSON_RENDERED_NODE_CODEC.toJson(expectedRepresentation));
             return null;

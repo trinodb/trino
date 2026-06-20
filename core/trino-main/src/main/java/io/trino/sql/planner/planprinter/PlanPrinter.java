@@ -57,8 +57,10 @@ import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.TableStatisticType;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.OrderingScheme;
@@ -148,6 +150,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
@@ -191,6 +194,9 @@ public class PlanPrinter
             mapJsonCodec(PlanFragmentId.class, JsonRenderedNode.class);
     private static final CatalogSchemaFunctionName COUNT_NAME = builtinFunctionName("count");
 
+    // Predicate that never reports an expression as failable; used when failability information is unavailable or not requested.
+    private static final Predicate<Expression> NEVER_FAILS = _ -> false;
+
     private final PlanRepresentation representation;
     private final Function<TableScanNode, TableInfo> tableInfoSupplier;
     private final Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats;
@@ -198,6 +204,7 @@ public class PlanPrinter
     private final Map<PlanNodeId, Metrics> splitSourceMetrics;
     private final ValuePrinter valuePrinter;
     private final Anonymizer anonymizer;
+    private final Predicate<Expression> mayFail;
 
     // NOTE: do NOT add Metadata or Session to this class.  The plan printer must be usable outside of a transaction.
     @VisibleForTesting
@@ -210,7 +217,8 @@ public class PlanPrinter
             Optional<Map<PlanNodeId, PlanNodeStats>> stats,
             Map<PlanNodeId, Long> getSplitsTotalTimeNanos,
             Map<PlanNodeId, Metrics> splitSourceMetrics,
-            Anonymizer anonymizer)
+            Anonymizer anonymizer,
+            Predicate<Expression> mayFail)
     {
         requireNonNull(planRoot, "planRoot is null");
         requireNonNull(tableInfoSupplier, "tableInfoSupplier is null");
@@ -221,6 +229,7 @@ public class PlanPrinter
         requireNonNull(estimatedStatsAndCosts, "estimatedStatsAndCosts is null");
         requireNonNull(stats, "stats is null");
         requireNonNull(anonymizer, "anonymizer is null");
+        requireNonNull(mayFail, "mayFail is null");
 
         this.tableInfoSupplier = tableInfoSupplier;
         this.dynamicFilterDomainStats = ImmutableMap.copyOf(dynamicFilterDomainStats);
@@ -228,6 +237,7 @@ public class PlanPrinter
         this.splitSourceMetrics = ImmutableMap.copyOf(splitSourceMetrics);
         this.valuePrinter = valuePrinter;
         this.anonymizer = anonymizer;
+        this.mayFail = mayFail;
 
         Optional<Duration> totalScheduledTime = stats.map(s -> new Duration(s.values().stream()
                 .mapToLong(planNode -> planNode.getPlanNodeScheduledTime().toMillis())
@@ -245,6 +255,16 @@ public class PlanPrinter
 
         Visitor visitor = new Visitor(estimatedStatsAndCosts, stats);
         planRoot.accept(visitor, new Context(Optional.empty(), false));
+    }
+
+    // Failability is only computed for verbose output and only when a PlannerContext is available (the metadata-dependent
+    // analysis must run where metadata is usable, not inside PlanPrinter, which is intentionally metadata-free).
+    private static Predicate<Expression> mayFailAnalyzer(PlannerContext plannerContext, boolean verbose)
+    {
+        if (!verbose) {
+            return NEVER_FAILS;
+        }
+        return expression -> IrExpressions.mayFail(plannerContext, expression);
     }
 
     private String toText(boolean verbose, int level)
@@ -276,7 +296,8 @@ public class PlanPrinter
                 Optional.empty(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
-                new NoOpAnonymizer())
+                new NoOpAnonymizer(),
+                NEVER_FAILS)
                 .toJson();
     }
 
@@ -298,7 +319,8 @@ public class PlanPrinter
                 Optional.empty(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
-                new NoOpAnonymizer())
+                new NoOpAnonymizer(),
+                NEVER_FAILS)
                 .toJson();
     }
 
@@ -357,7 +379,8 @@ public class PlanPrinter
                                 Optional.empty(),
                                 ImmutableMap.of(),
                                 ImmutableMap.of(),
-                                anonymizer)
+                                anonymizer,
+                                NEVER_FAILS)
                                 .toJsonRenderedNode()));
         return DISTRIBUTED_PLAN_CODEC.toJson(anonymizedPlan);
     }
@@ -397,7 +420,8 @@ public class PlanPrinter
                 Optional.empty(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
-                new NoOpAnonymizer())
+                new NoOpAnonymizer(),
+                NEVER_FAILS)
                 .toText(verbose, level));
         return builder.toString();
     }
@@ -434,8 +458,7 @@ public class PlanPrinter
     public static String textDistributedPlan(
             List<StageInfo> stages,
             QueryStats queryStats,
-            Metadata metadata,
-            FunctionManager functionManager,
+            PlannerContext plannerContext,
             Session session,
             boolean verbose,
             NodeVersion version)
@@ -443,13 +466,19 @@ public class PlanPrinter
         return textDistributedPlan(
                 stages,
                 queryStats,
-                new ValuePrinter(metadata, functionManager, session),
+                new ValuePrinter(plannerContext.getMetadata(), plannerContext.getFunctionManager(), session),
                 verbose,
                 new NoOpAnonymizer(),
+                mayFailAnalyzer(plannerContext, verbose),
                 version);
     }
 
     public static String textDistributedPlan(List<StageInfo> stages, QueryStats queryStats, ValuePrinter valuePrinter, boolean verbose, Anonymizer anonymizer, NodeVersion version)
+    {
+        return textDistributedPlan(stages, queryStats, valuePrinter, verbose, anonymizer, NEVER_FAILS, version);
+    }
+
+    private static String textDistributedPlan(List<StageInfo> stages, QueryStats queryStats, ValuePrinter valuePrinter, boolean verbose, Anonymizer anonymizer, Predicate<Expression> mayFail, NodeVersion version)
     {
         Map<PlanNodeId, TableInfo> tableInfos = stages.stream()
                 .map(StageInfo::tables)
@@ -485,16 +514,19 @@ public class PlanPrinter
                     Optional.of(stageInfo),
                     Optional.of(aggregatedStats),
                     verbose,
-                    anonymizer));
+                    anonymizer,
+                    mayFail));
         }
 
         return builder.toString();
     }
 
-    public static String textDistributedPlan(SubPlan plan, Metadata metadata, FunctionManager functionManager, Session session, boolean verbose, NodeVersion version)
+    public static String textDistributedPlan(SubPlan plan, PlannerContext plannerContext, Session session, boolean verbose, NodeVersion version)
     {
+        Metadata metadata = plannerContext.getMetadata();
         TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
-        ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
+        ValuePrinter valuePrinter = new ValuePrinter(metadata, plannerContext.getFunctionManager(), session);
+        Predicate<Expression> mayFail = mayFailAnalyzer(plannerContext, verbose);
         StringBuilder builder = new StringBuilder();
         builder.append(format("Trino version: %s\n", version));
         for (PlanFragment fragment : plan.getAllFragments()) {
@@ -506,7 +538,8 @@ public class PlanPrinter
                     Optional.empty(),
                     Optional.empty(),
                     verbose,
-                    new NoOpAnonymizer()));
+                    new NoOpAnonymizer(),
+                    mayFail));
         }
 
         return builder.toString();
@@ -520,7 +553,8 @@ public class PlanPrinter
             Optional<StageInfo> stageInfo,
             Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats,
             boolean verbose,
-            Anonymizer anonymizer)
+            Anonymizer anonymizer,
+            Predicate<Expression> mayFail)
     {
         StringBuilder builder = new StringBuilder();
         builder.append(format(
@@ -647,7 +681,8 @@ public class PlanPrinter
                                 planNodeStats,
                                 getSplitsTotalTimeNanos,
                                 splitSourceMetrics,
-                                anonymizer).toText(verbose, 1))
+                                anonymizer,
+                                mayFail).toText(verbose, 1))
                 .append("\n");
 
         return builder.toString();
@@ -2032,7 +2067,7 @@ public class PlanPrinter
                     // skip identity assignments
                     continue;
                 }
-                nodeOutput.appendDetails("%s := %s", anonymizer.anonymize(entry.getKey()), anonymizer.anonymize(entry.getValue()));
+                nodeOutput.appendDetails("%s := %s", anonymizer.anonymize(entry.getKey()), formatExpression(entry.getValue()));
             }
         }
 
@@ -2126,7 +2161,13 @@ public class PlanPrinter
 
         private String formatFilter(Expression filter)
         {
-            return filter.equals(TRUE) ? "" : anonymizer.anonymize(filter);
+            return filter.equals(TRUE) ? "" : formatExpression(filter);
+        }
+
+        private String formatExpression(Expression expression)
+        {
+            String formatted = anonymizer.anonymize(expression);
+            return mayFail.test(expression) ? "(faillible) " + formatted : formatted;
         }
 
         private String formatBoolean(boolean value)

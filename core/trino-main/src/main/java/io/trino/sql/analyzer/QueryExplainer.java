@@ -118,8 +118,7 @@ public class QueryExplainer
     {
         return PlanPrinter.textDistributedPlan(
                 getDistributedPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector),
-                plannerContext.getMetadata(),
-                plannerContext.getFunctionManager(),
+                plannerContext,
                 session,
                 false,
                 version);
