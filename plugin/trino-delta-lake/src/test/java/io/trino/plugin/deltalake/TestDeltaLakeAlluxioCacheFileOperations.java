@@ -56,6 +56,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .put("fs.cache.enabled", "true")
                         .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
                         .put("fs.cache.max-sizes", "100MB")
+                        .put("fs.hadoop.enabled", "true")
                         .put("delta.enable-non-concurrent-writes", "true")
                         .put("delta.register-table-procedure.enabled", "true")
                         .buildOrThrow())

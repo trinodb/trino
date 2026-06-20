@@ -92,6 +92,7 @@ public class TestDeltaLakeFileOperations
         closeAfterClass(() -> deleteRecursively(catalogDir, ALLOW_INSECURE));
 
         DistributedQueryRunner queryRunner = DeltaLakeQueryRunner.builder()
+                .addDeltaProperty("fs.hadoop.enabled", "true")
                 .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
                 .addDeltaProperty("hive.metastore.catalog.dir", catalogDir.toUri().toString())
                 .addDeltaProperty("delta.enable-non-concurrent-writes", "true")

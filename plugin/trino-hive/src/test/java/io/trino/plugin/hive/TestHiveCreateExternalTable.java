@@ -44,6 +44,7 @@ public class TestHiveCreateExternalTable
     {
         return HiveQueryRunner.builder()
                 .setHiveProperties(ImmutableMap.of("hive.non-managed-table-writes-enabled", "true"))
+                .addHiveProperty("fs.hadoop.enabled", "true")
                 .setInitialTables(ImmutableList.of(ORDERS, CUSTOMER))
                 .build();
     }

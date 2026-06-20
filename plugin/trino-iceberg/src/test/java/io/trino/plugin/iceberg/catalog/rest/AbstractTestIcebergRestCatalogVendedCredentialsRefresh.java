@@ -86,6 +86,7 @@ abstract class AbstractTestIcebergRestCatalogVendedCredentialsRefresh
         closeAfterClass(testServer::stop);
 
         IcebergQueryRunner.Builder builder = IcebergQueryRunner.builder()
+                .addIcebergProperty("fs.hadoop.enabled", "true")
                 .addIcebergProperty("iceberg.catalog.type", "rest")
                 .addIcebergProperty("iceberg.rest-catalog.uri", testServer.getBaseUrl().toString())
                 .addIcebergProperty("iceberg.rest-catalog.vended-credentials-enabled", "true")

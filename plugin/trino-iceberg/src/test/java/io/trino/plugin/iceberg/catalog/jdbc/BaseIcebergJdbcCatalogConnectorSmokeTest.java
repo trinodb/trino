@@ -118,6 +118,7 @@ public abstract class BaseIcebergJdbcCatalogConnectorSmokeTest
                                 .put("iceberg.jdbc-catalog.default-warehouse-dir", warehouseLocation.getAbsolutePath())
                                 .put("iceberg.jdbc-catalog.retryable-status-codes", "57P01,57P05")
                                 .buildOrThrow())
+                .addIcebergProperty("fs.hadoop.enabled", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
