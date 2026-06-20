@@ -233,6 +233,7 @@ public abstract class BaseIcebergConnectorTest
                         // Allows testing the sorting writer flushing to the file system with smaller tables
                         .put("iceberg.writer-sort-buffer-size", "1MB")
                         .buildOrThrow())
+                .addIcebergProperty("fs.hadoop.enabled", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES);
     }
 

@@ -41,6 +41,7 @@ public class TestDeltaLakeSystemTables
         return DeltaLakeQueryRunner.builder()
                 .addDeltaProperty("delta.register-table-procedure.enabled", "true")
                 .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                .addDeltaProperty("fs.hadoop.enabled", "true")
                 .build();
     }
 

@@ -64,6 +64,7 @@ public class TestHiveAlluxioCacheFileOperations
         return HiveQueryRunner.builder()
                 .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
                 .setHiveProperties(hiveProperties)
+                .addHiveProperty("fs.hadoop.enabled", "true")
                 .setWorkerCount(1)
                 .build();
     }
