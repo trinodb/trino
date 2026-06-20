@@ -3574,6 +3574,13 @@ public class TestArrayOperators
                 .hasType(new ArrayType(INTEGER))
                 .isEqualTo(asList(-1, 0, 1, null, null));
 
+        // sorting elements whose comparison fails on null nested fields/elements (array_sort is not infallible)
+        assertTrinoExceptionThrownBy(() -> assertions.expression("array_sort(ARRAY[ROW(1, NULL), ROW(1, 2)])").evaluate())
+                .hasErrorCode(NOT_SUPPORTED);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("array_sort(ARRAY[ARRAY[1, NULL], ARRAY[1, 2]])").evaluate())
+                .hasErrorCode(NOT_SUPPORTED);
+
         // invalid functions
         assertTrinoExceptionThrownBy(assertions.function("array_sort", "ARRAY[color('red'), color('blue')]")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND);

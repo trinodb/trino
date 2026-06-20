@@ -27,7 +27,11 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 
-@ScalarFunction(value = "array_sort", neverFails = true)
+// TODO https://github.com/trinodb/trino/issues/30009: derive fallibility from the element type.
+//  array_sort is infallible for the majority of element types; only types whose comparison can fail
+//  (e.g. ROW/ARRAY with nested NULL elements) make it fallible, but it is currently declared fallible
+//  for all element types.
+@ScalarFunction(value = "array_sort")
 @Description("Sorts the given array in ascending order according to the natural ordering of its elements.")
 public final class ArraySortFunction
 {
