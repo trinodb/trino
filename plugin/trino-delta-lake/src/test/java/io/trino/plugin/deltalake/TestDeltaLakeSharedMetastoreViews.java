@@ -15,9 +15,8 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.metastore.HiveMetastore;
-import io.trino.plugin.deltalake.metastore.TestingDeltaLakeMetastoreModule;
-import io.trino.plugin.hive.TestingHivePlugin;
+import io.trino.plugin.hive.FlociS3AndGlue;
+import io.trino.plugin.hive.HivePlugin;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -26,12 +25,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import java.io.IOException;
-import java.nio.file.Path;
-import java.util.Optional;
-
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -42,15 +37,14 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
  * Tests querying views on a schema which has a mix of Hive and Delta Lake tables.
  */
 @TestInstance(PER_CLASS)
-public abstract class BaseDeltaLakeSharedMetastoreViewsTest
+public class TestDeltaLakeSharedMetastoreViews
         extends AbstractTestQueryFramework
 {
-    protected static final String DELTA_CATALOG_NAME = "delta_lake";
+    protected static final String DELTA_CATALOG_NAME = DELTA_CATALOG;
     protected static final String HIVE_CATALOG_NAME = "hive";
     protected static final String SCHEMA = "test_shared_schema_views_" + randomNameSuffix();
 
-    private Path dataDirectory;
-    private HiveMetastore metastore;
+    private GlueHiveMetastore metastore;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -62,21 +56,31 @@ public abstract class BaseDeltaLakeSharedMetastoreViewsTest
                 .build();
         QueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
-        this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("shared_data");
-        this.metastore = createTestMetastore(dataDirectory);
+        FlociS3AndGlue floci = closeAfterClass(new FlociS3AndGlue());
+        String bucketName = "test-delta-lake-shared-glue-views-" + randomNameSuffix();
+        floci.createBucket(bucketName);
+        String schemaLocation = "s3://" + bucketName + "/shared_data";
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, () -> Optional.of(new TestingDeltaLakeMetastoreModule(metastore))));
-        queryRunner.createCatalog(DELTA_CATALOG_NAME, "delta_lake", ImmutableMap.of("fs.hadoop.enabled", "true"));
+        queryRunner.installPlugin(new DeltaLakePlugin());
+        queryRunner.createCatalog(DELTA_CATALOG_NAME, "delta_lake", ImmutableMap.<String, String>builder()
+                .put("hive.metastore", "glue")
+                .put("hive.metastore.glue.default-warehouse-dir", schemaLocation)
+                .put("fs.s3.enabled", "true")
+                .putAll(floci.s3AndGlueProperties())
+                .buildOrThrow());
+        metastore = getConnectorService(queryRunner, GlueHiveMetastore.class);
 
-        queryRunner.installPlugin(new TestingHivePlugin(dataDirectory, metastore));
-
-        queryRunner.createCatalog(HIVE_CATALOG_NAME, "hive", ImmutableMap.of("fs.hadoop.enabled", "true"));
-        queryRunner.execute("CREATE SCHEMA " + SCHEMA);
+        queryRunner.installPlugin(new HivePlugin());
+        queryRunner.createCatalog(HIVE_CATALOG_NAME, "hive", ImmutableMap.<String, String>builder()
+                .put("hive.metastore", "glue")
+                .put("hive.metastore.glue.default-warehouse-dir", schemaLocation)
+                .put("fs.s3.enabled", "true")
+                .putAll(floci.s3AndGlueProperties())
+                .buildOrThrow());
+        queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = '" + schemaLocation + "')");
 
         return queryRunner;
     }
-
-    protected abstract HiveMetastore createTestMetastore(Path dataDirectory);
 
     @Test
     public void testViewWithLiteralColumnCreatedInDeltaLakeIsReadableInHive()
@@ -176,14 +180,9 @@ public abstract class BaseDeltaLakeSharedMetastoreViewsTest
 
     @AfterAll
     public void cleanup()
-            throws IOException
     {
         if (metastore != null) {
             metastore.dropDatabase(SCHEMA, false);
-            if (metastore instanceof GlueHiveMetastore glueMetastore) {
-                glueMetastore.shutdown();
-            }
-            deleteRecursively(dataDirectory, ALLOW_INSECURE);
         }
     }
 }
