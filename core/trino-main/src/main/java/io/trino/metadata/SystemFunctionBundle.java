@@ -144,6 +144,7 @@ import io.trino.operator.scalar.GenericLessThanOperator;
 import io.trino.operator.scalar.GenericLessThanOrEqualOperator;
 import io.trino.operator.scalar.GenericReadValueOperator;
 import io.trino.operator.scalar.GenericXxHash64Operator;
+import io.trino.operator.scalar.Greatest;
 import io.trino.operator.scalar.HmacFunctions;
 import io.trino.operator.scalar.HyperLogLogFunctions;
 import io.trino.operator.scalar.IpAddressFunctions;
@@ -152,6 +153,7 @@ import io.trino.operator.scalar.JoniRegexpFunctions;
 import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
 import io.trino.operator.scalar.JsonFunctions;
 import io.trino.operator.scalar.JsonOperators;
+import io.trino.operator.scalar.Least;
 import io.trino.operator.scalar.LegacyCharToVarcharCast;
 import io.trino.operator.scalar.LuhnCheckFunction;
 import io.trino.operator.scalar.MapCardinalityFunction;
@@ -307,7 +309,6 @@ import static io.trino.operator.scalar.ConcatFunction.VARCHAR_CONCAT;
 import static io.trino.operator.scalar.ConcatWsFunction.CONCAT_WS;
 import static io.trino.operator.scalar.ElementToArrayConcatFunction.ELEMENT_TO_ARRAY_CONCAT_FUNCTION;
 import static io.trino.operator.scalar.FormatFunction.FORMAT_FUNCTION;
-import static io.trino.operator.scalar.Greatest.GREATEST;
 import static io.trino.operator.scalar.IdentityCast.IDENTITY_CAST;
 import static io.trino.operator.scalar.JsonStringArrayExtractScalar.JSON_STRING_ARRAY_EXTRACT_SCALAR;
 import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY;
@@ -316,7 +317,6 @@ import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW;
 import static io.trino.operator.scalar.JsonToArrayCast.JSON_TO_ARRAY;
 import static io.trino.operator.scalar.JsonToMapCast.JSON_TO_MAP;
 import static io.trino.operator.scalar.JsonToRowCast.JSON_TO_ROW;
-import static io.trino.operator.scalar.Least.LEAST;
 import static io.trino.operator.scalar.MapConstructor.MAP_CONSTRUCTOR;
 import static io.trino.operator.scalar.MapElementAtFunction.MAP_ELEMENT_AT;
 import static io.trino.operator.scalar.MapFilterFunction.MAP_FILTER_FUNCTION;
@@ -609,7 +609,7 @@ public final class SystemFunctionBundle
                 .aggregates(Histogram.class)
                 .aggregates(ChecksumAggregationFunction.class)
                 .aggregates(ArbitraryAggregationFunction.class)
-                .functions(GREATEST, LEAST)
+                .functions(new Greatest(typeOperators), new Least(typeOperators))
                 .aggregates(MinAggregationFunction.class)
                 .aggregates(MaxAggregationFunction.class)
                 .aggregates(MinByAggregationFunction.class)

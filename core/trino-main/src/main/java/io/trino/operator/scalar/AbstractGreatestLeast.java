@@ -31,6 +31,7 @@ import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.CallSiteBinder;
 
 import java.lang.invoke.MethodHandle;
@@ -74,7 +75,7 @@ public abstract class AbstractGreatestLeast
 {
     private final boolean min;
 
-    protected AbstractGreatestLeast(boolean min, String description)
+    protected AbstractGreatestLeast(TypeOperators typeOperators, boolean min, String description)
     {
         super(FunctionMetadata.scalarBuilder(min ? "least" : "greatest")
                 .signature(Signature.builder()
@@ -84,7 +85,10 @@ public abstract class AbstractGreatestLeast
                         .variableArity()
                         .build())
                 .nullable()
-                .neverFails()
+                .neverFails(boundSignature -> (min
+                        ? typeOperators.getComparisonUnorderedLastOperatorHandle(boundSignature.getArgumentType(0), simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL))
+                        : typeOperators.getComparisonUnorderedFirstOperatorHandle(boundSignature.getArgumentType(0), simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL)))
+                        .isNeverFails())
                 .argumentNullability(true)
                 .description(description)
                 .build());

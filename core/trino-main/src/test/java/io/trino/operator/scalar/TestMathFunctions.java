@@ -28,6 +28,7 @@ import java.math.BigDecimal;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -3243,6 +3244,29 @@ public class TestMathFunctions
         assertThat(assertions.function("greatest", "ARRAY[CAST(NaN() as REAL)]", "ARRAY[CAST(NaN() as REAL)]", "ARRAY[CAST(NaN() as REAL)]"))
                 .hasType(new ArrayType(REAL))
                 .isEqualTo(ImmutableList.of(Float.NaN));
+
+        // comparison of nested types with null elements fails (greatest is not infallible for these element types)
+        assertTrinoExceptionThrownBy(() -> assertions.expression("greatest(ROW(1, NULL), ROW(1, 2))").evaluate())
+                .hasErrorCode(NOT_SUPPORTED);
+        assertTrinoExceptionThrownBy(() -> assertions.expression("greatest(ARRAY[1, NULL], ARRAY[1, 2])").evaluate())
+                .hasErrorCode(NOT_SUPPORTED);
+
+        // Fallibility is derived from the argument type, not the runtime values. greatest over a type whose
+        // comparison can fail (e.g. ROW or ARRAY) is marked fallible even when the specific arguments don't fail.
+        assertThat(assertions.function("greatest", "ROW(1, 2)", "ROW(1, 3)"))
+                .couldFail();
+        assertThat(assertions.function("greatest", "ARRAY[1, 2]", "ARRAY[1, 3]"))
+                .couldFail();
+
+        // greatest over a type whose comparison is infallible is marked infallible.
+        assertThat(assertions.function("greatest", "1", "2"))
+                .neverFails();
+        assertThat(assertions.function("greatest", "DOUBLE '1.5'", "DOUBLE '2.5'"))
+                .neverFails();
+        assertThat(assertions.function("greatest", "REAL '1.5'", "REAL '2.5'"))
+                .neverFails();
+        assertThat(assertions.function("greatest", "VARCHAR 'a'", "VARCHAR 'b'"))
+                .neverFails();
     }
 
     @Test
@@ -3571,6 +3595,29 @@ public class TestMathFunctions
         assertThat(assertions.function("least", "ARRAY[CAST(NaN() as REAL)]", "ARRAY[CAST(NaN() as REAL)]", "ARRAY[CAST(NaN() as REAL)]"))
                 .hasType(new ArrayType(REAL))
                 .isEqualTo(ImmutableList.of(Float.NaN));
+
+        // comparison of nested types with null elements fails (least is not infallible for these element types)
+        assertTrinoExceptionThrownBy(() -> assertions.expression("least(ROW(1, NULL), ROW(1, 2))").evaluate())
+                .hasErrorCode(NOT_SUPPORTED);
+        assertTrinoExceptionThrownBy(() -> assertions.expression("least(ARRAY[1, NULL], ARRAY[1, 2])").evaluate())
+                .hasErrorCode(NOT_SUPPORTED);
+
+        // Fallibility is derived from the argument type, not the runtime values. least over a type whose
+        // comparison can fail (e.g. ROW or ARRAY) is marked fallible even when the specific arguments don't fail.
+        assertThat(assertions.function("least", "ROW(1, 2)", "ROW(1, 3)"))
+                .couldFail();
+        assertThat(assertions.function("least", "ARRAY[1, 2]", "ARRAY[1, 3]"))
+                .couldFail();
+
+        // least over a type whose comparison is infallible is marked infallible.
+        assertThat(assertions.function("least", "1", "2"))
+                .neverFails();
+        assertThat(assertions.function("least", "DOUBLE '1.5'", "DOUBLE '2.5'"))
+                .neverFails();
+        assertThat(assertions.function("least", "REAL '1.5'", "REAL '2.5'"))
+                .neverFails();
+        assertThat(assertions.function("least", "VARCHAR 'a'", "VARCHAR 'b'"))
+                .neverFails();
     }
 
     @Test

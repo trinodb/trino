@@ -13,13 +13,13 @@
  */
 package io.trino.operator.scalar;
 
+import io.trino.spi.type.TypeOperators;
+
 public final class Greatest
         extends AbstractGreatestLeast
 {
-    public static final Greatest GREATEST = new Greatest();
-
-    public Greatest()
+    public Greatest(TypeOperators typeOperators)
     {
-        super(false, "Get the largest of the given values");
+        super(typeOperators, false, "Get the largest of the given values");
     }
 }

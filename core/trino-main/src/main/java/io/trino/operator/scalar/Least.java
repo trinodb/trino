@@ -13,13 +13,13 @@
  */
 package io.trino.operator.scalar;
 
+import io.trino.spi.type.TypeOperators;
+
 public final class Least
         extends AbstractGreatestLeast
 {
-    public static final Least LEAST = new Least();
-
-    public Least()
+    public Least(TypeOperators typeOperators)
     {
-        super(true, "Get the smallest of the given values");
+        super(typeOperators, true, "Get the smallest of the given values");
     }
 }
