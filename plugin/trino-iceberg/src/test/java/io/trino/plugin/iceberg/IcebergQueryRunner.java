@@ -181,11 +181,6 @@ public final class IcebergQueryRunner
                     queryRunner.createCatalog("tpcds", "tpcds");
                 }
 
-                if (icebergProperties.buildOrThrow().keySet().stream().noneMatch(key ->
-                        key.matches("fs\\.(azure|gcs|s3|local|hadoop)\\.enabled"))) {
-                    icebergProperties.put("fs.hadoop.enabled", "true");
-                }
-
                 Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
                 queryRunner.installPlugin(new TestingIcebergPlugin(dataDir));
                 queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties.buildOrThrow());
@@ -203,6 +198,7 @@ public final class IcebergQueryRunner
     private static Builder icebergQueryRunnerMainBuilder()
     {
         return IcebergQueryRunner.builder()
+                .addIcebergProperty("fs.hadoop.enabled", "true")
                 .addCoordinatorProperty("http-server.http.port", "8080")
                 .setTpcdsCatalogEnabled(true);
     }
@@ -502,6 +498,7 @@ public final class IcebergQueryRunner
 
             @SuppressWarnings("resource")
             QueryRunner queryRunner = IcebergQueryRunner.builder()
+                    .addIcebergProperty("fs.hadoop.enabled", "true")
                     .addCoordinatorProperty("http-server.http.port", "8080")
                     .setBaseDataDir(Optional.of(warehouseLocation))
                     .addIcebergProperty("iceberg.security", "read_only")
@@ -793,6 +790,7 @@ public final class IcebergQueryRunner
                             .put("iceberg.nessie-catalog.uri", nessieContainer.getRestApiUri())
                             .put("iceberg.nessie-catalog.default-warehouse-dir", tempDir.toString())
                             .buildOrThrow())
+                    .addIcebergProperty("fs.hadoop.enabled", "true")
                     .setInitialTables(TpchTable.getTables())
                     .build();
 

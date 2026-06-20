@@ -234,6 +234,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
                         .putAll(deltaStorageConfiguration())
                         .buildOrThrow())
+                .addDeltaProperty("fs.hadoop.enabled", "true")
                 .setSchemaLocation(getLocationForTable(bucketName, SCHEMA))
                 .build();
     }
