@@ -18,26 +18,25 @@ import io.trino.filesystem.s3.S3FileSystemConfig;
 import io.trino.filesystem.s3.S3FileSystemFactory;
 import io.trino.filesystem.s3.S3FileSystemStats;
 import io.trino.spi.spool.SpoolingManager;
+import io.trino.testing.containers.FlociContainer;
 import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.localstack.LocalStackContainer;
-import org.testcontainers.utility.DockerImageName;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 
 import static io.opentelemetry.api.OpenTelemetry.noop;
+import static io.trino.testing.containers.FlociContainer.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.FlociContainer.FLOCI_REGION;
+import static io.trino.testing.containers.FlociContainer.FLOCI_SECRET_KEY;
 
 @Testcontainers
-public class TestFileSystemSpoolingManagerLocalStack
+public class TestFileSystemSpoolingManagerFloci
         extends AbstractFileSystemSpoolingManagerTest
 {
     private static final String BUCKET_NAME = "test-bucket";
 
     @Container
-    private static final LocalStackContainer LOCALSTACK = new LocalStackContainer(DockerImageName.parse("localstack/localstack:4.14.0"));
+    private static final FlociContainer FLOCI = new FlociContainer();
 
     @BeforeAll
     public void setup()
@@ -53,23 +52,19 @@ public class TestFileSystemSpoolingManagerLocalStack
         FileSystemSpoolingConfig spoolingConfig = new FileSystemSpoolingConfig();
         spoolingConfig.setS3Enabled(true);
         spoolingConfig.setLocation("s3://%s/".formatted(BUCKET_NAME));
-        spoolingConfig.setEncryptionEnabled(true); // Localstack supports SSE-C so we can test it
+        spoolingConfig.setEncryptionEnabled(true);
         S3FileSystemConfig filesystemConfig = new S3FileSystemConfig()
-                .setEndpoint(LOCALSTACK.getEndpoint().toString())
-                .setRegion(LOCALSTACK.getRegion())
-                .setAwsAccessKey(LOCALSTACK.getAccessKey())
-                .setAwsSecretKey(LOCALSTACK.getSecretKey())
+                .setEndpoint(FLOCI.endpoint().toString())
+                .setRegion(FLOCI_REGION)
+                .setAwsAccessKey(FLOCI_ACCESS_KEY)
+                .setAwsSecretKey(FLOCI_SECRET_KEY)
+                .setPathStyleAccess(true)
                 .setStreamingPartSize(DataSize.valueOf("5.5MB"));
         return new FileSystemSpoolingManager(spoolingConfig, new S3FileSystemFactory(noop(), filesystemConfig, new S3FileSystemStats()), new SimpleFileSystemLayout(), new TestingNode("nodeId"));
     }
 
     protected S3Client createS3Client()
     {
-        return S3Client.builder()
-                .endpointOverride(LOCALSTACK.getEndpoint())
-                .region(Region.of(LOCALSTACK.getRegion()))
-                .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(LOCALSTACK.getAccessKey(), LOCALSTACK.getSecretKey())))
-                .build();
+        return FLOCI.createS3Client();
     }
 }
