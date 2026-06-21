@@ -49,6 +49,49 @@ specify the certificate's fingerprint in the JDBC URL using parameter
 ``fingerprint``, e.g.: ``jdbc:exa:exasol.example.com:8563;fingerprint=ABC123``.
 :::
 
+### Parallel connections
+
+To speed up importing data from an Exasol cluster with multiple nodes,
+you can enable parallel connections by specifying property
+``exasol.parallel-connections.worker-count`` with value 2 or higher.
+This will enable a custom page source that uses Exasol's
+[parallel connections](https://exasol.my.site.com/s/article/Parallel-connections-with-JDBC)
+to read query results in parallel. The actual number of parallel connections
+depends on the number of nodes in the Exasol cluster.
+Parallel connections are deactivated by default.
+
+Property value 0 will deactivate parallel connection explicitly. A value
+of 1 will use the custom page source with a single connection. This is only
+useful for testing.
+
+You can override the setting for an Exasol catalog using session property
+``parallel_connections_worker_count`` by running the following SQL statement:
+
+```sql
+set session catalog.parallel_connections_worker_count = 4;
+```
+
+:::{important}
+There is a known issue with the Exasol JDBC driver when loading small
+result sets using parallel connections. This operation may block forever
+when the query result only contains few rows (around 25 rows per connection),
+i.e. when at least one subconnection returns an empty result set.
+
+When this happens you need to restart the Trino cluster.
+
+We recommend using parallel connections only with large result sets
+containing more than 25 rows per connection.
+:::
+
+:::{note}
+* Even with parallel connections, Trino will read the query result only
+  on a single Trino node, but in multiple threads.
+* The actual number of parallel connections depends on the Exasol cluster.
+  The database may decide to use fewer connections than specified.
+* Parallel connections cause overhead for each query. They only make sense
+  if the query reads a large amount of data.
+:::
+
 ```{include} jdbc-authentication.fragment
 ```
 
