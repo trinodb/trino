@@ -57,10 +57,9 @@ public class TestLakehouseFlociConnectorSmokeTest
     public void testRenameSchema()
     {
         String schemaName = getSession().getSchema().orElseThrow();
-        // Glue does not support renaming databases.
         assertQueryFails(
                 "ALTER SCHEMA %s RENAME TO %s".formatted(schemaName, schemaName + "_" + randomNameSuffix()),
-                ".*Database cannot be renamed.*");
+                ".*Database rename is not supported by the Glue service.*");
     }
 
     @Test
