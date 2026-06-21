@@ -56,6 +56,7 @@ import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
@@ -108,7 +109,7 @@ public class TestDeltaLakeProjectionPushdownPlans
                 .put("fs.hadoop.enabled", "true")
                 .buildOrThrow());
 
-        HiveMetastore metastore = TestingDeltaLakeUtils.getConnectorService(planTester, HiveMetastoreFactory.class)
+        HiveMetastore metastore = getConnectorService(planTester, HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
         Database database = Database.builder()
                 .setDatabaseName(SCHEMA)
