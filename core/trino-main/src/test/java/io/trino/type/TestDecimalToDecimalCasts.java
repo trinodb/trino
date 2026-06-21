@@ -156,6 +156,31 @@ public class TestDecimalToDecimalCasts
     }
 
     @Test
+    public void testDecimalToDecimalNeverFailsBoundaries()
+    {
+        assertThat(assertions.expression("cast(a as DECIMAL(4, 1))").binding("a", "DECIMAL '12.3'"))
+                .neverFails()
+                .isEqualTo(decimal("12.3", createDecimalType(4, 1)));
+        assertThat(assertions.expression("cast(a as DECIMAL(2, 1))").binding("a", "CAST(DECIMAL '1.2' AS DECIMAL(3, 1))"))
+                .couldFail()
+                .isEqualTo(decimal("1.2", createDecimalType(2, 1)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(5, 3))").binding("a", "DECIMAL '12.3'"))
+                .neverFails()
+                .isEqualTo(decimal("12.300", createDecimalType(5, 3)));
+        assertThat(assertions.expression("cast(a as DECIMAL(3, 2))").binding("a", "CAST(DECIMAL '1.2' AS DECIMAL(3, 1))"))
+                .couldFail()
+                .isEqualTo(decimal("1.20", createDecimalType(3, 2)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(3, 0))").binding("a", "DECIMAL '12.3'"))
+                .neverFails()
+                .isEqualTo(decimal("012", createDecimalType(3, 0)));
+        assertThat(assertions.expression("cast(a as DECIMAL(2, 0))").binding("a", "DECIMAL '12.3'"))
+                .couldFail()
+                .isEqualTo(decimal("12", createDecimalType(2, 0)));
+    }
+
+    @Test
     public void testLongDecimalToLongDecimalCasts()
     {
         assertThat(assertions.expression("cast(a as DECIMAL(21, 20))")

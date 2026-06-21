@@ -26,7 +26,7 @@ import io.trino.spi.function.SchemaFunctionName;
 import java.util.Collection;
 import java.util.List;
 
-import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeDescriptor.mapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -73,7 +73,7 @@ public class AiMetadata
     public FunctionDependencyDeclaration getFunctionDependencies(ConnectorSession session, FunctionId functionId, BoundSignature boundSignature)
     {
         return FunctionDependencyDeclaration.builder()
-                .addType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()))
+                .addType(mapType(VARCHAR.getTypeDescriptor(), VARCHAR.getTypeDescriptor()))
                 .build();
     }
 }

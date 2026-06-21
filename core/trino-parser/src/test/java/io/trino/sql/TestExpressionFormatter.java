@@ -14,15 +14,21 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.parser.SqlParser;
+import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.NodeLocation;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SimpleIntervalQualifier;
+import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
 import org.junit.jupiter.api.Test;
 
@@ -207,6 +213,58 @@ public class TestExpressionFormatter
         assertFormattedExpression(
                 new Row(ImmutableList.of(createRowField(null, new Row(ImmutableList.of(createRowField(null, createRow("a", null, "b"))))))),
                 "ROW(ROW(ROW('v0' AS a, 'v1', 'v2' AS b)))");
+    }
+
+    @Test
+    public void testMethodCall()
+    {
+        NodeLocation location = new NodeLocation(1, 1);
+
+        // static method, positional and named, round-trip through format and re-parse
+        assertFormattedExpression(
+                new StaticMethodCall(
+                        location,
+                        QualifiedName.of("bigint"),
+                        new Identifier("parse"),
+                        ImmutableList.of(new CallArgument(location, Optional.empty(), new StringLiteral("42")))),
+                "bigint::parse('42')");
+        assertFormattedExpression(
+                new StaticMethodCall(
+                        location,
+                        QualifiedName.of("bigint"),
+                        new Identifier("parse"),
+                        ImmutableList.of(new CallArgument(location, Optional.of(new Identifier("value")), new StringLiteral("42")))),
+                "bigint::parse(value => '42')");
+
+        // instance method, named and mixed positional-then-named
+        assertFormattedExpression(
+                new MethodCall(
+                        location,
+                        new Identifier("x"),
+                        new Identifier("repeat"),
+                        ImmutableList.of(new CallArgument(location, Optional.of(new Identifier("count")), new LongLiteral(location, "3")))),
+                "(x).repeat(count => 3)");
+        assertFormattedExpression(
+                new MethodCall(
+                        location,
+                        new Identifier("x"),
+                        new Identifier("pad"),
+                        ImmutableList.of(
+                                new CallArgument(location, Optional.empty(), new LongLiteral(location, "5")),
+                                new CallArgument(location, Optional.of(new Identifier("pad")), new StringLiteral("-")))),
+                "(x).pad(5, pad => '-')");
+    }
+
+    @Test
+    public void testExtendedCase()
+    {
+        // SQL:2023 F262: a simple-CASE WHEN clause may carry a predicate fragment. Formatting one
+        // must render the fragment — visitWhenClause previously threw on WhenClause.getOperand().
+        Expression extendedCase = new SqlParser().createExpression(
+                "CASE x WHEN > 100 THEN 'big' WHEN BETWEEN 1 AND 10 THEN 'small' WHEN IS NULL THEN 'unknown' ELSE 'other' END");
+        assertThat(expression(ExpressionFormatter.formatExpression(extendedCase)))
+                .ignoringLocation()
+                .isEqualTo(extendedCase);
     }
 
     private static Row createRow(String... fieldNames)

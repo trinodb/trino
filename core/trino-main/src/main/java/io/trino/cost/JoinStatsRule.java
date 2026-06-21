@@ -17,7 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import io.trino.Session;
 import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
-import io.trino.sql.ir.Comparison;
+import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.JoinNode;
@@ -36,7 +36,8 @@ import static io.trino.SystemSessionProperties.getJoinMultiClauseIndependenceFac
 import static io.trino.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static io.trino.cost.PlanNodeStatsEstimateMath.estimateCorrelatedConjunctionRowCount;
 import static io.trino.cost.SymbolStatsEstimate.buildFrom;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.plan.Patterns.join;
 import static io.trino.util.MoreMath.firstNonNaN;
@@ -54,19 +55,21 @@ public class JoinStatsRule
 
     private final FilterStatsCalculator filterStatsCalculator;
     private final StatsNormalizer normalizer;
+    private final Metadata metadata;
     private final double unmatchedJoinComplementNdvsCoefficient;
 
-    public JoinStatsRule(FilterStatsCalculator filterStatsCalculator, StatsNormalizer normalizer)
+    public JoinStatsRule(FilterStatsCalculator filterStatsCalculator, StatsNormalizer normalizer, Metadata metadata)
     {
-        this(filterStatsCalculator, normalizer, DEFAULT_UNMATCHED_JOIN_COMPLEMENT_NDVS_COEFFICIENT);
+        this(filterStatsCalculator, normalizer, metadata, DEFAULT_UNMATCHED_JOIN_COMPLEMENT_NDVS_COEFFICIENT);
     }
 
     @VisibleForTesting
-    JoinStatsRule(FilterStatsCalculator filterStatsCalculator, StatsNormalizer normalizer, double unmatchedJoinComplementNdvsCoefficient)
+    JoinStatsRule(FilterStatsCalculator filterStatsCalculator, StatsNormalizer normalizer, Metadata metadata, double unmatchedJoinComplementNdvsCoefficient)
     {
         super(normalizer);
         this.filterStatsCalculator = requireNonNull(filterStatsCalculator, "filterStatsCalculator is null");
         this.normalizer = normalizer;
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.unmatchedJoinComplementNdvsCoefficient = unmatchedJoinComplementNdvsCoefficient;
     }
 
@@ -178,7 +181,7 @@ public class JoinStatsRule
         // clause separately because stats estimates would be way off.
         List<PlanNodeStatsEstimateWithClause> knownEstimates = clauses.stream()
                 .map(clause -> {
-                    Comparison predicate = new Comparison(EQUAL, clause.getLeft().toSymbolReference(), clause.getRight().toSymbolReference());
+                    Expression predicate = comparison(metadata, EQUAL, clause.getLeft().toSymbolReference(), clause.getRight().toSymbolReference());
                     return new PlanNodeStatsEstimateWithClause(filterStatsCalculator.filterStats(stats, predicate, session), clause);
                 })
                 .collect(toImmutableList());

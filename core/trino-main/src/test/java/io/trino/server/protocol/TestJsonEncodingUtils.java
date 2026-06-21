@@ -39,8 +39,8 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.variant.Variant;
 import org.junit.jupiter.api.Test;
 
@@ -924,7 +924,7 @@ public class TestJsonEncodingUtils
     {
         private CustomType()
         {
-            super(new TypeSignature("custom"));
+            super(new TypeDescriptor("custom"));
         }
 
         @Override

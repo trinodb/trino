@@ -21,18 +21,22 @@ import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.In;
+import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.util.DisjointSet;
 import jakarta.annotation.Nullable;
 
@@ -57,14 +61,12 @@ import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.IrExpressions.comparison;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.not;
-import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static java.lang.Double.NaN;
-import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Double.min;
 import static java.lang.String.format;
@@ -99,7 +101,7 @@ public class FilterStatsCalculator
     private Expression simplifyExpression(Session session, Expression predicate)
     {
         // TODO reuse io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite
-        Expression value = plannerContext.getExpressionOptimizer().process(predicate, session, ImmutableMap.of()).orElse(predicate);
+        Expression value = plannerContext.getExpressionOptimizer().process(predicate, session, new SymbolAllocator(), ImmutableMap.of()).orElse(predicate);
 
         if (value instanceof Constant constant && constant.value() == null) {
             // Expression evaluates to SQL null, which in Filter is equivalent to false. This assumes the expression is a top-level expression (eg. not in NOT).
@@ -269,39 +271,30 @@ public class FilterStatsCalculator
         }
 
         @Override
-        protected PlanNodeStatsEstimate visitBetween(Between node, Void context)
+        protected PlanNodeStatsEstimate visitLet(Let node, Void context)
         {
-            SymbolStatsEstimate valueStats = getExpressionStats(node.value());
-            if (valueStats.isUnknown()) {
-                return PlanNodeStatsEstimate.unknown();
-            }
-            if (!getExpressionStats(node.min()).isSingleValue()) {
-                return PlanNodeStatsEstimate.unknown();
-            }
-            if (!getExpressionStats(node.max()).isSingleValue()) {
-                return PlanNodeStatsEstimate.unknown();
-            }
-
-            Expression lowerBound = new Comparison(GREATER_THAN_OR_EQUAL, node.value(), node.min());
-            Expression upperBound = new Comparison(LESS_THAN_OR_EQUAL, node.value(), node.max());
-
-            Expression transformed;
-            if (isInfinite(valueStats.getLowValue())) {
-                // We want to do heuristic cut (infinite range to finite range) ASAP and then do filtering on finite range.
-                // We rely on 'and()' being processed left to right
-                transformed = and(lowerBound, upperBound);
-            }
-            else {
-                transformed = and(upperBound, lowerBound);
-            }
-            return process(transformed);
+            // Inline the bound reference back into the body and re-estimate. Stats estimation has no
+            // side effects, so the runtime "evaluate value once" guarantee of `Let` doesn't need to be
+            // preserved here — what matters is that the dissolved expression has the same symbol-level
+            // statistics as the bound form.
+            Expression inlined = ExpressionTreeRewriter.rewriteWith(
+                    new ExpressionRewriter<>()
+                    {
+                        @Override
+                        public Expression rewriteReference(Reference reference, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                        {
+                            return reference.name().equals(node.name().name()) ? node.value() : reference;
+                        }
+                    },
+                    node.body());
+            return process(inlined);
         }
 
         @Override
         protected PlanNodeStatsEstimate visitIn(In node, Void context)
         {
             List<PlanNodeStatsEstimate> equalityEstimates = node.valueList().stream()
-                    .map(inValue -> process(new Comparison(EQUAL, node.value(), inValue)))
+                    .map(inValue -> process(comparison(plannerContext.getMetadata(), EQUAL, node.value(), inValue)))
                     .collect(toImmutableList());
 
             if (equalityEstimates.stream().anyMatch(PlanNodeStatsEstimate::isOutputRowCountUnknown)) {
@@ -336,23 +329,18 @@ public class FilterStatsCalculator
         }
 
         @SuppressWarnings("ArgumentSelectionDefectChecker")
-        @Override
-        protected PlanNodeStatsEstimate visitComparison(Comparison node, Void context)
+        private PlanNodeStatsEstimate estimateComparison(ComparisonOperator operator, Expression left, Expression right)
         {
-            Comparison.Operator operator = node.operator();
-            Expression left = node.left();
-            Expression right = node.right();
-
             checkArgument(!(left instanceof Constant && right instanceof Constant), "Literal-to-literal not supported here, should be eliminated earlier");
 
             if (!(left instanceof Reference) && right instanceof Reference) {
                 // normalize so that symbol is on the left
-                return process(new Comparison(operator.flip(), right, left));
+                return estimateComparison(operator.flip(), right, left);
             }
 
             if (left instanceof Constant) {
                 // normalize so that literal is on the right
-                return process(new Comparison(operator.flip(), right, left));
+                return estimateComparison(operator.flip(), right, left);
             }
 
             if (left instanceof Reference && left.equals(right)) {
@@ -385,6 +373,10 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitCall(Call node, Void context)
         {
+            if (matchComparison(node) instanceof Comparison comparison) {
+                return estimateComparison(comparison.operator(), comparison.left(), comparison.right());
+            }
+
             if (isDynamicFilter(node)) {
                 return process(Booleans.TRUE, context);
             }

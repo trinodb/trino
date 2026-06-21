@@ -35,7 +35,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -74,10 +74,12 @@ import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.spi.type.TypeSignature.functionType;
+import static io.trino.spi.type.TypeDescriptor.arrayType;
+import static io.trino.spi.type.TypeDescriptor.functionType;
+import static io.trino.spi.type.TypeTemplates.fromTypeDescriptor;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.util.Reflection.methodHandle;
@@ -283,9 +285,9 @@ public class BenchmarkArrayFilter
             super(FunctionMetadata.scalarBuilder("exact_filter")
                     .signature(Signature.builder()
                             .typeVariable("T")
-                            .returnType(arrayType(new TypeSignature("T")))
-                            .argumentType(arrayType(new TypeSignature("T")))
-                            .argumentType(functionType(new TypeSignature("T"), BOOLEAN.getTypeSignature()))
+                            .returnType(TypeTemplates.arrayType(typeVariable("T")))
+                            .argumentType(TypeTemplates.arrayType(typeVariable("T")))
+                            .argumentType(TypeTemplates.functionType(typeVariable("T"), fromTypeDescriptor(BOOLEAN.getTypeDescriptor())))
                             .build())
                     .nondeterministic()
                     .description("return array containing elements that match the given predicate")
@@ -338,9 +340,9 @@ public class BenchmarkArrayFilter
             super(FunctionMetadata.scalarBuilder("exact_filter")
                     .signature(Signature.builder()
                             .typeVariable("T")
-                            .returnType(arrayType(new TypeSignature("T")))
-                            .argumentType(arrayType(new TypeSignature("T")))
-                            .argumentType(functionType(new TypeSignature("T"), BOOLEAN.getTypeSignature()))
+                            .returnType(TypeTemplates.arrayType(typeVariable("T")))
+                            .argumentType(TypeTemplates.arrayType(typeVariable("T")))
+                            .argumentType(TypeTemplates.functionType(typeVariable("T"), fromTypeDescriptor(BOOLEAN.getTypeDescriptor())))
                             .build())
                     .nondeterministic()
                     .description("return array containing elements that match the given predicate")

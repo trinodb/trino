@@ -26,9 +26,9 @@ import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.type.AbstractType;
 import io.trino.spi.type.FixedWidthType;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperatorDeclaration;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
@@ -52,7 +52,7 @@ public final class UnknownType
         // We never access the native container for UNKNOWN because its null check is always true.
         // The actual native container type does not matter here.
         // We choose boolean to represent UNKNOWN because it's the smallest primitive type.
-        super(new TypeSignature(NAME), boolean.class, ByteArrayBlock.class);
+        super(new TypeDescriptor(NAME), boolean.class, ByteArrayBlock.class);
     }
 
     @Override
@@ -139,7 +139,7 @@ public final class UnknownType
         return 0;
     }
 
-    @ScalarOperator(READ_VALUE)
+    @ScalarOperator(value = READ_VALUE, neverFails = true)
     private static boolean readFlat(
             @FlatFixed byte[] unusedFixedSizeSlice,
             @FlatFixedOffset int unusedFixedSizeOffset,
@@ -149,7 +149,7 @@ public final class UnknownType
         throw new AssertionError("value of unknown type should all be NULL");
     }
 
-    @ScalarOperator(READ_VALUE)
+    @ScalarOperator(value = READ_VALUE, neverFails = true)
     private static void writeFlat(
             boolean unusedValue,
             byte[] unusedFixedSizeSlice,
@@ -160,19 +160,19 @@ public final class UnknownType
         throw new AssertionError("value of unknown type should all be NULL");
     }
 
-    @ScalarOperator(EQUAL)
+    @ScalarOperator(value = EQUAL, neverFails = true)
     private static boolean equalOperator(boolean unusedLeft, boolean unusedRight)
     {
         throw new AssertionError("value of unknown type should all be NULL");
     }
 
-    @ScalarOperator(XX_HASH_64)
+    @ScalarOperator(value = XX_HASH_64, neverFails = true)
     private static long xxHash64Operator(boolean unusedValue)
     {
         throw new AssertionError("value of unknown type should all be NULL");
     }
 
-    @ScalarOperator(COMPARISON_UNORDERED_LAST)
+    @ScalarOperator(value = COMPARISON_UNORDERED_LAST, neverFails = true)
     private static long comparisonOperator(boolean unusedLeft, boolean unusedRight)
     {
         throw new AssertionError("value of unknown type should all be NULL");

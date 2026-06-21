@@ -180,18 +180,18 @@ public class TestShowQueries
         assertThat(assertions.query("SHOW FUNCTIONS FROM mock.system LIKE 'simple$_table$_function' ESCAPE '$'"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, '')");
+                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, 'simple description')");
 
         assertThat(assertions.query("SHOW FUNCTIONS FROM testing_catalog.system LIKE 'simple$_table$_function' ESCAPE '$'"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, '')");
+                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, 'simple description')");
 
         assertThat(assertions.query("SHOW FUNCTIONS LIKE 'simple$_table$_function' ESCAPE '$'"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, '')," +
-                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, '')");
+                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, 'simple description')," +
+                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, 'simple description')");
     }
 
     @Test

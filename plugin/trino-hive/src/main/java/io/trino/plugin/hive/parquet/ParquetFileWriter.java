@@ -20,6 +20,7 @@ import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.FileWriter;
+import io.trino.plugin.hive.RollbackAction;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -58,7 +59,7 @@ public final class ParquetFileWriter
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     private final ParquetWriter parquetWriter;
-    private final Closeable rollbackAction;
+    private final RollbackAction rollbackAction;
     private final int[] fileInputColumnIndexes;
     private final List<Block> nullBlocks;
     private final Optional<Supplier<ParquetDataSource>> validationInputFactory;
@@ -67,7 +68,7 @@ public final class ParquetFileWriter
 
     public ParquetFileWriter(
             TrinoOutputFile outputFile,
-            Closeable rollbackAction,
+            RollbackAction rollbackAction,
             List<Type> fileColumnTypes,
             List<String> fileColumnNames,
             MessageType messageType,
@@ -100,7 +101,7 @@ public final class ParquetFileWriter
                             : Optional.empty());
         }
         catch (Exception e) {
-            closeAllSuppress(e, outputStream, rollbackAction);
+            closeAllSuppress(e, outputStream, rollbackAction::run);
             throw e;
         }
 
@@ -149,7 +150,7 @@ public final class ParquetFileWriter
     }
 
     @Override
-    public Closeable commit()
+    public RollbackAction commit()
     {
         try {
             parquetWriter.close();
@@ -157,7 +158,7 @@ public final class ParquetFileWriter
         catch (IOException | UncheckedIOException e) {
             TrinoException trinoException = new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Parquet file", e);
             try {
-                rollbackAction.close();
+                rollbackAction.run();
             }
             catch (Exception rollbackException) {
                 trinoException.addSuppressed(rollbackException);
@@ -184,7 +185,7 @@ public final class ParquetFileWriter
     @Override
     public void rollback()
     {
-        try (rollbackAction) {
+        try (Closeable _ = rollbackAction::run) {
             parquetWriter.close();
         }
         catch (Exception e) {

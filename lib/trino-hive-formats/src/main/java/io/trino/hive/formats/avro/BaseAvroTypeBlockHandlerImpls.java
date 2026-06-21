@@ -110,15 +110,15 @@ public class BaseAvroTypeBlockHandlerImpls
             throws AvroTypeException
     {
         return switch (action) {
-            case NullRead __ -> NullBlockBuildingDecoder.INSTANCE;
-            case BooleanRead __ -> BooleanBlockBuildingDecoder.INSTANCE;
-            case IntRead __ -> IntBlockBuildingDecoder.INSTANCE;
+            case NullRead _ -> NullBlockBuildingDecoder.INSTANCE;
+            case BooleanRead _ -> BooleanBlockBuildingDecoder.INSTANCE;
+            case IntRead _ -> IntBlockBuildingDecoder.INSTANCE;
             case LongRead longRead -> new LongBlockBuildingDecoder(longRead.getLongDecoder());
             case FloatRead floatRead -> new FloatBlockBuildingDecoder(floatRead.getFloatDecoder());
             case DoubleRead doubleRead -> new DoubleBlockBuildingDecoder(doubleRead.getDoubleDecoder());
-            case BytesRead __ -> BytesBlockBuildingDecoder.INSTANCE;
-            case FixedRead __ -> new FixedBlockBuildingDecoder(action.readSchema().getFixedSize());
-            case StringRead __ -> StringBlockBuildingDecoder.INSTANCE;
+            case BytesRead _ -> BytesBlockBuildingDecoder.INSTANCE;
+            case FixedRead _ -> new FixedBlockBuildingDecoder(action.readSchema().getFixedSize());
+            case StringRead _ -> StringBlockBuildingDecoder.INSTANCE;
             case ArrayReadAction arrayReadAction -> new ArrayBlockBuildingDecoder(arrayReadAction, delegate);
             case MapReadAction mapReadAction -> new MapBlockBuildingDecoder(mapReadAction, delegate);
             case EnumReadAction enumReadAction -> new EnumBlockBuildingDecoder(enumReadAction);

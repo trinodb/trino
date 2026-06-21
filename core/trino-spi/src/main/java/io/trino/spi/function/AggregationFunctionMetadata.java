@@ -14,7 +14,9 @@
 package io.trino.spi.function;
 
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
+import io.trino.spi.type.TypeTemplate;
+import io.trino.spi.type.TypeTemplates;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,9 +27,9 @@ import static java.util.Objects.requireNonNull;
 public class AggregationFunctionMetadata
 {
     private final boolean orderSensitive;
-    private final List<TypeSignature> intermediateTypes;
+    private final List<TypeTemplate> intermediateTypes;
 
-    private AggregationFunctionMetadata(boolean orderSensitive, List<TypeSignature> intermediateTypes)
+    private AggregationFunctionMetadata(boolean orderSensitive, List<TypeTemplate> intermediateTypes)
     {
         this.orderSensitive = orderSensitive;
         this.intermediateTypes = List.copyOf(requireNonNull(intermediateTypes, "intermediateTypes is null"));
@@ -43,7 +45,7 @@ public class AggregationFunctionMetadata
         return !intermediateTypes.isEmpty();
     }
 
-    public List<TypeSignature> getIntermediateTypes()
+    public List<TypeTemplate> getIntermediateTypes()
     {
         return intermediateTypes;
     }
@@ -65,7 +67,7 @@ public class AggregationFunctionMetadata
     public static class AggregationFunctionMetadataBuilder
     {
         private boolean orderSensitive;
-        private final List<TypeSignature> intermediateTypes = new ArrayList<>();
+        private final List<TypeTemplate> intermediateTypes = new ArrayList<>();
 
         private AggregationFunctionMetadataBuilder() {}
 
@@ -77,11 +79,17 @@ public class AggregationFunctionMetadata
 
         public AggregationFunctionMetadataBuilder intermediateType(Type type)
         {
-            this.intermediateTypes.add(type.getTypeSignature());
+            this.intermediateTypes.add(TypeTemplates.fromTypeDescriptor(type.getTypeDescriptor()));
             return this;
         }
 
-        public AggregationFunctionMetadataBuilder intermediateType(TypeSignature type)
+        public AggregationFunctionMetadataBuilder intermediateType(TypeDescriptor type)
+        {
+            this.intermediateTypes.add(TypeTemplates.fromTypeDescriptor(type));
+            return this;
+        }
+
+        public AggregationFunctionMetadataBuilder intermediateType(TypeTemplate type)
         {
             this.intermediateTypes.add(requireNonNull(type, "type is null"));
             return this;

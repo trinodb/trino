@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import io.trino.spi.BlocksHash;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -36,6 +37,7 @@ import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Objects.requireNonNull;
 
 public final class FlatHash
+        implements BlocksHash
 {
     private static final int INSTANCE_SIZE = instanceSize(FlatHash.class);
 
@@ -127,6 +129,7 @@ public final class FlatHash
                 .toArray(byte[][]::new);
     }
 
+    @Override
     public long getEstimatedSize()
     {
         return sumExact(
@@ -229,6 +232,22 @@ public final class FlatHash
         }
     }
 
+    @Override
+    public int getIfPresent(Block[] blocks, int position)
+    {
+        long hash = flatHashStrategy.hash(blocks, position);
+        int index = getIndex(blocks, position, hash);
+        if (index >= 0) {
+            int groupId = groupIdsByHash[index];
+            if (groupId < 0) {
+                throw new IllegalStateException("groupId out of range");
+            }
+            return groupId;
+        }
+        return -1;
+    }
+
+    @Override
     public int putIfAbsent(Block[] blocks, int position)
     {
         long hash = flatHashStrategy.hash(blocks, position);

@@ -77,7 +77,7 @@ public class BoundSignature
         return Signature.builder()
                 .returnType(returnType)
                 .argumentTypes(argumentTypes.stream()
-                        .map(Type::getTypeSignature)
+                        .map(Type::getTypeDescriptor)
                         .collect(toUnmodifiableList()))
                 .build();
     }

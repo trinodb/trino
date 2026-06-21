@@ -27,6 +27,7 @@ import org.antlr.v4.runtime.atn.ATN;
 import org.antlr.v4.runtime.atn.ATNState;
 import org.antlr.v4.runtime.atn.NotSetTransition;
 import org.antlr.v4.runtime.atn.PrecedencePredicateTransition;
+import org.antlr.v4.runtime.atn.PredicateTransition;
 import org.antlr.v4.runtime.atn.RuleStartState;
 import org.antlr.v4.runtime.atn.RuleStopState;
 import org.antlr.v4.runtime.atn.RuleTransition;
@@ -41,6 +42,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.IntPredicate;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -56,12 +58,14 @@ class ErrorHandler
     private final Map<Integer, String> specialRules;
     private final Map<Integer, String> specialTokens;
     private final Set<Integer> ignoredRules;
+    private final Map<Integer, IntPredicate> tokenPredicates;
 
-    private ErrorHandler(Map<Integer, String> specialRules, Map<Integer, String> specialTokens, Set<Integer> ignoredRules)
+    private ErrorHandler(Map<Integer, String> specialRules, Map<Integer, String> specialTokens, Set<Integer> ignoredRules, Map<Integer, IntPredicate> tokenPredicates)
     {
         this.specialRules = new HashMap<>(specialRules);
         this.specialTokens = specialTokens;
         this.ignoredRules = new HashSet<>(ignoredRules);
+        this.tokenPredicates = new HashMap<>(tokenPredicates);
     }
 
     @Override
@@ -91,7 +95,7 @@ class ErrorHandler
                 context = parser.getContext();
             }
 
-            Analyzer analyzer = new Analyzer(parser, specialRules, specialTokens, ignoredRules);
+            Analyzer analyzer = new Analyzer(parser, specialRules, specialTokens, ignoredRules, tokenPredicates);
             Result result = analyzer.process(currentState, currentToken.getTokenIndex(), context);
 
             // pick the candidate tokens associated largest token index processed (i.e., the path that consumed the most input)
@@ -99,7 +103,12 @@ class ErrorHandler
                     .sorted()
                     .collect(Collectors.joining(", "));
 
-            message = "mismatched input '%s'. Expecting: %s".formatted(parser.getTokenStream().get(result.getErrorTokenIndex()).getText(), expected);
+            Token errorToken = parser.getTokenStream().get(result.getErrorTokenIndex());
+            message = "mismatched input '%s'. Expecting: %s".formatted(errorToken.getText(), expected);
+            // point at the token the message names: the parser may have failed
+            // further ahead on a speculative path the analyzer rejected
+            line = errorToken.getLine();
+            charPositionInLine = errorToken.getCharPositionInLine();
         }
         catch (Exception exception) {
             LOG.log(SEVERE, "Unexpected failure when handling parsing error. This is likely a bug in the implementation", exception);
@@ -174,6 +183,7 @@ class ErrorHandler
         private final Map<Integer, String> specialRules;
         private final Map<Integer, String> specialTokens;
         private final Set<Integer> ignoredRules;
+        private final Map<Integer, IntPredicate> tokenPredicates;
         private final TokenStream stream;
 
         private int furthestTokenIndex = -1;
@@ -185,7 +195,8 @@ class ErrorHandler
                 Parser parser,
                 Map<Integer, String> specialRules,
                 Map<Integer, String> specialTokens,
-                Set<Integer> ignoredRules)
+                Set<Integer> ignoredRules,
+                Map<Integer, IntPredicate> tokenPredicates)
         {
             this.parser = parser;
             this.stream = parser.getTokenStream();
@@ -194,6 +205,7 @@ class ErrorHandler
             this.specialRules = specialRules;
             this.specialTokens = specialTokens;
             this.ignoredRules = ignoredRules;
+            this.tokenPredicates = tokenPredicates;
         }
 
         public Result process(ATNState currentState, int tokenIndex, RuleContext context)
@@ -304,11 +316,24 @@ class ErrorHandler
                             activeStates.push(new ParsingState(transition.target, tokenIndex, suppressed, parser));
                         }
                     }
+                    else if (transition instanceof PredicateTransition predicateTransition) {
+                        // evaluate registered token-lookahead predicates at the simulated
+                        // position, mirroring what prediction does at the real position;
+                        // unknown predicates are assumed true, like other epsilons
+                        IntPredicate predicate = tokenPredicates.get(predicateTransition.ruleIndex);
+                        if (predicate == null || predicate.test(stream.get(tokenIndex).getType())) {
+                            activeStates.push(new ParsingState(transition.target, tokenIndex, suppressed, parser));
+                        }
+                    }
                     else if (transition.isEpsilon()) {
                         activeStates.push(new ParsingState(transition.target, tokenIndex, suppressed, parser));
                     }
                     else if (transition instanceof WildcardTransition) {
-                        throw new UnsupportedOperationException("not yet implemented: wildcard transition");
+                        // a wildcard matches any token, so it contributes no expected
+                        // tokens; it only fails to advance at the end of the buffer
+                        if (tokenIndex < stream.size() - 1) {
+                            activeStates.push(new ParsingState(transition.target, tokenIndex + 1, false, parser));
+                        }
                     }
                     else {
                         IntervalSet labels = transition.label();
@@ -381,6 +406,7 @@ class ErrorHandler
     {
         private final Map<Integer, String> specialRules = new HashMap<>();
         private final Map<Integer, String> specialTokens = new HashMap<>();
+        private final Map<Integer, IntPredicate> tokenPredicates = new HashMap<>();
         private final Set<Integer> ignoredRules = new HashSet<>();
 
         public Builder specialRule(int ruleId, String name)
@@ -395,6 +421,17 @@ class ErrorHandler
             return this;
         }
 
+        /**
+         * Registers the token-lookahead semantic predicate guarding alternatives of
+         * the given rule, so the analyzer can follow only the paths that prediction
+         * would have followed.
+         */
+        public Builder tokenPredicate(int ruleId, IntPredicate predicate)
+        {
+            tokenPredicates.put(ruleId, predicate);
+            return this;
+        }
+
         public Builder ignoredRule(int ruleId)
         {
             ignoredRules.add(ruleId);
@@ -403,7 +440,7 @@ class ErrorHandler
 
         public ErrorHandler build()
         {
-            return new ErrorHandler(specialRules, specialTokens, ignoredRules);
+            return new ErrorHandler(specialRules, specialTokens, ignoredRules, tokenPredicates);
         }
     }
 

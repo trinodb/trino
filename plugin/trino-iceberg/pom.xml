@@ -16,7 +16,7 @@
 
     <properties>
         <!-- Nessie version (compatible with Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
-        <dep.nessie.version>0.107.6</dep.nessie.version>
+        <dep.nessie.version>0.107.9</dep.nessie.version>
         <dep.keycloak.version>26.0.8</dep.keycloak.version>
     </properties>
 
@@ -421,13 +421,6 @@
                     <artifactId>javax.annotation-api</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.cloud.gcs.analytics</groupId>
-            <artifactId>gcs-analytics-core</artifactId>
-            <version>1.2.3</version>
-            <scope>runtime</scope>
         </dependency>
 
         <dependency>

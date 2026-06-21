@@ -19,16 +19,17 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.NullIf;
+import io.trino.sql.ir.Match;
+import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
@@ -38,12 +39,15 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
+import static io.trino.sql.ir.TestingIr.comparison;
+import static io.trino.sql.ir.TestingIr.nullIf;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
@@ -119,11 +123,11 @@ public class TestSimplifyFilterPredicate
         // both results equal
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        ifExpression(new Reference(BOOLEAN, "a"), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L)), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
+                        ifExpression(new Reference(BOOLEAN, "a"), comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L)), comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
                         filter(
-                                new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L)),
+                                comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L)),
                                 values("a", "b")));
 
         // both results are equal non-deterministic expressions
@@ -134,8 +138,8 @@ public class TestSimplifyFilterPredicate
                 .on(p -> p.filter(
                         ifExpression(
                                 new Reference(BOOLEAN, "a"),
-                                new Comparison(EQUAL, randomFunction, new Constant(DOUBLE, 0.0)),
-                                new Comparison(EQUAL, randomFunction, new Constant(DOUBLE, 0.0))),
+                                comparison(EQUAL, randomFunction, new Constant(DOUBLE, 0.0)),
+                                comparison(EQUAL, randomFunction, new Constant(DOUBLE, 0.0))),
                         p.values(p.symbol("a"))))
                 .doesNotFire();
 
@@ -193,7 +197,7 @@ public class TestSimplifyFilterPredicate
         // NULLIF(x, y) returns true if and only if: x != y AND x = true
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        new NullIf(new Reference(BOOLEAN, "a"), new Reference(BOOLEAN, "b")),
+                        nullIf(new SymbolAllocator(), new Reference(BOOLEAN, "a"), new Reference(BOOLEAN, "b")),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
                         filter(
@@ -211,9 +215,9 @@ public class TestSimplifyFilterPredicate
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
-                                new WhenClause(new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE),
-                                new WhenClause(new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE),
-                                new WhenClause(new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE)),
+                                new WhenClause(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE),
+                                new WhenClause(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE),
+                                new WhenClause(comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE)),
                                 FALSE),
                         p.values(p.symbol("a"))))
                 .doesNotFire();
@@ -222,9 +226,9 @@ public class TestSimplifyFilterPredicate
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
-                                new WhenClause(new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE),
-                                new WhenClause(new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE),
-                                new WhenClause(new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE)),
+                                new WhenClause(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE),
+                                new WhenClause(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE),
+                                new WhenClause(comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE)),
                                 TRUE),
                         p.values(p.symbol("a"))))
                 .matches(
@@ -236,9 +240,9 @@ public class TestSimplifyFilterPredicate
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
-                                new WhenClause(new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE),
-                                new WhenClause(new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), new Constant(BOOLEAN, null)),
-                                new WhenClause(new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE)),
+                                new WhenClause(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE),
+                                new WhenClause(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), new Constant(BOOLEAN, null)),
+                                new WhenClause(comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE)),
                                 FALSE),
                         p.values(p.symbol("a"))))
                 .matches(
@@ -250,9 +254,9 @@ public class TestSimplifyFilterPredicate
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
-                                new WhenClause(new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE),
-                                new WhenClause(new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), new Constant(BOOLEAN, null)),
-                                new WhenClause(new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE)),
+                                new WhenClause(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE),
+                                new WhenClause(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), new Constant(BOOLEAN, null)),
+                                new WhenClause(comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE)),
                                 NULL_BOOLEAN),
                         p.values(p.symbol("a"))))
                 .matches(
@@ -264,51 +268,51 @@ public class TestSimplifyFilterPredicate
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
-                                new WhenClause(new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE),
-                                new WhenClause(new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), new Constant(BOOLEAN, null)),
-                                new WhenClause(new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE)),
+                                new WhenClause(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE),
+                                new WhenClause(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), new Constant(BOOLEAN, null)),
+                                new WhenClause(comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE)),
                                 FALSE),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new IsNull(new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))), not(new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))), new Logical(OR, ImmutableList.of(new IsNull(new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))), not(new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))), new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)))),
+                                new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new IsNull(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))), not(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))), new Logical(OR, ImmutableList.of(new IsNull(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))), not(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))), comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)))),
                                 values("a")));
 
         // first result true, and remaining results not true
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
-                                new WhenClause(new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE),
-                                new WhenClause(new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), new Constant(BOOLEAN, null)),
-                                new WhenClause(new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE)),
+                                new WhenClause(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE),
+                                new WhenClause(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), new Constant(BOOLEAN, null)),
+                                new WhenClause(comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE)),
                                 FALSE),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)),
+                                comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)),
                                 values("a")));
 
         // all results not true, and default true
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
-                                new WhenClause(new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE),
-                                new WhenClause(new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), new Constant(BOOLEAN, null)),
-                                new WhenClause(new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE)),
+                                new WhenClause(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE),
+                                new WhenClause(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), new Constant(BOOLEAN, null)),
+                                new WhenClause(comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE)),
                                 TRUE),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
                                 new Logical(AND, ImmutableList.of(
                                         new Logical(OR, ImmutableList.of(
-                                                new IsNull(new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))),
-                                                not(new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))),
+                                                new IsNull(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))),
+                                                not(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))),
                                         new Logical(OR, ImmutableList.of(
-                                                new IsNull(new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))),
-                                                not(new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))),
+                                                new IsNull(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))),
+                                                not(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))),
                                         new Logical(OR, ImmutableList.of(
-                                                new IsNull(new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))),
-                                                not(new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))))),
+                                                new IsNull(comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))),
+                                                not(comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))))),
                                 values("a")));
 
         // all conditions not true - return the default
@@ -371,8 +375,8 @@ public class TestSimplifyFilterPredicate
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
-                                new WhenClause(new Comparison(LESS_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L)), new Reference(BOOLEAN, "a")),
-                                new WhenClause(new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L)), not(new Reference(BOOLEAN, "a"))),
+                                new WhenClause(comparison(LESS_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L)), new Reference(BOOLEAN, "a")),
+                                new WhenClause(comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L)), not(new Reference(BOOLEAN, "a"))),
                                 new WhenClause(TRUE, new Reference(BOOLEAN, "b")),
                                 new WhenClause(TRUE, not(new Reference(BOOLEAN, "b")))),
                                 NULL_BOOLEAN),
@@ -380,8 +384,8 @@ public class TestSimplifyFilterPredicate
                 .matches(
                         filter(
                                 new Case(ImmutableList.of(
-                                        new WhenClause(new Comparison(LESS_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L)), new Reference(BOOLEAN, "a")),
-                                        new WhenClause(new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L)), not(new Reference(BOOLEAN, "a")))),
+                                        new WhenClause(comparison(LESS_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L)), new Reference(BOOLEAN, "a")),
+                                        new WhenClause(comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L)), not(new Reference(BOOLEAN, "a")))),
                                         new Reference(BOOLEAN, "b")),
                                 values("a", "b")));
 
@@ -389,8 +393,8 @@ public class TestSimplifyFilterPredicate
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
-                                new WhenClause(new Comparison(LESS_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L)), new Reference(BOOLEAN, "a")),
-                                new WhenClause(new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L)), not(new Reference(BOOLEAN, "a")))),
+                                new WhenClause(comparison(LESS_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L)), new Reference(BOOLEAN, "a")),
+                                new WhenClause(comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L)), not(new Reference(BOOLEAN, "a")))),
                                 new Reference(BOOLEAN, "b")),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .doesNotFire();
@@ -401,11 +405,11 @@ public class TestSimplifyFilterPredicate
     {
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        new Switch(
+                        new Match(
                                 new Reference(BOOLEAN, "a"),
                                 ImmutableList.of(
-                                        new WhenClause(new Reference(BOOLEAN, "b"), TRUE),
-                                        new WhenClause(new Comparison(EQUAL, new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), new Constant(INTEGER, 0L)), FALSE)),
+                                        equalityClause(new Reference(BOOLEAN, "b"), TRUE),
+                                        equalityClause(comparison(EQUAL, new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), new Constant(INTEGER, 0L)), FALSE)),
                                 TRUE),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .doesNotFire();
@@ -413,11 +417,11 @@ public class TestSimplifyFilterPredicate
         // comparison with null returns null - no WHEN branch matches, return default value
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        new Switch(
+                        new Match(
                                 new Constant(BOOLEAN, null),
                                 ImmutableList.of(
-                                        new WhenClause(new Constant(BOOLEAN, null), TRUE),
-                                        new WhenClause(new Reference(BOOLEAN, "a"), FALSE)),
+                                        equalityClause(new Constant(BOOLEAN, null), TRUE),
+                                        equalityClause(new Reference(BOOLEAN, "a"), FALSE)),
                                 new Reference(BOOLEAN, "b")),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
@@ -428,11 +432,11 @@ public class TestSimplifyFilterPredicate
         // comparison with null returns null - no WHEN branch matches, the result is default null, simplified to FALSE
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        new Switch(
+                        new Match(
                                 new Constant(BOOLEAN, null),
                                 ImmutableList.of(
-                                        new WhenClause(new Constant(BOOLEAN, null), TRUE),
-                                        new WhenClause(new Reference(BOOLEAN, "a"), FALSE)),
+                                        equalityClause(new Constant(BOOLEAN, null), TRUE),
+                                        equalityClause(new Reference(BOOLEAN, "a"), FALSE)),
                                 NULL_BOOLEAN),
                         p.values(p.symbol("a"))))
                 .matches(
@@ -443,11 +447,11 @@ public class TestSimplifyFilterPredicate
         // all results true
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        new Switch(
+                        new Match(
                                 new Reference(INTEGER, "a"),
                                 ImmutableList.of(
-                                        new WhenClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), TRUE),
-                                        new WhenClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 2L))), TRUE)),
+                                        equalityClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), TRUE),
+                                        equalityClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 2L))), TRUE)),
                                 TRUE),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
@@ -458,11 +462,11 @@ public class TestSimplifyFilterPredicate
         // all results not true
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        new Switch(
+                        new Match(
                                 new Reference(INTEGER, "a"),
                                 ImmutableList.of(
-                                        new WhenClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), FALSE),
-                                        new WhenClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 2L))), new Constant(BOOLEAN, null))),
+                                        equalityClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), FALSE),
+                                        equalityClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 2L))), new Constant(BOOLEAN, null))),
                                 FALSE),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
@@ -473,11 +477,11 @@ public class TestSimplifyFilterPredicate
         // all results not true (including default null result)
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        new Switch(
+                        new Match(
                                 new Reference(INTEGER, "a"),
                                 ImmutableList.of(
-                                        new WhenClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), FALSE),
-                                        new WhenClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 2L))), new Constant(BOOLEAN, null))),
+                                        equalityClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), FALSE),
+                                        equalityClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 2L))), new Constant(BOOLEAN, null))),
                                 NULL_BOOLEAN),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
@@ -489,5 +493,10 @@ public class TestSimplifyFilterPredicate
     private static Expression not(Expression expression)
     {
         return IrExpressions.not(FUNCTIONS.getMetadata(), expression);
+    }
+
+    private static MatchClause equalityClause(Expression value, Expression result)
+    {
+        return IrExpressions.equalityClause(PLANNER_CONTEXT.getMetadata(), new Symbol(value.type(), "operand"), value, result);
     }
 }

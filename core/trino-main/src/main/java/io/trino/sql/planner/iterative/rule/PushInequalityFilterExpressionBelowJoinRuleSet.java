@@ -19,8 +19,10 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.sql.ir.Comparison;
+import io.trino.metadata.Metadata;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -38,10 +40,12 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.comparison;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
@@ -78,7 +82,7 @@ import static java.util.stream.Collectors.partitioningBy;
  */
 public class PushInequalityFilterExpressionBelowJoinRuleSet
 {
-    private static final Set<Comparison.Operator> SUPPORTED_COMPARISONS = ImmutableSet.of(
+    private static final Set<ComparisonOperator> SUPPORTED_COMPARISONS = ImmutableSet.of(
             GREATER_THAN,
             GREATER_THAN_OR_EQUAL,
             LESS_THAN,
@@ -87,6 +91,13 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
     private static final Capture<JoinNode> JOIN_CAPTURE = newCapture();
     private static final Pattern<FilterNode> FILTER_PATTERN = filter().with(source().matching(
             join().capturedAs(JOIN_CAPTURE)));
+
+    private final Metadata metadata;
+
+    public PushInequalityFilterExpressionBelowJoinRuleSet(Metadata metadata)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+    }
 
     public Iterable<Rule<?>> rules()
     {
@@ -171,10 +182,10 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
 
     private boolean isSupportedExpression(JoinNodeContext joinNodeContext, Expression expression)
     {
-        if (!(expression instanceof Comparison comparison && isDeterministic(expression))) {
+        if (!isDeterministic(expression)) {
             return false;
         }
-        if (!SUPPORTED_COMPARISONS.contains(comparison.operator())) {
+        if (!(matchComparison(expression) instanceof Comparison comparison) || !SUPPORTED_COMPARISONS.contains(comparison.operator())) {
             return false;
         }
         Set<Symbol> leftComparisonSymbols = extractUnique(comparison.left());
@@ -214,13 +225,13 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
             ImmutableMap.Builder<Symbol, Expression> newProjections,
             Expression conjunct)
     {
-        checkArgument(conjunct instanceof Comparison, "conjunct '%s' is not a comparison", conjunct);
-        Comparison comparison = (Comparison) conjunct;
+        Comparison comparison = requireNonNull(matchComparison(conjunct), "conjunct is not a comparison");
         boolean alignedComparison = joinNodeContext.isComparisonAligned(comparison);
         Expression rightExpression = alignedComparison ? comparison.right() : comparison.left();
         Expression leftExpression = alignedComparison ? comparison.left() : comparison.right();
         Symbol rightSymbol = symbolForExpression(context, rightExpression);
-        newConjuncts.add(new Comparison(
+        newConjuncts.add(comparison(
+                metadata,
                 comparison.operator(),
                 alignedComparison ? leftExpression : rightSymbol.toSymbolReference(),
                 alignedComparison ? rightSymbol.toSymbolReference() : leftExpression));

@@ -23,9 +23,12 @@ import io.trino.spi.type.TypeOperators;
 
 import java.lang.invoke.MethodHandle;
 
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.TypeSignature.typeVariable;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static java.util.Objects.requireNonNull;
 
 public class GenericLessThanOperator
@@ -42,7 +45,7 @@ public class GenericLessThanOperator
                         .argumentType(typeVariable("T"))
                         .argumentType(typeVariable("T"))
                         .build())
-                .neverFails()
+                .neverFails(boundSignature -> typeOperators.getLessThanOperatorHandle(boundSignature.getArgumentType(0), simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL)).isNeverFails())
                 .build());
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
     }

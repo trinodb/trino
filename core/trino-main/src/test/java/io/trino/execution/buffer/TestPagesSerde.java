@@ -227,7 +227,7 @@ public class TestPagesSerde
         assertThat(secondValueSize).isEqualTo(4 + 3); // one additional ending offset + "bob" (null shared with first entry)
     }
 
-    private int serializedSize(List<? extends Type> types, Page expectedPage)
+    private int serializedSize(List<Type> types, Page expectedPage)
     {
         PagesSerdeFactory serdeFactory = new PagesSerdeFactory(blockEncodingSerde, NONE);
         PageSerializer serializer = serdeFactory.createSerializer(Optional.empty());

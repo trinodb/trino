@@ -647,10 +647,20 @@ public class TestIcebergV2
             // verify equality deletes work with nested field in projection and WHERE clause
             assertThat(query("SELECT root.nested FROM " + tableName))
                     .matches("VALUES BIGINT '10'");
+            assertThat(query("SELECT root.nested, root.nested_other FROM " + tableName))
+                    .matches("VALUES (BIGINT '10', BIGINT '100')");
             assertThat(query("SELECT id FROM " + tableName + " WHERE root.nested = 10"))
                     .matches("VALUES BIGINT '1'");
             assertThat(query("SELECT id FROM " + tableName + " WHERE root.nested = 20"))
                     .returnsEmptyResult();
+
+            // verify equality deletes work with nested field and querying metadata columns
+            assertThat(query("SELECT \"$partition\" FROM " + tableName))
+                    .matches("VALUES VARCHAR ''");
+            assertThat(query("SELECT root.nested, \"$partition\" FROM " + tableName))
+                    .matches("VALUES (BIGINT '10', VARCHAR '')");
+            assertThat(query("SELECT \"$partition\", root.nested FROM " + tableName))
+                    .matches("VALUES (VARCHAR '', BIGINT '10')");
         }
     }
 

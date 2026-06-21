@@ -22,7 +22,7 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 
 import java.util.Collection;
 import java.util.List;
@@ -45,14 +45,14 @@ public class InternalFunctionDependencies
         implements FunctionDependencies
 {
     private final BiFunction<ResolvedFunction, InvocationConvention, ScalarFunctionImplementation> specialization;
-    private final Map<TypeSignature, Type> types;
+    private final Map<TypeDescriptor, Type> types;
     private final Map<FunctionKey, ResolvedFunction> functions;
     private final Map<OperatorKey, ResolvedFunction> operators;
     private final Map<CastKey, ResolvedFunction> casts;
 
     public InternalFunctionDependencies(
             BiFunction<ResolvedFunction, InvocationConvention, ScalarFunctionImplementation> specialization,
-            Map<TypeSignature, Type> typeDependencies,
+            Map<TypeDescriptor, Type> typeDependencies,
             Collection<ResolvedFunction> functionDependencies)
     {
         requireNonNull(specialization, "specialization is null");
@@ -73,12 +73,12 @@ public class InternalFunctionDependencies
     }
 
     @Override
-    public Type getType(TypeSignature typeSignature)
+    public Type getType(TypeDescriptor typeDescriptor)
     {
         // CHAR type does not properly roundtrip, so load directly from metadata and then verify type was declared correctly
-        Type type = types.get(typeSignature);
+        Type type = types.get(typeDescriptor);
         if (type == null) {
-            throw new UndeclaredDependencyException(typeSignature.toString());
+            throw new UndeclaredDependencyException(typeDescriptor.toString());
         }
         return type;
     }
@@ -86,7 +86,7 @@ public class InternalFunctionDependencies
     @Override
     public FunctionNullability getFunctionNullability(CatalogSchemaFunctionName name, List<Type> parameterTypes)
     {
-        FunctionKey functionKey = new FunctionKey(name, toTypeSignatures(parameterTypes));
+        FunctionKey functionKey = new FunctionKey(name, toTypeDescriptors(parameterTypes));
         ResolvedFunction resolvedFunction = functions.get(functionKey);
         if (resolvedFunction == null) {
             throw new UndeclaredDependencyException(functionKey.toString());
@@ -97,7 +97,7 @@ public class InternalFunctionDependencies
     @Override
     public FunctionNullability getOperatorNullability(OperatorType operatorType, List<Type> parameterTypes)
     {
-        OperatorKey operatorKey = new OperatorKey(operatorType, toTypeSignatures(parameterTypes));
+        OperatorKey operatorKey = new OperatorKey(operatorType, toTypeDescriptors(parameterTypes));
         ResolvedFunction resolvedFunction = operators.get(operatorKey);
         if (resolvedFunction == null) {
             throw new UndeclaredDependencyException(operatorKey.toString());
@@ -108,7 +108,7 @@ public class InternalFunctionDependencies
     @Override
     public FunctionNullability getCastNullability(Type fromType, Type toType)
     {
-        CastKey castKey = new CastKey(fromType.getTypeSignature(), toType.getTypeSignature());
+        CastKey castKey = new CastKey(fromType.getTypeDescriptor(), toType.getTypeDescriptor());
         ResolvedFunction resolvedFunction = casts.get(castKey);
         if (resolvedFunction == null) {
             throw new UndeclaredDependencyException(castKey.toString());
@@ -119,7 +119,7 @@ public class InternalFunctionDependencies
     @Override
     public ScalarFunctionImplementation getScalarFunctionImplementation(CatalogSchemaFunctionName name, List<Type> parameterTypes, InvocationConvention invocationConvention)
     {
-        FunctionKey functionKey = new FunctionKey(name, toTypeSignatures(parameterTypes));
+        FunctionKey functionKey = new FunctionKey(name, toTypeDescriptors(parameterTypes));
         ResolvedFunction resolvedFunction = functions.get(functionKey);
         if (resolvedFunction == null) {
             throw new UndeclaredDependencyException(functionKey.toString());
@@ -128,7 +128,7 @@ public class InternalFunctionDependencies
     }
 
     @Override
-    public ScalarFunctionImplementation getScalarFunctionImplementationSignature(CatalogSchemaFunctionName name, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention)
+    public ScalarFunctionImplementation getScalarFunctionImplementationSignature(CatalogSchemaFunctionName name, List<TypeDescriptor> parameterTypes, InvocationConvention invocationConvention)
     {
         FunctionKey functionKey = new FunctionKey(name, parameterTypes);
         ResolvedFunction resolvedFunction = functions.get(functionKey);
@@ -141,7 +141,7 @@ public class InternalFunctionDependencies
     @Override
     public ScalarFunctionImplementation getOperatorImplementation(OperatorType operatorType, List<Type> parameterTypes, InvocationConvention invocationConvention)
     {
-        OperatorKey operatorKey = new OperatorKey(operatorType, toTypeSignatures(parameterTypes));
+        OperatorKey operatorKey = new OperatorKey(operatorType, toTypeDescriptors(parameterTypes));
         ResolvedFunction resolvedFunction = operators.get(operatorKey);
         if (resolvedFunction == null) {
             throw new UndeclaredDependencyException(operatorKey.toString());
@@ -150,7 +150,7 @@ public class InternalFunctionDependencies
     }
 
     @Override
-    public ScalarFunctionImplementation getOperatorImplementationSignature(OperatorType operatorType, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention)
+    public ScalarFunctionImplementation getOperatorImplementationSignature(OperatorType operatorType, List<TypeDescriptor> parameterTypes, InvocationConvention invocationConvention)
     {
         OperatorKey operatorKey = new OperatorKey(operatorType, parameterTypes);
         ResolvedFunction resolvedFunction = operators.get(operatorKey);
@@ -163,7 +163,7 @@ public class InternalFunctionDependencies
     @Override
     public ScalarFunctionImplementation getCastImplementation(Type fromType, Type toType, InvocationConvention invocationConvention)
     {
-        CastKey castKey = new CastKey(fromType.getTypeSignature(), toType.getTypeSignature());
+        CastKey castKey = new CastKey(fromType.getTypeDescriptor(), toType.getTypeDescriptor());
         ResolvedFunction resolvedFunction = casts.get(castKey);
         if (resolvedFunction == null) {
             throw new UndeclaredDependencyException(castKey.toString());
@@ -172,7 +172,7 @@ public class InternalFunctionDependencies
     }
 
     @Override
-    public ScalarFunctionImplementation getCastImplementationSignature(TypeSignature fromType, TypeSignature toType, InvocationConvention invocationConvention)
+    public ScalarFunctionImplementation getCastImplementationSignature(TypeDescriptor fromType, TypeDescriptor toType, InvocationConvention invocationConvention)
     {
         CastKey castKey = new CastKey(fromType, toType);
         ResolvedFunction resolvedFunction = casts.get(castKey);
@@ -182,10 +182,10 @@ public class InternalFunctionDependencies
         return specialization.apply(resolvedFunction, invocationConvention);
     }
 
-    private static List<TypeSignature> toTypeSignatures(List<Type> types)
+    private static List<TypeDescriptor> toTypeDescriptors(List<Type> types)
     {
         return types.stream()
-                .map(Type::getTypeSignature)
+                .map(Type::getTypeDescriptor)
                 .collect(toImmutableList());
     }
 
@@ -204,17 +204,17 @@ public class InternalFunctionDependencies
     public static final class FunctionKey
     {
         private final CatalogSchemaFunctionName name;
-        private final List<TypeSignature> argumentTypes;
+        private final List<TypeDescriptor> argumentTypes;
 
         private FunctionKey(ResolvedFunction resolvedFunction)
         {
             name = resolvedFunction.signature().getName();
             argumentTypes = resolvedFunction.signature().getArgumentTypes().stream()
-                    .map(Type::getTypeSignature)
+                    .map(Type::getTypeDescriptor)
                     .collect(toImmutableList());
         }
 
-        private FunctionKey(CatalogSchemaFunctionName name, List<TypeSignature> argumentTypes)
+        private FunctionKey(CatalogSchemaFunctionName name, List<TypeDescriptor> argumentTypes)
         {
             this.name = requireNonNull(name, "name is null");
             this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
@@ -244,7 +244,7 @@ public class InternalFunctionDependencies
         public String toString()
         {
             return name + argumentTypes.stream()
-                    .map(TypeSignature::toString)
+                    .map(TypeDescriptor::toString)
                     .collect(Collectors.joining(", ", "(", ")"));
         }
     }
@@ -252,15 +252,15 @@ public class InternalFunctionDependencies
     public static final class OperatorKey
     {
         private final OperatorType operatorType;
-        private final List<TypeSignature> argumentTypes;
+        private final List<TypeDescriptor> argumentTypes;
 
         private OperatorKey(ResolvedFunction resolvedFunction)
         {
             operatorType = unmangleOperator(resolvedFunction.signature().getName().functionName());
-            argumentTypes = toTypeSignatures(resolvedFunction.signature().getArgumentTypes());
+            argumentTypes = toTypeDescriptors(resolvedFunction.signature().getArgumentTypes());
         }
 
-        private OperatorKey(OperatorType operatorType, List<TypeSignature> argumentTypes)
+        private OperatorKey(OperatorType operatorType, List<TypeDescriptor> argumentTypes)
         {
             this.operatorType = requireNonNull(operatorType, "operatorType is null");
             this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
@@ -290,23 +290,23 @@ public class InternalFunctionDependencies
         public String toString()
         {
             return operatorType + argumentTypes.stream()
-                    .map(TypeSignature::toString)
+                    .map(TypeDescriptor::toString)
                     .collect(Collectors.joining(", ", "(", ")"));
         }
     }
 
     private static final class CastKey
     {
-        private final TypeSignature fromType;
-        private final TypeSignature toType;
+        private final TypeDescriptor fromType;
+        private final TypeDescriptor toType;
 
         private CastKey(ResolvedFunction resolvedFunction)
         {
-            fromType = resolvedFunction.signature().getArgumentTypes().get(0).getTypeSignature();
-            toType = resolvedFunction.signature().getReturnType().getTypeSignature();
+            fromType = resolvedFunction.signature().getArgumentTypes().get(0).getTypeDescriptor();
+            toType = resolvedFunction.signature().getReturnType().getTypeDescriptor();
         }
 
-        private CastKey(TypeSignature fromType, TypeSignature toType)
+        private CastKey(TypeDescriptor fromType, TypeDescriptor toType)
         {
             this.fromType = fromType;
             this.toType = toType;

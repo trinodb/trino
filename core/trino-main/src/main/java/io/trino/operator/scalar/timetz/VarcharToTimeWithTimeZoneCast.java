@@ -42,6 +42,7 @@ import static io.trino.type.DateTimes.getOffsetMinutes;
 import static io.trino.type.DateTimes.isValidOffset;
 import static io.trino.type.DateTimes.rescale;
 
+// fallible
 @ScalarOperator(CAST)
 public final class VarcharToTimeWithTimeZoneCast
 {

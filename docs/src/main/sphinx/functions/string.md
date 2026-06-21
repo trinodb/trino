@@ -56,6 +56,10 @@ separator. If `string0` is null, then the return value is null. Any
 null values in the array are skipped.
 :::
 
+:::{function} ends_with(string, substring) -> boolean
+Tests whether `substring` is a suffix of `string`.
+:::
+
 :::{function} format(format, args...) -> varchar
 :noindex: true
 

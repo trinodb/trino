@@ -38,7 +38,7 @@ public final class CharacterStringCasts
 {
     private CharacterStringCasts() {}
 
-    @ScalarOperator(OperatorType.CAST)
+    @ScalarOperator(value = OperatorType.CAST, neverFails = true)
     @SqlType("varchar(y)")
     @LiteralParameters({"x", "y"})
     public static Slice varcharToVarcharCast(@LiteralParameter("x") Long x, @LiteralParameter("y") Long y, @SqlType("varchar(x)") Slice slice)
@@ -49,7 +49,7 @@ public final class CharacterStringCasts
         return slice;
     }
 
-    @ScalarOperator(OperatorType.CAST)
+    @ScalarOperator(value = OperatorType.CAST, neverFails = true)
     @SqlType("char(y)")
     @LiteralParameters({"x", "y"})
     public static Slice charToCharCast(@LiteralParameter("x") Long x, @LiteralParameter("y") Long y, @SqlType("char(x)") Slice slice)
@@ -60,7 +60,7 @@ public final class CharacterStringCasts
         return slice;
     }
 
-    @ScalarOperator(OperatorType.CAST)
+    @ScalarOperator(value = OperatorType.CAST, neverFails = true)
     @SqlType("char(y)")
     @LiteralParameters({"x", "y"})
     public static Slice varcharToCharCast(@LiteralParameter("y") Long y, @SqlType("varchar(x)") Slice slice)
@@ -68,7 +68,7 @@ public final class CharacterStringCasts
         return truncateToLengthAndTrimSpaces(slice, y.intValue());
     }
 
-    @ScalarOperator(OperatorType.CAST)
+    @ScalarOperator(value = OperatorType.CAST, neverFails = true)
     @SqlType("varchar(y)")
     @LiteralParameters({"x", "y"})
     public static Slice charToVarcharCast(@LiteralParameter("x") Long x, @LiteralParameter("y") Long y, @SqlType("char(x)") Slice slice)

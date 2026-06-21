@@ -28,6 +28,7 @@ import static io.trino.operator.scalar.StringFunctions.trim;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 
+// fallible
 @ScalarOperator(CAST)
 public final class CharToTimestampWithTimeZoneCast
 {

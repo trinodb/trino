@@ -29,9 +29,13 @@ import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.function.OperatorType.ADD;
+import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
@@ -1954,6 +1958,11 @@ public class TestTimestampWithTimeZone
         assertThat(assertions.expression("CAST(CHAR '-12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(10) WITH TIME ZONE)")).matches("TIMESTAMP '-12001-05-01 12:34:56.1111111111 Asia/Kathmandu'");
         assertThat(assertions.expression("CAST(CHAR '-12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(11) WITH TIME ZONE)")).matches("TIMESTAMP '-12001-05-01 12:34:56.11111111111 Asia/Kathmandu'");
         assertThat(assertions.expression("CAST(CHAR '-12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(12) WITH TIME ZONE)")).matches("TIMESTAMP '-12001-05-01 12:34:56.111111111111 Asia/Kathmandu'");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS TIMESTAMP(3) WITH TIME ZONE)")
+                .binding("a", "CHAR 'invalid'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to timestamp: invalid");
     }
 
     @Test
@@ -2948,6 +2957,60 @@ public class TestTimestampWithTimeZone
                 .hasMessageContaining("is not a valid TIMESTAMP literal");
         assertThatThrownBy(() -> assertions.expression("timezone(TIMESTAMP '2024-01-01 12:00:00 asia/tokyo')").evaluate())
                 .hasMessageContaining("is not a valid TIMESTAMP literal");
+    }
+
+    @Test
+    public void testComparisonOperators()
+    {
+        // short (precision <= 3 → ShortTimestampWithTimeZoneType)
+        assertThat(assertions.expression("a = b")
+                .binding("a", "TIMESTAMP '2020-05-01 12:34:56 UTC'")
+                .binding("b", "TIMESTAMP '2020-05-01 12:34:56 UTC'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "TIMESTAMP '2020-05-01 12:34:56 UTC'", "TIMESTAMP '2020-05-01 12:34:56 UTC'"))
+                .neverFails();
+
+        assertThat(assertions.expression("a < b")
+                .binding("a", "TIMESTAMP '2020-05-01 12:34:56 UTC'")
+                .binding("b", "TIMESTAMP '2020-05-01 12:34:56 UTC'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "TIMESTAMP '2020-05-01 12:34:56 UTC'", "TIMESTAMP '2020-05-01 12:34:56 UTC'"))
+                .neverFails();
+
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "TIMESTAMP '2020-05-01 12:34:56 UTC'")
+                .binding("b", "TIMESTAMP '2020-05-01 12:34:56 UTC'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIMESTAMP '2020-05-01 12:34:56 UTC'", "TIMESTAMP '2020-05-01 12:34:56 UTC'"))
+                .neverFails();
+
+        // long (precision > 3 → LongTimestampWithTimeZoneType)
+        assertThat(assertions.expression("a = b")
+                .binding("a", "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'")
+                .binding("b", "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'", "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'"))
+                .neverFails();
+
+        assertThat(assertions.expression("a < b")
+                .binding("a", "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'")
+                .binding("b", "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'", "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'"))
+                .neverFails();
+
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'")
+                .binding("b", "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'", "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'"))
+                .neverFails();
     }
 
     private BiFunction<Session, QueryRunner, Object> timestampWithTimeZone(int precision, int year, int month, int day, int hour, int minute, int second, long picoOfSecond, TimeZoneKey timeZoneKey)

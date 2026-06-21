@@ -52,6 +52,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.metadata.OperatorNameUtil.isOperatorName;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
@@ -63,7 +64,7 @@ import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.TypeSignature.typeVariable;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -149,7 +150,9 @@ public class GlobalFunctionCatalog
 
     public List<FunctionMetadata> listFunctions()
     {
-        return functions.list();
+        return functions.list().stream()
+                .filter(function -> !function.isMethod())
+                .collect(toImmutableList());
     }
 
     public Collection<FunctionMetadata> getBuiltInFunctions(String functionName)

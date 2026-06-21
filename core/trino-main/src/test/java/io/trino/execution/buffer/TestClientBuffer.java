@@ -23,7 +23,7 @@ import io.trino.execution.buffer.ClientBuffer.PagesSupplier;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.execution.buffer.SerializedPageReference.PagesReleasedListener;
 import io.trino.spi.Page;
-import io.trino.spi.type.BigintType;
+import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayDeque;
@@ -52,7 +52,7 @@ import static org.assertj.core.api.Fail.fail;
 public class TestClientBuffer
 {
     private static final long TASK_INSTANCE_ID = 0x1337;
-    private static final List<BigintType> TYPES = ImmutableList.of(BIGINT);
+    private static final List<Type> TYPES = ImmutableList.of(BIGINT);
     private static final OutputBufferId BUFFER_ID = new OutputBufferId(33);
     private static final String INVALID_SEQUENCE_ID = "Invalid sequence id";
     private static final PagesReleasedListener NOOP_RELEASE_LISTENER = (_, _) -> {};

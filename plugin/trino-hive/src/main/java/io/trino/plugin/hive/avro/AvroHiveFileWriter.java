@@ -22,6 +22,7 @@ import io.trino.hive.formats.avro.AvroTypeException;
 import io.trino.hive.formats.avro.AvroTypeManager;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.plugin.hive.FileWriter;
+import io.trino.plugin.hive.RollbackAction;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -57,7 +58,7 @@ public final class AvroHiveFileWriter
     private final CountingOutputStream countingOutputStream;
     private final AggregatedMemoryContext outputStreamMemoryContext;
 
-    private final Closeable rollbackAction;
+    private final RollbackAction rollbackAction;
 
     public AvroHiveFileWriter(
             OutputStream outputStream,
@@ -65,7 +66,7 @@ public final class AvroHiveFileWriter
             Schema fileSchema,
             AvroTypeManager typeManager,
             AvroTypeBlockHandler avroTypeBlockHandler,
-            Closeable rollbackAction,
+            RollbackAction rollbackAction,
             List<String> inputColumnNames,
             List<Type> inputColumnTypes,
             AvroCompressionKind compressionKind,
@@ -131,7 +132,7 @@ public final class AvroHiveFileWriter
     }
 
     @Override
-    public Closeable commit()
+    public RollbackAction commit()
     {
         try {
             fileWriter.close();
@@ -145,7 +146,7 @@ public final class AvroHiveFileWriter
     @Override
     public void rollback()
     {
-        try (rollbackAction) {
+        try (Closeable _ = rollbackAction::run) {
             fileWriter.close();
         }
         catch (Exception e) {

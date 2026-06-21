@@ -19,6 +19,7 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeTableFunctionSplitProcess
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
@@ -70,6 +71,7 @@ public class TableChangesProcessorProvider
                 fileFormatDataSourceStats,
                 parquetReaderOptions,
                 (TableChangesTableFunctionHandle) handle,
+                tableCredentials.map(DeltaLakeTableCredentials.class::cast),
                 (TableChangesSplit) split),
                 getClass().getClassLoader());
     }

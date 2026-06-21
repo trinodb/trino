@@ -22,9 +22,9 @@ import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
@@ -161,12 +161,12 @@ public class TestingFunctionResolution
     // legal, but works for tests
     //
 
-    public ResolvedFunction resolveFunction(String name, List<TypeSignatureProvider> parameterTypes)
+    public ResolvedFunction resolveFunction(String name, List<TypeDescriptorProvider> parameterTypes)
     {
         return metadata.resolveBuiltinFunction(name, parameterTypes);
     }
 
-    public TestingAggregationFunction getAggregateFunction(String name, List<TypeSignatureProvider> parameterTypes)
+    public TestingAggregationFunction getAggregateFunction(String name, List<TypeDescriptorProvider> parameterTypes)
     {
         return inTransaction(_ -> {
             ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(name, parameterTypes);
@@ -191,7 +191,7 @@ public class TestingFunctionResolution
     public class TestingFunctionCallBuilder
     {
         private final String name;
-        private List<TypeSignature> argumentTypes = new ArrayList<>();
+        private List<TypeDescriptor> argumentTypes = new ArrayList<>();
         private List<Expression> argumentValues = new ArrayList<>();
 
         public TestingFunctionCallBuilder(String name)
@@ -202,14 +202,14 @@ public class TestingFunctionResolution
         public TestingFunctionCallBuilder addArgument(Type type, Expression value)
         {
             requireNonNull(type, "type is null");
-            return addArgument(type.getTypeSignature(), value);
+            return addArgument(type.getTypeDescriptor(), value);
         }
 
-        public TestingFunctionCallBuilder addArgument(TypeSignature typeSignature, Expression value)
+        public TestingFunctionCallBuilder addArgument(TypeDescriptor typeDescriptor, Expression value)
         {
-            requireNonNull(typeSignature, "typeSignature is null");
+            requireNonNull(typeDescriptor, "typeDescriptor is null");
             requireNonNull(value, "value is null");
-            argumentTypes.add(typeSignature);
+            argumentTypes.add(typeDescriptor);
             argumentValues.add(value);
             return this;
         }
@@ -219,7 +219,7 @@ public class TestingFunctionResolution
             requireNonNull(types, "types is null");
             requireNonNull(values, "values is null");
             argumentTypes = types.stream()
-                    .map(Type::getTypeSignature)
+                    .map(Type::getTypeDescriptor)
                     .collect(Collectors.toList());
             argumentValues = new ArrayList<>(values);
             return this;
@@ -228,7 +228,7 @@ public class TestingFunctionResolution
         public Call build()
         {
             return new Call(
-                    resolveFunction(name, TypeSignatureProvider.fromTypeSignatures(argumentTypes)),
+                    resolveFunction(name, TypeDescriptorProvider.fromTypeDescriptors(argumentTypes)),
                     argumentValues);
         }
     }

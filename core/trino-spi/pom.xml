@@ -226,13 +226,91 @@
                                     </old>
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.util.concurrent.CompletableFuture&lt;io.trino.spi.connector.ConnectorSplitSource.ConnectorSplitBatch&gt; io.trino.spi.connector.ConnectorSplitSource::getNextBatch(int)</old>
+                                    <new>method java.util.concurrent.CompletableFuture&lt;java.util.List&lt;io.trino.spi.connector.ConnectorSplit&gt;&gt; io.trino.spi.connector.ConnectorSplitSource::getNextBatch(int, io.trino.spi.connector.DynamicFilterSnapshot)</new>
+                                    <justification>getNextBatch(int) replaced by getNextBatch(int, DynamicFilterSnapshot) returning List — dynamic filter predicate is now delivered per-batch and ConnectorSplitBatch wrapper removed</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.util.concurrent.CompletableFuture&lt;io.trino.spi.connector.ConnectorSplitSource.ConnectorSplitBatch&gt; io.trino.spi.connector.FixedSplitSource::getNextBatch(int)</old>
+                                    <new>method java.util.concurrent.CompletableFuture&lt;java.util.List&lt;io.trino.spi.connector.ConnectorSplit&gt;&gt; io.trino.spi.connector.FixedSplitSource::getNextBatch(int, io.trino.spi.connector.DynamicFilterSnapshot)</new>
+                                    <justification>getNextBatch(int) replaced by getNextBatch(int, DynamicFilterSnapshot) returning List</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.concurrent.CompletableFuture&lt;io.trino.spi.connector.ConnectorSplitSource.ConnectorSplitBatch&gt; io.trino.spi.connector.ConnectorSplitSource::getNextBatch(int)</old>
+                                    <new>method java.util.concurrent.CompletableFuture&lt;java.util.List&lt;io.trino.spi.connector.ConnectorSplit&gt;&gt; io.trino.spi.connector.ConnectorSplitSource::getNextBatch(int, io.trino.spi.connector.DynamicFilterSnapshot)</new>
+                                    <justification>ConnectorSplitBatch wrapper removed — getNextBatch now returns List&lt;ConnectorSplit&gt; directly</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.concurrent.CompletableFuture&lt;io.trino.spi.connector.ConnectorSplitSource.ConnectorSplitBatch&gt; io.trino.spi.connector.FixedSplitSource::getNextBatch(int)</old>
+                                    <new>method java.util.concurrent.CompletableFuture&lt;java.util.List&lt;io.trino.spi.connector.ConnectorSplit&gt;&gt; io.trino.spi.connector.FixedSplitSource::getNextBatch(int, io.trino.spi.connector.DynamicFilterSnapshot)</new>
+                                    <justification>ConnectorSplitBatch wrapper removed — getNextBatch now returns List&lt;ConnectorSplit&gt; directly</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.noLongerDefault</code>
+                                    <new>method java.util.concurrent.CompletableFuture&lt;java.util.List&lt;io.trino.spi.connector.ConnectorSplit&gt;&gt; io.trino.spi.connector.ConnectorSplitSource::getNextBatch(int, io.trino.spi.connector.DynamicFilterSnapshot)</new>
+                                    <justification>Method is now abstract — split sources must implement it</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.nowAbstract</code>
+                                    <new>method java.util.concurrent.CompletableFuture&lt;java.util.List&lt;io.trino.spi.connector.ConnectorSplit&gt;&gt; io.trino.spi.connector.ConnectorSplitSource::getNextBatch(int, io.trino.spi.connector.DynamicFilterSnapshot)</new>
+                                    <justification>Method is now abstract — split sources must implement it</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.abstractMethodAddedToInterface</code>
+                                    <new>method io.trino.spi.connector.ConnectorSplitSource io.trino.spi.connector.ConnectorSplitManager::getSplits(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;, io.trino.spi.connector.Constraint)</new>
+                                    <justification>Replaces getSplits(DynamicFilter) — connectors must override the new method to receive the dynamic filter column set</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>method io.trino.spi.connector.ConnectorSplitSource io.trino.spi.connector.ConnectorSplitManager::getSplits(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.DynamicFilter, io.trino.spi.connector.Constraint)</old>
+                                    <new>method io.trino.spi.connector.ConnectorSplitSource io.trino.spi.connector.ConnectorSplitManager::getSplits(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;, io.trino.spi.connector.Constraint)</new>
+                                    <justification>DynamicFilter replaced by Set&lt;ColumnHandle&gt; — predicate is now delivered per-batch via getNextBatch(int, DynamicFilterSnapshot)</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.noLongerDefault</code>
+                                    <new>method io.trino.spi.connector.ConnectorSplitSource io.trino.spi.connector.ConnectorSplitManager::getSplits(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;, io.trino.spi.connector.Constraint)</new>
+                                    <justification>Method is now abstract — connectors must implement it</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.nowAbstract</code>
+                                    <new>method io.trino.spi.connector.ConnectorSplitSource io.trino.spi.connector.ConnectorSplitManager::getSplits(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;, io.trino.spi.connector.Constraint)</new>
+                                    <justification>Method is now abstract — connectors must implement it</justification>
+                                </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.connector.ConnectorSplitSource.ConnectorSplitBatch</old>
+                                    <justification>ConnectorSplitBatch wrapper removed — getNextBatch now returns List&lt;ConnectorSplit&gt; directly; use isFinished() instead of isNoMoreSplits()</justification>
+                                </item>
                                 <!-- Any exclusions below can be deleted after each release -->
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <new>method io.trino.spi.connector.ConnectorPageSource io.trino.spi.connector.ConnectorPageSourceProvider::createPageSource(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorSplit, io.trino.spi.connector.ConnectorTableHandle, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableCredentials&gt;, java.util.List&lt;io.trino.spi.connector.ColumnHandle&gt;, io.trino.spi.connector.DynamicFilter, io.trino.spi.connector.MemoryContext)</new>
+                                    <justification>It's revapi false-positive -- a new overload was added and old one got deprecated</justification>
+                                </item>
                                 <item>
                                     <ignore>true</ignore>
                                     <code>java.class.nowFinal</code>
                                     <old>class io.trino.spi.type.VariantType</old>
                                     <new>class io.trino.spi.type.VariantType</new>
                                     <justification>VariantType is a singleton type implementation and should not be extended</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <new>method io.trino.spi.function.Signature.Builder io.trino.spi.function.Signature.Builder::argumentTypes(io.trino.spi.type.TypeDescriptor[])</new>
+                                    <justification>argumentTypes deliberately overloads on TypeDescriptor... and TypeTemplate... so call sites keep a stable shape across the ground/open split.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <new>method io.trino.spi.function.Signature.Builder io.trino.spi.function.Signature.Builder::argumentTypes(io.trino.spi.type.TypeTemplate[])</new>
+                                    <justification>argumentTypes deliberately overloads on TypeDescriptor... and TypeTemplate... so call sites keep a stable shape across the ground/open split.</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
@@ -263,24 +341,6 @@
                                     <code>java.method.removed</code>
                                     <old>method java.util.List&lt;io.trino.spi.function.LongVariableConstraint&gt; io.trino.spi.function.Signature::getLongVariableConstraints()</old>
                                     <justification>Renamed to getNumericVariableConstraints.</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method io.trino.spi.type.TypeSignature io.trino.spi.type.TypeSignature::parametricType(java.lang.String, io.trino.spi.type.TypeSignature[])</old>
-                                    <justification>Renamed parametricType to type; the parameterless type(name) is the degenerate case.</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
-                                    <new>method io.trino.spi.type.TypeSignature io.trino.spi.type.TypeSignature::type(java.lang.String, io.trino.spi.type.TypeSignature[])</new>
-                                    <justification>The type factory deliberately overloads on TypeSignature... and TypeParameter... varargs so callers avoid wrapping homogeneous parameters.</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
-                                    <new>method io.trino.spi.type.TypeSignature io.trino.spi.type.TypeSignature::type(java.lang.String, io.trino.spi.type.TypeParameter[])</new>
-                                    <justification>The type factory deliberately overloads on TypeSignature... and TypeParameter... varargs so callers avoid wrapping homogeneous parameters.</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
@@ -332,6 +392,54 @@
                                     <code>java.method.nowAbstract</code>
                                     <old>method io.trino.spi.connector.ConnectorPageSource io.trino.spi.connector.ConnectorPageSourceProvider::createPageSource(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorSplit, io.trino.spi.connector.ConnectorTableHandle, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableCredentials&gt;, java.util.List&lt;io.trino.spi.connector.ColumnHandle&gt;, io.trino.spi.connector.DynamicFilter)</old>
                                     <justification>Removed deprecated method without ConnectorTableCredentials parameter</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method long io.trino.spi.type.DoubleType::xxHash64(double)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method boolean io.trino.spi.type.TimeType::equalOperator(long, long)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method long io.trino.spi.type.TimeType::hashCodeOperator(long)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method boolean io.trino.spi.type.TimeType::lessThan(long, long)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method boolean io.trino.spi.type.TimeType::lessThanOrEqual(long, long)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method long io.trino.spi.type.TimeType::xxHash64Operator(long)</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.connector.Constraint::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;, java.util.function.Predicate&lt;java.util.Map&lt;io.trino.spi.connector.ColumnHandle, io.trino.spi.predicate.NullableValue&gt;&gt;, java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;)</old>
+                                    <justification>Constraint predicate removed; use ConnectorExpression instead</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.connector.Constraint::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;, io.trino.spi.expression.ConnectorExpression, java.util.Map&lt;java.lang.String, io.trino.spi.connector.ColumnHandle&gt;, java.util.function.Predicate&lt;java.util.Map&lt;io.trino.spi.connector.ColumnHandle, io.trino.spi.predicate.NullableValue&gt;&gt;, java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;)</old>
+                                    <justification>Constraint predicate removed; use ConnectorExpression instead</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.Optional&lt;java.util.function.Predicate&lt;java.util.Map&lt;io.trino.spi.connector.ColumnHandle, io.trino.spi.predicate.NullableValue&gt;&gt;&gt; io.trino.spi.connector.Constraint::predicate()</old>
+                                    <justification>Constraint predicate removed; use ConnectorExpression instead</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.Optional&lt;java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;&gt; io.trino.spi.connector.Constraint::getPredicateColumns()</old>
+                                    <justification>Constraint predicate removed; use ConnectorExpression instead</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
@@ -387,40 +495,69 @@
                                     <old>field io.trino.spi.function.OperatorType.MODULUS</old>
                                     <justification>Renamed to MODULO</justification>
                                 </item>
+                                <!-- Renamed TypeSignature to TypeDescriptor (it is always a ground type, not a signature) -->
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.type.TypeSignature</old>
+                                    <justification>Renamed TypeSignature to TypeDescriptor</justification>
+                                </item>
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>.*io\.trino\.spi\.type\.TypeSignature.*</old>
+                                    <new>.*io\.trino\.spi\.type\.TypeDescriptor.*</new>
+                                    <justification>Renamed TypeSignature to TypeDescriptor</justification>
+                                </item>
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>.*io\.trino\.spi\.type\.TypeSignature.*</old>
+                                    <new>.*io\.trino\.spi\.type\.TypeDescriptor.*</new>
+                                    <justification>Renamed TypeSignature to TypeDescriptor</justification>
+                                </item>
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>.*io\.trino\.spi\.type\.TypeSignature.*</old>
+                                    <new>.*io\.trino\.spi\.type\.TypeDescriptor.*</new>
+                                    <justification>Renamed TypeSignature to TypeDescriptor</justification>
+                                </item>
+                                <!-- Renamed Type.getTypeSignature() to getTypeDescriptor() -->
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java.method.removed</code>
+                                    <old>method io\.trino\.spi\.type\.TypeSignature io\.trino\.spi\.type\.\w+::getTypeSignature\(\)</old>
+                                    <justification>Renamed getTypeSignature to getTypeDescriptor</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method io.trino.spi.type.TypeDescriptor io.trino.spi.type.Type::getTypeDescriptor()</new>
+                                    <justification>Renamed getTypeSignature to getTypeDescriptor</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.finalMethodAddedToNonFinalClass</code>
+                                    <new>method io.trino.spi.type.TypeDescriptor io.trino.spi.type.AbstractType::getTypeDescriptor()</new>
+                                    <justification>Renamed getTypeSignature to getTypeDescriptor</justification>
+                                </item>
                                 <item>
                                     <code>java.method.returnTypeChanged</code>
                                     <old>method void io.trino.spi.connector.ConnectorMetadata::finishTableExecute(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableExecuteHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.List&lt;java.lang.Object&gt;)</old>
                                     <new>method java.util.Map&lt;java.lang.String, java.lang.Long&gt; io.trino.spi.connector.ConnectorMetadata::finishTableExecute(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableExecuteHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.List&lt;java.lang.Object&gt;)</new>
                                 </item>
                                 <item>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method io.trino.spi.function.FunctionMetadata io.trino.spi.function.FunctionMetadata::fromJson(io.trino.spi.function.FunctionId, io.trino.spi.function.Signature, java.lang.String, java.util.Set&lt;java.lang.String&gt;, io.trino.spi.function.FunctionNullability, boolean, boolean, boolean, java.lang.String, io.trino.spi.function.FunctionKind, boolean)</old>
-                                    <new>method io.trino.spi.function.FunctionMetadata io.trino.spi.function.FunctionMetadata::fromJson(io.trino.spi.function.FunctionId, io.trino.spi.function.Signature, java.lang.String, java.util.Set&lt;java.lang.String&gt;, io.trino.spi.function.FunctionNullability, boolean, boolean, boolean, java.lang.String, io.trino.spi.function.FunctionKind, boolean, java.util.Optional&lt;io.trino.spi.type.TypeSignature&gt;, boolean)</new>
-                                    <justification>Add receiverType and instanceMethod to support SQL:2023 method invocation</justification>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.type.Timestamps::truncateEpochMicrosToMillis(long)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.function.FunctionMetadata::isNeverFails()</old>
+                                    <justification>Replaced with getNeverFails() returning Predicate&lt;BoundSignature&gt; so per-binding (e.g., decimal precision/scale) infallibility can be expressed and is type-enforced at the read side.</justification>
                                 </item>
                                 <item>
                                     <code>java.method.addedToInterface</code>
                                     <new>method boolean io.trino.spi.type.TypeManager::isTypeRegistered(java.lang.String)</new>
                                     <justification>Required for resolving static method calls on parametric type bases (array, row, map). Cannot be a default that calls getType because parametric bases require parameters and would force exception-driven control flow.</justification>
-                                </item>
-                                <item>
-                                    <code>java.method.parameterTypeParameterChanged</code>
-                                    <old>parameter io.trino.spi.function.Signature io.trino.spi.function.Signature::fromJson(java.util.List&lt;io.trino.spi.function.TypeVariableConstraint&gt;, java.util.List&lt;io.trino.spi.function.LongVariableConstraint&gt;, io.trino.spi.type.TypeSignature, ===java.util.List&lt;io.trino.spi.type.TypeSignature&gt;===, boolean)</old>
-                                    <new>parameter io.trino.spi.function.Signature io.trino.spi.function.Signature::fromJson(java.util.List&lt;io.trino.spi.function.TypeVariableConstraint&gt;, java.util.List&lt;io.trino.spi.function.LongVariableConstraint&gt;, io.trino.spi.type.TypeSignature, ===java.util.List&lt;io.trino.spi.function.Signature.Argument&gt;===, boolean)</new>
-                                    <justification>Replace parallel argumentTypes list with structural Signature.Argument list to carry parameter names</justification>
-                                </item>
-                                <item>
-                                    <code>java.annotation.attributeValueChanged</code>
-                                    <old>parameter io.trino.spi.function.Signature io.trino.spi.function.Signature::fromJson(java.util.List&lt;io.trino.spi.function.TypeVariableConstraint&gt;, java.util.List&lt;io.trino.spi.function.LongVariableConstraint&gt;, io.trino.spi.type.TypeSignature, ===java.util.List&lt;io.trino.spi.type.TypeSignature&gt;===, boolean)</old>
-                                    <new>parameter io.trino.spi.function.Signature io.trino.spi.function.Signature::fromJson(java.util.List&lt;io.trino.spi.function.TypeVariableConstraint&gt;, java.util.List&lt;io.trino.spi.function.LongVariableConstraint&gt;, io.trino.spi.type.TypeSignature, ===java.util.List&lt;io.trino.spi.function.Signature.Argument&gt;===, boolean)</new>
-                                    <justification>JsonProperty value renamed from argumentTypes to arguments</justification>
-                                </item>
-                                <item>
-                                    <code>java.annotation.removed</code>
-                                    <old>method java.util.List&lt;io.trino.spi.type.TypeSignature&gt; io.trino.spi.function.Signature::getArgumentTypes()</old>
-                                    <new>method java.util.List&lt;io.trino.spi.type.TypeSignature&gt; io.trino.spi.function.Signature::getArgumentTypes()</new>
-                                    <annotationType>com.fasterxml.jackson.annotation.JsonProperty</annotationType>
-                                    <justification>getArgumentTypes() is now a derived view; JsonProperty moved to getArguments()</justification>
                                 </item>
                                 <!-- Remove dead JSON serialization from Signature and FunctionMetadata (never serialized at runtime). -->
                                 <item>
@@ -435,6 +572,45 @@
                                     <code>java.method.removed</code>
                                     <old>method .* io\.trino\.spi\.function\.(Signature|FunctionMetadata)::fromJson\(.*</old>
                                     <justification>Remove the dead @JsonCreator; Signature/FunctionMetadata are never deserialized.</justification>
+                                </item>
+                                <!-- A function signature's argument/return types are now TypeTemplate (the open, variable-bearing form). -->
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method io.trino.spi.type.TypeSignature io.trino.spi.function.Signature::getReturnType()</old>
+                                    <new>method io.trino.spi.type.TypeTemplate io.trino.spi.function.Signature::getReturnType()</new>
+                                    <justification>Signature now represents its return type as a TypeTemplate.</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.List&lt;io.trino.spi.type.TypeSignature&gt; io.trino.spi.function.Signature::getArgumentTypes()</old>
+                                    <new>method java.util.List&lt;io.trino.spi.type.TypeTemplate&gt; io.trino.spi.function.Signature::getArgumentTypes()</new>
+                                    <justification>Signature now represents its argument types as TypeTemplates.</justification>
+                                </item>
+                                <!-- Function dependencies are now carried as TypeTemplate (the open, variable-bearing form) rather than TypeSignature. -->
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java\.method\..*</code>
+                                    <old>.*io\.trino\.spi\.function\.FunctionDependencyDeclaration.*</old>
+                                    <justification>Function dependency declarations now carry their type, argument, and cast types as TypeTemplate, the open variable-bearing form, instead of TypeSignature.</justification>
+                                </item>
+                                <!-- A type variable's castable-to/from constraints are now carried as TypeTemplate rather than TypeSignature. -->
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java\.method\..*</code>
+                                    <old>.*io\.trino\.spi\.function\.TypeVariableConstraint.*</old>
+                                    <justification>A type variable's castable-to and castable-from constraints are now carried as TypeTemplate instead of TypeSignature.</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.List&lt;io.trino.spi.type.TypeSignature&gt; io.trino.spi.function.AggregationFunctionMetadata::getIntermediateTypes()</old>
+                                    <new>method java.util.List&lt;io.trino.spi.type.TypeTemplate&gt; io.trino.spi.function.AggregationFunctionMetadata::getIntermediateTypes()</new>
+                                    <justification>An aggregation's intermediate types are now carried as TypeTemplate, the open variable-bearing form, instead of TypeSignature.</justification>
+                                </item>
+                                <!-- TypeSignature is now strictly ground: a numeric variable is no longer a TypeParameter.Variable but a NumericExpression carried by TypeTemplate. -->
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.type.TypeParameter.Variable</old>
+                                    <justification>A TypeSignature is now always ground; variables live only in TypeTemplate, so the Variable type parameter is removed.</justification>
                                 </item>
                             </differences>
                         </revapi.differences>

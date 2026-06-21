@@ -43,6 +43,7 @@ import io.trino.spi.QueryId;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeOperators;
@@ -501,7 +502,7 @@ public class TestMultiSourcePartitionedScheduler
     {
         Map<PlanNodeId, SplitSource> sources = splitSources.entrySet()
                 .stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, e.getValue())));
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, e.getValue(), DynamicFilter.EMPTY)));
         return new MultiSourcePartitionedScheduler(
                 stage,
                 sources,
@@ -674,11 +675,9 @@ public class TestMultiSourcePartitionedScheduler
         }
 
         @Override
-        public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
+        public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize, DynamicFilterSnapshot dynamicFilterSnapshot)
         {
-            return notEmptyFuture
-                    .thenApply(_ -> getBatch(maxSize))
-                    .thenApply(splits -> new ConnectorSplitBatch(splits, isFinished()));
+            return notEmptyFuture.thenApply(_ -> getBatch(maxSize));
         }
 
         private synchronized List<ConnectorSplit> getBatch(int maxSize)

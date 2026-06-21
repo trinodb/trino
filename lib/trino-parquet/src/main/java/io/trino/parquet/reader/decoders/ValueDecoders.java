@@ -1118,7 +1118,7 @@ public final class ValueDecoders
                 int[] buffer = new int[length];
                 delegate.read(buffer, 0, length);
                 for (int i = 0; i < length; i++) {
-                    if (overflows(buffer[i], decimalType.getPrecision())) {
+                    if (overflows(buffer[i], decimalType.getPrecision() - decimalType.getScale())) {
                         throw new TrinoException(
                                 INVALID_CAST_ARGUMENT,
                                 format("Cannot read parquet INT32 value '%s' as DECIMAL(%s, %s)", buffer[i], decimalType.getPrecision(), decimalType.getScale()));

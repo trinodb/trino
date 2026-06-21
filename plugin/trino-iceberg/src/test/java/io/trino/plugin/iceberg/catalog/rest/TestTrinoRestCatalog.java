@@ -27,6 +27,7 @@ import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Security;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
@@ -48,6 +49,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -69,6 +71,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.InstanceOfAssertFactories.INTEGER;
 
 public class TestTrinoRestCatalog
         extends BaseTrinoCatalogTest
@@ -172,7 +175,8 @@ public class TestTrinoRestCatalog
                     newDirectExecutorService(),
                     newDirectExecutorService(),
                     0,
-                    ZERO);
+                    ZERO,
+                    ConnectorExpressionEvaluator.NO_OP);
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isTrue();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
@@ -222,6 +226,27 @@ public class TestTrinoRestCatalog
         TrinoCatalog catalog = createTrinoRestCatalog(false, new NamespaceDeletedDuringRecursiveListingCatalog(), false, true);
 
         assertThat(catalog.namespaceExists(SESSION, "existing")).isTrue();
+    }
+
+    @Test
+    public void testNestedListNamespacesReusesSessionContext()
+    {
+        Map<String, Integer> sessionIdCounts = new ConcurrentHashMap<>();
+        RESTSessionCatalog restSessionCatalog = new NamespaceDeletedDuringRecursiveListingCatalog()
+        {
+            @Override
+            public List<Namespace> listNamespaces(SessionContext context, Namespace namespace)
+            {
+                sessionIdCounts.merge(context.sessionId(), 1, Integer::sum);
+                return super.listNamespaces(context, namespace);
+            }
+        };
+
+        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, true, false);
+
+        catalog.listNamespaces(SESSION);
+
+        assertThat(sessionIdCounts.values()).singleElement(INTEGER).isGreaterThan(1);
     }
 
     @Test
@@ -300,7 +325,7 @@ public class TestTrinoRestCatalog
 
         catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
 
-        catalog.createView(SESSION, viewName, viewDefinition, false);
+        catalog.createView(SESSION, viewName, viewDefinition, ImmutableMap.of(), false);
         assertViewDefinition(catalog.getView(SESSION, viewName).orElseThrow(), viewDefinition);
 
         View initialView = catalog.getIcebergView(SESSION, viewName, false).orElse(null);
@@ -313,7 +338,7 @@ public class TestTrinoRestCatalog
                 new ViewColumn("name", VARCHAR.getTypeId(), Optional.empty()),
                 new ViewColumn("comment", VARCHAR.getTypeId(), Optional.empty()));
 
-        catalog.createView(SESSION, viewName, updatedViewDefinition, true);
+        catalog.createView(SESSION, viewName, updatedViewDefinition, ImmutableMap.of(), true);
         assertViewDefinition(catalog.getView(SESSION, viewName).orElseThrow(), updatedViewDefinition);
 
         View updatedView = catalog.getIcebergView(SESSION, viewName, false).orElse(null);

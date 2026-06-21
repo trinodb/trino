@@ -70,13 +70,13 @@ import static io.trino.jdbc.AbstractTrinoResultSet.TIMESTAMP_FORMATTER;
 import static io.trino.jdbc.AbstractTrinoResultSet.TIME_FORMATTER;
 import static io.trino.jdbc.ColumnInfo.setTypeInfo;
 import static io.trino.jdbc.ObjectCasts.castToBigDecimal;
+import static io.trino.jdbc.ObjectCasts.castToBigint;
 import static io.trino.jdbc.ObjectCasts.castToBinary;
 import static io.trino.jdbc.ObjectCasts.castToBoolean;
 import static io.trino.jdbc.ObjectCasts.castToByte;
 import static io.trino.jdbc.ObjectCasts.castToDouble;
 import static io.trino.jdbc.ObjectCasts.castToFloat;
 import static io.trino.jdbc.ObjectCasts.castToInt;
-import static io.trino.jdbc.ObjectCasts.castToLong;
 import static io.trino.jdbc.ObjectCasts.castToShort;
 import static io.trino.jdbc.ObjectCasts.invalidConversion;
 import static java.lang.Long.parseLong;
@@ -515,7 +515,7 @@ public class TrinoPreparedStatement
                 setInt(parameterIndex, castToInt(x, targetSqlType));
                 return;
             case Types.BIGINT:
-                setLong(parameterIndex, castToLong(x, targetSqlType));
+                setLong(parameterIndex, castToBigint(x, targetSqlType));
                 return;
             case Types.FLOAT:
             case Types.REAL:

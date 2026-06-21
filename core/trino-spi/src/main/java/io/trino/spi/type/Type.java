@@ -34,12 +34,12 @@ public interface Type
      * Gets the name of this type which must be case insensitive globally unique.
      * The name of a user defined type must be a legal identifier in Trino.
      */
-    TypeSignature getTypeSignature();
+    TypeDescriptor getTypeDescriptor();
 
     @JsonValue
     default TypeId getTypeId()
     {
-        return TypeId.of(getTypeSignature().toString());
+        return TypeId.of(getTypeDescriptor().toString());
     }
 
     /**
@@ -48,7 +48,7 @@ public interface Type
      */
     default String getBaseName()
     {
-        return getTypeSignature().getBase();
+        return getTypeDescriptor().getBase();
     }
 
     /**

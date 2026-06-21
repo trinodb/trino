@@ -55,34 +55,35 @@ public class TestWorkProcessorOperatorAdapter
 
     @Test
     public void testMetrics()
+            throws Exception
     {
         DriverContext driverContext = TestingTaskContext.builder(MoreExecutors.directExecutor(), scheduledExecutor, TEST_SESSION)
                 .build()
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
         OperatorFactory factory = createAdapterOperatorFactory(new TestWorkProcessorOperatorFactory());
-        Operator operator = factory.createOperator(driverContext);
+        try (Operator operator = factory.createOperator(driverContext)) {
+            OperatorContext context = operator.getOperatorContext();
 
-        OperatorContext context = operator.getOperatorContext();
+            operator.getOutput();
+            assertThat(operator.isFinished()).isFalse();
+            assertThat(context.getOperatorStats().getMetrics().getMetrics())
+                    .hasSize(6)
+                    .containsEntry("testOperatorMetric", new LongCount(1));
 
-        operator.getOutput();
-        assertThat(operator.isFinished()).isFalse();
-        assertThat(context.getOperatorStats().getMetrics().getMetrics())
-                .hasSize(6)
-                .containsEntry("testOperatorMetric", new LongCount(1));
-
-        operator.getOutput();
-        assertThat(operator.isFinished()).isTrue();
-        assertThat(context.getOperatorStats().getMetrics().getMetrics())
-                .hasSize(6)
-                .containsEntry("testOperatorMetric", new LongCount(2));
+            operator.getOutput();
+            assertThat(operator.isFinished()).isTrue();
+            assertThat(context.getOperatorStats().getMetrics().getMetrics())
+                    .hasSize(6)
+                    .containsEntry("testOperatorMetric", new LongCount(2));
+        }
     }
 
     private static class TestWorkProcessorOperatorFactory
             implements WorkProcessorOperatorFactory
     {
         @Override
-        public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
+        public WorkProcessorOperator create(OperatorContext operatorContext, WorkProcessor<Page> sourcePages)
         {
             return new TestWorkProcessorOperator();
         }

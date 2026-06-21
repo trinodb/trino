@@ -65,7 +65,7 @@ public class TestDistinctLimitOperator
     public void testDistinctLimit()
     {
         DriverContext driverContext = newDriverContext();
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(Ints.asList(0), BIGINT);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(BIGINT);
         List<Page> input = rowPagesBuilder
                 .addSequencePage(3, 1)
                 .addSequencePage(5, 2)
@@ -94,7 +94,7 @@ public class TestDistinctLimitOperator
     public void testDistinctLimitWithPageAlignment()
     {
         DriverContext driverContext = newDriverContext();
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(Ints.asList(0), BIGINT);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(BIGINT);
         List<Page> input = rowPagesBuilder
                 .addSequencePage(3, 1)
                 .addSequencePage(3, 2)
@@ -122,7 +122,7 @@ public class TestDistinctLimitOperator
     {
         DriverContext driverContext = newDriverContext();
 
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(Ints.asList(0), BIGINT);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(BIGINT);
         List<Page> input = rowPagesBuilder
                 .addSequencePage(3, 1)
                 .addSequencePage(3, 2)
@@ -148,12 +148,14 @@ public class TestDistinctLimitOperator
 
     @Test
     public void testMemoryReservationYield()
+            throws Exception
     {
         testMemoryReservationYield(VARCHAR);
         testMemoryReservationYield(BIGINT);
     }
 
     public void testMemoryReservationYield(Type type)
+            throws Exception
     {
         List<Page> input = createPages(type, 6_000, 600);
 

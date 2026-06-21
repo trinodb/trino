@@ -27,6 +27,7 @@ import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.jdbc.JdbcCatalog;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.view.View;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -63,7 +64,7 @@ public abstract class BaseIcebergJdbcCatalogConnectorSmokeTest
 {
     private final SchemaVersion schemaVersion;
 
-    private JdbcCatalog jdbcCatalog;
+    protected JdbcCatalog jdbcCatalog;
     private File warehouseLocation;
 
     public BaseIcebergJdbcCatalogConnectorSmokeTest(SchemaVersion schemaVersion)
@@ -161,6 +162,25 @@ public abstract class BaseIcebergJdbcCatalogConnectorSmokeTest
     }
 
     @Test
+    void testReplaceViewReuseExistingLocation()
+    {
+        String viewName = "test_replace_view_reuse_location_" + randomNameSuffix();
+        TableIdentifier identifier = toIdentifier(viewName);
+
+        assertUpdate("CREATE VIEW " + viewName + " AS SELECT nationkey FROM nation");
+        View initialView = jdbcCatalog.loadView(identifier);
+        assertThat(initialView.location()).isNotNull();
+
+        assertUpdate("CREATE OR REPLACE VIEW " + viewName + " AS SELECT nationkey, name FROM nation");
+        View replacedView = jdbcCatalog.loadView(identifier);
+
+        assertThat(replacedView.location()).isEqualTo(initialView.location());
+        assertThat(replacedView.currentVersion().versionId()).isEqualTo(initialView.currentVersion().versionId() + 1);
+
+        assertUpdate("DROP VIEW " + viewName);
+    }
+
+    @Test
     void testUnsupportedViewDialect()
     {
         String viewName = "test_unsupported_dialect" + randomNameSuffix();
@@ -230,7 +250,7 @@ public abstract class BaseIcebergJdbcCatalogConnectorSmokeTest
         return Files.exists(Path.of(location));
     }
 
-    private TableIdentifier toIdentifier(String tableName)
+    protected TableIdentifier toIdentifier(String tableName)
     {
         return TableIdentifier.of(getSession().getSchema().orElseThrow(), tableName);
     }

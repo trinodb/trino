@@ -35,12 +35,11 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
-import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
@@ -48,7 +47,6 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.testing.TestingSession;
 import io.trino.transaction.TestingTransactionManager;
@@ -72,10 +70,10 @@ import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NA
 import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.ARRAY_CONSTRUCTOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.BETWEEN_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.COALESCE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.DIVIDE_FUNCTION_NAME;
-import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.MODULO_FUNCTION_NAME;
@@ -102,8 +100,11 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.not;
+import static io.trino.sql.ir.TestingIr.between;
+import static io.trino.sql.ir.TestingIr.comparison;
+import static io.trino.sql.ir.TestingIr.nullIf;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TransactionBuilder.transaction;
@@ -193,8 +194,8 @@ public class TestConnectorExpressionTranslator
                     new Logical(
                             operator,
                             List.of(
-                                    new Comparison(Comparison.Operator.LESS_THAN, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")),
-                                    new Comparison(Comparison.Operator.EQUAL, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")))),
+                                    comparison(ComparisonOperator.LESS_THAN, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")),
+                                    comparison(ComparisonOperator.EQUAL, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")))),
                     new io.trino.spi.expression.Call(
                             BOOLEAN,
                             operator == Logical.Operator.AND ? StandardFunctions.AND_FUNCTION_NAME : StandardFunctions.OR_FUNCTION_NAME,
@@ -219,7 +220,7 @@ public class TestConnectorExpressionTranslator
                         Logical.Operator.AND,
                         List.of(
                                 new Constant(BOOLEAN, true),
-                                new Comparison(Comparison.Operator.EQUAL, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")))),
+                                comparison(ComparisonOperator.EQUAL, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")))),
                 new io.trino.spi.expression.Call(
                         BOOLEAN,
                         StandardFunctions.AND_FUNCTION_NAME,
@@ -233,13 +234,23 @@ public class TestConnectorExpressionTranslator
     @Test
     public void testTranslateComparisonExpression()
     {
-        for (Comparison.Operator operator : Comparison.Operator.values()) {
+        for (ComparisonOperator operator : ComparisonOperator.values()) {
+            // Greater-than comparisons are canonicalized to less-than with flipped operands, so the
+            // round-tripped connector expression uses the flipped operator and operand order.
+            ComparisonOperator translatedOperator = switch (operator) {
+                case GREATER_THAN -> ComparisonOperator.LESS_THAN;
+                case GREATER_THAN_OR_EQUAL -> ComparisonOperator.LESS_THAN_OR_EQUAL;
+                default -> operator;
+            };
+            List<ConnectorExpression> operands = translatedOperator == operator
+                    ? List.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))
+                    : List.of(new Variable("double_symbol_2", DOUBLE), new Variable("double_symbol_1", DOUBLE));
             assertTranslationRoundTrips(
-                    new Comparison(operator, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")),
+                    comparison(operator, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")),
                     new io.trino.spi.expression.Call(
                             BOOLEAN,
-                            ConnectorExpressionTranslator.functionNameForComparisonOperator(operator),
-                            List.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))));
+                            ConnectorExpressionTranslator.functionNameForComparisonOperator(translatedOperator),
+                            operands));
         }
     }
 
@@ -372,9 +383,10 @@ public class TestConnectorExpressionTranslator
     @Test
     public void testTranslateBetween()
     {
-        assertTranslationToConnectorExpression(
-                TEST_SESSION,
-                new Between(
+        // Trivial value (Reference): the factory emits AND-of-comparisons; the connector receives
+        // the same shape without `$between` since duplicating a variable is harmless.
+        assertTranslationRoundTrips(
+                between(
                         new Reference(DOUBLE, "double_symbol_1"),
                         new Constant(DOUBLE, 1.2),
                         new Reference(DOUBLE, "double_symbol_2")),
@@ -384,16 +396,30 @@ public class TestConnectorExpressionTranslator
                         List.of(
                                 new io.trino.spi.expression.Call(
                                         BOOLEAN,
-                                        GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME,
+                                        LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME,
                                         List.of(
-                                                new Variable("double_symbol_1", DOUBLE),
-                                                new io.trino.spi.expression.Constant(1.2d, DOUBLE))),
+                                                new io.trino.spi.expression.Constant(1.2d, DOUBLE),
+                                                new Variable("double_symbol_1", DOUBLE))),
                                 new io.trino.spi.expression.Call(
                                         BOOLEAN,
                                         LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME,
                                         List.of(
                                                 new Variable("double_symbol_1", DOUBLE),
                                                 new Variable("double_symbol_2", DOUBLE))))));
+
+        // Non-trivial value: the factory wraps in a Let so the value is evaluated once. The
+        // connector receives a single `$between(value, min, max)` instead of the duplicated form.
+        assertTranslationRoundTrips(
+                between(new Call(NEGATION_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "double_symbol_1"))),
+                        new Constant(DOUBLE, 1.2),
+                        new Reference(DOUBLE, "double_symbol_2")),
+                new io.trino.spi.expression.Call(
+                        BOOLEAN,
+                        BETWEEN_FUNCTION_NAME,
+                        List.of(
+                                new io.trino.spi.expression.Call(DOUBLE, NEGATE_FUNCTION_NAME, List.of(new Variable("double_symbol_1", DOUBLE))),
+                                new io.trino.spi.expression.Constant(1.2d, DOUBLE),
+                                new Variable("double_symbol_2", DOUBLE))));
     }
 
     @Test
@@ -511,7 +537,8 @@ public class TestConnectorExpressionTranslator
     public void testTranslateNullIf()
     {
         assertTranslationRoundTrips(
-                new NullIf(
+                nullIf(
+                        null,
                         new Reference(VARCHAR, "varchar_symbol_1"),
                         new Reference(VARCHAR, "varchar_symbol_1")),
                 new io.trino.spi.expression.Call(
@@ -721,7 +748,7 @@ public class TestConnectorExpressionTranslator
 
     private void assertTranslationFromConnectorExpression(Session session, ConnectorExpression connectorExpression, Expression expected)
     {
-        Expression translation = ConnectorExpressionTranslator.translate(session, connectorExpression, PLANNER_CONTEXT, variableMappings);
+        Expression translation = ConnectorExpressionTranslator.translate(session, connectorExpression, PLANNER_CONTEXT, variableMappings, new SymbolAllocator());
         assertThat(translation).isEqualTo(expected);
     }
 }

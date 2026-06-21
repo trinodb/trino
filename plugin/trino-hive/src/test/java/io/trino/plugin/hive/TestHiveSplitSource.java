@@ -21,6 +21,8 @@ import io.airlift.units.DataSize;
 import io.trino.filesystem.cache.NoopSplitAffinityProvider;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.DynamicFilterSnapshot;
+import io.trino.spi.predicate.TupleDomain;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -34,8 +36,9 @@ import java.util.function.BooleanSupplier;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.plugin.hive.DynamicFilterState.completedState;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT;
-import static io.trino.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
+import static io.trino.plugin.hive.HiveSessionProperties.getMaxSplitSize;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.Math.toIntExact;
@@ -52,14 +55,14 @@ public class TestHiveSplitSource
                 "database",
                 "table",
                 10,
-                10,
                 DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat(),
                 new NoopSplitAffinityProvider(),
-                false);
+                false,
+                completedState());
 
         // add 10 splits
         for (int i = 0; i < 10; i++) {
@@ -88,14 +91,14 @@ public class TestHiveSplitSource
                 "database",
                 "table",
                 10,
-                10,
                 DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat(),
                 new NoopSplitAffinityProvider(),
-                false);
+                false,
+                completedState());
 
         // add two splits, one of the splits is dynamically pruned
         hiveSplitSource.addToQueue(new TestSplit(0, () -> false));
@@ -110,12 +113,11 @@ public class TestHiveSplitSource
     @Test
     public void testEvenlySizedSplitRemainder()
     {
-        DataSize initialSplitSize = getMaxInitialSplitSize(SESSION);
+        DataSize maxSplitSize = getMaxSplitSize(SESSION);
         HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
                 SESSION,
                 "database",
                 "table",
-                10,
                 10,
                 DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
@@ -123,10 +125,11 @@ public class TestHiveSplitSource
                 Executors.newSingleThreadExecutor(),
                 new CounterStat(),
                 new NoopSplitAffinityProvider(),
-                false);
+                false,
+                completedState());
 
-        // One byte larger than the initial split max size
-        DataSize fileSize = DataSize.ofBytes(initialSplitSize.toBytes() + 1);
+        // One byte larger than the max split size
+        DataSize fileSize = DataSize.ofBytes(maxSplitSize.toBytes() + 1);
         long halfOfSize = fileSize.toBytes() / 2;
         hiveSplitSource.addToQueue(new TestSplit(1, OptionalInt.empty(), fileSize));
 
@@ -145,14 +148,14 @@ public class TestHiveSplitSource
                 "database",
                 "table",
                 10,
-                10,
                 DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat(),
                 new NoopSplitAffinityProvider(),
-                false);
+                false,
+                completedState());
 
         // add some splits
         for (int i = 0; i < 5; i++) {
@@ -197,14 +200,14 @@ public class TestHiveSplitSource
                 "database",
                 "table",
                 10,
-                10,
                 DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat(),
                 new NoopSplitAffinityProvider(),
-                false);
+                false,
+                completedState());
 
         SettableFuture<ConnectorSplit> splits = SettableFuture.create();
 
@@ -252,7 +255,6 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
-                10,
                 10000,
                 maxOutstandingSplitsSize,
                 Integer.MAX_VALUE,
@@ -260,7 +262,8 @@ public class TestHiveSplitSource
                 Executors.newFixedThreadPool(5),
                 new CounterStat(),
                 new NoopSplitAffinityProvider(),
-                false);
+                false,
+                completedState());
         int testSplitSizeInBytes = new TestSplit(0).getEstimatedSizeInBytes();
 
         int maxSplitCount = toIntExact(maxOutstandingSplitsSize.toBytes()) / testSplitSizeInBytes;
@@ -282,7 +285,7 @@ public class TestHiveSplitSource
 
     private static List<ConnectorSplit> getSplits(ConnectorSplitSource source, int maxSize)
     {
-        return getFutureValue(source.getNextBatch(maxSize)).getSplits();
+        return getFutureValue(source.getNextBatch(maxSize, new DynamicFilterSnapshot(TupleDomain.all(), true)));
     }
 
     private static class TestingHiveSplitLoader

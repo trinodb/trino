@@ -31,8 +31,8 @@ import static io.trino.spi.type.Int128Math.subtract;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.TypeParameter.numericVariable;
-import static io.trino.spi.type.TypeSignature.type;
+import static io.trino.spi.type.TypeTemplates.numericVariable;
+import static io.trino.spi.type.TypeTemplates.type;
 import static java.lang.Math.toIntExact;
 
 public final class DecimalSaturatedFloorCasts
@@ -112,10 +112,9 @@ public final class DecimalSaturatedFloorCasts
         return new PolymorphicScalarFunctionBuilder(SATURATED_FLOOR_CAST, DecimalSaturatedFloorCasts.class)
                 .signature(Signature.builder()
                         .argumentType(type("decimal", numericVariable("source_precision"), numericVariable("source_scale")))
-                        .returnType(type.getTypeSignature())
+                        .returnType(type.getTypeDescriptor())
                         .build())
                 .deterministic(true)
-                .neverFails(true) // saturated casts never overflow
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup
                                 .methods("shortDecimalToGenericIntegerType", "longDecimalToGenericIntegerType")

@@ -36,7 +36,7 @@ import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 
-@ScalarFunction(value = "array_union", neverFails = true)
+@ScalarFunction(value = "array_union")
 @Description("Union elements of the two given arrays")
 public final class ArrayUnionFunction
 {
