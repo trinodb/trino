@@ -167,6 +167,7 @@ class BuiltinFunctionResolver
     private Collection<CatalogFunctionMetadata> getBuiltinFunctions(String functionName)
     {
         return globalFunctionCatalog.getBuiltInFunctions(functionName).stream()
+                .filter(function -> !function.isMethod())
                 .map(function -> new CatalogFunctionMetadata(GlobalSystemConnector.CATALOG_HANDLE, BUILTIN_SCHEMA, function))
                 .collect(toImmutableList());
     }

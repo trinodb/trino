@@ -230,7 +230,9 @@ public class FunctionResolver
                 functionBinding.functionBinding(),
                 functionBinding.boundFunctionMetadata(),
                 dependencies,
-                catalogSchemaFunctionName -> metadata.getFunctions(session, catalogSchemaFunctionName),
+                catalogSchemaFunctionName -> filterCandidates(
+                        metadata.getFunctions(session, catalogSchemaFunctionName),
+                        candidate -> !candidate.functionMetadata().isMethod()),
                 catalogFunctionBinding -> resolve(session, catalogFunctionBinding, accessControl));
     }
 

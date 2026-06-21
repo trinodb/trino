@@ -172,6 +172,16 @@ public class FunctionMetadata
     }
 
     /**
+     * Whether this is a method -- an instance or static method invoked through
+     * {@code receiver.method(args)} or {@code type::method(args)} -- rather than a
+     * plain function. Equivalent to {@link #getReceiverType()} being present.
+     */
+    public boolean isMethod()
+    {
+        return receiverType.isPresent();
+    }
+
+    /**
      * Whether this is an instance method (receiver passed as the first
      * argument) rather than a static method. Only meaningful when
      * {@link #getReceiverType()} is present.
