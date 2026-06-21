@@ -28,21 +28,18 @@ import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.Table;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.hive.HiveCompressionCodec;
-import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.testing.BaseConnectorTest;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.containers.Minio;
-import io.trino.testing.minio.MinioClient;
+import io.trino.testing.containers.FlociContainer;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import io.trino.testing.sql.TrinoSqlExecutor;
@@ -69,7 +66,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.union;
-import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.deltalake.DeltaLakeCdfPageSink.CHANGE_DATA_FOLDER_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.CHANGE_DATA_FEED_COLUMN_NAMES;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.CREATE_OR_REPLACE_TABLE_AS_OPERATION;
@@ -81,24 +77,18 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSA
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
-import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_FUNCTION;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -116,57 +106,32 @@ public class TestDeltaLakeConnectorTest
     protected static final String SCHEMA = "test_schema";
 
     protected final String bucketName = "test-bucket-" + randomNameSuffix();
-    protected MinioClient minioClient;
+    protected FlociContainer floci;
     protected HiveMetastore metastore;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Minio minio = closeAfterClass(Minio.builder().build());
-        minio.start();
-        minio.createBucket(bucketName);
-        minioClient = closeAfterClass(minio.createMinioClient());
+        floci = closeAfterClass(new FlociContainer());
+        floci.start();
+        floci.createBucket(bucketName);
 
-        QueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
-                        .setCatalog(DELTA_CATALOG)
-                        .setSchema(SCHEMA)
-                        .build())
+        QueryRunner queryRunner = DeltaLakeQueryRunner.builder(SCHEMA)
+                .addDeltaProperty("hive.metastore", "file")
+                .addDeltaProperty("hive.metastore.catalog.dir", "local:///file-metastore")
+                .addDeltaProperty("hive.metastore.disable-location-checks", "true")
+                .addDeltaProperty("fs.hadoop.enabled", "true") // required by the file metastore
+                .addS3Properties(floci, bucketName)
+                .addDeltaProperty("delta.metastore.store-table-metadata", "true")
+                .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                .addDeltaProperty("delta.register-table-procedure.enabled", "true")
+                .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
-        try {
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
+        queryRunner.execute("CREATE SCHEMA schemawithoutunderscore WITH (location = 's3://" + bucketName + "/schemawithoutunderscore')");
 
-            queryRunner.installPlugin(new DeltaLakePlugin());
-            queryRunner.createCatalog(DELTA_CATALOG, DeltaLakeConnectorFactory.CONNECTOR_NAME, ImmutableMap.<String, String>builder()
-                    .put("hive.metastore", "file")
-                    .put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("file-metastore").toString())
-                    .put("hive.metastore.disable-location-checks", "true")
-                    // required by the file metastore
-                    .put("fs.hadoop.enabled", "true")
-                    .put("fs.s3.enabled", "true")
-                    .put("s3.aws-access-key", MINIO_ROOT_USER)
-                    .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
-                    .put("s3.region", MINIO_REGION)
-                    .put("s3.endpoint", minio.getMinioAddress())
-                    .put("s3.path-style-access", "true")
-                    .put("s3.streaming.part-size", "5MB") // minimize memory usage
-                    .put("delta.metastore.store-table-metadata", "true")
-                    .put("delta.enable-non-concurrent-writes", "true")
-                    .put("delta.register-table-procedure.enabled", "true")
-                    .buildOrThrow());
-
-            queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = 's3://" + bucketName + "/" + SCHEMA + "')");
-            queryRunner.execute("CREATE SCHEMA schemawithoutunderscore WITH (location = 's3://" + bucketName + "/schemawithoutunderscore')");
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, REQUIRED_TPCH_TABLES);
-
-            metastore = TestingDeltaLakeUtils.getConnectorService(queryRunner, HiveMetastoreFactory.class)
-                    .createMetastore(Optional.empty());
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
-        }
+        metastore = TestingDeltaLakeUtils.getConnectorService(queryRunner, HiveMetastoreFactory.class)
+                .createMetastore(Optional.empty());
 
         return queryRunner;
     }
@@ -2682,7 +2647,7 @@ public class TestDeltaLakeConnectorTest
                 .replace("%WRITE_STATS_AS_STRUCT%", Boolean.toString(!statsAsJsonEnabled));
 
         String targetPath = "%s/%s/_delta_log/00000000000000000000.json".formatted(SCHEMA, tableName);
-        minioClient.putObject(bucketName, entry.getBytes(UTF_8), targetPath);
+        floci.putObject(bucketName, entry.getBytes(UTF_8), targetPath);
         String tableLocation = "s3://%s/%s/%s".formatted(bucketName, SCHEMA, tableName);
 
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation));
@@ -2794,7 +2759,7 @@ public class TestDeltaLakeConnectorTest
                 .replace("%WRITE_STATS_AS_STRUCT%", Boolean.toString(!statsAsJsonEnabled));
 
         String targetPath = "%s/%s/_delta_log/00000000000000000000.json".formatted(SCHEMA, tableName);
-        minioClient.putObject(bucketName, entry.getBytes(UTF_8), targetPath);
+        floci.putObject(bucketName, entry.getBytes(UTF_8), targetPath);
         String tableLocation = "s3://%s/%s/%s".formatted(bucketName, SCHEMA, tableName);
 
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation));
@@ -3082,7 +3047,7 @@ public class TestDeltaLakeConnectorTest
                         .replaceFirst("s3://" + bucketName, "");
 
                 // Replace table1 data file with table2 data file, so that the table's schema and data's schema has different column order
-                minioClient.copyObject(bucketName, temporaryDataFile, bucketName, tableDataFile);
+                floci.copyObject(bucketName, temporaryDataFile, bucketName, tableDataFile);
             }
 
             assertThat(query("SELECT nested2.e, nested1.a, nested2.f, nested1.b, id FROM " + testTable.getName()))
@@ -3704,11 +3669,11 @@ public class TestDeltaLakeConnectorTest
         Stopwatch timeSinceUpdate = Stopwatch.createStarted();
 
         // Remove 0 and 1 versions
-        assertThat(minioClient.listObjects(bucketName, deltaLog)).hasSize(7);
-        minioClient.removeObject(bucketName, deltaLog + "/00000000000000000000.json");
-        minioClient.removeObject(bucketName, deltaLog + "/00000000000000000001.json");
-        minioClient.removeObject(bucketName, deltaLog + "/00000000000000000001.checkpoint.parquet");
-        assertThat(minioClient.listObjects(bucketName, deltaLog)).hasSize(4);
+        assertThat(floci.listObjects(bucketName, deltaLog)).hasSize(7);
+        floci.deleteObject(bucketName, deltaLog + "/00000000000000000000.json");
+        floci.deleteObject(bucketName, deltaLog + "/00000000000000000001.json");
+        floci.deleteObject(bucketName, deltaLog + "/00000000000000000001.checkpoint.parquet");
+        assertThat(floci.listObjects(bucketName, deltaLog)).hasSize(4);
 
         assertQuery("SELECT * FROM " + tableName, "VALUES 2, 3");
         Set<String> updatedFiles = getActiveFiles(tableName);
@@ -3990,7 +3955,7 @@ public class TestDeltaLakeConnectorTest
 
     private List<String> getTableFiles(String tableName)
     {
-        return minioClient.listObjects(bucketName, format("%s/%s", SCHEMA, tableName)).stream()
+        return floci.listObjects(bucketName, format("%s/%s", SCHEMA, tableName)).stream()
                 .map(path -> format("s3://%s/%s", bucketName, path))
                 .collect(toImmutableList());
     }
@@ -4461,8 +4426,8 @@ public class TestDeltaLakeConnectorTest
         assertThat(query("SELECT * FROM " + tableName)).matches(initialValues);
 
         metastore.dropTable(SCHEMA, tableName, false);
-        for (String file : minioClient.listObjects(bucketName, SCHEMA + "/" + tableName)) {
-            minioClient.removeObject(bucketName, file);
+        for (String file : floci.listObjects(bucketName, SCHEMA + "/" + tableName)) {
+            floci.deleteObject(bucketName, file);
         }
 
         String newValues = "VALUES" +
@@ -5420,11 +5385,11 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES 3", 1);
 
         // Remove 0 and 1 versions
-        assertThat(minioClient.listObjects(bucketName, deltaLog)).hasSize(7);
-        minioClient.removeObject(bucketName, deltaLog + "/00000000000000000000.json");
-        minioClient.removeObject(bucketName, deltaLog + "/00000000000000000001.json");
-        minioClient.removeObject(bucketName, deltaLog + "/00000000000000000001.checkpoint.parquet");
-        assertThat(minioClient.listObjects(bucketName, deltaLog)).hasSize(4);
+        assertThat(floci.listObjects(bucketName, deltaLog)).hasSize(7);
+        floci.deleteObject(bucketName, deltaLog + "/00000000000000000000.json");
+        floci.deleteObject(bucketName, deltaLog + "/00000000000000000001.json");
+        floci.deleteObject(bucketName, deltaLog + "/00000000000000000001.checkpoint.parquet");
+        assertThat(floci.listObjects(bucketName, deltaLog)).hasSize(4);
 
         assertThat(computeActual("SELECT version FROM \"" + tableName + "$history\"").getOnlyColumnAsSet())
                 .containsExactly(2L);
@@ -5459,11 +5424,11 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES 3", 1);
 
         // Remove 0 and 1 versions
-        assertThat(minioClient.listObjects(bucketName, deltaLog)).hasSize(7);
-        minioClient.removeObject(bucketName, deltaLog + "/00000000000000000000.json");
-        minioClient.removeObject(bucketName, deltaLog + "/00000000000000000001.json");
-        minioClient.removeObject(bucketName, deltaLog + "/00000000000000000001.checkpoint.parquet");
-        assertThat(minioClient.listObjects(bucketName, deltaLog)).hasSize(4);
+        assertThat(floci.listObjects(bucketName, deltaLog)).hasSize(7);
+        floci.deleteObject(bucketName, deltaLog + "/00000000000000000000.json");
+        floci.deleteObject(bucketName, deltaLog + "/00000000000000000001.json");
+        floci.deleteObject(bucketName, deltaLog + "/00000000000000000001.checkpoint.parquet");
+        assertThat(floci.listObjects(bucketName, deltaLog)).hasSize(4);
 
         assertQuery("SELECT * FROM " + tableName, "VALUES 1, 2, 3");
 
