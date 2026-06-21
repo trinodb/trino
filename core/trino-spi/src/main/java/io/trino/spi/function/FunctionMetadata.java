@@ -13,7 +13,7 @@
  */
 package io.trino.spi.function;
 
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplate;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -21,6 +21,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.spi.function.FunctionKind.SCALAR;
@@ -40,11 +41,11 @@ public class FunctionMetadata
     private final FunctionNullability functionNullability;
     private final boolean hidden;
     private final boolean deterministic;
-    private final boolean neverFails;
+    private final Predicate<BoundSignature> neverFails;
     private final String description;
     private final FunctionKind kind;
     private final boolean deprecated;
-    private final Optional<TypeSignature> receiverType;
+    private final Optional<TypeTemplate> receiverType;
     private final boolean instanceMethod;
 
     private FunctionMetadata(
@@ -55,11 +56,11 @@ public class FunctionMetadata
             FunctionNullability functionNullability,
             boolean hidden,
             boolean deterministic,
-            boolean neverFails,
+            Predicate<BoundSignature> neverFails,
             String description,
             FunctionKind kind,
             boolean deprecated,
-            Optional<TypeSignature> receiverType,
+            Optional<TypeTemplate> receiverType,
             boolean instanceMethod)
     {
         this.functionId = requireNonNull(functionId, "functionId is null");
@@ -76,7 +77,7 @@ public class FunctionMetadata
 
         this.hidden = hidden;
         this.deterministic = deterministic;
-        this.neverFails = neverFails;
+        this.neverFails = requireNonNull(neverFails, "neverFails is null");
         this.description = requireNonNull(description, "description is null");
         this.kind = requireNonNull(kind, "kind is null");
         this.deprecated = deprecated;
@@ -135,9 +136,10 @@ public class FunctionMetadata
     }
 
     /**
-     * Whether function never fails for any possible combination of input parameters.
+     * Predicate that returns whether this function never fails for the
+     * given bound signature (call site).
      */
-    public boolean isNeverFails()
+    public Predicate<BoundSignature> getNeverFails()
     {
         return neverFails;
     }
@@ -164,9 +166,19 @@ public class FunctionMetadata
      * the type of the {@code self} parameter (the first declared argument).
      * Empty for regular functions.
      */
-    public Optional<TypeSignature> getReceiverType()
+    public Optional<TypeTemplate> getReceiverType()
     {
         return receiverType;
+    }
+
+    /**
+     * Whether this is a method -- an instance or static method invoked through
+     * {@code receiver.method(args)} or {@code type::method(args)} -- rather than a
+     * plain function. Equivalent to {@link #getReceiverType()} being present.
+     */
+    public boolean isMethod()
+    {
+        return receiverType.isPresent();
     }
 
     /**
@@ -226,11 +238,11 @@ public class FunctionMetadata
         private List<Boolean> argumentNullability;
         private boolean hidden;
         private boolean deterministic = true;
-        private boolean neverFails;
+        private Predicate<BoundSignature> neverFails = _ -> false;
         private String description;
         private FunctionId functionId;
         private boolean deprecated;
-        private Optional<TypeSignature> receiverType = Optional.empty();
+        private Optional<TypeTemplate> receiverType = Optional.empty();
         private boolean instanceMethod;
 
         private Builder(String canonicalName, FunctionKind kind)
@@ -298,10 +310,19 @@ public class FunctionMetadata
 
         public Builder neverFails()
         {
-            this.neverFails = true;
+            return neverFails(_ -> true);
+        }
+
+        public Builder neverFails(Predicate<BoundSignature> neverFails)
+        {
+            this.neverFails = requireNonNull(neverFails, "neverFails is null");
             return this;
         }
 
+        /**
+         * @deprecated Use {@link #description(String)} with an empty string.
+         */
+        @Deprecated
         public Builder noDescription()
         {
             this.description = "";
@@ -311,9 +332,6 @@ public class FunctionMetadata
         public Builder description(String description)
         {
             requireNonNull(description, "description is null");
-            if (description.isBlank()) {
-                throw new IllegalArgumentException("description is blank");
-            }
             this.description = description;
             return this;
         }
@@ -330,7 +348,7 @@ public class FunctionMetadata
             return this;
         }
 
-        public Builder receiverType(TypeSignature receiverType)
+        public Builder receiverType(TypeTemplate receiverType)
         {
             this.receiverType = Optional.of(requireNonNull(receiverType, "receiverType is null"));
             return this;

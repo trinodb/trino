@@ -1,13 +1,13 @@
 remote exchange (GATHER, SINGLE, [])
     local exchange (GATHER, UNKNOWN, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
-            final aggregation over (brand, size, type)
+            final aggregation over (brand, type, size)
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, [brand, size, type])
-                        partial aggregation over (brand, size, type)
-                            final aggregation over (brand, size, suppkey, type)
+                    remote exchange (REPARTITION, HASH, [brand, type, size])
+                        partial aggregation over (brand, type, size)
+                            final aggregation over (brand, type, size, suppkey)
                                 local exchange (GATHER, SINGLE, [])
-                                    partial aggregation over (brand, size, suppkey, type)
+                                    partial aggregation over (brand, type, size, suppkey)
                                         semijoin (PARTITIONED):
                                             remote exchange (REPARTITION, HASH, [suppkey])
                                                 join (INNER, PARTITIONED):

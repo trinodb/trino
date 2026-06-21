@@ -21,9 +21,10 @@ import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.memory.context.SimpleLocalMemoryContext;
+import io.trino.plugin.base.util.Lazy;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
-import io.trino.spi.type.BigintType;
+import io.trino.spi.type.Type;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -73,7 +74,7 @@ public class TestArbitraryOutputBuffer
 {
     private static final long TASK_INSTANCE_ID = 0x1337;
 
-    private static final List<BigintType> TYPES = ImmutableList.of(BIGINT);
+    private static final List<Type> TYPES = ImmutableList.of(BIGINT);
     private static final OutputBufferId FIRST = new OutputBufferId(0);
     private static final OutputBufferId SECOND = new OutputBufferId(1);
 
@@ -1073,7 +1074,7 @@ public class TestArbitraryOutputBuffer
                 TASK_INSTANCE_ID,
                 new OutputBufferStateMachine(new TaskId(new StageId(new QueryId("query"), 0), 0, 0), stateNotificationExecutor),
                 dataSize,
-                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                Lazy.from(() -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test")),
                 stateNotificationExecutor);
         buffer.setOutputBuffers(buffers);
         return buffer;

@@ -37,8 +37,8 @@ import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.CAST;
-import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.spi.type.TypeSignature.typeVariable;
+import static io.trino.spi.type.TypeTemplates.arrayType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.canCastFromJson;
@@ -60,7 +60,7 @@ public class JsonToArrayCast
     {
         super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
-                        .castableFromTypeParameter("T", JSON.getTypeSignature())
+                        .castableFromTypeParameter("T", JSON.getTypeDescriptor())
                         .returnType(arrayType(typeVariable("T")))
                         .argumentType(JSON)
                         .build())

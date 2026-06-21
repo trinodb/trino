@@ -90,7 +90,8 @@ public class RawQuery
                                     .name("QUERY")
                                     .type(VARCHAR)
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
             this.metadata = requireNonNull(metadata, "metadata is null");
         }
 

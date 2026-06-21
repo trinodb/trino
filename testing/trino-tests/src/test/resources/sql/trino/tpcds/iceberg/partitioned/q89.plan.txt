@@ -3,16 +3,16 @@ local exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, [i_brand, i_category, s_company_name, s_store_name])
-                        final aggregation over (d_moy, i_brand, i_category, i_class, s_company_name, s_store_name)
+                    remote exchange (REPARTITION, HASH, [i_category, i_brand, s_store_name, s_company_name])
+                        final aggregation over (i_category, i_class, i_brand, s_store_name, s_company_name, d_moy)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, [d_moy, i_brand, i_category, i_class, s_company_name, s_store_name])
-                                    intermediate aggregation over (d_moy, i_brand, i_category, i_class, s_company_name, s_store_name)
+                                remote exchange (REPARTITION, HASH, [i_category, i_class, i_brand, s_store_name, s_company_name, d_moy])
+                                    intermediate aggregation over (i_category, i_class, i_brand, s_store_name, s_company_name, d_moy)
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
-                                                    partial aggregation over (ss_item_sk, ss_sold_date_sk, ss_store_sk)
-                                                        dynamic filter (ss_item_sk::EQUAL, ss_sold_date_sk::EQUAL, ss_store_sk::EQUAL)
+                                                    partial aggregation over (ss_store_sk, ss_sold_date_sk, ss_item_sk)
+                                                        dynamic filter (ss_store_sk::EQUAL, ss_sold_date_sk::EQUAL, ss_item_sk::EQUAL)
                                                             scan store_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])

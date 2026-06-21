@@ -32,13 +32,13 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.tpch.LineItem;
 import io.trino.tpch.LineItemColumn;
 import io.trino.tpch.TpchColumn;
@@ -74,7 +74,8 @@ import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.ir.IrExpressions.between;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
@@ -154,7 +155,7 @@ public class BenchmarkColumnarFilterParquetData
             @Override
             Expression getExpression()
             {
-                return new Between(SHIP_DATE, new Constant(DATE, MIN_SHIP_DATE), new Constant(DATE, MAX_SHIP_DATE));
+                return between(FUNCTION_RESOLUTION.getMetadata(), new SymbolAllocator(), SHIP_DATE, new Constant(DATE, MIN_SHIP_DATE), new Constant(DATE, MAX_SHIP_DATE));
             }
         },
         IN {

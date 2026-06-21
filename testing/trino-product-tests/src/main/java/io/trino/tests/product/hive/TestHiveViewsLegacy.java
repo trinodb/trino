@@ -144,7 +144,7 @@ public class TestHiveViewsLegacy
                 .hasMessageContaining("Function 'pmod' not registered");
     }
 
-    // When doing legacy Hive View translation, Trino columns type signature corresponds one to one with the Hive view columns type
+    // When doing legacy Hive View translation, Trino columns type descriptor corresponds one to one with the Hive view columns type
     @Override
     protected List<QueryAssert.Row> getExpectedHiveViewTextualColumnsTypes()
     {

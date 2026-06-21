@@ -38,6 +38,7 @@ import io.trino.json.ir.IrFloorMethod;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrKeyValueMethod;
 import io.trino.json.ir.IrLastIndexVariable;
+import io.trino.json.ir.IrLikeRegexPredicate;
 import io.trino.json.ir.IrMemberAccessor;
 import io.trino.json.ir.IrNamedJsonVariable;
 import io.trino.json.ir.IrNamedValueVariable;
@@ -46,7 +47,7 @@ import io.trino.json.ir.IrTypeMethod;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import org.assertj.core.api.AssertProvider;
 import org.assertj.core.api.RecursiveComparisonAssert;
 import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguration;
@@ -81,7 +82,7 @@ public class TestJsonPath2016TypeSerialization
     private static final JsonMapper OBJECT_MAPPER = new JsonMapperProvider()
             .withJsonDeserializers(ImmutableMap.of(
                     Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER),
-                    TypeSignature.class, new TypeSignatureDeserializer(),
+                    TypeDescriptor.class, new TypeDescriptorDeserializer(),
                     Block.class, new BlockJsonSerde.Deserializer(TESTING_BLOCK_ENCODING_SERDE)))
             .withJsonSerializers(ImmutableMap.of(
                     Block.class, new BlockJsonSerde.Serializer(TESTING_BLOCK_ENCODING_SERDE)))
@@ -211,6 +212,13 @@ public class TestJsonPath2016TypeSerialization
         assertJsonRoundTrip(new IrJsonPath(true, new IrConstantJsonSequence(
                 ImmutableList.of(IntNode.valueOf(1), IntNode.valueOf(2), IntNode.valueOf(3)),
                 Optional.of(INTEGER))));
+    }
+
+    @Test
+    public void testPredicates()
+    {
+        assertJsonRoundTrip(new IrJsonPath(true, new IrLikeRegexPredicate(JSON_NULL, "^a+$")));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrLikeRegexPredicate(JSON_NULL, "(?im)^a+$")));
     }
 
     @Test

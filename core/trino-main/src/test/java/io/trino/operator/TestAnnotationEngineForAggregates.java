@@ -63,9 +63,13 @@ import io.trino.spi.function.TypeParameter;
 import io.trino.spi.function.TypeParameterSpecialization;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.NumericExpression;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TemplateParameter;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
+import io.trino.spi.type.TypeTemplate;
+import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -75,6 +79,7 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
@@ -93,10 +98,12 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.type.StandardTypes.DOUBLE;
-import static io.trino.spi.type.TypeParameter.numericVariable;
-import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeDescriptor.arrayType;
+import static io.trino.spi.type.TypeTemplates.numericVariable;
+import static io.trino.spi.type.TypeTemplates.type;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeDescriptors;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.type.TypeCalculation.parseNumericExpression;
 import static java.lang.invoke.MethodType.methodType;
@@ -375,8 +382,8 @@ public class TestAnnotationEngineForAggregates
     {
         Signature expectedSignature = Signature.builder()
                 .typeVariable("T")
-                .returnType(new TypeSignature("T"))
-                .argumentType(new TypeSignature("T"))
+                .returnType(typeVariable("T"))
+                .argumentType(typeVariable("T"))
                 .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(GenericAggregationFunction.class));
@@ -388,8 +395,7 @@ public class TestAnnotationEngineForAggregates
         assertImplementationCount(implementations, 0, 0, 2);
         ParametricAggregationImplementation implementationDouble = implementations.getGenericImplementations().stream()
                 .filter(impl -> impl.getInputFunction().type().equals(methodType(void.class, NullableLongState.class, double.class)))
-                .collect(toImmutableList())
-                .get(0);
+                .collect(onlyElement());
         assertThat(implementationDouble.getDefinitionClass()).isEqualTo(GenericAggregationFunction.class);
         assertDependencyCount(implementationDouble, 0, 0, 0);
         assertThat(implementationDouble.hasSpecializedTypeParameters()).isFalse();
@@ -397,8 +403,7 @@ public class TestAnnotationEngineForAggregates
 
         ParametricAggregationImplementation implementationLong = implementations.getGenericImplementations().stream()
                 .filter(impl -> impl.getInputFunction().type().equals(methodType(void.class, NullableLongState.class, long.class)))
-                .collect(toImmutableList())
-                .get(0);
+                .collect(onlyElement());
         assertThat(implementationLong.getDefinitionClass()).isEqualTo(GenericAggregationFunction.class);
         assertDependencyCount(implementationLong, 0, 0, 0);
         assertThat(implementationLong.hasSpecializedTypeParameters()).isFalse();
@@ -531,9 +536,9 @@ public class TestAnnotationEngineForAggregates
     {
         Signature expectedSignature = Signature.builder()
                 .typeVariable("T")
-                .returnType(new TypeSignature("T"))
-                .argumentType(arrayType(new TypeSignature("T")))
-                .argumentType(new TypeSignature("T"))
+                .returnType(typeVariable("T"))
+                .argumentType(TypeTemplates.arrayType(typeVariable("T")))
+                .argumentType(typeVariable("T"))
                 .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(ImplicitSpecializedAggregationFunction.class));
@@ -543,7 +548,7 @@ public class TestAnnotationEngineForAggregates
         ParametricImplementationsGroup<ParametricAggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 0, 0, 2);
 
-        ParametricAggregationImplementation implementation1 = implementations.getSpecializedImplementations().get(0);
+        ParametricAggregationImplementation implementation1 = getOnlyElement(implementations.getSpecializedImplementations());
         assertThat(implementation1.hasSpecializedTypeParameters()).isTrue();
         assertThat(implementation1.hasSpecializedTypeParameters()).isFalse();
         assertThat(implementation1.getInputParameterKinds()).isEqualTo(ImmutableList.of(STATE, INPUT_CHANNEL, INPUT_CHANNEL));
@@ -622,8 +627,8 @@ public class TestAnnotationEngineForAggregates
     {
         Signature expectedSignature = Signature.builder()
                 .typeVariable("T")
-                .returnType(new TypeSignature("T"))
-                .argumentType(arrayType(new TypeSignature("T")))
+                .returnType(typeVariable("T"))
+                .argumentType(TypeTemplates.arrayType(typeVariable("T")))
                 .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(ExplicitSpecializedAggregationFunction.class));
@@ -705,11 +710,11 @@ public class TestAnnotationEngineForAggregates
         List<ParametricAggregation> aggregations = parseFunctionDefinitions(MultiOutputAggregationFunction.class);
         assertThat(aggregations).hasSize(2);
 
-        ParametricAggregation aggregation1 = aggregations.stream().filter(aggregate -> aggregate.getFunctionMetadata().getCanonicalName().equals("multi_output_aggregate_1")).collect(toImmutableList()).get(0);
+        ParametricAggregation aggregation1 = aggregations.stream().filter(aggregate -> aggregate.getFunctionMetadata().getCanonicalName().equals("multi_output_aggregate_1")).collect(onlyElement());
         assertThat(aggregation1.getFunctionMetadata().getSignature()).isEqualTo(expectedSignature1);
         assertThat(aggregation1.getFunctionMetadata().getDescription()).isEqualTo("Simple multi output function aggregate specialized description");
 
-        ParametricAggregation aggregation2 = aggregations.stream().filter(aggregate -> aggregate.getFunctionMetadata().getCanonicalName().equals("multi_output_aggregate_2")).collect(toImmutableList()).get(0);
+        ParametricAggregation aggregation2 = aggregations.stream().filter(aggregate -> aggregate.getFunctionMetadata().getCanonicalName().equals("multi_output_aggregate_2")).collect(onlyElement());
         assertThat(aggregation2.getFunctionMetadata().getSignature()).isEqualTo(expectedSignature2);
         assertThat(aggregation2.getFunctionMetadata().getDescription()).isEqualTo("Simple multi output function aggregate generic description");
 
@@ -794,9 +799,9 @@ public class TestAnnotationEngineForAggregates
         assertThat(implementation.getDefinitionClass()).isEqualTo(InjectOperatorAggregateFunction.class);
         assertDependencyCount(implementation, 1, 1, 1);
 
-        assertThat(implementation.getInputDependencies().get(0)).isInstanceOf(OperatorImplementationDependency.class);
-        assertThat(implementation.getCombineDependencies().get(0)).isInstanceOf(OperatorImplementationDependency.class);
-        assertThat(implementation.getOutputDependencies().get(0)).isInstanceOf(OperatorImplementationDependency.class);
+        assertThat(getOnlyElement(implementation.getInputDependencies())).isInstanceOf(OperatorImplementationDependency.class);
+        assertThat(getOnlyElement(implementation.getCombineDependencies())).isInstanceOf(OperatorImplementationDependency.class);
+        assertThat(getOnlyElement(implementation.getOutputDependencies())).isInstanceOf(OperatorImplementationDependency.class);
 
         assertThat(implementation.hasSpecializedTypeParameters()).isFalse();
         assertThat(implementation.getInputParameterKinds()).isEqualTo(ImmutableList.of(STATE, INPUT_CHANNEL));
@@ -843,8 +848,8 @@ public class TestAnnotationEngineForAggregates
     {
         Signature expectedSignature = Signature.builder()
                 .typeVariable("T")
-                .returnType(new TypeSignature("T"))
-                .argumentType(new TypeSignature("T"))
+                .returnType(typeVariable("T"))
+                .argumentType(typeVariable("T"))
                 .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(InjectTypeAggregateFunction.class));
@@ -853,14 +858,13 @@ public class TestAnnotationEngineForAggregates
         assertThat(aggregation.getFunctionMetadata().getSignature()).isEqualTo(expectedSignature);
         ParametricImplementationsGroup<ParametricAggregationImplementation> implementations = aggregation.getImplementations();
 
-        assertThat(implementations.getGenericImplementations()).hasSize(1);
-        ParametricAggregationImplementation implementation = implementations.getGenericImplementations().get(0);
+        ParametricAggregationImplementation implementation = getOnlyElement(implementations.getGenericImplementations());
         assertThat(implementation.getDefinitionClass()).isEqualTo(InjectTypeAggregateFunction.class);
         assertDependencyCount(implementation, 1, 1, 1);
 
-        assertThat(implementation.getInputDependencies().get(0)).isInstanceOf(TypeImplementationDependency.class);
-        assertThat(implementation.getCombineDependencies().get(0)).isInstanceOf(TypeImplementationDependency.class);
-        assertThat(implementation.getOutputDependencies().get(0)).isInstanceOf(TypeImplementationDependency.class);
+        assertThat(getOnlyElement(implementation.getInputDependencies())).isInstanceOf(TypeImplementationDependency.class);
+        assertThat(getOnlyElement(implementation.getCombineDependencies())).isInstanceOf(TypeImplementationDependency.class);
+        assertThat(getOnlyElement(implementation.getOutputDependencies())).isInstanceOf(TypeImplementationDependency.class);
 
         assertThat(implementation.hasSpecializedTypeParameters()).isFalse();
         assertThat(implementation.getInputParameterKinds()).isEqualTo(ImmutableList.of(STATE, INPUT_CHANNEL));
@@ -906,8 +910,8 @@ public class TestAnnotationEngineForAggregates
     public void testInjectLiteralAggregateParse()
     {
         Signature expectedSignature = Signature.builder()
-                .returnType(new TypeSignature("varchar", numericVariable("x")))
-                .argumentType(new TypeSignature("varchar", numericVariable("x")))
+                .returnType(type("varchar", numericVariable("x")))
+                .argumentType(type("varchar", numericVariable("x")))
                 .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(InjectLiteralAggregateFunction.class));
@@ -917,13 +921,13 @@ public class TestAnnotationEngineForAggregates
         ParametricImplementationsGroup<ParametricAggregationImplementation> implementations = aggregation.getImplementations();
 
         assertThat(implementations.getGenericImplementations()).hasSize(1);
-        ParametricAggregationImplementation implementation = implementations.getGenericImplementations().get(0);
+        ParametricAggregationImplementation implementation = getOnlyElement(implementations.getGenericImplementations());
         assertThat(implementation.getDefinitionClass()).isEqualTo(InjectLiteralAggregateFunction.class);
         assertDependencyCount(implementation, 1, 1, 1);
 
-        assertThat(implementation.getInputDependencies().get(0)).isInstanceOf(LiteralImplementationDependency.class);
-        assertThat(implementation.getCombineDependencies().get(0)).isInstanceOf(LiteralImplementationDependency.class);
-        assertThat(implementation.getOutputDependencies().get(0)).isInstanceOf(LiteralImplementationDependency.class);
+        assertThat(getOnlyElement(implementation.getInputDependencies())).isInstanceOf(LiteralImplementationDependency.class);
+        assertThat(getOnlyElement(implementation.getCombineDependencies())).isInstanceOf(LiteralImplementationDependency.class);
+        assertThat(getOnlyElement(implementation.getOutputDependencies())).isInstanceOf(LiteralImplementationDependency.class);
 
         assertThat(implementation.hasSpecializedTypeParameters()).isFalse();
         assertThat(implementation.getInputParameterKinds()).isEqualTo(ImmutableList.of(STATE, INPUT_CHANNEL));
@@ -972,9 +976,9 @@ public class TestAnnotationEngineForAggregates
     {
         Signature expectedSignature = Signature.builder()
                 .numericVariable("z", parseNumericExpression("x + y"))
-                .returnType(new TypeSignature("varchar", numericVariable("z")))
-                .argumentType(new TypeSignature("varchar", numericVariable("x")))
-                .argumentType(new TypeSignature("varchar", numericVariable("y")))
+                .returnType(type("varchar", numericVariable("z")))
+                .argumentType(type("varchar", numericVariable("x")))
+                .argumentType(type("varchar", numericVariable("y")))
                 .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(LongConstraintAggregateFunction.class));
@@ -983,8 +987,7 @@ public class TestAnnotationEngineForAggregates
         assertThat(aggregation.getFunctionMetadata().getSignature()).isEqualTo(expectedSignature);
         ParametricImplementationsGroup<ParametricAggregationImplementation> implementations = aggregation.getImplementations();
 
-        assertThat(implementations.getGenericImplementations()).hasSize(1);
-        ParametricAggregationImplementation implementation = implementations.getGenericImplementations().get(0);
+        ParametricAggregationImplementation implementation = getOnlyElement(implementations.getGenericImplementations());
         assertThat(implementation.getDefinitionClass()).isEqualTo(LongConstraintAggregateFunction.class);
         assertDependencyCount(implementation, 0, 0, 0);
 
@@ -1034,8 +1037,8 @@ public class TestAnnotationEngineForAggregates
     public void testFixedTypeParameterInjectionAggregateFunctionParse()
     {
         Signature expectedSignature = Signature.builder()
-                .returnType(DoubleType.DOUBLE.getTypeSignature())
-                .argumentType(DoubleType.DOUBLE.getTypeSignature())
+                .returnType(DoubleType.DOUBLE.getTypeDescriptor())
+                .argumentType(DoubleType.DOUBLE.getTypeDescriptor())
                 .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(FixedTypeParameterInjectionAggregateFunction.class));
@@ -1098,8 +1101,8 @@ public class TestAnnotationEngineForAggregates
                 .typeVariable("T1")
                 .typeVariable("T2")
                 .returnType(DoubleType.DOUBLE)
-                .argumentType(new TypeSignature("T1"))
-                .argumentType(new TypeSignature("T2"))
+                .argumentType(typeVariable("T1"))
+                .argumentType(typeVariable("T2"))
                 .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(PartiallyFixedTypeParameterInjectionAggregateFunction.class));
@@ -1192,9 +1195,9 @@ public class TestAnnotationEngineForAggregates
         assertThat(aggregationMetadata.getIntermediateTypes()).isNotEmpty();
         FunctionDependencyDeclaration dependencyDeclaration = aggregation.getFunctionDependencies(boundSignature);
 
-        ImmutableMap.Builder<TypeSignature, Type> typeDependencies = ImmutableMap.builder();
-        for (TypeSignature typeSignature : dependencyDeclaration.getTypeDependencies()) {
-            typeSignature = applyBoundVariables(typeSignature, functionBinding.variables());
+        ImmutableMap.Builder<TypeDescriptor, Type> typeDependencies = ImmutableMap.builder();
+        for (TypeTemplate typeTemplate : dependencyDeclaration.getTypeDependencies()) {
+            TypeDescriptor typeSignature = applyBoundVariables(typeTemplate, functionBinding.variables());
             typeDependencies.put(typeSignature, PLANNER_CONTEXT.getTypeManager().getType(typeSignature));
         }
 
@@ -1212,13 +1215,35 @@ public class TestAnnotationEngineForAggregates
     private static ResolvedFunction resolveDependency(FunctionDependencyDeclaration.OperatorDependency dependency)
     {
         QualifiedName name = QualifiedName.of(GlobalSystemConnector.NAME, BUILTIN_SCHEMA, mangleOperatorName(dependency.getOperatorType()));
-        return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeSignatures(dependency.getArgumentTypes()), new AllowAllAccessControl());
+        return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeDescriptors(toTypeDescriptors(dependency.getArgumentTypes())), new AllowAllAccessControl());
     }
 
     private static ResolvedFunction resolveDependency(FunctionDependencyDeclaration.FunctionDependency dependency)
     {
         QualifiedName name = QualifiedName.of(dependency.getName().catalogName(), dependency.getName().schemaName(), dependency.getName().functionName());
-        return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeSignatures(dependency.getArgumentTypes()), new AllowAllAccessControl());
+        return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeDescriptors(toTypeDescriptors(dependency.getArgumentTypes())), new AllowAllAccessControl());
+    }
+
+    private static List<TypeDescriptor> toTypeDescriptors(List<TypeTemplate> templates)
+    {
+        return templates.stream()
+                .map(TestAnnotationEngineForAggregates::toTypeDescriptor)
+                .collect(toImmutableList());
+    }
+
+    private static TypeDescriptor toTypeDescriptor(TypeTemplate template)
+    {
+        return switch (template) {
+            case TypeTemplate.TypeVariable(String name) -> new TypeDescriptor(name);
+            case TypeTemplate.TypeApplication(String base, List<TemplateParameter> parameters) -> new TypeDescriptor(
+                    base,
+                    parameters.stream()
+                            .map(parameter -> switch (parameter) {
+                                case TemplateParameter.TypeArgument(var name, var type) -> io.trino.spi.type.TypeParameter.typeParameter(name, toTypeDescriptor(type));
+                                case TemplateParameter.NumericArgument(NumericExpression value) -> io.trino.spi.type.TypeParameter.numericParameter(((NumericExpression.Literal) value).value());
+                            })
+                            .collect(toImmutableList()));
+        };
     }
 
     private static BoundSignature builtinFunction(String name, Type returnType, List<Type> argumentTypes)

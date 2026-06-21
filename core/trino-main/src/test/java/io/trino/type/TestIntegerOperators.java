@@ -228,6 +228,14 @@ public class TestIntegerOperators
 
         assertThat(assertions.operator(EQUAL, "INTEGER '17'", "INTEGER '17'"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a = b")
+                .binding("a", "INTEGER '17'")
+                .binding("b", "INTEGER '17'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "INTEGER '17'", "INTEGER '17'"))
+                .neverFails();
     }
 
     @Test
@@ -268,6 +276,14 @@ public class TestIntegerOperators
 
         assertThat(assertions.operator(LESS_THAN, "INTEGER '17'", "INTEGER '17'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a < b")
+                .binding("a", "INTEGER '17'")
+                .binding("b", "INTEGER '17'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "INTEGER '17'", "INTEGER '17'"))
+                .neverFails();
     }
 
     @Test
@@ -284,6 +300,14 @@ public class TestIntegerOperators
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "INTEGER '17'", "INTEGER '17'"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "INTEGER '17'")
+                .binding("b", "INTEGER '17'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "INTEGER '17'", "INTEGER '17'"))
+                .neverFails();
     }
 
     @Test
@@ -396,6 +420,10 @@ public class TestIntegerOperators
         assertThat(assertions.expression("cast(a as bigint)")
                 .binding("a", "INTEGER '17'"))
                 .isEqualTo(17L);
+
+        assertThat(assertions.expression("cast(a as bigint)")
+                .binding("a", "INTEGER '17'"))
+                .neverFails();
     }
 
     @Test
@@ -408,6 +436,11 @@ public class TestIntegerOperators
         assertThat(assertions.expression("cast(a as smallint)")
                 .binding("a", "INTEGER '17'"))
                 .isEqualTo((short) 17);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as smallint)")
+                .binding("a", "INTEGER '" + Integer.MAX_VALUE + "'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Out of range for smallint: 2147483647");
     }
 
     @Test
@@ -420,6 +453,11 @@ public class TestIntegerOperators
         assertThat(assertions.expression("cast(a as tinyint)")
                 .binding("a", "INTEGER '17'"))
                 .isEqualTo((byte) 17);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as tinyint)")
+                .binding("a", "INTEGER '" + Integer.MAX_VALUE + "'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Out of range for tinyint: 2147483647");
     }
 
     @Test
@@ -436,6 +474,10 @@ public class TestIntegerOperators
         assertThat(assertions.expression("CAST(a AS number)")
                 .binding("a", "INTEGER '0'"))
                 .isEqualTo(new SqlNumber("0"));
+
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "INTEGER '0'"))
+                .neverFails();
     }
 
     @Test
@@ -478,6 +520,10 @@ public class TestIntegerOperators
         assertThat(assertions.expression("cast(a as double)")
                 .binding("a", "INTEGER '17'"))
                 .isEqualTo(17.0);
+
+        assertThat(assertions.expression("cast(a as double)")
+                .binding("a", "INTEGER '17'"))
+                .neverFails();
     }
 
     @Test
@@ -494,6 +540,10 @@ public class TestIntegerOperators
         assertThat(assertions.expression("cast(a as real)")
                 .binding("a", "INTEGER '0'"))
                 .isEqualTo(0.0f);
+
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "INTEGER '0'"))
+                .neverFails();
     }
 
     @Test
@@ -501,6 +551,7 @@ public class TestIntegerOperators
     {
         assertThat(assertions.expression("cast(a as boolean)")
                 .binding("a", "INTEGER '37'"))
+                .neverFails()
                 .isEqualTo(true);
 
         assertThat(assertions.expression("cast(a as boolean)")

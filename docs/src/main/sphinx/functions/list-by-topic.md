@@ -477,6 +477,7 @@ For more details, see {doc}`string`
 - {func}`codepoint`
 - {func}`concat`
 - {func}`concat_ws`
+- {func}`ends_with`
 - {func}`format`
 - {func}`from_utf8`
 - {func}`hamming_distance`

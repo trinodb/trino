@@ -30,8 +30,8 @@ import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.delete.RoaringBitmapArray;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
+import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
@@ -43,6 +43,7 @@ import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -51,7 +52,6 @@ import jakarta.annotation.Nullable;
 import org.apache.parquet.format.CompressionCodec;
 import org.joda.time.DateTimeZone;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -151,7 +151,7 @@ public class DeltaLakeMergeSink
             JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec,
             DeltaLakeWriterStats writerStats,
             Location rootTableLocation,
-            VendedCredentialsHandle credentialsHandle,
+            Optional<DeltaLakeTableCredentials> tableCredentials,
             ConnectorPageSink insertPageSink,
             List<DeltaLakeColumnHandle> tableColumns,
             int domainCompactionThreshold,
@@ -168,7 +168,7 @@ public class DeltaLakeMergeSink
     {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.session = requireNonNull(session, "session is null");
-        this.fileSystem = fileSystemFactory.create(session, credentialsHandle);
+        this.fileSystem = fileSystemFactory.create(session, tableCredentials);
         this.parquetDateTimeZone = requireNonNull(parquetDateTimeZone, "parquetDateTimeZone is null");
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
@@ -528,7 +528,7 @@ public class DeltaLakeMergeSink
                 .orElseThrow(); // validated on the session property level
 
         try {
-            Closeable rollbackAction = () -> fileSystem.deleteFile(path);
+            RollbackAction rollbackAction = () -> fileSystem.deleteFile(path);
             dataColumns.forEach(column -> verify(column.isBaseColumn(), "Unexpected dereference: %s", column));
 
             List<Type> parquetTypes = dataColumns.stream()
@@ -711,7 +711,9 @@ public class DeltaLakeMergeSink
                 Optional.empty(),
                 Optional.empty(),
                 domainCompactionThreshold,
-                OptionalLong.of(fileSize));
+                OptionalLong.of(fileSize),
+                // TODO (https://github.com/trinodb/trino/issues/29956) report memory usage
+                MemoryContext.NO_LIMIT);
     }
 
     private String getReferencedPath(String basePath, String sourcePath)

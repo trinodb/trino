@@ -15,8 +15,8 @@ package io.trino.plugin.iceberg;
 
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 
 final class GeoSpatialUtils
 {
@@ -39,11 +39,11 @@ final class GeoSpatialUtils
 
     public static Type getGeometryType(TypeManager typeManager)
     {
-        return typeManager.getType(new TypeSignature(StandardTypes.GEOMETRY));
+        return typeManager.getType(new TypeDescriptor(StandardTypes.GEOMETRY));
     }
 
     public static Type getSphericalGeographyType(TypeManager typeManager)
     {
-        return typeManager.getType(new TypeSignature(StandardTypes.SPHERICAL_GEOGRAPHY));
+        return typeManager.getType(new TypeDescriptor(StandardTypes.SPHERICAL_GEOGRAPHY));
     }
 }

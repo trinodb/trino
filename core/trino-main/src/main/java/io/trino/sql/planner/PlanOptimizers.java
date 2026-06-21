@@ -505,7 +505,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         costCalculator,
-                        ImmutableSet.of(new ImplementOffset())),
+                        ImmutableSet.of(new ImplementOffset(metadata))),
                 simplifyOptimizer
                         .withName("SimplifyExpressionsBeforeUnalias"),
                 new UnaliasSymbolReferences(),
@@ -1008,7 +1008,7 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 costCalculator,
-                ImmutableSet.copyOf(new PushInequalityFilterExpressionBelowJoinRuleSet().rules())));
+                ImmutableSet.copyOf(new PushInequalityFilterExpressionBelowJoinRuleSet(metadata).rules())));
         // Projection pushdown rules may push reducing projections (e.g. dereferences) below filters for potential
         // pushdown into the connectors. Invoke PredicatePushdown and PushPredicateIntoTableScan after this
         // to leverage predicate pushdown on projected columns and to pushdown dynamic filters.

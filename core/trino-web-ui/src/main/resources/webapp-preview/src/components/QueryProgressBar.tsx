@@ -11,6 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import React from 'react'
 import { LinearProgressWithLabel, LinearProgressWithLabelProps } from './LinearProgressWithLabel'
 import { QueryInfoBase } from '../api/webapp/api.ts'
 import { getHumanReadableState } from '../utils/utils.ts'
@@ -19,7 +20,7 @@ export interface QueryProgressBarProps {
     queryInfoBase: QueryInfoBase
 }
 
-export const QueryProgressBar = (props: QueryProgressBarProps) => {
+export const QueryProgressBar = React.memo(function QueryProgressBar(props: QueryProgressBarProps) {
     const { queryInfoBase } = props
 
     const STATE_COLOR_MAP: Record<string, LinearProgressWithLabelProps['color']> = {
@@ -89,4 +90,4 @@ export const QueryProgressBar = (props: QueryProgressBarProps) => {
             color={getQueryStateColor(queryInfoBase)}
         />
     )
-}
+})

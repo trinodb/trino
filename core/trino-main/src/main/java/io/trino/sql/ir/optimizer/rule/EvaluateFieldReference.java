@@ -23,6 +23,7 @@ import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 
 import java.util.Map;
 import java.util.Optional;
@@ -40,7 +41,7 @@ public class EvaluateFieldReference
         implements IrOptimizerRule
 {
     @Override
-    public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
+    public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
         return switch (expression) {
             case FieldReference(Row row, int field) -> Optional.of(row.items().get(field));

@@ -25,8 +25,8 @@ import io.trino.metastore.type.TypeInfo;
 import io.trino.metastore.type.UnionTypeInfo;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.Optional;
@@ -40,29 +40,29 @@ import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
-import static io.trino.plugin.hive.util.HiveTypeTranslator.toTypeSignature;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toTypeDescriptor;
 
 public final class HiveTypeUtil
 {
     private HiveTypeUtil() {}
 
     /**
-     * @deprecated Prefer {@link #getTypeSignature(HiveType, HiveTimestampPrecision)}.
+     * @deprecated Prefer {@link #getTypeDescriptor(HiveType, HiveTimestampPrecision)}.
      */
     @Deprecated
-    public static TypeSignature getTypeSignature(HiveType type)
+    public static TypeDescriptor getTypeDescriptor(HiveType type)
     {
-        return getTypeSignature(type, DEFAULT_PRECISION);
+        return getTypeDescriptor(type, DEFAULT_PRECISION);
     }
 
-    public static TypeSignature getTypeSignature(HiveType type, HiveTimestampPrecision timestampPrecision)
+    public static TypeDescriptor getTypeDescriptor(HiveType type, HiveTimestampPrecision timestampPrecision)
     {
-        return toTypeSignature(type.getTypeInfo(), timestampPrecision);
+        return toTypeDescriptor(type.getTypeInfo(), timestampPrecision);
     }
 
     public static Type getType(HiveType type, TypeManager typeManager, HiveTimestampPrecision timestampPrecision)
     {
-        return typeManager.getType(getTypeSignature(type, timestampPrecision));
+        return typeManager.getType(getTypeDescriptor(type, timestampPrecision));
     }
 
     public static boolean typeSupported(TypeInfo typeInfo, StorageFormat storageFormat)

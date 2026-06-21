@@ -14,8 +14,9 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
@@ -31,6 +32,7 @@ import static io.trino.SystemSessionProperties.JOIN_MULTI_CLAUSE_INDEPENDENCE_FA
 import static io.trino.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static io.trino.cost.PlanNodeStatsAssertion.assertThat;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
@@ -90,6 +92,7 @@ public class TestJoinStatsRule
     private static final JoinStatsRule JOIN_STATS_RULE = new JoinStatsRule(
             new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT), NORMALIZER),
             NORMALIZER,
+            PLANNER_CONTEXT.getMetadata(),
             1.0);
 
     @Test
@@ -204,7 +207,7 @@ public class TestJoinStatsRule
                             Symbol rightJoinColumnSymbol = pb.symbol(RIGHT_JOIN_COLUMN, DOUBLE);
                             Symbol leftJoinColumnSymbol2 = pb.symbol(LEFT_JOIN_COLUMN_2, DOUBLE);
                             Symbol rightJoinColumnSymbol2 = pb.symbol(RIGHT_JOIN_COLUMN_2, DOUBLE);
-                            Comparison leftJoinColumnLessThanTen = new Comparison(Comparison.Operator.LESS_THAN, leftJoinColumnSymbol.toSymbolReference(), new Constant(DOUBLE, 10.0));
+                            Expression leftJoinColumnLessThanTen = comparison(ComparisonOperator.LESS_THAN, leftJoinColumnSymbol.toSymbolReference(), new Constant(DOUBLE, 10.0));
                             return pb.join(
                                     INNER,
                                     pb.values(leftJoinColumnSymbol, leftJoinColumnSymbol2),

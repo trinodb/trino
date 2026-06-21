@@ -21,11 +21,19 @@ public class OperatorMethodHandle
 {
     private final InvocationConvention callingConvention;
     private final MethodHandle methodHandle;
+    private final boolean neverFails;
 
+    @Deprecated
     public OperatorMethodHandle(InvocationConvention callingConvention, MethodHandle methodHandle)
+    {
+        this(callingConvention, methodHandle, false);
+    }
+
+    public OperatorMethodHandle(InvocationConvention callingConvention, MethodHandle methodHandle, boolean neverFails)
     {
         this.callingConvention = requireNonNull(callingConvention, "callingConvention is null");
         this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
+        this.neverFails = neverFails;
     }
 
     public InvocationConvention getCallingConvention()
@@ -36,5 +44,14 @@ public class OperatorMethodHandle
     public MethodHandle getMethodHandle()
     {
         return methodHandle;
+    }
+
+    /**
+     * Whether the underlying method handle guarantees it does not throw for any input
+     * of the declared signature. Used by the planner to reason about expression fallibility.
+     */
+    public boolean isNeverFails()
+    {
+        return neverFails;
     }
 }

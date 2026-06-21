@@ -30,7 +30,6 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.BigintType;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
@@ -66,8 +65,9 @@ import static io.trino.SystemSessionProperties.isColocatedJoinEnabled;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
@@ -319,7 +319,7 @@ public class TestAddExchangesPlans
                         project(
                                 ImmutableMap.of("name", expression(new Reference(VARCHAR, "name"))),
                                 filter(
-                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "row_num"), new Constant(BIGINT, 5L)),
+                                        comparison(GREATER_THAN, new Reference(BIGINT, "row_num"), new Constant(BIGINT, 5L)),
                                         rowNumber(
                                                 pattern -> pattern
                                                         .partitionBy(ImmutableList.of()),
@@ -344,7 +344,7 @@ public class TestAddExchangesPlans
                         project(
                                 ImmutableMap.of("name", expression(new Reference(VARCHAR, "name"))),
                                 filter(
-                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "row_num"), new Constant(BIGINT, 5L)),
+                                        comparison(GREATER_THAN, new Reference(BIGINT, "row_num"), new Constant(BIGINT, 5L)),
                                         exchange(
                                                 LOCAL,
                                                 REPARTITION,
@@ -395,7 +395,7 @@ public class TestAddExchangesPlans
                                         project(
                                                 ImmutableMap.of("b", expression(new Reference(INTEGER, "b"))),
                                                 filter(
-                                                        new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 10L)),
+                                                        comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 10L)),
                                                         exchange(
                                                                 LOCAL,
                                                                 REPARTITION,
@@ -442,7 +442,7 @@ public class TestAddExchangesPlans
                                         project(
                                                 ImmutableMap.of("b", expression(new Reference(INTEGER, "b"))),
                                                 filter(
-                                                        new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 10L)),
+                                                        comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 10L)),
                                                         exchange(
                                                                 LOCAL,
                                                                 REPARTITION,
@@ -482,7 +482,7 @@ public class TestAddExchangesPlans
                                 project(
                                         ImmutableMap.of("b", expression(new Reference(INTEGER, "b"))),
                                         filter(
-                                                new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 10L)),
+                                                comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 10L)),
                                                 exchange(
                                                         LOCAL,
                                                         REPARTITION,

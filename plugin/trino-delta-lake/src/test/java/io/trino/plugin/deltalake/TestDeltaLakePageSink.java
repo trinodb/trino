@@ -23,7 +23,6 @@ import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.operator.NullSafeHashCompiler;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
-import io.trino.plugin.deltalake.metastore.NoOpVendedCredentialsProvider;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -187,7 +186,7 @@ public class TestDeltaLakePageSink
 
         DeltaLakePageSinkProvider provider = new DeltaLakePageSinkProvider(
                 new GroupByHashPageIndexerFactory(new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators()))),
-                new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY, new NoOpVendedCredentialsProvider()),
+                new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY, new NoOpTableCredentialsProvider()),
                 jsonCodec(DataFileInfo.class),
                 jsonCodec(DeltaLakeMergeResult.class),
                 stats,

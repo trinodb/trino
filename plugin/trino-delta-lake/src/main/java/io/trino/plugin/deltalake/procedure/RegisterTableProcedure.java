@@ -26,6 +26,7 @@ import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
@@ -172,8 +173,14 @@ public class RegisterTableProcedure
             TableSnapshot tableSnapshot;
             MetadataEntry metadataEntry;
             try {
-                VendedCredentialsHandle credentialsHandle = VendedCredentialsHandle.empty(tableLocation);
-                tableSnapshot = transactionLogAccess.loadSnapshot(session, new FileSystemTransactionLogReader(tableLocation, credentialsHandle, fileSystemFactory), schemaTableName, tableLocation, Optional.empty(), credentialsHandle);
+                Optional<DeltaLakeTableCredentials> tableCredentials = metadata.getTableCredentials(VendedCredentialsHandle.empty(tableLocation));
+                tableSnapshot = transactionLogAccess.loadSnapshot(
+                        session,
+                        new FileSystemTransactionLogReader(tableLocation, tableCredentials, fileSystemFactory),
+                        schemaTableName,
+                        tableLocation,
+                        Optional.empty(),
+                        tableCredentials);
                 metadataEntry = transactionLogAccess.getMetadataEntry(session, fileSystem, tableSnapshot);
             }
             catch (TrinoException e) {

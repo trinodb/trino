@@ -16,7 +16,6 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OrderingScheme;
@@ -31,7 +30,8 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.patternRecognition;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -126,7 +126,7 @@ public class TestPrunePatternRecognitionSourceColumns
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(
                                 new IrLabel("X"),
-                                new Comparison(GREATER_THAN, new Reference(INTEGER, "pointer"), new Constant(INTEGER, 0L)),
+                                comparison(GREATER_THAN, new Reference(INTEGER, "pointer"), new Constant(INTEGER, 0L)),
                                 ImmutableMap.of(new Symbol(INTEGER, "pointer"), new ScalarValuePointer(
                                         new LogicalIndexPointer(ImmutableSet.of(new IrLabel("X")), true, true, 0, 0),
                                         new Symbol(INTEGER, "a"))))

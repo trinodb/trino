@@ -103,9 +103,9 @@ public class KafkaEventPublisher
             kafkaProducer.send(record, (metadata, exception) -> {
                 if (exception != null) {
                     switch (exception) {
-                        case TimeoutException e -> stats.completedEventSendFailureTimeout();
-                        case RecordTooLargeException e -> stats.completedEventSendFailureTooLarge();
-                        case InvalidRecordException e -> stats.completedEventSendFailureInvalidRecord();
+                        case TimeoutException _ -> stats.completedEventSendFailureTimeout();
+                        case RecordTooLargeException _ -> stats.completedEventSendFailureTooLarge();
+                        case InvalidRecordException _ -> stats.completedEventSendFailureInvalidRecord();
                         default -> stats.completedEventSendFailureOther();
                     }
                     LOG.warn(exception,
@@ -139,9 +139,9 @@ public class KafkaEventPublisher
             kafkaProducer.send(record, (metadata, exception) -> {
                 if (exception != null) {
                     switch (exception) {
-                        case TimeoutException e -> stats.createdEventSendFailureTimeout();
-                        case RecordTooLargeException e -> stats.createdEventSendFailureTooLarge();
-                        case InvalidRecordException e -> stats.createdEventSendFailureInvalidRecord();
+                        case TimeoutException _ -> stats.createdEventSendFailureTimeout();
+                        case RecordTooLargeException _ -> stats.createdEventSendFailureTooLarge();
+                        case InvalidRecordException _ -> stats.createdEventSendFailureInvalidRecord();
                         default -> stats.createdEventSendFailureOther();
                     }
                     LOG.warn(exception,

@@ -21,7 +21,6 @@ import io.trino.Session;
 import io.trino.block.BlockAssertions;
 import io.trino.connector.CatalogHandle;
 import io.trino.operator.NullSafeHashCompiler;
-import io.trino.operator.PageAssertions;
 import io.trino.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -57,6 +56,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
 import static io.trino.SystemSessionProperties.SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD;
 import static io.trino.operator.InterpretedHashGenerator.createChannelsHashGenerator;
+import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -1428,10 +1428,7 @@ public class TestLocalExchange
     {
         assertThat(source.waitForReading().isDone()).isTrue();
         Page actualPage = source.removePage();
-        assertThat(actualPage).isNotNull();
-
-        assertThat(actualPage.getChannelCount()).isEqualTo(expectedPage.getChannelCount());
-        PageAssertions.assertPageEquals(types, actualPage, expectedPage);
+        assertPageEquals(types, actualPage, expectedPage);
     }
 
     private static void assertPartitionedRemovePage(LocalExchangeSource source, int partition, int partitionCount)

@@ -32,6 +32,7 @@ import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergTableCredentials;
 import io.trino.plugin.iceberg.IcebergUtil;
+import io.trino.plugin.iceberg.IcebergViewProperties;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Security;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType;
@@ -69,6 +70,7 @@ import org.apache.iceberg.exceptions.NoSuchViewException;
 import org.apache.iceberg.exceptions.RESTException;
 import org.apache.iceberg.rest.RESTSessionCatalog;
 import org.apache.iceberg.rest.auth.OAuth2Properties;
+import org.apache.iceberg.util.LocationUtil;
 import org.apache.iceberg.view.ReplaceViewVersion;
 import org.apache.iceberg.view.SQLViewRepresentation;
 import org.apache.iceberg.view.UpdateViewProperties;
@@ -190,7 +192,7 @@ public class TrinoRestCatalog
     public List<String> listNamespaces(ConnectorSession session)
     {
         if (nestedNamespaceEnabled) {
-            return collectNamespaces(session, Namespace.empty());
+            return collectNamespaces(convert(session), Namespace.empty());
         }
         try {
             return restSessionCatalog.listNamespaces(convert(session)).stream()
@@ -202,11 +204,11 @@ public class TrinoRestCatalog
         }
     }
 
-    private List<String> collectNamespaces(ConnectorSession session, Namespace parentNamespace)
+    private List<String> collectNamespaces(SessionContext sessionContext, Namespace parentNamespace)
     {
         try {
-            return restSessionCatalog.listNamespaces(convert(session), parentNamespace).stream()
-                    .flatMap(childNamespace -> collectNamespaceIfExists(session, childNamespace).stream())
+            return restSessionCatalog.listNamespaces(sessionContext, parentNamespace).stream()
+                    .flatMap(childNamespace -> collectNamespaceIfExists(sessionContext, childNamespace).stream())
                     .collect(toImmutableList());
         }
         catch (RESTException e) {
@@ -214,12 +216,12 @@ public class TrinoRestCatalog
         }
     }
 
-    private List<String> collectNamespaceIfExists(ConnectorSession session, Namespace namespace)
+    private List<String> collectNamespaceIfExists(SessionContext sessionContext, Namespace namespace)
     {
         try {
             return Stream.concat(
                             Stream.of(namespace.toString()),
-                            collectNamespaces(session, namespace).stream())
+                            collectNamespaces(sessionContext, namespace).stream())
                     .collect(toImmutableList());
         }
         catch (NoSuchNamespaceException e) {
@@ -334,10 +336,12 @@ public class TrinoRestCatalog
     }
 
     @Override
-    public List<SchemaTableName> listIcebergTables(ConnectorSession session, Optional<String> namespace)
+    public List<SchemaTableName> listIcebergTables(ConnectorSession session, List<String> filter)
     {
         SessionContext sessionContext = convert(session);
-        List<Namespace> namespaces = listNamespaces(session, namespace);
+        List<Namespace> namespaces = filter.isEmpty()
+                ? listNamespaces(session).stream().map(this::toNamespace).collect(toImmutableList())
+                : filter.stream().map(this::toNamespace).collect(toImmutableList());
 
         ImmutableList.Builder<SchemaTableName> tables = ImmutableList.builder();
         for (Namespace restNamespace : namespaces) {
@@ -668,18 +672,22 @@ public class TrinoRestCatalog
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         definition.getOwner().ifPresent(owner -> properties.put(ICEBERG_VIEW_RUN_AS_OWNER, owner));
         definition.getComment().ifPresent(comment -> properties.put(COMMENT, comment));
         Schema schema = IcebergUtil.schemaFromViewColumns(typeManager, definition.getColumns());
         ViewBuilder viewBuilder = restSessionCatalog.buildView(convert(session), toRemoteView(session, schemaViewName, true));
-        String viewLocation = defaultTableLocation(session, schemaViewName);
+        Optional<String> locationProperty = IcebergViewProperties.getLocation(viewProperties);
+        String viewLocation = locationProperty.map(LocationUtil::stripTrailingSlash).orElse(defaultTableLocation(session, schemaViewName));
         if (replace) {
             Optional<View> view = getIcebergView(session, schemaViewName, true);
             if (view.isPresent()) {
                 viewLocation = view.get().location();
+                if (locationProperty.isPresent() && !viewLocation.equals(locationProperty.get())) {
+                    throw new TrinoException(ICEBERG_CATALOG_ERROR, "Cannot change location of existing view '%s'".formatted(schemaViewName));
+                }
             }
         }
         viewBuilder = viewBuilder.withSchema(schema)
@@ -785,8 +793,18 @@ public class TrinoRestCatalog
         });
     }
 
+    @Override
+    public Map<String, Object> getViewProperties(ConnectorSession session, SchemaTableName viewName)
+    {
+        ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
+        getIcebergView(session, viewName, false).ifPresent(view -> {
+            properties.put(LOCATION_PROPERTY, view.location());
+        });
+        return properties.buildOrThrow();
+    }
+
     @VisibleForTesting
-    Optional<View> getIcebergView(ConnectorSession session, SchemaTableName viewName, boolean getCached)
+    protected Optional<View> getIcebergView(ConnectorSession session, SchemaTableName viewName, boolean getCached)
     {
         if (!viewEndpointsEnabled) {
             return Optional.empty();
@@ -1070,24 +1088,29 @@ public class TrinoRestCatalog
 
     private List<Namespace> listNamespaces(ConnectorSession session, Namespace parentNamespace)
     {
-        List<Namespace> childNamespaces;
-        try {
-            childNamespaces = restSessionCatalog.listNamespaces(convert(session), parentNamespace);
-        }
-        catch (RESTException e) {
-            throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to list namespaces", e);
-        }
-        return childNamespaces.stream().flatMap(childNamespace -> listNamespaceIfExists(session, childNamespace).stream()).toList();
+        return listNamespaces(convert(session), parentNamespace);
     }
 
-    private List<Namespace> listNamespaceIfExists(ConnectorSession session, Namespace namespace)
+    private List<Namespace> listNamespaceIfExists(SessionContext sessionContext, Namespace namespace)
     {
         try {
-            return Stream.concat(Stream.of(namespace), listNamespaces(session, namespace).stream()).toList();
+            return Stream.concat(Stream.of(namespace), listNamespaces(sessionContext, namespace).stream()).toList();
         }
         catch (NoSuchNamespaceException e) {
             return ImmutableList.of();
         }
+    }
+
+    private List<Namespace> listNamespaces(SessionContext sessionContext, Namespace parentNamespace)
+    {
+        List<Namespace> childNamespaces;
+        try {
+            childNamespaces = restSessionCatalog.listNamespaces(sessionContext, parentNamespace);
+        }
+        catch (RESTException e) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to list namespaces", e);
+        }
+        return childNamespaces.stream().flatMap(childNamespace -> listNamespaceIfExists(sessionContext, childNamespace).stream()).toList();
     }
 
     private static Namespace toTrinoNamespace(Namespace namespace)

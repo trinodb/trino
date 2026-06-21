@@ -82,7 +82,8 @@ public class Query
                             .name("QUERY")
                             .type(VARCHAR)
                             .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
             this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         }
 

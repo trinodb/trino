@@ -46,7 +46,9 @@ import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.Decimals.longTenToNth;
+import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
+import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
 final class ShortDecimalType
@@ -123,7 +125,11 @@ final class ShortDecimalType
         if (block.isNull(position)) {
             return null;
         }
-        return new SqlDecimal(BigInteger.valueOf(getLong(block, position)), getPrecision(), getScale());
+        long value = getLong(block, position);
+        if (overflows(value, getPrecision())) {
+            throw new IllegalArgumentException(format("Value out of range for DECIMAL(%s, %s): %s", getPrecision(), getScale(), value));
+        }
+        return new SqlDecimal(BigInteger.valueOf(value), getPrecision(), getScale());
     }
 
     @Override
@@ -176,13 +182,13 @@ final class ShortDecimalType
         return Optional.of(value + 1);
     }
 
-    @ScalarOperator(READ_VALUE)
+    @ScalarOperator(value = READ_VALUE, neverFails = true)
     private static long read(@BlockPosition LongArrayBlock block, @BlockIndex int position)
     {
         return block.getLong(position);
     }
 
-    @ScalarOperator(READ_VALUE)
+    @ScalarOperator(value = READ_VALUE, neverFails = true)
     private static long readFlat(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
@@ -192,7 +198,7 @@ final class ShortDecimalType
         return (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
     }
 
-    @ScalarOperator(READ_VALUE)
+    @ScalarOperator(value = READ_VALUE, neverFails = true)
     private static void writeFlat(
             long value,
             @FlatFixed byte[] fixedSizeSlice,
@@ -203,7 +209,7 @@ final class ShortDecimalType
         LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset, value);
     }
 
-    @ScalarOperator(EQUAL)
+    @ScalarOperator(value = EQUAL, neverFails = true)
     private static boolean equalOperator(
             @FlatFixed byte[] leftFixedSizeSlice,
             @FlatFixedOffset int leftFixedSizeOffset,
@@ -215,37 +221,37 @@ final class ShortDecimalType
         return equalOperator((long) LONG_HANDLE.get(leftFixedSizeSlice, leftFixedSizeOffset), rightBlock.getLong(rightPosition));
     }
 
-    @ScalarOperator(EQUAL)
+    @ScalarOperator(value = EQUAL, neverFails = true)
     private static boolean equalOperator(long left, long right)
     {
         return left == right;
     }
 
-    @ScalarOperator(HASH_CODE)
+    @ScalarOperator(value = HASH_CODE, neverFails = true)
     private static long hashCodeOperator(long value)
     {
         return AbstractLongType.hash(value);
     }
 
-    @ScalarOperator(XX_HASH_64)
+    @ScalarOperator(value = XX_HASH_64, neverFails = true)
     private static long xxHash64Operator(long value)
     {
         return XxHash64.hash(value);
     }
 
-    @ScalarOperator(COMPARISON_UNORDERED_LAST)
+    @ScalarOperator(value = COMPARISON_UNORDERED_LAST, neverFails = true)
     private static long comparisonOperator(long left, long right)
     {
         return Long.compare(left, right);
     }
 
-    @ScalarOperator(LESS_THAN)
+    @ScalarOperator(value = LESS_THAN, neverFails = true)
     private static boolean lessThanOperator(long left, long right)
     {
         return left < right;
     }
 
-    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    @ScalarOperator(value = LESS_THAN_OR_EQUAL, neverFails = true)
     private static boolean lessThanOrEqualOperator(long left, long right)
     {
         return left <= right;

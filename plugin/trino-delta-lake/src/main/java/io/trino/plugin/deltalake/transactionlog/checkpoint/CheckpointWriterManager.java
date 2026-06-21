@@ -23,8 +23,8 @@ import io.trino.filesystem.TrinoOutputFile;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.deltalake.ForDeltaLakeMetadata;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot.MetadataAndProtocolEntry;
@@ -92,7 +92,7 @@ public class CheckpointWriterManager
         this.checkpointProcessingParallelism = deltaLakeConfig.getCheckpointProcessingParallelism();
     }
 
-    public void writeCheckpoint(ConnectorSession session, TableSnapshot snapshot, VendedCredentialsHandle credentialsHandle)
+    public void writeCheckpoint(ConnectorSession session, TableSnapshot snapshot, Optional<DeltaLakeTableCredentials> tableCredentials)
     {
         try {
             SchemaTableName table = snapshot.getTable();
@@ -107,7 +107,7 @@ public class CheckpointWriterManager
 
             CheckpointBuilder checkpointBuilder = new CheckpointBuilder();
 
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session, credentialsHandle);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
             List<DeltaLakeTransactionLogEntry> checkpointLogEntries;
             try (Stream<DeltaLakeTransactionLogEntry> checkpointLogEntriesStream = snapshot.getCheckpointTransactionLogEntries(
                     session,

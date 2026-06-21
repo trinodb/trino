@@ -27,6 +27,7 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.SpecializeTransformWithJsonParse;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.type.JsonPathType;
 import org.junit.jupiter.api.Test;
 
@@ -38,7 +39,7 @@ import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NA
 import static io.trino.operator.scalar.JsonStringArrayExtractScalar.JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME;
 import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -73,6 +74,6 @@ public class TestSpecializeTransformWithJsonParse
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new SpecializeTransformWithJsonParse(PLANNER_CONTEXT).apply(expression, testSession(), ImmutableMap.of());
+        return new SpecializeTransformWithJsonParse(PLANNER_CONTEXT).apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }

@@ -19,14 +19,14 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.cache.NonEvictableCache;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.FunctionBinder.CatalogFunctionBinding;
+import io.trino.metadata.SignatureBinder.GroundSignature;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 
 import java.util.Collection;
 import java.util.List;
@@ -71,7 +71,7 @@ class BuiltinFunctionResolver
         functionCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
     }
 
-    ResolvedFunction resolveBuiltinFunction(String name, List<TypeSignatureProvider> parameterTypes)
+    ResolvedFunction resolveBuiltinFunction(String name, List<TypeDescriptorProvider> parameterTypes)
     {
         try {
             return uncheckedCacheGet(functionCache, FunctionCacheKey.from(name, parameterTypes),
@@ -96,8 +96,8 @@ class BuiltinFunctionResolver
                     () -> resolveBuiltinFunction(
                             mangleOperatorName(operatorType),
                             argumentTypes.stream()
-                                    .map(Type::getTypeSignature)
-                                    .map(TypeSignatureProvider::new)
+                                    .map(Type::getTypeDescriptor)
+                                    .map(TypeDescriptorProvider::new)
                                     .collect(toImmutableList())));
         }
         catch (UncheckedExecutionException e) {
@@ -134,10 +134,7 @@ class BuiltinFunctionResolver
     ResolvedFunction resolveCoercion(String functionName, Type fromType, Type toType)
     {
         CatalogFunctionBinding functionBinding = functionBinder.bindCoercion(
-                Signature.builder()
-                        .returnType(toType)
-                        .argumentType(fromType)
-                        .build(),
+                new GroundSignature(toType.getTypeDescriptor(), ImmutableList.of(fromType.getTypeDescriptor())),
                 getBuiltinFunctions(functionName));
         return resolveBuiltin(functionBinding);
     }
@@ -170,6 +167,7 @@ class BuiltinFunctionResolver
     private Collection<CatalogFunctionMetadata> getBuiltinFunctions(String functionName)
     {
         return globalFunctionCatalog.getBuiltInFunctions(functionName).stream()
+                .filter(function -> !function.isMethod())
                 .map(function -> new CatalogFunctionMetadata(GlobalSystemConnector.CATALOG_HANDLE, BUILTIN_SCHEMA, function))
                 .collect(toImmutableList());
     }
@@ -193,7 +191,7 @@ class BuiltinFunctionResolver
         }
     }
 
-    private record FunctionCacheKey(String name, List<? extends TypeSignature> types)
+    private record FunctionCacheKey(String name, List<? extends TypeDescriptor> types)
     {
         private FunctionCacheKey
         {
@@ -201,10 +199,10 @@ class BuiltinFunctionResolver
             requireNonNull(types, "types is null");
         }
 
-        public static FunctionCacheKey from(String name, List<TypeSignatureProvider> parameterTypes)
+        public static FunctionCacheKey from(String name, List<TypeDescriptorProvider> parameterTypes)
         {
             return new FunctionCacheKey(name, parameterTypes.stream()
-                    .map(TypeSignatureProvider::getTypeSignature)
+                    .map(TypeDescriptorProvider::getTypeDescriptor)
                     .collect(toImmutableList()));
         }
     }

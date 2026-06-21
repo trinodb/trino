@@ -907,7 +907,7 @@ public class QueryStateMachine
                     StageInfo stage = queue.poll();
                     StageStats stageStats = stage.stageStats();
                     totalStages++;
-                    if (stage.state().isScheduled()) {
+                    if (stage.state().isScheduled() && stageStats.getTotalDrivers() != 0) {
                         completedPercentageSum += 100.0 * stageStats.getCompletedDrivers() / stageStats.getTotalDrivers();
                         runningPercentageSum += 100.0 * stageStats.getRunningDrivers() / stageStats.getTotalDrivers();
                     }

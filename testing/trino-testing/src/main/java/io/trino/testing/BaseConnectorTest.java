@@ -5433,6 +5433,23 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testVarcharEqualityPushdownIgnoresTrailingSpaces()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        // Trino compares varchar with NO PAD, so 'a' and 'a ' are distinct; equality must return only the exact match
+        // even when pushed to a remote that compares with PAD SPACE.
+        try (TestTable table = newTrinoTable("test_varchar_pad_space", "(v varchar(5))", ImmutableList.of("'a'", "'a '"))) {
+            assertThat(query("SELECT v FROM " + table.getName() + " WHERE v = 'a'"))
+                    .skippingTypesCheck()
+                    .matches("VALUES 'a'");
+            assertThat(query("SELECT v FROM " + table.getName() + " WHERE v = 'a '"))
+                    .skippingTypesCheck()
+                    .matches("VALUES 'a '");
+        }
+    }
+
+    @Test
     public void testDeleteWithVarcharPredicate()
     {
         skipTestUnless(hasBehavior(SUPPORTS_DELETE));

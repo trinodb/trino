@@ -16,6 +16,13 @@ grammar SqlBase;
 
 options { caseInsensitive = true; }
 
+@parser::members {
+    private boolean isKeyword()
+    {
+        return SqlKeywords.isKeyword(_input.LT(1).getType());
+    }
+}
+
 tokens {
     DELIMITER
 }
@@ -580,6 +587,7 @@ predicate[ParserRuleContext value]
     | NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)?  #like
     | IS NOT? NULL                                                        #nullPredicate
     | IS NOT? DISTINCT FROM right=valueExpression                         #distinctFrom
+    | MATCH UNIQUE? matchType=(SIMPLE | PARTIAL | FULL)? '(' query ')'    #match
     ;
 
 valueExpression
@@ -606,16 +614,17 @@ primaryExpression
         filter? over?                                                                     #functionCall
     | processingMode? qualifiedName '(' (setQuantifier? argument (',' argument)*)?
         orderBy? ')' filter? (nullTreatment? over)?                                       #functionCall
-    | qualifiedName '::' identifier '(' (expression (',' expression)*)? ')'               #staticMethodCall
-    | primaryExpression '.' identifier '(' (expression (',' expression)*)? ')'            #methodCall
+    | qualifiedName '::' methodName '(' (argument (',' argument)*)? ')'                   #staticMethodCall
+    | primaryExpression '.' methodName '(' (argument (',' argument)*)? ')'                #methodCall
     | identifier over                                                                     #measure
     | identifier '->' expression                                                          #lambda
     | '(' (identifier (',' identifier)*)? ')' '->' expression                             #lambda
     | '(' query ')'                                                                       #subqueryExpression
     // This is an extension to ANSI SQL, which considers EXISTS to be a <boolean expression>
     | EXISTS '(' query ')'                                                                #exists
-    | CASE operand=expression whenClause+ (ELSE elseExpression=expression)? END           #simpleCase
-    | CASE whenClause+ (ELSE elseExpression=expression)? END                              #searchedCase
+    | UNIQUE '(' query ')'                                                                #unique
+    | CASE operand=expression simpleWhenClause+ (ELSE elseExpression=expression)? END     #simpleCase
+    | CASE searchedWhenClause+ (ELSE elseExpression=expression)? END                      #searchedCase
     | CAST '(' expression AS type ')'                                                     #cast
     | TRY_CAST '(' expression AS type ')'                                                 #cast
     | ARRAY '[' (expression (',' expression)*)? ']'                                       #arrayConstructor
@@ -809,7 +818,12 @@ typeParameter
     : INTEGER_VALUE | type
     ;
 
-whenClause
+simpleWhenClause
+    : WHEN partial=predicate[null] THEN result=expression
+    | WHEN condition=expression THEN result=expression
+    ;
+
+searchedWhenClause
     : WHEN condition=expression THEN result=expression
     ;
 
@@ -1034,6 +1048,11 @@ identifier
     | DIGIT_IDENTIFIER       #digitIdentifier
     ;
 
+methodName
+    : identifier
+    | {isKeyword()}? .
+    ;
+
 number
     : MINUS? DECIMAL_VALUE  #decimalLiteral
     | MINUS? DOUBLE_VALUE   #doubleLiteral
@@ -1062,11 +1081,11 @@ nonReserved
     | MAP | MATCH | MATCHED | MATCHES | MATCH_RECOGNIZE | MATERIALIZED | MEASURES | MERGE | MINUTE | MONTH
     | NEAREST | NESTED | NEXT | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
     | OBJECT | OF | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OUTPUT | OVER | OVERFLOW
-    | PARTITION | PARTITIONS | PASSING | PAST | PATH | PATTERN | PER | PERIOD | PERMUTE | PLAN | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES | PRUNE
+    | PARTIAL | PARTITION | PARTITIONS | PASSING | PAST | PATH | PATTERN | PER | PERIOD | PERMUTE | PLAN | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES | PRUNE
     | QUOTES
     | RANGE | READ | REFRESH | RENAME | REPEAT  | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNING | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS | RUNNING
     | SCALAR | SCHEMA | SCHEMAS | SECOND | SECURITY | SEEK | SERIALIZABLE | SESSION | SET | SETS
-    | SHOW | SOME | STALE | START | STATS | SUBSET | SUBSTRING | SYSTEM
+    | SHOW | SIMPLE | SOME | STALE | START | STATS | SUBSET | SUBSTRING | SYSTEM
     | TABLES | TABLESAMPLE | TEXT | TEXT_STRING | TIES | TIME | TIMESTAMP | TO | TRAILING | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
     | UNBOUNDED | UNCOMMITTED | UNCONDITIONAL | UNIQUE | UNKNOWN | UNMATCHED | UNTIL | UPDATE | USE | USER | UTF16 | UTF32 | UTF8
     | VALIDATE | VALUE | VERBOSE | VERSION | VIEW
@@ -1267,6 +1286,7 @@ OUTER: 'OUTER';
 OUTPUT: 'OUTPUT';
 OVER: 'OVER';
 OVERFLOW: 'OVERFLOW';
+PARTIAL: 'PARTIAL';
 PARTITION: 'PARTITION';
 PARTITIONS: 'PARTITIONS';
 PASSING: 'PASSING';
@@ -1320,6 +1340,7 @@ SESSION: 'SESSION';
 SET: 'SET';
 SETS: 'SETS';
 SHOW: 'SHOW';
+SIMPLE: 'SIMPLE';
 SOME: 'SOME';
 STALE: 'STALE';
 START: 'START';

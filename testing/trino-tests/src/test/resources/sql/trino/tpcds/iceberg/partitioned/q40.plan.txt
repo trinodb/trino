@@ -2,20 +2,20 @@ local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
-                final aggregation over (i_item_id, w_state)
+                final aggregation over (w_state, i_item_id)
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, [i_item_id, w_state])
-                            intermediate aggregation over (i_item_id, w_state)
+                        remote exchange (REPARTITION, HASH, [w_state, i_item_id])
+                            intermediate aggregation over (w_state, i_item_id)
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
-                                        partial aggregation over (cs_item_sk, cs_warehouse_sk)
+                                        partial aggregation over (cs_warehouse_sk, cs_item_sk)
                                             join (INNER, REPLICATED):
                                                 join (LEFT, PARTITIONED):
-                                                    remote exchange (REPARTITION, HASH, [cs_item_sk, cs_order_number])
-                                                        dynamic filter (cs_item_sk::EQUAL, cs_sold_date_sk::EQUAL, cs_warehouse_sk::EQUAL)
+                                                    remote exchange (REPARTITION, HASH, [cs_order_number, cs_item_sk])
+                                                        dynamic filter (cs_warehouse_sk::EQUAL, cs_item_sk::EQUAL, cs_sold_date_sk::EQUAL)
                                                             scan catalog_sales
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPARTITION, HASH, [cr_item_sk, cr_order_number])
+                                                        remote exchange (REPARTITION, HASH, [cr_order_number, cr_item_sk])
                                                             dynamic filter (cr_item_sk::EQUAL)
                                                                 scan catalog_returns
                                                 local exchange (GATHER, SINGLE, [])

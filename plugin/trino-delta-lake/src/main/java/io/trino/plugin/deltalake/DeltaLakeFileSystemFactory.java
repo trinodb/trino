@@ -15,25 +15,15 @@ package io.trino.plugin.deltalake;
 
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
+
+import java.util.Optional;
 
 public interface DeltaLakeFileSystemFactory
         extends TrinoFileSystemFactory
 {
-    default TrinoFileSystem create(ConnectorSession session, DeltaLakeTableHandle table)
-    {
-        return create(session, table.toCredentialsHandle());
-    }
-
-    default TrinoFileSystem create(ConnectorSession session, DeltaMetastoreTable table)
-    {
-        return create(session, VendedCredentialsHandle.of(table));
-    }
-
-    TrinoFileSystem create(ConnectorSession session, VendedCredentialsHandle table);
+    TrinoFileSystem create(ConnectorSession session, Optional<DeltaLakeTableCredentials> tableCredentials);
 
     /**
      * For external table create/write using location
@@ -41,7 +31,7 @@ public interface DeltaLakeFileSystemFactory
     TrinoFileSystem create(ConnectorSession session, String tableLocation);
 
     /**
-     * @deprecated Use {@link #create(ConnectorSession, VendedCredentialsHandle)} or {@link #create(ConnectorSession, String)}
+     * @deprecated Use {@link #create(ConnectorSession, Optional)} or {@link #create(ConnectorSession, String)}
      *         instead. The new methods can potentially support vending credentials and may pass more information
      *         when creating {@link TrinoFileSystem} in the future.
      */
@@ -53,7 +43,7 @@ public interface DeltaLakeFileSystemFactory
     }
 
     /**
-     * @deprecated Use {@link #create(ConnectorSession, VendedCredentialsHandle)} or {@link #create(ConnectorSession, String)}
+     * @deprecated Use {@link #create(ConnectorSession, Optional)} or {@link #create(ConnectorSession, String)}
      *         instead. The new methods can potentially support vending credentials and may pass more information
      *         when creating {@link TrinoFileSystem} in the future.
      */

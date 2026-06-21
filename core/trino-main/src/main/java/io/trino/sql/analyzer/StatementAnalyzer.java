@@ -95,7 +95,6 @@ import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
@@ -104,7 +103,6 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
-import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis.CorrespondingAnalysis;
@@ -138,7 +136,7 @@ import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
-import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.Corresponding;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
@@ -214,6 +212,7 @@ import io.trino.sql.tree.PatternRecognitionRelation;
 import io.trino.sql.tree.PlanLeaf;
 import io.trino.sql.tree.PlanParentChild;
 import io.trino.sql.tree.PlanSiblings;
+import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
@@ -420,8 +419,8 @@ import static io.trino.sql.analyzer.Scope.BasisType.TABLE;
 import static io.trino.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope;
 import static io.trino.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.DereferenceExpression.getQualifiedName;
 import static io.trino.sql.tree.Join.Type.FULL;
@@ -799,52 +798,16 @@ class StatementAnalyzer
                 return false;
             }
 
-            /*
-            TODO enable coercions based on type compatibility for INSERT of structural types containing nested bounded character types.
-            It might require defining a new range of cast operators and changes in GlobalFunctionCatalog to ensure proper handling
-            of nested types.
-            Currently, INSERT for such structural types is only allowed in the case of strict type coercibility.
-            INSERT for other types is allowed in all cases described by the Standard. It is obtained
-            by emulating a "guarded cast" in LogicalPlanner, and without any changes to the actual operators.
-            */
+            // A value is assignable to a column whenever the two types are compatible. The planner emulates a
+            // "guarded cast" (see LogicalPlanner#noTruncationCast) that fails rather than silently truncating
+            // non-space characters, recursing through array, map and row to reach nested character types.
             for (int i = 0; i < tableTypes.size(); i++) {
-                if (hasNestedBoundedCharacterType(tableTypes.get(i))) {
-                    if (!typeCoercion.canCoerce(queryTypes.get(i), tableTypes.get(i))) {
-                        return false;
-                    }
-                }
-                else if (!typeCoercion.isCompatible(queryTypes.get(i), tableTypes.get(i))) {
+                if (!typeCoercion.isCompatible(queryTypes.get(i), tableTypes.get(i))) {
                     return false;
                 }
             }
 
             return true;
-        }
-
-        private boolean hasNestedBoundedCharacterType(Type type)
-        {
-            if (type instanceof ArrayType arrayType) {
-                return hasBoundedCharacterType(arrayType.getElementType());
-            }
-
-            if (type instanceof MapType mapType) {
-                return hasBoundedCharacterType(mapType.getKeyType()) || hasBoundedCharacterType(mapType.getValueType());
-            }
-
-            if (type instanceof RowType rowType) {
-                for (Type fieldType : rowType.getFieldTypes()) {
-                    if (hasBoundedCharacterType(fieldType)) {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        private boolean hasBoundedCharacterType(Type type)
-        {
-            return type instanceof CharType || (type instanceof VarcharType varcharType && !varcharType.isUnbounded()) || hasNestedBoundedCharacterType(type);
         }
 
         @Override
@@ -2158,7 +2121,7 @@ class StatementAnalyzer
                                                     field.getName().getCanonicalValue(),
                                                     field.getType().map(type -> {
                                                         try {
-                                                            return plannerContext.getTypeManager().getType(toTypeSignature(type));
+                                                            return plannerContext.getTypeManager().getType(toTypeDescriptor(type));
                                                         }
                                                         catch (TypeNotFoundException e) {
                                                             throw semanticException(TYPE_MISMATCH, type, "Unknown type: %s", type);
@@ -4212,16 +4175,18 @@ class StatementAnalyzer
 
         private NearestAnalysis analyzeNearestMatch(Nearest node, Scope nearestScope, Scope leftScope)
         {
-            if (!(node.getMatch() instanceof ComparisonExpression comparison)) {
+            if (!(node.getMatch() instanceof Predicated predicated) || !(predicated.getPredicate() instanceof ComparisonPredicate comparison)) {
                 throw semanticException(NOT_SUPPORTED, node.getMatch(), "NEAREST MATCH clause must be a comparison expression");
             }
+            Expression left = predicated.getValue();
+            Expression right = comparison.getRight();
 
             // MATCH is analyzed in nearestScope, which exposes fields from the FROM relation locally
             // and the left join input through the parent scope.
-            boolean leftReferencesFromRelation = hasReferencesToScope(comparison.getLeft(), analysis, nearestScope);
-            boolean rightReferencesFromRelation = hasReferencesToScope(comparison.getRight(), analysis, nearestScope);
-            boolean leftReferencesOuterRelation = hasReferencesToScope(comparison.getLeft(), analysis, leftScope);
-            boolean rightReferencesOuterRelation = hasReferencesToScope(comparison.getRight(), analysis, leftScope);
+            boolean leftReferencesFromRelation = hasReferencesToScope(left, analysis, nearestScope);
+            boolean rightReferencesFromRelation = hasReferencesToScope(right, analysis, nearestScope);
+            boolean leftReferencesOuterRelation = hasReferencesToScope(left, analysis, leftScope);
+            boolean rightReferencesOuterRelation = hasReferencesToScope(right, analysis, leftScope);
             if (leftReferencesFromRelation == rightReferencesFromRelation) {
                 throw semanticException(NOT_SUPPORTED, node.getMatch(), "NEAREST MATCH clause must compare one FROM relation expression with one non-FROM expression");
             }
@@ -4230,13 +4195,13 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, node.getMatch(), "NEAREST MATCH clause must keep FROM relation and non-FROM expressions on opposite sides");
             }
 
-            Expression candidateExpression = leftReferencesFromRelation ? comparison.getLeft() : comparison.getRight();
+            Expression candidateExpression = leftReferencesFromRelation ? left : right;
 
-            ComparisonExpression.Operator operator = leftReferencesFromRelation ? comparison.getOperator() : comparison.getOperator().flip();
-            if (operator != ComparisonExpression.Operator.LESS_THAN &&
-                    operator != ComparisonExpression.Operator.LESS_THAN_OR_EQUAL &&
-                    operator != ComparisonExpression.Operator.GREATER_THAN &&
-                    operator != ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL) {
+            ComparisonPredicate.Operator operator = leftReferencesFromRelation ? comparison.getOperator() : comparison.getOperator().flip();
+            if (operator != ComparisonPredicate.Operator.LESS_THAN &&
+                    operator != ComparisonPredicate.Operator.LESS_THAN_OR_EQUAL &&
+                    operator != ComparisonPredicate.Operator.GREATER_THAN &&
+                    operator != ComparisonPredicate.Operator.GREATER_THAN_OR_EQUAL) {
                 throw semanticException(NOT_SUPPORTED, node.getMatch(), "NEAREST MATCH clause must use <, <=, >, or >=");
             }
 

@@ -63,7 +63,7 @@ import static java.util.Objects.requireNonNull;
 public final class IcebergSessionProperties
         implements SessionPropertiesProvider
 {
-    public static final String SPLIT_SIZE = "experimental_split_size";
+    public static final String SPLIT_SIZE = "max_split_size";
     private static final String USE_FILE_SIZE_FROM_METADATA = "use_file_size_from_metadata";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
@@ -125,10 +125,8 @@ public final class IcebergSessionProperties
         sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(dataSizeProperty(
                         SPLIT_SIZE,
-                        "Target split size",
-                        // Note: this is null by default & hidden, currently mainly for tests.
-                        // See https://github.com/trinodb/trino/issues/9018#issuecomment-1752929193 for further discussion.
-                        null,
+                        "Max split size",
+                        icebergConfig.getMaxSplitSize().orElse(null),
                         true))
                 .add(booleanProperty(
                         USE_FILE_SIZE_FROM_METADATA,

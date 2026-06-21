@@ -15,7 +15,10 @@ package io.trino.plugin.elasticsearch.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -47,18 +50,10 @@ import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.util.EntityUtils;
-import org.elasticsearch.ElasticsearchStatusException;
-import org.elasticsearch.action.search.ClearScrollRequest;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.SearchScrollRequest;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.ResponseException;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
-import org.elasticsearch.core.TimeValue;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -75,8 +70,10 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.GeneralSecurityException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -105,7 +102,6 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.elasticsearch.action.search.SearchType.QUERY_THEN_FETCH;
 
 public class ElasticsearchClient
 {
@@ -115,11 +111,12 @@ public class ElasticsearchClient
     private static final JsonCodec<NodesResponse> NODES_RESPONSE_CODEC = jsonCodec(NodesResponse.class);
     private static final JsonCodec<CountResponse> COUNT_RESPONSE_CODEC = jsonCodec(CountResponse.class);
     private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
+    private static final JsonNodeFactory JSON = JsonNodeFactory.instance;
 
     private static final Pattern ADDRESS_PATTERN = Pattern.compile("((?<cname>[^/]+)/)?(?<ip>.+):(?<port>\\d+)");
     private static final Set<String> NODE_ROLES = ImmutableSet.of("data", "data_content", "data_hot", "data_warm", "data_cold", "data_frozen");
 
-    private final BackpressureRestHighLevelClient client;
+    private final BackpressureRestClient client;
     private final int scrollSize;
     private final Duration scrollTimeout;
 
@@ -183,7 +180,7 @@ public class ElasticsearchClient
                     .toArray(HttpHost[]::new);
 
             if (hosts.length > 0 && !ignorePublishAddress) {
-                client.getLowLevelClient().setHosts(hosts);
+                client.setHosts(hosts);
             }
 
             this.nodes.set(nodes);
@@ -195,7 +192,7 @@ public class ElasticsearchClient
         }
     }
 
-    private static BackpressureRestHighLevelClient createClient(
+    private static BackpressureRestClient createClient(
             ElasticsearchConfig config,
             Optional<AwsSecurityConfig> awsSecurityConfig,
             Optional<PasswordConfig> passwordConfig,
@@ -245,7 +242,7 @@ public class ElasticsearchClient
             return clientBuilder;
         });
 
-        return new BackpressureRestHighLevelClient(builder, config, backpressureStats);
+        return new BackpressureRestClient(builder.build(), config, backpressureStats);
     }
 
     private static AwsCredentialsProvider getAwsCredentialsProvider(AwsSecurityConfig config)
@@ -369,8 +366,7 @@ public class ElasticsearchClient
         String path = format("/%s/_mappings", index);
 
         try {
-            Response response = client.getLowLevelClient()
-                    .performRequest("GET", path);
+            Response response = client.performRequest("GET", path);
 
             return response.getStatusLine().getStatusCode() == 200;
         }
@@ -549,14 +545,13 @@ public class ElasticsearchClient
 
         Response response;
         try {
-            response = client.getLowLevelClient()
-                    .performRequest(
-                            "GET",
-                            path,
-                            ImmutableMap.of(),
-                            new ByteArrayEntity(query.getBytes(UTF_8)),
-                            new BasicHeader("Content-Type", "application/json"),
-                            new BasicHeader("Accept-Encoding", "application/json"));
+            response = client.performRequest(
+                    "GET",
+                    path,
+                    ImmutableMap.of(),
+                    new ByteArrayEntity(query.getBytes(UTF_8)),
+                    new BasicHeader("Content-Type", "application/json"),
+                    new BasicHeader("Accept-Encoding", "application/json"));
         }
         catch (IOException e) {
             throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
@@ -573,55 +568,57 @@ public class ElasticsearchClient
         return body;
     }
 
-    public SearchResponse beginSearch(String index, int shard, QueryBuilder query, Optional<List<String>> fields, List<String> documentFields, Optional<String> sort, OptionalLong limit)
+    public SearchResult beginSearch(String index, int shard, JsonNode query, Optional<List<String>> fields, List<String> documentFields, Optional<String> sort, OptionalLong limit)
     {
-        SearchSourceBuilder sourceBuilder = SearchSourceBuilder.searchSource()
-                .query(query);
+        ObjectNode searchBody = JSON.objectNode();
+        searchBody.set("query", query);
 
+        int size;
         if (limit.isPresent() && limit.getAsLong() < scrollSize) {
-            // Safe to cast it to int because scrollSize is int.
-            sourceBuilder.size(toIntExact(limit.getAsLong()));
+            size = toIntExact(limit.getAsLong());
         }
         else {
-            sourceBuilder.size(scrollSize);
+            size = scrollSize;
         }
+        searchBody.put("size", size);
 
-        sort.ifPresent(sourceBuilder::sort);
+        sort.ifPresent(s -> searchBody.set("sort", JSON.arrayNode().add(s)));
 
         fields.ifPresent(values -> {
             if (values.isEmpty()) {
-                sourceBuilder.fetchSource(false);
+                searchBody.put("_source", false);
             }
             else {
-                sourceBuilder.fetchSource(values.toArray(new String[0]), null);
+                ArrayNode includes = JSON.arrayNode();
+                values.forEach(includes::add);
+                searchBody.set("_source", JSON.objectNode().set("includes", includes));
             }
         });
-        documentFields.forEach(sourceBuilder::docValueField);
 
-        LOG.debug("Begin search: %s:%s, query: %s", index, shard, sourceBuilder);
+        if (!documentFields.isEmpty()) {
+            ArrayNode docFields = JSON.arrayNode();
+            documentFields.forEach(docFields::add);
+            searchBody.set("docvalue_fields", docFields);
+        }
 
-        SearchRequest request = new SearchRequest(index)
-                .searchType(QUERY_THEN_FETCH)
-                .preference("_shards:" + shard)
-                .scroll(new TimeValue(scrollTimeout.toMillis()))
-                .source(sourceBuilder);
+        LOG.debug("Begin search: %s:%s, query: %s", index, shard, searchBody);
+
+        String endpoint = format("/%s/_search?preference=_shards:%s&scroll=%sms", index, shard, scrollTimeout.toMillis());
 
         long start = System.nanoTime();
         try {
-            return client.search(request);
+            Response response = client.performRequest(
+                    "POST",
+                    endpoint,
+                    ImmutableMap.of(),
+                    new StringEntity(searchBody.toString(), UTF_8),
+                    new BasicHeader("Content-Type", "application/json"));
+            return parseSearchResponse(response);
+        }
+        catch (ResponseException e) {
+            throw propagate(e);
         }
         catch (IOException e) {
-            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
-        }
-        catch (ElasticsearchStatusException e) {
-            Throwable[] suppressed = e.getSuppressed();
-            if (suppressed.length > 0) {
-                Throwable cause = suppressed[0];
-                if (cause instanceof ResponseException responseException) {
-                    throw propagate(responseException);
-                }
-            }
-
             throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
         }
         finally {
@@ -629,16 +626,26 @@ public class ElasticsearchClient
         }
     }
 
-    public SearchResponse nextPage(String scrollId)
+    public SearchResult nextPage(String scrollId)
     {
         LOG.debug("Next page: %s", scrollId);
 
-        SearchScrollRequest request = new SearchScrollRequest(scrollId)
-                .scroll(new TimeValue(scrollTimeout.toMillis()));
+        ObjectNode scrollBody = JSON.objectNode();
+        scrollBody.put("scroll", scrollTimeout.toMillis() + "ms");
+        scrollBody.put("scroll_id", scrollId);
 
         long start = System.nanoTime();
         try {
-            return client.searchScroll(request);
+            Response response = client.performRequest(
+                    "POST",
+                    "/_search/scroll",
+                    ImmutableMap.of(),
+                    new StringEntity(scrollBody.toString(), UTF_8),
+                    new BasicHeader("Content-Type", "application/json"));
+            return parseSearchResponse(response);
+        }
+        catch (ResponseException e) {
+            throw propagate(e);
         }
         catch (IOException e) {
             throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
@@ -648,24 +655,23 @@ public class ElasticsearchClient
         }
     }
 
-    public long count(String index, int shard, QueryBuilder query)
+    public long count(String index, int shard, JsonNode query)
     {
-        SearchSourceBuilder sourceBuilder = SearchSourceBuilder.searchSource()
-                .query(query);
+        ObjectNode countBody = JSON.objectNode();
+        countBody.set("query", query);
 
-        LOG.debug("Count: %s:%s, query: %s", index, shard, sourceBuilder);
+        LOG.debug("Count: %s:%s, query: %s", index, shard, countBody);
 
         long start = System.nanoTime();
         try {
             Response response;
             try {
-                response = client.getLowLevelClient()
-                        .performRequest(
-                                "GET",
-                                format("/%s/_count?preference=_shards:%s", index, shard),
-                                ImmutableMap.of(),
-                                new StringEntity(sourceBuilder.toString(), UTF_8),
-                                new BasicHeader("Content-Type", "application/json"));
+                response = client.performRequest(
+                        "GET",
+                        format("/%s/_count?preference=_shards:%s", index, shard),
+                        ImmutableMap.of(),
+                        new StringEntity(countBody.toString(), UTF_8),
+                        new BasicHeader("Content-Type", "application/json"));
             }
             catch (ResponseException e) {
                 throw propagate(e);
@@ -689,14 +695,88 @@ public class ElasticsearchClient
 
     public void clearScroll(String scrollId)
     {
-        ClearScrollRequest request = new ClearScrollRequest();
-        request.addScrollId(scrollId);
+        ObjectNode body = JSON.objectNode();
+        ArrayNode scrollIds = JSON.arrayNode();
+        scrollIds.add(scrollId);
+        body.set("scroll_id", scrollIds);
+
         try {
-            client.clearScroll(request);
+            client.performRequest(
+                    "DELETE",
+                    "/_search/scroll",
+                    ImmutableMap.of(),
+                    new StringEntity(body.toString(), UTF_8),
+                    new BasicHeader("Content-Type", "application/json"));
         }
         catch (IOException e) {
             throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
         }
+    }
+
+    private SearchResult parseSearchResponse(Response response)
+    {
+        try {
+            String responseBody = EntityUtils.toString(response.getEntity());
+            JsonNode root = JSON_MAPPER.readTree(responseBody);
+
+            Optional<String> scrollId = Optional.ofNullable(root.get("_scroll_id"))
+                    .map(JsonNode::asText);
+
+            JsonNode hitsNode = root.get("hits").get("hits");
+            ImmutableList.Builder<SearchDocument> hits = ImmutableList.builder();
+
+            for (JsonNode hitNode : hitsNode) {
+                String id = hitNode.get("_id").asText();
+                float score = hitNode.has("_score") && !hitNode.get("_score").isNull()
+                        ? hitNode.get("_score").floatValue()
+                        : Float.NaN;
+
+                JsonNode sourceNode = hitNode.get("_source");
+                String sourceAsString = sourceNode != null ? sourceNode.toString() : "{}";
+                long sourceLength = sourceAsString.getBytes(UTF_8).length;
+                @SuppressWarnings("unchecked")
+                Map<String, Object> sourceAsMap = sourceNode != null
+                        ? JSON_MAPPER.convertValue(sourceNode, Map.class)
+                        : ImmutableMap.of();
+
+                Map<String, List<Object>> fields = ImmutableMap.of();
+                if (hitNode.has("fields")) {
+                    Map<String, List<Object>> fieldsMap = new LinkedHashMap<>();
+                    for (Entry<String, JsonNode> fieldEntry : hitNode.get("fields").properties()) {
+                        List<Object> values = new ArrayList<>();
+                        for (JsonNode valueNode : fieldEntry.getValue()) {
+                            values.add(nodeToValue(valueNode));
+                        }
+                        fieldsMap.put(fieldEntry.getKey(), values);
+                    }
+                    fields = ImmutableMap.copyOf(fieldsMap);
+                }
+
+                hits.add(new SearchDocument(id, score, sourceAsMap, sourceAsString, sourceLength, fields));
+            }
+
+            return new SearchResult(scrollId, hits.build());
+        }
+        catch (IOException e) {
+            throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+        }
+    }
+
+    private static Object nodeToValue(JsonNode node)
+    {
+        if (node.isTextual()) {
+            return node.asText();
+        }
+        if (node.isNumber()) {
+            return node.numberValue();
+        }
+        if (node.isBoolean()) {
+            return node.booleanValue();
+        }
+        if (node.isNull()) {
+            return null;
+        }
+        throw new IllegalArgumentException("Unsupported node type: " + node.getClass());
     }
 
     @Managed
@@ -733,8 +813,7 @@ public class ElasticsearchClient
 
         Response response;
         try {
-            response = client.getLowLevelClient()
-                    .performRequest("GET", path);
+            response = client.performRequest("GET", path);
         }
         catch (IOException e) {
             throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);

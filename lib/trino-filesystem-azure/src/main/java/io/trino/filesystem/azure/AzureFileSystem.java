@@ -71,7 +71,6 @@ import static io.trino.filesystem.TrinoFileSystem.checkStartingFrom;
 import static io.trino.filesystem.azure.AzureUtils.blobCustomerProvidedKey;
 import static io.trino.filesystem.azure.AzureUtils.encodedKey;
 import static io.trino.filesystem.azure.AzureUtils.handleAzureException;
-import static io.trino.filesystem.azure.AzureUtils.isFileNotFoundException;
 import static io.trino.filesystem.azure.AzureUtils.keySha256Checksum;
 import static io.trino.filesystem.azure.AzureUtils.lakeCustomerProvidedKey;
 import static java.lang.Math.toIntExact;
@@ -194,12 +193,9 @@ public class AzureFileSystem
         AzureLocation azureLocation = new AzureLocation(location);
         BlobClient client = createBlobClient(azureLocation, Optional.empty());
         try {
-            client.delete();
+            client.deleteIfExists();
         }
         catch (RuntimeException e) {
-            if (isFileNotFoundException(e)) {
-                return;
-            }
             throw handleAzureException(e, "deleting file", azureLocation);
         }
     }

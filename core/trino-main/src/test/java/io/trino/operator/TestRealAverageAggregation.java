@@ -33,7 +33,7 @@ import static io.trino.block.BlockAssertions.createBlockOfReals;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.operator.aggregation.AggregationTestUtils.makeValidityAssertion;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static java.lang.Float.floatToRawIntBits;
 import static org.assertj.core.api.Assertions.assertThat;
 

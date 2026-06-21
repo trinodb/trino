@@ -26,8 +26,8 @@ import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 
 import java.util.List;
@@ -59,9 +59,9 @@ import static java.util.Objects.requireNonNull;
 
 public final class TypeCoercion
 {
-    private final Function<TypeSignature, Type> lookupType;
+    private final Function<TypeDescriptor, Type> lookupType;
 
-    public TypeCoercion(Function<TypeSignature, Type> lookupType)
+    public TypeCoercion(Function<TypeDescriptor, Type> lookupType)
     {
         this.lookupType = requireNonNull(lookupType, "lookupType is null");
     }
@@ -310,10 +310,10 @@ public final class TypeCoercion
                 return TypeCompatibility.incompatible();
             }
             coercible &= compatibility.isCoercible();
-            commonParameterTypes.add(TypeParameter.typeParameter(compatibility.getCommonSuperType().getTypeSignature()));
+            commonParameterTypes.add(TypeParameter.typeParameter(compatibility.getCommonSuperType().getTypeDescriptor()));
         }
         String typeBase = fromType.getBaseName();
-        return TypeCompatibility.compatible(lookupType.apply(new TypeSignature(typeBase, commonParameterTypes.build())), coercible);
+        return TypeCompatibility.compatible(lookupType.apply(new TypeDescriptor(typeBase, commonParameterTypes.build())), coercible);
     }
 
     /**
@@ -350,7 +350,7 @@ public final class TypeCoercion
                      JoniRegexpType.NAME,
                      JsonPathType.NAME,
                      ColorType.NAME,
-                     CodePointsType.NAME -> Optional.of(lookupType.apply(new TypeSignature(resultTypeBase)));
+                     CodePointsType.NAME -> Optional.of(lookupType.apply(new TypeDescriptor(resultTypeBase)));
                 case StandardTypes.VARCHAR -> Optional.of(createVarcharType(0));
                 case StandardTypes.CHAR -> Optional.of(createCharType(0));
                 case StandardTypes.DECIMAL -> Optional.of(createDecimalType(1, 0));

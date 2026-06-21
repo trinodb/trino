@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -26,7 +25,8 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -131,10 +131,10 @@ public class TestReplaceRedundantJoinWithSource
                         p.join(INNER,
                                 p.values(10, p.symbol("a", BIGINT)),
                                 p.values(1),
-                                new Comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Constant(BIGINT, 0L))))
+                                comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Constant(BIGINT, 0L))))
                 .matches(
                         filter(
-                                new Comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Constant(BIGINT, 0L)),
+                                comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Constant(BIGINT, 0L)),
                                 values(ImmutableList.of("a"), nCopies(10, ImmutableList.of(new Constant(BIGINT, null))))));
 
         tester().assertThat(new ReplaceRedundantJoinWithSource())
@@ -142,10 +142,10 @@ public class TestReplaceRedundantJoinWithSource
                         p.join(INNER,
                                 p.values(1),
                                 p.values(10, p.symbol("b", BIGINT)),
-                                new Comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Constant(BIGINT, 0L))))
+                                comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Constant(BIGINT, 0L))))
                 .matches(
                         filter(
-                                new Comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Constant(BIGINT, 0L)),
+                                comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Constant(BIGINT, 0L)),
                                 values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(new Constant(BIGINT, null))))));
     }
 
@@ -166,7 +166,7 @@ public class TestReplaceRedundantJoinWithSource
                         p.join(LEFT,
                                 p.values(10, p.symbol("a", BIGINT)),
                                 p.values(1),
-                                new Comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Constant(BIGINT, 0L))))
+                                comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Constant(BIGINT, 0L))))
                 .matches(
                         values(ImmutableList.of("a"), nCopies(10, ImmutableList.of(new Constant(BIGINT, null)))));
     }
@@ -188,7 +188,7 @@ public class TestReplaceRedundantJoinWithSource
                         p.join(RIGHT,
                                 p.values(1),
                                 p.values(10, p.symbol("b", BIGINT)),
-                                new Comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Constant(BIGINT, 0L))))
+                                comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Constant(BIGINT, 0L))))
                 .matches(
                         values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(new Constant(BIGINT, null)))));
     }
@@ -218,7 +218,7 @@ public class TestReplaceRedundantJoinWithSource
                         p.join(FULL,
                                 p.values(1),
                                 p.values(10, p.symbol("b", BIGINT)),
-                                new Comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Constant(BIGINT, 0L))))
+                                comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Constant(BIGINT, 0L))))
                 .matches(
                         values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(new Constant(BIGINT, null)))));
 
@@ -229,7 +229,7 @@ public class TestReplaceRedundantJoinWithSource
                 .on(p ->
                         p.join(FULL,
                                 p.filter(
-                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Constant(BIGINT, 5L)),
+                                        comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Constant(BIGINT, 5L)),
                                         p.values(10, p.symbol("a", BIGINT))),
                                 p.values(1)))
                 .doesNotFire();
@@ -242,7 +242,7 @@ public class TestReplaceRedundantJoinWithSource
                         p.join(FULL,
                                 p.values(1),
                                 p.filter(
-                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Constant(BIGINT, 5L)),
+                                        comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Constant(BIGINT, 5L)),
                                         p.values(10, p.symbol("a", BIGINT)))))
                 .doesNotFire();
     }
@@ -261,7 +261,7 @@ public class TestReplaceRedundantJoinWithSource
                             ImmutableList.of(),
                             ImmutableList.of(a),
                             ImmutableList.of(),
-                            Optional.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))));
+                            Optional.of(comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))));
                 })
                 .matches(
                         project(
@@ -279,13 +279,13 @@ public class TestReplaceRedundantJoinWithSource
                             ImmutableList.of(),
                             ImmutableList.of(a),
                             ImmutableList.of(),
-                            Optional.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))));
+                            Optional.of(comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))));
                 })
                 .matches(
                         project(
                                 ImmutableMap.of("a", PlanMatchPattern.expression(new Reference(BIGINT, "a"))),
                                 filter(
-                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")),
+                                        comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")),
                                         values(ImmutableList.of("a", "b"), nCopies(10, ImmutableList.of(new Constant(BIGINT, null), new Constant(BIGINT, null)))))));
     }
 }

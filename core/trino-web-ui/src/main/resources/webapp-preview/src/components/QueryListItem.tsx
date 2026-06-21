@@ -11,8 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import React from 'react'
+import React, { useMemo } from 'react'
 import { Box, Grid, Stack, Tooltip, Typography } from '@mui/material'
+import type { SvgIconComponent } from '@mui/icons-material'
 import AvTimerIcon from '@mui/icons-material/AvTimer'
 import BadgeIcon from '@mui/icons-material/Badge'
 import BrokenImageIcon from '@mui/icons-material/BrokenImage'
@@ -27,7 +28,7 @@ import Memory from '@mui/icons-material/Memory'
 import NotStartedIcon from '@mui/icons-material/NotStarted'
 import PlayCircleIcon from '@mui/icons-material/PlayCircle'
 import QueryBuilderIcon from '@mui/icons-material/QueryBuilder'
-import { CodeBlock } from './CodeBlock.tsx'
+import { CodePreview } from './CodePreview.tsx'
 import { QueryProgressBar } from './QueryProgressBar'
 import { QueryInfo } from '../api/webapp/api.ts'
 import { formatDataSizeBytes, formatShortTime, parseAndFormatDataSize, truncateString } from '../utils/utils.ts'
@@ -49,227 +50,309 @@ const StyledLink = styled(RouterLink)(({ theme }) => ({
     fontWeight: 500,
 }))
 
-export const QueryListItem = (props: IQueryListItemProps) => {
-    const { queryInfo } = props
+const stripQueryTextWhitespace = (queryText: string) => {
+    const maxLines = 6
+    const lines = queryText.split('\n')
+    let minLeadingWhitespace = -1
+    for (let i = 0; i < lines.length; i++) {
+        if (minLeadingWhitespace === 0) {
+            break
+        }
 
-    const stripQueryTextWhitespace = (queryText: string) => {
-        const maxLines = 6
-        const lines = queryText.split('\n')
-        let minLeadingWhitespace = -1
-        for (let i = 0; i < lines.length; i++) {
-            if (minLeadingWhitespace === 0) {
+        if (lines[i].trim().length === 0) {
+            continue
+        }
+
+        const leadingWhitespace = lines[i].search(/\S/)
+
+        if (leadingWhitespace > -1 && (leadingWhitespace < minLeadingWhitespace || minLeadingWhitespace === -1)) {
+            minLeadingWhitespace = leadingWhitespace
+        }
+    }
+
+    let formattedQueryText = ''
+
+    for (let i = 0; i < lines.length; i++) {
+        const trimmedLine = lines[i].substring(minLeadingWhitespace).replace(/\s+$/g, '')
+
+        if (trimmedLine.length > 0) {
+            formattedQueryText += trimmedLine
+            if (i < maxLines - 1) {
+                formattedQueryText += '\n'
+            } else {
+                formattedQueryText += '\n...'
                 break
             }
-
-            if (lines[i].trim().length === 0) {
-                continue
-            }
-
-            const leadingWhitespace = lines[i].search(/\S/)
-
-            if (leadingWhitespace > -1 && (leadingWhitespace < minLeadingWhitespace || minLeadingWhitespace === -1)) {
-                minLeadingWhitespace = leadingWhitespace
-            }
         }
-
-        let formattedQueryText = ''
-
-        for (let i = 0; i < lines.length; i++) {
-            const trimmedLine = lines[i].substring(minLeadingWhitespace).replace(/\s+$/g, '')
-
-            if (trimmedLine.length > 0) {
-                formattedQueryText += trimmedLine
-                if (i < maxLines - 1) {
-                    formattedQueryText += '\n'
-                } else {
-                    formattedQueryText += '\n...'
-                    break
-                }
-            }
-        }
-
-        return formattedQueryText
     }
 
-    const renderTextWithIcon = (
-        icon: React.ReactElement<SvgIconProps>,
-        title: string,
-        tooltip: string,
-        spacing: number = 0,
-        color: SvgIconProps['color'] = 'inherit'
-    ) => {
-        const smallIcon = React.cloneElement(icon, { fontSize: 'small', color: color })
+    return formattedQueryText
+}
 
+// Lightweight memoized replacement for the previous renderTextWithIcon function.
+// Uses the icon component type directly (no React.cloneElement) and native title
+// attribute instead of MUI Tooltip to minimise DOM weight per query row.
+const TextWithIcon = React.memo(function TextWithIcon(props: {
+    Icon: SvgIconComponent
+    title: string
+    tooltip: string
+    spacing?: number
+    color?: SvgIconProps['color']
+}) {
+    const { Icon, title, tooltip, spacing = 0, color = 'inherit' } = props
+    return (
+        <Box display="flex" alignItems="center" title={tooltip} aria-label={`${tooltip}: ${title}`}>
+            <Icon fontSize="small" color={color} />
+            <Typography variant="body2" ml={spacing}>
+                {title}
+            </Typography>
+        </Box>
+    )
+})
+
+// --- Memoized sub-sections of the left pane ---
+
+const QueryHeader = React.memo(function QueryHeader(props: { queryId: string; createTime: string }) {
+    const { queryId, createTime } = props
+    return (
+        <Box
+            sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                pb: 1,
+                mb: 1,
+                borderBottom: '1px solid #ccc',
+            }}
+        >
+            <Box>
+                <Tooltip placement="top-start" title="Query ID">
+                    <StyledLink to={`/queries/${queryId}`}>{queryId}</StyledLink>
+                </Tooltip>
+            </Box>
+            <Box>
+                <Tooltip placement="top-start" title="Submit time">
+                    <Typography variant="body2">{formatShortTime(new Date(Date.parse(createTime)))}</Typography>
+                </Tooltip>
+            </Box>
+        </Box>
+    )
+})
+
+const QueryIdentity = React.memo(
+    function QueryIdentity(props: {
+        sessionUser: string
+        sessionSource: string
+        queryDataEncoding: string
+        resourceGroupId: string[]
+    }) {
+        const { sessionUser, sessionSource, queryDataEncoding, resourceGroupId } = props
         return (
-            <Tooltip placement="top-start" title={tooltip}>
-                <Box display="flex" alignItems="center">
-                    {smallIcon}
-                    <Typography variant="body2" ml={spacing}>
-                        {title}
-                    </Typography>
+            <Box>
+                <Box>
+                    <TextWithIcon
+                        Icon={BadgeIcon}
+                        title={truncateString(sessionUser, 35)}
+                        tooltip="User"
+                        spacing={1}
+                        color="info"
+                    />
                 </Box>
-            </Tooltip>
+                <Box>
+                    <TextWithIcon
+                        Icon={DevicesIcon}
+                        title={truncateString(sessionSource, 35)}
+                        tooltip="Source"
+                        spacing={1}
+                        color="info"
+                    />
+                </Box>
+                <Box>
+                    <TextWithIcon
+                        Icon={DownloadingIcon}
+                        title={queryDataEncoding ? 'spooled ' + queryDataEncoding : 'non-spooled'}
+                        tooltip="Protocol encoding"
+                        spacing={1}
+                        color="info"
+                    />
+                </Box>
+                <Box>
+                    <TextWithIcon
+                        Icon={GroupsIcon}
+                        title={truncateString(resourceGroupId ? resourceGroupId.join('.') : 'n/a', 35)}
+                        tooltip="Resource group"
+                        spacing={1}
+                        color="info"
+                    />
+                </Box>
+            </Box>
         )
-    }
+    },
+    (prev, next) =>
+        prev.sessionUser === next.sessionUser &&
+        prev.sessionSource === next.sessionSource &&
+        prev.queryDataEncoding === next.queryDataEncoding &&
+        prev.resourceGroupId?.join('.') === next.resourceGroupId?.join('.')
+)
+
+const QuerySplits = React.memo(function QuerySplits(props: {
+    completedDrivers: number
+    runningDrivers: number
+    queuedDrivers: number
+    failedTasks: number
+    state: string
+    retryPolicy: string
+}) {
+    const { completedDrivers, runningDrivers, queuedDrivers, failedTasks, state, retryPolicy } = props
+    const isDone = state === 'FINISHED' || state === 'FAILED'
+    return (
+        <Grid container spacing={3}>
+            <Grid size={{ xs: 3 }}>
+                <TextWithIcon
+                    Icon={CheckCircleIcon}
+                    title={completedDrivers.toString()}
+                    tooltip="Complete splits"
+                    spacing={1}
+                />
+            </Grid>
+            <Grid size={{ xs: 3 }}>
+                <TextWithIcon
+                    Icon={PlayCircleIcon}
+                    title={(isDone ? 0 : runningDrivers).toString()}
+                    tooltip="Running splits"
+                    spacing={1}
+                />
+            </Grid>
+            <Grid size={{ xs: 3 }}>
+                <TextWithIcon
+                    Icon={NotStartedIcon}
+                    title={(isDone ? 0 : queuedDrivers).toString()}
+                    tooltip="Queued splits"
+                    spacing={1}
+                />
+            </Grid>
+            {retryPolicy === 'TASK' && (
+                <Grid size={{ xs: 3 }}>
+                    <TextWithIcon
+                        Icon={HighlightOff}
+                        title={failedTasks.toString()}
+                        tooltip="Failed tasks"
+                        spacing={1}
+                    />
+                </Grid>
+            )}
+        </Grid>
+    )
+})
+
+const QueryTiming = React.memo(function QueryTiming(props: {
+    executionTime: string
+    elapsedTime: string
+    totalCpuTime: string
+}) {
+    const { executionTime, elapsedTime, totalCpuTime } = props
+    return (
+        <Grid container spacing={3}>
+            <Grid size={{ xs: 3 }}>
+                <TextWithIcon
+                    Icon={HistoryToggleOffIcon}
+                    title={executionTime.toString()}
+                    tooltip="Wall time spent executing the query (not including queued time)"
+                    spacing={1}
+                />
+            </Grid>
+            <Grid size={{ xs: 3 }}>
+                <TextWithIcon
+                    Icon={QueryBuilderIcon}
+                    title={elapsedTime.toString()}
+                    tooltip="Total query wall time"
+                    spacing={1}
+                />
+            </Grid>
+            <Grid size={{ xs: 3 }}>
+                <TextWithIcon
+                    Icon={AvTimerIcon}
+                    title={totalCpuTime.toString()}
+                    tooltip="CPU time spent by this query"
+                    spacing={1}
+                />
+            </Grid>
+        </Grid>
+    )
+})
+
+const QueryMemory = React.memo(function QueryMemory(props: {
+    totalMemoryReservation: string
+    peakTotalMemoryReservation: string
+    cumulativeUserMemory: number
+}) {
+    const { totalMemoryReservation, peakTotalMemoryReservation, cumulativeUserMemory } = props
+    return (
+        <Grid container spacing={3}>
+            <Grid size={{ xs: 3 }}>
+                <TextWithIcon
+                    Icon={Memory}
+                    title={parseAndFormatDataSize(totalMemoryReservation)}
+                    tooltip="Current total reserved memory"
+                    spacing={1}
+                />
+            </Grid>
+            <Grid size={{ xs: 3 }}>
+                <TextWithIcon
+                    Icon={BrokenImageIcon}
+                    title={parseAndFormatDataSize(peakTotalMemoryReservation)}
+                    tooltip="Peak total memory"
+                    spacing={1}
+                />
+            </Grid>
+            <Grid size={{ xs: 3 }}>
+                <TextWithIcon
+                    Icon={FunctionsIcon}
+                    title={formatDataSizeBytes(cumulativeUserMemory / 1000.0)}
+                    tooltip="Cumulative user memory"
+                    spacing={1}
+                />
+            </Grid>
+        </Grid>
+    )
+})
+
+export const QueryListItem = React.memo(function QueryListItem(props: IQueryListItemProps) {
+    const { queryInfo } = props
+
+    const formattedQueryText = useMemo(
+        () => stripQueryTextWhitespace(queryInfo.queryTextPreview),
+        [queryInfo.queryTextPreview]
+    )
 
     return (
         <Grid container spacing={1}>
             <Grid size={{ xs: 12, lg: 4 }}>
-                <Box
-                    sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        pb: 1,
-                        mb: 1,
-                        borderBottom: '1px solid #ccc',
-                    }}
-                >
-                    <Box>
-                        <Tooltip placement="top-start" title="Query ID">
-                            <StyledLink to={`/queries/${queryInfo.queryId}`}>{queryInfo.queryId}</StyledLink>
-                        </Tooltip>
-                    </Box>
-                    <Box>
-                        <Tooltip placement="top-start" title="Submit time">
-                            <Typography variant="body2">
-                                {formatShortTime(new Date(Date.parse(queryInfo.queryStats.createTime)))}
-                            </Typography>
-                        </Tooltip>
-                    </Box>
-                </Box>
-                <Box>
-                    <Box>
-                        {renderTextWithIcon(
-                            <BadgeIcon />,
-                            truncateString(queryInfo.sessionUser, 35),
-                            'User',
-                            1,
-                            'info'
-                        )}
-                    </Box>
-                    <Box>
-                        {renderTextWithIcon(
-                            <DevicesIcon />,
-                            truncateString(queryInfo.sessionSource, 35),
-                            'Source',
-                            1,
-                            'info'
-                        )}
-                    </Box>
-                    <Box>
-                        {renderTextWithIcon(
-                            <DownloadingIcon />,
-                            queryInfo.queryDataEncoding ? 'spooled ' + queryInfo.queryDataEncoding : 'non-spooled',
-                            'Protocol encoding',
-                            1,
-                            'info'
-                        )}
-                    </Box>
-                    <Box>
-                        {renderTextWithIcon(
-                            <GroupsIcon />,
-                            truncateString(queryInfo.resourceGroupId ? queryInfo.resourceGroupId.join('.') : 'n/a', 35),
-                            'Resource group',
-                            1,
-                            'info'
-                        )}
-                    </Box>
-                </Box>
-                <Grid container spacing={3}>
-                    <Grid size={{ xs: 3 }}>
-                        {renderTextWithIcon(
-                            <CheckCircleIcon />,
-                            queryInfo.queryStats.completedDrivers.toString(),
-                            'Complete splits',
-                            1
-                        )}
-                    </Grid>
-                    <Grid size={{ xs: 3 }}>
-                        {renderTextWithIcon(
-                            <PlayCircleIcon />,
-                            (queryInfo.state === 'FINISHED' || queryInfo.state === 'FAILED'
-                                ? 0
-                                : queryInfo.queryStats.runningDrivers
-                            ).toString(),
-                            'Running splits',
-                            1
-                        )}
-                    </Grid>
-                    <Grid size={{ xs: 3 }}>
-                        {renderTextWithIcon(
-                            <NotStartedIcon />,
-                            (queryInfo.state === 'FINISHED' || queryInfo.state === 'FAILED'
-                                ? 0
-                                : queryInfo.queryStats.queuedDrivers
-                            ).toString(),
-                            'Queued splits',
-                            1
-                        )}
-                    </Grid>
-                    {queryInfo.retryPolicy === 'TASK' && (
-                        <Grid size={{ xs: 3 }}>
-                            {renderTextWithIcon(
-                                <HighlightOff />,
-                                queryInfo.queryStats.failedTasks.toString(),
-                                'Failed tasks',
-                                1
-                            )}
-                        </Grid>
-                    )}
-                </Grid>
-                <Grid container spacing={3}>
-                    <Grid size={{ xs: 3 }}>
-                        {renderTextWithIcon(
-                            <HistoryToggleOffIcon />,
-                            queryInfo.queryStats.executionTime.toString(),
-                            'Wall time spent executing the query (not including queued time)',
-                            1
-                        )}
-                    </Grid>
-                    <Grid size={{ xs: 3 }}>
-                        {renderTextWithIcon(
-                            <QueryBuilderIcon />,
-                            queryInfo.queryStats.elapsedTime.toString(),
-                            'Total query wall time',
-                            1
-                        )}
-                    </Grid>
-                    <Grid size={{ xs: 3 }}>
-                        {renderTextWithIcon(
-                            <AvTimerIcon />,
-                            queryInfo.queryStats.totalCpuTime.toString(),
-                            'CPU time spent by this query',
-                            1
-                        )}
-                    </Grid>
-                </Grid>
-                <Grid container spacing={3}>
-                    <Grid size={{ xs: 3 }}>
-                        {renderTextWithIcon(
-                            <Memory />,
-                            parseAndFormatDataSize(queryInfo.queryStats.totalMemoryReservation),
-                            'Current total reserved memory',
-                            1
-                        )}
-                    </Grid>
-                    <Grid size={{ xs: 3 }}>
-                        {renderTextWithIcon(
-                            <BrokenImageIcon />,
-                            parseAndFormatDataSize(queryInfo.queryStats.peakTotalMemoryReservation),
-                            'Peak total memory',
-                            1
-                        )}
-                    </Grid>
-                    <Grid size={{ xs: 3 }}>
-                        {renderTextWithIcon(
-                            <FunctionsIcon />,
-                            formatDataSizeBytes(queryInfo.queryStats.cumulativeUserMemory / 1000.0),
-                            'Cumulative user memory',
-                            1
-                        )}
-                    </Grid>
-                </Grid>
+                <QueryHeader queryId={queryInfo.queryId} createTime={queryInfo.queryStats.createTime} />
+                <QueryIdentity
+                    sessionUser={queryInfo.sessionUser}
+                    sessionSource={queryInfo.sessionSource}
+                    queryDataEncoding={queryInfo.queryDataEncoding}
+                    resourceGroupId={queryInfo.resourceGroupId}
+                />
+                <QuerySplits
+                    completedDrivers={queryInfo.queryStats.completedDrivers}
+                    runningDrivers={queryInfo.queryStats.runningDrivers}
+                    queuedDrivers={queryInfo.queryStats.queuedDrivers}
+                    failedTasks={queryInfo.queryStats.failedTasks}
+                    state={queryInfo.state}
+                    retryPolicy={queryInfo.retryPolicy}
+                />
+                <QueryTiming
+                    executionTime={queryInfo.queryStats.executionTime}
+                    elapsedTime={queryInfo.queryStats.elapsedTime}
+                    totalCpuTime={queryInfo.queryStats.totalCpuTime}
+                />
+                <QueryMemory
+                    totalMemoryReservation={queryInfo.queryStats.totalMemoryReservation}
+                    peakTotalMemoryReservation={queryInfo.queryStats.peakTotalMemoryReservation}
+                    cumulativeUserMemory={queryInfo.queryStats.cumulativeUserMemory}
+                />
             </Grid>
             <Grid size={{ xs: 12, lg: 8 }}>
                 <Stack flex={1} spacing={1}>
@@ -284,16 +367,11 @@ export const QueryListItem = (props: IQueryListItemProps) => {
                                 width: '100%',
                             }}
                         >
-                            <CodeBlock
-                                language="sql"
-                                code={stripQueryTextWhitespace(queryInfo.queryTextPreview)}
-                                height="158px"
-                                noBottomBorder
-                            />
+                            <CodePreview code={formattedQueryText} height="158px" />
                         </Grid>
                     </Grid>
                 </Stack>
             </Grid>
         </Grid>
     )
-}
+})

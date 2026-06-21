@@ -42,7 +42,7 @@ import java.util.stream.IntStream;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 
 @OutputTimeUnit(TimeUnit.SECONDS)

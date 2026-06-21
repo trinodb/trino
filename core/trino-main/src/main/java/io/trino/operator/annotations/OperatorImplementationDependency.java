@@ -20,12 +20,14 @@ import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDec
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunctionImplementation;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
+import io.trino.spi.type.TypeTemplate;
 
 import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.SignatureBinder.applyBoundVariables;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
@@ -35,9 +37,9 @@ public final class OperatorImplementationDependency
         extends ScalarImplementationDependency
 {
     private final OperatorType operator;
-    private final List<TypeSignature> argumentTypes;
+    private final List<TypeTemplate> argumentTypes;
 
-    public OperatorImplementationDependency(OperatorType operator, List<TypeSignature> argumentTypes, InvocationConvention invocationConvention, Class<?> type)
+    public OperatorImplementationDependency(OperatorType operator, List<TypeTemplate> argumentTypes, InvocationConvention invocationConvention, Class<?> type)
     {
         super(invocationConvention, type);
         this.operator = requireNonNull(operator, "operator is null");
@@ -50,7 +52,7 @@ public final class OperatorImplementationDependency
         return operator;
     }
 
-    public List<TypeSignature> getArgumentTypes()
+    public List<TypeTemplate> getArgumentTypes()
     {
         return argumentTypes;
     }
@@ -64,7 +66,9 @@ public final class OperatorImplementationDependency
     @Override
     protected ScalarFunctionImplementation getImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
     {
-        List<TypeSignature> types = applyBoundVariables(argumentTypes, functionBinding.variables());
+        List<TypeDescriptor> types = argumentTypes.stream()
+                .map(argumentType -> applyBoundVariables(argumentType, functionBinding.variables()))
+                .collect(toImmutableList());
         return functionDependencies.getOperatorImplementationSignature(operator, types, invocationConvention);
     }
 

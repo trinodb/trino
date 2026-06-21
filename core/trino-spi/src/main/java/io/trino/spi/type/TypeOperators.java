@@ -95,7 +95,7 @@ public class TypeOperators
 
     public MethodHandle getReadValueOperator(Type type, InvocationConvention callingConvention)
     {
-        return getOperatorAdaptor(type, callingConvention, READ_VALUE).get();
+        return getOperatorAdaptor(type, callingConvention, READ_VALUE).get().getMethodHandle();
     }
 
     public MethodHandle getEqualOperator(Type type, InvocationConvention callingConvention)
@@ -103,7 +103,7 @@ public class TypeOperators
         if (!type.isComparable()) {
             throw new UnsupportedOperationException(type + " is not comparable");
         }
-        return getOperatorAdaptor(type, callingConvention, EQUAL).get();
+        return getOperatorAdaptor(type, callingConvention, EQUAL).get().getMethodHandle();
     }
 
     public MethodHandle getHashCodeOperator(Type type, InvocationConvention callingConvention)
@@ -111,7 +111,7 @@ public class TypeOperators
         if (!type.isComparable()) {
             throw new UnsupportedOperationException(type + " is not comparable");
         }
-        return getOperatorAdaptor(type, callingConvention, OperatorType.HASH_CODE).get();
+        return getOperatorAdaptor(type, callingConvention, OperatorType.HASH_CODE).get().getMethodHandle();
     }
 
     public MethodHandle getXxHash64Operator(Type type, InvocationConvention callingConvention)
@@ -119,7 +119,7 @@ public class TypeOperators
         if (!type.isComparable()) {
             throw new UnsupportedOperationException(type + " is not comparable");
         }
-        return getOperatorAdaptor(type, callingConvention, OperatorType.XX_HASH_64).get();
+        return getOperatorAdaptor(type, callingConvention, OperatorType.XX_HASH_64).get().getMethodHandle();
     }
 
     public MethodHandle getIdenticalOperator(Type type, InvocationConvention callingConvention)
@@ -127,7 +127,7 @@ public class TypeOperators
         if (!type.isComparable()) {
             throw new UnsupportedOperationException(type + " is not comparable");
         }
-        return getOperatorAdaptor(type, callingConvention, OperatorType.IDENTICAL).get();
+        return getOperatorAdaptor(type, callingConvention, OperatorType.IDENTICAL).get().getMethodHandle();
     }
 
     public MethodHandle getIndeterminateOperator(Type type, InvocationConvention callingConvention)
@@ -135,10 +135,15 @@ public class TypeOperators
         if (!type.isComparable()) {
             throw new UnsupportedOperationException(type + " is not comparable");
         }
-        return getOperatorAdaptor(type, callingConvention, OperatorType.INDETERMINATE).get();
+        return getOperatorAdaptor(type, callingConvention, OperatorType.INDETERMINATE).get().getMethodHandle();
     }
 
     public MethodHandle getComparisonUnorderedLastOperator(Type type, InvocationConvention callingConvention)
+    {
+        return getComparisonUnorderedLastOperatorHandle(type, callingConvention).getMethodHandle();
+    }
+
+    public OperatorMethodHandle getComparisonUnorderedLastOperatorHandle(Type type, InvocationConvention callingConvention)
     {
         if (!type.isOrderable()) {
             throw new UnsupportedOperationException(type + " is not orderable");
@@ -147,6 +152,11 @@ public class TypeOperators
     }
 
     public MethodHandle getComparisonUnorderedFirstOperator(Type type, InvocationConvention callingConvention)
+    {
+        return getComparisonUnorderedFirstOperatorHandle(type, callingConvention).getMethodHandle();
+    }
+
+    public OperatorMethodHandle getComparisonUnorderedFirstOperatorHandle(Type type, InvocationConvention callingConvention)
     {
         if (!type.isOrderable()) {
             throw new UnsupportedOperationException(type + " is not orderable");
@@ -160,10 +170,15 @@ public class TypeOperators
             throw new UnsupportedOperationException(type + " is not orderable");
         }
         OperatorType comparisonType = sortOrder.isNullsFirst() ? COMPARISON_UNORDERED_FIRST : COMPARISON_UNORDERED_LAST;
-        return getOperatorAdaptor(type, Optional.of(sortOrder), callingConvention, comparisonType).get();
+        return getOperatorAdaptor(type, Optional.of(sortOrder), callingConvention, comparisonType).get().getMethodHandle();
     }
 
     public MethodHandle getLessThanOperator(Type type, InvocationConvention callingConvention)
+    {
+        return getLessThanOperatorHandle(type, callingConvention).getMethodHandle();
+    }
+
+    public OperatorMethodHandle getLessThanOperatorHandle(Type type, InvocationConvention callingConvention)
     {
         if (!type.isOrderable()) {
             throw new UnsupportedOperationException(type + " is not orderable");
@@ -172,6 +187,11 @@ public class TypeOperators
     }
 
     public MethodHandle getLessThanOrEqualOperator(Type type, InvocationConvention callingConvention)
+    {
+        return getLessThanOrEqualOperatorHandle(type, callingConvention).getMethodHandle();
+    }
+
+    public OperatorMethodHandle getLessThanOrEqualOperatorHandle(Type type, InvocationConvention callingConvention)
     {
         if (!type.isOrderable()) {
             throw new UnsupportedOperationException(type + " is not orderable");
@@ -193,14 +213,14 @@ public class TypeOperators
     private class OperatorAdaptor
     {
         private final OperatorConvention operatorConvention;
-        private volatile MethodHandle adapted;
+        private volatile OperatorMethodHandle adapted;
 
         public OperatorAdaptor(OperatorConvention operatorConvention)
         {
             this.operatorConvention = operatorConvention;
         }
 
-        public MethodHandle get()
+        public OperatorMethodHandle get()
         {
             if (adapted == null) {
                 synchronized (this) {
@@ -212,11 +232,11 @@ public class TypeOperators
             return adapted;
         }
 
-        private MethodHandle adaptOperator(OperatorConvention operatorConvention)
+        private OperatorMethodHandle adaptOperator(OperatorConvention operatorConvention)
         {
             OperatorMethodHandle operatorMethodHandle = selectOperatorMethodHandleToAdapt(operatorConvention);
             MethodHandle methodHandle = adaptOperator(operatorConvention, operatorMethodHandle);
-            return methodHandle;
+            return new OperatorMethodHandle(operatorConvention.callingConvention(), methodHandle, operatorMethodHandle.isNeverFails());
         }
 
         private static MethodHandle adaptOperator(OperatorConvention operatorConvention, OperatorMethodHandle operatorMethodHandle)
@@ -384,8 +404,7 @@ public class TypeOperators
             // if none of the arguments are nullable, return "equal"
             if (argumentConventions.stream().noneMatch(InvocationArgumentConvention::isNullable)) {
                 InvocationConvention convention = new InvocationConvention(argumentConventions, FAIL_ON_NULL, false, false);
-                MethodHandle equalMethodHandle = adaptOperator(new OperatorConvention(operatorConvention.type(), EQUAL, Optional.empty(), convention));
-                return new OperatorMethodHandle(convention, equalMethodHandle);
+                return adaptOperator(new OperatorConvention(operatorConvention.type(), EQUAL, Optional.empty(), convention));
             }
 
             // one or both of the arguments are nullable
@@ -415,7 +434,7 @@ public class TypeOperators
                     operatorConvention.type(),
                     EQUAL,
                     Optional.empty(),
-                    new InvocationConvention(equalArgumentConventions, FAIL_ON_NULL, false, false)));
+                    new InvocationConvention(equalArgumentConventions, FAIL_ON_NULL, false, false))).getMethodHandle();
             // add the unused null flag if necessary
             if (rightDistinctConvention == NULL_FLAG) {
                 equalMethodHandle = dropArguments(equalMethodHandle, equalMethodHandle.type().parameterCount(), boolean.class);
@@ -485,11 +504,11 @@ public class TypeOperators
             }
 
             OperatorConvention comparisonOperator = new OperatorConvention(operatorConvention.type(), COMPARISON_UNORDERED_LAST, Optional.empty(), comparisonCallingConvention);
-            MethodHandle comparisonMethod = adaptOperator(comparisonOperator);
+            OperatorMethodHandle comparison = adaptOperator(comparisonOperator);
             if (orEqual) {
-                return adaptComparisonToLessThanOrEqual(new OperatorMethodHandle(comparisonCallingConvention, comparisonMethod));
+                return adaptComparisonToLessThanOrEqual(comparison);
             }
-            return adaptComparisonToLessThan(new OperatorMethodHandle(comparisonCallingConvention, comparisonMethod));
+            return adaptComparisonToLessThan(comparison);
         }
 
         private OperatorMethodHandle generateOrderingOperator(OperatorConvention operatorConvention)
@@ -503,13 +522,11 @@ public class TypeOperators
                         Optional.empty(),
                         // null positions are handled separately in adaptBlockPositionComparisonToOrdering and not used in the comparison
                         simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
-                MethodHandle comparisonInvoker = adaptOperator(comparisonOperator);
-                return adaptBlockPositionComparisonToOrdering(sortOrder, comparisonInvoker);
+                return adaptBlockPositionComparisonToOrdering(sortOrder, adaptOperator(comparisonOperator));
             }
 
             OperatorConvention comparisonOperator = new OperatorConvention(operatorConvention.type(), comparisonType, Optional.empty(), simpleConvention(FAIL_ON_NULL, NULL_FLAG, NULL_FLAG));
-            MethodHandle comparisonInvoker = adaptOperator(comparisonOperator);
-            return adaptNeverNullComparisonToOrdering(sortOrder, comparisonInvoker);
+            return adaptNeverNullComparisonToOrdering(sortOrder, adaptOperator(comparisonOperator));
         }
 
         private static Type getOperatorReturnType(OperatorConvention operatorConvention)
@@ -646,23 +663,24 @@ public class TypeOperators
     // Adapt comparison to ordering
     //
 
-    private static OperatorMethodHandle adaptNeverNullComparisonToOrdering(SortOrder sortOrder, MethodHandle neverNullComparison)
+    private static OperatorMethodHandle adaptNeverNullComparisonToOrdering(SortOrder sortOrder, OperatorMethodHandle neverNullComparison)
     {
+        MethodHandle comparisonHandle = neverNullComparison.getMethodHandle();
         MethodType finalSignature = MethodType.methodType(
                 int.class,
                 boolean.class,
-                neverNullComparison.type().parameterType(0),
+                comparisonHandle.type().parameterType(0),
                 boolean.class,
-                neverNullComparison.type().parameterType(1));
+                comparisonHandle.type().parameterType(1));
 
         // (leftIsNull, rightIsNull, leftValue, rightValue)::int
-        MethodHandle order = adaptComparisonToOrdering(sortOrder, neverNullComparison);
+        MethodHandle order = adaptComparisonToOrdering(sortOrder, comparisonHandle);
         // (leftIsNull, leftValue, rightIsNull, rightValue)::int
         order = permuteArguments(order, finalSignature, 0, 2, 1, 3);
-        return new OperatorMethodHandle(simpleConvention(FAIL_ON_NULL, NULL_FLAG, NULL_FLAG), order);
+        return new OperatorMethodHandle(simpleConvention(FAIL_ON_NULL, NULL_FLAG, NULL_FLAG), order, neverNullComparison.isNeverFails());
     }
 
-    private static OperatorMethodHandle adaptBlockPositionComparisonToOrdering(SortOrder sortOrder, MethodHandle blockPositionComparison)
+    private static OperatorMethodHandle adaptBlockPositionComparisonToOrdering(SortOrder sortOrder, OperatorMethodHandle blockPositionComparison)
     {
         MethodType finalSignature = MethodType.methodType(
                 int.class,
@@ -672,14 +690,14 @@ public class TypeOperators
                 int.class);
 
         // (leftIsNull, rightIsNull, leftBlock, leftPosition, rightBlock, rightPosition)::int
-        MethodHandle order = adaptComparisonToOrdering(sortOrder, blockPositionComparison);
+        MethodHandle order = adaptComparisonToOrdering(sortOrder, blockPositionComparison.getMethodHandle());
         // (leftBlock, leftPosition, rightBlock, rightPosition, leftBlock, leftPosition, rightBlock, rightPosition)::int
         order = collectArguments(order, 1, BLOCK_IS_NULL);
         order = collectArguments(order, 0, BLOCK_IS_NULL);
         // (leftBlock, leftPosition, rightBlock, rightPosition)::int
         order = permuteArguments(order, finalSignature, 0, 1, 2, 3, 0, 1, 2, 3);
 
-        return new OperatorMethodHandle(simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION), order);
+        return new OperatorMethodHandle(simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION), order, blockPositionComparison.isNeverFails());
     }
 
     // input: (args)::int
@@ -737,7 +755,7 @@ public class TypeOperators
         if (returnConvention != FAIL_ON_NULL) {
             throw new IllegalArgumentException("Return convention must be " + FAIL_ON_NULL + ", but is " + returnConvention);
         }
-        return new OperatorMethodHandle(invoker.getCallingConvention(), filterReturnValue(invoker.getMethodHandle(), IS_COMPARISON_LESS_THAN));
+        return new OperatorMethodHandle(invoker.getCallingConvention(), filterReturnValue(invoker.getMethodHandle(), IS_COMPARISON_LESS_THAN), invoker.isNeverFails());
     }
 
     private static boolean isComparisonLessThan(long comparisonResult)
@@ -751,7 +769,7 @@ public class TypeOperators
         if (returnConvention != FAIL_ON_NULL) {
             throw new IllegalArgumentException("Return convention must be " + FAIL_ON_NULL + ", but is " + returnConvention);
         }
-        return new OperatorMethodHandle(invoker.getCallingConvention(), filterReturnValue(invoker.getMethodHandle(), IS_COMPARISON_LESS_THAN_OR_EQUAL));
+        return new OperatorMethodHandle(invoker.getCallingConvention(), filterReturnValue(invoker.getMethodHandle(), IS_COMPARISON_LESS_THAN_OR_EQUAL), invoker.isNeverFails());
     }
 
     private static boolean isComparisonLessThanOrEqual(long comparisonResult)

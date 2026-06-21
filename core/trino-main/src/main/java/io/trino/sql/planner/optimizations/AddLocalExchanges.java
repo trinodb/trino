@@ -29,6 +29,7 @@ import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SystemPartitioningHandle;
 import io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -121,7 +122,7 @@ public class AddLocalExchanges
     @Override
     public PlanNode optimize(PlanNode plan, Context context)
     {
-        PlanWithProperties result = plan.accept(new Rewriter(context.idAllocator(), context.session()), any());
+        PlanWithProperties result = plan.accept(new Rewriter(context.idAllocator(), context.symbolAllocator(), context.session()), any());
         return result.getNode();
     }
 
@@ -129,11 +130,13 @@ public class AddLocalExchanges
             extends PlanVisitor<PlanWithProperties, StreamPreferredProperties>
     {
         private final PlanNodeIdAllocator idAllocator;
+        private final SymbolAllocator symbolAllocator;
         private final Session session;
 
-        public Rewriter(PlanNodeIdAllocator idAllocator, Session session)
+        public Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
         {
             this.idAllocator = idAllocator;
+            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.session = session;
         }
 
@@ -964,7 +967,7 @@ public class AddLocalExchanges
                     parentPreferences.constrainTo(node.getProbeSource().getOutputSymbols()).withDefaultParallelism(session));
 
             // index source does not support local parallel and must produce a single stream
-            StreamProperties indexStreamProperties = derivePropertiesRecursively(node.getIndexSource(), plannerContext, session);
+            StreamProperties indexStreamProperties = derivePropertiesRecursively(node.getIndexSource(), plannerContext, session, symbolAllocator);
             checkArgument(indexStreamProperties.getDistribution() == SINGLE, "index source must be single stream");
             PlanWithProperties index = new PlanWithProperties(node.getIndexSource(), indexStreamProperties);
 
@@ -1064,12 +1067,12 @@ public class AddLocalExchanges
 
         private PlanWithProperties deriveProperties(PlanNode result, StreamProperties inputProperties)
         {
-            return new PlanWithProperties(result, StreamPropertyDerivations.deriveProperties(result, inputProperties, plannerContext, session));
+            return new PlanWithProperties(result, StreamPropertyDerivations.deriveProperties(result, inputProperties, plannerContext, session, symbolAllocator));
         }
 
         private PlanWithProperties deriveProperties(PlanNode result, List<StreamProperties> inputProperties)
         {
-            return new PlanWithProperties(result, StreamPropertyDerivations.deriveProperties(result, inputProperties, plannerContext, session));
+            return new PlanWithProperties(result, StreamPropertyDerivations.deriveProperties(result, inputProperties, plannerContext, session, symbolAllocator));
         }
     }
 

@@ -26,16 +26,15 @@ import io.trino.spi.type.FunctionType;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
-import io.trino.sql.ir.NullIf;
+import io.trino.sql.ir.Match;
+import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.type.UnknownType;
 import org.junit.jupiter.api.Test;
@@ -50,9 +49,12 @@ import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrUtils.and;
+import static io.trino.sql.ir.TestingIr.comparison;
+import static io.trino.sql.ir.TestingIr.nullIf;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -323,10 +325,10 @@ public class TestEqualityInference
                         .functionCallBuilder(TryFunction.NAME)
                         .addArgument(new FunctionType(ImmutableList.of(), BIGINT), new Lambda(ImmutableList.of(), new Reference(BIGINT, "b")))
                         .build(),
-                new NullIf(new Reference(BIGINT, "b"), number(1)),
+                nullIf(new SymbolAllocator(), new Reference(BIGINT, "b"), new Constant(BIGINT, 1L)),
                 new In(new Reference(BIGINT, "b"), ImmutableList.of(new Constant(BIGINT, null))),
                 new Case(ImmutableList.of(new WhenClause(IrExpressions.not(functionResolution.getMetadata(), new IsNull(new Reference(BIGINT, "b"))), new Constant(UnknownType.UNKNOWN, null))), new Constant(UnknownType.UNKNOWN, null)),
-                new Switch(new Reference(INTEGER, "b"), ImmutableList.of(new WhenClause(number(1), new Constant(INTEGER, null))), new Constant(INTEGER, null)));
+                new Match(new Reference(INTEGER, "b"), ImmutableList.of(equalityClause(number(1), new Constant(INTEGER, null))), new Constant(INTEGER, null)));
 
         for (Expression candidate : candidates) {
             EqualityInference inference = new EqualityInference(
@@ -360,7 +362,7 @@ public class TestEqualityInference
 
     private static Expression someExpression(Expression expression1, Expression expression2)
     {
-        return new Comparison(GREATER_THAN, expression1, expression2);
+        return comparison(GREATER_THAN, expression1, expression2);
     }
 
     private static Expression add(String symbol1, String symbol2)
@@ -385,7 +387,7 @@ public class TestEqualityInference
 
     private static Expression equals(Expression expression1, Expression expression2)
     {
-        return new Comparison(EQUAL, expression1, expression2);
+        return comparison(EQUAL, expression1, expression2);
     }
 
     private static Constant number(long number)
@@ -446,8 +448,8 @@ public class TestEqualityInference
 
     private static Set<Expression> equalityAsSet(Expression expression)
     {
-        checkArgument(expression instanceof Comparison);
-        Comparison comparison = (Comparison) expression;
+        IrExpressions.Comparison comparison = matchComparison(expression);
+        checkArgument(comparison != null, "Expected a comparison: %s", expression);
         checkArgument(comparison.operator() == EQUAL);
         return ImmutableSet.of(comparison.left(), comparison.right());
     }
@@ -461,5 +463,10 @@ public class TestEqualityInference
     private static <E> Set<E> setCopy(Iterable<E> elements)
     {
         return ImmutableSet.copyOf(elements);
+    }
+
+    private static MatchClause equalityClause(Expression value, Expression result)
+    {
+        return IrExpressions.equalityClause(PLANNER_CONTEXT.getMetadata(), new Symbol(value.type(), "operand"), value, result);
     }
 }

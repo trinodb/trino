@@ -80,7 +80,6 @@ public class TestQueryStats
                     succinctBytes(125L),
                     succinctBytes(127L),
                     succinctBytes(128L),
-                    succinctBytes(130L),
                     succinctBytes(131L),
                     Optional.empty(),
                     null),
@@ -121,7 +120,6 @@ public class TestQueryStats
                     succinctBytes(225L),
                     succinctBytes(227L),
                     succinctBytes(228L),
-                    succinctBytes(230L),
                     succinctBytes(231L),
                     Optional.empty(),
                     null),
@@ -162,7 +160,6 @@ public class TestQueryStats
                     succinctBytes(325L),
                     succinctBytes(327L),
                     succinctBytes(328L),
-                    succinctBytes(329L),
                     succinctBytes(331L),
                     Optional.empty(),
                     null));

@@ -62,9 +62,10 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.TypeSignature.functionType;
-import static io.trino.spi.type.TypeSignature.mapType;
-import static io.trino.spi.type.TypeSignature.typeVariable;
+import static io.trino.spi.type.TypeTemplates.fromTypeDescriptor;
+import static io.trino.spi.type.TypeTemplates.functionType;
+import static io.trino.spi.type.TypeTemplates.mapType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -86,7 +87,7 @@ public final class MapFilterFunction
                         .typeVariable("V")
                         .returnType(mapType(typeVariable("K"), typeVariable("V")))
                         .argumentType(mapType(typeVariable("K"), typeVariable("V")))
-                        .argumentType(functionType(typeVariable("K"), typeVariable("V"), BOOLEAN.getTypeSignature()))
+                        .argumentType(functionType(typeVariable("K"), typeVariable("V"), fromTypeDescriptor(BOOLEAN.getTypeDescriptor())))
                         .build())
                 .description("return map containing entries that match the given predicate")
                 .build());

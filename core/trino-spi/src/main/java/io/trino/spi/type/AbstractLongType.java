@@ -50,7 +50,7 @@ public abstract class AbstractLongType
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(AbstractLongType.class, lookup(), long.class);
     private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
 
-    public AbstractLongType(TypeSignature signature)
+    public AbstractLongType(TypeDescriptor signature)
     {
         super(signature, long.class, LongArrayBlock.class);
     }
@@ -124,13 +124,13 @@ public abstract class AbstractLongType
         return rotateLeft(value * 0xC2B2AE3D27D4EB4FL, 31) * 0x9E3779B185EBCA87L;
     }
 
-    @ScalarOperator(READ_VALUE)
+    @ScalarOperator(value = READ_VALUE, neverFails = true)
     private static long read(@BlockPosition LongArrayBlock block, @BlockIndex int position)
     {
         return block.getLong(position);
     }
 
-    @ScalarOperator(READ_VALUE)
+    @ScalarOperator(value = READ_VALUE, neverFails = true)
     private static long readFlat(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
@@ -140,7 +140,7 @@ public abstract class AbstractLongType
         return (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
     }
 
-    @ScalarOperator(READ_VALUE)
+    @ScalarOperator(value = READ_VALUE, neverFails = true)
     private static void writeFlat(
             long value,
             @FlatFixed byte[] fixedSizeSlice,
@@ -151,37 +151,37 @@ public abstract class AbstractLongType
         LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset, value);
     }
 
-    @ScalarOperator(EQUAL)
+    @ScalarOperator(value = EQUAL, neverFails = true)
     private static boolean equalOperator(long left, long right)
     {
         return left == right;
     }
 
-    @ScalarOperator(HASH_CODE)
+    @ScalarOperator(value = HASH_CODE, neverFails = true)
     private static long hashCodeOperator(long value)
     {
         return hash(value);
     }
 
-    @ScalarOperator(XX_HASH_64)
+    @ScalarOperator(value = XX_HASH_64, neverFails = true)
     private static long xxHash64Operator(long value)
     {
         return XxHash64.hash(value);
     }
 
-    @ScalarOperator(COMPARISON_UNORDERED_LAST)
+    @ScalarOperator(value = COMPARISON_UNORDERED_LAST, neverFails = true)
     private static long comparisonOperator(long left, long right)
     {
         return Long.compare(left, right);
     }
 
-    @ScalarOperator(LESS_THAN)
+    @ScalarOperator(value = LESS_THAN, neverFails = true)
     private static boolean lessThanOperator(long left, long right)
     {
         return left < right;
     }
 
-    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    @ScalarOperator(value = LESS_THAN_OR_EQUAL, neverFails = true)
     private static boolean lessThanOrEqualOperator(long left, long right)
     {
         return left <= right;
