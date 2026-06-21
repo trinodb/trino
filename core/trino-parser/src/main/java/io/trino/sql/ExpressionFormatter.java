@@ -444,7 +444,7 @@ public final class ExpressionFormatter
         protected String visitIdentifier(Identifier node, Void context)
         {
             if (node.isDelimited() || reserved(node.getValue())) {
-                return '"' + node.getValue().replace("\"", "\"\"") + '"';
+                return quoteIdentifier(node.getValue());
             }
             return node.getValue();
         }
@@ -531,13 +531,26 @@ public final class ExpressionFormatter
         @Override
         protected String visitStaticMethodCall(StaticMethodCall node, Void context)
         {
-            return formatName(node.getType()) + "::" + formatExpression(node.getMethod()) + "(" + joinCallArguments(node.getArguments()) + ")";
+            return formatName(node.getType()) + "::" + formatMethodName(node.getMethod()) + "(" + joinCallArguments(node.getArguments()) + ")";
         }
 
         @Override
         protected String visitMethodCall(MethodCall node, Void context)
         {
-            return "(" + formatExpression(node.getReceiver()) + ")." + formatExpression(node.getMethod()) + "(" + joinCallArguments(node.getArguments()) + ")";
+            return "(" + formatExpression(node.getReceiver()) + ")." + formatMethodName(node.getMethod()) + "(" + joinCallArguments(node.getArguments()) + ")";
+        }
+
+        private static String formatMethodName(Identifier name)
+        {
+            if (name.isDelimited()) {
+                return quoteIdentifier(name.getValue());
+            }
+            return name.getValue();
+        }
+
+        private static String quoteIdentifier(String value)
+        {
+            return '"' + value.replace("\"", "\"\"") + '"';
         }
 
         @Override
