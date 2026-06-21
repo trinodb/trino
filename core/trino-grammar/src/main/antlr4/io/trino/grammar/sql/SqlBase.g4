@@ -574,7 +574,7 @@ booleanExpression
 predicate[ParserRuleContext value]
     : comparisonOperator right=valueExpression                            #comparison
     | comparisonOperator comparisonQuantifier '(' query ')'               #quantifiedComparison
-    | NOT? BETWEEN lower=valueExpression AND upper=valueExpression        #between
+    | NOT? BETWEEN (ASYMMETRIC | SYMMETRIC)? lower=valueExpression AND upper=valueExpression #between
     | NOT? IN '(' expression (',' expression)* ')'                        #inList
     | NOT? IN '(' query ')'                                               #inSubquery
     | NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)?  #like
@@ -1053,7 +1053,7 @@ authorizationUser
 
 nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
-    : ABSENT | ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
+    : ABSENT | ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | ASYMMETRIC | AT | AUTHORIZATION
     | BEGIN | BERNOULLI | BOTH | BRANCH | BRANCHES
     | CALL | CALLED | CASCADE | CATALOG | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | CORRESPONDING | COUNT | CURRENT
     | DATA | DATE | DAY | DECLARE | DEFAULT | DEFINE | DEFINER | DENY | DESC | DESCRIPTOR | DETERMINISTIC | DISTRIBUTED | DO | DOUBLE
@@ -1072,7 +1072,7 @@ nonReserved
     | QUOTES
     | RANGE | READ | REFRESH | RENAME | REPEAT  | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNING | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS | RUNNING
     | SCALAR | SCHEMA | SCHEMAS | SECOND | SECURITY | SEEK | SERIALIZABLE | SESSION | SET | SETS
-    | SHOW | SIMPLE | SOME | STALE | START | STATS | SUBSET | SUBSTRING | SYSTEM
+    | SHOW | SIMPLE | SOME | STALE | START | STATS | SUBSET | SUBSTRING | SYMMETRIC | SYSTEM
     | TABLES | TABLESAMPLE | TEXT | TEXT_STRING | TIES | TIME | TIMESTAMP | TO | TRAILING | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
     | UNBOUNDED | UNCOMMITTED | UNCONDITIONAL | UNIQUE | UNKNOWN | UNMATCHED | UNTIL | UPDATE | USE | USER | UTF16 | UTF32 | UTF8
     | VALIDATE | VALUE | VERBOSE | VERSION | VIEW
@@ -1093,6 +1093,7 @@ ANY: 'ANY';
 ARRAY: 'ARRAY';
 AS: 'AS';
 ASC: 'ASC';
+ASYMMETRIC: 'ASYMMETRIC';
 AT: 'AT';
 AUTHORIZATION: 'AUTHORIZATION';
 AUTO: 'AUTO';
@@ -1334,6 +1335,7 @@ START: 'START';
 STATS: 'STATS';
 SUBSET: 'SUBSET';
 SUBSTRING: 'SUBSTRING';
+SYMMETRIC: 'SYMMETRIC';
 SYSTEM: 'SYSTEM';
 TABLE: 'TABLE';
 TABLES: 'TABLES';

@@ -49,6 +49,7 @@ import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
@@ -131,6 +132,7 @@ import io.trino.type.IntervalYearMonthType;
 import io.trino.type.JsonPath2016Type;
 import io.trino.type.UnknownType;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -595,7 +597,11 @@ public class TranslationMap
     {
         return switch (clause) {
             case BetweenPredicate predicate -> {
-                io.trino.sql.ir.Expression between = between(plannerContext.getMetadata(), symbolAllocator, value, translateExpression(predicate.getMin()), translateExpression(predicate.getMax()));
+                io.trino.sql.ir.Expression min = translateExpression(predicate.getMin());
+                io.trino.sql.ir.Expression max = translateExpression(predicate.getMax());
+                io.trino.sql.ir.Expression between = predicate.isSymmetric()
+                        ? betweenSymmetric(value, min, max)
+                        : between(plannerContext.getMetadata(), symbolAllocator, value, min, max);
                 yield predicate.isNegated() ? not(plannerContext.getMetadata(), between) : between;
             }
             case ComparisonPredicate predicate -> {
@@ -633,6 +639,44 @@ public class TranslationMap
             case MatchPredicate _ -> throw new IllegalStateException("MATCH predicate should have been planned by SubqueryPlanner");
             case QuantifiedComparisonPredicate _ -> throw new IllegalStateException("Quantified comparison should have been planned by SubqueryPlanner");
         };
+    }
+
+    /// Lower a `value BETWEEN SYMMETRIC min AND max` to
+    /// `(value >= min AND value <= max) OR (value >= max AND value <= min)` — the bounds are an
+    /// unordered pair. `value`, `min`, and `max` each appear twice, so each non-trivial operand is
+    /// wrapped in a [Let] and evaluated exactly once; trivial `Reference` / `Constant` operands are
+    /// inlined since duplicating them is harmless.
+    private io.trino.sql.ir.Expression betweenSymmetric(io.trino.sql.ir.Expression value, io.trino.sql.ir.Expression min, io.trino.sql.ir.Expression max)
+    {
+        List<Symbol> symbols = new ArrayList<>();
+        List<io.trino.sql.ir.Expression> bindings = new ArrayList<>();
+        io.trino.sql.ir.Expression boundValue = bindIfNonTrivial(value, symbols, bindings);
+        io.trino.sql.ir.Expression boundMin = bindIfNonTrivial(min, symbols, bindings);
+        io.trino.sql.ir.Expression boundMax = bindIfNonTrivial(max, symbols, bindings);
+
+        io.trino.sql.ir.Expression result = new Logical(Logical.Operator.OR, ImmutableList.of(
+                new Logical(Logical.Operator.AND, ImmutableList.of(
+                        comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, boundValue, boundMin),
+                        comparison(plannerContext.getMetadata(), LESS_THAN_OR_EQUAL, boundValue, boundMax))),
+                new Logical(Logical.Operator.AND, ImmutableList.of(
+                        comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, boundValue, boundMax),
+                        comparison(plannerContext.getMetadata(), LESS_THAN_OR_EQUAL, boundValue, boundMin)))));
+
+        for (int i = symbols.size() - 1; i >= 0; i--) {
+            result = new Let(symbols.get(i), bindings.get(i), result);
+        }
+        return result;
+    }
+
+    private io.trino.sql.ir.Expression bindIfNonTrivial(io.trino.sql.ir.Expression expression, List<Symbol> symbols, List<io.trino.sql.ir.Expression> bindings)
+    {
+        if (expression instanceof Reference || expression instanceof Constant) {
+            return expression;
+        }
+        Symbol bound = symbolAllocator.newSymbol("between", expression.type());
+        symbols.add(bound);
+        bindings.add(expression);
+        return new Reference(expression.type(), bound.name());
     }
 
     private io.trino.sql.ir.Expression translate(CoalesceExpression expression)
