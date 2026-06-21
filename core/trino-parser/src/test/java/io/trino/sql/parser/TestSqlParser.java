@@ -383,6 +383,14 @@ public class TestSqlParser
                         new Identifier(location(1, 9), "parse", false),
                         ImmutableList.of(new CallArgument(location(1, 15), Optional.of(new Identifier(location(1, 15), "value", false)), new StringLiteral(location(1, 24), "42")))));
 
+        // A reserved keyword may be used as a static method name.
+        assertThat(expression("t::values()"))
+                .isEqualTo(new StaticMethodCall(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "t", false))),
+                        new Identifier(location(1, 4), "values", false),
+                        ImmutableList.of()));
+
         // Parametric receiver types are not allowed in the grammar.
         assertInvalidExpression("varchar(5)::parse('42')", "mismatched input '::'.*");
     }
@@ -484,6 +492,14 @@ public class TestSqlParser
                         QualifiedName.of(ImmutableList.of(
                                 new Identifier(location(1, 1), "x", false),
                                 new Identifier(location(1, 3), "length", false))),
+                        ImmutableList.of()));
+
+        // A reserved keyword may be used as a method name.
+        assertThat(expression("('a').trim()"))
+                .isEqualTo(new MethodCall(
+                        location(1, 1),
+                        new StringLiteral(location(1, 2), "a"),
+                        new Identifier(location(1, 7), "trim", false),
                         ImmutableList.of()));
     }
 

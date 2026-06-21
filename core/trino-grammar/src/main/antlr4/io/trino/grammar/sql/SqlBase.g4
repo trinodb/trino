@@ -16,6 +16,13 @@ grammar SqlBase;
 
 options { caseInsensitive = true; }
 
+@parser::members {
+    private boolean isKeyword()
+    {
+        return SqlKeywords.isKeyword(_input.LT(1).getType());
+    }
+}
+
 tokens {
     DELIMITER
 }
@@ -607,8 +614,8 @@ primaryExpression
         filter? over?                                                                     #functionCall
     | processingMode? qualifiedName '(' (setQuantifier? argument (',' argument)*)?
         orderBy? ')' filter? (nullTreatment? over)?                                       #functionCall
-    | qualifiedName '::' identifier '(' (argument (',' argument)*)? ')'                   #staticMethodCall
-    | primaryExpression '.' identifier '(' (argument (',' argument)*)? ')'                #methodCall
+    | qualifiedName '::' methodName '(' (argument (',' argument)*)? ')'                   #staticMethodCall
+    | primaryExpression '.' methodName '(' (argument (',' argument)*)? ')'                #methodCall
     | identifier over                                                                     #measure
     | identifier '->' expression                                                          #lambda
     | '(' (identifier (',' identifier)*)? ')' '->' expression                             #lambda
@@ -1038,6 +1045,11 @@ identifier
     | nonReserved            #unquotedIdentifier
     | BACKQUOTED_IDENTIFIER  #backQuotedIdentifier
     | DIGIT_IDENTIFIER       #digitIdentifier
+    ;
+
+methodName
+    : identifier
+    | {isKeyword()}? .
     ;
 
 number
