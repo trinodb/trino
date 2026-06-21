@@ -205,7 +205,6 @@ import static io.trino.plugin.iceberg.util.OrcIcebergIds.fileColumnsByIcebergId;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.ORC_ICEBERG_ID_KEY;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -761,10 +760,8 @@ public class IcebergPageSourceProvider
             boolean appendRowNumberColumn = false;
 
             for (IcebergColumnHandle column : columns) {
-                if (column.isIsDeletedColumn()) {
-                    transforms.constantValue(writeNativeValue(BOOLEAN, false));
-                }
-                else if (partitionKeys.containsKey(column.getId())) {
+                verify(!column.isIsDeletedColumn(), "Unexpected is_deleted column");
+                if (partitionKeys.containsKey(column.getId())) {
                     Type trinoType = column.getType();
                     transforms.constantValue(writeNativeValue(
                             trinoType,
@@ -1115,10 +1112,8 @@ public class IcebergPageSourceProvider
             int nextOrdinal = 0;
             ImmutableList.Builder<Column> parquetColumnFieldsBuilder = ImmutableList.builder();
             for (IcebergColumnHandle column : columns) {
-                if (column.isIsDeletedColumn()) {
-                    transforms.constantValue(writeNativeValue(BOOLEAN, false));
-                }
-                else if (partitionKeys.containsKey(column.getId())) {
+                verify(!column.isIsDeletedColumn(), "Unexpected is_deleted column");
+                if (partitionKeys.containsKey(column.getId())) {
                     Type trinoType = column.getType();
                     transforms.constantValue(writeNativeValue(
                             trinoType,
@@ -1365,6 +1360,7 @@ public class IcebergPageSourceProvider
 
             int nextOrdinal = 0;
             for (IcebergColumnHandle column : columns) {
+                verify(!column.isIsDeletedColumn(), "Unexpected is_deleted column");
                 if (partitionKeys.containsKey(column.getId())) {
                     Type trinoType = column.getType();
                     transforms.constantValue(writeNativeValue(
