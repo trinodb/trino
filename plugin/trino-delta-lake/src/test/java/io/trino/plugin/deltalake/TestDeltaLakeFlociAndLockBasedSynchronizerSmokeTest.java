@@ -14,19 +14,15 @@
 package io.trino.plugin.deltalake;
 
 import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonMapperProvider;
 import io.airlift.units.Duration;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.deltalake.transactionlog.writer.S3LockBasedTransactionLogSynchronizer;
-import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.containers.Minio;
-import io.trino.testing.minio.MinioClient;
+import io.trino.testing.containers.FlociContainer;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -36,30 +32,23 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.base.util.Closables.closeAllSuppress;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Delta Lake connector smoke test exercising Hive metastore and MinIO storage with exclusive create support disabled.
+ * Delta Lake connector smoke test exercising Hive metastore and S3 storage with exclusive create support disabled.
  */
-public class TestDeltaLakeMinioAndLockBasedSynchronizerSmokeTest
+public class TestDeltaLakeFlociAndLockBasedSynchronizerSmokeTest
         extends AbstractTestQueryFramework
 {
     protected static final String SCHEMA = "test_schema";
 
     protected final String bucketName = "test-bucket-" + randomNameSuffix();
-    protected MinioClient minioClient;
-    protected Minio minio;
+    protected FlociContainer floci;
     protected HiveMetastore metastore;
 
     private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
@@ -68,50 +57,22 @@ public class TestDeltaLakeMinioAndLockBasedSynchronizerSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        minio = closeAfterClass(Minio.builder().build());
-        minio.start();
-        minio.createBucket(bucketName);
-        minioClient = closeAfterClass(minio.createMinioClient());
+        floci = closeAfterClass(new FlociContainer());
+        floci.start();
+        floci.createBucket(bucketName);
 
-        QueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
-                        .setCatalog(DELTA_CATALOG)
-                        .setSchema(SCHEMA)
-                        .build())
+        QueryRunner queryRunner = DeltaLakeQueryRunner.builder(SCHEMA)
+                .addDeltaProperty("hive.metastore.catalog.dir", "local:///file-metastore")
+                .addDeltaProperty("hive.metastore.disable-location-checks", "true")
+                .addDeltaProperty("fs.hadoop.enabled", "true")
+                .addS3Properties(floci, bucketName)
+                .addDeltaProperty("delta.s3.transaction-log-conditional-writes.enabled", "false") // disable so we can test our own locking scheme
+                .addDeltaProperty("delta.metastore.store-table-metadata", "true")
+                .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                .addDeltaProperty("delta.register-table-procedure.enabled", "true")
                 .build();
-        try {
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-
-            queryRunner.installPlugin(new DeltaLakePlugin());
-            queryRunner.createCatalog(DELTA_CATALOG, DeltaLakeConnectorFactory.CONNECTOR_NAME, ImmutableMap.<String, String>builder()
-                    .put("hive.metastore", "file")
-                    .put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("file-metastore").toString())
-                    .put("hive.metastore.disable-location-checks", "true")
-                    // required by the file metastore
-                    .put("fs.hadoop.enabled", "true")
-                    .put("fs.s3.enabled", "true")
-                    .put("s3.aws-access-key", MINIO_ROOT_USER)
-                    .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
-                    .put("s3.region", MINIO_REGION)
-                    .put("s3.endpoint", minio.getMinioAddress())
-                    .put("s3.path-style-access", "true")
-                    .put("s3.streaming.part-size", "5MB") // minimize memory usage
-                    .put("delta.s3.transaction-log-conditional-writes.enabled", "false") // disable so we can test our own locking scheme
-                    .put("delta.metastore.store-table-metadata", "true")
-                    .put("delta.enable-non-concurrent-writes", "true")
-                    .put("delta.register-table-procedure.enabled", "true")
-                    .buildOrThrow());
-            metastore = TestingDeltaLakeUtils.getConnectorService(queryRunner, HiveMetastoreFactory.class)
-                    .createMetastore(Optional.empty());
-
-            queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = 's3://" + bucketName + "/" + SCHEMA + "')");
-            metastore = TestingDeltaLakeUtils.getConnectorService(queryRunner, HiveMetastoreFactory.class)
-                    .createMetastore(Optional.empty());
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
-        }
+        metastore = TestingDeltaLakeUtils.getConnectorService(queryRunner, HiveMetastoreFactory.class)
+                .createMetastore(Optional.empty());
 
         return queryRunner;
     }
@@ -222,7 +183,7 @@ public class TestDeltaLakeMinioAndLockBasedSynchronizerSmokeTest
         String lockFilePath = format("%s/00000000000000000001.json.sb-lock_blah", getLockFileDirectory(tableName));
         String lockFileContents = JSON_MAPPER.writeValueAsString(
                 new S3LockBasedTransactionLogSynchronizer.LockFileContents("some_cluster", "some_query", Instant.now().plus(lockDuration).toEpochMilli()));
-        minioClient.putObject(bucketName, lockFileContents.getBytes(UTF_8), lockFilePath);
+        floci.putObject(bucketName, lockFileContents.getBytes(UTF_8), lockFilePath);
         String lockUri = format("s3://%s/%s", bucketName, lockFilePath);
         assertThat(listLocks(tableName)).containsExactly(lockUri); // sanity check
         return lockUri;
@@ -232,7 +193,7 @@ public class TestDeltaLakeMinioAndLockBasedSynchronizerSmokeTest
     {
         String lockFilePath = format("%s/00000000000000000001.json.sb-lock_blah", getLockFileDirectory(tableName));
         String invalidLockFileContents = "some very wrong json contents";
-        minioClient.putObject(bucketName, invalidLockFileContents.getBytes(UTF_8), lockFilePath);
+        floci.putObject(bucketName, invalidLockFileContents.getBytes(UTF_8), lockFilePath);
         String lockUri = format("s3://%s/%s", bucketName, lockFilePath);
         assertThat(listLocks(tableName)).containsExactly(lockUri); // sanity check
         return lockUri;
@@ -240,7 +201,7 @@ public class TestDeltaLakeMinioAndLockBasedSynchronizerSmokeTest
 
     private List<String> listLocks(String tableName)
     {
-        List<String> paths = minioClient.listObjects(bucketName, getLockFileDirectory(tableName));
+        List<String> paths = floci.listObjects(bucketName, getLockFileDirectory(tableName));
         return paths.stream()
                 .filter(path -> path.contains(".sb-lock_"))
                 .map(path -> format("s3://%s/%s", bucketName, path))
@@ -254,7 +215,7 @@ public class TestDeltaLakeMinioAndLockBasedSynchronizerSmokeTest
 
     protected List<String> getTableFiles(String tableName)
     {
-        return minioClient.listObjects(bucketName, tableName).stream()
+        return floci.listObjects(bucketName, tableName).stream()
                 .map(path -> format("s3://%s/%s", bucketName, path))
                 .collect(toImmutableList());
     }
