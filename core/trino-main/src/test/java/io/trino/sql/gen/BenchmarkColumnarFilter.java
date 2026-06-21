@@ -31,7 +31,6 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
@@ -62,6 +61,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.call;
+import static io.trino.sql.ir.TestingIr.between;
 import static java.lang.Math.toIntExact;
 import static org.openjdk.jmh.annotations.Scope.Thread;
 
@@ -96,7 +96,7 @@ public class BenchmarkColumnarFilter
             @Override
             Expression getExpression(Type type)
             {
-                return new Between(
+                return between(
                         new Reference(type, COL_0),
                         new Constant(type, CONSTANT - 5),
                         new Constant(type, CONSTANT + 5));

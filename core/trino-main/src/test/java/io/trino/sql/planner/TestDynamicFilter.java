@@ -20,7 +20,6 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
@@ -53,6 +52,7 @@ import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.TestingIr.between;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -226,7 +226,7 @@ public class TestDynamicFilter
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey BETWEEN l.orderkey AND l.partkey",
                 anyTree(filter(
-                        new Between(new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY"), new Reference(BIGINT, "L_PARTKEY")),
+                        between(new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY"), new Reference(BIGINT, "L_PARTKEY")),
                         join(INNER, builder -> builder
                                 .addDynamicFilter("DF_ORDERKEY", "L_ORDERKEY")
                                 .addDynamicFilter("DF_PARTKEY", "L_PARTKEY")
@@ -243,7 +243,7 @@ public class TestDynamicFilter
 
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey BETWEEN l.orderkey AND l.partkey - 1",
                 anyTree(filter(
-                        new Between(new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY"), new Call(SUBTRACT_BIGINT, ImmutableList.of(new Reference(BIGINT, "L_PARTKEY"), new Constant(BIGINT, 1L)))),
+                        between(new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY"), new Call(SUBTRACT_BIGINT, ImmutableList.of(new Reference(BIGINT, "L_PARTKEY"), new Constant(BIGINT, 1L)))),
                         join(INNER, builder -> builder
                                 .addDynamicFilter("DF", "L_ORDERKEY")
                                 .left(
@@ -258,7 +258,7 @@ public class TestDynamicFilter
 
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey BETWEEN l.orderkey + 1 AND l.partkey",
                 anyTree(filter(
-                        new Between(new Reference(BIGINT, "O_ORDERKEY"), new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "L_ORDERKEY"), new Constant(BIGINT, 1L))), new Reference(BIGINT, "L_PARTKEY")),
+                        between(new Reference(BIGINT, "O_ORDERKEY"), new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "L_ORDERKEY"), new Constant(BIGINT, 1L))), new Reference(BIGINT, "L_PARTKEY")),
                         join(INNER, builder -> builder
                                 .addDynamicFilter("DF", "L_PARTKEY")
                                 .left(
