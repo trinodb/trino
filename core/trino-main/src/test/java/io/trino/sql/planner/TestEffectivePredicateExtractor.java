@@ -41,7 +41,6 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.TypeDescriptorProvider;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonOperator;
@@ -106,6 +105,7 @@ import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.or;
+import static io.trino.sql.ir.TestingIr.between;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
@@ -594,7 +594,7 @@ public class TestEffectivePredicateExtractor
                 new ValuesNode(
                         newId(),
                         ImmutableList.of(new Symbol(BIGINT, "a")),
-                        rows))).isEqualTo(new Between(new Reference(BIGINT, "a"), bigintLiteral(0), bigintLiteral(499)));
+                        rows))).isEqualTo(between(new Reference(BIGINT, "a"), bigintLiteral(0), bigintLiteral(499)));
 
         // NaN
         assertThat(effectivePredicateExtractor.extract(

@@ -25,7 +25,6 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Decimals;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
@@ -59,6 +58,7 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.TestingIr.between;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
@@ -166,7 +166,7 @@ public class TestPreAggregateCaseAggregations
                                                         exchange(
                                                                 project(ImmutableMap.of(
                                                                                 "KEY", expression(new Call(CONCAT, ImmutableList.of(new Reference(VARCHAR, "COL_VARCHAR"), new Constant(VARCHAR, Slices.utf8Slice("a"))))),
-                                                                                "VALUE_BIGINT", expression(new Case(ImmutableList.of(new WhenClause(new Between(new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)), new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 2L))))), new Constant(BIGINT, null))),
+                                                                                "VALUE_BIGINT", expression(new Case(ImmutableList.of(new WhenClause(between(new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)), new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 2L))))), new Constant(BIGINT, null))),
                                                                                 "VALUE_INT_CAST", expression(new Case(ImmutableList.of(new WhenClause(comparison(EQUAL, new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 1L)), new Cast(new Cast(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 2L))), INTEGER), BIGINT))), new Constant(BIGINT, null))),
                                                                                 "VALUE_2_BIGINT", expression(new Case(ImmutableList.of(new WhenClause(comparison(GREATER_THAN, new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 2L))), new Constant(BIGINT, 1L)), new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 2L))))), new Constant(BIGINT, null))),
                                                                                 "VALUE_DECIMAL_CAST", expression(new Case(ImmutableList.of(new WhenClause(comparison(EQUAL, new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 4L)), new Cast(new Call(MULTIPLY_DECIMAL_10_0, ImmutableList.of(new Reference(createDecimalType(10, 0), "COL_DECIMAL"), new Constant(createDecimalType(10, 0), Decimals.valueOfShort(new BigDecimal("2"))))), BIGINT))), new Constant(BIGINT, null)))),
@@ -225,7 +225,7 @@ public class TestPreAggregateCaseAggregations
                                                         SINGLE,
                                                         exchange(
                                                                 project(ImmutableMap.of(
-                                                                                "VALUE_BIGINT", expression(new Case(ImmutableList.of(new WhenClause(new Between(new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)), new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 2L))))), new Constant(BIGINT, null))),
+                                                                                "VALUE_BIGINT", expression(new Case(ImmutableList.of(new WhenClause(between(new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)), new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 2L))))), new Constant(BIGINT, null))),
                                                                                 "VALUE_INT_CAST", expression(new Case(ImmutableList.of(new WhenClause(comparison(EQUAL, new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 1L)), new Cast(new Cast(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 2L))), INTEGER), BIGINT))), new Constant(BIGINT, null))),
                                                                                 "VALUE_2_INT_CAST", expression(new Case(ImmutableList.of(new WhenClause(comparison(GREATER_THAN, new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 2L))), new Constant(BIGINT, 1L)), new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 2L))))), new Constant(BIGINT, null))),
                                                                                 "VALUE_DECIMAL_CAST", expression(new Case(ImmutableList.of(new WhenClause(comparison(EQUAL, new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 4L)), new Cast(new Call(MULTIPLY_DECIMAL_10_0, ImmutableList.of(new Reference(createDecimalType(10, 0), "COL_DECIMAL"), new Constant(createDecimalType(10, 0), Decimals.valueOfShort(new BigDecimal("2"))))), BIGINT))), new Constant(BIGINT, null)))),

@@ -35,7 +35,6 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
@@ -104,6 +103,7 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.not;
+import static io.trino.sql.ir.TestingIr.between;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -385,7 +385,7 @@ public class TestConnectorExpressionTranslator
     {
         assertTranslationToConnectorExpression(
                 TEST_SESSION,
-                new Between(
+                between(
                         new Reference(DOUBLE, "double_symbol_1"),
                         new Constant(DOUBLE, 1.2),
                         new Reference(DOUBLE, "double_symbol_2")),

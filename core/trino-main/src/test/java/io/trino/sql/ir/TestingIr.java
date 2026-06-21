@@ -29,4 +29,10 @@ public final class TestingIr
     {
         return IrExpressions.comparison(PLANNER_CONTEXT.getMetadata(), operator, left, right);
     }
+
+    /// Builds the IR form of a `value BETWEEN min AND max` predicate.
+    public static Expression between(Expression value, Expression min, Expression max)
+    {
+        return new Between(value, min, max);
+    }
 }

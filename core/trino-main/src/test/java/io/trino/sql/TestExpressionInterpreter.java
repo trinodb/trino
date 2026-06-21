@@ -21,7 +21,6 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.RowType;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
@@ -68,6 +67,7 @@ import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
+import static io.trino.sql.ir.TestingIr.between;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
@@ -319,36 +319,36 @@ public class TestExpressionInterpreter
     public void testBetween()
     {
         assertOptimizedEquals(
-                new Between(new Constant(INTEGER, 3L), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
+                between(new Constant(INTEGER, 3L), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
                 TRUE);
         assertOptimizedEquals(
-                new Between(new Constant(INTEGER, 2L), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
+                between(new Constant(INTEGER, 2L), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
                 FALSE);
         assertOptimizedEquals(
-                new Between(new Constant(INTEGER, null), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
+                between(new Constant(INTEGER, null), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
                 new Constant(BOOLEAN, null));
         assertOptimizedEquals(
-                new Between(new Constant(INTEGER, 3L), new Constant(INTEGER, null), new Constant(INTEGER, 4L)),
+                between(new Constant(INTEGER, 3L), new Constant(INTEGER, null), new Constant(INTEGER, 4L)),
                 new Constant(BOOLEAN, null));
         assertOptimizedEquals(
-                new Between(new Constant(INTEGER, 3L), new Constant(INTEGER, 2L), new Constant(INTEGER, null)),
+                between(new Constant(INTEGER, 3L), new Constant(INTEGER, 2L), new Constant(INTEGER, null)),
                 new Constant(BOOLEAN, null));
         assertOptimizedEquals(
-                new Between(new Constant(INTEGER, 2L), new Constant(INTEGER, 3L), new Constant(INTEGER, null)),
+                between(new Constant(INTEGER, 2L), new Constant(INTEGER, 3L), new Constant(INTEGER, null)),
                 FALSE);
         assertOptimizedEquals(
-                new Between(new Constant(INTEGER, 8L), new Constant(INTEGER, null), new Constant(INTEGER, 6L)),
+                between(new Constant(INTEGER, 8L), new Constant(INTEGER, null), new Constant(INTEGER, 6L)),
                 FALSE);
 
         assertOptimizedEquals(
-                new Between(new Reference(INTEGER, "bound_value"), new Constant(INTEGER, 1000L), new Constant(INTEGER, 2000L)),
+                between(new Reference(INTEGER, "bound_value"), new Constant(INTEGER, 1000L), new Constant(INTEGER, 2000L)),
                 TRUE);
         assertOptimizedEquals(
-                new Between(new Reference(INTEGER, "bound_value"), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
+                between(new Reference(INTEGER, "bound_value"), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
                 FALSE);
 
         assertOptimizedEquals(
-                new Between(new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 3L), new Constant(INTEGER, 0L)),
+                between(new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 3L), new Constant(INTEGER, 0L)),
                 ifExpression(not(PLANNER_CONTEXT.getMetadata(), new IsNull(new Reference(INTEGER, "unbound_value"))), FALSE));
     }
 
