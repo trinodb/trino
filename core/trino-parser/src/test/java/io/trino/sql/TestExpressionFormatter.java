@@ -15,6 +15,8 @@ package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.tree.BetweenPredicate;
+import io.trino.sql.tree.BetweenPredicate.Symmetry;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.Expression;
@@ -25,6 +27,7 @@ import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.NodeLocation;
+import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SimpleIntervalQualifier;
@@ -279,6 +282,30 @@ public class TestExpressionFormatter
     private static Row.Field createRowField(String fieldName, Expression expression)
     {
         return new Row.Field(new NodeLocation(1, 1), Optional.ofNullable(fieldName).map(Identifier::new), expression);
+    }
+
+    @Test
+    public void testBetween()
+    {
+        NodeLocation location = new NodeLocation(1, 1);
+        LongLiteral value = new LongLiteral(location, "1");
+        LongLiteral min = new LongLiteral(location, "2");
+        LongLiteral max = new LongLiteral(location, "3");
+
+        // No keyword: nothing is emitted, and the round-trip stays keyword-free.
+        assertFormattedExpression(
+                new Predicated(location, value, new BetweenPredicate(location, false, Optional.empty(), min, max)),
+                "(1 BETWEEN 2 AND 3)");
+        // An explicit ASYMMETRIC is preserved (distinct from the keyword-free form above).
+        assertFormattedExpression(
+                new Predicated(location, value, new BetweenPredicate(location, false, Optional.of(Symmetry.ASYMMETRIC), min, max)),
+                "(1 BETWEEN ASYMMETRIC 2 AND 3)");
+        assertFormattedExpression(
+                new Predicated(location, value, new BetweenPredicate(location, false, Optional.of(Symmetry.SYMMETRIC), min, max)),
+                "(1 BETWEEN SYMMETRIC 2 AND 3)");
+        assertFormattedExpression(
+                new Predicated(location, value, new BetweenPredicate(location, true, Optional.of(Symmetry.SYMMETRIC), min, max)),
+                "(1 NOT BETWEEN SYMMETRIC 2 AND 3)");
     }
 
     private void assertFormattedExpression(Expression expression, String expected)

@@ -37,6 +37,7 @@ import io.trino.sql.tree.AtLocal;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.AutoGroupBy;
 import io.trino.sql.tree.BetweenPredicate;
+import io.trino.sql.tree.BetweenPredicate.Symmetry;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Call;
@@ -2345,9 +2346,18 @@ class AstBuilder
     @Override
     public Node visitBetween(SqlBaseParser.BetweenContext context)
     {
+        Optional<Symmetry> symmetry = Optional.empty();
+        if (context.SYMMETRIC() != null) {
+            symmetry = Optional.of(Symmetry.SYMMETRIC);
+        }
+        else if (context.ASYMMETRIC() != null) {
+            symmetry = Optional.of(Symmetry.ASYMMETRIC);
+        }
+
         return new BetweenPredicate(
                 getLocation(context),
                 context.NOT() != null,
+                symmetry,
                 (Expression) visit(context.lower),
                 (Expression) visit(context.upper));
     }

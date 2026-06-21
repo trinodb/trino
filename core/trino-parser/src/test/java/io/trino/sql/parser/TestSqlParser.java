@@ -29,6 +29,7 @@ import io.trino.sql.tree.AtLocal;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.AutoGroupBy;
 import io.trino.sql.tree.BetweenPredicate;
+import io.trino.sql.tree.BetweenPredicate.Symmetry;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Call;
@@ -1158,6 +1159,7 @@ public class TestSqlParser
                         new BetweenPredicate(
                                 location(1, 3),
                                 false,
+                                Optional.empty(),
                                 new LongLiteral(location(1, 11), "2"),
                                 new LongLiteral(location(1, 17), "3"))));
 
@@ -1168,8 +1170,43 @@ public class TestSqlParser
                         new BetweenPredicate(
                                 location(1, 3),
                                 true,
+                                Optional.empty(),
                                 new LongLiteral(location(1, 15), "2"),
                                 new LongLiteral(location(1, 21), "3"))));
+
+        // ASYMMETRIC is the explicit form of the default
+        assertThat(expression("1 BETWEEN ASYMMETRIC 2 AND 3"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new LongLiteral(location(1, 1), "1"),
+                        new BetweenPredicate(
+                                location(1, 3),
+                                false,
+                                Optional.of(Symmetry.ASYMMETRIC),
+                                new LongLiteral(location(1, 22), "2"),
+                                new LongLiteral(location(1, 28), "3"))));
+
+        assertThat(expression("1 BETWEEN SYMMETRIC 2 AND 3"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new LongLiteral(location(1, 1), "1"),
+                        new BetweenPredicate(
+                                location(1, 3),
+                                false,
+                                Optional.of(Symmetry.SYMMETRIC),
+                                new LongLiteral(location(1, 21), "2"),
+                                new LongLiteral(location(1, 27), "3"))));
+
+        assertThat(expression("1 NOT BETWEEN SYMMETRIC 2 AND 3"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new LongLiteral(location(1, 1), "1"),
+                        new BetweenPredicate(
+                                location(1, 3),
+                                true,
+                                Optional.of(Symmetry.SYMMETRIC),
+                                new LongLiteral(location(1, 25), "2"),
+                                new LongLiteral(location(1, 31), "3"))));
     }
 
     @Test

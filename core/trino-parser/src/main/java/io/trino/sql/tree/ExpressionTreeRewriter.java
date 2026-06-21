@@ -281,7 +281,7 @@ public final class ExpressionTreeRewriter<C>
                 case BetweenPredicate predicate -> {
                     Expression min = rewrite(predicate.getMin(), context.get());
                     Expression max = rewrite(predicate.getMax(), context.get());
-                    yield min == predicate.getMin() && max == predicate.getMax() ? predicate : new BetweenPredicate(predicate.getLocation().orElseThrow(), predicate.isNegated(), min, max);
+                    yield min == predicate.getMin() && max == predicate.getMax() ? predicate : new BetweenPredicate(predicate.getLocation().orElseThrow(), predicate.isNegated(), predicate.getSymmetry(), min, max);
                 }
                 case ComparisonPredicate predicate -> {
                     Expression right = rewrite(predicate.getRight(), context.get());

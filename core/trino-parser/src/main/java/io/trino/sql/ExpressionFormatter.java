@@ -603,7 +603,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitBetweenPredicate(BetweenPredicate node, Void context)
         {
-            return (node.isNegated() ? "NOT BETWEEN " : "BETWEEN ") + process(node.getMin(), context) + " AND " + process(node.getMax(), context);
+            return (node.isNegated() ? "NOT BETWEEN " : "BETWEEN ") + node.getSymmetry().map(symmetry -> symmetry + " ").orElse("") + process(node.getMin(), context) + " AND " + process(node.getMax(), context);
         }
 
         @Override
