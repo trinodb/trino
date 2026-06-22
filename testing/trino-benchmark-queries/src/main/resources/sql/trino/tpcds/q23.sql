@@ -41,7 +41,7 @@ WITH
    , ${database}.${schema}.customer
    WHERE ("ss_customer_sk" = "c_customer_sk")
    GROUP BY "c_customer_sk"
-   HAVING ("sum"(("ss_quantity" * "ss_sales_price")) > ((50 / DECIMAL '100.0') * (
+   HAVING ("sum"(("ss_quantity" * "ss_sales_price")) > ((95 / DECIMAL '100.0') * (
             SELECT *
             FROM
               max_store_sales
