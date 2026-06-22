@@ -1362,7 +1362,7 @@ public class IcebergPageSourceProvider
                     transforms.constantValue(writeNativeValue(PARTITION.getType(), utf8Slice(partition)));
                 }
                 else if (column.isPathColumn()) {
-                    transforms.constantValue(writeNativeValue(FILE_PATH.getType(), utf8Slice(file.location())));
+                    transforms.constantValue(writeNativeValue(FILE_PATH.getType(), utf8Slice(inputFile.location().toString())));
                 }
                 else if (column.isFileModifiedTimeColumn()) {
                     transforms.constantValue(writeNativeValue(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(inputFile.lastModified().toEpochMilli(), UTC_KEY)));
@@ -1379,7 +1379,7 @@ public class IcebergPageSourceProvider
                         columnTypes.add(rowIdColumn.getType());
                     }
                     transforms.transform(MergeRowIdTransform.create(
-                            utf8Slice(file.location()),
+                            utf8Slice(inputFile.location().toString()),
                             partitionSpecId,
                             utf8Slice(partitionData),
                             fileFirstRowId,
