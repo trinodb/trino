@@ -779,7 +779,6 @@ public final class PropertyDerivations
                 // We want to use a symbol resolver that looks up in the constants from the input subplan
                 // to take advantage of constant-folding for complex expressions
                 // However, that currently causes errors when those expressions operate on arrays or row types
-                // ("ROW comparison not supported for fields with null elements", etc)
                 Expression value = optimizer.process(expression, session, symbolAllocator, ImmutableMap.of()).orElse(expression);
 
                 if (value instanceof Reference) {
