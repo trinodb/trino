@@ -1563,14 +1563,7 @@
             <dependency>
                 <groupId>io.trino.tpcds</groupId>
                 <artifactId>tpcds</artifactId>
-                <version>1.4</version>
-                <exclusions>
-                    <!-- not used in the runtime -->
-                    <exclusion>
-                        <groupId>javax.inject</groupId>
-                        <artifactId>javax.inject</artifactId>
-                    </exclusion>
-                </exclusions>
+                <version>1.5</version>
             </dependency>
 
             <dependency>
