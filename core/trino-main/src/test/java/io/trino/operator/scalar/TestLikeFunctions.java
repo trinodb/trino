@@ -27,6 +27,9 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.type.LikeFunctions.ilikeChar;
+import static io.trino.type.LikeFunctions.ilikePattern;
+import static io.trino.type.LikeFunctions.ilikeVarchar;
 import static io.trino.type.LikeFunctions.isLikePattern;
 import static io.trino.type.LikeFunctions.likeChar;
 import static io.trino.type.LikeFunctions.likePattern;
@@ -103,6 +106,46 @@ public class TestLikeFunctions
         assertThat(assertions.expression("a LIKE CAST('foo   ' AS varchar(6))")
                 .binding("a", "CAST('foo' AS varchar(6))"))
                 .isEqualTo(false);
+    }
+
+    @Test
+    public void testIlike()
+    {
+        // direct matcher calls: pattern is compiled from a lowercased pattern, value is lowercased on match
+        LikePattern matcher = ilikePattern(utf8Slice("F%B__"));
+        assertThat(ilikeVarchar(utf8Slice("foobar"), matcher)).isTrue();
+        assertThat(ilikeVarchar(utf8Slice("FOOBAR"), matcher)).isTrue();
+        assertThat(ilikeVarchar(utf8Slice("FooBar"), matcher)).isTrue();
+        assertThat(ilikeVarchar(utf8Slice("foob"), matcher)).isFalse();
+
+        // char overload pads then folds
+        assertThat(ilikeChar(6L, utf8Slice("FOOBAR"), matcher)).isTrue();
+
+        // case-insensitive matching
+        assertThat(assertions.expression("a ILIKE 'b%'").binding("a", "'BANANA'")).isEqualTo(true);
+        assertThat(assertions.expression("a ILIKE 'B%'").binding("a", "'banana'")).isEqualTo(true);
+        assertThat(assertions.expression("a ILIKE 'apple'").binding("a", "'Apple'")).isEqualTo(true);
+        assertThat(assertions.expression("a ILIKE 'a%e'").binding("a", "'cherry'")).isEqualTo(false);
+
+        // NOT ILIKE
+        assertThat(assertions.expression("a NOT ILIKE 'b%'").binding("a", "'BANANA'")).isEqualTo(false);
+        assertThat(assertions.expression("a NOT ILIKE 'b%'").binding("a", "'apple'")).isEqualTo(true);
+
+        // metacharacters behave as in LIKE, regardless of case
+        assertThat(assertions.expression("a ILIKE 'A_C'").binding("a", "'aXc'")).isEqualTo(true);
+
+        // ESCAPE with a non-letter escape character
+        assertThat(assertions.expression("a ILIKE '100\\%' ESCAPE '\\'").binding("a", "'100%'")).isEqualTo(true);
+        assertThat(assertions.expression("a ILIKE '100\\%' ESCAPE '\\'").binding("a", "'1000'")).isEqualTo(false);
+
+        // non-ASCII case folding
+        assertThat(assertions.expression("a ILIKE 'äöü'").binding("a", "'ÄÖÜ'")).isEqualTo(true);
+
+        // NULL handling matches LIKE
+        assertThat(assertions.expression("a ILIKE 'x%'").binding("a", "CAST(NULL AS varchar)")).isNull();
+
+        // char type operand
+        assertThat(assertions.expression("a ILIKE 'foo%'").binding("a", "CAST('FOO' AS char(6))")).isEqualTo(true);
     }
 
     @Test

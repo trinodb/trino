@@ -298,6 +298,32 @@ you need to match the used escape character as well, you can escape it.
 If you want to match for the chosen escape character, you simply escape itself.
 For example, you can use `\\` to match for `\`.
 
+(ilike-operator)=
+## Case-insensitive pattern comparison: ILIKE
+
+The `ILIKE` operator is a non-standard extension that behaves exactly like
+`LIKE`, including support for `NOT`, the `_` and `%` wildcards, and the `ESCAPE`
+character, but matches **case-insensitively**:
+
+```
+... column [NOT] ILIKE 'pattern' ESCAPE 'character';
+```
+
+The following query returns both `Europe` and `EUROPE`, because the match
+ignores case:
+
+```sql
+SELECT * FROM (VALUES 'Europe', 'EUROPE', 'Asia') AS t (continent)
+WHERE continent ILIKE 'e%';
+```
+
+Case folding is applied consistently to both the value and the pattern, and
+works for non-ASCII characters as well, so `'ÄÖÜ' ILIKE 'äöü'` is `true`. Folding
+is based on Unicode code point lowercasing (the same rules as the {func}`lower`
+function); it is locale-independent and is not full Unicode case folding, so
+locale-sensitive special cases (such as the Turkish dotless `ı`) follow the
+default Unicode mapping.
+
 (in-operator)=
 ## Row comparison: IN
 

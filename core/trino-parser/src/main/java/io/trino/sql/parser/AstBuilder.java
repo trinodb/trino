@@ -2390,7 +2390,8 @@ class AstBuilder
                 getLocation(context),
                 context.NOT() != null,
                 (Expression) visit(context.pattern),
-                visitIfPresent(context.escape, Expression.class));
+                visitIfPresent(context.escape, Expression.class),
+                context.kind.getType() == SqlBaseLexer.ILIKE);
     }
 
     @Override

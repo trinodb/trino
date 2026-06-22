@@ -175,6 +175,8 @@ import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.ERROR;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.KEEP;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.OMIT;
 import static io.trino.type.JsonType.JSON;
+import static io.trino.type.LikeFunctions.ILIKE_FUNCTION_NAME;
+import static io.trino.type.LikeFunctions.ILIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
@@ -1162,23 +1164,28 @@ public class TranslationMap
         io.trino.sql.ir.Expression pattern = translateExpression(predicate.getPattern());
         Optional<io.trino.sql.ir.Expression> escape = predicate.getEscape().map(this::translateExpression);
 
+        // ILIKE (case-insensitive) reuses the LIKE machinery via the $ilike/$ilike_pattern
+        // variants, which apply consistent case folding to the pattern and the input value.
+        String patternFunction = predicate.isCaseInsensitive() ? ILIKE_PATTERN_FUNCTION_NAME : LIKE_PATTERN_FUNCTION_NAME;
+        String matchFunction = predicate.isCaseInsensitive() ? ILIKE_FUNCTION_NAME : LIKE_FUNCTION_NAME;
+
         Call patternCall;
         if (escape.isPresent()) {
             patternCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                    .setName(LIKE_PATTERN_FUNCTION_NAME)
+                    .setName(patternFunction)
                     .addArgument(VARCHAR, new io.trino.sql.ir.Cast(pattern, VARCHAR))
                     .addArgument(VARCHAR, new io.trino.sql.ir.Cast(escape.get(), VARCHAR))
                     .build();
         }
         else {
             patternCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                    .setName(LIKE_PATTERN_FUNCTION_NAME)
+                    .setName(patternFunction)
                     .addArgument(VARCHAR, new io.trino.sql.ir.Cast(pattern, VARCHAR))
                     .build();
         }
 
         io.trino.sql.ir.Expression like = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                .setName(LIKE_FUNCTION_NAME)
+                .setName(matchFunction)
                 .addArgument(value.type(), value)
                 .addArgument(LIKE_PATTERN, patternCall)
                 .build();

@@ -640,7 +640,10 @@ public final class ExpressionFormatter
         @Override
         protected String visitLikePredicate(LikePredicate node, Void context)
         {
-            return (node.isNegated() ? "NOT LIKE " : "LIKE ") + process(node.getPattern(), context)
+            String operator = node.isCaseInsensitive()
+                    ? (node.isNegated() ? "NOT ILIKE " : "ILIKE ")
+                    : (node.isNegated() ? "NOT LIKE " : "LIKE ");
+            return operator + process(node.getPattern(), context)
                     + node.getEscape().map(escape -> " ESCAPE " + process(escape, context)).orElse("");
         }
 

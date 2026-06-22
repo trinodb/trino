@@ -30,14 +30,29 @@ public class TestLikePatternType
         BlockBuilder blockBuilder = LIKE_PATTERN.createBlockBuilder(null, 10);
         LIKE_PATTERN.writeObject(blockBuilder, LikePattern.compile("helloX_world", Optional.of('X')));
         LIKE_PATTERN.writeObject(blockBuilder, LikePattern.compile("foo%_bar", Optional.empty()));
+        LIKE_PATTERN.writeObject(blockBuilder, LikePattern.compile("caseX_less", Optional.of('X'), true, false));
+        LIKE_PATTERN.writeObject(blockBuilder, LikePattern.compile("nocase%", Optional.empty(), true, false));
         Block block = blockBuilder.build();
 
         LikePattern pattern = (LikePattern) LIKE_PATTERN.getObject(block, 0);
         assertThat(pattern.getPattern()).isEqualTo("helloX_world");
         assertThat(pattern.getEscape()).isEqualTo(Optional.of('X'));
+        assertThat(pattern.isCaseSensitive()).isTrue();
 
         pattern = (LikePattern) LIKE_PATTERN.getObject(block, 1);
         assertThat(pattern.getPattern()).isEqualTo("foo%_bar");
         assertThat(pattern.getEscape()).isEqualTo(Optional.empty());
+        assertThat(pattern.isCaseSensitive()).isTrue();
+
+        // case-insensitive flag survives serialization, with and without an escape
+        pattern = (LikePattern) LIKE_PATTERN.getObject(block, 2);
+        assertThat(pattern.getPattern()).isEqualTo("caseX_less");
+        assertThat(pattern.getEscape()).isEqualTo(Optional.of('X'));
+        assertThat(pattern.isCaseSensitive()).isFalse();
+
+        pattern = (LikePattern) LIKE_PATTERN.getObject(block, 3);
+        assertThat(pattern.getPattern()).isEqualTo("nocase%");
+        assertThat(pattern.getEscape()).isEqualTo(Optional.empty());
+        assertThat(pattern.isCaseSensitive()).isFalse();
     }
 }
