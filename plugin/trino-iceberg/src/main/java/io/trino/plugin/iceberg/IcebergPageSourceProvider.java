@@ -1332,15 +1332,6 @@ public class IcebergPageSourceProvider
             AggregatedMemoryContext memoryContext)
     {
         InputFile file = new ForwardingInputFile(inputFile);
-        OptionalLong fileModifiedTime = OptionalLong.empty();
-        try {
-            if (columns.stream().anyMatch(IcebergColumnHandle::isFileModifiedTimeColumn)) {
-                fileModifiedTime = OptionalLong.of(inputFile.lastModified().toEpochMilli());
-            }
-        }
-        catch (IOException | UncheckedIOException e) {
-            throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, e);
-        }
 
         // The column orders in the generated schema might be different from the original order
         try (DataFileStream<?> avroFileReader = new DataFileStream<>(file.newStream(), new GenericDatumReader<>())) {
@@ -1374,7 +1365,7 @@ public class IcebergPageSourceProvider
                     transforms.constantValue(writeNativeValue(FILE_PATH.getType(), utf8Slice(file.location())));
                 }
                 else if (column.isFileModifiedTimeColumn()) {
-                    transforms.constantValue(writeNativeValue(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(fileModifiedTime.orElseThrow(), UTC_KEY)));
+                    transforms.constantValue(writeNativeValue(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(inputFile.lastModified().toEpochMilli(), UTC_KEY)));
                 }
                 else if (column.isMergeRowIdColumn()) {
                     appendRowNumberColumn = true;
