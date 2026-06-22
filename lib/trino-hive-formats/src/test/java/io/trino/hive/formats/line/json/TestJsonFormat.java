@@ -111,6 +111,45 @@ public class TestJsonFormat
     private static final CharType CHAR_3 = createCharType(3);
 
     @Test
+    public void testTopLevelDuplicateKeys()
+            throws Exception
+    {
+        List<Column> columns = ImmutableList.of(
+                new Column("a", BIGINT, 0),
+                new Column("b", BIGINT, 1),
+                new Column("c", BIGINT, 2));
+
+        // last value wins for duplicate top-level keys
+        assertThat(readTrinoLine("{\"a\": 1, \"a\": 2}", columns, ImmutableList.of()))
+                .isEqualTo(Arrays.asList(2L, null, null));
+        assertThat(readTrinoLine("{\"a\": 1, \"b\": 2, \"a\": 3}", columns, ImmutableList.of()))
+                .isEqualTo(Arrays.asList(3L, 2L, null));
+        assertThat(readTrinoLine("{\"a\": 1, \"b\": 2, \"a\": 3, \"b\": 4}", columns, ImmutableList.of()))
+                .isEqualTo(Arrays.asList(3L, 4L, null));
+        assertThat(readTrinoLine("{\"a\": 1, \"a\": 2, \"a\": 3}", columns, ImmutableList.of()))
+                .isEqualTo(Arrays.asList(3L, null, null));
+
+        // duplicate of non-first column
+        assertThat(readTrinoLine("{\"b\": 1, \"b\": 2}", columns, ImmutableList.of()))
+                .isEqualTo(Arrays.asList(null, 2L, null));
+
+        // duplicate with unknown fields skipped
+        assertThat(readTrinoLine("{\"x\": 99, \"a\": 1, \"a\": 2}", columns, ImmutableList.of()))
+                .isEqualTo(Arrays.asList(2L, null, null));
+
+        // multiple rows into the same PageBuilder
+        LineDeserializer deserializer = new JsonDeserializerFactory().create(columns, createJsonProperties(ImmutableList.of()));
+        PageBuilder pageBuilder = new PageBuilder(3, deserializer.getTypes());
+        deserializer.deserialize(createLineBuffer("{\"a\": 1, \"b\": 2}"), pageBuilder);
+        deserializer.deserialize(createLineBuffer("{\"a\": 10, \"a\": 20}"), pageBuilder);
+        deserializer.deserialize(createLineBuffer("{\"a\": 100, \"b\": 200, \"c\": 300}"), pageBuilder);
+        Page page = pageBuilder.build();
+        assertThat(readTrinoValues(columns, page, 0)).isEqualTo(Arrays.asList(1L, 2L, null));
+        assertThat(readTrinoValues(columns, page, 1)).isEqualTo(Arrays.asList(20L, null, null));
+        assertThat(readTrinoValues(columns, page, 2)).isEqualTo(ImmutableList.of(100L, 200L, 300L));
+    }
+
+    @Test
     public void testStruct()
             throws Exception
     {
