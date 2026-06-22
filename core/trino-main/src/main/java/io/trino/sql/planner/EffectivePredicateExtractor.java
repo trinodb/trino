@@ -386,8 +386,9 @@ public class EffectivePredicateExtractor
                                     return TRUE;
                                 }
                                 if (hasNestedNulls(type, ((Constant) item).value())) {
-                                    // Workaround solution to deal with array and row comparisons don't support null elements currently.
-                                    // TODO: remove when comparisons are fixed
+                                    // A structural value containing a null element has three-valued equality (it is not
+                                    // even equal to itself), so it cannot be represented as an exact value in a Domain.
+                                    // Skip predicate extraction for it rather than producing an unsound predicate.
                                     return TRUE;
                                 }
                                 if (isFloatingPointNaN(type, ((Constant) item).value())) {
@@ -420,8 +421,9 @@ public class EffectivePredicateExtractor
                                 return TRUE;
                             }
                             if (hasNestedNulls(type, item)) {
-                                // Workaround solution to deal with array and row comparisons don't support null elements currently.
-                                // TODO: remove when comparisons are fixed
+                                // A structural value containing a null element has three-valued equality (it is not
+                                // even equal to itself), so it cannot be represented as an exact value in a Domain.
+                                // Skip predicate extraction for it rather than producing an unsound predicate.
                                 return TRUE;
                             }
                             if (isFloatingPointNaN(type, item)) {
