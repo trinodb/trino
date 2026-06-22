@@ -50,7 +50,7 @@ import static io.trino.metadata.OperatorNameUtil.isOperatorName;
 import static io.trino.metadata.OperatorNameUtil.unmangleOperator;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.MODULO;
@@ -491,7 +491,7 @@ public final class IrExpressions
     {
         TypeOperators typeOperators = plannerContext.getTypeOperators();
         Type operandType = comparison.left().type();
-        InvocationConvention convention = simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL);
+        InvocationConvention convention = simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL);
         return switch (comparison.operator()) {
             // Required to be infallible
             case EQUAL, NOT_EQUAL, IDENTICAL -> false;

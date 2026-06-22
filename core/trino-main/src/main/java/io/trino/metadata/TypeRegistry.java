@@ -414,7 +414,7 @@ public final class TypeRegistry
     private boolean hasLessThanMethod(Type type)
     {
         try {
-            typeOperators.getLessThanOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            typeOperators.getLessThanOperator(type, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL));
             return true;
         }
         catch (UnsupportedOperationException e) {
@@ -425,7 +425,7 @@ public final class TypeRegistry
     private boolean hasLessThanOrEqualMethod(Type type)
     {
         try {
-            typeOperators.getLessThanOrEqualOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            typeOperators.getLessThanOrEqualOperator(type, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL));
             return true;
         }
         catch (UnsupportedOperationException e) {
