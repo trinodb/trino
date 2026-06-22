@@ -326,6 +326,11 @@
                                     <code>java.method.visibilityIncreased</code>
                                     <old>method boolean[] io.trino.spi.block.VariableWidthBlock::getRawValueIsNull()</old>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method boolean io.trino.spi.spool.SpoolingManager::isRecoverableException(java.io.IOException)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

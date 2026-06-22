@@ -109,6 +109,12 @@ public class TracingSpoolingManager
         return delegate.handle(identifier, headers);
     }
 
+    @Override
+    public boolean isRecoverableException(IOException exception)
+    {
+        return delegate.isRecoverableException(exception);
+    }
+
     public static <E extends Exception> void withTracing(Span span, CheckedRunnable<E> runnable)
             throws E
     {
