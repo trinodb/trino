@@ -45,6 +45,7 @@ import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TestAsyncResultIterator
 {
@@ -109,6 +110,23 @@ class TestAsyncResultIterator
         while (!iterator.isBackgroundThreadFinished()) {
             TimeUnit.MILLISECONDS.sleep(10);
         }
+    }
+
+    @Test
+    @Timeout(10)
+    public void testIteratorPropagatesAdvanceException()
+    {
+        AsyncResultIterator iterator = new AsyncResultIterator(
+                new MockStatementClientThrowingOnAdvance(() -> fromList(ImmutableList.of(ImmutableList.of(new Object())))),
+                ignored -> {},
+                new WarningsManager(),
+                Optional.empty());
+
+        assertThatThrownBy(() -> {
+            while (iterator.next() != null) {
+                // Iterate until exception
+            }
+        }).isSameAs(MockStatementClientThrowingOnAdvance.EXCEPTION);
     }
 
     private static class MockStatementClient
@@ -281,6 +299,23 @@ class TestAsyncResultIterator
         public void close()
         {
             // do nothing
+        }
+    }
+
+    private static class MockStatementClientThrowingOnAdvance
+            extends MockStatementClient
+    {
+        private static final RuntimeException EXCEPTION = new RuntimeException();
+
+        public MockStatementClientThrowingOnAdvance(Supplier<ResultRows> queryData)
+        {
+            super(queryData);
+        }
+
+        @Override
+        public boolean advance()
+        {
+            throw EXCEPTION;
         }
     }
 
