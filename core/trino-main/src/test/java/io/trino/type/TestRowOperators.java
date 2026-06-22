@@ -21,7 +21,6 @@ import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.operator.scalar.CombineHashFunction;
-import io.trino.spi.StandardErrorCode;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -45,7 +44,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -746,14 +744,15 @@ public class TestRowOperators
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:75: Cannot apply operator: row(boolean, array(integer), map(integer, double)) < row(boolean, array(integer), map(integer, double))");
 
-        assertTrinoExceptionThrownBy(assertions.expression("row(1, CAST(NULL AS INTEGER)) < row(1, 2)")::evaluate)
-                .hasErrorCode(StandardErrorCode.NOT_SUPPORTED);
+        // a NULL field that decides the comparison yields an unknown (NULL) result, per SQL three-valued logic
+        assertThat(assertions.expression("row(1, CAST(NULL AS INTEGER)) < row(1, 2)"))
+                .isNull(BOOLEAN);
 
-        assertTrinoExceptionThrownBy(assertions.expression("row(1, CAST(NULL AS INTEGER)) <= row(1, 2)")::evaluate)
-                .hasErrorCode(StandardErrorCode.NOT_SUPPORTED);
+        assertThat(assertions.expression("row(1, CAST(NULL AS INTEGER)) <= row(1, 2)"))
+                .isNull(BOOLEAN);
 
-        assertTrinoExceptionThrownBy(assertions.expression("row(1, CAST(NULL AS INTEGER)) >= row(1, 2)")::evaluate)
-                .hasErrorCode(StandardErrorCode.NOT_SUPPORTED);
+        assertThat(assertions.expression("row(1, CAST(NULL AS INTEGER)) >= row(1, 2)"))
+                .isNull(BOOLEAN);
 
         assertComparisonCombination("row(1.0E0, ARRAY [1,2,3], row(2, 2.0E0))", "row(1.0E0, ARRAY [1,3,3], row(2, 2.0E0))");
         assertComparisonCombination("row(TRUE, ARRAY [1])", "row(TRUE, ARRAY [1, 2])");
@@ -1043,100 +1042,205 @@ public class TestRowOperators
         return types;
     }
 
-    /**
-     * Probe every {@code Generic*Operator} class on a ROW with a NULL field, in both SQL form
-     * (when one exists) and the mangled {@code "$operator$x"(...)} form. The assertions document
-     * which {@code Generic*Operator.neverFails} declarations match the operator's actual runtime
-     * behavior. A mismatch (planner-belief {@code .neverFails()} passing while the runtime
-     * assertion proves the operator can throw) indicates the declaration is incorrect — see
-     * https://github.com/trinodb/trino/issues/29891.
-     *
-     * Note: the planner's fallibility belief is type-driven, not value-driven, so the planner-belief
-     * assertions use a NULL-free row of the same type — they would be unreachable on a value that
-     * actually throws.
-     */
     @Test
     public void testOperatorsOnRowWithNullField()
     {
         String rowWithNull = "row(1, CAST(NULL AS INTEGER))";
+        String rowWithLeadingNull = "row(CAST(NULL AS INTEGER), 1)";
         String rowConcrete = "row(1, 2)";
         String rowConcreteOther = "row(3, 4)";
 
-        // EQUAL — returns NULL per SQL standard; GenericEqualOperator declares neverFails=true (correct).
-        // Runtime — SQL form
-        assertThat(assertions.expression("a = b").binding("a", rowWithNull).binding("b", rowConcrete))
+        // EQUAL — three-valued; a NULL field makes equality unknown
+        assertThat(assertions.expression("a = b")
+                .binding("a", rowWithNull)
+                .binding("b", rowConcrete))
                 .isNull(BOOLEAN);
-        // Runtime — mangled form
         assertThat(assertions.operator(EQUAL, rowWithNull, rowConcrete))
                 .isNull(BOOLEAN);
-        // Planner belief (uses NULL-free input; planner reasons type-wise)
         assertThat(assertions.operator(EQUAL, rowConcrete, rowConcreteOther))
                 .neverFails();
 
-        // IDENTICAL — NULL-aware (NULL ≡ NULL is TRUE); GenericIdenticalOperator declares neverFails=true (correct).
-        assertThat(assertions.expression("a IS NOT DISTINCT FROM b").binding("a", rowWithNull).binding("b", rowWithNull))
+        // IDENTICAL — NULL-aware (NULL ≡ NULL is TRUE)
+        assertThat(assertions.expression("a IS NOT DISTINCT FROM b")
+                .binding("a", rowWithNull)
+                .binding("b", rowWithNull))
                 .isEqualTo(true);
         assertThat(assertions.operator(IDENTICAL, rowWithNull, rowWithNull))
                 .isEqualTo(true);
         assertThat(assertions.operator(IDENTICAL, rowConcrete, rowConcreteOther))
                 .neverFails();
 
-        // INDETERMINATE — exists to detect NULL; GenericIndeterminateOperator declares neverFails=true (correct).
-        // No SQL form.
+        // INDETERMINATE — detects the NULL field
         assertThat(assertions.operator(INDETERMINATE, rowWithNull))
                 .isEqualTo(true);
         assertThat(assertions.operator(INDETERMINATE, rowConcrete))
                 .neverFails();
 
-        // LESS_THAN — throws NOT_SUPPORTED when NULL ordering is reached; GenericLessThanOperator does NOT declare neverFails (correct).
-        // Runtime — SQL form
-        assertTrinoExceptionThrownBy(assertions.expression("a < b").binding("a", rowWithNull).binding("b", rowConcrete)::evaluate)
-                .hasErrorCode(NOT_SUPPORTED);
-        // Runtime — mangled form
-        assertTrinoExceptionThrownBy(assertions.operator(LESS_THAN, rowWithNull, rowConcrete)::evaluate)
-                .hasErrorCode(NOT_SUPPORTED);
-        // Planner belief (uses NULL-free input; planner is type-driven and conservative for this op)
+        // LESS_THAN — three-valued: unknown when the NULL field decides, decided by an earlier field otherwise
+        assertThat(assertions.expression("a < b")
+                .binding("a", rowWithNull)
+                .binding("b", rowConcrete))
+                .isNull(BOOLEAN);
+        assertThat(assertions.expression("a < b")
+                .binding("a", rowWithNull)
+                .binding("b", rowConcreteOther))
+                .isEqualTo(true);
+        assertThat(assertions.expression("a < b")
+                .binding("a", rowConcreteOther)
+                .binding("b", rowWithNull))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a < b")
+                .binding("a", rowWithLeadingNull)
+                .binding("b", rowConcrete))
+                .isNull(BOOLEAN);
+        assertThat(assertions.operator(LESS_THAN, rowWithNull, rowConcrete))
+                .isNull(BOOLEAN);
         assertThat(assertions.operator(LESS_THAN, rowConcrete, rowConcreteOther))
-                .couldFail();
+                .neverFails();
 
-        // LESS_THAN_OR_EQUAL — same as LESS_THAN; declaration fixed in 72cdd389025 to omit neverFails (correct).
-        assertTrinoExceptionThrownBy(assertions.expression("a <= b").binding("a", rowWithNull).binding("b", rowConcrete)::evaluate)
-                .hasErrorCode(NOT_SUPPORTED);
-        assertTrinoExceptionThrownBy(assertions.operator(LESS_THAN_OR_EQUAL, rowWithNull, rowConcrete)::evaluate)
-                .hasErrorCode(NOT_SUPPORTED);
+        // LESS_THAN_OR_EQUAL — same three-valued logic, true when every field is equal
+        assertThat(assertions.expression("a <= b")
+                .binding("a", rowWithNull)
+                .binding("b", rowConcrete))
+                .isNull(BOOLEAN);
+        assertThat(assertions.expression("a <= b")
+                .binding("a", rowConcrete)
+                .binding("b", rowConcrete))
+                .isEqualTo(true);
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, rowWithNull, rowConcrete))
+                .isNull(BOOLEAN);
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, rowConcrete, rowConcreteOther))
-                .couldFail();
+                .neverFails();
 
-        // COMPARISON_UNORDERED_FIRST — throws NOT_SUPPORTED at runtime. GenericComparisonUnorderedFirstOperator
-        // routes its neverFails declaration through TypeOperators per binding, so for ROW (whose comparison
-        // implementation is not declared neverFails) the planner correctly believes the operator may fail.
-        // No SQL form.
-        assertTrinoExceptionThrownBy(assertions.operator(COMPARISON_UNORDERED_FIRST, rowWithNull, rowConcrete)::evaluate)
-                .hasErrorCode(NOT_SUPPORTED);
-        assertThat(assertions.operator(COMPARISON_UNORDERED_FIRST, rowConcrete, rowConcreteOther))
-                .couldFail();
+        // COMPARISON_UNORDERED_FIRST / LAST — total ordering, never fails on a NULL field
+        assertThat(assertions.operator(COMPARISON_UNORDERED_FIRST, rowWithNull, rowConcrete))
+                .neverFails();
+        assertThat(assertions.operator(COMPARISON_UNORDERED_LAST, rowWithNull, rowConcrete))
+                .neverFails();
 
-        // COMPARISON_UNORDERED_LAST — same as above. No SQL form.
-        assertTrinoExceptionThrownBy(assertions.operator(COMPARISON_UNORDERED_LAST, rowWithNull, rowConcrete)::evaluate)
-                .hasErrorCode(NOT_SUPPORTED);
-        assertThat(assertions.operator(COMPARISON_UNORDERED_LAST, rowConcrete, rowConcreteOther))
-                .couldFail();
-
-        // BETWEEN
-        assertTrinoExceptionThrownBy(assertions.expression("a BETWEEN b AND c")
-                .binding("a", rowWithNull).binding("b", rowConcrete).binding("c", rowConcreteOther)::evaluate)
-                .hasErrorCode(NOT_SUPPORTED);
+        // BETWEEN — desugars to two ordering comparisons, so it is three-valued too
         assertThat(assertions.expression("a BETWEEN b AND c")
-                .binding("a", rowConcrete).binding("b", rowConcrete).binding("c", rowConcreteOther))
-                .couldFail();
+                .binding("a", rowWithNull)
+                .binding("b", rowConcrete)
+                .binding("c", rowConcreteOther))
+                .isNull(BOOLEAN);
+        assertThat(assertions.expression("a BETWEEN b AND c")
+                .binding("a", rowConcrete)
+                .binding("b", rowConcrete)
+                .binding("c", rowConcreteOther))
+                .isEqualTo(true);
 
-        // HASH_CODE — hashing tolerates NULL fields; GenericHashCodeOperator declares neverFails=true. No SQL form.
+        // HASH_CODE / XX_HASH_64 — tolerate NULL fields
         assertThat(assertions.operator(HASH_CODE, rowWithNull))
                 .neverFails();
-
-        // XX_HASH_64 — same as HASH_CODE. No SQL form.
         assertThat(assertions.operator(XX_HASH_64, rowWithNull))
                 .neverFails();
+    }
+
+    @Test
+    public void testRowOrderingWithNullField()
+    {
+        // ORDER BY uses the total row comparison: a NULL field sorts last in ascending order,
+        // examined only after the preceding fields tie
+        assertThat(assertions.query(
+                """
+                SELECT x
+                FROM (VALUES
+                        ROW(row(1, 2)),
+                        ROW(row(1, CAST(NULL AS INTEGER))),
+                        ROW(row(1, 1)),
+                        ROW(row(CAST(NULL AS INTEGER), 9))) t(x)
+                ORDER BY x"""))
+                .ordered()
+                .matches(
+                        """
+                        VALUES
+                            ROW(row(1, 1)),
+                            ROW(row(1, 2)),
+                            ROW(row(1, CAST(NULL AS INTEGER))),
+                            ROW(row(CAST(NULL AS INTEGER), 9))""");
+
+        // DISTINCT groups rows that are identical, treating null fields as equal
+        assertThat(assertions.query(
+                """
+                SELECT DISTINCT x
+                FROM (VALUES
+                        ROW(row(1, CAST(NULL AS INTEGER))),
+                        ROW(row(1, CAST(NULL AS INTEGER))),
+                        ROW(row(1, 2))) t(x)
+                ORDER BY x"""))
+                .ordered()
+                .matches(
+                        """
+                        VALUES
+                            ROW(row(1, 2)),
+                            ROW(row(1, CAST(NULL AS INTEGER)))""");
+    }
+
+    @Test
+    public void testMegamorphicRowComparisonWithNullField()
+    {
+        // rows wider than RowType.MEGAMORPHIC_FIELD_COUNT (64) take the megamorphic comparison and
+        // less-than paths, whose null handling the two-field cases above do not reach
+        String allPresent = largeIntegerRow(70, -1);
+        String nullInside = largeIntegerRow(70, 65);
+
+        // less-than is unknown when the first not-equal field is null, even deep into the row
+        assertThat(assertions.expression("a < b")
+                .binding("a", allPresent)
+                .binding("b", nullInside))
+                .isNull(BOOLEAN);
+
+        // total ordering places the null field last, after the leading equal fields
+        assertThat(assertions.query("SELECT x FROM (VALUES ROW(%s), ROW(%s)) t(x) ORDER BY x".formatted(nullInside, allPresent)))
+                .ordered()
+                .matches("VALUES ROW(%s), ROW(%s)".formatted(allPresent, nullInside));
+    }
+
+    @Test
+    public void testRowComparisonWithNanAndNegativeZero()
+    {
+        // NaN and -0.0 follow the element type's semantics and coexist with NULL handling
+        assertThat(assertions.expression("a = b")
+                .binding("a", "row(nan())")
+                .binding("b", "row(nan())"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a < b")
+                .binding("a", "row(nan())")
+                .binding("b", "row(1e0)"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "row(-0e0)")
+                .binding("b", "row(0e0)"))
+                .isEqualTo(true);
+
+        // ordering treats NaN as the largest non-null value and a NULL field as last
+        assertThat(assertions.query(
+                """
+                SELECT x
+                FROM (VALUES
+                        ROW(row(nan())),
+                        ROW(row(1e0)),
+                        ROW(row(CAST(NULL AS DOUBLE)))) t(x)
+                ORDER BY x"""))
+                .ordered()
+                .matches(
+                        """
+                        VALUES
+                            ROW(row(1e0)),
+                            ROW(row(nan())),
+                            ROW(row(CAST(NULL AS DOUBLE)))""");
+    }
+
+    private static String largeIntegerRow(int fieldCount, int nullField)
+    {
+        List<String> values = new ArrayList<>(fieldCount);
+        List<String> types = new ArrayList<>(fieldCount);
+        for (int i = 0; i < fieldCount; i++) {
+            values.add(i == nullField ? "null" : Integer.toString(i));
+            types.add("INTEGER");
+        }
+        return "cast(ROW(" + Joiner.on(", ").join(values) + ") AS ROW(" + Joiner.on(", ").join(types) + "))";
     }
 
     private void assertComparisonCombination(String base, String greater)
