@@ -66,6 +66,7 @@ import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.ir.TestingIr.comparison;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -902,7 +903,7 @@ public class TestUnwrapCastInComparison
 
     private static Expression unwrapBetweenDouble(Expression source)
     {
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        SymbolAllocator symbolAllocator = emptySymbolAllocator();
         return unwrapCasts(
                 TEST_SESSION,
                 FUNCTIONS.getPlannerContext(),
@@ -950,7 +951,7 @@ public class TestUnwrapCastInComparison
         Expression unwrapped = unwrapCasts(
                 TEST_SESSION,
                 FUNCTIONS.getPlannerContext(),
-                new SymbolAllocator(),
+                emptySymbolAllocator(),
                 comparison(operator, new Cast(operand, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2021-06-01")))));
 
         // Exactly one Let binds the operand (wherever the operator places it in the tree; NOT_EQUAL, for
@@ -984,7 +985,7 @@ public class TestUnwrapCastInComparison
             Expression unwrapped = unwrapCasts(
                     TEST_SESSION,
                     FUNCTIONS.getPlannerContext(),
-                    new SymbolAllocator(),
+                    emptySymbolAllocator(),
                     comparison(operator, new Cast(operand, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2021-06-01")))));
 
             assertThat(unwrapped).as("operator %s", operator).isNotInstanceOf(Let.class);
@@ -1006,7 +1007,7 @@ public class TestUnwrapCastInComparison
             Expression unwrapped = unwrapCasts(
                     TEST_SESSION,
                     FUNCTIONS.getPlannerContext(),
-                    new SymbolAllocator(),
+                    emptySymbolAllocator(),
                     comparison(operator, new Cast(operand, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2021-06-01")))));
 
             assertThat(unwrapped).as("operator %s", operator).isNotInstanceOf(Let.class);

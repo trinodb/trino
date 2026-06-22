@@ -108,6 +108,7 @@ import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.ir.TestingIr.nullIf;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
@@ -749,7 +750,7 @@ public class TestConnectorExpressionTranslator
 
     private void assertTranslationFromConnectorExpression(Session session, ConnectorExpression connectorExpression, Expression expected)
     {
-        Expression translation = ConnectorExpressionTranslator.translate(session, connectorExpression, PLANNER_CONTEXT, variableMappings, new SymbolAllocator());
+        Expression translation = ConnectorExpressionTranslator.translate(session, connectorExpression, PLANNER_CONTEXT, variableMappings, emptySymbolAllocator());
         assertThat(translation).isEqualTo(expected);
     }
 }

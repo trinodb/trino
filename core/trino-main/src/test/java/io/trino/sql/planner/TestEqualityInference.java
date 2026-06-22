@@ -56,6 +56,7 @@ import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.ir.TestingIr.nullIf;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestEqualityInference
@@ -325,7 +326,7 @@ public class TestEqualityInference
                         .functionCallBuilder(TRY_FUNCTION_NAME)
                         .addArgument(new FunctionType(ImmutableList.of(), BIGINT), new Lambda(ImmutableList.of(), new Reference(BIGINT, "b")))
                         .build(),
-                nullIf(new SymbolAllocator(), new Reference(BIGINT, "b"), new Constant(BIGINT, 1L)),
+                nullIf(emptySymbolAllocator(), new Reference(BIGINT, "b"), new Constant(BIGINT, 1L)),
                 new In(new Reference(BIGINT, "b"), ImmutableList.of(new Constant(BIGINT, null))),
                 new Case(ImmutableList.of(new WhenClause(IrExpressions.not(functionResolution.getMetadata(), new IsNull(new Reference(BIGINT, "b"))), new Constant(UnknownType.UNKNOWN, null))), new Constant(UnknownType.UNKNOWN, null)),
                 new Match(new Reference(INTEGER, "b"), ImmutableList.of(equalityClause(number(1), new Constant(INTEGER, null))), new Constant(INTEGER, null)));

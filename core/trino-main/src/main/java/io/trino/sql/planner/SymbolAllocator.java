@@ -39,11 +39,6 @@ public class SymbolAllocator
     private final Map<String, Symbol> symbols;
     private int nextId;
 
-    public SymbolAllocator()
-    {
-        symbols = new HashMap<>();
-    }
-
     public SymbolAllocator(Collection<Symbol> initial)
     {
         symbols = new HashMap<>(initial.stream()

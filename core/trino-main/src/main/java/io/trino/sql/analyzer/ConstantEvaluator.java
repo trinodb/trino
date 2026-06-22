@@ -61,7 +61,7 @@ public final class ConstantEvaluator
                 WarningCollector.NOOP,
                 CorrelationSupport.DISALLOWED);
 
-        TranslationMap translationMap = new TranslationMap(Optional.empty(), scope, analysis, ImmutableMap.of(), ImmutableList.of(), session, plannerContext, new SymbolAllocator());
+        TranslationMap translationMap = new TranslationMap(Optional.empty(), scope, analysis, ImmutableMap.of(), ImmutableList.of(), session, plannerContext, new SymbolAllocator(ImmutableList.of()));
         io.trino.sql.ir.Expression rewritten = translationMap.rewrite(expression);
 
         Type actualType = rewritten.type();

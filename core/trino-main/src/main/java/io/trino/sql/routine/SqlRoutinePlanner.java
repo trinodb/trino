@@ -310,7 +310,7 @@ public final class SqlRoutinePlanner
                     .withRelationType(RelationId.of(expression), new RelationType(fields))
                     .build();
 
-            SymbolAllocator symbolAllocator = new SymbolAllocator();
+            SymbolAllocator symbolAllocator = new SymbolAllocator(ImmutableList.of());
             List<Symbol> fieldSymbols = fields.stream()
                     .map(symbolAllocator::newSymbol)
                     .collect(toImmutableList());

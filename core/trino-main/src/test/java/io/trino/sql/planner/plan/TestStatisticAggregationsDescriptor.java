@@ -36,6 +36,7 @@ import java.util.List;
 
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -67,7 +68,7 @@ public class TestStatisticAggregationsDescriptor
     private static StatisticAggregationsDescriptor<Symbol> createTestDescriptor()
     {
         StatisticAggregationsDescriptor.Builder<Symbol> builder = StatisticAggregationsDescriptor.builder();
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        SymbolAllocator symbolAllocator = emptySymbolAllocator();
         for (String column : COLUMNS) {
             for (ColumnStatisticType type : ColumnStatisticType.values()) {
                 builder.addColumnStatistic(new ColumnStatisticMetadata(column, type), testSymbol(symbolAllocator));

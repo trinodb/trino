@@ -104,6 +104,7 @@ import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
@@ -604,7 +605,7 @@ public class TestSourcePartitionedScheduler
                 new TableExecuteContextManager(),
                 () -> true);
 
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        SymbolAllocator symbolAllocator = emptySymbolAllocator();
         Symbol symbol = symbolAllocator.newSymbol("DF_SYMBOL1", BIGINT);
         DynamicFilter dynamicFilter = dynamicFilterService.createDynamicFilter(
                 QUERY_ID,
