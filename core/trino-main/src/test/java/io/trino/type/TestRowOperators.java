@@ -785,6 +785,7 @@ public class TestRowOperators
 
         for (int i = 1; i < 128; i += 10) {
             assertEqualOperator(i);
+            assertComparisonOperator(i);
         }
     }
 
@@ -935,6 +936,17 @@ public class TestRowOperators
                     .binding("b", alternateRowLiteralWithNulls))
                     .isEqualTo(true);
         }
+    }
+
+    private void assertComparisonOperator(int fieldCount)
+    {
+        // the rows differ only in their last field, so the comparison must look past the leading equal fields
+        String rowLiteral = toRowLiteral(largeRow(fieldCount, false));
+        String alternateRowLiteral = toRowLiteral(largeRow(fieldCount, false, true));
+        assertThat(assertions.expression("(a < b) <> (b < a)")
+                .binding("a", rowLiteral)
+                .binding("b", alternateRowLiteral))
+                .isEqualTo(true);
     }
 
     private void assertRowHashOperator(int fieldCount, boolean nulls)

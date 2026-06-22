@@ -878,7 +878,7 @@ public class RowType
 
             MethodHandle comparisonOperator = comparisonOperators.get(fieldIndex);
             long result = (long) comparisonOperator.invoke(leftFieldBlock, leftRawIndex, rightFieldBlock, rightRawIndex);
-            if (result == 0) {
+            if (result != 0) {
                 return result;
             }
         }
