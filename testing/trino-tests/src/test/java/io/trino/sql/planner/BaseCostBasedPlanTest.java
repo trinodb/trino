@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
@@ -45,8 +46,10 @@ import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -84,8 +87,17 @@ public abstract class BaseCostBasedPlanTest
             .map(queryId -> format("/sql/trino/tpch/%s.sql", queryId))
             .collect(toImmutableList());
 
+    // Queries whose template defines two query parts, generated as separate "a" and "b" files.
+    private static final Set<Integer> TPCDS_QUERIES_WITH_TWO_PARTS = ImmutableSet.of(14, 23, 24, 39);
+
     protected static final List<String> TPCDS_SQL_FILES = IntStream.range(1, 100)
-            .mapToObj(i -> format("q%02d", i))
+            .boxed()
+            .flatMap(queryNumber -> {
+                if (TPCDS_QUERIES_WITH_TWO_PARTS.contains(queryNumber)) {
+                    return Stream.of(format("q%02da", queryNumber), format("q%02db", queryNumber));
+                }
+                return Stream.of(format("q%02d", queryNumber));
+            })
             .map(queryId -> format("/sql/trino/tpcds/%s.sql", queryId))
             .collect(toImmutableList());
 
