@@ -111,6 +111,42 @@ public class TestJsonFormat
     private static final CharType CHAR_3 = createCharType(3);
 
     @Test
+    public void testTopLevelDuplicateKeys()
+            throws Exception
+    {
+        List<Column> columns = ImmutableList.of(
+                new Column("a", BIGINT, 0),
+                new Column("b", BIGINT, 1),
+                new Column("c", BIGINT, 2));
+
+        // last value wins for duplicate top-level keys, matching Hive
+        assertLineMatchesHive(columns, "{\"a\": 1, \"a\": 2}", Arrays.asList(2L, null, null));
+        assertLineMatchesHive(columns, "{\"a\": 1, \"b\": 2, \"a\": 3}", Arrays.asList(3L, 2L, null));
+        assertLineMatchesHive(columns, "{\"a\": 1, \"b\": 2, \"a\": 3, \"b\": 4}", Arrays.asList(3L, 4L, null));
+        assertLineMatchesHive(columns, "{\"a\": 1, \"a\": 2, \"a\": 3}", Arrays.asList(3L, null, null));
+
+        // duplicate of non-first column
+        assertLineMatchesHive(columns, "{\"b\": 1, \"b\": 2}", Arrays.asList(null, 2L, null));
+
+        // duplicate with unknown fields skipped
+        assertLineMatchesHive(columns, "{\"x\": 99, \"a\": 1, \"a\": 2}", Arrays.asList(2L, null, null));
+
+        // last value wins even when the last value is null
+        assertLineMatchesHive(columns, "{\"a\": 1, \"a\": null}", Arrays.asList(null, null, null));
+
+        // multiple rows into the same PageBuilder
+        LineDeserializer deserializer = new JsonDeserializerFactory().create(columns, createJsonProperties(ImmutableList.of()));
+        PageBuilder pageBuilder = new PageBuilder(3, deserializer.getTypes());
+        deserializer.deserialize(createLineBuffer("{\"a\": 1, \"b\": 2}"), pageBuilder);
+        deserializer.deserialize(createLineBuffer("{\"a\": 10, \"a\": 20}"), pageBuilder);
+        deserializer.deserialize(createLineBuffer("{\"a\": 100, \"b\": 200, \"c\": 300}"), pageBuilder);
+        Page page = pageBuilder.build();
+        assertThat(readTrinoValues(columns, page, 0)).isEqualTo(Arrays.asList(1L, 2L, null));
+        assertThat(readTrinoValues(columns, page, 1)).isEqualTo(Arrays.asList(20L, null, null));
+        assertThat(readTrinoValues(columns, page, 2)).isEqualTo(ImmutableList.of(100L, 200L, 300L));
+    }
+
+    @Test
     public void testStruct()
             throws Exception
     {
@@ -945,6 +981,26 @@ public class TestJsonFormat
         for (boolean hcatalog : ImmutableList.of(true, false)) {
             actualValue = readHiveLine(columns, trinoLine, ImmutableList.of(), hcatalog).get(0);
             assertColumnValueEquals(type, actualValue, expectedValue);
+        }
+    }
+
+    /**
+     * Asserts that Trino reads the line as expected, and that both Hive JSON SerDes agree, so the
+     * expected values are pinned to Hive's behavior rather than to hardcoded constants.
+     */
+    private static void assertLineMatchesHive(List<Column> columns, String jsonLine, List<Object> expectedValues)
+            throws Exception
+    {
+        assertValues(columns, readTrinoLine(jsonLine, columns, ImmutableList.of()), expectedValues);
+        for (boolean hcatalog : ImmutableList.of(true, false)) {
+            assertValues(columns, readHiveLine(columns, jsonLine, ImmutableList.of(), hcatalog), expectedValues);
+        }
+    }
+
+    private static void assertValues(List<Column> columns, List<Object> actualValues, List<Object> expectedValues)
+    {
+        for (int i = 0; i < columns.size(); i++) {
+            assertColumnValueEquals(columns.get(i).type(), actualValues.get(i), expectedValues.get(i));
         }
     }
 
