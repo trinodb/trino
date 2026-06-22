@@ -849,6 +849,7 @@
                                 <exclude>**/TestIcebergGlueCatalogMaterializedView.java</exclude>
                                 <exclude>**/TestIcebergGlueCreateTableFailure.java</exclude>
                                 <exclude>**/TestIcebergGlueTableOperationsInsertFailure.java</exclude>
+                                <exclude>**/TestIcebergGlueAccessDeniedException.java</exclude>
                                 <exclude>**/TestIcebergGlueCatalogSkipArchive.java</exclude>
                                 <exclude>**/TestIcebergS3AndGlueMetastoreTest.java</exclude>
                                 <exclude>**/TestIcebergS3TablesConnectorSmokeTest.java</exclude>
@@ -921,6 +922,7 @@
                                 <include>**/TestIcebergGlueCatalogMaterializedView.java</include>
                                 <include>**/TestIcebergGlueCreateTableFailure.java</include>
                                 <include>**/TestIcebergGlueTableOperationsInsertFailure.java</include>
+                                <include>**/TestIcebergGlueAccessDeniedException.java</include>
                                 <include>**/TestIcebergGlueCatalogSkipArchive.java</include>
                                 <include>**/TestIcebergS3AndGlueMetastoreTest.java</include>
                                 <include>**/TestIcebergS3TablesConnectorSmokeTest.java</include>
