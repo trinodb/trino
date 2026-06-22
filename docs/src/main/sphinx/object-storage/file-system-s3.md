@@ -10,6 +10,21 @@ your vendor for more information.
 Enable the native implementation with `fs.s3.enabled=true` in your
 catalog properties file.
 
+Alibaba Cloud Object Storage Service (OSS) can be accessed with `oss://`
+locations by configuring the S3-compatible endpoint and credentials with the
+`s3.*` properties. For example:
+
+```text
+fs.s3.enabled=true
+s3.endpoint=https://oss-cn-hangzhou.aliyuncs.com
+s3.region=cn-hangzhou
+s3.aws-access-key=example-access-key
+s3.aws-secret-key=example-secret-key
+```
+
+OSS does not support exclusive file creation with conditional writes, so Trino
+does not support exclusive file creation for `oss://` locations.
+
 ## General configuration
 
 Use the following properties to configure general aspects of S3 file system

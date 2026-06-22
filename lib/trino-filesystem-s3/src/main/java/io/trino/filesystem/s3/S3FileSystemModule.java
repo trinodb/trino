@@ -53,6 +53,8 @@ public class S3FileSystemModule
             binder.bind(TrinoFileSystemFactory.class).annotatedWith(FileSystemS3.class)
                     .to(S3FileSystemFactory.class).in(SINGLETON);
         }
+        binder.bind(TrinoFileSystemFactory.class).annotatedWith(FileSystemOSS.class)
+                .to(OSSFileSystemFactory.class).in(SINGLETON);
 
         binder.bind(S3FileSystemStats.class).in(SINGLETON);
         newExporter(binder).export(S3FileSystemStats.class).withGeneratedName();
