@@ -17,6 +17,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.SymbolAllocator;
 
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 
 /// Test helpers for building IR expressions whose construction needs a function resolver.
 public final class TestingIr
@@ -38,7 +39,7 @@ public final class TestingIr
     /// planner context.
     public static Expression between(Expression value, Expression min, Expression max)
     {
-        return IrExpressions.between(PLANNER_CONTEXT.getMetadata(), new SymbolAllocator(), value, min, max);
+        return IrExpressions.between(PLANNER_CONTEXT.getMetadata(), emptySymbolAllocator(), value, min, max);
     }
 
     /// Builds the desugared IR form of `NULLIF(first, second)` (see {@link IrExpressions#nullIf}),

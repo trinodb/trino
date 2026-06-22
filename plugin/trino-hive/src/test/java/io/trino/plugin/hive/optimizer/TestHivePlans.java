@@ -32,7 +32,6 @@ import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
-import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.testing.PlanTester;
 import io.trino.type.LikePattern;
@@ -61,6 +60,7 @@ import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.TestingIr.comparison;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -208,7 +208,7 @@ public class TestHivePlans
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         filter(
-                                                                IrExpressions.between(FUNCTIONS.getMetadata(), new SymbolAllocator(), new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
+                                                                IrExpressions.between(FUNCTIONS.getMetadata(), emptySymbolAllocator(), new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
                                                                 tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 
@@ -234,7 +234,7 @@ public class TestHivePlans
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         filter(
-                                                                IrExpressions.between(FUNCTIONS.getMetadata(), new SymbolAllocator(), new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
+                                                                IrExpressions.between(FUNCTIONS.getMetadata(), emptySymbolAllocator(), new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
                                                                 tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 
@@ -260,7 +260,7 @@ public class TestHivePlans
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         filter(
-                                                                IrExpressions.between(FUNCTIONS.getMetadata(), new SymbolAllocator(), new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
+                                                                IrExpressions.between(FUNCTIONS.getMetadata(), emptySymbolAllocator(), new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
                                                                 tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 
@@ -309,7 +309,7 @@ public class TestHivePlans
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         filter(
-                                                                IrExpressions.between(FUNCTIONS.getMetadata(), new SymbolAllocator(), new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 1L), new Constant(INTEGER, 5L)),
+                                                                IrExpressions.between(FUNCTIONS.getMetadata(), emptySymbolAllocator(), new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 1L), new Constant(INTEGER, 5L)),
                                                                 tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 
