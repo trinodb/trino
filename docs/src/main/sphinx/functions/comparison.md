@@ -119,6 +119,33 @@ But any other constant does not:
 SELECT 3.0 IS NULL; -- false
 ```
 
+(is-boolean-test)=
+## IS TRUE, IS FALSE, and IS UNKNOWN
+
+The `IS [NOT] TRUE`, `IS [NOT] FALSE`, and `IS [NOT] UNKNOWN` operators test the
+three-valued result of a boolean expression. Unlike a direct comparison against
+`TRUE` or `FALSE`, these operators always return a non-null boolean, treating a
+`NULL` (unknown) operand as a known value. `IS UNKNOWN` is equivalent to `IS NULL`
+on a boolean operand:
+
+```sql
+SELECT (1 > 0) IS TRUE; -- true
+
+SELECT (1 > 2) IS FALSE; -- true
+
+SELECT (NULL > 0) IS UNKNOWN; -- true
+
+SELECT (NULL > 0) IS NOT TRUE; -- true
+```
+
+The following truth table demonstrates the handling of each truth value:
+
+| a       | a IS TRUE | a IS FALSE | a IS UNKNOWN | a IS NOT TRUE | a IS NOT FALSE | a IS NOT UNKNOWN |
+| ------- | --------- | ---------- | ------------ | ------------- | -------------- | ---------------- |
+| `TRUE`  | `TRUE`    | `FALSE`    | `FALSE`      | `FALSE`       | `TRUE`         | `TRUE`           |
+| `FALSE` | `FALSE`   | `TRUE`     | `FALSE`      | `TRUE`        | `FALSE`        | `TRUE`           |
+| `NULL`  | `FALSE`   | `FALSE`    | `TRUE`       | `TRUE`        | `TRUE`         | `FALSE`          |
+
 (is-distinct-operator)=
 ## IS DISTINCT FROM and IS NOT DISTINCT FROM
 

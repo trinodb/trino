@@ -62,6 +62,7 @@ import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.BooleanTestPredicate;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
@@ -634,6 +635,17 @@ public class TranslationMap
             case IsNullPredicate predicate -> {
                 io.trino.sql.ir.Expression isNull = new IsNull(value);
                 yield predicate.isNegated() ? not(plannerContext.getMetadata(), isNull) : isNull;
+            }
+            case BooleanTestPredicate predicate -> {
+                // value IS [NOT] TRUE/FALSE is null-safe equality against the truth constant
+                // (IDENTICAL yields FALSE rather than NULL when value is NULL); IS [NOT] UNKNOWN
+                // is the null test. Either way the result is a non-NULL boolean.
+                io.trino.sql.ir.Expression test = switch (predicate.getTruthValue()) {
+                    case TRUE -> comparison(plannerContext.getMetadata(), IDENTICAL, value, TRUE);
+                    case FALSE -> comparison(plannerContext.getMetadata(), IDENTICAL, value, FALSE);
+                    case UNKNOWN -> new IsNull(value);
+                };
+                yield predicate.isNegated() ? not(plannerContext.getMetadata(), test) : test;
             }
             case LikePredicate predicate -> translateLike(value, predicate);
             case MatchPredicate _ -> throw new IllegalStateException("MATCH predicate should have been planned by SubqueryPlanner");

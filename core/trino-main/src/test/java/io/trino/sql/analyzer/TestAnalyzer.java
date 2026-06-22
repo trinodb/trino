@@ -4368,6 +4368,23 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testBooleanTest()
+    {
+        // boolean operand accepted in all forms
+        analyze("SELECT a IS TRUE FROM (VALUES true) t(a)");
+        analyze("SELECT a IS NOT TRUE FROM (VALUES true) t(a)");
+        analyze("SELECT a IS FALSE FROM (VALUES true) t(a)");
+        analyze("SELECT a IS NOT FALSE FROM (VALUES true) t(a)");
+        analyze("SELECT a IS UNKNOWN FROM (VALUES true) t(a)");
+        analyze("SELECT a IS NOT UNKNOWN FROM (VALUES true) t(a)");
+
+        // non-boolean operand rejected
+        assertFails("SELECT 1 IS TRUE FROM t1")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Boolean test value must evaluate to a boolean (actual: integer)");
+    }
+
+    @Test
     public void testJoinUnnest()
     {
         // Lateral references are only allowed in INNER and LEFT join.

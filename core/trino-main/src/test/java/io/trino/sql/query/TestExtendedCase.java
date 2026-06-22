@@ -147,6 +147,31 @@ public class TestExtendedCase
     }
 
     @Test
+    public void testBooleanTest()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT CASE x
+                            WHEN IS TRUE THEN 1
+                            WHEN IS FALSE THEN 2
+                            WHEN IS UNKNOWN THEN 3
+                       END
+                FROM (VALUES true, false, CAST(NULL AS boolean)) t(x)
+                """))
+                .matches("VALUES 1, 2, 3");
+
+        assertThat(assertions.query(
+                """
+                SELECT CASE x
+                            WHEN IS NOT TRUE THEN 1
+                            ELSE 0
+                       END
+                FROM (VALUES true, false, CAST(NULL AS boolean)) t(x)
+                """))
+                .matches("VALUES 0, 1, 1");
+    }
+
+    @Test
     public void testLike()
     {
         assertThat(assertions.query(

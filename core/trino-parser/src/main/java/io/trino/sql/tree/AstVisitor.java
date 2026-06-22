@@ -467,6 +467,11 @@ public abstract class AstVisitor<R, C>
         return visitPredicate(node, context);
     }
 
+    protected R visitBooleanTestPredicate(BooleanTestPredicate node, C context)
+    {
+        return visitPredicate(node, context);
+    }
+
     protected R visitLikePredicate(LikePredicate node, C context)
     {
         return visitPredicate(node, context);

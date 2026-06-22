@@ -190,6 +190,44 @@ public class TestConditions
     }
 
     @Test
+    public void testBooleanTest()
+    {
+        // IS TRUE
+        assertThat(assertions.expression("a IS TRUE").binding("a", "true")).isEqualTo(true);
+        assertThat(assertions.expression("a IS TRUE").binding("a", "false")).isEqualTo(false);
+        assertThat(assertions.expression("a IS TRUE").binding("a", "cast(null as boolean)")).isEqualTo(false);
+
+        // IS NOT TRUE
+        assertThat(assertions.expression("a IS NOT TRUE").binding("a", "true")).isEqualTo(false);
+        assertThat(assertions.expression("a IS NOT TRUE").binding("a", "false")).isEqualTo(true);
+        assertThat(assertions.expression("a IS NOT TRUE").binding("a", "cast(null as boolean)")).isEqualTo(true);
+
+        // IS FALSE
+        assertThat(assertions.expression("a IS FALSE").binding("a", "true")).isEqualTo(false);
+        assertThat(assertions.expression("a IS FALSE").binding("a", "false")).isEqualTo(true);
+        assertThat(assertions.expression("a IS FALSE").binding("a", "cast(null as boolean)")).isEqualTo(false);
+
+        // IS NOT FALSE
+        assertThat(assertions.expression("a IS NOT FALSE").binding("a", "true")).isEqualTo(true);
+        assertThat(assertions.expression("a IS NOT FALSE").binding("a", "false")).isEqualTo(false);
+        assertThat(assertions.expression("a IS NOT FALSE").binding("a", "cast(null as boolean)")).isEqualTo(true);
+
+        // IS UNKNOWN
+        assertThat(assertions.expression("a IS UNKNOWN").binding("a", "true")).isEqualTo(false);
+        assertThat(assertions.expression("a IS UNKNOWN").binding("a", "false")).isEqualTo(false);
+        assertThat(assertions.expression("a IS UNKNOWN").binding("a", "cast(null as boolean)")).isEqualTo(true);
+
+        // IS NOT UNKNOWN
+        assertThat(assertions.expression("a IS NOT UNKNOWN").binding("a", "true")).isEqualTo(true);
+        assertThat(assertions.expression("a IS NOT UNKNOWN").binding("a", "false")).isEqualTo(true);
+        assertThat(assertions.expression("a IS NOT UNKNOWN").binding("a", "cast(null as boolean)")).isEqualTo(false);
+
+        // the operand is evaluated as an arbitrary boolean expression, not just a reference
+        assertThat(assertions.expression("(a > 1) IS TRUE").binding("a", "2")).isEqualTo(true);
+        assertThat(assertions.expression("(a > 1) IS TRUE").binding("a", "0")).isEqualTo(false);
+    }
+
+    @Test
     public void testBetween()
     {
         // between

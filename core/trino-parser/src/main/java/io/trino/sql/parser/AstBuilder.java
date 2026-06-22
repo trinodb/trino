@@ -40,6 +40,8 @@ import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BetweenPredicate.Symmetry;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.BooleanTestPredicate;
+import io.trino.sql.tree.BooleanTestPredicate.TruthValue;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.CaseStatement;
@@ -2366,6 +2368,19 @@ class AstBuilder
     public Node visitNullPredicate(SqlBaseParser.NullPredicateContext context)
     {
         return new IsNullPredicate(getLocation(context), context.NOT() != null);
+    }
+
+    @Override
+    public Node visitBooleanTest(SqlBaseParser.BooleanTestContext context)
+    {
+        TruthValue truthValue = switch (context.truthValue.getType()) {
+            case SqlBaseLexer.TRUE -> TruthValue.TRUE;
+            case SqlBaseLexer.FALSE -> TruthValue.FALSE;
+            case SqlBaseLexer.UNKNOWN -> TruthValue.UNKNOWN;
+            default -> throw new IllegalArgumentException("Unsupported truth value: " + context.truthValue.getText());
+        };
+
+        return new BooleanTestPredicate(getLocation(context), context.NOT() != null, truthValue);
     }
 
     @Override
