@@ -162,6 +162,7 @@ import io.trino.operator.scalar.MapToMapCast;
 import io.trino.operator.scalar.MapTransformKeysFunction;
 import io.trino.operator.scalar.MapValues;
 import io.trino.operator.scalar.MathFunctions;
+import io.trino.operator.scalar.MathMethods;
 import io.trino.operator.scalar.MultimapFromEntriesFunction;
 import io.trino.operator.scalar.QuantileDigestFunctions;
 import io.trino.operator.scalar.Re2JRegexpFunctions;
@@ -474,6 +475,15 @@ public final class SystemFunctionBundle
                 .scalar(MathFunctions.IsFinite.class)
                 .scalar(MathFunctions.IsInfinite.class)
                 .scalar(MathFunctions.IsNan.class)
+                .scalars(MathMethods.class)
+                .scalar(MathMethods.Abs.class)
+                .scalar(MathMethods.Sign.class)
+                .scalar(MathMethods.Round.class)
+                .scalar(MathMethods.RoundN.class)
+                .scalar(MathMethods.Truncate.class)
+                .scalar(MathMethods.TruncateN.class)
+                .scalar(MathMethods.Ceiling.class)
+                .scalar(MathMethods.Floor.class)
                 .scalars(BitwiseFunctions.class)
                 .scalars(DateTimeFunctions.class)
                 .scalar(DateTimeFunctions.FromUnixtimeNanosDecimal.class)
