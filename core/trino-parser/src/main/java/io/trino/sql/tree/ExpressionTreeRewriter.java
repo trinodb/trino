@@ -296,6 +296,7 @@ public final class ExpressionTreeRewriter<C>
                     yield valueList == predicate.getValueList() ? predicate : new InPredicate(predicate.getLocation().orElseThrow(), predicate.isNegated(), valueList);
                 }
                 case IsNullPredicate predicate -> predicate;
+                case BooleanTestPredicate predicate -> predicate;
                 case LikePredicate predicate -> {
                     Expression pattern = rewrite(predicate.getPattern(), context.get());
                     Optional<Expression> rewrittenEscape = predicate.getEscape().map(escape -> rewrite(escape, context.get()));

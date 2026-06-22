@@ -83,6 +83,7 @@ import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.BooleanTestPredicate;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
@@ -951,6 +952,7 @@ public class ExpressionAnalyzer
         {
             return switch (node.getPredicate()) {
                 case BetweenPredicate predicate -> analyzeBetween(node.getValue(), predicate, node, context);
+                case BooleanTestPredicate _ -> analyzeBooleanTest(node.getValue(), node, context);
                 case ComparisonPredicate predicate -> analyzeComparison(node.getValue(), predicate, node, context);
                 case DistinctFromPredicate predicate -> analyzeDistinctFrom(node.getValue(), predicate, node, context);
                 case InPredicate predicate -> analyzeIn(node.getValue(), predicate, node, context);
@@ -1008,6 +1010,12 @@ public class ExpressionAnalyzer
         private Type analyzeIsNull(Expression value, Expression anchor, Context context)
         {
             process(value, context);
+            return setExpressionType(anchor, BOOLEAN);
+        }
+
+        private Type analyzeBooleanTest(Expression value, Expression anchor, Context context)
+        {
+            coerceType(context, value, BOOLEAN, "Boolean test value");
             return setExpressionType(anchor, BOOLEAN);
         }
 
@@ -1098,6 +1106,7 @@ public class ExpressionAnalyzer
                 if (whenClause.getMatch() instanceof WhenClause.Partial(Predicate predicate)) {
                     switch (predicate) {
                         case BetweenPredicate fragment -> analyzeBetween(operand, fragment, whenClause, context);
+                        case BooleanTestPredicate _ -> analyzeBooleanTest(operand, whenClause, context);
                         case ComparisonPredicate fragment -> analyzeComparison(operand, fragment, whenClause, context);
                         case DistinctFromPredicate fragment -> analyzeDistinctFrom(operand, fragment, whenClause, context);
                         case InPredicate fragment -> analyzeIn(operand, fragment, whenClause, context);

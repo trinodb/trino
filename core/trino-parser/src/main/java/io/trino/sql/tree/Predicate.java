@@ -15,14 +15,15 @@ package io.trino.sql.tree;
 
 /// The `<predicate part 2>` fragment of the SQL spec: the operator and right-hand side(s)
 /// of a predicate, without the LHS value. Concrete subtypes parallel the spec's per-predicate
-/// part-2 productions (comparison, between, in, like, null, distinct, quantified-comparison,
-/// match).
+/// part-2 productions (comparison, between, in, like, null, boolean-test, distinct,
+/// quantified-comparison, match).
 ///
 /// Used in two positions: as the `clause` of a [Predicated], and as a SQL:2023 F262
 /// extended `CASE` WHEN operand where the LHS is the case operand.
 public abstract sealed class Predicate
         extends Node
         permits BetweenPredicate,
+                BooleanTestPredicate,
                 ComparisonPredicate,
                 DistinctFromPredicate,
                 InPredicate,

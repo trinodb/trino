@@ -32,6 +32,8 @@ import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BetweenPredicate.Symmetry;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.BooleanTestPredicate;
+import io.trino.sql.tree.BooleanTestPredicate.TruthValue;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Cast;
@@ -1207,6 +1209,46 @@ public class TestSqlParser
                                 Optional.of(Symmetry.SYMMETRIC),
                                 new LongLiteral(location(1, 25), "2"),
                                 new LongLiteral(location(1, 31), "3"))));
+    }
+
+    @Test
+    public void testBooleanTest()
+    {
+        assertThat(expression("a IS TRUE"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new Identifier(location(1, 1), "a", false),
+                        new BooleanTestPredicate(location(1, 3), false, TruthValue.TRUE)));
+
+        assertThat(expression("a IS NOT TRUE"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new Identifier(location(1, 1), "a", false),
+                        new BooleanTestPredicate(location(1, 3), true, TruthValue.TRUE)));
+
+        assertThat(expression("a IS FALSE"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new Identifier(location(1, 1), "a", false),
+                        new BooleanTestPredicate(location(1, 3), false, TruthValue.FALSE)));
+
+        assertThat(expression("a IS NOT FALSE"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new Identifier(location(1, 1), "a", false),
+                        new BooleanTestPredicate(location(1, 3), true, TruthValue.FALSE)));
+
+        assertThat(expression("a IS UNKNOWN"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new Identifier(location(1, 1), "a", false),
+                        new BooleanTestPredicate(location(1, 3), false, TruthValue.UNKNOWN)));
+
+        assertThat(expression("a IS NOT UNKNOWN"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new Identifier(location(1, 1), "a", false),
+                        new BooleanTestPredicate(location(1, 3), true, TruthValue.UNKNOWN)));
     }
 
     @Test

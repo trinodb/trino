@@ -27,6 +27,7 @@ import io.trino.sql.tree.AutoGroupBy;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.BooleanTestPredicate;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
@@ -628,6 +629,12 @@ public final class ExpressionFormatter
         protected String visitIsNullPredicate(IsNullPredicate node, Void context)
         {
             return node.isNegated() ? "IS NOT NULL" : "IS NULL";
+        }
+
+        @Override
+        protected String visitBooleanTestPredicate(BooleanTestPredicate node, Void context)
+        {
+            return (node.isNegated() ? "IS NOT " : "IS ") + node.getTruthValue();
         }
 
         @Override
