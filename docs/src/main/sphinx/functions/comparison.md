@@ -321,6 +321,128 @@ WHERE regionkey IN (
 ORDER by nation.name;
 ```
 
+(match-predicate)=
+## Row matching: MATCH
+
+The `MATCH` predicate tests whether a row value matches a row returned by a
+subquery:
+
+```text
+row MATCH [UNIQUE] [SIMPLE | PARTIAL | FULL] ( subquery )
+```
+
+The left-hand side is a row value and the subquery must return rows of the same
+degree. The optional match type controls how a `NULL` in the row is treated, and
+defaults to `SIMPLE`.
+
+```sql
+SELECT ROW(1, 'a') MATCH (VALUES (1, 'a'), (2, 'b')); -- true
+
+SELECT ROW(99, 'z') MATCH (VALUES (1, 'a'), (2, 'b')); -- false
+```
+
+A typical use is to keep the rows of one relation that also occur in another.
+The subquery may be correlated with the enclosing query:
+
+```sql
+SELECT a
+FROM (VALUES (1, 'a'), (2, 'b'), (3, 'c')) t(a, b)
+WHERE ROW(a, b) MATCH (VALUES (1, 'a'), (3, 'c')); -- returns 1 and 3
+```
+
+### Match types
+
+The match type determines the result when the row on the left contains a `NULL`:
+
+:::{list-table}
+:widths: 20, 80
+:header-rows: 1
+
+* - Match type
+  - Treatment of a `NULL` field in the row
+* - `SIMPLE`
+  - The default. A row that contains any `NULL` always matches, regardless of
+    the contents of the subquery.
+* - `PARTIAL`
+  - A `NULL` field is a wildcard that matches any value in that position, while
+    the non-null fields must still equal those of a subquery row. A row whose
+    fields are all `NULL` always matches.
+* - `FULL`
+  - A row matches only if it contains no `NULL` and equals a subquery row, or if
+    all of its fields are `NULL`. A row with a mix of `NULL` and non-null fields
+    never matches.
+:::
+
+The following examples use a row with a `NULL` first field to show the
+difference between the match types:
+
+```sql
+SELECT ROW(NULL, 'a') MATCH SIMPLE  (VALUES (1, 'z')); -- true
+
+SELECT ROW(NULL, 'a') MATCH PARTIAL (VALUES (1, 'a')); -- true
+SELECT ROW(NULL, 'a') MATCH PARTIAL (VALUES (1, 'z')); -- false
+
+SELECT ROW(NULL, 'a') MATCH FULL    (VALUES (1, 'a')); -- false
+```
+
+### Unique matches
+
+Add the `UNIQUE` keyword to require that the row matches exactly one row of the
+subquery. The result is `false` when the matching row occurs more than once.
+`UNIQUE` can be combined with any match type, for example `MATCH UNIQUE PARTIAL`:
+
+```sql
+SELECT ROW(1, 'a') MATCH UNIQUE (VALUES (1, 'a'));           -- true
+SELECT ROW(1, 'a') MATCH UNIQUE (VALUES (1, 'a'), (1, 'a')); -- false
+```
+
+(unique-predicate)=
+## Uniqueness test: UNIQUE
+
+The `UNIQUE` predicate tests whether a subquery contains duplicate rows. It
+returns `true` when no two rows of the subquery are equal, and `false`
+otherwise:
+
+```text
+UNIQUE ( subquery )
+```
+
+```sql
+SELECT UNIQUE (VALUES 1, 2, 3); -- true
+
+SELECT UNIQUE (VALUES 1, 1, 2); -- false
+```
+
+A row that contains a `NULL` in any column is never counted as a duplicate, not
+even of an identical row. Only rows whose columns are all non-null can form a
+duplicate pair:
+
+```sql
+-- the two rows are identical, but each contains a NULL, so they are not duplicates
+SELECT UNIQUE (VALUES (CAST(NULL AS integer), 'a'), (CAST(NULL AS integer), 'a')); -- true
+
+-- the (1, 'b') pair is a duplicate; the NULL row is irrelevant
+SELECT UNIQUE (VALUES (CAST(NULL AS integer), 'a'), (1, 'b'), (1, 'b')); -- false
+```
+
+As a result, an empty subquery and a subquery in which every row contains a
+`NULL` both satisfy `UNIQUE`:
+
+```sql
+SELECT UNIQUE (SELECT 1 WHERE false); -- true
+```
+
+Use `NOT` to test for the presence of a duplicate:
+
+```sql
+SELECT NOT UNIQUE (VALUES 1, 1); -- true
+```
+
+:::{note}
+The subquery of a `UNIQUE` predicate cannot be correlated with the enclosing
+query.
+:::
+
 ## Examples
 
 The following example queries showcase aspects of using comparison functions and
