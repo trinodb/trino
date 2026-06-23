@@ -1563,7 +1563,7 @@
             <dependency>
                 <groupId>io.trino.tpcds</groupId>
                 <artifactId>tpcds</artifactId>
-                <version>1.4</version>
+                <version>1.7</version>
                 <exclusions>
                     <!-- not used in the runtime -->
                     <exclusion>
