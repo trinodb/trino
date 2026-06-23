@@ -357,6 +357,8 @@ public final class TestRun
                                 .add(
                                         jdkProvider.getJavaHome() + "/bin/java",
                                         "-Xmx1g",
+                                        // suppress "sun.misc.Unsafe::staticFieldBase will be removed in a future release" warning (JEP 498)
+                                        "--sun-misc-unsafe-memory-access=allow",
                                         "-Djava.util.logging.config.file=/docker/trino-product-tests/conf/tempto/logging.properties",
                                         "-Duser.timezone=Asia/Kathmandu",
                                         // Tempto has progress logging built in
