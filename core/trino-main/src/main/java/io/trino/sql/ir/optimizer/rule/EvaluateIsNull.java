@@ -37,6 +37,7 @@ import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.mayBeNull;
 import static io.trino.sql.ir.IrExpressions.mayFail;
 import static io.trino.sql.ir.Logical.Operator.OR;
+import static io.trino.type.BooleanOperators.NOT_FUNCTION_NAME;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -79,7 +80,7 @@ public class EvaluateIsNull
                     new IsNull(comparison.right()))));
         }
 
-        if (value instanceof Call inner && inner.function().name().equals(builtinFunctionName("$not"))) {
+        if (value instanceof Call inner && inner.function().name().equals(builtinFunctionName(NOT_FUNCTION_NAME))) {
             return Optional.of(new IsNull(inner.arguments().getFirst()));
         }
 

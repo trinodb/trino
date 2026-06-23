@@ -36,6 +36,7 @@ import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrUtils.combinePredicates;
 import static io.trino.sql.ir.IrUtils.extractPredicates;
+import static io.trino.type.BooleanOperators.NOT_FUNCTION_NAME;
 
 public final class PushDownNegationsExpressionRewriter
 {
@@ -59,7 +60,7 @@ public final class PushDownNegationsExpressionRewriter
         @Override
         public Expression rewriteCall(Call node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            if (node.function().name().equals(builtinFunctionName("$not"))) {
+            if (node.function().name().equals(builtinFunctionName(NOT_FUNCTION_NAME))) {
                 ResolvedFunction function = node.function();
                 Expression argument = node.arguments().getFirst();
 
@@ -82,7 +83,7 @@ public final class PushDownNegationsExpressionRewriter
                     List<Expression> negatedPredicates = predicates.stream().map(predicate -> treeRewriter.rewrite((Expression) new Call(function, ImmutableList.of(predicate)), context)).collect(toImmutableList());
                     return combinePredicates(child.operator().flip(), negatedPredicates);
                 }
-                if (argument instanceof Call child && child.function().name().equals(builtinFunctionName("$not"))) {
+                if (argument instanceof Call child && child.function().name().equals(builtinFunctionName(NOT_FUNCTION_NAME))) {
                     return treeRewriter.rewrite(child.arguments().getFirst(), context);
                 }
 

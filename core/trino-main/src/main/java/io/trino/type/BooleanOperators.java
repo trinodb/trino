@@ -34,6 +34,8 @@ import static java.nio.charset.StandardCharsets.US_ASCII;
 
 public final class BooleanOperators
 {
+    public static final String NOT_FUNCTION_NAME = "$not";
+
     private static final Slice TRUE = Slices.copiedBuffer("true", US_ASCII);
     private static final Slice FALSE = Slices.copiedBuffer("false", US_ASCII);
 
@@ -103,7 +105,7 @@ public final class BooleanOperators
     }
 
     @SqlType(StandardTypes.BOOLEAN)
-    @ScalarFunction(value = "$not", hidden = true, neverFails = true) // TODO: this should not be callable from SQL
+    @ScalarFunction(value = NOT_FUNCTION_NAME, hidden = true, neverFails = true) // TODO: this should not be callable from SQL
     public static boolean not(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return !value;

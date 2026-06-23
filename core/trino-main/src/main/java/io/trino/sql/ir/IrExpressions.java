@@ -64,6 +64,7 @@ import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.trino.type.BooleanOperators.NOT_FUNCTION_NAME;
 
 public final class IrExpressions
 {
@@ -110,7 +111,7 @@ public final class IrExpressions
         }
 
         List<Expression> arguments = call.arguments();
-        if (call.function().name().equals(builtinFunctionName("$not")) && arguments.size() == 1) {
+        if (call.function().name().equals(builtinFunctionName(NOT_FUNCTION_NAME)) && arguments.size() == 1) {
             if (matchComparison(arguments.get(0)) instanceof Comparison.Equal(Expression left, Expression right)) {
                 return new Comparison.NotEqual(left, right);
             }
@@ -563,7 +564,7 @@ public final class IrExpressions
     public static Expression not(Metadata metadata, Expression expression)
     {
         return call(
-                metadata.resolveBuiltinFunction("$not", fromTypes(BOOLEAN)),
+                metadata.resolveBuiltinFunction(NOT_FUNCTION_NAME, fromTypes(BOOLEAN)),
                 expression);
     }
 }
