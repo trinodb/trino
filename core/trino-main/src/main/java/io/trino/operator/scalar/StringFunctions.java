@@ -67,6 +67,8 @@ import static java.lang.Math.toIntExact;
  */
 public final class StringFunctions
 {
+    public static final String SPACE_TRIMMED_LENGTH_FUNCTION_NAME = "$space_trimmed_length";
+
     private StringFunctions() {}
 
     @Description("Convert Unicode code point to a string")
@@ -111,7 +113,7 @@ public final class StringFunctions
     }
 
     @Description("Returns length of a character string without trailing spaces")
-    @ScalarFunction(value = "$space_trimmed_length", hidden = true, neverFails = true)
+    @ScalarFunction(value = SPACE_TRIMMED_LENGTH_FUNCTION_NAME, hidden = true, neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long spaceTrimmedLength(@SqlType("varchar") Slice slice)
     {
