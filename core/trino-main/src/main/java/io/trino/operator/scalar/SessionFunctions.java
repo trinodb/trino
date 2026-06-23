@@ -33,6 +33,7 @@ public final class SessionFunctions
 {
     public static final String CURRENT_USER_FUNCTION_NAME = "$current_user";
     public static final String CURRENT_PATH_FUNCTION_NAME = "$current_path";
+    public static final String CURRENT_CATALOG_FUNCTION_NAME = "$current_catalog";
 
     private SessionFunctions() {}
 
@@ -53,7 +54,7 @@ public final class SessionFunctions
         return utf8Slice(((FullConnectorSession) session).getSession().getPath().toString());
     }
 
-    @ScalarFunction(value = "$current_catalog", hidden = true, neverFails = true)
+    @ScalarFunction(value = CURRENT_CATALOG_FUNCTION_NAME, hidden = true, neverFails = true)
     @Description("Current catalog")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice currentCatalog(ConnectorSession session)
