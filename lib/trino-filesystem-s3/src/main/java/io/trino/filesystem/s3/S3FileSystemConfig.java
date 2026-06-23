@@ -20,7 +20,6 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
-import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
@@ -43,7 +42,13 @@ import static software.amazon.awssdk.awscore.retry.AwsRetryStrategy.adaptiveRetr
 import static software.amazon.awssdk.awscore.retry.AwsRetryStrategy.legacyRetryStrategy;
 import static software.amazon.awssdk.awscore.retry.AwsRetryStrategy.standardRetryStrategy;
 
-@DefunctConfig("s3.exclusive-create")
+@DefunctConfig({
+        "s3.exclusive-create",
+        "s3.connection-ttl",
+        "s3.socket-read-timeout",
+        "s3.socket-timeout",
+        "s3.http-proxy.preemptive-basic-auth",
+})
 public class S3FileSystemConfig
 {
     public enum S3SseType
@@ -163,16 +168,13 @@ public class S3FileSystemConfig
     private DataSize streamingPartSize = DataSize.of(32, MEGABYTE);
     private boolean requesterPays;
     private Integer maxConnections = 500;
-    private Duration connectionTtl;
     private Duration connectionMaxIdleTime;
     private Duration socketConnectTimeout;
-    private Duration socketTimeout;
     private boolean tcpKeepAlive;
     private HostAndPort httpProxy;
     private boolean httpProxySecure;
     private String httpProxyUsername;
     private String httpProxyPassword;
-    private boolean preemptiveBasicProxyAuth;
     private Set<String> nonProxyHosts = ImmutableSet.of();
     private ObjectCannedAcl objectCannedAcl = ObjectCannedAcl.NONE;
     private RetryMode retryMode = RetryMode.LEGACY;
@@ -474,19 +476,6 @@ public class S3FileSystemConfig
         return this;
     }
 
-    public Optional<Duration> getConnectionTtl()
-    {
-        return Optional.ofNullable(connectionTtl);
-    }
-
-    @Config("s3.connection-ttl")
-    @ConfigDescription("Maximum time allowed for connections to be reused before being replaced in the connection pool")
-    public S3FileSystemConfig setConnectionTtl(Duration connectionTtl)
-    {
-        this.connectionTtl = connectionTtl;
-        return this;
-    }
-
     public Optional<Duration> getConnectionMaxIdleTime()
     {
         return Optional.ofNullable(connectionMaxIdleTime);
@@ -510,20 +499,6 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setSocketConnectTimeout(Duration socketConnectTimeout)
     {
         this.socketConnectTimeout = socketConnectTimeout;
-        return this;
-    }
-
-    public Optional<Duration> getSocketTimeout()
-    {
-        return Optional.ofNullable(socketTimeout);
-    }
-
-    @LegacyConfig("s3.socket-read-timeout")
-    @Config("s3.socket-timeout")
-    @ConfigDescription("Maximum time allowed for socket reads/writes before timing out")
-    public S3FileSystemConfig setSocketTimeout(Duration socketTimeout)
-    {
-        this.socketTimeout = socketTimeout;
         return this;
     }
 
@@ -586,18 +561,6 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setHttpProxyPassword(String httpProxyPassword)
     {
         this.httpProxyPassword = httpProxyPassword;
-        return this;
-    }
-
-    public boolean getHttpProxyPreemptiveBasicProxyAuth()
-    {
-        return preemptiveBasicProxyAuth;
-    }
-
-    @Config("s3.http-proxy.preemptive-basic-auth")
-    public S3FileSystemConfig setHttpProxyPreemptiveBasicProxyAuth(boolean preemptiveBasicProxyAuth)
-    {
-        this.preemptiveBasicProxyAuth = preemptiveBasicProxyAuth;
         return this;
     }
 

@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.s3;
 
+import com.google.common.net.HostAndPort;
 import com.google.inject.Inject;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.awssdk.v2_2.AwsSdkTelemetry;
@@ -25,8 +26,7 @@ import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsPr
 import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.http.SdkHttpClient;
-import software.amazon.awssdk.http.apache.ApacheHttpClient;
-import software.amazon.awssdk.http.apache.ProxyConfiguration;
+import software.amazon.awssdk.http.crt.AwsCrtHttpClient;
 import software.amazon.awssdk.metrics.MetricPublisher;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.LegacyMd5Plugin;
@@ -36,6 +36,7 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -58,6 +59,9 @@ import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.
 final class S3FileSystemLoader
         implements Function<Location, TrinoFileSystemFactory>
 {
+    private static final Duration TCP_KEEP_ALIVE_INTERVAL = Duration.ofSeconds(30);
+    private static final Duration TCP_KEEP_ALIVE_TIMEOUT = Duration.ofSeconds(5);
+
     private final Optional<S3SecurityMappingProvider> mappingProvider;
     private final SdkHttpClient httpClient;
     private final S3ClientFactory clientFactory;
@@ -224,25 +228,29 @@ final class S3FileSystemLoader
 
     private static SdkHttpClient createHttpClient(S3FileSystemConfig config)
     {
-        ApacheHttpClient.Builder client = ApacheHttpClient.builder()
-                .maxConnections(config.getMaxConnections())
-                .tcpKeepAlive(config.getTcpKeepAlive());
+        AwsCrtHttpClient.Builder client = AwsCrtHttpClient.builder()
+                .maxConcurrency(config.getMaxConnections());
 
-        config.getConnectionTtl().ifPresent(ttl -> client.connectionTimeToLive(ttl.toJavaTime()));
         config.getConnectionMaxIdleTime().ifPresent(time -> client.connectionMaxIdleTime(time.toJavaTime()));
         config.getSocketConnectTimeout().ifPresent(timeout -> client.connectionTimeout(timeout.toJavaTime()));
-        config.getSocketTimeout().ifPresent(timeout -> client.socketTimeout(timeout.toJavaTime()));
+
+        if (config.getTcpKeepAlive()) {
+            // The CRT client requires explicit keep-alive timings rather than a plain on/off flag.
+            client.tcpKeepAliveConfiguration(keepAlive -> keepAlive
+                    .keepAliveInterval(TCP_KEEP_ALIVE_INTERVAL)
+                    .keepAliveTimeout(TCP_KEEP_ALIVE_TIMEOUT));
+        }
 
         if (config.getHttpProxy() != null) {
-            client.proxyConfiguration(ProxyConfiguration.builder()
-                    .endpoint(URI.create("%s://%s".formatted(
-                            config.isHttpProxySecure() ? "https" : "http",
-                            config.getHttpProxy())))
+            HostAndPort proxy = config.getHttpProxy();
+            boolean secure = config.isHttpProxySecure();
+            client.proxyConfiguration(proxyConfiguration -> proxyConfiguration
+                    .scheme(secure ? "https" : "http")
+                    .host(proxy.getHost())
+                    .port(proxy.getPortOrDefault(secure ? 443 : 80))
                     .username(config.getHttpProxyUsername())
                     .password(config.getHttpProxyPassword())
-                    .nonProxyHosts(config.getNonProxyHosts())
-                    .preemptiveBasicAuthenticationEnabled(config.getHttpProxyPreemptiveBasicProxyAuth())
-                    .build());
+                    .nonProxyHosts(config.getNonProxyHosts()));
         }
 
         return client.build();

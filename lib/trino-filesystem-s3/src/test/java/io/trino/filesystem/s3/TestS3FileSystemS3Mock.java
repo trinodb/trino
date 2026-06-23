@@ -82,15 +82,6 @@ public class TestS3FileSystemS3Mock
 
     @Test
     @Override
-    public void testPaths()
-    {
-        // this is S3Mock bug, see https://github.com/adobe/S3Mock/issues/2788
-        assertThatThrownBy(super::testPaths)
-                .hasMessageContaining("S3 HEAD request failed for file: s3://test-bucket/test/.././/file");
-    }
-
-    @Test
-    @Override
     public void testReadingEmptyFile()
     {
         // this is S3Mock bug, see https://github.com/adobe/S3Mock/issues/2789

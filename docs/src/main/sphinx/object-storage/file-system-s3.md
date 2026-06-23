@@ -68,18 +68,12 @@ support:
     `false`.
 * - `s3.max-connections`
   - Maximum number of connections to S3.  Defaults to `500`.
-* - `s3.connection-ttl`
-  - Maximum time [duration](prop-type-duration) allowed to reuse connections in
-    the connection pool before being replaced.
 * - `s3.connection-max-idle-time`
   - Maximum time [duration](prop-type-duration) allowed for connections to
     remain idle in the connection pool before being closed.
 * - `s3.socket-connect-timeout`
   - Maximum time [duration](prop-type-duration) allowed for socket connection
     requests to complete before timing out.
-* - `s3.socket-timeout`
-  - Maximum time [duration](prop-type-duration) for socket read/write operations
-    before timing out.
 * - `s3.tcp-keep-alive`
   - Enable TCP keep alive on created connections. Defaults to `false`.
 * - `s3.http-proxy`
@@ -92,9 +86,6 @@ support:
   - Proxy password to use if connecting through a proxy server.
 * - `s3.http-proxy.non-proxy-hosts`
   - Hosts list to access without going through the proxy server.
-* - `s3.http-proxy.preemptive-basic-auth`
-  - Whether to attempt to authenticate preemptively against proxy server
-    when using base authorization, defaults to `false`.
 * - `s3.retry-mode`
   - Specifies how the AWS SDK attempts retries. Default value is `LEGACY`.
     Other allowed values are `STANDARD` and `ADAPTIVE`. The `STANDARD` mode
@@ -363,8 +354,8 @@ the following edits to your catalog configuration:
      - `s3.http-proxy.password`
      -
    * - `hive.s3.proxy.preemptive-basic-auth`
-     - `s3.http-proxy.preemptive-basic-auth`
      -
+     - No longer supported.
    * - `hive.s3.sts.endpoint`
      - `s3.sts.endpoint`
      -
@@ -379,13 +370,13 @@ the following edits to your catalog configuration:
      - `s3.socket-connect-timeout`
      -
    * - `hive.s3.connect-ttl`
-     - `s3.connection-ttl`
-     - Also see `s3.connection-max-idle-time` in preceding section for more
-       connection keep-alive options.
+     -
+     - No longer supported. See `s3.connection-max-idle-time` in the preceding
+       section for connection keep-alive options.
    * - `hive.s3.socket-timeout`
-     - `s3.socket-timeout`
-     - Also see `s3.tcp-keep-alive` in preceding sections for more socket
-       connection keep-alive options.
+     -
+     - No longer supported. See `s3.tcp-keep-alive` in the preceding sections for
+       socket connection keep-alive options.
    * - `hive.s3.max-connections`
      - `s3.max-connections`
      -

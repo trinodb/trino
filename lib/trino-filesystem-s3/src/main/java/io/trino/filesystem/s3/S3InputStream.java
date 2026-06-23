@@ -31,6 +31,7 @@ import java.io.InterruptedIOException;
 
 import static java.lang.Math.clamp;
 import static java.lang.Math.max;
+import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 import static software.amazon.awssdk.utils.IoUtils.drainInputStream;
 
@@ -111,7 +112,11 @@ final class S3InputStream
     public int read(byte[] bytes, int offset, int length)
             throws IOException
     {
+        checkFromIndexSize(offset, length, bytes.length);
         ensureOpen();
+        if (length == 0) {
+            return 0;
+        }
         seekStream(false);
 
         return reconnectStreamIfNecessary(() -> {
