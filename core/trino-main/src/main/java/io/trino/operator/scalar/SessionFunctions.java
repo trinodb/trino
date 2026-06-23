@@ -32,6 +32,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 public final class SessionFunctions
 {
     public static final String CURRENT_USER_FUNCTION_NAME = "$current_user";
+    public static final String CURRENT_PATH_FUNCTION_NAME = "$current_path";
 
     private SessionFunctions() {}
 
@@ -43,7 +44,7 @@ public final class SessionFunctions
         return utf8Slice(session.getUser());
     }
 
-    @ScalarFunction(value = "$current_path", hidden = true, neverFails = true)
+    @ScalarFunction(value = CURRENT_PATH_FUNCTION_NAME, hidden = true, neverFails = true)
     @Description("Retrieve current path")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice currentPath(ConnectorSession session)
