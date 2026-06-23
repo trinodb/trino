@@ -19,6 +19,7 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimeWithTimeZone;
 import io.trino.spi.type.StandardTypes;
 
+import static io.trino.operator.scalar.timetz.AtTimeZone.AT_TIMEZONE_FUNCTION_NAME;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackOffsetMinutes;
@@ -31,7 +32,7 @@ import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 
-@ScalarFunction(value = "$at_timezone", hidden = true)
+@ScalarFunction(value = AT_TIMEZONE_FUNCTION_NAME, hidden = true)
 public final class AtTimeZoneWithOffset
 {
     private AtTimeZoneWithOffset() {}
