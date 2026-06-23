@@ -145,6 +145,7 @@ import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.OrderBy;
+import io.trino.sql.tree.Overlay;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Predicate;
 import io.trino.sql.tree.Predicated;
@@ -204,6 +205,7 @@ import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.operator.scalar.FormatFunction.FORMAT_FUNCTION_NAME;
+import static io.trino.operator.scalar.StringFunctions.OVERLAY_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonArrayFunction.JSON_ARRAY_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonExistsFunction.JSON_EXISTS_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARBINARY_TO_JSON;
@@ -2829,6 +2831,33 @@ public class ExpressionAnalyzer
                 Type expectedTrimCharType = expectedTypes.get(1);
                 coerceType(node.getTrimCharacter().get(), actualTrimCharType, expectedTrimCharType, "trim character argument of trim function");
             }
+            resolvedFunctions.put(NodeRef.of(node), function);
+
+            return setExpressionType(node, function.signature().getReturnType());
+        }
+
+        @Override
+        protected Type visitOverlay(Overlay node, Context context)
+        {
+            ImmutableList.Builder<Type> argumentTypes = ImmutableList.builder();
+            argumentTypes.add(process(node.getValue(), context));
+            argumentTypes.add(process(node.getReplacement(), context));
+            argumentTypes.add(process(node.getStart(), context));
+            node.getLength().ifPresent(length -> argumentTypes.add(process(length, context)));
+            List<Type> actualTypes = argumentTypes.build();
+
+            ResolvedFunction function = plannerContext.getMetadata().resolveBuiltinFunction(OVERLAY_FUNCTION_NAME, fromTypes(actualTypes));
+
+            List<Type> expectedTypes = function.signature().getArgumentTypes();
+            checkState(expectedTypes.size() == actualTypes.size(), "wrong argument number in the resolved signature");
+
+            coerceType(node.getValue(), actualTypes.get(0), expectedTypes.get(0), "value argument of overlay function");
+            coerceType(node.getReplacement(), actualTypes.get(1), expectedTypes.get(1), "replacement argument of overlay function");
+            coerceType(node.getStart(), actualTypes.get(2), expectedTypes.get(2), "start argument of overlay function");
+            if (node.getLength().isPresent()) {
+                coerceType(node.getLength().get(), actualTypes.get(3), expectedTypes.get(3), "length argument of overlay function");
+            }
+
             resolvedFunctions.put(NodeRef.of(node), function);
 
             return setExpressionType(node, function.signature().getReturnType());

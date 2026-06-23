@@ -27,6 +27,7 @@ import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.NodeLocation;
+import io.trino.sql.tree.Overlay;
 import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
@@ -306,6 +307,24 @@ public class TestExpressionFormatter
         assertFormattedExpression(
                 new Predicated(location, value, new BetweenPredicate(location, true, Optional.of(Symmetry.SYMMETRIC), min, max)),
                 "(1 NOT BETWEEN SYMMETRIC 2 AND 3)");
+    }
+
+    @Test
+    public void testOverlay()
+    {
+        NodeLocation location = new NodeLocation(1, 1);
+        StringLiteral value = new StringLiteral("abcdef");
+        StringLiteral replacement = new StringLiteral("XY");
+        LongLiteral start = new LongLiteral(location, "3");
+        LongLiteral length = new LongLiteral(location, "2");
+
+        assertFormattedExpression(
+                new Overlay(location, value, replacement, start, Optional.empty()),
+                "OVERLAY('abcdef' PLACING 'XY' FROM 3)");
+
+        assertFormattedExpression(
+                new Overlay(location, value, replacement, start, Optional.of(length)),
+                "OVERLAY('abcdef' PLACING 'XY' FROM 3 FOR 2)");
     }
 
     private void assertFormattedExpression(Expression expression, String expected)

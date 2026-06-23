@@ -110,6 +110,7 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
+import io.trino.sql.tree.Overlay;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Predicate;
 import io.trino.sql.tree.Predicated;
@@ -407,6 +408,7 @@ public class TranslationMap
                 case Format expression -> translate(expression);
                 case TryExpression expression -> translate(expression);
                 case Trim expression -> translate(expression);
+                case Overlay expression -> translate(expression);
                 case SubscriptExpression expression -> translate(expression);
                 case LambdaExpression expression -> translate(expression);
                 case Parameter expression -> translate(expression);
@@ -1203,6 +1205,22 @@ public class TranslationMap
         ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.builder();
         arguments.add(translateExpression(node.getTrimSource()));
         node.getTrimCharacter()
+                .map(this::translateExpression)
+                .ifPresent(arguments::add);
+
+        return new Call(resolvedFunction.get(), arguments.build());
+    }
+
+    private io.trino.sql.ir.Expression translate(Overlay node)
+    {
+        Optional<ResolvedFunction> resolvedFunction = analysis.getResolvedFunction(node);
+        checkArgument(resolvedFunction.isPresent(), "Function has not been analyzed: %s", node);
+
+        ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.builder();
+        arguments.add(translateExpression(node.getValue()));
+        arguments.add(translateExpression(node.getReplacement()));
+        arguments.add(translateExpression(node.getStart()));
+        node.getLength()
                 .map(this::translateExpression)
                 .ifPresent(arguments::add);
 

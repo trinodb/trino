@@ -477,6 +477,64 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testOverlay()
+    {
+        // canonical SQL example
+        assertThat(assertions.expression("OVERLAY('Txxxxas' PLACING 'hom' FROM 2 FOR 4)"))
+                .hasType(createVarcharType(10))
+                .isEqualTo("Thomas");
+
+        // FOR defaults to the length of the replacement
+        assertThat(assertions.expression("OVERLAY('abcdef' PLACING 'XY' FROM 3)"))
+                .hasType(createVarcharType(8))
+                .isEqualTo("abXYef");
+
+        // FOR 0 inserts without removing
+        assertThat(assertions.expression("OVERLAY('abcdef' PLACING 'XY' FROM 3 FOR 0)"))
+                .isEqualTo("abXYcdef");
+
+        // a negative FOR removes nothing and inserts at start, like FOR 0 (matches PostgreSQL; the standard does not error here)
+        assertThat(assertions.expression("OVERLAY('abcdef' PLACING 'XY' FROM 3 FOR -2)"))
+                .isEqualTo("abXYcdef");
+
+        // FOR longer than the remaining string truncates the tail
+        assertThat(assertions.expression("OVERLAY('abcdef' PLACING 'XY' FROM 3 FOR 100)"))
+                .isEqualTo("abXY");
+
+        // a start position below 1 is a substring error per the SQL standard, not a clamped value
+        assertTrinoExceptionThrownBy(assertions.expression("OVERLAY('abcdef' PLACING 'XY' FROM 0 FOR 2)")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+        assertTrinoExceptionThrownBy(assertions.expression("OVERLAY('abcdef' PLACING 'XY' FROM -1)")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        // start at 1 replaces from the beginning
+        assertThat(assertions.expression("OVERLAY('abcdef' PLACING 'XYZ' FROM 1 FOR 2)"))
+                .isEqualTo("XYZcdef");
+
+        // start past the end appends
+        assertThat(assertions.expression("OVERLAY('abc' PLACING 'XY' FROM 10 FOR 2)"))
+                .isEqualTo("abcXY");
+
+        // empty replacement is a deletion
+        assertThat(assertions.expression("OVERLAY('abcdef' PLACING '' FROM 2 FOR 3)"))
+                .isEqualTo("aef");
+
+        // multi-byte code points are handled per code point, not per byte
+        assertThat(assertions.expression("OVERLAY('\u00E4\u00F6\u00FC' PLACING 'X' FROM 2 FOR 1)"))
+                .isEqualTo("\u00E4X\u00FC");
+
+        // any null argument propagates to a null result (RETURNS NULL ON NULL INPUT)
+        assertThat(assertions.expression("OVERLAY(CAST(NULL AS varchar) PLACING 'XY' FROM 3)"))
+                .isNull();
+        assertThat(assertions.expression("OVERLAY('abcdef' PLACING CAST(NULL AS varchar) FROM 3)"))
+                .isNull();
+        assertThat(assertions.expression("OVERLAY('abcdef' PLACING 'XY' FROM CAST(NULL AS bigint))"))
+                .isNull();
+        assertThat(assertions.expression("OVERLAY('abcdef' PLACING 'XY' FROM 3 FOR CAST(NULL AS bigint))"))
+                .isNull();
+    }
+
+    @Test
     public void testReverse()
     {
         assertThat(assertions.function("reverse", "''"))

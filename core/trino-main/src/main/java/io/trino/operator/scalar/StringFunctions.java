@@ -40,6 +40,7 @@ import org.apache.commons.codec.language.Soundex;
 import java.text.Normalizer;
 import java.util.OptionalInt;
 
+import static com.google.common.math.LongMath.saturatedAdd;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
@@ -59,6 +60,7 @@ import static io.trino.util.Failures.checkCondition;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.SURROGATE;
 import static java.lang.Math.abs;
+import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 
 /**
@@ -67,6 +69,7 @@ import static java.lang.Math.toIntExact;
  */
 public final class StringFunctions
 {
+    public static final String OVERLAY_FUNCTION_NAME = "$overlay";
     public static final String SPACE_TRIMMED_LENGTH_FUNCTION_NAME = "$space_trimmed_length";
 
     private StringFunctions() {}
@@ -386,6 +389,38 @@ public final class StringFunctions
     public static Slice charSubstr(@LiteralParameter("x") long x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
     {
         return substring(padSpaces(utf8, toIntExact(x)), start, length);
+    }
+
+    @ScalarFunction(value = OVERLAY_FUNCTION_NAME, hidden = true)
+    @LiteralParameters({"x", "y", "u"})
+    @Constraint(variable = "u", expression = "min(2147483647, x + y)")
+    @SqlType("varchar(u)")
+    public static Slice overlay(@SqlType("varchar(x)") Slice source, @SqlType("varchar(y)") Slice replacement, @SqlType(StandardTypes.BIGINT) long start)
+    {
+        return overlay(source, replacement, start, countCodePoints(replacement));
+    }
+
+    @ScalarFunction(value = OVERLAY_FUNCTION_NAME, hidden = true)
+    @LiteralParameters({"x", "y", "u"})
+    @Constraint(variable = "u", expression = "min(2147483647, x + y)")
+    @SqlType("varchar(u)")
+    public static Slice overlay(@SqlType("varchar(x)") Slice source, @SqlType("varchar(y)") Slice replacement, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
+    {
+        // SQL OVERLAY is defined as: SUBSTRING(source FROM 1 FOR start - 1) || replacement || SUBSTRING(source FROM start + length).
+        // The prefix SUBSTRING(source FROM 1 FOR start - 1) ends at position E = start, and the standard raises a substring error
+        // when E < S (here S = 1), i.e. when start < 1. Reject that case rather than silently clamping it to a valid position.
+        checkCondition(start >= 1, INVALID_FUNCTION_ARGUMENT, "OVERLAY start position must be greater than 0, got: %s", start);
+
+        // Positions are 1-based; reuse substring() so out-of-range positions are clamped consistently with it. A non-positive
+        // length removes nothing, so the replacement is inserted at start (matching PostgreSQL).
+        Slice prefix = substring(source, 1, start - 1);
+        Slice suffix = substring(source, saturatedAdd(start, max(0, length)));
+
+        Slice result = Slices.allocate(prefix.length() + replacement.length() + suffix.length());
+        result.setBytes(0, prefix);
+        result.setBytes(prefix.length(), replacement);
+        result.setBytes(prefix.length() + replacement.length(), suffix);
+        return result;
     }
 
     @ScalarFunction
