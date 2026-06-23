@@ -22,6 +22,7 @@ import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.JsonPath;
+import io.trino.operator.scalar.TryCastFunction;
 import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -401,7 +402,7 @@ public final class ConnectorExpressionTranslator
 
             return Optional.of(new Call(
                     plannerContext.getMetadata().getCoercion(
-                            builtinFunctionName("$try_cast"),
+                            builtinFunctionName(TryCastFunction.TRY_CAST_FUNCTION_NAME),
                             argument.getType(),
                             type),
                     ImmutableList.of(translatedArgument.get())));

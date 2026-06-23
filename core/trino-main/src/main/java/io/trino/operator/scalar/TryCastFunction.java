@@ -37,11 +37,13 @@ import static java.lang.invoke.MethodType.methodType;
 public class TryCastFunction
         extends SqlScalarFunction
 {
+    public static final String TRY_CAST_FUNCTION_NAME = "$try_cast";
+
     public static final TryCastFunction TRY_CAST = new TryCastFunction();
 
     public TryCastFunction()
     {
-        super(FunctionMetadata.scalarBuilder("$try_cast")
+        super(FunctionMetadata.scalarBuilder(TRY_CAST_FUNCTION_NAME)
                 .signature(Signature.builder()
                         .castableToTypeParameter("F", typeVariable("T"))
                         .typeVariable("T")
