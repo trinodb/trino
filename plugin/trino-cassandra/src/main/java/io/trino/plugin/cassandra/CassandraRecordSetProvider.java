@@ -14,6 +14,7 @@
 package io.trino.plugin.cassandra;
 
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.querybuilder.select.Select;
 import com.google.inject.Inject;
 import io.trino.plugin.cassandra.util.CassandraCqlUtils;
 import io.trino.spi.connector.ColumnHandle;
@@ -59,13 +60,16 @@ public class CassandraRecordSetProvider
                     SimpleStatement.newInstance(queryRelationHandle.getQuery()),
                     cassandraColumns);
         }
+
+        String where = cassandraSplit.getWhereClause();
+        Select select = CassandraCqlUtils.selectFrom(cassandraTable.getRequiredNamedRelation(), cassandraColumns);
+        if (!where.isBlank()) {
+            select = select.whereRaw(where);
+        }
         return new CassandraRecordSet(
                 cassandraSession,
                 cassandraTypeManager,
-                CassandraCqlUtils.selectFrom(cassandraTable.getRequiredNamedRelation(), cassandraColumns)
-                        .whereRaw(cassandraSplit.getWhereClause())
-                        .build()
-                        .setIdempotent(true),
+                select.build().setIdempotent(true),
                 cassandraColumns);
     }
 }
