@@ -147,6 +147,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.operator.scalar.timestamptz.CurrentTimestamp.CURRENT_TIMESTAMP_FUNCTION_NAME;
 import static io.trino.operator.scalar.timetz.CurrentTime.CURRENT_TIME_FUNCTION_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -996,7 +997,7 @@ public class TranslationMap
     private io.trino.sql.ir.Expression translate(CurrentTimestamp node)
     {
         return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                .setName("$current_timestamp")
+                .setName(CURRENT_TIMESTAMP_FUNCTION_NAME)
                 .setArguments(
                         ImmutableList.of(analysis.getType(node)),
                         ImmutableList.of(new Constant(analysis.getType(node), null)))
