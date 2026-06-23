@@ -123,7 +123,8 @@ public class FunctionResolver
                 parameterTypes,
                 catalogSchemaFunctionName -> filterCandidates(
                         metadata.getFunctions(session, catalogSchemaFunctionName),
-                        candidate -> candidate.functionMetadata().getReceiverType().isEmpty()),
+                        candidate -> !candidate.functionMetadata().isHidden()
+                                && !candidate.functionMetadata().isInstanceMethod()),
                 accessControl);
 
         FunctionMetadata functionMetadata = catalogFunctionBinding.boundFunctionMetadata();
@@ -148,7 +149,8 @@ public class FunctionResolver
                 parameterTypes,
                 catalogSchemaFunctionName -> filterCandidates(
                         metadata.getFunctions(session, catalogSchemaFunctionName),
-                        candidate -> !candidate.functionMetadata().isInstanceMethod()
+                        candidate -> !candidate.functionMetadata().isHidden()
+                                && !candidate.functionMetadata().isInstanceMethod()
                                 && candidate.functionMetadata().getReceiverType()
                                 .map(TypeTemplate::baseName).equals(Optional.of(receiver))),
                 accessControl);
@@ -175,7 +177,8 @@ public class FunctionResolver
                 parameterTypes,
                 catalogSchemaFunctionName -> filterCandidates(
                         metadata.getFunctions(session, catalogSchemaFunctionName),
-                        candidate -> candidate.functionMetadata().isInstanceMethod()
+                        candidate -> !candidate.functionMetadata().isHidden()
+                                && candidate.functionMetadata().isInstanceMethod()
                                 && candidate.functionMetadata().getReceiverType()
                                 .map(TypeTemplate::baseName).equals(Optional.of(receiver))),
                 accessControl);

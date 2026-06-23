@@ -16,14 +16,21 @@ package io.trino.sql.query;
 import com.google.common.base.Joiner;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.operator.project.PageProjection;
+import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.Plugin;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.SqlTime;
@@ -31,7 +38,11 @@ import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
+import io.trino.sql.gen.PageFunctionCompiler;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
@@ -81,9 +92,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Suppliers.memoize;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.cost.StatsCalculator.noopStatsCalculator;
-import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.ir.IrExpressions.mayFail;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
@@ -161,26 +173,127 @@ public class QueryAssertions
 
     public ExpressionAssertProvider operator(OperatorType operator, @Language("SQL") String... arguments)
     {
-        return function(mangleOperatorName(operator), arguments);
+        // Operator functions are hidden and cannot be invoked by name from SQL.
+        Session session = runner.getDefaultSession();
+        List<String> argumentList = Arrays.asList(arguments);
+        List<String> names = argumentNames(argumentList.size());
+        Optional<String> syntax = operatorSyntax(operator, names);
+        if (syntax.isPresent()) {
+            // Render the operator using its surface syntax, so it is resolved through the engine's
+            // internal operator resolution exactly as it would be for a user-written expression.
+            return boundExpression(syntax.get(), names, argumentList);
+        }
+        // Operators without SQL surface syntax (e.g. INDETERMINATE, HASH_CODE) are resolved through
+        // the engine's internal operator resolution and evaluated directly as IR in both the
+        // interpreted and compiled modes, since they cannot be referenced by name from SQL.
+        return new ExpressionAssertProvider(runner, session, () -> evaluateOperatorViaIr(session, operator, argumentList));
     }
 
     public ExpressionAssertProvider function(String name, List<String> arguments)
     {
-        ImmutableList.Builder<String> builder = ImmutableList.builder();
-        for (int i = 0; i < arguments.size(); i++) {
-            builder.add("a" + i);
-        }
+        List<String> names = argumentNames(arguments.size());
+        return boundExpression("\"%s\"(%s)".formatted(name, String.join(",", names)), names, arguments);
+    }
 
-        List<String> names = builder.build();
-        ExpressionAssertProvider assertion = expression("\"%s\"(%s)".formatted(
-                name,
-                String.join(",", names)));
-
+    private ExpressionAssertProvider boundExpression(@Language("SQL") String expression, List<String> names, List<String> arguments)
+    {
+        checkArgument(names.size() == arguments.size(), "names and arguments must have the same size");
+        ExpressionAssertProvider assertion = expression(expression);
         for (int i = 0; i < arguments.size(); i++) {
             assertion.binding(names.get(i), arguments.get(i));
         }
-
         return assertion;
+    }
+
+    private static List<String> argumentNames(int count)
+    {
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        for (int i = 0; i < count; i++) {
+            builder.add("a" + i);
+        }
+        return builder.build();
+    }
+
+    private static Optional<String> operatorSyntax(OperatorType operator, List<String> arguments)
+    {
+        return switch (operator) {
+            case ADD -> Optional.of("(%s) + (%s)".formatted(arguments.get(0), arguments.get(1)));
+            case SUBTRACT -> Optional.of("(%s) - (%s)".formatted(arguments.get(0), arguments.get(1)));
+            case MULTIPLY -> Optional.of("(%s) * (%s)".formatted(arguments.get(0), arguments.get(1)));
+            case DIVIDE -> Optional.of("(%s) / (%s)".formatted(arguments.get(0), arguments.get(1)));
+            case MODULO -> Optional.of("(%s) %% (%s)".formatted(arguments.get(0), arguments.get(1)));
+            case NEGATION -> Optional.of("-(%s)".formatted(arguments.get(0)));
+            case EQUAL -> Optional.of("(%s) = (%s)".formatted(arguments.get(0), arguments.get(1)));
+            case LESS_THAN -> Optional.of("(%s) < (%s)".formatted(arguments.get(0), arguments.get(1)));
+            case LESS_THAN_OR_EQUAL -> Optional.of("(%s) <= (%s)".formatted(arguments.get(0), arguments.get(1)));
+            case IDENTICAL -> Optional.of("(%s) IS NOT DISTINCT FROM (%s)".formatted(arguments.get(0), arguments.get(1)));
+            default -> Optional.empty();
+        };
+    }
+
+    private ExpressionAssertProvider.Result evaluateOperatorViaIr(Session session, OperatorType operator, List<String> arguments)
+    {
+        PlannerContext plannerContext = runner.getPlannerContext();
+        Metadata metadata = plannerContext.getMetadata();
+
+        List<Expression> argumentExpressions = arguments.stream()
+                .map(argument -> planExpression(session, argument))
+                .collect(toImmutableList());
+        List<Type> argumentTypes = argumentExpressions.stream()
+                .map(Expression::type)
+                .collect(toImmutableList());
+
+        ResolvedFunction resolvedFunction = metadata.resolveOperator(operator, argumentTypes);
+        Call call = new Call(resolvedFunction, argumentExpressions);
+        Type resultType = call.type();
+
+        // Evaluate using both modes (interpreter and compiled), as the SQL-based evaluation path does.
+        Object interpreted = toObjectValue(resultType, new IrExpressionEvaluator(plannerContext).evaluate(call, session, ImmutableMap.of()));
+        Object compiled = evaluateCompiled(plannerContext, session, call);
+        if (!Objects.equals(interpreted, compiled)) {
+            fail("Mismatched results between interpreter and evaluation engine: %s vs %s".formatted(interpreted, compiled));
+        }
+
+        return new ExpressionAssertProvider.Result(resultType, interpreted, Optional.empty(), Optional.of(call));
+    }
+
+    private static Object evaluateCompiled(PlannerContext plannerContext, Session session, Call call)
+    {
+        PageFunctionCompiler compiler = new PageFunctionCompiler(
+                plannerContext.getFunctionManager(),
+                plannerContext.getMetadata(),
+                plannerContext.getTypeManager(),
+                0);
+        PageProjection projection = compiler.compileProjection(call, ImmutableMap.of(), Optional.empty()).get();
+        SourcePage inputPage = projection.getInputChannels().getInputChannels(SourcePage.create(1));
+        Block result = projection.project(session.toConnectorSession(), inputPage, SelectedPositions.positionsRange(0, 1));
+        return call.type().getObjectValue(result, 0);
+    }
+
+    private static Object toObjectValue(Type type, Object nativeValue)
+    {
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+        writeNativeValue(type, blockBuilder, nativeValue);
+        return type.getObjectValue(blockBuilder.build(), 0);
+    }
+
+    /**
+     * Translates a constant SQL expression into its IR form by planning it and extracting the
+     * projection. Used to build the arguments for operators that have no SQL surface syntax.
+     */
+    private Expression planExpression(Session session, @Language("SQL") String expression)
+    {
+        MaterializedResultWithPlan result = runner.executeWithPlan(
+                session,
+                // the rand() filter prevents the projection from being constant-folded away into the source
+                "SELECT %s FROM (VALUES 1) t(x) WHERE rand() >= 0".formatted(expression));
+        Plan plan = result.queryPlan().orElseThrow(() -> new AssertionError("No plan was captured for: " + expression));
+        ProjectNode project = PlanNodeSearcher.searchFrom(plan.getRoot())
+                .where(ProjectNode.class::isInstance)
+                .findFirst()
+                .map(ProjectNode.class::cast)
+                .orElseThrow(() -> new AssertionError("Could not extract an IR expression for: " + expression));
+        return getOnlyElement(project.getAssignments().expressions());
     }
 
     public ExpressionAssertProvider function(String name, @Language("SQL") String... arguments)
@@ -798,20 +911,33 @@ public class QueryAssertions
             implements AssertProvider<ExpressionAssert>
     {
         private final QueryRunner runner;
+        @Nullable
         private final String expression;
         private final Session session;
+        @Nullable
+        private final Supplier<Result> resultSupplier;
 
         private final Map<String, String> bindings = new HashMap<>();
 
         public ExpressionAssertProvider(QueryRunner runner, Session session, String expression)
         {
-            this.runner = runner;
-            this.session = session;
-            this.expression = expression;
+            this.runner = requireNonNull(runner, "runner is null");
+            this.session = requireNonNull(session, "session is null");
+            this.expression = requireNonNull(expression, "expression is null");
+            this.resultSupplier = null;
+        }
+
+        public ExpressionAssertProvider(QueryRunner runner, Session session, Supplier<Result> resultSupplier)
+        {
+            this.runner = requireNonNull(runner, "runner is null");
+            this.session = requireNonNull(session, "session is null");
+            this.expression = null;
+            this.resultSupplier = requireNonNull(resultSupplier, "resultSupplier is null");
         }
 
         public ExpressionAssertProvider binding(String variable, @Language("SQL") String value)
         {
+            checkState(resultSupplier == null, "Cannot add bindings to a pre-evaluated expression");
             String previous = bindings.put(variable, value);
             if (previous != null) {
                 fail("%s already bound to: %s".formatted(variable, value));
@@ -821,6 +947,10 @@ public class QueryAssertions
 
         public Result evaluate()
         {
+            if (resultSupplier != null) {
+                return resultSupplier.get();
+            }
+
             if (bindings.isEmpty()) {
                 return run("VALUES ROW(%s)".formatted(expression));
             }
@@ -878,23 +1008,25 @@ public class QueryAssertions
             return new Result(
                     getOnlyElement(result.result().getTypes()),
                     result.result().getOnlyColumnAsSet().iterator().next(),
-                    result.queryPlan());
+                    result.queryPlan(),
+                    Optional.empty());
         }
 
         @Override
         public ExpressionAssert assertThat()
         {
             Result result = evaluate();
-            return new ExpressionAssert(runner, session, result.value(), result.type(), result.sourcePlan())
+            return new ExpressionAssert(runner, session, result.value(), result.type(), result.sourcePlan(), result.expression())
                     .withRepresentation(ExpressionAssert.TYPE_RENDERER);
         }
 
-        public record Result(Type type, @Nullable Object value, Optional<Plan> sourcePlan)
+        public record Result(Type type, @Nullable Object value, Optional<Plan> sourcePlan, Optional<Expression> expression)
         {
             public Result
             {
                 requireNonNull(type, "type is null");
                 requireNonNull(sourcePlan, "sourcePlan is null");
+                requireNonNull(expression, "expression is null");
             }
         }
     }
@@ -943,14 +1075,16 @@ public class QueryAssertions
         private final Session session;
         private final Type actualType;
         private final Optional<Plan> plan;
+        private final Optional<Expression> expression;
 
-        public ExpressionAssert(QueryRunner runner, Session session, Object actual, Type actualType, Optional<Plan> plan)
+        public ExpressionAssert(QueryRunner runner, Session session, Object actual, Type actualType, Optional<Plan> plan, Optional<Expression> expression)
         {
             super(actual, Object.class);
             this.runner = requireNonNull(runner, "runner is null");
             this.session = requireNonNull(session, "session is null");
             this.actualType = requireNonNull(actualType, "actualType is null");
             this.plan = requireNonNull(plan, "plan is null");
+            this.expression = requireNonNull(expression, "expression is null");
         }
 
         public ExpressionAssert isEqualTo(BiFunction<Session, QueryRunner, Object> evaluator)
@@ -1022,6 +1156,9 @@ public class QueryAssertions
 
         private Expression outermostExpression()
         {
+            if (expression.isPresent()) {
+                return expression.get();
+            }
             Plan planValue = plan.orElseThrow(() -> new AssertionError("No plan was captured for this expression"));
             OutputNode outputNode = (OutputNode) planValue.getRoot();
             PlanNode planRoot = outputNode.getSource();

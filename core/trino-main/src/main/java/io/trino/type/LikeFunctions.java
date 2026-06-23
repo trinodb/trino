@@ -45,7 +45,6 @@ public final class LikeFunctions
         return likeVarchar(padSpaces(value, x.intValue()), pattern);
     }
 
-    // TODO: this should not be callable from SQL
     @ScalarFunction(value = LIKE_FUNCTION_NAME, hidden = true, neverFails = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
