@@ -137,6 +137,7 @@ import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
@@ -283,35 +284,12 @@ public class GlueHiveMetastore
             return Optional.empty();
         }
         catch (AccessDeniedException e) {
-            // Lake Formation returns AccessDeniedException (HTTP 400) for databases that do not exist
-            // in Glue, indistinguishable from a genuine permission denial. Perform a secondary
-            // GetDatabases probe (requires only catalog-level LF permission) to distinguish the two cases.
-            if (e.getMessage() != null && e.getMessage().contains("Lake Formation")) {
-                if (!glueDatabaseExists(databaseName)) {
-                    throw new SchemaNotFoundException(databaseName, e);
-                }
-            }
-            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+            // Glue/Lake Formation returns AccessDenied when the caller lacks permission (e.g. LF Describe).
+            // Surface it as a permission error instead of converting it to SchemaNotFoundException.
+            throw new TrinoException(PERMISSION_DENIED, format("Cannot access schema '%s' in Glue catalog: insufficient Lake Formation permissions", databaseName), e);
         }
         catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
-        }
-    }
-
-    private boolean glueDatabaseExists(String databaseName)
-    {
-        try {
-            return stats.getGetDatabases().call(() -> glueClient
-                            .getDatabasesPaginator(builder -> builder
-                                    .expression(databaseName)).stream()
-                            .map(GetDatabasesResponse::databaseList)
-                            .flatMap(List::stream))
-                    .anyMatch(db -> db.name().equalsIgnoreCase(databaseName));
-        }
-        catch (SdkException ignored) {
-            // If GetDatabases also fails (e.g. no catalog-level LF permission), we cannot determine
-            // whether the database exists. Return true to avoid masking genuine permission errors.
-            return true;
         }
     }
 
@@ -536,39 +514,14 @@ public class GlueHiveMetastore
             return Optional.empty();
         }
         catch (AccessDeniedException e) {
-            // Lake Formation returns AccessDeniedException (HTTP 400) for tables that do not exist
-            // in Glue, indistinguishable from a genuine permission denial. Perform a secondary
-            // GetTables probe (requires only database-level LF permission) to distinguish the two cases.
-            if (e.getMessage() != null && e.getMessage().contains("Lake Formation")) {
-                if (!glueTableExists(databaseName, tableName)) {
-                    throw new TableNotFoundException(
-                            new SchemaTableName(databaseName, tableName),
-                            format("Table '%s.%s' does not exist in Glue catalog.", databaseName, tableName),
-                            e);
-                }
-            }
-            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+            // Glue/Lake Formation returns AccessDenied when the caller lacks permission (e.g. LF Describe).
+            // Surface it as a permission error instead of converting it to TableNotFoundException: the
+            // latter is misleading (especially for CREATE TABLE, where the table not yet existing is
+            // expected) and masks the real cause, which is the missing Lake Formation permission.
+            throw new TrinoException(PERMISSION_DENIED, format("Cannot access table '%s.%s' in Glue catalog: insufficient Lake Formation permissions", databaseName, tableName), e);
         }
         catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
-        }
-    }
-
-    private boolean glueTableExists(String databaseName, String tableName)
-    {
-        try {
-            return stats.getGetTables().call(() -> glueClient
-                            .getTablesPaginator(builder -> builder
-                                    .databaseName(databaseName)
-                                    .expression(tableName)).stream()
-                            .map(GetTablesResponse::tableList)
-                            .flatMap(List::stream))
-                    .anyMatch(t -> t.name().equalsIgnoreCase(tableName));
-        }
-        catch (SdkException ignored) {
-            // If GetTables also fails (e.g. no database-level LF permission), we cannot determine
-            // whether the table exists. Return true to avoid masking genuine permission errors.
-            return true;
         }
     }
 
