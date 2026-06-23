@@ -19,7 +19,6 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.operator.scalar.TryFunction;
 import io.trino.plugin.base.util.JsonTypeUtil;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
@@ -152,6 +151,7 @@ import static io.trino.operator.scalar.SessionFunctions.CURRENT_PATH_FUNCTION_NA
 import static io.trino.operator.scalar.SessionFunctions.CURRENT_SCHEMA_FUNCTION_NAME;
 import static io.trino.operator.scalar.SessionFunctions.CURRENT_USER_FUNCTION_NAME;
 import static io.trino.operator.scalar.TryCastFunction.TRY_CAST_FUNCTION_NAME;
+import static io.trino.operator.scalar.TryFunction.TRY_FUNCTION_NAME;
 import static io.trino.operator.scalar.time.LocalTimeFunction.LOCALTIME_FUNCTION_NAME;
 import static io.trino.operator.scalar.timestamp.LocalTimestamp.LOCALTIMESTAMP_FUNCTION_NAME;
 import static io.trino.operator.scalar.timestamptz.CurrentTimestamp.CURRENT_TIMESTAMP_FUNCTION_NAME;
@@ -1162,7 +1162,7 @@ public class TranslationMap
         io.trino.sql.ir.Expression expression = translateExpression(node.getInnerExpression());
 
         return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                .setName(TryFunction.NAME)
+                .setName(TRY_FUNCTION_NAME)
                 .addArgument(new FunctionType(ImmutableList.of(), type), new Lambda(ImmutableList.of(), expression))
                 .build();
     }

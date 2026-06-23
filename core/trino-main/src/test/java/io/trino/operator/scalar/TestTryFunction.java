@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.operator.scalar.TryFunction.TRY_FUNCTION_NAME;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -69,7 +70,7 @@ public class TestTryFunction
     @SqlType("bigint")
     public static long throwError()
     {
-        throw new TrinoException(GENERIC_INTERNAL_ERROR, "internal error, should not be suppressed by " + TryFunction.NAME);
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "internal error, should not be suppressed by " + TRY_FUNCTION_NAME);
     }
 
     @Test
