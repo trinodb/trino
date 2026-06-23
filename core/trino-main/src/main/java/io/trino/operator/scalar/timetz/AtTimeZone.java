@@ -23,6 +23,7 @@ import io.trino.spi.type.LongTimeWithTimeZone;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimeZoneNotSupportedException;
 
+import static io.trino.operator.scalar.timetz.AtTimeZone.AT_TIMEZONE_FUNCTION_NAME;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackOffsetMinutes;
@@ -36,9 +37,11 @@ import static io.trino.type.DateTimes.getOffsetMinutes;
 import static java.lang.Math.floorMod;
 import static java.lang.String.format;
 
-@ScalarFunction(value = "$at_timezone", hidden = true)
+@ScalarFunction(value = AT_TIMEZONE_FUNCTION_NAME, hidden = true)
 public final class AtTimeZone
 {
+    public static final String AT_TIMEZONE_FUNCTION_NAME = "$at_timezone";
+
     private AtTimeZone() {}
 
     @LiteralParameters({"x", "p"})

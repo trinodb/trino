@@ -154,6 +154,7 @@ import static io.trino.operator.scalar.SessionFunctions.CURRENT_USER_FUNCTION_NA
 import static io.trino.operator.scalar.time.LocalTimeFunction.LOCALTIME_FUNCTION_NAME;
 import static io.trino.operator.scalar.timestamp.LocalTimestamp.LOCALTIMESTAMP_FUNCTION_NAME;
 import static io.trino.operator.scalar.timestamptz.CurrentTimestamp.CURRENT_TIMESTAMP_FUNCTION_NAME;
+import static io.trino.operator.scalar.timetz.AtTimeZone.AT_TIMEZONE_FUNCTION_NAME;
 import static io.trino.operator.scalar.timetz.CurrentTime.CURRENT_TIME_FUNCTION_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -1115,12 +1116,12 @@ public class TranslationMap
     {
         return switch (valueType) {
             case TimeType type -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                    .setName("$at_timezone")
+                    .setName(AT_TIMEZONE_FUNCTION_NAME)
                     .addArgument(createTimeWithTimeZoneType(type.getPrecision()), new io.trino.sql.ir.Cast(value, createTimeWithTimeZoneType(type.getPrecision())))
                     .addArgument(timeZoneType, timeZone)
                     .build();
             case TimeWithTimeZoneType _ -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                    .setName("$at_timezone")
+                    .setName(AT_TIMEZONE_FUNCTION_NAME)
                     .addArgument(valueType, value)
                     .addArgument(timeZoneType, timeZone)
                     .build();
