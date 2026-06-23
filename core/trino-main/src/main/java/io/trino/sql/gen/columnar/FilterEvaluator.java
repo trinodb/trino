@@ -39,6 +39,7 @@ import static io.trino.sql.gen.columnar.AndFilterEvaluator.createAndExpressionEv
 import static io.trino.sql.gen.columnar.DynamicPageFilter.DynamicFilterEvaluator;
 import static io.trino.sql.gen.columnar.OrFilterEvaluator.createOrExpressionEvaluator;
 import static io.trino.sql.ir.IrExpressions.mayFail;
+import static io.trino.type.BooleanOperators.NOT_FUNCTION_NAME;
 import static io.trino.type.UnknownType.UNKNOWN;
 
 /**
@@ -98,7 +99,7 @@ public sealed interface FilterEvaluator
     static boolean isNotExpression(Call call)
     {
         CatalogSchemaFunctionName functionName = call.function().name();
-        return isBuiltinFunctionName(functionName) && functionName.functionName().equals("$not");
+        return isBuiltinFunctionName(functionName) && functionName.functionName().equals(NOT_FUNCTION_NAME);
     }
 
     // Reordering can expose a term that may fail to rows that an earlier term would have filtered out,

@@ -38,6 +38,7 @@ import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.trino.type.BooleanOperators.NOT_FUNCTION_NAME;
 
 /**
  * Simplifies logical expression containing terms and negations of those terms.
@@ -68,7 +69,7 @@ public class SimplifyComplementaryLogicalTerms
         Set<Expression> negatives = new HashSet<>();
         for (Expression term : terms) {
             if (isDeterministic(term)) {
-                if (term instanceof Call(ResolvedFunction function, List<Expression> arguments) && function.name().equals(builtinFunctionName("$not"))) {
+                if (term instanceof Call(ResolvedFunction function, List<Expression> arguments) && function.name().equals(builtinFunctionName(NOT_FUNCTION_NAME))) {
                     negatives.add(arguments.getFirst());
                 }
                 else {
@@ -87,7 +88,7 @@ public class SimplifyComplementaryLogicalTerms
         for (Expression term : terms) {
             if (isDeterministic(term)) {
                 Expression unwrapped = term;
-                if (term instanceof Call(ResolvedFunction function, List<Expression> arguments) && function.name().equals(builtinFunctionName("$not"))) {
+                if (term instanceof Call(ResolvedFunction function, List<Expression> arguments) && function.name().equals(builtinFunctionName(NOT_FUNCTION_NAME))) {
                     unwrapped = arguments.getFirst();
                 }
 

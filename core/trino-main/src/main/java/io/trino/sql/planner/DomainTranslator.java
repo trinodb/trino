@@ -107,6 +107,7 @@ import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.combineDisjunctsWithDefault;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.type.BooleanOperators.NOT_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -1014,7 +1015,7 @@ public final class DomainTranslator
                     return result.get();
                 }
             }
-            else if (name.equals(builtinFunctionName("$not"))) {
+            else if (name.equals(builtinFunctionName(NOT_FUNCTION_NAME))) {
                 return process(node.arguments().getFirst(), !complement);
             }
             return visitExpression(node, complement);

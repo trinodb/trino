@@ -66,6 +66,7 @@ import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
+import static io.trino.type.BooleanOperators.NOT_FUNCTION_NAME;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
 import static java.lang.Double.min;
@@ -380,7 +381,7 @@ public class FilterStatsCalculator
             if (isDynamicFilter(node)) {
                 return process(Booleans.TRUE, context);
             }
-            else if (node.function().name().equals(builtinFunctionName("$not"))) {
+            else if (node.function().name().equals(builtinFunctionName(NOT_FUNCTION_NAME))) {
                 Expression argument = node.arguments().getFirst();
                 if (argument instanceof IsNull inner) {
                     if (inner.value() instanceof Reference) {
