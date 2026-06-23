@@ -151,6 +151,7 @@ import static io.trino.operator.scalar.SessionFunctions.CURRENT_CATALOG_FUNCTION
 import static io.trino.operator.scalar.SessionFunctions.CURRENT_PATH_FUNCTION_NAME;
 import static io.trino.operator.scalar.SessionFunctions.CURRENT_SCHEMA_FUNCTION_NAME;
 import static io.trino.operator.scalar.SessionFunctions.CURRENT_USER_FUNCTION_NAME;
+import static io.trino.operator.scalar.TryCastFunction.TRY_CAST_FUNCTION_NAME;
 import static io.trino.operator.scalar.time.LocalTimeFunction.LOCALTIME_FUNCTION_NAME;
 import static io.trino.operator.scalar.timestamp.LocalTimestamp.LOCALTIMESTAMP_FUNCTION_NAME;
 import static io.trino.operator.scalar.timestamptz.CurrentTimestamp.CURRENT_TIMESTAMP_FUNCTION_NAME;
@@ -779,7 +780,7 @@ public class TranslationMap
         if (expression.isSafe()) {
             return new Call(
                     plannerContext.getMetadata().getCoercion(
-                            builtinFunctionName("$try_cast"),
+                            builtinFunctionName(TRY_CAST_FUNCTION_NAME),
                             analysis.getType(expression.getExpression()),
                             analysis.getType(expression)),
                     ImmutableList.of(translateExpression(expression.getExpression())));
