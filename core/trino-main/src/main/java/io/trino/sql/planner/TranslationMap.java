@@ -149,6 +149,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.SessionFunctions.CURRENT_CATALOG_FUNCTION_NAME;
 import static io.trino.operator.scalar.SessionFunctions.CURRENT_PATH_FUNCTION_NAME;
+import static io.trino.operator.scalar.SessionFunctions.CURRENT_SCHEMA_FUNCTION_NAME;
 import static io.trino.operator.scalar.SessionFunctions.CURRENT_USER_FUNCTION_NAME;
 import static io.trino.operator.scalar.timestamptz.CurrentTimestamp.CURRENT_TIMESTAMP_FUNCTION_NAME;
 import static io.trino.operator.scalar.timetz.CurrentTime.CURRENT_TIME_FUNCTION_NAME;
@@ -960,7 +961,7 @@ public class TranslationMap
     {
         return new Call(
                 plannerContext.getMetadata()
-                        .resolveBuiltinFunction("$current_schema", ImmutableList.of()),
+                        .resolveBuiltinFunction(CURRENT_SCHEMA_FUNCTION_NAME, ImmutableList.of()),
                 ImmutableList.of());
     }
 
