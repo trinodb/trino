@@ -37,6 +37,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -89,6 +90,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
+import static org.assertj.core.api.InstanceOfAssertFactories.type;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -180,6 +182,38 @@ public class TestCassandraConnector
         assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("totally_invalid_database_name", "dual"), Optional.empty(), Optional.empty())).isNull();
         assertThat(metadata.listTables(SESSION, Optional.of("totally_invalid_database_name"))).isEqualTo(ImmutableList.of());
         assertThat(metadata.streamRelationColumns(SESSION, Optional.of("totally_invalid_database_name"), names -> names).hasNext()).isEqualTo(false);
+    }
+
+    @Test
+    public void testGetRecordsEmptyWhereClause()
+    {
+        ConnectorTransactionHandle transaction = CassandraTransactionHandle.INSTANCE;
+        ConnectorTableHandle tableHandle = getTableHandle(table);
+        List<ConnectorSplit> splits = getAllSplits(splitManager.getSplits(
+                transaction,
+                SESSION,
+                tableHandle,
+                ImmutableSet.of(),
+                Constraint.alwaysTrue()));
+        CassandraSplit cassandraSplit = assertThat(splits)
+                .singleElement()
+                .asInstanceOf(type(CassandraSplit.class)).actual();
+        assertThat(cassandraSplit.partitionId()).isEqualTo(CassandraPartition.UNPARTITIONED_ID);
+        CassandraSplit syntheticSplit = new CassandraSplit(
+                CassandraPartition.UNPARTITIONED_ID,
+                null,
+                cassandraSplit.addresses());
+        RecordSet recordSet = recordSetProvider.getRecordSet(
+                transaction,
+                SESSION,
+                syntheticSplit,
+                tableHandle,
+                ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values()));
+        try (RecordCursor cursor = recordSet.cursor()) {
+            while (cursor.advanceNextPosition()) {
+                // Consume the cursor to ensure CQL works.
+            }
+        }
     }
 
     @Test
