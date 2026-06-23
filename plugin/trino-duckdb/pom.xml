@@ -53,7 +53,7 @@
         <dependency>
             <groupId>org.duckdb</groupId>
             <artifactId>duckdb_jdbc</artifactId>
-            <version>1.5.3.0</version>
+            <version>1.5.4.0</version>
         </dependency>
 
         <dependency>
