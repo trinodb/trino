@@ -113,13 +113,13 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>json</artifactId>
-            <scope>runtime</scope>
+            <artifactId>aircompressor</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>aircompressor</artifactId>
+            <artifactId>json</artifactId>
             <scope>test</scope>
         </dependency>
 

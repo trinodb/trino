@@ -13,11 +13,6 @@
     <name>${project.artifactId}</name>
     <description>Trino - Legacy HDFS file system support</description>
 
-    <properties>
-        <!-- TODO: remove when dependency-scope is removed from airbase -->
-        <air.check.skip-dependency-scope>true</air.check.skip-dependency-scope>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>com.google.errorprone</groupId>
