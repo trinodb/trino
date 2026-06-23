@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.scalar.TryFunction;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.FunctionType;
 import io.trino.sql.ir.Call;
@@ -47,6 +46,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.operator.scalar.TryFunction.TRY_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
@@ -322,7 +322,7 @@ public class TestEqualityInference
         List<Expression> candidates = ImmutableList.of(
                 new Cast(new Reference(BIGINT, "b"), BIGINT),
                 functionResolution
-                        .functionCallBuilder(TryFunction.NAME)
+                        .functionCallBuilder(TRY_FUNCTION_NAME)
                         .addArgument(new FunctionType(ImmutableList.of(), BIGINT), new Lambda(ImmutableList.of(), new Reference(BIGINT, "b")))
                         .build(),
                 nullIf(new SymbolAllocator(), new Reference(BIGINT, "b"), new Constant(BIGINT, 1L)),
