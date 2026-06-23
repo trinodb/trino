@@ -31,9 +31,11 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public final class SessionFunctions
 {
+    public static final String CURRENT_USER_FUNCTION_NAME = "$current_user";
+
     private SessionFunctions() {}
 
-    @ScalarFunction(value = "$current_user", hidden = true, neverFails = true)
+    @ScalarFunction(value = CURRENT_USER_FUNCTION_NAME, hidden = true, neverFails = true)
     @Description("Current user")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice currentUser(ConnectorSession session)
