@@ -151,6 +151,7 @@ import static io.trino.operator.scalar.SessionFunctions.CURRENT_CATALOG_FUNCTION
 import static io.trino.operator.scalar.SessionFunctions.CURRENT_PATH_FUNCTION_NAME;
 import static io.trino.operator.scalar.SessionFunctions.CURRENT_SCHEMA_FUNCTION_NAME;
 import static io.trino.operator.scalar.SessionFunctions.CURRENT_USER_FUNCTION_NAME;
+import static io.trino.operator.scalar.time.LocalTimeFunction.LOCALTIME_FUNCTION_NAME;
 import static io.trino.operator.scalar.timestamptz.CurrentTimestamp.CURRENT_TIMESTAMP_FUNCTION_NAME;
 import static io.trino.operator.scalar.timetz.CurrentTime.CURRENT_TIME_FUNCTION_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -1011,7 +1012,7 @@ public class TranslationMap
     private io.trino.sql.ir.Expression translate(LocalTime node)
     {
         return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                .setName("$localtime")
+                .setName(LOCALTIME_FUNCTION_NAME)
                 .setArguments(
                         ImmutableList.of(analysis.getType(node)),
                         ImmutableList.of(new Constant(analysis.getType(node), null)))
