@@ -1174,6 +1174,28 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitOverlay(Overlay node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteOverlay(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression value = rewrite(node.getValue(), context.get());
+            Expression replacement = rewrite(node.getReplacement(), context.get());
+            Expression start = rewrite(node.getStart(), context.get());
+            Optional<Expression> length = node.getLength().isPresent() ? Optional.of(rewrite(node.getLength().get(), context.get())) : Optional.empty();
+
+            if (value != node.getValue() || replacement != node.getReplacement() || start != node.getStart() || !sameElements(length, node.getLength())) {
+                return new Overlay(node.getLocation().orElseThrow(), value, replacement, start, length);
+            }
+
+            return node;
+        }
+
+        @Override
         protected Expression visitFormat(Format node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

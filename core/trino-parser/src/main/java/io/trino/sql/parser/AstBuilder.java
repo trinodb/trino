@@ -205,6 +205,7 @@ import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OneOrMoreQuantifier;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.OrdinalityColumn;
+import io.trino.sql.tree.Overlay;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.ParameterDeclaration;
 import io.trino.sql.tree.PathElement;
@@ -3002,6 +3003,17 @@ class AstBuilder
     {
         List<Expression> arguments = visit(context.valueExpression(), Expression.class).reversed();
         return new FunctionCall(getLocation(context), QualifiedName.of("strpos"), arguments);
+    }
+
+    @Override
+    public Node visitOverlay(SqlBaseParser.OverlayContext context)
+    {
+        return new Overlay(
+                getLocation(context),
+                (Expression) visit(context.source),
+                (Expression) visit(context.replacement),
+                (Expression) visit(context.start),
+                visitIfPresent(context.length, Expression.class));
     }
 
     @Override

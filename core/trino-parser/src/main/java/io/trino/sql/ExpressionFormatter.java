@@ -88,6 +88,7 @@ import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.NumericParameter;
 import io.trino.sql.tree.OrderBy;
+import io.trino.sql.tree.Overlay;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.QualifiedName;
@@ -235,6 +236,19 @@ public final class ExpressionFormatter
             }
 
             return "trim(%s %s FROM %s)".formatted(node.getSpecification(), process(node.getTrimCharacter().get(), context), process(node.getTrimSource(), context));
+        }
+
+        @Override
+        protected String visitOverlay(Overlay node, Void context)
+        {
+            String formatted = "OVERLAY(%s PLACING %s FROM %s".formatted(
+                    process(node.getValue(), context),
+                    process(node.getReplacement(), context),
+                    process(node.getStart(), context));
+            if (node.getLength().isPresent()) {
+                formatted += " FOR " + process(node.getLength().get(), context);
+            }
+            return formatted + ")";
         }
 
         @Override

@@ -95,6 +95,17 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitOverlay(Overlay node, C context)
+    {
+        process(node.getValue(), context);
+        process(node.getReplacement(), context);
+        process(node.getStart(), context);
+        node.getLength().ifPresent(length -> process(length, context));
+
+        return null;
+    }
+
+    @Override
     protected Void visitFormat(Format node, C context)
     {
         for (Expression argument : node.getArguments()) {

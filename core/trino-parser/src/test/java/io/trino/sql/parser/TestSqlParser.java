@@ -155,6 +155,7 @@ import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OneOrMoreQuantifier;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.OrdinalityColumn;
+import io.trino.sql.tree.Overlay;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.PathElement;
 import io.trino.sql.tree.PathSpecification;
@@ -1992,6 +1993,28 @@ public class TestSqlParser
         assertStatement("SELECT substring('%s' FROM 2 FOR 3)".formatted(givenString),
                 simpleQuery(selectList(
                         new FunctionCall(QualifiedName.of("substr"), Lists.newArrayList(new StringLiteral(givenString), new LongLiteral("2"), new LongLiteral("3"))))));
+    }
+
+    @Test
+    public void testOverlay()
+    {
+        assertStatement("SELECT OVERLAY('abcdef' PLACING 'XY' FROM 3)",
+                simpleQuery(selectList(
+                        new Overlay(
+                                new NodeLocation(1, 8),
+                                new StringLiteral("abcdef"),
+                                new StringLiteral("XY"),
+                                new LongLiteral("3"),
+                                Optional.empty()))));
+
+        assertStatement("SELECT OVERLAY('abcdef' PLACING 'XY' FROM 3 FOR 2)",
+                simpleQuery(selectList(
+                        new Overlay(
+                                new NodeLocation(1, 8),
+                                new StringLiteral("abcdef"),
+                                new StringLiteral("XY"),
+                                new LongLiteral("3"),
+                                Optional.of(new LongLiteral("2"))))));
     }
 
     @Test

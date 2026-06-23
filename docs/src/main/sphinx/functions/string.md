@@ -120,6 +120,28 @@ select luhn_check('79927398714');
 ```
 :::
 
+::::{function} overlay(string PLACING replacement FROM start) -> varchar
+Returns `string` with the substring beginning at position `start` (1-based,
+must be greater than `0`) replaced by `replacement`. The number of characters
+removed defaults to the length of `replacement`. The result keeps the same
+length as `string` only when the replaced range lies entirely within `string`;
+when the range extends past the end, the result is longer. For example,
+`overlay('abc' PLACING 'XYZ' FROM 3)` returns `abXYZ`.
+::::
+
+::::{function} overlay(string PLACING replacement FROM start FOR length) -> varchar
+:noindex: true
+
+Returns `string` with `length` characters beginning at position `start`
+(1-based, must be greater than `0`) replaced by `replacement`. A `length` of
+`0` or less inserts `replacement` without removing any characters. For example:
+
+```
+SELECT overlay('Txxxxas' PLACING 'hom' FROM 2 FOR 4);
+-- Thomas
+```
+::::
+
 ::::{function} position(substring IN string) -> bigint
 Returns the starting position of the first instance of `substring` in
 `string`. Positions start with `1`. If not found, `0` is returned.
