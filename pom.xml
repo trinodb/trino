@@ -206,7 +206,7 @@
         <dep.parquet.version>1.17.1</dep.parquet.version>
         <dep.protobuf.version>4.34.1</dep.protobuf.version>
         <dep.swagger.version>2.2.51</dep.swagger.version>
-        <dep.takari.version>2.3.3</dep.takari.version>
+        <dep.takari.version>2.3.4</dep.takari.version>
         <dep.tcnative.version>2.0.79.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
         <dep.zookeeper.version>3.9.5</dep.zookeeper.version>
