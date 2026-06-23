@@ -30,7 +30,6 @@ import io.trino.metadata.FunctionResolver;
 import io.trino.metadata.LanguageFunctionAnalysisException;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.operator.scalar.FormatFunction;
 import io.trino.security.AccessControl;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorCodeSupplier;
@@ -204,6 +203,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.operator.scalar.FormatFunction.FORMAT_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonArrayFunction.JSON_ARRAY_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonExistsFunction.JSON_EXISTS_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARBINARY_TO_JSON;
@@ -2847,7 +2847,7 @@ public class ExpressionAnalyzer
 
             for (int i = 1; i < arguments.size(); i++) {
                 try {
-                    plannerContext.getMetadata().resolveBuiltinFunction(FormatFunction.NAME, fromTypes(arguments.getFirst(), RowType.anonymous(arguments.subList(1, arguments.size()))));
+                    plannerContext.getMetadata().resolveBuiltinFunction(FORMAT_FUNCTION_NAME, fromTypes(arguments.getFirst(), RowType.anonymous(arguments.subList(1, arguments.size()))));
                 }
                 catch (TrinoException e) {
                     ErrorCode errorCode = e.getErrorCode();

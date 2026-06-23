@@ -78,7 +78,7 @@ import static java.lang.String.format;
 public final class FormatFunction
         extends SqlScalarFunction
 {
-    public static final String NAME = "$format";
+    public static final String FORMAT_FUNCTION_NAME = "$format";
 
     public static final FormatFunction FORMAT_FUNCTION = new FormatFunction();
     private static final MethodHandle METHOD_HANDLE = methodHandle(FormatFunction.class, "sqlFormat", List.class, ConnectorSession.class, Slice.class, SqlRow.class);
@@ -87,7 +87,7 @@ public final class FormatFunction
 
     private FormatFunction()
     {
-        super(FunctionMetadata.scalarBuilder(NAME)
+        super(FunctionMetadata.scalarBuilder(FORMAT_FUNCTION_NAME)
                 .signature(Signature.builder()
                         .rowTypeParameter("T")
                         .argumentType(VARCHAR.getTypeDescriptor())

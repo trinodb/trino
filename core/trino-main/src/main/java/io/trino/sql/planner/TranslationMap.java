@@ -19,7 +19,6 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.operator.scalar.FormatFunction;
 import io.trino.operator.scalar.TryFunction;
 import io.trino.plugin.base.util.JsonTypeUtil;
 import io.trino.spi.function.OperatorType;
@@ -147,6 +146,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.operator.scalar.FormatFunction.FORMAT_FUNCTION_NAME;
 import static io.trino.operator.scalar.SessionFunctions.CURRENT_CATALOG_FUNCTION_NAME;
 import static io.trino.operator.scalar.SessionFunctions.CURRENT_PATH_FUNCTION_NAME;
 import static io.trino.operator.scalar.SessionFunctions.CURRENT_SCHEMA_FUNCTION_NAME;
@@ -1150,7 +1150,7 @@ public class TranslationMap
                 .collect(toImmutableList());
 
         return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                .setName(FormatFunction.NAME)
+                .setName(FORMAT_FUNCTION_NAME)
                 .addArgument(VARCHAR, new io.trino.sql.ir.Cast(arguments.get(0), VARCHAR))
                 .addArgument(RowType.anonymous(argumentTypes.subList(1, arguments.size())), new io.trino.sql.ir.Row(arguments.subList(1, arguments.size())))
                 .build();
