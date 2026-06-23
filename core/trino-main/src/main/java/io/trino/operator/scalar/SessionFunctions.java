@@ -34,6 +34,7 @@ public final class SessionFunctions
     public static final String CURRENT_USER_FUNCTION_NAME = "$current_user";
     public static final String CURRENT_PATH_FUNCTION_NAME = "$current_path";
     public static final String CURRENT_CATALOG_FUNCTION_NAME = "$current_catalog";
+    public static final String CURRENT_SCHEMA_FUNCTION_NAME = "$current_schema";
 
     private SessionFunctions() {}
 
@@ -64,7 +65,7 @@ public final class SessionFunctions
                 .orElse(null);
     }
 
-    @ScalarFunction(value = "$current_schema", hidden = true, neverFails = true)
+    @ScalarFunction(value = CURRENT_SCHEMA_FUNCTION_NAME, hidden = true, neverFails = true)
     @Description("Current schema")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice currentSchema(ConnectorSession session)
