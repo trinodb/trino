@@ -13,15 +13,10 @@
  */
 package io.trino.operator.scalar;
 
-import io.airlift.jcodings.specific.NonStrictUTF8Encoding;
-import io.airlift.joni.Matcher;
-import io.airlift.joni.Option;
-import io.airlift.joni.Regex;
-import io.airlift.joni.Syntax;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.likematcher.LikeMatcher;
-import io.trino.type.JoniRegexp;
+import io.trino.type.SafeReRegexp;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -40,10 +35,6 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.Optional;
 
-import static io.airlift.joni.constants.MetaChar.INEFFECTIVE_META_CHAR;
-import static io.airlift.joni.constants.SyntaxProperties.OP_ASTERISK_ZERO_INF;
-import static io.airlift.joni.constants.SyntaxProperties.OP_DOT_ANYCHAR;
-import static io.airlift.joni.constants.SyntaxProperties.OP_LINE_ANCHOR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.util.Failures.checkCondition;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -65,19 +56,6 @@ public class BenchmarkLike
             "a".repeat(100) +
             "b".repeat(100) +
             "the quick brown fox jumps over the lazy dog";
-
-    private static final Syntax SYNTAX = new Syntax(
-            OP_DOT_ANYCHAR | OP_ASTERISK_ZERO_INF | OP_LINE_ANCHOR,
-            0,
-            0,
-            Option.NONE,
-            new Syntax.MetaCharTable(
-                    '\\',                           /* esc */
-                    INEFFECTIVE_META_CHAR,          /* anychar '.' */
-                    INEFFECTIVE_META_CHAR,          /* anytime '*' */
-                    INEFFECTIVE_META_CHAR,          /* zero or one time '?' */
-                    INEFFECTIVE_META_CHAR,          /* one or more time '+' */
-                    INEFFECTIVE_META_CHAR));        /* anychar anytime */
 
     public enum BenchmarkCase
     {
@@ -125,7 +103,7 @@ public class BenchmarkLike
 
         private Slice data;
         private byte[] bytes;
-        private JoniRegexp joniPattern;
+        private SafeReRegexp regexPattern;
         private LikeMatcher optimizedMatcher;
         private LikeMatcher nonOptimizedMatcher;
 
@@ -134,7 +112,7 @@ public class BenchmarkLike
         {
             optimizedMatcher = LikeMatcher.compile(benchmarkCase.pattern(), Optional.empty(), true);
             nonOptimizedMatcher = LikeMatcher.compile(benchmarkCase.pattern(), Optional.empty(), false);
-            joniPattern = compileJoni(benchmarkCase.pattern(), '0', false);
+            regexPattern = compileRegex(benchmarkCase.pattern(), '0', false);
 
             bytes = benchmarkCase.text().getBytes(UTF_8);
             data = Slices.wrappedBuffer(bytes);
@@ -142,9 +120,9 @@ public class BenchmarkLike
     }
 
     @Benchmark
-    public boolean matchJoni(Data data)
+    public boolean matchRegex(Data data)
     {
-        return likeVarchar(data.data, data.joniPattern);
+        return SafeReRegexpFunctions.regexpLike(data.data, data.regexPattern);
     }
 
     @Benchmark
@@ -160,9 +138,9 @@ public class BenchmarkLike
     }
 
     @Benchmark
-    public JoniRegexp compileJoni(Data data)
+    public SafeReRegexp compileRegex(Data data)
     {
-        return compileJoni(data.benchmarkCase.pattern(), (char) 0, false);
+        return compileRegex(data.benchmarkCase.pattern(), (char) 0, false);
     }
 
     @Benchmark
@@ -178,9 +156,9 @@ public class BenchmarkLike
     }
 
     @Benchmark
-    public boolean dynamicJoni(Data data)
+    public boolean dynamicRegex(Data data)
     {
-        return likeVarchar(data.data, compileJoni(Slices.utf8Slice(data.benchmarkCase.pattern()).toStringUtf8(), '0', false));
+        return SafeReRegexpFunctions.regexpLike(data.data, compileRegex(Slices.utf8Slice(data.benchmarkCase.pattern()).toStringUtf8(), '0', false));
     }
 
     @Benchmark
@@ -197,18 +175,9 @@ public class BenchmarkLike
                 .match(data.bytes, 0, data.bytes.length);
     }
 
-    public static boolean likeVarchar(Slice value, JoniRegexp pattern)
+    private static SafeReRegexp compileRegex(String patternString, char escapeChar, boolean shouldEscape)
     {
-        int offset = value.byteArrayOffset();
-        Matcher matcher = pattern.regex().matcher(value.byteArray(), offset, offset + value.length());
-        return matcher.match(offset, offset + value.length(), Option.NONE) != -1;
-    }
-
-    private static JoniRegexp compileJoni(String patternString, char escapeChar, boolean shouldEscape)
-    {
-        byte[] bytes = likeToRegex(patternString, escapeChar, shouldEscape).getBytes(UTF_8);
-        Regex joniRegex = new Regex(bytes, 0, bytes.length, Option.MULTILINE, NonStrictUTF8Encoding.INSTANCE, SYNTAX);
-        return new JoniRegexp(Slices.wrappedBuffer(bytes), joniRegex);
+        return new SafeReRegexp(Slices.utf8Slice(likeToRegex(patternString, escapeChar, shouldEscape)));
     }
 
     private static String likeToRegex(String patternString, char escapeChar, boolean shouldEscape)
@@ -235,7 +204,7 @@ public class BenchmarkLike
                     default -> {
                         // escape special regex characters
                         switch (currentChar) {
-                            case '\\', '^', '$', '.', '*' -> regex.append('\\');
+                            case '\\', '^', '$', '.', '*', '+', '?', '(', ')', '[', ']', '{', '}', '|' -> regex.append('\\');
                         }
                         regex.append(currentChar);
                         escaped = false;

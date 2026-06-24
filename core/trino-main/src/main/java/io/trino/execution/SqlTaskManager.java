@@ -48,8 +48,8 @@ import io.trino.memory.NodeMemoryConfig;
 import io.trino.memory.QueryContext;
 import io.trino.metadata.LanguageFunctionProvider;
 import io.trino.operator.RetryPolicy;
-import io.trino.operator.scalar.JoniRegexpFunctions;
-import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
+import io.trino.operator.scalar.SafeReRegexpFunctions;
+import io.trino.operator.scalar.SafeReRegexpReplaceLambdaFunction;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
@@ -110,11 +110,11 @@ public class SqlTaskManager
         implements Closeable
 {
     private static final Logger log = Logger.get(SqlTaskManager.class);
-    private static final Set<String> JONI_REGEXP_FUNCTION_CLASS_NAMES = ImmutableSet.of(
-            JoniRegexpFunctions.class.getName(),
-            JoniRegexpReplaceLambdaFunction.class.getName());
+    private static final Set<String> REGEXP_FUNCTION_CLASS_NAMES = ImmutableSet.of(
+            SafeReRegexpFunctions.class.getName(),
+            SafeReRegexpReplaceLambdaFunction.class.getName());
     private static final Predicate<List<StackTraceElement>> STUCK_SPLIT_STACK_TRACE_PREDICATE =
-            elements -> elements.stream().anyMatch(stackTraceElement -> JONI_REGEXP_FUNCTION_CLASS_NAMES.contains(stackTraceElement.getClassName()));
+            elements -> elements.stream().anyMatch(stackTraceElement -> REGEXP_FUNCTION_CLASS_NAMES.contains(stackTraceElement.getClassName()));
 
     private final VersionEmbedder versionEmbedder;
     private final ConnectorServicesProvider connectorServicesProvider;

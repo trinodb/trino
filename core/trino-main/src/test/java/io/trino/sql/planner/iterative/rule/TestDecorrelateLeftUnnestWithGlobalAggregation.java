@@ -49,7 +49,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.unnest;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
-import static io.trino.type.JoniRegexpType.JONI_REGEXP;
+import static io.trino.type.SafeReRegexpType.SAFE_RE_REGEXP;
 
 public class TestDecorrelateLeftUnnestWithGlobalAggregation
         extends BaseRuleTest
@@ -302,7 +302,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                     Symbol corr = p.symbol("corr", VARCHAR);
                     Call regexpExtractAll = new Call(
                             REGEXP_EXTRACT_ALL,
-                            ImmutableList.of(corr.toSymbolReference(), new Cast(new Constant(VARCHAR, Slices.utf8Slice(".")), JONI_REGEXP)));
+                            ImmutableList.of(corr.toSymbolReference(), new Cast(new Constant(VARCHAR, Slices.utf8Slice(".")), SAFE_RE_REGEXP)));
 
                     return p.correlatedJoin(
                             ImmutableList.of(corr),
@@ -333,7 +333,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                                                 Optional.empty(),
                                                 LEFT,
                                                 project(
-                                                        ImmutableMap.of("char_array", expression(new Call(REGEXP_EXTRACT_ALL, ImmutableList.of(new Reference(VARCHAR, "corr"), new Cast(new Constant(VARCHAR, Slices.utf8Slice(".")), JONI_REGEXP))))),
+                                                        ImmutableMap.of("char_array", expression(new Call(REGEXP_EXTRACT_ALL, ImmutableList.of(new Reference(VARCHAR, "corr"), new Cast(new Constant(VARCHAR, Slices.utf8Slice(".")), SAFE_RE_REGEXP))))),
                                                         assignUniqueId("unique", values("corr")))))));
     }
 

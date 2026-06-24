@@ -19,19 +19,18 @@ import java.util.Set;
 import static java.util.Objects.requireNonNull;
 
 /// Translates XQuery / SQL:2023 `like_regex` patterns for execution by Trino's regex engine
-/// (Joni or RE2J).
+/// (SafeRE).
 ///
 /// **Known dialect gaps:** SQL:2023 `like_regex` defers to XQuery F&O 3.0 regex, but the pattern
 /// is handed to Trino's `regexp_like`, which has different semantics for some escapes:
 ///
-/// - `\s`, `\d`, `\w`: ASCII-only in both Joni and RE2J; Unicode in XQuery. Patterns relying on
+/// - `\s`, `\d`, `\w`: ASCII-only in SafeRE; Unicode in XQuery. Patterns relying on
 ///   Unicode category matching will return unexpected results.
 /// - `\i` (XML name-start char), `\I` (complement), `\c` (XML name char), `\C` (complement):
 ///   XML name-class escapes don't exist in Java regex and will raise a pattern-syntax error.
 ///   Prefer explicit character classes.
-/// - `(?x)`: XQuery defines flag `x` as "whitespace is ignored, `#` begins a comment." Joni
-///   supports this identically to Java. RE2J does not support `(?x)` at all; patterns using the
-///   `x` flag may fail to compile under RE2J.
+/// - Backreferences (`\1`): valid XQuery regex, but SafeRE rejects them at compile time to
+///   preserve its linear-time guarantee, so the pattern is rejected at analysis time.
 /// - Flags accepted are XQuery 1.0's `s`, `m`, `i`, and `x` only. XQuery 3.0 added `q`
 ///   (interpret the pattern literally), which is rejected here even though some engines
 ///   (for example PostgreSQL) accept it; SQL:2023's normative reference is XQuery 1.0.
@@ -98,12 +97,12 @@ public final class XQueryRegex
         return "(?" + inlineFlags + ")" + pattern;
     }
 
-    /// Rejects regex syntax that is valid in Joni (Trino's `regexp_like` engine) but not in the
+    /// Rejects regex syntax that is accepted by Java-style regex engines but not by the
     /// SQL:2023 / XQuery F&O 3.0 regex grammar. This is a lightweight pre-validator — it scans
-    /// the pattern for known Joni-isms rather than implementing the full XQuery grammar.
+    /// the pattern for known Java-regex-isms rather than implementing the full XQuery grammar.
     ///
     /// TODO: replace with a full XQuery F&O 3.0 regex parser. The current implementation lets
-    /// through any Joni construct that isn't on the explicit rejection list, so Joni-specific
+    /// through any engine construct that isn't on the explicit rejection list, so engine-specific
     /// behavior outside that list can still leak through as accepted but non-spec syntax.
     public static void validatePattern(String pattern)
     {
@@ -112,7 +111,7 @@ public final class XQueryRegex
             char c = pattern.charAt(i);
             if (c == '\\') {
                 if (i + 1 >= pattern.length()) {
-                    // bare trailing backslash; let Joni's compile produce the diagnostic
+                    // bare trailing backslash; let the regex compile produce the diagnostic
                     return;
                 }
                 char next = pattern.charAt(i + 1);

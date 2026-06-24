@@ -22,7 +22,6 @@ import io.trino.jsonpath.JsonDateTimeTemplate;
 import io.trino.jsonpath.XQueryRegex;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
-import io.trino.operator.scalar.JoniRegexpCasts;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.OperatorType;
@@ -66,6 +65,7 @@ import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.type.CharVarcharCoercion;
+import io.trino.type.SafeReRegexp;
 
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -520,11 +520,11 @@ public class JsonPathAnalyzer
             }
             // SQL:2023 §9.46 treats a malformed pattern as a non-recoverable error (not subject to
             // the path expression's ON ERROR clause), so we reject it at analysis time. Two passes:
-            //   1. XQueryRegex.validatePattern rejects Joni-isms that aren't valid XQuery regex
+            //   1. XQueryRegex.validatePattern rejects engine-isms that aren't valid XQuery regex
             //      (POSIX classes, named groups, lookaround, possessive quantifiers, hex / unicode
             //      escapes outside the XQuery \x{HHHH} form, etc.) — keeps the dialect honest.
-            //   2. JoniRegexpCasts.joniRegexp catches the remaining structural errors (unbalanced
-            //      brackets, dangling quantifiers, ...) via Joni's parser.
+            //   2. SafeReRegexp.safeReRegexp catches the remaining structural errors (unbalanced
+            //      brackets, dangling quantifiers, ...) via SafeRE's parser.
             try {
                 XQueryRegex.validatePattern(node.getPattern());
             }
@@ -533,7 +533,7 @@ public class JsonPathAnalyzer
             }
             String translated = XQueryRegex.patternWithFlags(node.getPattern(), flags);
             try {
-                JoniRegexpCasts.joniRegexp(Slices.utf8Slice(translated));
+                SafeReRegexp.safeReRegexp(Slices.utf8Slice(translated));
             }
             catch (TrinoException e) {
                 throw semanticException(INVALID_PATH, pathNode, e, "invalid like_regex pattern in JSON path: %s", e.getMessage());

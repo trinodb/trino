@@ -66,7 +66,6 @@ import static io.trino.SystemSessionProperties.LEGACY_VARCHAR_TO_CHAR_COERCION;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NAME;
-import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
 import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
@@ -117,10 +116,11 @@ import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.LikeFunctions.likePattern;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
+import static io.trino.type.SafeReRegexp.safeReRegexp;
+import static io.trino.type.SafeReRegexpType.SAFE_RE_REGEXP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -649,7 +649,7 @@ public class TestConnectorExpressionTranslator
     @Test
     public void testTranslateRegularExpression()
     {
-        // Regular expression types (JoniRegexpType, Re2JRegexpType) are considered implementation detail of the engine
+        // The regular expression type (SafeReRegexpType) is considered implementation detail of the engine
         // and are not exposed to connectors within ConnectorExpression. Instead, they are replaced with a varchar pattern.
 
         TransactionManager transactionManager = new TestingTransactionManager();
@@ -659,7 +659,7 @@ public class TestConnectorExpressionTranslator
                 .execute(TEST_SESSION, transactionSession -> {
                     Call input = BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(transactionSession))
                             .setName("regexp_like").addArgument(VARCHAR_TYPE, new Reference(VARCHAR_TYPE, "varchar_symbol_1"))
-                            .addArgument(new Constant(JONI_REGEXP, joniRegexp(utf8Slice("a+"))))
+                            .addArgument(new Constant(SAFE_RE_REGEXP, safeReRegexp(utf8Slice("a+"))))
                             .build();
                     io.trino.spi.expression.Call translated = new io.trino.spi.expression.Call(
                             BOOLEAN,
@@ -670,7 +670,7 @@ public class TestConnectorExpressionTranslator
                     Call translatedBack = BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(transactionSession))
                             .setName("regexp_like").addArgument(VARCHAR_TYPE, new Reference(VARCHAR_TYPE, "varchar_symbol_1"))
                             // Note: The result is not an optimized expression
-                            .addArgument(JONI_REGEXP, new Cast(new Constant(createVarcharType(2), utf8Slice("a+")), JONI_REGEXP))
+                            .addArgument(SAFE_RE_REGEXP, new Cast(new Constant(createVarcharType(2), utf8Slice("a+")), SAFE_RE_REGEXP))
                             .build();
 
                     assertTranslationToConnectorExpression(transactionSession, input, translated);

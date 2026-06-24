@@ -16,15 +16,14 @@ package io.trino.jsonpath.ir;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.slice.Slices;
-import io.trino.operator.scalar.JoniRegexpCasts;
-import io.trino.type.JoniRegexp;
+import io.trino.type.SafeReRegexp;
 
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
 /// `like_regex` JSON path predicate. The pattern is pre-translated from XQuery syntax to Java
-/// regex syntax (with inline flags) at IR construction time, and compiled to a [JoniRegexp]
+/// regex syntax (with inline flags) at IR construction time, and compiled to a [SafeReRegexp]
 /// eagerly in the constructor. The runtime visitor then just invokes the regex engine — no
 /// per-row resolution or compilation.
 public final class IrLikeRegexPredicate
@@ -32,14 +31,14 @@ public final class IrLikeRegexPredicate
 {
     private final IrPathNode path;
     private final String pattern;
-    private final JoniRegexp regex;
+    private final SafeReRegexp regex;
 
     @JsonCreator
     public IrLikeRegexPredicate(@JsonProperty("path") IrPathNode path, @JsonProperty("pattern") String pattern)
     {
         this.path = requireNonNull(path, "path is null");
         this.pattern = requireNonNull(pattern, "pattern is null");
-        this.regex = JoniRegexpCasts.joniRegexp(Slices.utf8Slice(pattern));
+        this.regex = SafeReRegexp.safeReRegexp(Slices.utf8Slice(pattern));
     }
 
     @JsonProperty
@@ -54,7 +53,7 @@ public final class IrLikeRegexPredicate
         return pattern;
     }
 
-    public JoniRegexp regex()
+    public SafeReRegexp regex()
     {
         return regex;
     }
