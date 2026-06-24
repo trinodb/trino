@@ -61,6 +61,8 @@ import io.trino.type.JsonPathType;
 import io.trino.type.LikePattern;
 import io.trino.type.Re2JRegexp;
 import io.trino.type.Re2JRegexpType;
+import io.trino.type.SafeReRegexp;
+import io.trino.type.SafeReRegexpType;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -419,7 +421,7 @@ public final class ConnectorExpressionTranslator
                     return Optional.empty();
                 }
                 Expression expression = translated.get();
-                if ((formalType == JONI_REGEXP || formalType instanceof Re2JRegexpType || formalType instanceof JsonPathType)
+                if ((formalType == JONI_REGEXP || formalType instanceof Re2JRegexpType || formalType instanceof SafeReRegexpType || formalType instanceof JsonPathType)
                         && argumentType instanceof VarcharType) {
                     // These types are not used in connector expressions, so require special handling when translating back to expressions.
                     expression = new Cast(expression, formalType);
@@ -925,6 +927,7 @@ public final class ConnectorExpressionTranslator
         {
             return type.equals(JONI_REGEXP) ||
                     type instanceof Re2JRegexpType ||
+                    type instanceof SafeReRegexpType ||
                     type instanceof JsonPathType;
         }
 
@@ -936,6 +939,10 @@ public final class ConnectorExpressionTranslator
             }
             if (type instanceof Re2JRegexpType) {
                 Slice pattern = Slices.utf8Slice(((Re2JRegexp) value).pattern());
+                return new io.trino.spi.expression.Constant(pattern, createVarcharType(countCodePoints(pattern)));
+            }
+            if (type instanceof SafeReRegexpType) {
+                Slice pattern = Slices.utf8Slice(((SafeReRegexp) value).pattern());
                 return new io.trino.spi.expression.Constant(pattern, createVarcharType(countCodePoints(pattern)));
             }
             if (type instanceof JsonPathType) {

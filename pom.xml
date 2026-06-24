@@ -2235,6 +2235,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.safere</groupId>
+                <artifactId>safere</artifactId>
+                <version>0.8.0</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.sonatype.aether</groupId>
                 <artifactId>aether-api</artifactId>
                 <version>1.13.1</version>
