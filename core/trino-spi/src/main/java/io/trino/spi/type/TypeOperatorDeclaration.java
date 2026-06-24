@@ -376,6 +376,9 @@ public final class TypeOperatorDeclaration
                     continue;
                 }
                 OperatorType operatorType = scalarOperator.value();
+                if (operatorType.neverFails() && scalarOperator.neverFails()) {
+                    throw new IllegalArgumentException("@ScalarOperator(neverFails = true) is redundant for %s operator which is always infallible: %s".formatted(operatorType, method));
+                }
 
                 MethodHandle methodHandle;
                 try {

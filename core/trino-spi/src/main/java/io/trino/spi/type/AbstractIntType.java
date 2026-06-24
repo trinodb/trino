@@ -141,7 +141,7 @@ public abstract class AbstractIntType
         return new IntArrayBlockBuilder(null, positionCount);
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static long read(@BlockPosition IntArrayBlock block, @BlockIndex int position)
     {
         return readInt(block, position);
@@ -152,7 +152,7 @@ public abstract class AbstractIntType
         return block.getInt(position);
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static long readFlat(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
@@ -162,7 +162,7 @@ public abstract class AbstractIntType
         return (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static void writeFlat(
             long value,
             @FlatFixed byte[] fixedSizeSlice,
@@ -173,39 +173,39 @@ public abstract class AbstractIntType
         INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset, (int) value);
     }
 
-    @ScalarOperator(value = EQUAL, neverFails = true)
+    @ScalarOperator(EQUAL)
     private static boolean equalOperator(long left, long right)
     {
         return left == right;
     }
 
     @SuppressWarnings("UnnecessaryLongToIntConversion")
-    @ScalarOperator(value = HASH_CODE, neverFails = true)
+    @ScalarOperator(HASH_CODE)
     private static long hashCodeOperator(long value)
     {
         return AbstractLongType.hash((int) value);
     }
 
     @SuppressWarnings("UnnecessaryLongToIntConversion")
-    @ScalarOperator(value = XX_HASH_64, neverFails = true)
+    @ScalarOperator(XX_HASH_64)
     private static long xxHash64Operator(long value)
     {
         return XxHash64.hash((int) value);
     }
 
-    @ScalarOperator(value = COMPARISON_UNORDERED_LAST, neverFails = true)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(long left, long right)
     {
         return Integer.compare((int) left, (int) right);
     }
 
-    @ScalarOperator(value = LESS_THAN, neverFails = true)
+    @ScalarOperator(LESS_THAN)
     private static boolean lessThanOperator(long left, long right)
     {
         return ((int) left) < ((int) right);
     }
 
-    @ScalarOperator(value = LESS_THAN_OR_EQUAL, neverFails = true)
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
     private static boolean lessThanOrEqualOperator(long left, long right)
     {
         return ((int) left) <= ((int) right);

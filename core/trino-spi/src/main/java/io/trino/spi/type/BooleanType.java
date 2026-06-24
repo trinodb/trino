@@ -164,13 +164,13 @@ public final class BooleanType
         return getClass().hashCode();
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static boolean read(@BlockPosition ByteArrayBlock block, @BlockIndex int position)
     {
         return block.getByte(position) != 0;
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static boolean readFlat(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
@@ -180,7 +180,7 @@ public final class BooleanType
         return fixedSizeSlice[fixedSizeOffset] != 0;
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static void writeFlat(
             boolean value,
             @FlatFixed byte[] fixedSizeSlice,
@@ -191,31 +191,31 @@ public final class BooleanType
         fixedSizeSlice[fixedSizeOffset] = (byte) (value ? 1 : 0);
     }
 
-    @ScalarOperator(value = EQUAL, neverFails = true)
+    @ScalarOperator(EQUAL)
     private static boolean equalOperator(boolean left, boolean right)
     {
         return left == right;
     }
 
-    @ScalarOperator(value = XX_HASH_64, neverFails = true)
+    @ScalarOperator(XX_HASH_64)
     private static long xxHash64Operator(boolean value)
     {
         return value ? TRUE_XX_HASH : FALSE_XX_HASH;
     }
 
-    @ScalarOperator(value = COMPARISON_UNORDERED_LAST, neverFails = true)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(boolean left, boolean right)
     {
         return Boolean.compare(left, right);
     }
 
-    @ScalarOperator(value = LESS_THAN, neverFails = true)
+    @ScalarOperator(LESS_THAN)
     private static boolean lessThanOperator(boolean left, boolean right)
     {
         return !left && right;
     }
 
-    @ScalarOperator(value = LESS_THAN_OR_EQUAL, neverFails = true)
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
     private static boolean lessThanOrEqualOperator(boolean left, boolean right)
     {
         return !left || right;

@@ -109,6 +109,9 @@ public class ScalarHeader
         }
 
         if (scalarOperator != null) {
+            if (scalarOperator.value().neverFails() && scalarOperator.neverFails()) {
+                throw new IllegalArgumentException("@ScalarOperator(neverFails = true) is redundant for %s operator which is always infallible: %s".formatted(scalarOperator.value(), annotated));
+            }
             builder.add(new ScalarHeader(scalarOperator.value(), description, scalarOperator.neverFails()));
         }
 
