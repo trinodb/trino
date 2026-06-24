@@ -1,46 +1,18 @@
 # Regular expression functions
 
-All the regular expression functions use the [Java pattern] syntax,
-with a few notable exceptions:
+All the regular expression functions use the [Java pattern] syntax and
+semantics, and guarantee linear-time matching: no pattern can trigger the
+exponential-time backtracking that patterns like `(a+)+` cause in
+backtracking engines. Constructs that are incompatible with that guarantee
+are rejected when the pattern is compiled:
 
-- When using multi-line mode (enabled via the `(?m)` flag),
-  only `\n` is recognized as a line terminator. Additionally,
-  the `(?d)` flag is not supported and must not be used.
+- Backreferences (`\1`, `\2`) are not supported.
 
-- Case-insensitive matching (enabled via the `(?i)` flag) is always
-  performed in a Unicode-aware manner. However, context-sensitive and
-  local-sensitive matching is not supported. Additionally, the
-  `(?u)` flag is not supported and must not be used.
+- Lookahead and lookbehind assertions (`(?=...)`, `(?!...)`, `(?<=...)`,
+  `(?<!...)`) are not supported.
 
-- Surrogate pairs are not supported. For example, `\uD800\uDC00` is
-  not treated as `U+10000` and must be specified as `\x{10000}`.
-
-- Boundaries (`\b`) are incorrectly handled for a non-spacing mark
-  without a base character.
-
-- `\Q` and `\E` are not supported in character classes
-  (such as `[A-Z123]`) and are instead treated as literals.
-
-- Unicode character classes (`\p{prop}`) are supported with
-  the following differences:
-
-  - All underscores in names must be removed. For example, use
-    `OldItalic` instead of `Old_Italic`.
-
-  - Scripts must be specified directly, without the
-    `Is`, `script=` or `sc=` prefixes.
-    Example: `\p{Hiragana}`
-
-  - Blocks must be specified with the `In` prefix.
-    The `block=` and `blk=` prefixes are not supported.
-    Example: `\p{Mongolian}`
-
-  - Categories must be specified directly, without the `Is`,
-    `general_category=` or `gc=` prefixes.
-    Example: `\p{L}`
-
-  - Binary properties must be specified directly, without the `Is`.
-    Example: `\p{NoncharacterCodePoint}`
+- Possessive quantifiers over consuming operands (`a*+`, `a++`) are not
+  supported.
 
 :::{function} regexp_count(string, pattern) -> bigint
 Returns the number of occurrence of `pattern` in `string`:

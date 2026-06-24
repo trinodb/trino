@@ -148,9 +148,6 @@ import io.trino.operator.scalar.GenericXxHash64Operator;
 import io.trino.operator.scalar.HmacFunctions;
 import io.trino.operator.scalar.HyperLogLogFunctions;
 import io.trino.operator.scalar.IpAddressFunctions;
-import io.trino.operator.scalar.JoniRegexpCasts;
-import io.trino.operator.scalar.JoniRegexpFunctions;
-import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
 import io.trino.operator.scalar.JsonFunctions;
 import io.trino.operator.scalar.JsonOperators;
 import io.trino.operator.scalar.LuhnCheckFunction;
@@ -166,9 +163,9 @@ import io.trino.operator.scalar.MapValues;
 import io.trino.operator.scalar.MathFunctions;
 import io.trino.operator.scalar.MultimapFromEntriesFunction;
 import io.trino.operator.scalar.QuantileDigestFunctions;
-import io.trino.operator.scalar.Re2JRegexpFunctions;
-import io.trino.operator.scalar.Re2JRegexpReplaceLambdaFunction;
 import io.trino.operator.scalar.RepeatFunction;
+import io.trino.operator.scalar.SafeReRegexpFunctions;
+import io.trino.operator.scalar.SafeReRegexpReplaceLambdaFunction;
 import io.trino.operator.scalar.SequenceFunction;
 import io.trino.operator.scalar.SessionFunctions;
 import io.trino.operator.scalar.SplitToMapFunction;
@@ -325,12 +322,12 @@ import static io.trino.operator.scalar.MapToVariantCast.MAP_TO_VARIANT;
 import static io.trino.operator.scalar.MapTransformValuesFunction.MAP_TRANSFORM_VALUES_FUNCTION;
 import static io.trino.operator.scalar.MapZipWithFunction.MAP_ZIP_WITH_FUNCTION;
 import static io.trino.operator.scalar.MathFunctions.DECIMAL_MOD_FUNCTION;
-import static io.trino.operator.scalar.Re2JCastToRegexpFunction.castCharToRe2JRegexp;
-import static io.trino.operator.scalar.Re2JCastToRegexpFunction.castVarcharToRe2JRegexp;
 import static io.trino.operator.scalar.RowFieldsFunction.ROW_FIELDS_FUNCTION;
 import static io.trino.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static io.trino.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
 import static io.trino.operator.scalar.RowToVariantCast.ROW_TO_VARIANT;
+import static io.trino.operator.scalar.SafeReCastToRegexpFunction.castCharToSafeReRegexp;
+import static io.trino.operator.scalar.SafeReCastToRegexpFunction.castVarcharToSafeReRegexp;
 import static io.trino.operator.scalar.TryCastFunction.TRY_CAST;
 import static io.trino.operator.scalar.VariantToArrayCast.VARIANT_TO_ARRAY;
 import static io.trino.operator.scalar.VariantToMapCast.VARIANT_TO_MAP;
@@ -532,7 +529,6 @@ public final class SystemFunctionBundle
                 .scalars(CombineHashFunction.class)
                 .scalars(JsonOperators.class)
                 .scalars(FailureFunction.class)
-                .scalars(JoniRegexpCasts.class)
                 .scalars(CharacterStringCasts.class)
                 .scalars(CharToVarcharCast.class)
                 .scalars(LuhnCheckFunction.class)
@@ -625,8 +621,8 @@ public final class SystemFunctionBundle
                 .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)
                 .function(CONCAT_WS)
                 .function(DECIMAL_TO_DECIMAL_CAST)
-                .function(castVarcharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
-                .function(castCharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
+                .function(castVarcharToSafeReRegexp())
+                .function(castCharToSafeReRegexp())
                 .aggregates(DecimalAverageAggregation.class)
                 .aggregates(DecimalSumAggregation.class)
                 .function(DECIMAL_MOD_FUNCTION)
@@ -783,16 +779,8 @@ public final class SystemFunctionBundle
                 .scalar(io.trino.operator.scalar.timetz.AtTimeZoneWithOffset.class)
                 .scalar(CurrentTime.class);
 
-        switch (featuresConfig.getRegexLibrary()) {
-            case JONI -> {
-                builder.scalars(JoniRegexpFunctions.class);
-                builder.scalar(JoniRegexpReplaceLambdaFunction.class);
-            }
-            case RE2J -> {
-                builder.scalars(Re2JRegexpFunctions.class);
-                builder.scalar(Re2JRegexpReplaceLambdaFunction.class);
-            }
-        }
+        builder.scalars(SafeReRegexpFunctions.class);
+        builder.scalar(SafeReRegexpReplaceLambdaFunction.class);
 
         return builder.build();
     }

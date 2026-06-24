@@ -14,6 +14,8 @@
 package io.trino.type;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
@@ -21,17 +23,18 @@ import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.TypeDescriptor;
 
-import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
-public class JoniRegexpType
+public class SafeReRegexpType
         extends AbstractVariableWidthType
 {
-    public static final JoniRegexpType JONI_REGEXP = new JoniRegexpType();
-    public static final String NAME = "JoniRegExp";
+    public static final String NAME = "SafeReRegExp";
+    public static final TypeDescriptor SAFE_RE_REGEXP_SIGNATURE = new TypeDescriptor(NAME);
+    public static final SafeReRegexpType SAFE_RE_REGEXP = new SafeReRegexpType();
 
-    public JoniRegexpType()
+    public SafeReRegexpType()
     {
-        super(new TypeDescriptor(NAME), JoniRegexp.class);
+        super(SAFE_RE_REGEXP_SIGNATURE, SafeReRegexp.class);
     }
 
     @Override
@@ -61,13 +64,19 @@ public class JoniRegexpType
 
         VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
         int valuePosition = block.getUnderlyingValuePosition(position);
-        return joniRegexp(valueBlock.getSlice(valuePosition));
+        Slice pattern = valueBlock.getSlice(valuePosition);
+        try {
+            return new SafeReRegexp(pattern);
+        }
+        catch (Exception e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
     }
 
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        Slice pattern = ((JoniRegexp) value).pattern();
+        Slice pattern = Slices.utf8Slice(((SafeReRegexp) value).pattern());
         ((VariableWidthBlockBuilder) blockBuilder).writeEntry(pattern);
     }
 }

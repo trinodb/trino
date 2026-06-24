@@ -16,7 +16,6 @@ package io.trino.operator.scalar;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.trino.re2j.Matcher;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedArrayValueBuilder;
 import io.trino.spi.function.Description;
@@ -26,14 +25,15 @@ import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.ArrayType;
 import io.trino.sql.gen.lambda.UnaryFunctionInterface;
-import io.trino.type.Re2JRegexp;
-import io.trino.type.Re2JRegexpType;
+import io.trino.type.SafeReRegexp;
+import io.trino.type.SafeReRegexpType;
+import org.safere.Utf8Matcher;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
 @ScalarFunction("regexp_replace")
 @Description("Replaces substrings matching a regular expression using a lambda function")
-public final class Re2JRegexpReplaceLambdaFunction
+public final class SafeReRegexpReplaceLambdaFunction
 {
     private final BufferedArrayValueBuilder arrayValueBuilder = BufferedArrayValueBuilder.createBuffered(new ArrayType(VARCHAR));
 
@@ -42,11 +42,11 @@ public final class Re2JRegexpReplaceLambdaFunction
     @SqlNullable
     public Slice regexpReplace(
             @SqlType("varchar") Slice source,
-            @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern,
+            @SqlType(SafeReRegexpType.NAME) SafeReRegexp pattern,
             @SqlType("function(array(varchar), varchar(x))") UnaryFunctionInterface replaceFunction)
     {
         // If there is no match we can simply return the original source without doing copy.
-        Matcher matcher = pattern.matcher(source);
+        Utf8Matcher matcher = pattern.matcher(source);
         if (!matcher.find()) {
             return source;
         }
@@ -69,9 +69,9 @@ public final class Re2JRegexpReplaceLambdaFunction
             // Append the capturing groups to the target block that will be passed to lambda
             Block target = arrayValueBuilder.build(groupCount, elementBuilder -> {
                 for (int i = 1; i <= groupCount; i++) {
-                    Slice matchedGroupSlice = matcher.group(i);
-                    if (matchedGroupSlice != null) {
-                        VARCHAR.writeSlice(elementBuilder, matchedGroupSlice);
+                    int groupStart = matcher.start(i);
+                    if (groupStart >= 0) {
+                        VARCHAR.writeSlice(elementBuilder, source.slice(groupStart, matcher.end(i) - groupStart));
                     }
                     else {
                         elementBuilder.appendNull();
@@ -85,7 +85,7 @@ public final class Re2JRegexpReplaceLambdaFunction
                 // replacing a substring with null (unknown) makes the entire string null
                 return null;
             }
-            output.appendBytes(replaced);
+            output.writeBytes(replaced);
         }
         while (matcher.find());
 

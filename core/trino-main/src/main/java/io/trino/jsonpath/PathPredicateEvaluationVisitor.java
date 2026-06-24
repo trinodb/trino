@@ -32,13 +32,13 @@ import io.trino.jsonpath.ir.IrPredicate;
 import io.trino.jsonpath.ir.IrStartsWithPredicate;
 import io.trino.jsonpath.ir.JsonLiteralConversionException;
 import io.trino.jsonpath.ir.TypedValue;
-import io.trino.operator.scalar.JoniRegexpFunctions;
+import io.trino.operator.scalar.SafeReRegexpFunctions;
 import io.trino.operator.scalar.StringFunctions;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.ComparisonPredicate;
-import io.trino.type.JoniRegexp;
+import io.trino.type.SafeReRegexp;
 
 import java.util.List;
 import java.util.Optional;
@@ -398,7 +398,7 @@ class PathPredicateEvaluationVisitor
 
         // Pattern was compiled at IR construction time and validated by JsonPathAnalyzer —
         // a malformed regex is rejected at analysis time per SQL:2023 §9.46 (non-recoverable).
-        JoniRegexp pattern = node.regex();
+        SafeReRegexp pattern = node.regex();
 
         boolean found = false;
         for (Object object : valueSequence) {
@@ -408,7 +408,7 @@ class PathPredicateEvaluationVisitor
                 // the sibling `starts_with` predicate; lax mode doesn't filter this kind of error.
                 return null;
             }
-            if (JoniRegexpFunctions.regexpLike(value, pattern)) {
+            if (SafeReRegexpFunctions.regexpLike(value, pattern)) {
                 found = true;
                 if (lax) {
                     return TRUE;

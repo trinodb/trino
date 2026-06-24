@@ -313,16 +313,16 @@ public class TestGlobalFunctionCatalog
         // when coercion between the types doesn't exist, but the return type is the same, so the random function must be chosen
         assertThatResolveFunction()
                 .among(
-                        functionSignature(ImmutableList.of("JoniRegExp"), "boolean"),
+                        functionSignature(ImmutableList.of("SafeReRegExp"), "boolean"),
                         functionSignature(ImmutableList.of("integer"), "boolean"))
                 .forParameters(UnknownType.UNKNOWN)
                 // any function can be selected, but to make it deterministic we sort function signatures alphabetically
-                .returns(functionSignature("JoniRegExp"));
+                .returns(functionSignature("SafeReRegExp"));
 
         // when the return type is different
         assertThatResolveFunction()
                 .among(
-                        functionSignature(ImmutableList.of("JoniRegExp"), "JoniRegExp"),
+                        functionSignature(ImmutableList.of("SafeReRegExp"), "SafeReRegExp"),
                         functionSignature(ImmutableList.of("integer"), "integer"))
                 .forParameters(UnknownType.UNKNOWN)
                 .failsWithMessage(
@@ -330,7 +330,7 @@ public class TestGlobalFunctionCatalog
                         Could not choose a best candidate operator. Explicit type casts must be added.
                         Actual types: (unknown)
                         Candidates are:
-                        \t * (joniregexp):joniregexp
+                        \t * (safereregexp):safereregexp
                         \t * (integer):integer
                         """);
     }
