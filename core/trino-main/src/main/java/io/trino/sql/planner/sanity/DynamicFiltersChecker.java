@@ -32,7 +32,7 @@ import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.SemiJoinNode;
-import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TopNNode;
 
 import java.util.HashSet;
 import java.util.List;
@@ -144,12 +144,27 @@ public class DynamicFiltersChecker
             }
 
             @Override
+            public Set<DynamicFilterId> visitTopN(TopNNode node, Void context)
+            {
+                Set<DynamicFilterId> consumedSourceSide = node.getSource().accept(this, context);
+                if (node.getRuntimeFilter().isEmpty()) {
+                    return consumedSourceSide;
+                }
+
+                DynamicFilterId dynamicFilterId = node.getRuntimeFilter().orElseThrow().id();
+                verify(consumedSourceSide.contains(dynamicFilterId),
+                        "The dynamic filter %s present in TopN was not consumed by its source side.",
+                        dynamicFilterId);
+
+                Set<DynamicFilterId> unmatched = new HashSet<>(consumedSourceSide);
+                unmatched.remove(dynamicFilterId);
+                return ImmutableSet.copyOf(unmatched);
+            }
+
+            @Override
             public Set<DynamicFilterId> visitFilter(FilterNode node, Void context)
             {
                 List<DynamicFilters.Descriptor> dynamicFilters = extractDynamicPredicates(node.getPredicate());
-                if (!dynamicFilters.isEmpty()) {
-                    verify(node.getSource() instanceof TableScanNode, "Dynamic filters %s present in filter predicate whose source is not a table scan.", dynamicFilters);
-                }
                 ImmutableSet.Builder<DynamicFilterId> consumed = ImmutableSet.builder();
                 dynamicFilters.forEach(descriptor -> {
                     validateDynamicFilterExpression(descriptor.getInput());

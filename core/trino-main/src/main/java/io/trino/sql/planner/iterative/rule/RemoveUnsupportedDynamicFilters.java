@@ -35,7 +35,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
-import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TopNNode;
 import io.trino.type.TypeCoercion;
 
 import java.util.HashSet;
@@ -62,10 +62,11 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 /**
- * Dynamic filters are supported only right after TableScan and only if the subtree is on
- * 1. the probe side of some downstream JoinNode or
- * 2. the source side of some downstream SemiJoinNode node
- * Dynamic filters are removed from JoinNode/SemiJoinNode if there is no consumer for it on probe/source side
+ * Dynamic filters are supported only if the subtree is on
+ * 1. the probe side of some downstream JoinNode,
+ * 2. the source side of some downstream SemiJoinNode, or
+ * 3. the source side of some downstream TopNNode.
+ * Dynamic filters are removed from the producer node when there is no source-side consumer.
  */
 public class RemoveUnsupportedDynamicFilters
         implements PlanOptimizer
@@ -248,6 +249,43 @@ public class RemoveUnsupportedDynamicFilters
         }
 
         @Override
+        public PlanWithConsumedDynamicFilters visitTopN(TopNNode node, Set<DynamicFilterId> allowedDynamicFilterIds)
+        {
+            if (node.getRuntimeFilter().isEmpty()) {
+                return visitPlan(node, allowedDynamicFilterIds);
+            }
+
+            DynamicFilterId dynamicFilterId = node.getRuntimeFilter().orElseThrow().id();
+            Set<DynamicFilterId> allowedDynamicFilterIdsSourceSide = ImmutableSet.<DynamicFilterId>builder()
+                    .add(dynamicFilterId)
+                    .addAll(allowedDynamicFilterIds)
+                    .build();
+            PlanWithConsumedDynamicFilters sourceResult = node.getSource().accept(this, allowedDynamicFilterIdsSourceSide);
+
+            Set<DynamicFilterId> consumed = new HashSet<>(sourceResult.getConsumedDynamicFilterIds());
+            Optional<TopNNode.RuntimeFilter> runtimeFilter = node.getRuntimeFilter();
+            if (consumed.contains(dynamicFilterId)) {
+                consumed.remove(dynamicFilterId);
+            }
+            else {
+                runtimeFilter = Optional.empty();
+            }
+
+            PlanNode source = sourceResult.getNode();
+            if (source != node.getSource() || !runtimeFilter.equals(node.getRuntimeFilter())) {
+                return new PlanWithConsumedDynamicFilters(new TopNNode(
+                        node.getId(),
+                        source,
+                        node.getCount(),
+                        node.getOrderingScheme(),
+                        node.getStep(),
+                        runtimeFilter),
+                        ImmutableSet.copyOf(consumed));
+            }
+            return new PlanWithConsumedDynamicFilters(node, ImmutableSet.copyOf(consumed));
+        }
+
+        @Override
         public PlanWithConsumedDynamicFilters visitFilter(FilterNode node, Set<DynamicFilterId> allowedDynamicFilterIds)
         {
             PlanWithConsumedDynamicFilters result = node.getSource().accept(this, allowedDynamicFilterIds);
@@ -257,14 +295,7 @@ public class RemoveUnsupportedDynamicFilters
                     .addAll(result.getConsumedDynamicFilterIds());
 
             PlanNode source = result.getNode();
-            Expression modified;
-            if (source instanceof TableScanNode) {
-                // Keep only allowed dynamic filters
-                modified = removeDynamicFilters(original, allowedDynamicFilterIds, consumedDynamicFilterIds);
-            }
-            else {
-                modified = removeAllDynamicFilters(original);
-            }
+            Expression modified = removeDynamicFilters(original, allowedDynamicFilterIds, consumedDynamicFilterIds);
 
             if (TRUE.equals(modified)) {
                 return new PlanWithConsumedDynamicFilters(source, consumedDynamicFilterIds.build());

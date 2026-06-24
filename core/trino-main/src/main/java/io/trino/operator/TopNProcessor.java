@@ -20,6 +20,7 @@ import io.trino.spi.type.Type;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -63,6 +64,11 @@ public class TopNProcessor
         updateMemoryReservation();
     }
 
+    public Optional<PagePosition> getWorstRow()
+    {
+        return topNBuilder.getWorstRow(0);
+    }
+
     public Page getOutput()
     {
         if (outputIterator == null) {
@@ -89,5 +95,13 @@ public class TopNProcessor
     private void updateMemoryReservation()
     {
         localUserMemoryContext.setBytes(topNBuilder.getEstimatedSizeInBytes());
+    }
+
+    public record PagePosition(Page page, int position)
+    {
+        public PagePosition
+        {
+            requireNonNull(page, "page is null");
+        }
     }
 }

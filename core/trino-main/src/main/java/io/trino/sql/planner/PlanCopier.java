@@ -115,7 +115,7 @@ public final class PlanCopier
         @Override
         public PlanNode visitTopN(TopNNode node, RewriteContext<Void> context)
         {
-            return new TopNNode(idAllocator.getNextId(), context.rewrite(node.getSource()), node.getCount(), node.getOrderingScheme(), node.getStep());
+            return new TopNNode(idAllocator.getNextId(), context.rewrite(node.getSource()), node.getCount(), node.getOrderingScheme(), node.getStep(), node.getRuntimeFilter());
         }
 
         @Override

@@ -14,7 +14,9 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
@@ -25,6 +27,8 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
@@ -35,10 +39,16 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOrderBy
         extends BasePlanTest
 {
+    public TestOrderBy()
+    {
+        super(ImmutableMap.of(ENABLE_DYNAMIC_FILTERING, "true"));
+    }
+
     @Test
     public void testRedundantOrderByInSubquery()
     {
@@ -138,6 +148,19 @@ public class TestOrderBy
                                         ImmutableList.of(sort("c", ASCENDING, LAST)),
                                         TopNNode.Step.PARTIAL,
                                         values("c")))));
+    }
+
+    @Test
+    public void testOrderByLimitAddsRuntimeFilter()
+    {
+        Plan plan = plan("SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10", OPTIMIZED_AND_VALIDATED, false);
+
+        assertThat(PlanNodeSearcher.searchFrom(plan.getRoot())
+                .where(TopNNode.class::isInstance)
+                .findAll().stream()
+                .map(TopNNode.class::cast)
+                .anyMatch(node -> node.getRuntimeFilter().isPresent()))
+                .isTrue();
     }
 
     @Test

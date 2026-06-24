@@ -412,6 +412,7 @@ import static java.util.stream.IntStream.range;
 public class LocalExecutionPlanner
 {
     private static final Logger log = Logger.get(LocalExecutionPlanner.class);
+    private static final String TOPN_RUNTIME_FILTER_PREFIX = "topn_rf_";
 
     private final PlannerContext plannerContext;
     private final Metadata metadata;
@@ -461,6 +462,20 @@ public class LocalExecutionPlanner
     private final NonEvictableCache<FunctionKey, AggregationWindowFunctionSupplier> aggregationWindowFunctionSupplierCache = buildNonEvictableCache(CacheBuilder.newBuilder()
             .maximumSize(1000)
             .expireAfterAccess(1, HOURS));
+
+    private static boolean isTopNRuntimeFilter(DynamicFilterId id)
+    {
+        return id.toString().startsWith(TOPN_RUNTIME_FILTER_PREFIX);
+    }
+
+    private record DynamicFilterColumnHandle(Symbol symbol)
+            implements ColumnHandle
+    {
+        private DynamicFilterColumnHandle
+        {
+            requireNonNull(symbol, "symbol is null");
+        }
+    }
 
     @Inject
     public LocalExecutionPlanner(
@@ -775,10 +790,16 @@ public class LocalExecutionPlanner
             Set<DynamicFilterId> consumedFilterIds = dynamicFilters.stream()
                     .map(DynamicFilters.Descriptor::getId)
                     .collect(toImmutableSet());
+            Set<DynamicFilterId> streamingFilterIds = consumedFilterIds.stream()
+                    .filter(LocalExecutionPlanner::isTopNRuntimeFilter)
+                    .collect(toImmutableSet());
             LocalDynamicFiltersCollector dynamicFiltersCollector = getDynamicFiltersCollector();
             // Don't repeat registration of node-local filters or those already registered by another scan (e.g. co-located joins)
             dynamicFiltersCollector.register(
-                    difference(consumedFilterIds, dynamicFiltersCollector.getRegisteredDynamicFilterIds()));
+                    difference(difference(consumedFilterIds, streamingFilterIds), dynamicFiltersCollector.getRegisteredDynamicFilterIds()));
+            dynamicFiltersCollector.register(
+                    difference(streamingFilterIds, dynamicFiltersCollector.getRegisteredDynamicFilterIds()),
+                    true);
         }
 
         private TaskContext getTaskContext()
@@ -1841,7 +1862,16 @@ public class LocalExecutionPlanner
                     node.getId(),
                     source.getTypes(),
                     (int) node.getCount(),
-                    orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrders));
+                    orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrders),
+                    node.getRuntimeFilter().map(runtimeFilter -> {
+                        int sortChannel = source.getLayout().get(runtimeFilter.symbol());
+                        return new TopNOperator.RuntimeFilter(
+                                runtimeFilter.id(),
+                                source.getTypes().get(sortChannel),
+                                sortChannel,
+                                node.getOrderingScheme().ordering(runtimeFilter.symbol()),
+                                context.getTaskContext()::updateDomains);
+                    }));
 
             return new PhysicalOperation(operator, source.getLayout(), source);
         }
@@ -2082,9 +2112,9 @@ public class LocalExecutionPlanner
             Map<Symbol, Integer> outputMappings = outputMappingsBuilder.buildOrThrow();
 
             Optional<Expression> staticFilters = filterExpression.flatMap(this::getStaticFilter);
+            Map<Symbol, ColumnHandle> dynamicFilterColumns = getDynamicFilterColumns(sourceNode, sourceLayout);
             DynamicFilter dynamicFilter = filterExpression
-                    .filter(_ -> sourceNode instanceof TableScanNode)
-                    .map(expression -> getDynamicFilter((TableScanNode) sourceNode, expression, context))
+                    .map(expression -> getDynamicFilter(expression, dynamicFilterColumns, context))
                     .orElse(DynamicFilter.EMPTY);
 
             List<Expression> projections = new ArrayList<>();
@@ -2100,7 +2130,7 @@ public class LocalExecutionPlanner
                     dynamicPageFilterFactory = Optional.of(new DynamicPageFilter(
                             plannerContext,
                             session,
-                            ((TableScanNode) sourceNode).getAssignments(),
+                            dynamicFilterColumns,
                             sourceLayout,
                             getDynamicRowFilterSelectivityThreshold(session),
                             filterReorderingEnabled));
@@ -2184,9 +2214,20 @@ public class LocalExecutionPlanner
             return Optional.of(staticFilter);
         }
 
+        private Map<Symbol, ColumnHandle> getDynamicFilterColumns(PlanNode sourceNode, Map<Symbol, Integer> sourceLayout)
+        {
+            if (sourceNode instanceof TableScanNode tableScanNode) {
+                return tableScanNode.getAssignments();
+            }
+            return sourceLayout.keySet().stream()
+                    .collect(toImmutableMap(
+                            symbol -> symbol,
+                            DynamicFilterColumnHandle::new));
+        }
+
         private DynamicFilter getDynamicFilter(
-                TableScanNode tableScanNode,
                 Expression filterExpression,
+                Map<Symbol, ColumnHandle> dynamicFilterColumns,
                 LocalExecutionPlanContext context)
         {
             DynamicFilters.ExtractResult extractDynamicFilterResult = extractDynamicFilters(filterExpression);
@@ -2199,7 +2240,7 @@ public class LocalExecutionPlanner
             context.registerCoordinatorDynamicFilters(dynamicFilters);
             return context.getDynamicFiltersCollector().createDynamicFilter(
                     dynamicFilters,
-                    tableScanNode.getAssignments(),
+                    dynamicFilterColumns,
                     plannerContext);
         }
 

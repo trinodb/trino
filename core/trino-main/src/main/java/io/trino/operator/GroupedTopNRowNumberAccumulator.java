@@ -20,6 +20,7 @@ import io.trino.util.HeapTraversal;
 import io.trino.util.LongBigArrayFIFOQueue;
 import jakarta.annotation.Nullable;
 
+import java.util.OptionalLong;
 import java.util.function.LongConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -138,6 +139,14 @@ public class GroupedTopNRowNumberAccumulator
             heapPop(groupId, null);
         }
         return heapSize;
+    }
+
+    public OptionalLong getRootRowIdIfFull(int groupId)
+    {
+        if (groupId >= groupIdToHeapBuffer.getTotalGroups() || groupIdToHeapBuffer.getHeapSize(groupId) < topN) {
+            return OptionalLong.empty();
+        }
+        return OptionalLong.of(peekRootRowId(groupId));
     }
 
     private long calculateRootRowNumber(int groupId)

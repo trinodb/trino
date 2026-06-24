@@ -36,6 +36,7 @@ import io.trino.sql.planner.iterative.rule.AdaptiveReorderPartitionedJoin;
 import io.trino.sql.planner.iterative.rule.AddDynamicFilterSource;
 import io.trino.sql.planner.iterative.rule.AddExchangesBelowPartialAggregationOverGroupIdRuleSet;
 import io.trino.sql.planner.iterative.rule.AddIntermediateAggregations;
+import io.trino.sql.planner.iterative.rule.AddTopNRuntimeFilter;
 import io.trino.sql.planner.iterative.rule.ApplyTableScanRedirection;
 import io.trino.sql.planner.iterative.rule.ArraySortAfterArrayDistinct;
 import io.trino.sql.planner.iterative.rule.CanonicalizeExpressions;
@@ -829,6 +830,7 @@ public class PlanOptimizers
                         .add(new PushTopNThroughProject())
                         .add(new PushTopNThroughOuterJoin())
                         .add(new PushTopNThroughUnion())
+                        .add(new AddTopNRuntimeFilter(plannerContext))
                         .add(new PushTopNIntoTableScan(metadata))
                         .add(new RemoveRedundantIdentityProjections())
                         .addAll(new ExtractSpatialJoins(plannerContext, splitManager, pageSourceManager).rules())
@@ -1003,6 +1005,13 @@ public class PlanOptimizers
                 ImmutableSet.of(
                         new UseNonPartitionedJoinLookupSource(),
                         new GatherPartialTopN())));
+        builder.add(new IterativeOptimizer(
+                "AddTopNRuntimeFiltersAfterLocalExchanges",
+                plannerContext,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(new AddTopNRuntimeFilter(plannerContext))));
 
         // Optimizers above this do not need to care about aggregations with the type other than SINGLE
         // This optimizer must be run after all exchange-related optimizers

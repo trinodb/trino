@@ -22,6 +22,7 @@ import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -43,6 +44,7 @@ public class TopNNode
     private final long count;
     private final OrderingScheme orderingScheme;
     private final Step step;
+    private final Optional<RuntimeFilter> runtimeFilter;
 
     @JsonCreator
     public TopNNode(
@@ -50,7 +52,8 @@ public class TopNNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("count") long count,
             @JsonProperty("orderingScheme") OrderingScheme orderingScheme,
-            @JsonProperty("step") Step step)
+            @JsonProperty("step") Step step,
+            @JsonProperty("runtimeFilter") Optional<RuntimeFilter> runtimeFilter)
     {
         super(id);
 
@@ -63,6 +66,12 @@ public class TopNNode
         this.count = count;
         this.orderingScheme = orderingScheme;
         this.step = requireNonNull(step, "step is null");
+        this.runtimeFilter = requireNonNull(runtimeFilter, "runtimeFilter is null");
+    }
+
+    public TopNNode(PlanNodeId id, PlanNode source, long count, OrderingScheme orderingScheme, Step step)
+    {
+        this(id, source, count, orderingScheme, step, Optional.empty());
     }
 
     @Override
@@ -101,6 +110,17 @@ public class TopNNode
         return step;
     }
 
+    @JsonProperty("runtimeFilter")
+    public Optional<RuntimeFilter> getRuntimeFilter()
+    {
+        return runtimeFilter;
+    }
+
+    public TopNNode withRuntimeFilter(RuntimeFilter runtimeFilter)
+    {
+        return new TopNNode(getId(), source, count, orderingScheme, step, Optional.of(runtimeFilter));
+    }
+
     @Override
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
@@ -110,6 +130,17 @@ public class TopNNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TopNNode(getId(), Iterables.getOnlyElement(newChildren), count, orderingScheme, step);
+        return new TopNNode(getId(), Iterables.getOnlyElement(newChildren), count, orderingScheme, step, runtimeFilter);
+    }
+
+    public record RuntimeFilter(
+            @JsonProperty("id") DynamicFilterId id,
+            @JsonProperty("symbol") Symbol symbol)
+    {
+        public RuntimeFilter
+        {
+            requireNonNull(id, "id is null");
+            requireNonNull(symbol, "symbol is null");
+        }
     }
 }

@@ -52,6 +52,7 @@ import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
+import io.trino.sql.planner.plan.TopNNode;
 import org.roaringbitmap.RoaringBitmap;
 
 import java.util.ArrayList;
@@ -119,6 +120,7 @@ public class DynamicFilterService
     public void registerQuery(Session session, PlanNode queryPlan, SubPlan fragmentedPlan)
     {
         Set<DynamicFilterId> dynamicFilters = getProducedDynamicFilters(queryPlan);
+        Set<DynamicFilterId> streamingDynamicFilters = getStreamingDynamicFilters(queryPlan);
         Set<DynamicFilterId> replicatedDynamicFilters = getReplicatedDynamicFilters(queryPlan);
 
         Set<DynamicFilterId> lazyDynamicFilters = fragmentedPlan.getAllFragments().stream()
@@ -132,6 +134,7 @@ public class DynamicFilterService
                     session,
                     dynamicFilters,
                     lazyDynamicFilters,
+                    streamingDynamicFilters,
                     replicatedDynamicFilters);
         }
     }
@@ -142,15 +145,28 @@ public class DynamicFilterService
             Session session,
             Set<DynamicFilterId> dynamicFilters,
             Set<DynamicFilterId> lazyDynamicFilters,
+            Set<DynamicFilterId> streamingDynamicFilters,
             Set<DynamicFilterId> replicatedDynamicFilters)
     {
         dynamicFilterContexts.putIfAbsent(queryId, new DynamicFilterContext(
                 session,
                 dynamicFilters,
                 lazyDynamicFilters,
+                streamingDynamicFilters,
                 replicatedDynamicFilters,
                 maxSizePerFilter,
                 0));
+    }
+
+    @VisibleForTesting
+    public void registerQuery(
+            QueryId queryId,
+            Session session,
+            Set<DynamicFilterId> dynamicFilters,
+            Set<DynamicFilterId> lazyDynamicFilters,
+            Set<DynamicFilterId> replicatedDynamicFilters)
+    {
+        registerQuery(queryId, session, dynamicFilters, lazyDynamicFilters, ImmutableSet.of(), replicatedDynamicFilters);
     }
 
     public void registerQueryRetry(QueryId queryId, int attemptId)
@@ -179,6 +195,7 @@ public class DynamicFilterService
         int lazyFilters = context.getLazyDynamicFilters().size();
         int replicatedFilters = context.getReplicatedDynamicFilters().size();
         int totalDynamicFilters = context.getTotalDynamicFilters();
+        int dynamicFiltersCompleted = context.getCompletedDynamicFilterCount();
 
         List<DynamicFilterDomainStats> dynamicFilterDomainStats = context.getDynamicFilterSummaries().entrySet().stream()
                 .map(entry -> {
@@ -195,7 +212,7 @@ public class DynamicFilterService
                 lazyFilters,
                 replicatedFilters,
                 totalDynamicFilters,
-                dynamicFilterDomainStats.size());
+                dynamicFiltersCompleted);
     }
 
     public void removeQuery(QueryId queryId)
@@ -275,8 +292,6 @@ public class DynamicFilterService
                 .map(context.getLazyDynamicFilters()::get)
                 .filter(Objects::nonNull)
                 .collect(toImmutableList());
-        AtomicReference<CurrentDynamicFilter> currentDynamicFilter = new AtomicReference<>(new CurrentDynamicFilter(0, TupleDomain.all()));
-
         Set<ColumnHandle> columnsCovered = symbolsMap.values().stream()
                 .map(DynamicFilters.Descriptor::getInput)
                 .map(Symbol::from)
@@ -310,7 +325,7 @@ public class DynamicFilterService
             public boolean isComplete()
             {
                 return dynamicFilters.stream()
-                        .allMatch(filterId -> context.getDynamicFilterSummary(filterId).isPresent());
+                        .allMatch(context::isDynamicFilterComplete);
             }
 
             @Override
@@ -330,23 +345,10 @@ public class DynamicFilterService
                 }
                 Map<DynamicFilterId, Domain> completedDynamicFilters = completedFiltersBuilder.buildOrThrow();
 
-                CurrentDynamicFilter currentFilter = currentDynamicFilter.get();
-                if (currentFilter.getCompletedDynamicFiltersCount() >= completedDynamicFilters.size()) {
-                    // return current dynamic filter as it's more complete
-                    return currentFilter.getDynamicFilter();
-                }
-
-                TupleDomain<ColumnHandle> dynamicFilter = TupleDomain.intersect(
+                return TupleDomain.intersect(
                         completedDynamicFilters.entrySet().stream()
                                 .map(filter -> translateSummaryToTupleDomain(context.getSession(), filter.getKey(), filter.getValue(), symbolsMap, columnHandles))
                                 .collect(toImmutableList()));
-
-                // It could happen that two threads update currentDynamicFilter concurrently.
-                // In such case, currentDynamicFilter might be set to dynamic filter with less domains.
-                // However, this isn't an issue since in the next getCurrentPredicate() call currentDynamicFilter
-                // will be updated again with most accurate dynamic filter.
-                currentDynamicFilter.set(new CurrentDynamicFilter(completedDynamicFilters.size(), dynamicFilter));
-                return dynamicFilter;
             }
         };
     }
@@ -478,9 +480,20 @@ public class DynamicFilterService
     private static Set<DynamicFilterId> getProducedDynamicFilters(PlanNode planNode)
     {
         return PlanNodeSearcher.searchFrom(planNode)
-                .whereIsInstanceOfAny(JoinNode.class, SemiJoinNode.class, DynamicFilterSourceNode.class)
+                .whereIsInstanceOfAny(JoinNode.class, SemiJoinNode.class, DynamicFilterSourceNode.class, TopNNode.class)
                 .findAll().stream()
                 .flatMap(node -> getDynamicFiltersProducedInPlanNode(node).stream())
+                .collect(toImmutableSet());
+    }
+
+    private static Set<DynamicFilterId> getStreamingDynamicFilters(PlanNode planNode)
+    {
+        return PlanNodeSearcher.searchFrom(planNode)
+                .whereIsInstanceOfAny(TopNNode.class)
+                .findAll().stream()
+                .map(TopNNode.class::cast)
+                .flatMap(node -> node.getRuntimeFilter().stream())
+                .map(TopNNode.RuntimeFilter::id)
                 .collect(toImmutableSet());
     }
 
@@ -495,15 +508,24 @@ public class DynamicFilterService
         if (planNode instanceof DynamicFilterSourceNode dynamicFilterSourceNode) {
             return dynamicFilterSourceNode.getDynamicFilters().keySet();
         }
-        throw new IllegalStateException("getDynamicFiltersProducedInPlanNode called with neither JoinNode nor SemiJoinNode");
+        if (planNode instanceof TopNNode topNNode) {
+            return topNNode.getRuntimeFilter()
+                    .map(TopNNode.RuntimeFilter::id)
+                    .map(ImmutableSet::of)
+                    .orElse(ImmutableSet.of());
+        }
+        throw new IllegalStateException("getDynamicFiltersProducedInPlanNode called with neither JoinNode, SemiJoinNode nor TopNNode");
     }
 
     private static Set<DynamicFilterId> getConsumedDynamicFilters(PlanNode planNode)
     {
-        return extractExpressions(planNode).stream()
+        return ImmutableSet.<DynamicFilterId>builder()
+                .addAll(extractExpressions(planNode).stream()
                 .flatMap(expression -> extractDynamicFilters(expression).getDynamicConjuncts().stream())
                 .map(DynamicFilters.Descriptor::getId)
-                .collect(toImmutableSet());
+                .collect(toImmutableSet()))
+                .addAll(getStreamingDynamicFilters(planNode))
+                .build();
     }
 
     public static class DynamicFiltersStats
@@ -660,10 +682,12 @@ public class DynamicFilterService
     private static class DynamicFilterCollectionContext
     {
         private final boolean replicated;
+        private final boolean streaming;
         private final long domainSizeLimitInBytes;
         @GuardedBy("collectedTasks")
         private final RoaringBitmap collectedTasks = new RoaringBitmap();
         private final Queue<Domain> summaryDomains = new ConcurrentLinkedQueue<>();
+        private final Queue<Consumer<Domain>> streamingConsumers = new ConcurrentLinkedQueue<>();
         private final AtomicLong summaryDomainsRetainedSizeInBytes = new AtomicLong();
 
         @GuardedBy("this")
@@ -675,16 +699,23 @@ public class DynamicFilterService
         private final AtomicReference<Duration> collectionDuration = new AtomicReference<>();
         // modifications @GuardedBy("this")
         private volatile boolean collected;
+        @GuardedBy("this")
+        private Optional<Domain> currentDomain = Optional.empty();
         private final SettableFuture<Domain> collectedDomainsFuture = SettableFuture.create();
 
-        private DynamicFilterCollectionContext(boolean replicated, long domainSizeLimitInBytes)
+        private DynamicFilterCollectionContext(boolean replicated, boolean streaming, long domainSizeLimitInBytes)
         {
             this.replicated = replicated;
+            this.streaming = streaming;
             this.domainSizeLimitInBytes = domainSizeLimitInBytes;
         }
 
         public void collect(TaskId taskId, Domain domain)
         {
+            if (streaming) {
+                collectStreaming(domain);
+                return;
+            }
             if (collected) {
                 return;
             }
@@ -695,6 +726,25 @@ public class DynamicFilterService
             else {
                 collectPartitioned(taskId, domain);
             }
+        }
+
+        private void collectStreaming(Domain domain)
+        {
+            if (domain.getRetainedSizeInBytes() > domainSizeLimitInBytes) {
+                domain = domain.simplify(1);
+            }
+            if (domain.getRetainedSizeInBytes() > domainSizeLimitInBytes) {
+                domain = Domain.all(domain.getType());
+            }
+            Domain newDomain = domain;
+            Domain current;
+            synchronized (this) {
+                currentDomain = Optional.of(currentDomain
+                        .map(existingDomain -> existingDomain.intersect(newDomain))
+                        .orElse(newDomain));
+                current = currentDomain.orElseThrow();
+            }
+            streamingConsumers.forEach(consumer -> consumer.accept(current));
         }
 
         private void collectReplicated(Domain domain)
@@ -835,6 +885,9 @@ public class DynamicFilterService
 
         public void setExpectedTaskCount(int count)
         {
+            if (streaming) {
+                return;
+            }
             if (collected || expectedTaskCount != null) {
                 return;
             }
@@ -872,6 +925,23 @@ public class DynamicFilterService
             return collectedDomainsFuture;
         }
 
+        public void addConsumer(Consumer<Domain> consumer)
+        {
+            requireNonNull(consumer, "consumer is null");
+            if (!streaming) {
+                addSuccessCallback(collectedDomainsFuture, consumer);
+                return;
+            }
+
+            streamingConsumers.add(consumer);
+            getCurrentDomain().ifPresent(consumer);
+        }
+
+        public synchronized Optional<Domain> getCurrentDomain()
+        {
+            return currentDomain;
+        }
+
         public Optional<Duration> getCollectionDuration()
         {
             return Optional.ofNullable(collectionDuration.get());
@@ -882,6 +952,7 @@ public class DynamicFilterService
     {
         private final Session session;
         private final Set<DynamicFilterId> dynamicFilters;
+        private final Set<DynamicFilterId> streamingDynamicFilters;
         private final Set<DynamicFilterId> replicatedDynamicFilters;
         private final DataSize dynamicFilterSizeLimit;
         private final Map<DynamicFilterId, SettableFuture<Void>> lazyDynamicFilters;
@@ -896,12 +967,14 @@ public class DynamicFilterService
                 Session session,
                 Set<DynamicFilterId> dynamicFilters,
                 Set<DynamicFilterId> lazyDynamicFilters,
+                Set<DynamicFilterId> streamingDynamicFilters,
                 Set<DynamicFilterId> replicatedDynamicFilters,
                 DataSize dynamicFilterSizeLimit,
                 int attemptId)
         {
             this.session = requireNonNull(session, "session is null");
             this.dynamicFilters = requireNonNull(dynamicFilters, "dynamicFilters is null");
+            this.streamingDynamicFilters = ImmutableSet.copyOf(requireNonNull(streamingDynamicFilters, "streamingDynamicFilters is null"));
             requireNonNull(lazyDynamicFilters, "lazyDynamicFilters is null");
             this.lazyDynamicFilters = lazyDynamicFilters.stream()
                     .collect(toImmutableMap(identity(), _ -> SettableFuture.create()));
@@ -909,7 +982,10 @@ public class DynamicFilterService
             this.dynamicFilterSizeLimit = requireNonNull(dynamicFilterSizeLimit, "dynamicFilterSizeLimit is null");
             ImmutableMap.Builder<DynamicFilterId, DynamicFilterCollectionContext> collectionContexts = ImmutableMap.builder();
             for (DynamicFilterId dynamicFilterId : dynamicFilters) {
-                DynamicFilterCollectionContext collectionContext = new DynamicFilterCollectionContext(replicatedDynamicFilters.contains(dynamicFilterId), dynamicFilterSizeLimit.toBytes());
+                DynamicFilterCollectionContext collectionContext = new DynamicFilterCollectionContext(
+                        replicatedDynamicFilters.contains(dynamicFilterId),
+                        streamingDynamicFilters.contains(dynamicFilterId),
+                        dynamicFilterSizeLimit.toBytes());
                 collectionContexts.put(dynamicFilterId, collectionContext);
                 SettableFuture<Void> lazyDynamicFilterFuture = this.lazyDynamicFilters.get(dynamicFilterId);
                 if (lazyDynamicFilterFuture != null) {
@@ -926,6 +1002,7 @@ public class DynamicFilterService
                     session,
                     dynamicFilters,
                     lazyDynamicFilters.keySet(),
+                    streamingDynamicFilters,
                     replicatedDynamicFilters,
                     dynamicFilterSizeLimit,
                     attemptId);
@@ -936,7 +1013,7 @@ public class DynamicFilterService
             for (DynamicFilterId dynamicFilterId : dynamicFilterIds) {
                 DynamicFilterCollectionContext collectionContext = dynamicFilterCollectionContexts.get(dynamicFilterId);
                 verify(collectionContext != null, "collectionContext is missing for %s", dynamicFilterId);
-                addSuccessCallback(collectionContext.getCollectedDomainFuture(), domain -> consumer.accept(ImmutableMap.of(dynamicFilterId, domain)));
+                collectionContext.addConsumer(domain -> consumer.accept(ImmutableMap.of(dynamicFilterId, domain)));
             }
         }
 
@@ -948,6 +1025,13 @@ public class DynamicFilterService
         private int getTotalDynamicFilters()
         {
             return dynamicFilters.size();
+        }
+
+        private int getCompletedDynamicFilterCount()
+        {
+            return (int) dynamicFilters.stream()
+                    .filter(this::isDynamicFilterComplete)
+                    .count();
         }
 
         private void addTaskDynamicFilters(TaskId taskId, Map<DynamicFilterId, Domain> newDynamicFilters)
@@ -987,17 +1071,36 @@ public class DynamicFilterService
         private Map<DynamicFilterId, Domain> getDynamicFilterSummaries()
         {
             return dynamicFilterCollectionContexts.entrySet().stream()
-                    .filter(entry -> entry.getValue().getCollectedDomainFuture().isDone())
-                    .collect(toImmutableMap(Map.Entry::getKey, entry -> getFutureValue(entry.getValue().getCollectedDomainFuture())));
+                    .filter(entry -> entry.getValue().getCurrentDomain().isPresent() || entry.getValue().getCollectedDomainFuture().isDone())
+                    .collect(toImmutableMap(
+                            Map.Entry::getKey,
+                            entry -> entry.getValue().getCurrentDomain()
+                                    .orElseGet(() -> getFutureValue(entry.getValue().getCollectedDomainFuture()))));
         }
 
         private Optional<Domain> getDynamicFilterSummary(DynamicFilterId filterId)
         {
             DynamicFilterCollectionContext context = dynamicFilterCollectionContexts.get(filterId);
-            if (context == null || !context.getCollectedDomainFuture().isDone()) {
+            if (context == null) {
+                return Optional.empty();
+            }
+            Optional<Domain> currentDomain = context.getCurrentDomain();
+            if (currentDomain.isPresent()) {
+                return currentDomain;
+            }
+            if (!context.getCollectedDomainFuture().isDone()) {
                 return Optional.empty();
             }
             return Optional.of(getFutureValue(context.getCollectedDomainFuture()));
+        }
+
+        private boolean isDynamicFilterComplete(DynamicFilterId filterId)
+        {
+            if (streamingDynamicFilters.contains(filterId)) {
+                return false;
+            }
+            DynamicFilterCollectionContext context = dynamicFilterCollectionContexts.get(filterId);
+            return context != null && context.getCollectedDomainFuture().isDone();
         }
 
         private Map<DynamicFilterId, SettableFuture<Void>> getLazyDynamicFilters()
@@ -1028,25 +1131,4 @@ public class DynamicFilterService
         }
     }
 
-    private static class CurrentDynamicFilter
-    {
-        private final int completedDynamicFiltersCount;
-        private final TupleDomain<ColumnHandle> dynamicFilter;
-
-        private CurrentDynamicFilter(int completedDynamicFiltersCount, TupleDomain<ColumnHandle> dynamicFilter)
-        {
-            this.completedDynamicFiltersCount = completedDynamicFiltersCount;
-            this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
-        }
-
-        private int getCompletedDynamicFiltersCount()
-        {
-            return completedDynamicFiltersCount;
-        }
-
-        private TupleDomain<ColumnHandle> getDynamicFilter()
-        {
-            return dynamicFilter;
-        }
-    }
 }

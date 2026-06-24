@@ -659,7 +659,9 @@ public class SymbolMapper
                 source,
                 node.getCount(),
                 map(node.getOrderingScheme()),
-                node.getStep());
+                node.getStep(),
+                node.getRuntimeFilter()
+                        .map(runtimeFilter -> new TopNNode.RuntimeFilter(runtimeFilter.id(), map(runtimeFilter.symbol()))));
     }
 
     private record OrderingSchemeWithPreSortedPrefix(OrderingScheme orderingScheme, int preSorted)

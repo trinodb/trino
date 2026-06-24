@@ -1511,11 +1511,15 @@ public class PlanPrinter
         @Override
         public Void visitTopN(TopNNode node, Context context)
         {
+            ImmutableMap.Builder<String, String> descriptor = ImmutableMap.<String, String>builder()
+                    .put("count", String.valueOf(node.getCount()))
+                    .put("orderBy", formatOrderingScheme(node.getOrderingScheme()));
+            node.getRuntimeFilter().ifPresent(runtimeFilter -> descriptor.put(
+                    "runtimeFilter",
+                    format("%s -> #%s", anonymizer.anonymize(runtimeFilter.symbol()), runtimeFilter.id())));
             addNode(node,
                     format("TopN%s", node.getStep() == TopNNode.Step.PARTIAL ? "Partial" : ""),
-                    ImmutableMap.of(
-                            "count", String.valueOf(node.getCount()),
-                            "orderBy", formatOrderingScheme(node.getOrderingScheme())),
+                    descriptor.buildOrThrow(),
                     context);
             return processChildren(node, new Context(context.isInitialPlan()));
         }

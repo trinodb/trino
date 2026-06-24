@@ -18,9 +18,13 @@ import io.airlift.units.DataSize;
 import io.trino.ExceededMemoryLimitException;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.OrderingCompiler;
+import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import org.junit.jupiter.api.AfterEach;
@@ -28,7 +32,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -37,7 +43,9 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
+import static io.trino.spi.connector.SortOrder.DESC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -210,11 +218,233 @@ public class TestTopNOperator
         }
     }
 
+    @Test
+    public void testRuntimeFilterPublishesAscendingBoundary()
+    {
+        List<Page> input = rowPagesBuilder(BIGINT)
+                .row(5L)
+                .row(3L)
+                .pageBreak()
+                .row(1L)
+                .row(4L)
+                .pageBreak()
+                .row(2L)
+                .pageBreak()
+                .build();
+
+        DynamicFilterId dynamicFilterId = new DynamicFilterId("test");
+        List<Domain> domains = new ArrayList<>();
+        OperatorFactory operatorFactory = topNOperatorFactory(
+                ImmutableList.of(BIGINT),
+                3,
+                ImmutableList.of(0),
+                ImmutableList.of(ASC_NULLS_LAST),
+                Optional.of(new TopNOperator.RuntimeFilter(
+                        dynamicFilterId,
+                        BIGINT,
+                        0,
+                        ASC_NULLS_LAST,
+                        dynamicFilters -> domains.add(dynamicFilters.get(dynamicFilterId)))));
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
+                .row(1L)
+                .row(2L)
+                .row(3L)
+                .build();
+
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
+        assertThat(domains).containsExactly(
+                Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 4L)), false),
+                Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 3L)), false));
+    }
+
+    @Test
+    public void testRuntimeFilterPublishesDescendingBoundary()
+    {
+        List<Page> input = rowPagesBuilder(BIGINT)
+                .row(1L)
+                .row(2L)
+                .pageBreak()
+                .row(5L)
+                .pageBreak()
+                .build();
+
+        DynamicFilterId dynamicFilterId = new DynamicFilterId("test");
+        List<Domain> domains = new ArrayList<>();
+        OperatorFactory operatorFactory = topNOperatorFactory(
+                ImmutableList.of(BIGINT),
+                2,
+                ImmutableList.of(0),
+                ImmutableList.of(DESC_NULLS_LAST),
+                Optional.of(new TopNOperator.RuntimeFilter(
+                        dynamicFilterId,
+                        BIGINT,
+                        0,
+                        DESC_NULLS_LAST,
+                        dynamicFilters -> domains.add(dynamicFilters.get(dynamicFilterId)))));
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
+                .row(5L)
+                .row(2L)
+                .build();
+
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
+        assertThat(domains).containsExactly(
+                Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 1L)), false),
+                Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 2L)), false));
+    }
+
+    @Test
+    public void testRuntimeFilterPublishesDuplicateBoundary()
+    {
+        List<Page> input = rowPagesBuilder(BIGINT)
+                .row(1L)
+                .row(2L)
+                .pageBreak()
+                .row(2L)
+                .row(3L)
+                .pageBreak()
+                .build();
+
+        DynamicFilterId dynamicFilterId = new DynamicFilterId("test");
+        List<Domain> domains = new ArrayList<>();
+        OperatorFactory operatorFactory = topNOperatorFactory(
+                ImmutableList.of(BIGINT),
+                2,
+                ImmutableList.of(0),
+                ImmutableList.of(ASC_NULLS_LAST),
+                Optional.of(new TopNOperator.RuntimeFilter(
+                        dynamicFilterId,
+                        BIGINT,
+                        0,
+                        ASC_NULLS_LAST,
+                        dynamicFilters -> domains.add(dynamicFilters.get(dynamicFilterId)))));
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
+                .row(1L)
+                .row(2L)
+                .build();
+
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
+        assertThat(domains).containsExactly(Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 2L)), false));
+    }
+
+    @Test
+    public void testRuntimeFilterPublishesNullsFirstBoundary()
+    {
+        List<Page> input = rowPagesBuilder(BIGINT)
+                .row((Object) null)
+                .row((Object) null)
+                .pageBreak()
+                .row(1L)
+                .pageBreak()
+                .build();
+
+        DynamicFilterId dynamicFilterId = new DynamicFilterId("test");
+        List<Domain> domains = new ArrayList<>();
+        OperatorFactory operatorFactory = topNOperatorFactory(
+                ImmutableList.of(BIGINT),
+                2,
+                ImmutableList.of(0),
+                ImmutableList.of(ASC_NULLS_FIRST),
+                Optional.of(new TopNOperator.RuntimeFilter(
+                        dynamicFilterId,
+                        BIGINT,
+                        0,
+                        ASC_NULLS_FIRST,
+                        dynamicFilters -> domains.add(dynamicFilters.get(dynamicFilterId)))));
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
+                .row((Object) null)
+                .row((Object) null)
+                .build();
+
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
+        assertThat(domains).containsExactly(Domain.onlyNull(BIGINT));
+    }
+
+    @Test
+    public void testRuntimeFilterPublishesDescendingNullsFirstBoundary()
+    {
+        List<Page> input = rowPagesBuilder(BIGINT)
+                .row((Object) null)
+                .row(5L)
+                .pageBreak()
+                .row(6L)
+                .pageBreak()
+                .build();
+
+        DynamicFilterId dynamicFilterId = new DynamicFilterId("test");
+        List<Domain> domains = new ArrayList<>();
+        OperatorFactory operatorFactory = topNOperatorFactory(
+                ImmutableList.of(BIGINT),
+                1,
+                ImmutableList.of(0),
+                ImmutableList.of(DESC_NULLS_FIRST),
+                Optional.of(new TopNOperator.RuntimeFilter(
+                        dynamicFilterId,
+                        BIGINT,
+                        0,
+                        DESC_NULLS_FIRST,
+                        dynamicFilters -> domains.add(dynamicFilters.get(dynamicFilterId)))));
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
+                .row((Object) null)
+                .build();
+
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
+        assertThat(domains).containsExactly(Domain.onlyNull(BIGINT));
+    }
+
+    @Test
+    public void testRuntimeFilterDoesNotPublishNullsLastBoundary()
+    {
+        List<Page> input = rowPagesBuilder(BIGINT)
+                .row((Object) null)
+                .row(2L)
+                .pageBreak()
+                .row(1L)
+                .pageBreak()
+                .build();
+
+        DynamicFilterId dynamicFilterId = new DynamicFilterId("test");
+        List<Domain> domains = new ArrayList<>();
+        OperatorFactory operatorFactory = topNOperatorFactory(
+                ImmutableList.of(BIGINT),
+                2,
+                ImmutableList.of(0),
+                ImmutableList.of(ASC_NULLS_LAST),
+                Optional.of(new TopNOperator.RuntimeFilter(
+                        dynamicFilterId,
+                        BIGINT,
+                        0,
+                        ASC_NULLS_LAST,
+                        dynamicFilters -> domains.add(dynamicFilters.get(dynamicFilterId)))));
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
+                .row(1L)
+                .row(2L)
+                .build();
+
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
+        assertThat(domains).containsExactly(Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 2L)), false));
+    }
+
     private OperatorFactory topNOperatorFactory(
             List<Type> types,
             int n,
             List<Integer> sortChannels,
             List<SortOrder> sortOrders)
+    {
+        return topNOperatorFactory(types, n, sortChannels, sortOrders, Optional.empty());
+    }
+
+    private OperatorFactory topNOperatorFactory(
+            List<Type> types,
+            int n,
+            List<Integer> sortChannels,
+            List<SortOrder> sortOrders,
+            Optional<TopNOperator.RuntimeFilter> runtimeFilter)
     {
         List<Type> sortTypes = sortChannels.stream()
                 .map(types::get)
@@ -224,6 +454,7 @@ public class TestTopNOperator
                 new PlanNodeId("test"),
                 types,
                 n,
-                orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrders));
+                orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrders),
+                runtimeFilter);
     }
 }

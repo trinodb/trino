@@ -35,6 +35,7 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
@@ -49,6 +50,7 @@ import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TopNNode;
 import io.trino.testing.TestingMetadata;
 import io.trino.testing.TestingSession;
 import org.junit.jupiter.api.Test;
@@ -70,9 +72,11 @@ import static io.trino.SystemSessionProperties.RETRY_POLICY;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.server.DynamicFilterService.getOutboundDynamicFilters;
 import static io.trino.server.DynamicFilterService.getSourceStageInnerLazyDynamicFilters;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.none;
 import static io.trino.spi.predicate.Domain.singleValue;
+import static io.trino.spi.predicate.Range.lessThanOrEqual;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -85,6 +89,7 @@ import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.TopNNode.Step.PARTIAL;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.util.DynamicFiltersTestUtil.getSimplifiedDomainString;
 import static java.util.stream.Collectors.joining;
@@ -773,6 +778,115 @@ public class TestDynamicFilterService
     }
 
     @Test
+    public void testTopNRuntimeFiltersAreNotLazyOrOutbound()
+    {
+        DynamicFilterId filterId = new DynamicFilterId("topn");
+        PlanFragment plan = createTopNPlan(filterId, SOURCE_DISTRIBUTION);
+
+        assertThat(getSourceStageInnerLazyDynamicFilters(plan)).isEmpty();
+        assertThat(getOutboundDynamicFilters(plan)).isEmpty();
+    }
+
+    @Test
+    public void testTopNRuntimeFilterIsStreaming()
+    {
+        DynamicFilterService dynamicFilterService = createDynamicFilterService();
+        DynamicFilterId filterId = new DynamicFilterId("topn");
+        QueryId queryId = new QueryId("query");
+        StageId stageId = new StageId(queryId, 0);
+        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        Symbol symbol = symbolAllocator.newSymbol("orderkey", BIGINT);
+        TestingColumnHandle column = new TestingColumnHandle("orderkey");
+
+        dynamicFilterService.registerQuery(
+                queryId,
+                session,
+                ImmutableSet.of(filterId),
+                ImmutableSet.of(),
+                ImmutableSet.of(filterId),
+                ImmutableSet.of());
+
+        DynamicFilter dynamicFilter = dynamicFilterService.createDynamicFilter(
+                queryId,
+                ImmutableList.of(new DynamicFilters.Descriptor(filterId, symbol.toSymbolReference())),
+                ImmutableMap.of(symbol, column));
+
+        assertThat(dynamicFilter.getColumnsCovered()).isEqualTo(ImmutableSet.of(column));
+        assertThat(dynamicFilter.getCurrentPredicate()).isEqualTo(TupleDomain.all());
+        assertThat(dynamicFilter.isAwaitable()).isFalse();
+        assertThat(dynamicFilter.isBlocked().isDone()).isTrue();
+        assertThat(dynamicFilter.isComplete()).isFalse();
+
+        Map<DynamicFilterId, Domain> consumerCollectedFilters = new HashMap<>();
+        AtomicInteger callbackCount = new AtomicInteger();
+        dynamicFilterService.registerDynamicFilterConsumer(
+                queryId,
+                0,
+                ImmutableSet.of(filterId),
+                domains -> {
+                    callbackCount.getAndIncrement();
+                    consumerCollectedFilters.putAll(domains);
+                });
+        assertThat(consumerCollectedFilters).isEmpty();
+        assertThat(callbackCount.get()).isEqualTo(0);
+
+        dynamicFilterService.addTaskDynamicFilters(
+                new TaskId(stageId, 0, 0),
+                ImmutableMap.of(filterId, Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, 10L)), false)));
+
+        assertThat(consumerCollectedFilters).isEqualTo(ImmutableMap.of(
+                filterId,
+                Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, 10L)), false)));
+        assertThat(callbackCount.get()).isEqualTo(1);
+        assertThat(dynamicFilter.getCurrentPredicate()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(
+                column,
+                Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, 10L)), false))));
+        assertThat(dynamicFilter.isAwaitable()).isFalse();
+        assertThat(dynamicFilter.isComplete()).isFalse();
+
+        dynamicFilterService.addTaskDynamicFilters(
+                new TaskId(stageId, 0, 0),
+                ImmutableMap.of(filterId, Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, 5L)), false)));
+
+        assertThat(consumerCollectedFilters).isEqualTo(ImmutableMap.of(
+                filterId,
+                Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, 5L)), false)));
+        assertThat(callbackCount.get()).isEqualTo(2);
+        assertThat(dynamicFilter.getCurrentPredicate()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(
+                column,
+                Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, 5L)), false))));
+        assertThat(dynamicFilterService.getSummary(queryId, filterId))
+                .contains(Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, 5L)), false));
+        assertThat(dynamicFilter.isAwaitable()).isFalse();
+        assertThat(dynamicFilter.isComplete()).isFalse();
+
+        dynamicFilterService.stageCannotScheduleMoreTasks(stageId, 0, 2);
+        assertThat(dynamicFilter.isAwaitable()).isFalse();
+        assertThat(dynamicFilter.isComplete()).isFalse();
+
+        dynamicFilterService.addTaskDynamicFilters(
+                new TaskId(stageId, 1, 0),
+                ImmutableMap.of(filterId, Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, 3L)), false)));
+
+        assertThat(consumerCollectedFilters).isEqualTo(ImmutableMap.of(
+                filterId,
+                Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, 3L)), false)));
+        assertThat(callbackCount.get()).isEqualTo(3);
+        assertThat(dynamicFilter.getCurrentPredicate()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(
+                column,
+                Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, 3L)), false))));
+        assertThat(dynamicFilterService.getSummary(queryId, filterId))
+                .contains(Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, 3L)), false));
+        assertThat(dynamicFilter.isAwaitable()).isFalse();
+        assertThat(dynamicFilter.isComplete()).isFalse();
+
+        DynamicFiltersStats stats = dynamicFilterService.getDynamicFilteringStats(queryId);
+        assertThat(stats.getTotalDynamicFilters()).isEqualTo(1);
+        assertThat(stats.getDynamicFiltersCompleted()).isEqualTo(0);
+        assertThat(stats.getDynamicFilterDomainStats()).hasSize(1);
+    }
+
+    @Test
     public void testMultipleQueryAttempts()
     {
         DynamicFilterService dynamicFilterService = createDynamicFilterService();
@@ -1005,6 +1119,43 @@ public class TestDynamicFilterService
     private static PlanFragment createPlan(DynamicFilterId dynamicFilterId, PartitioningHandle stagePartitioning, ExchangeNode.Type exchangeType)
     {
         return createPlan(dynamicFilterId, dynamicFilterId, stagePartitioning, exchangeType);
+    }
+
+    private static PlanFragment createTopNPlan(DynamicFilterId dynamicFilterId, PartitioningHandle stagePartitioning)
+    {
+        Symbol symbol = new Symbol(VARCHAR, "column");
+
+        PlanNodeId tableScanNodeId = new PlanNodeId("plan_id");
+        TableScanNode tableScan = new TableScanNode(
+                tableScanNodeId,
+                TEST_TABLE_HANDLE,
+                ImmutableList.of(symbol),
+                ImmutableMap.of(symbol, new TestingMetadata.TestingColumnHandle("column")),
+                TupleDomain.all(),
+                Optional.empty(),
+                false,
+                Optional.empty());
+        TopNNode topN = new TopNNode(
+                new PlanNodeId("topn_id"),
+                tableScan,
+                100,
+                new OrderingScheme(ImmutableList.of(symbol), ImmutableMap.of(symbol, ASC_NULLS_LAST)),
+                PARTIAL,
+                Optional.of(new TopNNode.RuntimeFilter(dynamicFilterId, symbol)));
+
+        return new PlanFragment(
+                new PlanFragmentId("plan_id"),
+                topN,
+                ImmutableSet.of(symbol),
+                stagePartitioning,
+                OptionalInt.empty(),
+                ImmutableList.of(tableScanNodeId),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
+                OptionalInt.empty(),
+                StatsAndCosts.empty(),
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                Optional.empty());
     }
 
     private static PlanFragment createPlan(

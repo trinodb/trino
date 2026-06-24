@@ -16,13 +16,23 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.connector.SortOrder;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
+import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -38,7 +48,18 @@ public class TopNOperator
             int n,
             PageWithPositionComparator comparator)
     {
-        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, types, n, comparator));
+        return createOperatorFactory(operatorId, planNodeId, types, n, comparator, Optional.empty());
+    }
+
+    public static OperatorFactory createOperatorFactory(
+            int operatorId,
+            PlanNodeId planNodeId,
+            List<? extends Type> types,
+            int n,
+            PageWithPositionComparator comparator,
+            Optional<RuntimeFilter> runtimeFilter)
+    {
+        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, types, n, comparator, runtimeFilter));
     }
 
     private static class Factory
@@ -49,6 +70,7 @@ public class TopNOperator
         private final List<Type> sourceTypes;
         private final int n;
         private final PageWithPositionComparator comparator;
+        private final Optional<RuntimeFilter> runtimeFilter;
         private boolean closed;
 
         private Factory(
@@ -56,13 +78,15 @@ public class TopNOperator
                 PlanNodeId planNodeId,
                 List<? extends Type> types,
                 int n,
-                PageWithPositionComparator comparator)
+                PageWithPositionComparator comparator,
+                Optional<RuntimeFilter> runtimeFilter)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceTypes = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.n = n;
             this.comparator = requireNonNull(comparator, "comparator is null");
+            this.runtimeFilter = requireNonNull(runtimeFilter, "runtimeFilter is null");
         }
 
         @Override
@@ -76,7 +100,8 @@ public class TopNOperator
                     sourcePages,
                     sourceTypes,
                     n,
-                    comparator);
+                    comparator,
+                    runtimeFilter);
         }
 
         @Override
@@ -106,7 +131,7 @@ public class TopNOperator
         @Override
         public Factory duplicate()
         {
-            return new Factory(operatorId, planNodeId, sourceTypes, n, comparator);
+            return new Factory(operatorId, planNodeId, sourceTypes, n, comparator, runtimeFilter);
         }
     }
 
@@ -117,7 +142,8 @@ public class TopNOperator
             WorkProcessor<Page> sourcePages,
             List<Type> types,
             int n,
-            PageWithPositionComparator comparator)
+            PageWithPositionComparator comparator,
+            Optional<RuntimeFilter> runtimeFilter)
     {
         if (n == 0) {
             pages = WorkProcessor.of();
@@ -129,7 +155,8 @@ public class TopNOperator
                                     operatorContext.aggregateUserMemoryContext(),
                                     types,
                                     n,
-                                    comparator)));
+                                    comparator),
+                            runtimeFilter.map(RuntimeFilterPublisher::new)));
         }
     }
 
@@ -143,10 +170,12 @@ public class TopNOperator
             implements WorkProcessor.Transformation<Page, Page>
     {
         private final TopNProcessor topNProcessor;
+        private final Optional<RuntimeFilterPublisher> runtimeFilterPublisher;
 
-        private TopNPages(TopNProcessor topNProcessor)
+        private TopNPages(TopNProcessor topNProcessor, Optional<RuntimeFilterPublisher> runtimeFilterPublisher)
         {
             this.topNProcessor = requireNonNull(topNProcessor, "topNProcessor is null");
+            this.runtimeFilterPublisher = requireNonNull(runtimeFilterPublisher, "runtimeFilterPublisher is null");
         }
 
         @Override
@@ -154,6 +183,7 @@ public class TopNOperator
         {
             if (inputPage != null) {
                 topNProcessor.addInput(inputPage);
+                runtimeFilterPublisher.ifPresent(publisher -> publisher.publish(topNProcessor.getWorstRow()));
                 return TransformationState.needsMoreData();
             }
 
@@ -168,6 +198,71 @@ public class TopNOperator
             }
 
             return TransformationState.finished();
+        }
+    }
+
+    public record RuntimeFilter(
+            DynamicFilterId id,
+            Type type,
+            int channel,
+            SortOrder sortOrder,
+            Consumer<Map<DynamicFilterId, Domain>> consumer)
+    {
+        public RuntimeFilter
+        {
+            requireNonNull(id, "id is null");
+            requireNonNull(type, "type is null");
+            requireNonNull(sortOrder, "sortOrder is null");
+            requireNonNull(consumer, "consumer is null");
+        }
+    }
+
+    private static final class RuntimeFilterPublisher
+    {
+        private final RuntimeFilter runtimeFilter;
+        private Domain lastPublishedDomain;
+
+        private RuntimeFilterPublisher(RuntimeFilter runtimeFilter)
+        {
+            this.runtimeFilter = requireNonNull(runtimeFilter, "runtimeFilter is null");
+        }
+
+        private void publish(Optional<TopNProcessor.PagePosition> worstPosition)
+        {
+            if (worstPosition.isEmpty()) {
+                return;
+            }
+
+            TopNProcessor.PagePosition worst = worstPosition.orElseThrow();
+            Block block = worst.page().getBlock(runtimeFilter.channel());
+            Optional<Domain> boundaryDomain = createBoundaryDomain(runtimeFilter, block, worst.position());
+            if (boundaryDomain.isEmpty()) {
+                return;
+            }
+
+            Domain domain = boundaryDomain.orElseThrow();
+            if (domain.equals(lastPublishedDomain)) {
+                return;
+            }
+            lastPublishedDomain = domain;
+            runtimeFilter.consumer().accept(Map.of(runtimeFilter.id(), domain));
+        }
+
+        private static Optional<Domain> createBoundaryDomain(RuntimeFilter runtimeFilter, Block block, int position)
+        {
+            if (block.isNull(position)) {
+                if (runtimeFilter.sortOrder().isNullsFirst()) {
+                    return Optional.of(Domain.onlyNull(runtimeFilter.type()));
+                }
+                return Optional.empty();
+            }
+
+            Object value = readNativeValue(runtimeFilter.type(), block, position);
+            return Optional.of(Domain.create(
+                    ValueSet.ofRanges(runtimeFilter.sortOrder().isAscending()
+                            ? Range.lessThanOrEqual(runtimeFilter.type(), value)
+                            : Range.greaterThanOrEqual(runtimeFilter.type(), value)),
+                    runtimeFilter.sortOrder().isNullsFirst()));
         }
     }
 }
