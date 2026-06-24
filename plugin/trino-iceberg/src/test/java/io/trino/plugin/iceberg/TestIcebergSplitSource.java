@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.cache.NoopSplitAffinityProvider;
 import io.trino.metastore.HiveMetastore;
@@ -75,6 +76,7 @@ import java.util.UUID;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.iceberg.IcebergSplitSource.createFileStatisticsDomain;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
@@ -206,6 +208,85 @@ public class TestIcebergSplitSource
                 ImmutableMap.of(bigintColumn, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1000L, true, 2000L, true)), true)));
         assertThat(createFileStatisticsDomain(primitiveTypes, lowerBound, upperBound, ImmutableMap.of(1, 1L), predicatedColumns))
                 .isEqualTo(domainLowerUpperBoundAllowNulls);
+    }
+
+    @Test
+    public void testDynamicFilterPrunesRemainingPartitionSplits()
+            throws Exception
+    {
+        String tableName = "test_dynamic_filter_partition_pruning";
+        assertUpdate("CREATE TABLE " + tableName + " (value BIGINT, part BIGINT) WITH (partitioning = ARRAY['part'])");
+        try {
+            assertUpdate("INSERT INTO " + tableName + " VALUES (0, 0)", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1)", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 2)", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 3)", 1);
+
+            SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
+            Table table = catalog.loadTable(SESSION, schemaTableName);
+            IcebergColumnHandle part = IcebergColumnHandle.optional(new ColumnIdentity(table.schema().findField("part").fieldId(), "part", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
+                    .columnType(BIGINT)
+                    .build();
+            IcebergTableHandle tableHandle = createTableHandle(schemaTableName, table, TupleDomain.all(), ImmutableSet.of(part));
+
+            List<IcebergSplit> allSplits = generateSplits(SESSION, table, tableHandle, ImmutableSet.of(part), DynamicFilterSnapshot.EMPTY);
+            assertThat(allSplits).hasSize(4);
+
+            Domain cutoffDomain = Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 1L)), false);
+            TupleDomain<IcebergColumnHandle> icebergCutoffPredicate = TupleDomain.withColumnDomains(ImmutableMap.of(part, cutoffDomain));
+            DynamicFilterSnapshot dynamicFilterSnapshot = new DynamicFilterSnapshot(
+                    TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(part, cutoffDomain)),
+                    false);
+
+            List<IcebergSplit> splits = generateSplitsWithDynamicFilterAfterFirstBatch(
+                    SESSION,
+                    table,
+                    tableHandle,
+                    ImmutableSet.of(part),
+                    dynamicFilterSnapshot);
+
+            boolean firstSplitMatchesCutoff = splits.getFirst().fileStatisticsDomain().overlaps(icebergCutoffPredicate);
+            assertThat(splits).hasSize(firstSplitMatchesCutoff ? 2 : 3);
+            assertThat(splits.stream().skip(1))
+                    .allSatisfy(split -> assertThat(split.fileStatisticsDomain().overlaps(icebergCutoffPredicate)).isTrue());
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testTopNRuntimeFilterQuery()
+    {
+        String tableName = "test_topn_runtime_filter_query";
+        assertUpdate("CREATE TABLE " + tableName + " (value BIGINT, part BIGINT) WITH (partitioning = ARRAY['part'])");
+        try {
+            assertUpdate("INSERT INTO " + tableName + " VALUES (10, 0)", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (11, 1)", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (12, 2)", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (13, 3)", 1);
+
+            Session dynamicFilteringEnabled = Session.builder(getSession())
+                    .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
+                    .build();
+
+            String explain = (String) computeScalar(dynamicFilteringEnabled, "EXPLAIN SELECT value, part FROM " + tableName + " ORDER BY part LIMIT 2");
+            assertThat(explain)
+                    .contains("runtimeFilter")
+                    .contains("topn_rf_");
+
+            assertQuery(
+                    dynamicFilteringEnabled,
+                    "SELECT value, part FROM " + tableName + " ORDER BY part LIMIT 2",
+                    "VALUES (CAST(10 AS BIGINT), CAST(0 AS BIGINT)), (CAST(11 AS BIGINT), CAST(1 AS BIGINT))");
+            assertQuery(
+                    dynamicFilteringEnabled,
+                    "SELECT value, part FROM " + tableName + " ORDER BY part DESC LIMIT 2",
+                    "VALUES (CAST(13 AS BIGINT), CAST(3 AS BIGINT)), (CAST(12 AS BIGINT), CAST(2 AS BIGINT))");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
     }
 
     @Test
@@ -400,6 +481,41 @@ public class TestIcebergSplitSource
                 dynamicFilterColumns,
                 ConnectorExpressionEvaluator.NO_OP)) {
             ImmutableList.Builder<IcebergSplit> builder = ImmutableList.builder();
+            while (!splitSource.isFinished()) {
+                splitSource.getNextBatch(100, dynamicFilterSnapshot).get()
+                        .stream()
+                        .map(IcebergSplit.class::cast)
+                        .forEach(builder::add);
+            }
+            assertThat(splitSource.isFinished()).isTrue();
+            return builder.build();
+        }
+    }
+
+    private List<IcebergSplit> generateSplitsWithDynamicFilterAfterFirstBatch(ConnectorSession session, Table nationTable, IcebergTableHandle tableHandle, Set<ColumnHandle> dynamicFilterColumns, DynamicFilterSnapshot dynamicFilterSnapshot)
+            throws Exception
+    {
+        try (IcebergSplitSource splitSource = new IcebergSplitSource(
+                new DefaultIcebergFileSystemFactory(fileSystemFactory),
+                session,
+                tableHandle,
+                nationTable,
+                nationTable.newScan(),
+                Optional.empty(),
+                alwaysTrue(),
+                TESTING_TYPE_MANAGER,
+                false,
+                0,
+                new NoopSplitAffinityProvider(),
+                new InMemoryMetricsReporter(),
+                newDirectExecutorService(),
+                dynamicFilterColumns,
+                ConnectorExpressionEvaluator.NO_OP)) {
+            ImmutableList.Builder<IcebergSplit> builder = ImmutableList.builder();
+            splitSource.getNextBatch(1, DynamicFilterSnapshot.EMPTY).get()
+                    .stream()
+                    .map(IcebergSplit.class::cast)
+                    .forEach(builder::add);
             while (!splitSource.isFinished()) {
                 splitSource.getNextBatch(100, dynamicFilterSnapshot).get()
                         .stream()
