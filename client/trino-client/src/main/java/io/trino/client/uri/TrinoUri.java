@@ -25,6 +25,7 @@ import io.trino.client.ClientSession;
 import io.trino.client.DnsResolver;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
 import io.trino.client.auth.external.RedirectHandler;
+import io.trino.client.uri.ConnectionProperties.SslVerificationMode;
 import org.ietf.jgss.GSSCredential;
 
 import java.io.File;
@@ -93,7 +94,6 @@ import static io.trino.client.uri.ConnectionProperties.SSL_TRUST_STORE_TYPE;
 import static io.trino.client.uri.ConnectionProperties.SSL_USE_SYSTEM_KEY_STORE;
 import static io.trino.client.uri.ConnectionProperties.SSL_USE_SYSTEM_TRUST_STORE;
 import static io.trino.client.uri.ConnectionProperties.SSL_VERIFICATION;
-import static io.trino.client.uri.ConnectionProperties.SslVerificationMode;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.FULL;
 import static io.trino.client.uri.ConnectionProperties.TIMEOUT;
 import static io.trino.client.uri.ConnectionProperties.TIMEZONE;

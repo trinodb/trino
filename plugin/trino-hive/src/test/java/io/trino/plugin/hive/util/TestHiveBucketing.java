@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -52,7 +53,6 @@ import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Double.longBitsToDouble;
 import static java.lang.Float.intBitsToFloat;
 import static java.util.Arrays.asList;
-import static java.util.Map.Entry;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getStandardJavaObjectInspectorFromTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getTypeInfoFromTypeString;
 import static org.assertj.core.api.Assertions.assertThat;

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.TestingSourcePage;
+import io.trino.operator.project.PageFieldsToInputParametersRewriter.Result;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
@@ -50,7 +51,6 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
-import static io.trino.operator.project.PageFieldsToInputParametersRewriter.Result;
 import static io.trino.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;

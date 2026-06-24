@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import com.google.common.io.Resources;
 import io.trino.Session;
+import io.trino.filesystem.tracing.CacheFileSystemTraceUtils.CacheOperation;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
@@ -33,7 +34,6 @@ import java.util.stream.Stream;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.CacheOperation;
 import static io.trino.plugin.deltalake.DeltaLakeAlluxioCacheTestUtils.getCacheOperations;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;

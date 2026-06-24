@@ -16,6 +16,7 @@ package io.trino.tests.product.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.tempto.ProductTest;
+import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
@@ -32,7 +33,6 @@ import java.util.List;
 import java.util.UUID;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.tempto.assertions.QueryAssert.Row;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.TestingNames.randomNameSuffix;

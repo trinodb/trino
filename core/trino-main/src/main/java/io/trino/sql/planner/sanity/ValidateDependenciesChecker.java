@@ -22,6 +22,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.optimizations.IndexJoinOptimizer.IndexKeyTracer;
 import io.trino.sql.planner.plan.AdaptivePlanNode;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
@@ -92,7 +93,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
-import static io.trino.sql.planner.optimizations.IndexJoinOptimizer.IndexKeyTracer;
 
 /**
  * Ensures that all dependencies (i.e., symbols in expressions) for a plan node are provided by its source nodes

@@ -15,10 +15,10 @@ package io.trino.parquet.dictionary;
 
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.reader.SimpleSliceInputStream;
+import io.trino.parquet.reader.decoders.PlainValueDecoders.IntPlainValueDecoder;
 import io.trino.parquet.reader.decoders.ValueDecoder;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.trino.parquet.reader.decoders.PlainValueDecoders.IntPlainValueDecoder;
 
 public class IntegerDictionary
         implements Dictionary

@@ -33,6 +33,7 @@ import io.trino.jdbc.QueryStats;
 import io.trino.jdbc.TrinoConnection;
 import io.trino.jdbc.TrinoStatement;
 import io.trino.spi.type.SqlVarbinary;
+import io.trino.verifier.QueryResult.State;
 import io.trino.verifier.Validator.ChangedRow.Changed;
 
 import java.math.BigDecimal;
@@ -59,7 +60,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.units.Duration.nanosSince;
-import static io.trino.verifier.QueryResult.State;
 import static java.lang.Double.isFinite;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
