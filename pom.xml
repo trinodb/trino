@@ -2271,6 +2271,18 @@
             </dependency>
 
             <dependency>
+                <groupId>org.safere</groupId>
+                <artifactId>safere</artifactId>
+                <version>0.11.0-SNAPSHOT</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.sonatype.aether</groupId>
+                <artifactId>aether-api</artifactId>
+                <version>1.13.1</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.xerial.snappy</groupId>
                 <artifactId>snappy-java</artifactId>
                 <version>1.1.10.8</version>
