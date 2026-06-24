@@ -379,6 +379,11 @@
         </dependency>
 
         <dependency>
+            <groupId>org.safere</groupId>
+            <artifactId>safere</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.weakref</groupId>
             <artifactId>jmxutils</artifactId>
         </dependency>

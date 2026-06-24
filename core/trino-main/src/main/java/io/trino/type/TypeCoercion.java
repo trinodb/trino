@@ -55,6 +55,7 @@ import static io.trino.type.CodePointsType.CODE_POINTS;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
+import static io.trino.type.SafeReRegexpType.SAFE_RE_REGEXP;
 import static java.util.Objects.requireNonNull;
 
 public final class TypeCoercion
@@ -445,6 +446,7 @@ public final class TypeCoercion
                 }
                 case JoniRegexpType.NAME -> Optional.of(JONI_REGEXP);
                 case Re2JRegexpType.NAME -> Optional.of(lookupType.apply(RE2J_REGEXP_SIGNATURE));
+                case SafeReRegexpType.NAME -> Optional.of(SAFE_RE_REGEXP);
                 case JsonPathType.NAME -> Optional.of(JSON_PATH);
                 case CodePointsType.NAME -> Optional.of(CODE_POINTS);
                 default -> Optional.empty();
@@ -458,6 +460,7 @@ public final class TypeCoercion
                 }
                 case JoniRegexpType.NAME -> Optional.of(JONI_REGEXP);
                 case Re2JRegexpType.NAME -> Optional.of(lookupType.apply(RE2J_REGEXP_SIGNATURE));
+                case SafeReRegexpType.NAME -> Optional.of(SAFE_RE_REGEXP);
                 case JsonPathType.NAME -> Optional.of(JSON_PATH);
                 case CodePointsType.NAME -> Optional.of(CODE_POINTS);
                 default -> Optional.empty();

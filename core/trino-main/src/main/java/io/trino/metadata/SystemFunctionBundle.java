@@ -169,6 +169,8 @@ import io.trino.operator.scalar.QuantileDigestFunctions;
 import io.trino.operator.scalar.Re2JRegexpFunctions;
 import io.trino.operator.scalar.Re2JRegexpReplaceLambdaFunction;
 import io.trino.operator.scalar.RepeatFunction;
+import io.trino.operator.scalar.SafeReRegexpFunctions;
+import io.trino.operator.scalar.SafeReRegexpReplaceLambdaFunction;
 import io.trino.operator.scalar.SequenceFunction;
 import io.trino.operator.scalar.SessionFunctions;
 import io.trino.operator.scalar.SplitToMapFunction;
@@ -331,6 +333,8 @@ import static io.trino.operator.scalar.RowFieldsFunction.ROW_FIELDS_FUNCTION;
 import static io.trino.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static io.trino.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
 import static io.trino.operator.scalar.RowToVariantCast.ROW_TO_VARIANT;
+import static io.trino.operator.scalar.SafeReCastToRegexpFunction.castCharToSafeReRegexp;
+import static io.trino.operator.scalar.SafeReCastToRegexpFunction.castVarcharToSafeReRegexp;
 import static io.trino.operator.scalar.TryCastFunction.TRY_CAST;
 import static io.trino.operator.scalar.VariantToArrayCast.VARIANT_TO_ARRAY;
 import static io.trino.operator.scalar.VariantToMapCast.VARIANT_TO_MAP;
@@ -626,6 +630,8 @@ public final class SystemFunctionBundle
                 .function(DECIMAL_TO_DECIMAL_CAST)
                 .function(castVarcharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
                 .function(castCharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
+                .function(castVarcharToSafeReRegexp())
+                .function(castCharToSafeReRegexp())
                 .aggregates(DecimalAverageAggregation.class)
                 .aggregates(DecimalSumAggregation.class)
                 .function(DECIMAL_MOD_FUNCTION)
@@ -785,6 +791,10 @@ public final class SystemFunctionBundle
             case RE2J -> {
                 builder.scalars(Re2JRegexpFunctions.class);
                 builder.scalar(Re2JRegexpReplaceLambdaFunction.class);
+            }
+            case SAFERE -> {
+                builder.scalars(SafeReRegexpFunctions.class);
+                builder.scalar(SafeReRegexpReplaceLambdaFunction.class);
             }
         }
 
