@@ -24,6 +24,7 @@ import io.trino.client.ClientSelectedRole;
 import io.trino.client.DnsResolver;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
 import io.trino.client.spooling.encoding.QueryDataDecoders;
+import io.trino.client.uri.AbstractConnectionProperty.Validator;
 import org.ietf.jgss.GSSCredential;
 
 import java.io.File;
@@ -46,7 +47,6 @@ import static com.google.common.collect.Streams.stream;
 import static io.trino.client.ClientSelectedRole.Type.ALL;
 import static io.trino.client.ClientSelectedRole.Type.NONE;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
-import static io.trino.client.uri.AbstractConnectionProperty.Validator;
 import static io.trino.client.uri.AbstractConnectionProperty.validator;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.FULL;
 import static java.lang.String.format;

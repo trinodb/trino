@@ -22,6 +22,7 @@ import io.airlift.units.Duration;
 import io.trino.operator.FilterAndProjectOperator;
 import io.trino.operator.OperatorStats;
 import io.trino.operator.TableWriterOperator;
+import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.metrics.Metrics;
@@ -35,7 +36,6 @@ import java.util.OptionalDouble;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;

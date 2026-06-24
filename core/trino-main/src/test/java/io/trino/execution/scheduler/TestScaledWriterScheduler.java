@@ -29,6 +29,7 @@ import io.trino.execution.StateMachine;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
+import io.trino.execution.TestingRemoteTaskFactory.TestingRemoteTask;
 import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
@@ -57,7 +58,6 @@ import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.trino.execution.TestingRemoteTaskFactory.TestingRemoteTask;
 import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;

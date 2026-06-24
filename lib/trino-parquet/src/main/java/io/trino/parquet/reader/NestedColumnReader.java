@@ -24,8 +24,11 @@ import io.trino.parquet.DataPageV2;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.decoders.ValueDecoder;
+import io.trino.parquet.reader.decoders.ValueDecoder.LevelsDecoderProvider;
+import io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
 import io.trino.parquet.reader.flat.ColumnAdapter;
 import io.trino.parquet.reader.flat.DictionaryDecoder;
+import io.trino.parquet.reader.flat.DictionaryDecoder.DictionaryDecoderProvider;
 import io.trino.spi.block.RunLengthEncodedBlock;
 
 import java.util.ArrayList;
@@ -37,9 +40,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.ParquetReaderUtils.castToByte;
-import static io.trino.parquet.reader.decoders.ValueDecoder.LevelsDecoderProvider;
-import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
-import static io.trino.parquet.reader.flat.DictionaryDecoder.DictionaryDecoderProvider;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorFactory.ApplyTableScanRedirect;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.TrinoException;
@@ -42,7 +43,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.connector.MockConnectorFactory.ApplyTableScanRedirect;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;

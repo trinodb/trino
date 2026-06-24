@@ -16,6 +16,7 @@ package io.trino.tests.product.launcher.env;
 import jakarta.annotation.Nullable;
 import picocli.CommandLine;
 import picocli.CommandLine.Model.CommandSpec;
+import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 
 import java.io.File;
@@ -24,7 +25,6 @@ import java.nio.file.Path;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static java.util.Locale.ENGLISH;
-import static picocli.CommandLine.Option;
 
 public final class EnvironmentOptions
 {
