@@ -41,8 +41,7 @@ public final class Floci
     public static final String FLOCI_ACCESS_KEY = "floci-access-key";
     public static final String FLOCI_SECRET_KEY = "floci-secret-key";
     public static final String FLOCI_REGION = "us-east-1";
-
-    private static final int FLOCI_PORT = 4566;
+    public static final int FLOCI_PORT = 4566;
 
     public Floci()
     {
@@ -85,6 +84,13 @@ public final class Floci
             s3.putObject(
                     builder -> builder.bucket(bucketName).key(key),
                     RequestBody.fromBytes(contents));
+        }
+    }
+
+    public byte[] getObjectContents(String bucketName, String key)
+    {
+        try (S3Client s3 = createS3Client()) {
+            return s3.getObjectAsBytes(builder -> builder.bucket(bucketName).key(key)).asByteArray();
         }
     }
 

@@ -19,8 +19,7 @@ import eu.rekawek.toxiproxy.model.ToxicDirection;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.plugin.base.util.AutoCloseableCloser;
-import io.trino.testing.containers.Minio;
-import io.trino.testing.minio.MinioClient;
+import io.trino.testing.containers.Floci;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,7 +45,10 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.containers.Minio.MINIO_API_PORT;
+import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.Floci.FLOCI_PORT;
+import static io.trino.testing.containers.Floci.FLOCI_REGION;
+import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
 import static java.lang.Math.pow;
 import static java.lang.Math.toIntExact;
 import static java.lang.Thread.sleep;
@@ -60,14 +62,14 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 public class TestS3Retries
 {
     private static final int TOXIPROXY_CONTROL_PORT = 8474;
-    private static final int MINIO_PROXY_PORT = 1234;
+    private static final int FLOCI_PROXY_PORT = 1234;
 
     private static final int S3_SDK_MAX_ATTEMPTS = 3;
     private static final Duration S3_CLIENT_HTTP_CONNECTION_TTL = Duration.ofMillis(1);
 
     private AutoCloseableCloser closer = AutoCloseableCloser.create();
     private String bucketName;
-    private MinioClient minioClient;
+    private Floci floci;
     private Proxy toxiProxy;
     private S3Client s3client;
 
@@ -79,28 +81,27 @@ public class TestS3Retries
         closer = AutoCloseableCloser.create();
 
         Network network = closer.register(Network.newNetwork());
-        Minio minio = closer.register(Minio.builder()
+        floci = closer.register(new Floci()
                 .withNetwork(network)
-                .build());
-        minio.start();
+                .withNetworkAliases("floci"));
+        floci.start();
         bucketName = "bucket-" + randomNameSuffix();
-        minio.createBucket(bucketName);
-        minioClient = closer.register(minio.createMinioClient());
+        floci.createBucket(bucketName);
 
         ToxiproxyContainer toxiproxy = closer.register(new ToxiproxyContainer("ghcr.io/shopify/toxiproxy:2.12.0")
-                .withExposedPorts(TOXIPROXY_CONTROL_PORT, MINIO_PROXY_PORT)
+                .withExposedPorts(TOXIPROXY_CONTROL_PORT, FLOCI_PROXY_PORT)
                 .withNetwork(network));
         toxiproxy.start();
 
         ToxiproxyClient toxiproxyClient = new ToxiproxyClient(toxiproxy.getHost(), toxiproxy.getControlPort());
-        toxiProxy = toxiproxyClient.createProxy("minio", "0.0.0.0:" + MINIO_PROXY_PORT, "minio:" + MINIO_API_PORT);
+        toxiProxy = toxiproxyClient.createProxy("floci", "0.0.0.0:" + FLOCI_PROXY_PORT, "floci:" + FLOCI_PORT);
 
         s3client = closer.register(S3Client.builder()
-                .endpointOverride(URI.create("http://" + toxiproxy.getHost() + ":" + toxiproxy.getMappedPort(MINIO_PROXY_PORT)))
-                .region(Region.of(Minio.MINIO_REGION))
+                .endpointOverride(URI.create("http://" + toxiproxy.getHost() + ":" + toxiproxy.getMappedPort(FLOCI_PROXY_PORT)))
+                .region(Region.of(FLOCI_REGION))
                 .forcePathStyle(true)
                 .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(Minio.MINIO_ROOT_USER, Minio.MINIO_ROOT_PASSWORD)))
+                        AwsBasicCredentials.create(FLOCI_ACCESS_KEY, FLOCI_SECRET_KEY)))
                 .httpClient(ApacheHttpClient.builder()
                         // react to timeouts faster so that the test completes faster
                         .socketTimeout(Duration.ofSeconds(1))
@@ -129,7 +130,7 @@ public class TestS3Retries
         int testDataSize = 1024;
         byte[] data = new byte[testDataSize];
         Arrays.fill(data, (byte) 1);
-        minioClient.putObject(bucketName, data, "object");
+        floci.putObject(bucketName, data, "object");
 
         // the number of transferred bytes includes both the response headers (around 570 bytes) and body
         toxiProxy.toxics()
@@ -231,10 +232,10 @@ public class TestS3Retries
                     .hasMessageFindingMatch("Put failed .* but provenance could not be verified|Unable to execute HTTP request.* \\(SDK Attempt Count: 3\\)");
         }
 
-        assertThat(minioClient.getObjectContents(bucketName, objectKey)).as("Object data read back from storage")
+        assertThat(floci.getObjectContents(bucketName, objectKey)).as("Object data read back from storage")
                 .isEqualTo(data);
 
-        minioClient.removeObject(bucketName, objectKey);
+        floci.deleteObject(bucketName, objectKey);
     }
 
     private static int partSize(S3FileSystemConfig config)
