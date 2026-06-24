@@ -32,7 +32,7 @@
     "react-calendar-timeline": "^0.30.0-beta.4",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.0",
-    "sass": "^1.100.0",
+    "sass": "^1.101.0",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
