@@ -51,11 +51,6 @@ public class ScalarHeader
     private final Optional<TypeTemplate> receiverType;
     private final boolean instanceMethod;
 
-    public ScalarHeader(String name, Set<String> aliases, Optional<String> description, boolean hidden, boolean deterministic, boolean neverFails)
-    {
-        this(name, aliases, description, hidden, deterministic, neverFails, Optional.empty(), false);
-    }
-
     public ScalarHeader(String name, Set<String> aliases, Optional<String> description, boolean hidden, boolean deterministic, boolean neverFails, Optional<TypeTemplate> receiverType, boolean instanceMethod)
     {
         this.name = requireNonNull(name, "name is null");
