@@ -257,13 +257,6 @@
         </dependency>
 
         <dependency>
-            <!-- Needed while junit 4 is in classpath -->
-            <groupId>org.junit.vintage</groupId>
-            <artifactId>junit-vintage-engine</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
             <scope>test</scope>
