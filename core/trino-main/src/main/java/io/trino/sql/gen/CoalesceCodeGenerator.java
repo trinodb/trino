@@ -15,6 +15,7 @@ package io.trino.sql.gen;
 
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.trino.spi.type.Type;
@@ -24,8 +25,12 @@ import io.trino.sql.ir.Expression;
 import java.util.ArrayList;
 import java.util.List;
 
+import static io.airlift.bytecode.expression.BytecodeExpressions.and;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
+import static io.airlift.bytecode.expression.BytecodeExpressions.defaultValue;
+import static io.airlift.bytecode.expression.BytecodeExpressions.not;
+import static io.trino.sql.gen.ConditionalPredication.canPredicate;
 import static java.util.Objects.requireNonNull;
 
 public class CoalesceCodeGenerator
@@ -43,6 +48,53 @@ public class CoalesceCodeGenerator
 
     @Override
     public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext)
+    {
+        if (canPredicate(generatorContext, arguments)) {
+            return generatePredicated(generatorContext);
+        }
+        return generateShortCircuit(generatorContext);
+    }
+
+    /**
+     * Branchless coalesce for infallible, deterministic operands: evaluate every operand unconditionally and
+     * keep the first non-null one, instead of short-circuiting on the first non-null. The value stays
+     * primitive ({@code result} value channel + {@code wasNull} flag), so no boxing is introduced.
+     */
+    private BytecodeNode generatePredicated(BytecodeGeneratorContext generatorContext)
+    {
+        Scope scope = generatorContext.getScope();
+        Class<?> javaType = generatorContext.getCallSiteBinder().getAccessibleType(returnType.getJavaType());
+        Variable wasNull = generatorContext.wasNull();
+        Variable result = scope.createTempVariable(javaType);
+        Variable found = scope.createTempVariable(boolean.class);
+        Variable value = scope.createTempVariable(javaType);
+
+        BytecodeBlock block = new BytecodeBlock()
+                .comment("COALESCE (predicated)")
+                .setDescription("COALESCE (predicated)");
+
+        block.append(result.set(defaultValue(javaType)));
+        block.append(found.set(constantFalse()));
+
+        for (Expression argument : arguments) {
+            block.append(wasNull.set(constantFalse()));
+            block.append(generatorContext.generate(argument)); // leaves the value on the stack, sets wasNull
+            block.putVariable(value);
+            // keep the first non-null operand: result = (!found && !wasNull) ? value : result
+            block.append(new IfStatement()
+                    .condition(and(not(found), not(wasNull)))
+                    .ifTrue(new BytecodeBlock()
+                            .append(result.set(value))
+                            .append(found.set(constantTrue()))));
+        }
+
+        block.append(wasNull.set(not(found)));
+        block.append(result);
+
+        return block;
+    }
+
+    private BytecodeNode generateShortCircuit(BytecodeGeneratorContext generatorContext)
     {
         Class<?> returnJavaType = generatorContext.getCallSiteBinder().getAccessibleType(returnType.getJavaType());
 
