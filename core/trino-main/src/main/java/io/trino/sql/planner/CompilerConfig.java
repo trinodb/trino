@@ -23,7 +23,7 @@ public class CompilerConfig
 {
     private int expressionCacheSize = 10_000;
     private boolean specializeAggregationLoops = true;
-    private boolean conditionalPredicationEnabled;
+    private boolean conditionalPredicationEnabled = true;
 
     @Min(0)
     public int getExpressionCacheSize()
