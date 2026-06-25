@@ -20,7 +20,7 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.function.CatalogSchemaFunctionName;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
@@ -42,7 +42,7 @@ import static io.trino.SystemSessionProperties.getMaxHashPartitionCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeDescriptors;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static java.util.Objects.requireNonNull;
 
@@ -64,7 +64,7 @@ import static java.util.Objects.requireNonNull;
 public class RewriteSpatialPartitioningAggregation
         implements Rule<AggregationNode>
 {
-    private static final TypeSignature GEOMETRY_TYPE_SIGNATURE = new TypeSignature("Geometry");
+    private static final TypeDescriptor GEOMETRY_TYPE_SIGNATURE = new TypeDescriptor("Geometry");
     private static final CatalogSchemaFunctionName NAME = builtinFunctionName("spatial_partitioning");
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .matching(RewriteSpatialPartitioningAggregation::hasSpatialPartitioningAggregation);
@@ -91,8 +91,8 @@ public class RewriteSpatialPartitioningAggregation
     @Override
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
-        ResolvedFunction spatialPartitioningFunction = plannerContext.getMetadata().resolveBuiltinFunction(NAME.functionName(), fromTypeSignatures(GEOMETRY_TYPE_SIGNATURE, INTEGER.getTypeSignature()));
-        ResolvedFunction stEnvelopeFunction = plannerContext.getMetadata().resolveBuiltinFunction("ST_Envelope", fromTypeSignatures(GEOMETRY_TYPE_SIGNATURE));
+        ResolvedFunction spatialPartitioningFunction = plannerContext.getMetadata().resolveBuiltinFunction(NAME.functionName(), fromTypeDescriptors(GEOMETRY_TYPE_SIGNATURE, INTEGER.getTypeDescriptor()));
+        ResolvedFunction stEnvelopeFunction = plannerContext.getMetadata().resolveBuiltinFunction("ST_Envelope", fromTypeDescriptors(GEOMETRY_TYPE_SIGNATURE));
 
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
         Symbol partitionCountSymbol = context.getSymbolAllocator().newSymbol("partition_count", INTEGER);

@@ -29,6 +29,8 @@ import io.trino.tests.product.launcher.env.EnvironmentOptions;
 import org.testcontainers.DockerClientFactory;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.ExitCode;
+import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -44,8 +46,6 @@ import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
 import static io.trino.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
 import static java.util.Objects.requireNonNull;
-import static picocli.CommandLine.Mixin;
-import static picocli.CommandLine.Option;
 
 @Command(
         name = "up",

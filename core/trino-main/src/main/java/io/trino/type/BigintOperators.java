@@ -49,6 +49,7 @@ public final class BigintOperators
 {
     private BigintOperators() {}
 
+    // fallible
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.BIGINT)
     public static long add(@SqlType(StandardTypes.BIGINT) long left, @SqlType(StandardTypes.BIGINT) long right)
@@ -61,6 +62,7 @@ public final class BigintOperators
         }
     }
 
+    // fallible
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.BIGINT)
     public static long subtract(@SqlType(StandardTypes.BIGINT) long left, @SqlType(StandardTypes.BIGINT) long right)
@@ -73,6 +75,7 @@ public final class BigintOperators
         }
     }
 
+    // fallible
     @ScalarOperator(MULTIPLY)
     @SqlType(StandardTypes.BIGINT)
     public static long multiply(@SqlType(StandardTypes.BIGINT) long left, @SqlType(StandardTypes.BIGINT) long right)
@@ -85,6 +88,7 @@ public final class BigintOperators
         }
     }
 
+    // fallible
     @ScalarOperator(DIVIDE)
     @SqlType(StandardTypes.BIGINT)
     public static long divide(@SqlType(StandardTypes.BIGINT) long left, @SqlType(StandardTypes.BIGINT) long right)
@@ -100,6 +104,7 @@ public final class BigintOperators
         }
     }
 
+    // fallible
     @ScalarOperator(MODULO)
     @SqlType(StandardTypes.BIGINT)
     public static long modulo(@SqlType(StandardTypes.BIGINT) long left, @SqlType(StandardTypes.BIGINT) long right)
@@ -112,6 +117,7 @@ public final class BigintOperators
         }
     }
 
+    // fallible
     @ScalarOperator(NEGATION)
     @SqlType(StandardTypes.BIGINT)
     public static long negate(@SqlType(StandardTypes.BIGINT) long value)
@@ -124,13 +130,14 @@ public final class BigintOperators
         }
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean castToBoolean(@SqlType(StandardTypes.BIGINT) long value)
     {
         return value != 0;
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.INTEGER)
     public static long castToInteger(@SqlType(StandardTypes.BIGINT) long value)
@@ -162,6 +169,7 @@ public final class BigintOperators
         return SignedBytes.saturatedCast(value);
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.SMALLINT)
     public static long castToSmallint(@SqlType(StandardTypes.BIGINT) long value)
@@ -172,6 +180,7 @@ public final class BigintOperators
         return (short) value;
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TINYINT)
     public static long castToTinyint(@SqlType(StandardTypes.BIGINT) long value)
@@ -182,27 +191,28 @@ public final class BigintOperators
         return (byte) value;
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double castToDouble(@SqlType(StandardTypes.BIGINT) long value)
     {
         return value;
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.REAL)
     public static long castToReal(@SqlType(StandardTypes.BIGINT) long value)
     {
         return floatToRawIntBits((float) value);
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.NUMBER)
     public static TrinoNumber castToNumber(@SqlType(StandardTypes.BIGINT) long value)
     {
         return TrinoNumber.from(new BigDecimal(value));
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")

@@ -16,6 +16,13 @@ grammar SqlBase;
 
 options { caseInsensitive = true; }
 
+@parser::members {
+    private boolean isKeyword()
+    {
+        return SqlKeywords.isKeyword(_input.LT(1).getType());
+    }
+}
+
 tokens {
     DELIMITER
 }
@@ -574,12 +581,14 @@ booleanExpression
 predicate[ParserRuleContext value]
     : comparisonOperator right=valueExpression                            #comparison
     | comparisonOperator comparisonQuantifier '(' query ')'               #quantifiedComparison
-    | NOT? BETWEEN lower=valueExpression AND upper=valueExpression        #between
+    | NOT? BETWEEN (ASYMMETRIC | SYMMETRIC)? lower=valueExpression AND upper=valueExpression #between
     | NOT? IN '(' expression (',' expression)* ')'                        #inList
     | NOT? IN '(' query ')'                                               #inSubquery
     | NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)?  #like
     | IS NOT? NULL                                                        #nullPredicate
+    | IS NOT? truthValue=(TRUE | FALSE | UNKNOWN)                         #booleanTest
     | IS NOT? DISTINCT FROM right=valueExpression                         #distinctFrom
+    | MATCH UNIQUE? matchType=(SIMPLE | PARTIAL | FULL)? '(' query ')'    #match
     ;
 
 valueExpression
@@ -606,16 +615,17 @@ primaryExpression
         filter? over?                                                                     #functionCall
     | processingMode? qualifiedName '(' (setQuantifier? argument (',' argument)*)?
         orderBy? ')' filter? (nullTreatment? over)?                                       #functionCall
-    | qualifiedName '::' identifier '(' (expression (',' expression)*)? ')'               #staticMethodCall
-    | primaryExpression '.' identifier '(' (expression (',' expression)*)? ')'            #methodCall
+    | qualifiedName '::' methodName '(' (argument (',' argument)*)? ')'                   #staticMethodCall
+    | primaryExpression '.' methodName '(' (argument (',' argument)*)? ')'                #methodCall
     | identifier over                                                                     #measure
     | identifier '->' expression                                                          #lambda
     | '(' (identifier (',' identifier)*)? ')' '->' expression                             #lambda
     | '(' query ')'                                                                       #subqueryExpression
     // This is an extension to ANSI SQL, which considers EXISTS to be a <boolean expression>
     | EXISTS '(' query ')'                                                                #exists
-    | CASE operand=expression whenClause+ (ELSE elseExpression=expression)? END           #simpleCase
-    | CASE whenClause+ (ELSE elseExpression=expression)? END                              #searchedCase
+    | UNIQUE '(' query ')'                                                                #unique
+    | CASE operand=expression simpleWhenClause+ (ELSE elseExpression=expression)? END     #simpleCase
+    | CASE searchedWhenClause+ (ELSE elseExpression=expression)? END                      #searchedCase
     | CAST '(' expression AS type ')'                                                     #cast
     | TRY_CAST '(' expression AS type ')'                                                 #cast
     | ARRAY '[' (expression (',' expression)*)? ']'                                       #arrayConstructor
@@ -636,6 +646,8 @@ primaryExpression
         trimSource=valueExpression ')'                                                    #trim
     | TRIM '(' trimSource=valueExpression ',' trimChar=valueExpression ')'                #trim
     | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'       #substring
+    | OVERLAY '(' source=valueExpression PLACING replacement=valueExpression
+        FROM start=valueExpression (FOR length=valueExpression)? ')'                      #overlay
     | NORMALIZE '(' valueExpression (',' normalForm)? ')'                                 #normalize
     | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
     | '(' expression ')'                                                                  #parenthesizedExpression
@@ -809,7 +821,12 @@ typeParameter
     : INTEGER_VALUE | type
     ;
 
-whenClause
+simpleWhenClause
+    : WHEN partial=predicate[null] THEN result=expression
+    | WHEN condition=expression THEN result=expression
+    ;
+
+searchedWhenClause
     : WHEN condition=expression THEN result=expression
     ;
 
@@ -1034,6 +1051,11 @@ identifier
     | DIGIT_IDENTIFIER       #digitIdentifier
     ;
 
+methodName
+    : identifier
+    | {isKeyword()}? .
+    ;
+
 number
     : MINUS? DECIMAL_VALUE  #decimalLiteral
     | MINUS? DOUBLE_VALUE   #doubleLiteral
@@ -1047,7 +1069,7 @@ authorizationUser
 
 nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
-    : ABSENT | ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
+    : ABSENT | ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | ASYMMETRIC | AT | AUTHORIZATION
     | BEGIN | BERNOULLI | BOTH | BRANCH | BRANCHES
     | CALL | CALLED | CASCADE | CATALOG | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | CORRESPONDING | COUNT | CURRENT
     | DATA | DATE | DAY | DECLARE | DEFAULT | DEFINE | DEFINER | DENY | DESC | DESCRIPTOR | DETERMINISTIC | DISTRIBUTED | DO | DOUBLE
@@ -1061,12 +1083,12 @@ nonReserved
     | LANGUAGE | LAST | LATERAL | LEADING | LEAVE | LEVEL | LIMIT | LOCAL | LOGICAL | LOOP
     | MAP | MATCH | MATCHED | MATCHES | MATCH_RECOGNIZE | MATERIALIZED | MEASURES | MERGE | MINUTE | MONTH
     | NEAREST | NESTED | NEXT | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
-    | OBJECT | OF | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OUTPUT | OVER | OVERFLOW
-    | PARTITION | PARTITIONS | PASSING | PAST | PATH | PATTERN | PER | PERIOD | PERMUTE | PLAN | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES | PRUNE
+    | OBJECT | OF | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OUTPUT | OVER | OVERFLOW | OVERLAY
+    | PARTIAL | PARTITION | PARTITIONS | PASSING | PAST | PATH | PATTERN | PER | PERIOD | PERMUTE | PLACING | PLAN | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES | PRUNE
     | QUOTES
     | RANGE | READ | REFRESH | RENAME | REPEAT  | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNING | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS | RUNNING
     | SCALAR | SCHEMA | SCHEMAS | SECOND | SECURITY | SEEK | SERIALIZABLE | SESSION | SET | SETS
-    | SHOW | SOME | STALE | START | STATS | SUBSET | SUBSTRING | SYSTEM
+    | SHOW | SIMPLE | SOME | STALE | START | STATS | SUBSET | SUBSTRING | SYMMETRIC | SYSTEM
     | TABLES | TABLESAMPLE | TEXT | TEXT_STRING | TIES | TIME | TIMESTAMP | TO | TRAILING | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
     | UNBOUNDED | UNCOMMITTED | UNCONDITIONAL | UNIQUE | UNKNOWN | UNMATCHED | UNTIL | UPDATE | USE | USER | UTF16 | UTF32 | UTF8
     | VALIDATE | VALUE | VERBOSE | VERSION | VIEW
@@ -1087,6 +1109,7 @@ ANY: 'ANY';
 ARRAY: 'ARRAY';
 AS: 'AS';
 ASC: 'ASC';
+ASYMMETRIC: 'ASYMMETRIC';
 AT: 'AT';
 AUTHORIZATION: 'AUTHORIZATION';
 AUTO: 'AUTO';
@@ -1267,6 +1290,8 @@ OUTER: 'OUTER';
 OUTPUT: 'OUTPUT';
 OVER: 'OVER';
 OVERFLOW: 'OVERFLOW';
+OVERLAY: 'OVERLAY';
+PARTIAL: 'PARTIAL';
 PARTITION: 'PARTITION';
 PARTITIONS: 'PARTITIONS';
 PASSING: 'PASSING';
@@ -1276,6 +1301,7 @@ PATTERN: 'PATTERN';
 PER: 'PER';
 PERIOD: 'PERIOD';
 PERMUTE: 'PERMUTE';
+PLACING: 'PLACING';
 PLAN : 'PLAN';
 POSITION: 'POSITION';
 PRECEDING: 'PRECEDING';
@@ -1320,12 +1346,14 @@ SESSION: 'SESSION';
 SET: 'SET';
 SETS: 'SETS';
 SHOW: 'SHOW';
+SIMPLE: 'SIMPLE';
 SOME: 'SOME';
 STALE: 'STALE';
 START: 'START';
 STATS: 'STATS';
 SUBSET: 'SUBSET';
 SUBSTRING: 'SUBSTRING';
+SYMMETRIC: 'SYMMETRIC';
 SYSTEM: 'SYSTEM';
 TABLE: 'TABLE';
 TABLES: 'TABLES';

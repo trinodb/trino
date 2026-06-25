@@ -21,6 +21,7 @@ import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
+import io.trino.plugin.iceberg.util.FileOperationUtils.FileOperation;
 import io.trino.plugin.iceberg.util.FileOperationUtils.Scope;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.sql.planner.plan.FilterNode;
@@ -48,7 +49,6 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
-import static io.trino.plugin.iceberg.util.FileOperationUtils.FileOperation;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.DATA;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.DELETE;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.MANIFEST;
@@ -384,7 +384,7 @@ public class TestIcebergFileOperations
         String catalog = getSession().getCatalog().orElseThrow();
 
         assertUpdate("DROP TABLE IF EXISTS test_read_whole_splittable_file");
-        assertUpdate("CREATE TABLE test_read_whole_splittable_file(key varchar, data varchar) WITH (partitioning=ARRAY['key'])");
+        assertUpdate("CREATE TABLE test_read_whole_splittable_file(key varchar, data varchar) WITH (partitioning=ARRAY['key'], parquet_writer_row_group_size = '1kB')");
 
         assertUpdate(
                 withSmallRowGroups(Session.builder(getSession())

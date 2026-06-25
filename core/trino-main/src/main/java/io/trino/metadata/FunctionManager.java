@@ -42,6 +42,7 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.type.BlockTypeOperators;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.List;
 
@@ -59,6 +60,21 @@ import static java.util.Objects.requireNonNull;
 
 public class FunctionManager
 {
+    private static final boolean ASSERTIONS_ENABLED = FunctionManager.class.desiredAssertionStatus();
+    private static final MethodHandle NEVER_FAILS_VIOLATED;
+
+    static {
+        try {
+            NEVER_FAILS_VIOLATED = MethodHandles.lookup().findStatic(
+                    FunctionManager.class,
+                    "neverFailsViolated",
+                    MethodType.methodType(RuntimeException.class, String.class, Throwable.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
     private final NonEvictableCache<FunctionKey, ScalarFunctionImplementation> specializedScalarCache;
     private final NonEvictableCache<ResolvedFunction, AggregationImplementation> specializedAggregationCache;
     private final NonEvictableCache<ResolvedFunction, WindowFunctionSupplier> specializedWindowCache;
@@ -114,7 +130,33 @@ public class FunctionManager
         }
 
         verifyMethodHandleSignature(resolvedFunction.signature(), scalarFunctionImplementation, invocationConvention);
+        if (ASSERTIONS_ENABLED && resolvedFunction.neverFails()) {
+            scalarFunctionImplementation = reportIfNeverFailsViolated(resolvedFunction, scalarFunctionImplementation);
+        }
         return scalarFunctionImplementation;
+    }
+
+    private static ScalarFunctionImplementation reportIfNeverFailsViolated(ResolvedFunction resolvedFunction, ScalarFunctionImplementation scalarFunctionImplementation)
+    {
+        MethodHandle target = scalarFunctionImplementation.getMethodHandle();
+        MethodHandle thrower = MethodHandles.throwException(target.type().returnType(), RuntimeException.class);
+        MethodHandle constructViolation = MethodHandles.insertArguments(NEVER_FAILS_VIOLATED, 0, resolvedFunction.signature().toString());
+        MethodHandle throwViolation = MethodHandles.filterArguments(thrower, 0, constructViolation);
+        MethodHandle wrapped = MethodHandles.catchException(target, Throwable.class, throwViolation);
+
+        return ScalarFunctionImplementation.builder()
+                .methodHandle(wrapped)
+                .instanceFactory(scalarFunctionImplementation.getInstanceFactory())
+                .lambdaInterfaces(scalarFunctionImplementation.getLambdaInterfaces())
+                .build();
+    }
+
+    private static RuntimeException neverFailsViolated(String signature, Throwable callException)
+    {
+        RuntimeException failure = new IllegalStateException("Function %s declared as never failing threw %s".formatted(signature, callException));
+        // Preserve failure, but not as a cause, to make sure violation is not overlooked in tests
+        failure.addSuppressed(callException);
+        return failure;
     }
 
     public AggregationImplementation getAggregationImplementation(ResolvedFunction resolvedFunction)

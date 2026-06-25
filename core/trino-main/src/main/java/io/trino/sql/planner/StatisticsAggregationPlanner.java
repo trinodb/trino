@@ -43,11 +43,12 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.operator.aggregation.ApproximateSetGenericAggregation.APPROX_SET_FUNCTION_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static java.util.Objects.requireNonNull;
 
 public class StatisticsAggregationPlanner
@@ -129,7 +130,7 @@ public class StatisticsAggregationPlanner
             case MAX_VALUE -> createAggregation("max", input, inputType);
             case NUMBER_OF_DISTINCT_VALUES -> createAggregation("approx_distinct", input, inputType);
             // we use $approx_set here and not approx_set because latter is not defined for all types supported by Trino
-            case NUMBER_OF_DISTINCT_VALUES_SUMMARY -> createAggregation("$approx_set", input, inputType);
+            case NUMBER_OF_DISTINCT_VALUES_SUMMARY -> createAggregation(APPROX_SET_FUNCTION_NAME, input, inputType);
             case NUMBER_OF_NON_NULL_VALUES -> createAggregation("count", input, inputType);
             case NUMBER_OF_TRUE_VALUES -> createAggregation("count_if", input, BOOLEAN);
             case TOTAL_SIZE_IN_BYTES -> createAggregation(SumDataSizeForStats.NAME, input, inputType);

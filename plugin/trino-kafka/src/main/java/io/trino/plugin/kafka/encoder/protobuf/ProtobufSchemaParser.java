@@ -32,8 +32,8 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.Optional;
@@ -113,7 +113,7 @@ public class ProtobufSchemaParser
                 .map(oneofDescriptor ->
                         new KafkaTopicFieldDescription(
                                 oneofDescriptor.getName(),
-                                typeManager.getType(new TypeSignature(JSON)),
+                                typeManager.getType(new TypeDescriptor(JSON)),
                                 oneofDescriptor.getName(),
                                 null,
                                 null,
@@ -148,7 +148,7 @@ public class ProtobufSchemaParser
             return createTimestampType(6);
         }
         else if (isProtobufAnySupportEnabled && descriptor.getFullName().equals(ANY_TYPE_NAME)) {
-            return typeManager.getType(new TypeSignature(JSON));
+            return typeManager.getType(new TypeDescriptor(JSON));
         }
 
         // We MUST check just the type names since same type can be present with different field names which is also recursive

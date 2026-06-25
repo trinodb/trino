@@ -1647,6 +1647,14 @@ public class TestNumberOperators
 
         assertThat(assertions.operator(EQUAL, "NUMBER 'NaN'", "NUMBER 'NaN'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a = b")
+                .binding("a", "NUMBER '37'")
+                .binding("b", "NUMBER '37'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "NUMBER '37'", "NUMBER '37'"))
+                .neverFails();
     }
 
     @Test
@@ -2082,6 +2090,14 @@ public class TestNumberOperators
 
         assertThat(assertions.operator(LESS_THAN, "NUMBER 'NaN'", "NUMBER 'NaN'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a < b")
+                .binding("a", "NUMBER '37'")
+                .binding("b", "NUMBER '37'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "NUMBER '37'", "NUMBER '37'"))
+                .neverFails();
     }
 
     @Test
@@ -2550,6 +2566,14 @@ public class TestNumberOperators
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER 'NaN'", "NUMBER 'NaN'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "NUMBER '37'")
+                .binding("b", "NUMBER '37'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER '37'", "NUMBER '37'"))
+                .neverFails();
     }
 
     @Test
@@ -3367,6 +3391,22 @@ public class TestNumberOperators
 
         assertThat(assertions.operator(IDENTICAL, "ARRAY [1234567890.123456789, NULL]", "ARRAY [NULL, 9876543210.987654321]"))
                 .isEqualTo(false);
+
+        assertThat(assertions.operator(IDENTICAL, "NUMBER 'NaN'", "NUMBER 'NaN'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "NUMBER 'NaN'", "NUMBER '37'"))
+                .isEqualTo(false);
+    }
+
+    @Test
+    void testNaNGroupedByDistinctAndGroupBy()
+    {
+        assertThat(assertions.query("SELECT count(*) FROM (SELECT DISTINCT n FROM (VALUES NUMBER 'NaN', NUMBER 'NaN', NUMBER 'NaN') t(n))"))
+                .matches("VALUES BIGINT '1'");
+
+        assertThat(assertions.query("SELECT count(*) FROM (VALUES NUMBER 'NaN', NUMBER 'NaN', NUMBER 'NaN') t(n) GROUP BY n"))
+                .matches("VALUES BIGINT '3'");
     }
 
     @Test

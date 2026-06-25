@@ -37,6 +37,7 @@ import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.plan.Patterns.filter;
+import static io.trino.type.BooleanOperators.NOT_FUNCTION_NAME;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -135,7 +136,7 @@ public class SimpleFilterProjectSemiJoinStatsRule
         Expression remainingPredicate = combineConjuncts(conjuncts.stream()
                 .filter(conjunct -> conjunct != semiJoinOutputReference)
                 .collect(toImmutableList()));
-        boolean negated = semiJoinOutputReference instanceof Call call && call.function().name().equals(builtinFunctionName("$not"));
+        boolean negated = semiJoinOutputReference instanceof Call call && call.function().name().equals(builtinFunctionName(NOT_FUNCTION_NAME));
         return Optional.of(new SemiJoinOutputFilter(negated, remainingPredicate));
     }
 
@@ -144,7 +145,7 @@ public class SimpleFilterProjectSemiJoinStatsRule
         Reference semiJoinOutputSymbolReference = semiJoinOutput.toSymbolReference();
         return conjunct.equals(semiJoinOutputSymbolReference) || (
                 conjunct instanceof Call call &&
-                        call.function().name().equals(builtinFunctionName("$not")) &&
+                        call.function().name().equals(builtinFunctionName(NOT_FUNCTION_NAME)) &&
                         call.arguments().getFirst().equals(semiJoinOutputSymbolReference));
     }
 

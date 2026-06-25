@@ -32,13 +32,13 @@ public final class FunctionType
 {
     public static final String NAME = "function";
 
-    private final TypeSignature signature;
+    private final TypeDescriptor signature;
     private final Type returnType;
     private final List<Type> argumentTypes;
 
     public FunctionType(List<Type> argumentTypes, Type returnType)
     {
-        this.signature = new TypeSignature(NAME, typeParameters(argumentTypes, returnType));
+        this.signature = new TypeDescriptor(NAME, typeParameters(argumentTypes, returnType));
         this.returnType = requireNonNull(returnType, "returnType is null");
         this.argumentTypes = List.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
     }
@@ -49,10 +49,10 @@ public final class FunctionType
         requireNonNull(argumentTypes, "argumentTypes is null");
         List<TypeParameter> typeParameters = new ArrayList<>(argumentTypes.size() + 1);
         argumentTypes.stream()
-                .map(Type::getTypeSignature)
+                .map(Type::getTypeDescriptor)
                 .map(TypeParameter::typeParameter)
                 .forEach(typeParameters::add);
-        typeParameters.add(TypeParameter.typeParameter(returnType.getTypeSignature()));
+        typeParameters.add(TypeParameter.typeParameter(returnType.getTypeDescriptor()));
         return List.copyOf(typeParameters);
     }
 
@@ -73,7 +73,7 @@ public final class FunctionType
     }
 
     @Override
-    public TypeSignature getTypeSignature()
+    public TypeDescriptor getTypeDescriptor()
     {
         return signature;
     }

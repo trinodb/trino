@@ -37,7 +37,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.type.TypeUtils.NULL_HASH_CODE;
 import static io.trino.util.SingleAccessMethodCompiler.compileSingleAccessMethod;
@@ -52,7 +51,6 @@ public final class BlockTypeOperators
     private static final InvocationConvention IDENTICAL_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
     private static final InvocationConvention COMPARISON_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
     private static final InvocationConvention ORDERING_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
-    private static final InvocationConvention LESS_THAN_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
 
     private final NonKeyEvictableCache<GeneratedBlockOperatorKey<?>, GeneratedBlockOperator<?>> generatedBlockOperatorCache;
     private final TypeOperators typeOperators;
@@ -135,11 +133,6 @@ public final class BlockTypeOperators
         return getBlockOperator(type, BlockPositionComparison.class, () -> typeOperators.getComparisonUnorderedLastOperator(type, COMPARISON_CONVENTION), Optional.of(COMPARISON_UNORDERED_LAST));
     }
 
-    public BlockPositionComparison getComparisonUnorderedFirstOperator(Type type)
-    {
-        return getBlockOperator(type, BlockPositionComparison.class, () -> typeOperators.getComparisonUnorderedFirstOperator(type, COMPARISON_CONVENTION), Optional.of(COMPARISON_UNORDERED_FIRST));
-    }
-
     public interface BlockPositionComparison
     {
         long compare(Block left, int leftPosition, Block right, int rightPosition);
@@ -153,16 +146,6 @@ public final class BlockTypeOperators
     public interface BlockPositionOrdering
     {
         int order(Block left, int leftPosition, Block right, int rightPosition);
-    }
-
-    public BlockPositionLessThan generateBlockPositionLessThan(Type type)
-    {
-        return getBlockOperator(type, BlockPositionLessThan.class, () -> typeOperators.getLessThanOperator(type, LESS_THAN_CONVENTION));
-    }
-
-    public interface BlockPositionLessThan
-    {
-        boolean lessThan(Block left, int leftPosition, Block right, int rightPosition);
     }
 
     private <T> T getBlockOperator(Type type, Class<T> operatorInterface, Supplier<MethodHandle> methodHandleSupplier)
@@ -197,16 +180,6 @@ public final class BlockTypeOperators
             this.type = requireNonNull(type, "type is null");
             this.operatorInterface = requireNonNull(operatorInterface, "operatorInterface is null");
             this.additionalKey = requireNonNull(additionalKey, "additionalKey is null");
-        }
-
-        public Type getType()
-        {
-            return type;
-        }
-
-        public Class<T> getOperatorInterface()
-        {
-            return operatorInterface;
         }
 
         @Override

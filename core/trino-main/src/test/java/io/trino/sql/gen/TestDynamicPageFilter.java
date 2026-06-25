@@ -38,6 +38,7 @@ import io.trino.sql.gen.columnar.DynamicPageFilter;
 import io.trino.sql.gen.columnar.FilterEvaluator;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.Symbol;
+import io.trino.util.DynamicFiltersTestUtil.TestingDynamicFilter;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -67,7 +68,6 @@ import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.util.DynamicFiltersTestUtil.TestingDynamicFilter;
 import static io.trino.util.DynamicFiltersTestUtil.createDynamicFilterEvaluator;
 import static java.lang.Float.floatToRawIntBits;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -114,7 +114,7 @@ public class TestDynamicPageFilter
 
         filterEvaluator = createDynamicFilterEvaluator(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        column, multipleValues(VARCHAR, ImmutableList.of("bc", "cd")))),
+                        column, multipleValues(VARCHAR, ImmutableList.of(utf8Slice("bc"), utf8Slice("cd"))))),
                 ImmutableMap.of(column, 0));
         verifySelectedPositions(filterPage(page, filterEvaluator), new int[] {1, 3});
 

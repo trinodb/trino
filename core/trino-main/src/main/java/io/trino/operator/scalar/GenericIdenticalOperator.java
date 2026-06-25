@@ -20,12 +20,12 @@ import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static java.util.Objects.requireNonNull;
 
 public class GenericIdenticalOperator
@@ -39,8 +39,8 @@ public class GenericIdenticalOperator
                 .signature(Signature.builder()
                         .comparableTypeParameter("T")
                         .returnType(BOOLEAN)
-                        .argumentType(new TypeSignature("T"))
-                        .argumentType(new TypeSignature("T"))
+                        .argumentType(typeVariable("T"))
+                        .argumentType(typeVariable("T"))
                         .build())
                 .argumentNullability(true, true)
                 .neverFails()

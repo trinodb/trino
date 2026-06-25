@@ -44,7 +44,7 @@ public final class TestingTypeManager
     private final TypeOperators typeOperators = new TypeOperators();
 
     @Override
-    public Type getType(TypeSignature signature)
+    public Type getType(TypeDescriptor signature)
     {
         for (Type type : TYPES) {
             if (signature.getBase().equals(type.getBaseName())) {

@@ -25,7 +25,6 @@ import io.trino.execution.buffer.PageSerializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.PagesSerdeUtil;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.operator.PageAssertions;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
@@ -53,10 +52,12 @@ import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.execution.buffer.PagesSerdes.createSpillingPagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
+import static io.trino.operator.PageAssertions.assertPagesEqual;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.nio.file.Files.newInputStream;
+import static java.util.Collections.nCopies;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -179,10 +180,7 @@ public class TestFileSingleStreamSpiller
             // they will have non-zero memory reservation.
             // assertEquals(memoryContext.getBytes(), 0);
 
-            assertThat(4).isEqualTo(spilledPages.size());
-            for (int i = 0; i < 4; ++i) {
-                PageAssertions.assertPageEquals(TYPES, page, spilledPages.get(i));
-            }
+            assertPagesEqual(TYPES, spilledPages, nCopies(4, page));
 
             // Repeated reads are disallowed
             assertThatThrownBy(spiller::getSpilledPages)

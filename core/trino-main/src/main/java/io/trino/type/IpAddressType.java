@@ -32,9 +32,9 @@ import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.type.AbstractType;
 import io.trino.spi.type.FixedWidthType;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperatorDeclaration;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -64,7 +64,7 @@ public class IpAddressType
 
     private IpAddressType()
     {
-        super(new TypeSignature(NAME), Slice.class, Int128ArrayBlock.class);
+        super(new TypeDescriptor(NAME), Slice.class, Int128ArrayBlock.class);
     }
 
     @Override
@@ -203,7 +203,7 @@ public class IpAddressType
         value.getBytes(0, fixedSizeSlice, fixedSizeOffset, INT128_BYTES);
     }
 
-    @ScalarOperator(EQUAL)
+    @ScalarOperator(value = EQUAL, neverFails = true)
     private static boolean equalOperator(Slice left, Slice right)
     {
         return equal(
@@ -213,7 +213,7 @@ public class IpAddressType
                 right.getLong(SIZE_OF_LONG));
     }
 
-    @ScalarOperator(EQUAL)
+    @ScalarOperator(value = EQUAL, neverFails = true)
     private static boolean equalOperator(@BlockPosition Int128ArrayBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition Int128ArrayBlock rightBlock, @BlockIndex int rightPosition)
     {
         return equal(
@@ -223,7 +223,7 @@ public class IpAddressType
                 rightBlock.getInt128Low(rightPosition));
     }
 
-    @ScalarOperator(EQUAL)
+    @ScalarOperator(value = EQUAL, neverFails = true)
     private static boolean equalOperator(
             @FlatFixed byte[] leftFixedSizeSlice,
             @FlatFixedOffset int leftFixedSizeOffset,
@@ -244,19 +244,19 @@ public class IpAddressType
         return leftLow == rightLow && leftHigh == rightHigh;
     }
 
-    @ScalarOperator(XX_HASH_64)
+    @ScalarOperator(value = XX_HASH_64, neverFails = true)
     private static long xxHash64Operator(Slice value)
     {
         return xxHash64(value.getLong(0), value.getLong(SIZE_OF_LONG));
     }
 
-    @ScalarOperator(XX_HASH_64)
+    @ScalarOperator(value = XX_HASH_64, neverFails = true)
     private static long xxHash64Operator(@BlockPosition Int128ArrayBlock block, @BlockIndex int position)
     {
         return xxHash64(block.getInt128High(position), block.getInt128Low(position));
     }
 
-    @ScalarOperator(XX_HASH_64)
+    @ScalarOperator(value = XX_HASH_64, neverFails = true)
     private static long xxHash64Operator(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
@@ -273,7 +273,7 @@ public class IpAddressType
         return XxHash64.hash(low) ^ XxHash64.hash(high);
     }
 
-    @ScalarOperator(COMPARISON_UNORDERED_LAST)
+    @ScalarOperator(value = COMPARISON_UNORDERED_LAST, neverFails = true)
     private static long comparisonOperator(Slice left, Slice right)
     {
         return compareBigEndian(
@@ -283,7 +283,7 @@ public class IpAddressType
                 right.getLong(SIZE_OF_LONG));
     }
 
-    @ScalarOperator(COMPARISON_UNORDERED_LAST)
+    @ScalarOperator(value = COMPARISON_UNORDERED_LAST, neverFails = true)
     private static long comparisonOperator(@BlockPosition Int128ArrayBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition Int128ArrayBlock rightBlock, @BlockIndex int rightPosition)
     {
         return compareBigEndian(

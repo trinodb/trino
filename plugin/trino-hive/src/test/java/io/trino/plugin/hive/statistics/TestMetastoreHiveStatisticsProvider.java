@@ -25,6 +25,7 @@ import io.trino.metastore.IntegerStatistics;
 import io.trino.metastore.PartitionStatistics;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
+import io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.PartitionsRowCount;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -61,7 +62,6 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTIC
 import static io.trino.plugin.hive.HivePartitionManager.parsePartition;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
-import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.PartitionsRowCount;
 import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.calculateDataSize;
 import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.calculateDataSizeForPartitioningKey;
 import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.calculateDistinctPartitionKeys;

@@ -60,7 +60,7 @@ public final class SmallintType
 
     private SmallintType()
     {
-        super(new TypeSignature(NAME), long.class, ShortArrayBlock.class);
+        super(new TypeDescriptor(NAME), long.class, ShortArrayBlock.class);
     }
 
     @Override
@@ -184,10 +184,10 @@ public final class SmallintType
     private void checkValueValid(long value)
     {
         if (value > Short.MAX_VALUE) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_SHORT for type %s", value, getTypeSignature()));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_SHORT for type %s", value, getTypeDescriptor()));
         }
         if (value < Short.MIN_VALUE) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_SHORT for type %s", value, getTypeSignature()));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_SHORT for type %s", value, getTypeDescriptor()));
         }
     }
 
@@ -210,7 +210,7 @@ public final class SmallintType
         return getClass().hashCode();
     }
 
-    @ScalarOperator(READ_VALUE)
+    @ScalarOperator(value = READ_VALUE, neverFails = true)
     private static long read(@BlockPosition ShortArrayBlock block, @BlockIndex int position)
     {
         return readShort(block, position);
@@ -221,7 +221,7 @@ public final class SmallintType
         return block.getShort(position);
     }
 
-    @ScalarOperator(READ_VALUE)
+    @ScalarOperator(value = READ_VALUE, neverFails = true)
     private static long readFlat(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
@@ -231,7 +231,7 @@ public final class SmallintType
         return (short) SHORT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
     }
 
-    @ScalarOperator(READ_VALUE)
+    @ScalarOperator(value = READ_VALUE, neverFails = true)
     private static void writeFlat(
             long value,
             byte[] fixedSizeSlice,
@@ -242,37 +242,37 @@ public final class SmallintType
         SHORT_HANDLE.set(fixedSizeSlice, fixedSizeOffset, (short) value);
     }
 
-    @ScalarOperator(EQUAL)
+    @ScalarOperator(value = EQUAL, neverFails = true)
     private static boolean equalOperator(long left, long right)
     {
         return left == right;
     }
 
-    @ScalarOperator(HASH_CODE)
+    @ScalarOperator(value = HASH_CODE, neverFails = true)
     private static long hashCodeOperator(long value)
     {
         return AbstractLongType.hash((short) value);
     }
 
-    @ScalarOperator(XX_HASH_64)
+    @ScalarOperator(value = XX_HASH_64, neverFails = true)
     private static long xxHash64Operator(long value)
     {
         return XxHash64.hash((short) value);
     }
 
-    @ScalarOperator(COMPARISON_UNORDERED_LAST)
+    @ScalarOperator(value = COMPARISON_UNORDERED_LAST, neverFails = true)
     private static long comparisonOperator(long left, long right)
     {
         return Short.compare((short) left, (short) right);
     }
 
-    @ScalarOperator(LESS_THAN)
+    @ScalarOperator(value = LESS_THAN, neverFails = true)
     private static boolean lessThanOperator(long left, long right)
     {
         return ((short) left) < ((short) right);
     }
 
-    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    @ScalarOperator(value = LESS_THAN_OR_EQUAL, neverFails = true)
     private static boolean lessThanOrEqualOperator(long left, long right)
     {
         return ((short) left) <= ((short) right);

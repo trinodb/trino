@@ -107,6 +107,7 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
                                 "iceberg.nessie-catalog.uri", nessieContainer.getRestApiUri(),
                                 "iceberg.nessie-catalog.default-warehouse-dir", tempDir.toString(),
                                 "iceberg.writer-sort-buffer-size", "1MB"))
+                .addIcebergProperty("fs.hadoop.enabled", "true")
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
                                 .withClonedTpchTables(ImmutableList.<TpchTable<?>>builder()

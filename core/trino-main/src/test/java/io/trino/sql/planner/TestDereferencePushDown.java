@@ -21,7 +21,6 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Logical;
@@ -34,9 +33,10 @@ import static io.trino.SystemSessionProperties.MERGE_PROJECT_WITH_VALUES;
 import static io.trino.SystemSessionProperties.PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.Logical.Operator.OR;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -89,7 +89,7 @@ public class TestDereferencePushDown
                         project(
                                 ImmutableMap.of("b_x", expression(new Reference(BIGINT, "b_x"))),
                                 filter(
-                                        new Comparison(EQUAL, new Reference(DOUBLE, "a_y"), new Reference(DOUBLE, "b_y")),
+                                        comparison(EQUAL, new Reference(DOUBLE, "a_y"), new Reference(DOUBLE, "b_y")),
                                         values(
                                                 ImmutableList.of("b_x", "b_y", "a_y"),
                                                 ImmutableList.of(ImmutableList.of(
@@ -115,13 +115,13 @@ public class TestDereferencePushDown
                         join(INNER, builder -> builder
                                 .left(
                                         project(filter(
-                                                new Comparison(EQUAL, new Reference(DOUBLE, "b_y"), new Constant(DOUBLE, 2.0)),
+                                                comparison(EQUAL, new Reference(DOUBLE, "b_y"), new Constant(DOUBLE, 2.0)),
                                                 values(
                                                         ImmutableList.of("b_y", "b_x"),
                                                         ImmutableList.of(ImmutableList.of(new Constant(DOUBLE, 2.0), new Constant(BIGINT, 1L)))))))
                                 .right(
                                         project(filter(
-                                                new Comparison(EQUAL, new Reference(DOUBLE, "a_y"), new Constant(DOUBLE, 2.0)),
+                                                comparison(EQUAL, new Reference(DOUBLE, "a_y"), new Constant(DOUBLE, 2.0)),
                                                 values(ImmutableList.of("a_y"), ImmutableList.of(ImmutableList.of(new Constant(DOUBLE, 2e0))))))))));
     }
 
@@ -140,7 +140,7 @@ public class TestDereferencePushDown
                                 ImmutableMap.of("a_y", expression(new Reference(DOUBLE, "a_y")), "b_x", expression(new Reference(BIGINT, "b_x"))),
                                 filter(
                                         new Logical(OR, ImmutableList.of(
-                                                new Comparison(EQUAL, new Reference(BIGINT, "a_x"), new Constant(BIGINT, 7L)),
+                                                comparison(EQUAL, new Reference(BIGINT, "a_x"), new Constant(BIGINT, 7L)),
                                                 new Call(IS_FINITE, ImmutableList.of(new Reference(DOUBLE, "b_y"))))),
                                         values(
                                                 ImmutableList.of("b_x", "b_y", "a_y", "a_x"),
@@ -250,7 +250,7 @@ public class TestDereferencePushDown
                                 project(
                                         ImmutableMap.of("b_x", expression(new Reference(BIGINT, "b_x"))),
                                         filter(
-                                                new Comparison(EQUAL, new Reference(DOUBLE, "a_y"), new Reference(DOUBLE, "b_y")),
+                                                comparison(EQUAL, new Reference(DOUBLE, "a_y"), new Reference(DOUBLE, "b_y")),
                                                 values(
                                                         ImmutableList.of("b_x", "b_y", "a_y"),
                                                         ImmutableList.of(ImmutableList.of(
@@ -277,13 +277,13 @@ public class TestDereferencePushDown
                         join(INNER, builder -> builder
                                 .left(
                                         project(filter(
-                                                new Comparison(EQUAL, new Reference(DOUBLE, "b_y"), new Constant(DOUBLE, 2.0)),
+                                                comparison(EQUAL, new Reference(DOUBLE, "b_y"), new Constant(DOUBLE, 2.0)),
                                                 values(
                                                         ImmutableList.of("b_y", "b_x"),
                                                         ImmutableList.of(ImmutableList.of(new Constant(DOUBLE, 2.0), new Constant(BIGINT, 1L)))))))
                                 .right(
                                         project(filter(
-                                                new Comparison(EQUAL, new Reference(DOUBLE, "a_y"), new Constant(DOUBLE, 2.0)),
+                                                comparison(EQUAL, new Reference(DOUBLE, "a_y"), new Constant(DOUBLE, 2.0)),
                                                 values(ImmutableList.of("a_y"), ImmutableList.of(ImmutableList.of(new Constant(DOUBLE, 2e0))))))))));
     }
 
@@ -304,12 +304,12 @@ public class TestDereferencePushDown
                                                 .left(
                                                         project(
                                                                 filter(
-                                                                        new Comparison(EQUAL, new Reference(DOUBLE, "a_y"), new Constant(DOUBLE, 2.0)),
+                                                                        comparison(EQUAL, new Reference(DOUBLE, "a_y"), new Constant(DOUBLE, 2.0)),
                                                                         values("array", "a_y", "a_x"))))
                                                 .right(
                                                         project(
                                                                 filter(
-                                                                        new Comparison(EQUAL, new Reference(DOUBLE, "b_y"), new Constant(DOUBLE, 2.0)),
+                                                                        comparison(EQUAL, new Reference(DOUBLE, "b_y"), new Constant(DOUBLE, 2.0)),
                                                                         values(ImmutableList.of("b_y"), ImmutableList.of(ImmutableList.of(new Constant(DOUBLE, 2e0))))))))))));
     }
 

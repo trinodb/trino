@@ -83,7 +83,8 @@ public class Query
                             .name("QUERY")
                             .type(VARCHAR)
                             .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
             this.cassandraMetadata = requireNonNull(cassandraMetadata, "metadata is null");
         }
 

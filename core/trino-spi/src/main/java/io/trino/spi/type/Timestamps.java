@@ -125,11 +125,6 @@ public class Timestamps
         return (value + 1 - (factor / 2)) / factor;
     }
 
-    public static long truncateEpochMicrosToMillis(long epochMicros)
-    {
-        return floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND) * MICROSECONDS_PER_MILLISECOND;
-    }
-
     public static long epochMicrosToMillisWithRounding(long epochMicros)
     {
         return roundDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);

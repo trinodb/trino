@@ -29,7 +29,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.MergePage;
 import io.trino.spi.type.TypeManager;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -51,7 +50,7 @@ import static io.trino.plugin.hive.acid.AcidSchema.createAcidSchema;
 import static io.trino.plugin.hive.orc.OrcFileWriter.computeBucketValue;
 import static io.trino.plugin.hive.util.AcidTables.deleteDeltaSubdir;
 import static io.trino.plugin.hive.util.AcidTables.deltaSubdir;
-import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeDescriptor;
 import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
 import static io.trino.spi.connector.MergePage.createDeleteAndInsertPages;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -112,7 +111,7 @@ public final class MergeFileWriter
         this.session = requireNonNull(session, "session is null");
         checkArgument(transaction.isTransactional(), "Not in a transaction: %s", transaction);
         this.hiveAcidSchema = createAcidSchema(hiveRowType);
-        this.hiveRowTypeNullsBlock = writeNativeValue(typeManager.getType(getTypeSignature(hiveRowType)), null);
+        this.hiveRowTypeNullsBlock = writeNativeValue(typeManager.getType(getTypeDescriptor(hiveRowType)), null);
         Matcher matcher = BASE_PATH_MATCHER.matcher(bucketPath);
         if (!matcher.matches()) {
             matcher = BUCKET_PATH_MATCHER.matcher(bucketPath);
@@ -183,14 +182,14 @@ public final class MergeFileWriter
     }
 
     @Override
-    public Closeable commit()
+    public RollbackAction commit()
     {
-        Optional<Closeable> deleteRollbackAction = deleteFileWriter.map(FileWriter::commit);
-        Optional<Closeable> insertRollbackAction = insertFileWriter.map(FileWriter::commit);
+        Optional<RollbackAction> deleteRollbackAction = deleteFileWriter.map(FileWriter::commit);
+        Optional<RollbackAction> insertRollbackAction = insertFileWriter.map(FileWriter::commit);
         return () -> {
             try (Closer closer = Closer.create()) {
-                insertRollbackAction.ifPresent(closer::register);
-                deleteRollbackAction.ifPresent(closer::register);
+                insertRollbackAction.ifPresent(rollbackAction -> closer.register(rollbackAction::run));
+                deleteRollbackAction.ifPresent(rollbackAction -> closer.register(rollbackAction::run));
             }
         };
     }

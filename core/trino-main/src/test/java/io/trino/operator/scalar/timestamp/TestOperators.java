@@ -24,6 +24,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -422,6 +423,29 @@ public class TestOperators
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234567890' - INTERVAL '1' DAY")).matches("TIMESTAMP '2020-04-30 12:34:56.1234567890'");
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.12345678901' - INTERVAL '1' DAY")).matches("TIMESTAMP '2020-04-30 12:34:56.12345678901'");
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.123456789012' - INTERVAL '1' DAY")).matches("TIMESTAMP '2020-04-30 12:34:56.123456789012'");
+    }
+
+    @Test
+    public void testTimestampPlusOrMinusVeryLargeIntervalDayToSecond()
+    {
+        // The interval is stored as milliseconds in a long. The TIMESTAMP +/- INTERVAL_DAY_TO_SECOND
+        // operators scale the interval up by 1000 (to microseconds) using Math.multiplyExact, which
+        // overflows for sufficiently large intervals. Such intervals are reachable via multiplication.
+        // The operator does not wrap the ArithmeticException, so we cannot use assertTrinoExceptionThrownBy.
+        assertThatThrownBy(assertions.expression("a + b")
+                .binding("a", "TIMESTAMP '2020-05-01 12:34:56'")
+                .binding("b", "INTERVAL '1' SECOND * 9223372036854775")::evaluate)
+                .hasMessageContaining("long overflow");
+
+        assertThatThrownBy(assertions.expression("a + b")
+                .binding("a", "INTERVAL '1' SECOND * 9223372036854775")
+                .binding("b", "TIMESTAMP '2020-05-01 12:34:56'")::evaluate)
+                .hasMessageContaining("long overflow");
+
+        assertThatThrownBy(assertions.expression("a - b")
+                .binding("a", "TIMESTAMP '2020-05-01 12:34:56'")
+                .binding("b", "INTERVAL '1' SECOND * 9223372036854775")::evaluate)
+                .hasMessageContaining("long overflow");
     }
 
     @Test

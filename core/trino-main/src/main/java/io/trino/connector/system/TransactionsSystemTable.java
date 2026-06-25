@@ -66,7 +66,7 @@ public class TransactionsSystemTable
                 .column("create_time", TIMESTAMP_TZ_MILLIS)
                 .column("idle_time_secs", BIGINT)
                 .column("written_catalog", createUnboundedVarcharType())
-                .column("catalogs", typeManager.getParameterizedType(ARRAY, ImmutableList.of(TypeParameter.typeParameter(createUnboundedVarcharType().getTypeSignature()))))
+                .column("catalogs", typeManager.getParameterizedType(ARRAY, ImmutableList.of(TypeParameter.typeParameter(createUnboundedVarcharType().getTypeDescriptor()))))
                 .build();
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
     }

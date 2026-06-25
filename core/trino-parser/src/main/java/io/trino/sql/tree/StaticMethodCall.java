@@ -25,9 +25,9 @@ public class StaticMethodCall
 {
     private final QualifiedName type;
     private final Identifier method;
-    private final List<Expression> arguments;
+    private final List<CallArgument> arguments;
 
-    public StaticMethodCall(NodeLocation location, QualifiedName type, Identifier method, List<Expression> arguments)
+    public StaticMethodCall(NodeLocation location, QualifiedName type, Identifier method, List<CallArgument> arguments)
     {
         super(location);
         this.type = requireNonNull(type, "type is null");
@@ -45,9 +45,14 @@ public class StaticMethodCall
         return method;
     }
 
-    public List<Expression> getArguments()
+    public List<CallArgument> getArguments()
     {
         return arguments;
+    }
+
+    public boolean hasNamedArguments()
+    {
+        return arguments.stream().anyMatch(argument -> argument.getName().isPresent());
     }
 
     @Override

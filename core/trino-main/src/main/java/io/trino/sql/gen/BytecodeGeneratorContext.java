@@ -14,6 +14,7 @@
 package io.trino.sql.gen;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.Parameter;
@@ -24,10 +25,12 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
+import io.trino.sql.gen.ExpressionBytecodeCompiler.LetBinding;
 import io.trino.sql.ir.Expression;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -47,6 +50,7 @@ public class BytecodeGeneratorContext
     private final Variable wasNull;
     private final ClassDefinition classDefinition;
     private final List<Parameter> contextArguments;  // arguments that need to be propagated to generated methods to be able to resolve underlying references, session, etc.
+    private final Map<String, LetBinding> lets;
 
     public BytecodeGeneratorContext(
             ExpressionBytecodeCompiler expressionCompiler,
@@ -57,6 +61,20 @@ public class BytecodeGeneratorContext
             Metadata metadata,
             ClassDefinition classDefinition,
             List<Parameter> contextArguments)
+    {
+        this(expressionCompiler, scope, callSiteBinder, cachedInstanceBinder, functionManager, metadata, classDefinition, contextArguments, Map.of());
+    }
+
+    public BytecodeGeneratorContext(
+            ExpressionBytecodeCompiler expressionCompiler,
+            Scope scope,
+            CallSiteBinder callSiteBinder,
+            CachedInstanceBinder cachedInstanceBinder,
+            FunctionManager functionManager,
+            Metadata metadata,
+            ClassDefinition classDefinition,
+            List<Parameter> contextArguments,
+            Map<String, LetBinding> lets)
     {
         requireNonNull(expressionCompiler, "expressionCompiler is null");
         requireNonNull(cachedInstanceBinder, "cachedInstanceBinder is null");
@@ -75,6 +93,7 @@ public class BytecodeGeneratorContext
         this.wasNull = scope.getVariable("wasNull");
         this.classDefinition = classDefinition;
         this.contextArguments = ImmutableList.copyOf(contextArguments);
+        this.lets = ImmutableMap.copyOf(lets);
     }
 
     public Scope getScope()
@@ -89,7 +108,12 @@ public class BytecodeGeneratorContext
 
     public BytecodeNode generate(Expression expression)
     {
-        return expressionCompiler.compile(expression, scope);
+        return expressionCompiler.compile(expression, scope, Optional.empty(), lets);
+    }
+
+    public Map<String, LetBinding> lets()
+    {
+        return lets;
     }
 
     public ScalarFunctionImplementation getScalarFunctionImplementation(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
@@ -118,7 +142,7 @@ public class BytecodeGeneratorContext
 
     private Function<Optional<Class<?>>, BytecodeNode> argumentCompiler(Expression argument)
     {
-        return lambdaInterface -> expressionCompiler.compile(argument, scope, lambdaInterface);
+        return lambdaInterface -> expressionCompiler.compile(argument, scope, lambdaInterface, lets);
     }
 
     public Variable wasNull()

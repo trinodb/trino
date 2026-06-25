@@ -17,11 +17,11 @@ import com.google.inject.Inject;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
+import io.airlift.http.client.StringResponseHandler.StringResponse;
 
 import java.net.URI;
 
 import static io.airlift.http.client.Request.Builder.prepareGet;
-import static io.airlift.http.client.StringResponseHandler.StringResponse;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static java.lang.String.format;

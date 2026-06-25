@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.TableInfo;
+import io.trino.plugin.hive.FlociS3AndGlue;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergConfig;
@@ -27,6 +28,7 @@ import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -34,18 +36,16 @@ import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import software.amazon.awssdk.retries.api.BackoffStrategy;
+import org.junit.jupiter.api.TestInstance;
 import software.amazon.awssdk.services.glue.GlueClient;
-import software.amazon.awssdk.services.glue.GlueClientBuilder;
-import software.amazon.awssdk.services.glue.model.ConcurrentModificationException;
-import software.amazon.awssdk.services.glue.model.ThrottlingException;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -68,11 +68,26 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestTrinoGlueCatalog
         extends BaseTrinoCatalogTest
 {
     private static final Logger LOG = Logger.get(TestTrinoGlueCatalog.class);
+    private FlociS3AndGlue floci;
+
+    @BeforeAll
+    public void startFloci()
+    {
+        floci = new FlociS3AndGlue();
+    }
+
+    @AfterAll
+    public void stopFloci()
+    {
+        floci.close();
+    }
 
     @Override
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
@@ -83,7 +98,7 @@ public class TestTrinoGlueCatalog
     @Override
     protected void createNamespaceWithProperties(TrinoCatalog catalog, String namespace, Map<String, String> properties)
     {
-        try (GlueClient glueClient = GlueClient.create()) {
+        try (GlueClient glueClient = floci.createGlueClient()) {
             glueClient.createDatabase(database -> database
                     .databaseInput(input -> input.name(namespace).parameters(properties)));
         }
@@ -91,7 +106,7 @@ public class TestTrinoGlueCatalog
 
     private TrinoCatalog createGlueTrinoCatalog(boolean useUniqueTableLocations, boolean useSystemSecurity)
     {
-        GlueClient glueClient = createGlueClient();
+        GlueClient glueClient = floci.createGlueClient();
         IcebergGlueCatalogConfig catalogConfig = new IcebergGlueCatalogConfig();
         return new TrinoGlueCatalog(
                 new CatalogName("catalog_name"),
@@ -116,18 +131,6 @@ public class TestTrinoGlueCatalog
                 newDirectExecutorService());
     }
 
-    private static GlueClient createGlueClient()
-    {
-        GlueClientBuilder glue = GlueClient.builder();
-
-        glue.overrideConfiguration(builder -> builder
-                .retryStrategy(retryBuilder -> retryBuilder
-                        .retryOnException(throwable -> throwable instanceof ConcurrentModificationException || throwable instanceof ThrottlingException)
-                        .backoffStrategy(BackoffStrategy.exponentialDelay(Duration.ofMillis(20), Duration.ofMillis(1500)))
-                        .maxAttempts(10)));
-        return glue.build();
-    }
-
     /**
      * Similar to {@link #testNonLowercaseNamespace()}, but creates the Glue database via Glue API, in case Glue starts allowing non-lowercase names.
      */
@@ -138,7 +141,7 @@ public class TestTrinoGlueCatalog
         // Trino schema names are always lowercase (until https://github.com/trinodb/trino/issues/17)
         String trinoSchemaName = databaseName.toLowerCase(ENGLISH);
 
-        GlueClient glueClient = GlueClient.create();
+        GlueClient glueClient = floci.createGlueClient();
         glueClient.createDatabase(database -> database
                 .databaseInput(input -> input
                         // Currently this is actually stored in lowercase
@@ -174,7 +177,8 @@ public class TestTrinoGlueCatalog
                     newDirectExecutorService(),
                     newDirectExecutorService(),
                     0,
-                    ZERO);
+                    ZERO,
+                    ConnectorExpressionEvaluator.NO_OP);
             assertThat(icebergMetadata.schemaExists(SESSION, databaseName)).as("icebergMetadata.schemaExists(databaseName)")
                     .isFalse();
             assertThat(icebergMetadata.schemaExists(SESSION, trinoSchemaName)).as("icebergMetadata.schemaExists(trinoSchemaName)")
@@ -249,7 +253,7 @@ public class TestTrinoGlueCatalog
         tmpDirectory.toFile().deleteOnExit();
 
         TrinoFileSystemFactory fileSystemFactory = HDFS_FILE_SYSTEM_FACTORY;
-        GlueClient glueClient = GlueClient.create();
+        GlueClient glueClient = floci.createGlueClient();
         IcebergGlueCatalogConfig catalogConfig = new IcebergGlueCatalogConfig();
         TrinoCatalog catalogWithDefaultLocation = new TrinoGlueCatalog(
                 new CatalogName("catalog_name"),

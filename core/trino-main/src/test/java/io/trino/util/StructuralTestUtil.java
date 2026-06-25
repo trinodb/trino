@@ -72,8 +72,8 @@ public final class StructuralTestUtil
     public static MapType mapType(Type keyType, Type valueType)
     {
         return (MapType) TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeParameter.typeParameter(keyType.getTypeSignature()),
-                TypeParameter.typeParameter(valueType.getTypeSignature())));
+                TypeParameter.typeParameter(keyType.getTypeDescriptor()),
+                TypeParameter.typeParameter(valueType.getTypeDescriptor())));
     }
 
     public static SqlRow sqlRowOf(RowType rowType, Object... values)

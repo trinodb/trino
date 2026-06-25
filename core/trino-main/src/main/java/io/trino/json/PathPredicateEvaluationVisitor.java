@@ -25,17 +25,20 @@ import io.trino.json.ir.IrDisjunctionPredicate;
 import io.trino.json.ir.IrExistsPredicate;
 import io.trino.json.ir.IrIsUnknownPredicate;
 import io.trino.json.ir.IrJsonPathVisitor;
+import io.trino.json.ir.IrLikeRegexPredicate;
 import io.trino.json.ir.IrNegationPredicate;
 import io.trino.json.ir.IrPathNode;
 import io.trino.json.ir.IrPredicate;
 import io.trino.json.ir.IrStartsWithPredicate;
 import io.trino.json.ir.JsonLiteralConversionException;
 import io.trino.json.ir.TypedValue;
+import io.trino.operator.scalar.JoniRegexpFunctions;
 import io.trino.operator.scalar.StringFunctions;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
-import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.ComparisonPredicate;
+import io.trino.type.JoniRegexp;
 
 import java.util.List;
 import java.util.Optional;
@@ -254,24 +257,24 @@ class PathPredicateEvaluationVisitor
     private Boolean compare(IrComparisonPredicate node, TypedValue left, TypedValue right)
     {
         IrComparisonPredicate.Operator comparisonOperator = node.operator();
-        ComparisonExpression.Operator operator;
+        ComparisonPredicate.Operator operator;
         Type firstType = left.getType();
         Object firstValue = left.getValueAsObject();
         Type secondType = right.getType();
         Object secondValue = right.getValueAsObject();
         switch (comparisonOperator) {
-            case EQUAL, NOT_EQUAL -> operator = ComparisonExpression.Operator.EQUAL;
-            case LESS_THAN -> operator = ComparisonExpression.Operator.LESS_THAN;
+            case EQUAL, NOT_EQUAL -> operator = ComparisonPredicate.Operator.EQUAL;
+            case LESS_THAN -> operator = ComparisonPredicate.Operator.LESS_THAN;
             case GREATER_THAN -> {
-                operator = ComparisonExpression.Operator.LESS_THAN;
+                operator = ComparisonPredicate.Operator.LESS_THAN;
                 firstType = right.getType();
                 firstValue = right.getValueAsObject();
                 secondType = left.getType();
                 secondValue = left.getValueAsObject();
             }
-            case LESS_THAN_OR_EQUAL -> operator = ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+            case LESS_THAN_OR_EQUAL -> operator = ComparisonPredicate.Operator.LESS_THAN_OR_EQUAL;
             case GREATER_THAN_OR_EQUAL -> {
-                operator = ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+                operator = ComparisonPredicate.Operator.LESS_THAN_OR_EQUAL;
                 firstType = right.getType();
                 firstValue = right.getValueAsObject();
                 secondType = left.getType();
@@ -371,6 +374,49 @@ class PathPredicateEvaluationVisitor
         Boolean predicateResult = process(node.predicate(), context);
 
         return predicateResult == null;
+    }
+
+    @Override
+    protected Boolean visitIrLikeRegexPredicate(IrLikeRegexPredicate node, PathEvaluationContext context)
+    {
+        List<Object> valueSequence;
+        try {
+            valueSequence = pathVisitor.process(node.path(), context);
+        }
+        catch (PathEvaluationException e) {
+            return null;
+        }
+
+        if (lax) {
+            valueSequence = unwrapArrays(valueSequence);
+        }
+        if (valueSequence.isEmpty()) {
+            // SQL:2023 §9.46 GR F.V: when the input sequence is empty, ERR=False and
+            // FOUND=False, so the predicate evaluates to FALSE — independent of mode.
+            return FALSE;
+        }
+
+        // Pattern was compiled at IR construction time and validated by JsonPathAnalyzer —
+        // a malformed regex is rejected at analysis time per SQL:2023 §9.46 (non-recoverable).
+        JoniRegexp pattern = node.regex();
+
+        boolean found = false;
+        for (Object object : valueSequence) {
+            Slice value = getText(object);
+            if (value == null) {
+                // Non-text item — SQL:2023 §9.46 evaluation error → UNKNOWN. Same convention as
+                // the sibling `starts_with` predicate; lax mode doesn't filter this kind of error.
+                return null;
+            }
+            if (JoniRegexpFunctions.regexpLike(value, pattern)) {
+                found = true;
+                if (lax) {
+                    return TRUE;
+                }
+            }
+        }
+
+        return found;
     }
 
     @Override

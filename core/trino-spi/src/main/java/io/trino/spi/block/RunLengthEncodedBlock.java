@@ -19,7 +19,6 @@ import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
-import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -33,10 +32,7 @@ public final class RunLengthEncodedBlock
 
     public static Block create(Type type, Object value, int positionCount)
     {
-        Block block = writeNativeValue(type, value);
-        if (block instanceof RunLengthEncodedBlock) {
-            block = ((RunLengthEncodedBlock) block).getValue();
-        }
+        ValueBlock block = writeNativeValue(type, value);
         return create(block, positionCount);
     }
 
@@ -167,29 +163,26 @@ public final class RunLengthEncodedBlock
     @Override
     public ValueBlock getSingleValueBlock(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         return value;
     }
 
     @Override
     public boolean mayHaveNull()
     {
-        return positionCount > 0 && value.isNull(0);
+        return hasNull();
     }
 
     @Override
     public boolean hasNull()
     {
-        return mayHaveNull();
+        return value.isNull(0);
     }
 
     @Override
     public boolean isNull(int position)
     {
-        if (!mayHaveNull()) {
-            return false;
-        }
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         return value.isNull(0);
     }
 

@@ -53,6 +53,7 @@ import io.trino.operator.AggregationOperator.AggregationOperatorFactory;
 import io.trino.operator.AssignUniqueIdOperator;
 import io.trino.operator.DevNullOperator.DevNullOperatorFactory;
 import io.trino.operator.DirectExchangeClientSupplier;
+import io.trino.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
 import io.trino.operator.DriverFactory;
 import io.trino.operator.DynamicFilterSourceOperator;
 import io.trino.operator.DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory;
@@ -91,8 +92,11 @@ import io.trino.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import io.trino.operator.SpatialJoinOperator.SpatialJoinOperatorFactory;
 import io.trino.operator.StatisticsWriterOperator.StatisticsWriterOperatorFactory;
 import io.trino.operator.StreamingAggregationOperator;
+import io.trino.operator.TableFinishOperator.TableFinishOperatorFactory;
+import io.trino.operator.TableFinishOperator.TableFinisher;
 import io.trino.operator.TableMutationOperator.TableMutationOperatorFactory;
 import io.trino.operator.TableScanOperator.TableScanOperatorFactory;
+import io.trino.operator.TableWriterOperator.TableWriterOperatorFactory;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TopNOperator;
 import io.trino.operator.TopNRankingOperator;
@@ -123,7 +127,9 @@ import io.trino.operator.index.IndexSourceOperator;
 import io.trino.operator.join.JoinBridgeManager;
 import io.trino.operator.join.JoinOperatorFactory;
 import io.trino.operator.join.LookupSourceFactory;
+import io.trino.operator.join.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
 import io.trino.operator.join.NestedLoopJoinBridge;
+import io.trino.operator.join.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
 import io.trino.operator.join.NestedLoopJoinPagesSupplier;
 import io.trino.operator.join.nonspilling.HashBuilderOperator;
 import io.trino.operator.join.spilling.HashBuilderOperator.HashBuilderOperatorFactory;
@@ -203,9 +209,10 @@ import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.DynamicPageFilter;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
@@ -259,8 +266,11 @@ import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableUpdateNode;
 import io.trino.sql.planner.plan.TableWriterNode;
+import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
+import io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
 import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 import io.trino.sql.planner.plan.TableWriterNode.TableExecuteTarget;
+import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
@@ -331,22 +341,16 @@ import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.execution.buffer.PagesSerdes.createExchangePagesSerdeFactory;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
-import static io.trino.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
 import static io.trino.operator.OperatorFactories.join;
 import static io.trino.operator.OperatorFactories.spillingJoin;
 import static io.trino.operator.RetryPolicy.NONE;
-import static io.trino.operator.TableFinishOperator.TableFinishOperatorFactory;
-import static io.trino.operator.TableFinishOperator.TableFinisher;
 import static io.trino.operator.TableWriterOperator.FRAGMENT_CHANNEL;
 import static io.trino.operator.TableWriterOperator.ROW_COUNT_CHANNEL;
 import static io.trino.operator.TableWriterOperator.STATS_START_CHANNEL;
-import static io.trino.operator.TableWriterOperator.TableWriterOperatorFactory;
 import static io.trino.operator.WindowFunctionDefinition.window;
 import static io.trino.operator.aggregation.AccumulatorCompiler.generateAccumulatorFactory;
 import static io.trino.operator.join.JoinUtils.isBuildSideReplicated;
-import static io.trino.operator.join.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
-import static io.trino.operator.join.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
 import static io.trino.operator.output.SkewedPartitionRebalancer.createPartitionFunction;
 import static io.trino.operator.output.SkewedPartitionRebalancer.getMaxWritersBasedOnMemory;
 import static io.trino.operator.output.SkewedPartitionRebalancer.getTaskCount;
@@ -364,8 +368,9 @@ import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitionin
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.compileLambdaProvider;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
@@ -386,9 +391,6 @@ import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.sql.planner.plan.RowsPerMatch.ONE;
 import static io.trino.sql.planner.plan.SkipToPosition.LAST;
-import static io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
-import static io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
-import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
 import static io.trino.util.MoreLists.mappedCopy;
 import static io.trino.util.MoreMath.previousPowerOfTwo;
@@ -1597,7 +1599,7 @@ public class LocalExecutionPlanner
                                 VARCHAR,
                                 pointer.getLogicalIndexPointer().toLogicalIndexNavigation(mapping)));
                     }
-                    case MatchNumberValuePointer pointer -> {
+                    case MatchNumberValuePointer _ -> {
                         valueAccessors.add(new PhysicalValuePointer(MATCH_NUMBER, BIGINT, LogicalIndexNavigation.NO_OP));
                     }
                     case ScalarValuePointer pointer -> {
@@ -2544,14 +2546,15 @@ public class LocalExecutionPlanner
                 }
             }
 
-            List<Comparison> spatialComparisons = extractSupportedSpatialComparisons(filterExpression);
-            for (Comparison spatialComparison : spatialComparisons) {
-                if (spatialComparison.operator() == LESS_THAN || spatialComparison.operator() == LESS_THAN_OR_EQUAL) {
-                    // ST_Distance(a, b) <= r
-                    Expression radius = spatialComparison.right();
+            List<Call> spatialComparisons = extractSupportedSpatialComparisons(filterExpression);
+            for (Call spatialComparison : spatialComparisons) {
+                Comparison comparison = matchComparison(spatialComparison);
+                // ExtractSpatialJoins canonicalizes these into ST_Distance(a, b) <= r, with the ST_Distance call on the left
+                if ((comparison instanceof Comparison.LessThan || comparison instanceof Comparison.LessThanOrEqual)
+                        && comparison.left() instanceof Call spatialFunction) {
+                    Expression radius = comparison.right();
                     if (radius instanceof Reference && getSymbolReferences(node.getRight().getOutputSymbols()).contains(radius) || radius instanceof Constant) {
-                        Call spatialFunction = (Call) spatialComparison.left();
-                        Optional<PhysicalOperation> operation = tryCreateSpatialJoin(context, node, removeExpressionFromFilter(filterExpression, spatialComparison), spatialFunction, Optional.of(radius), Optional.of(spatialComparison.operator()));
+                        Optional<PhysicalOperation> operation = tryCreateSpatialJoin(context, node, removeExpressionFromFilter(filterExpression, spatialComparison), spatialFunction, Optional.of(radius), Optional.of(comparison.operator()));
                         if (operation.isPresent()) {
                             return operation.get();
                         }
@@ -2568,7 +2571,7 @@ public class LocalExecutionPlanner
                 Optional<Expression> filterExpression,
                 Call spatialFunction,
                 Optional<Expression> radius,
-                Optional<Comparison.Operator> comparisonOperator)
+                Optional<ComparisonOperator> comparisonOperator)
         {
             List<Expression> arguments = spatialFunction.arguments();
             verify(arguments.size() == 2);
@@ -2633,7 +2636,7 @@ public class LocalExecutionPlanner
             return updatedJoinFilter.equals(TRUE) ? Optional.empty() : Optional.of(updatedJoinFilter);
         }
 
-        private SpatialPredicate spatialTest(Call call, boolean probeFirst, Optional<Comparison.Operator> comparisonOperator)
+        private SpatialPredicate spatialTest(Call call, boolean probeFirst, Optional<ComparisonOperator> comparisonOperator)
         {
             CatalogSchemaFunctionName functionName = call.function().name();
             if (functionName.equals(builtinFunctionName(ST_CONTAINS))) {

@@ -34,6 +34,7 @@ import io.trino.cost.StatsAndCosts;
 import io.trino.exchange.ExchangeManagerConfig;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
+import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.LazyOutputBuffer;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.OutputBuffers;
@@ -46,6 +47,7 @@ import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TaskStats;
+import io.trino.plugin.base.util.Lazy;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spiller.SpillSpaceTracker;
@@ -84,7 +86,6 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
-import static io.trino.execution.StateMachine.StateChangeListener;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.BROADCAST;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -239,7 +240,7 @@ public class MockRemoteTaskFactory
                     executor,
                     DataSize.ofBytes(1),
                     DataSize.ofBytes(1),
-                    () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                    Lazy.from(() -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test")),
                     () -> {},
                     new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()));
 

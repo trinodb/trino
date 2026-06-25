@@ -20,11 +20,11 @@ import io.trino.metadata.Metadata;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 
 import java.util.Map.Entry;
 import java.util.Optional;
 
-import static io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static java.util.Objects.requireNonNull;
 
@@ -59,7 +59,7 @@ public class PruneOrderByInAggregation
 
             // getAggregateFunctionImplementation can be expensive, so check it last.
             if (aggregation.getOrderingScheme().isPresent() &&
-                    !metadata.getAggregationFunctionMetadata(context.getSession(), aggregation.getResolvedFunction()).isOrderSensitive()) {
+                    !metadata.getAggregationFunctionMetadata(context.getSession(), aggregation.getResolvedFunction()).orderSensitive()) {
                 aggregation = new Aggregation(
                         aggregation.getResolvedFunction(),
                         aggregation.getArguments(),

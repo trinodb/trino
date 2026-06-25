@@ -54,7 +54,11 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.FunctionType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
@@ -66,9 +70,11 @@ import io.trino.sql.analyzer.Scope;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.StatisticsAggregationPlanner.TableStatisticAggregation;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
@@ -89,7 +95,10 @@ import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
+import io.trino.sql.planner.plan.TableWriterNode.CreateReference;
+import io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import io.trino.sql.planner.plan.TableWriterNode.RefreshMaterializedViewReference;
+import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.planprinter.PlanPrinter;
 import io.trino.sql.planner.sanity.PlanSanityChecker;
@@ -135,6 +144,7 @@ import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
 import static io.trino.SystemSessionProperties.isUsePreferredWritePartitioning;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.trino.operator.scalar.StringFunctions.SPACE_TRIMMED_LENGTH_FUNCTION_NAME;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -148,9 +158,10 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.DeterminismEvaluator.containsCurrentTimeFunctions;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
@@ -159,9 +170,6 @@ import static io.trino.sql.planner.QueryPlanner.visibleFields;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
-import static io.trino.sql.planner.plan.TableWriterNode.CreateReference;
-import static io.trino.sql.planner.plan.TableWriterNode.InsertReference;
-import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import static io.trino.sql.planner.sanity.PlanSanityChecker.DISTRIBUTED_PLAN_SANITY_CHECKER;
 import static io.trino.tracing.ScopedSpan.scopedSpan;
 import static java.lang.String.format;
@@ -519,7 +527,7 @@ public class LogicalPlanner
 
         List<Symbol> visibleFieldMappings = visibleFields(plan);
 
-        PlanBuilder planBuilder = newPlanBuilder(plan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext);
+        PlanBuilder planBuilder = newPlanBuilder(plan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext, symbolAllocator);
 
         Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, tableHandle);
         Map<ColumnHandle, io.trino.sql.tree.Expression> defaultColumnValues = analysis.getDefaultColumnValues(table);
@@ -543,7 +551,7 @@ public class LogicalPlanner
                 if (column.getDefaultValue().isPresent()) {
                     io.trino.sql.tree.Expression defaultExpression = defaultColumnValues.get(columnHandle);
                     expression = planBuilder.rewrite(defaultExpression);
-                    expression = noTruncationCast(metadata, expression, expression.type(), tableType);
+                    expression = noTruncationCast(metadata, symbolAllocator, expression, expression.type(), tableType);
                 }
                 else {
                     expression = new Constant(column.getType(), null);
@@ -637,7 +645,7 @@ public class LogicalPlanner
         if (queryType.equals(tableType)) {
             return fieldMapping.toSymbolReference();
         }
-        return noTruncationCast(metadata, fieldMapping.toSymbolReference(), queryType, tableType);
+        return noTruncationCast(metadata, symbolAllocator, fieldMapping.toSymbolReference(), queryType, tableType);
     }
 
     private Expression createNullNotAllowedFailExpression(String columnName, Type type)
@@ -815,11 +823,79 @@ public class LogicalPlanner
     TODO Once BINARY and parametric VARBINARY types are supported, they should be handled here.
     TODO This workaround is insufficient to handle structural types
      */
-    public static Expression noTruncationCast(Metadata metadata, Expression expression, Type fromType, Type toType)
+    /**
+     * Casts {@code expression} from {@code fromType} to {@code toType} for a write (INSERT, UPDATE, MERGE),
+     * failing rather than silently dropping non-space characters when a character value does not fit the target
+     * length. The check recurses through {@code array}, {@code map} and {@code row} so that character types nested
+     * inside structural types are guarded the same way as top-level character columns.
+     */
+    public static Expression noTruncationCast(Metadata metadata, SymbolAllocator symbolAllocator, Expression expression, Type fromType, Type toType)
     {
-        if (fromType instanceof UnknownType || (!(toType instanceof VarcharType) && !(toType instanceof CharType))) {
+        if (fromType.equals(toType) || fromType instanceof UnknownType || !containsBoundedCharacterType(toType)) {
+            // Nothing can be silently truncated, so an ordinary cast suffices.
             return new Cast(expression, toType);
         }
+
+        if (toType instanceof CharType || toType instanceof VarcharType) {
+            return characterNoTruncationCast(metadata, expression, fromType, toType);
+        }
+
+        if (fromType instanceof ArrayType fromArray && toType instanceof ArrayType toArray) {
+            Type fromElement = fromArray.getElementType();
+            Type toElement = toArray.getElementType();
+            Symbol element = symbolAllocator.newSymbol("element", fromElement);
+            Expression body = noTruncationCast(metadata, symbolAllocator, element.toSymbolReference(), fromElement, toElement);
+            // transform(array, element -> guarded cast of element)
+            return BuiltinFunctionCallBuilder.resolve(metadata)
+                    .setName("transform")
+                    .addArgument(fromType, expression)
+                    .addArgument(new FunctionType(ImmutableList.of(fromElement), toElement), new Lambda(ImmutableList.of(element), body))
+                    .build();
+        }
+
+        if (fromType instanceof MapType fromMap && toType instanceof MapType toMap) {
+            Expression result = expression;
+            if (!fromMap.getValueType().equals(toMap.getValueType())) {
+                MapType currentType = (MapType) result.type();
+                Symbol key = symbolAllocator.newSymbol("key", currentType.getKeyType());
+                Symbol value = symbolAllocator.newSymbol("value", currentType.getValueType());
+                Expression body = noTruncationCast(metadata, symbolAllocator, value.toSymbolReference(), currentType.getValueType(), toMap.getValueType());
+                result = BuiltinFunctionCallBuilder.resolve(metadata)
+                        .setName("transform_values")
+                        .addArgument(currentType, result)
+                        .addArgument(new FunctionType(ImmutableList.of(currentType.getKeyType(), currentType.getValueType()), toMap.getValueType()), new Lambda(ImmutableList.of(key, value), body))
+                        .build();
+            }
+            if (!fromMap.getKeyType().equals(toMap.getKeyType())) {
+                MapType currentType = (MapType) result.type();
+                Symbol key = symbolAllocator.newSymbol("key", currentType.getKeyType());
+                Symbol value = symbolAllocator.newSymbol("value", currentType.getValueType());
+                Expression body = noTruncationCast(metadata, symbolAllocator, key.toSymbolReference(), currentType.getKeyType(), toMap.getKeyType());
+                result = BuiltinFunctionCallBuilder.resolve(metadata)
+                        .setName("transform_keys")
+                        .addArgument(currentType, result)
+                        .addArgument(new FunctionType(ImmutableList.of(currentType.getKeyType(), currentType.getValueType()), toMap.getKeyType()), new Lambda(ImmutableList.of(key, value), body))
+                        .build();
+            }
+            return result;
+        }
+
+        if (fromType instanceof RowType fromRow && toType instanceof RowType toRow) {
+            List<Type> fromFields = fromRow.getTypeParameters();
+            List<Type> toFields = toRow.getTypeParameters();
+            ImmutableList.Builder<Expression> items = ImmutableList.builderWithExpectedSize(fromFields.size());
+            for (int i = 0; i < fromFields.size(); i++) {
+                items.add(noTruncationCast(metadata, symbolAllocator, new FieldReference(expression, i), fromFields.get(i), toFields.get(i)));
+            }
+            // Rebuild the row field by field, but keep a null row null rather than turning it into a row of nulls.
+            return ifExpression(new IsNull(expression), new Constant(toType, null), new Row(items.build(), toType));
+        }
+
+        return new Cast(expression, toType);
+    }
+
+    private static Expression characterNoTruncationCast(Metadata metadata, Expression expression, Type fromType, Type toType)
+    {
         int targetLength;
         if (toType instanceof VarcharType varcharType) {
             if (varcharType.isUnbounded()) {
@@ -832,11 +908,12 @@ public class LogicalPlanner
         }
 
         checkState(fromType instanceof VarcharType || fromType instanceof CharType, "inserting non-character value to column of character type");
-        ResolvedFunction spaceTrimmedLength = metadata.resolveBuiltinFunction("$space_trimmed_length", fromTypes(VARCHAR));
+        ResolvedFunction spaceTrimmedLength = metadata.resolveBuiltinFunction(SPACE_TRIMMED_LENGTH_FUNCTION_NAME, fromTypes(VARCHAR));
 
         return ifExpression(
                 // check if the trimmed value fits in the target type
-                new Comparison(
+                comparison(
+                        metadata,
                         GREATER_THAN_OR_EQUAL,
                         new Constant(BIGINT, (long) targetLength),
                         new Coalesce(
@@ -851,6 +928,26 @@ public class LogicalPlanner
                                 fromType.getDisplayName(),
                                 toType.getDisplayName())),
                         toType));
+    }
+
+    private static boolean containsBoundedCharacterType(Type type)
+    {
+        if (type instanceof CharType) {
+            return true;
+        }
+        if (type instanceof VarcharType varcharType) {
+            return !varcharType.isUnbounded();
+        }
+        if (type instanceof ArrayType arrayType) {
+            return containsBoundedCharacterType(arrayType.getElementType());
+        }
+        if (type instanceof MapType mapType) {
+            return containsBoundedCharacterType(mapType.getKeyType()) || containsBoundedCharacterType(mapType.getValueType());
+        }
+        if (type instanceof RowType rowType) {
+            return rowType.getTypeParameters().stream().anyMatch(LogicalPlanner::containsBoundedCharacterType);
+        }
+        return false;
     }
 
     private RelationPlan createDeletePlan(Analysis analysis, Delete node)
@@ -983,7 +1080,7 @@ public class LogicalPlanner
 
         TableHandle tableHandle = analysis.getTableHandle(table);
         RelationPlan tableScanPlan = createRelationPlan(analysis, table);
-        PlanBuilder sourcePlanBuilder = newPlanBuilder(tableScanPlan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext);
+        PlanBuilder sourcePlanBuilder = newPlanBuilder(tableScanPlan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext, symbolAllocator);
         if (statement.getWhere().isPresent()) {
             SubqueryPlanner subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of());
             io.trino.sql.tree.Expression whereExpression = statement.getWhere().get();

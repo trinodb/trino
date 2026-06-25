@@ -31,7 +31,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.parser.SqlParser;
@@ -40,8 +40,8 @@ import io.trino.sql.planner.SymbolKeyDeserializer;
 import io.trino.sql.routine.ir.IrRoutine;
 import io.trino.sql.tree.FunctionSpecification;
 import io.trino.transaction.TransactionManager;
+import io.trino.type.TypeDescriptorKeyDeserializer;
 import io.trino.type.TypeDeserializer;
-import io.trino.type.TypeSignatureKeyDeserializer;
 import org.assertj.core.api.ThrowingConsumer;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -86,7 +86,7 @@ class TestSqlFunctions
     static {
         JsonMapper mapper = new JsonMapperProvider()
                 .withKeyDeserializers(ImmutableMap.of(
-                        TypeSignature.class, new TypeSignatureKeyDeserializer(),
+                        TypeDescriptor.class, new TypeDescriptorKeyDeserializer(),
                         Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
                 .withJsonDeserializers(ImmutableMap.of(
                         Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER),
@@ -601,8 +601,8 @@ class TestSqlFunctions
     {
         @Language("SQL") String sql = "FUNCTION %s(p %s)\nRETURNS %s\n%s\nRETURN %s".formatted(
                 "test" + nextId.incrementAndGet(),
-                inputType.getTypeSignature(),
-                outputType.getTypeSignature(),
+                inputType.getTypeDescriptor(),
+                outputType.getTypeDescriptor(),
                 deterministic ? "DETERMINISTIC" : "NOT DETERMINISTIC",
                 expression);
 

@@ -59,7 +59,7 @@ public class PushCastIntoRow
             }
 
             Expression value = treeRewriter.rewrite(node.expression(), null);
-            if (value instanceof Row(List<Expression> expressions, RowType type)) {
+            if (value instanceof Row(List<Expression> expressions, RowType _)) {
                 ImmutableList.Builder<Expression> items = ImmutableList.builder();
                 for (int i = 0; i < expressions.size(); i++) {
                     Expression fieldValue = expressions.get(i);

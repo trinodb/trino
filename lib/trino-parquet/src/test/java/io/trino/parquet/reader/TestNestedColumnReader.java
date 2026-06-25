@@ -17,6 +17,8 @@ import io.trino.parquet.DataPage;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.reader.TestingColumnReader.ColumnReaderFormat;
+import io.trino.parquet.reader.TestingColumnReader.DataPageVersion;
 import io.trino.spi.block.Block;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesWriter;
@@ -30,8 +32,6 @@ import java.util.Optional;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
-import static io.trino.parquet.reader.TestingColumnReader.ColumnReaderFormat;
-import static io.trino.parquet.reader.TestingColumnReader.DataPageVersion;
 import static io.trino.parquet.reader.TestingColumnReader.getDictionaryPage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.joda.time.DateTimeZone.UTC;

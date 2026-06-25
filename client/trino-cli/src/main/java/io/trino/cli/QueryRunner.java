@@ -13,14 +13,18 @@
  */
 package io.trino.cli;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.trino.client.ClientCapabilities;
 import io.trino.client.ClientSession;
 import io.trino.client.StatementClient;
 import io.trino.client.uri.HttpClientFactory;
 import io.trino.client.uri.TrinoUri;
+import okhttp3.Cache;
 import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -50,11 +54,26 @@ public class QueryRunner
 
     public QueryRunner(TrinoUri uri, ClientSession session, boolean debug, int maxQueuedRows, int maxBufferedRows)
     {
+        this(session,
+                debug,
+                HttpClientFactory.toHttpClientBuilder(uri, USER_AGENT).build(),
+                HttpClientFactory.unauthenticatedClientBuilder(uri, USER_AGENT).build(),
+                maxQueuedRows,
+                maxBufferedRows);
+    }
+
+    @VisibleForTesting
+    QueryRunner(
+            ClientSession session,
+            boolean debug,
+            OkHttpClient httpClient,
+            OkHttpClient segmentHttpClient,
+            int maxQueuedRows,
+            int maxBufferedRows)
+    {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
-        this.httpClient = HttpClientFactory.toHttpClientBuilder(uri, USER_AGENT).build();
-        this.segmentHttpClient = HttpClientFactory
-                .unauthenticatedClientBuilder(uri, USER_AGENT)
-                .build();
+        this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.segmentHttpClient = requireNonNull(segmentHttpClient, "segmentHttpClient is null");
         this.debug = debug;
         this.maxQueuedRows = maxQueuedRows;
         this.maxBufferedRows = maxBufferedRows;
@@ -93,7 +112,42 @@ public class QueryRunner
     @Override
     public void close()
     {
-        httpClient.dispatcher().executorService().shutdown();
-        httpClient.connectionPool().evictAll();
+        closeAll(httpClient, segmentHttpClient);
+    }
+
+    private static void closeAll(OkHttpClient... clients)
+    {
+        RuntimeException failure = null;
+        for (OkHttpClient client : clients) {
+            try {
+                closeClient(client);
+            }
+            catch (RuntimeException e) {
+                if (failure == null) {
+                    failure = e;
+                }
+                else {
+                    failure.addSuppressed(e);
+                }
+            }
+        }
+        if (failure != null) {
+            throw failure;
+        }
+    }
+
+    private static void closeClient(OkHttpClient client)
+    {
+        client.dispatcher().executorService().shutdown();
+        client.connectionPool().evictAll();
+        Cache cache = client.cache();
+        if (cache != null) {
+            try {
+                cache.close();
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
     }
 }

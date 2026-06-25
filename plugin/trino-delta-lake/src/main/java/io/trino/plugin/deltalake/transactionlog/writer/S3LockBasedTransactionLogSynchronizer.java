@@ -24,7 +24,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.io.FileNotFoundException;
@@ -73,9 +73,9 @@ public class S3LockBasedTransactionLogSynchronizer
     }
 
     @Override
-    public void write(ConnectorSession session, VendedCredentialsHandle credentialsHandle, String clusterId, Location newLogEntryPath, byte[] entryContents)
+    public void write(ConnectorSession session, Optional<DeltaLakeTableCredentials> tableCredentials, String clusterId, Location newLogEntryPath, byte[] entryContents)
     {
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session, credentialsHandle);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
         Location locksDirectory = newLogEntryPath.sibling(LOCK_DIRECTORY);
         String newEntryFilename = newLogEntryPath.fileName();
         Optional<LockInfo> myLockInfo = Optional.empty();

@@ -24,7 +24,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.elasticsearch.client.Request;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.RestClient;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Disabled;
@@ -56,7 +56,7 @@ public abstract class BaseElasticsearchConnectorTest
         extends BaseConnectorTest
 {
     private ElasticsearchServer server;
-    private RestHighLevelClient client;
+    private RestClient client;
     protected final String jmxBaseName = randomNameSuffix();
 
     BaseElasticsearchConnectorTest(ElasticsearchServer server)
@@ -2640,13 +2640,13 @@ public abstract class BaseElasticsearchConnectorTest
         Request request = new Request("PUT", endpoint);
         request.setJsonEntity(json);
 
-        client.getLowLevelClient().performRequest(request);
+        client.performRequest(request);
     }
 
     private void addAlias(String index, String alias)
             throws IOException
     {
-        client.getLowLevelClient()
+        client
                 .performRequest(new Request("PUT", format("/%s/_alias/%s", index, alias)));
 
         refreshIndex(alias);
@@ -2660,7 +2660,7 @@ public abstract class BaseElasticsearchConnectorTest
     private void createIndex(String indexName)
             throws IOException
     {
-        client.getLowLevelClient().performRequest(new Request("PUT", "/" + indexName));
+        client.performRequest(new Request("PUT", "/" + indexName));
     }
 
     private void createIndex(String indexName, @Language("JSON") String properties)
@@ -2671,18 +2671,18 @@ public abstract class BaseElasticsearchConnectorTest
         Request request = new Request("PUT", "/" + indexName);
         request.setJsonEntity(mappings);
 
-        client.getLowLevelClient().performRequest(request);
+        client.performRequest(request);
     }
 
     private void refreshIndex(String index)
             throws IOException
     {
-        client.getLowLevelClient().performRequest(new Request("GET", format("/%s/_refresh", index)));
+        client.performRequest(new Request("GET", format("/%s/_refresh", index)));
     }
 
     private void deleteIndex(String indexName)
             throws IOException
     {
-        client.getLowLevelClient().performRequest(new Request("DELETE", "/" + indexName));
+        client.performRequest(new Request("DELETE", "/" + indexName));
     }
 }

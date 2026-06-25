@@ -22,12 +22,11 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionFormatter;
+import io.trino.sql.planner.Partitioning.ArgumentBinding;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Symbol;
-
-import static io.trino.sql.planner.Partitioning.ArgumentBinding;
-import static io.trino.sql.planner.plan.StatisticsWriterNode.WriteStatisticsTarget;
-import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
+import io.trino.sql.planner.plan.StatisticsWriterNode.WriteStatisticsTarget;
+import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 
 public class NoOpAnonymizer
         implements Anonymizer

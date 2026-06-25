@@ -384,7 +384,7 @@ public class CallColumnarFilterGenerator
         BytecodeBlock block = new BytecodeBlock();
 
         // use LDC for primitives (boolean, short, int, long, float, double)
-        block.comment("constant " + constant.type().getTypeSignature());
+        block.comment("constant " + constant.type().getTypeDescriptor());
         if (javaType == boolean.class) {
             return block.append(loadBoolean((Boolean) value));
         }

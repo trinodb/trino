@@ -26,6 +26,7 @@ public sealed interface IrPredicate
                 IrDisjunctionPredicate,
                 IrExistsPredicate,
                 IrIsUnknownPredicate,
+                IrLikeRegexPredicate,
                 IrNegationPredicate,
                 IrStartsWithPredicate
 {

@@ -29,15 +29,16 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
+import io.trino.sql.planner.SymbolAllocator;
 
 import java.lang.invoke.MethodHandle;
 import java.time.LocalDate;
@@ -55,16 +56,19 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.sql.ir.Booleans.FALSE;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.between;
+import static io.trino.sql.ir.IrExpressions.comparison;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.ir.Logical.and;
 import static io.trino.sql.planner.iterative.rule.UnwrapCastInComparison.falseIfNotNull;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.type.DateTimes.scaleFactor;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
@@ -101,15 +105,16 @@ public class UnwrapDateTruncInComparison
     {
         requireNonNull(plannerContext, "plannerContext is null");
 
-        return (expression, context) -> unwrapDateTrunc(context.getSession(), plannerContext, expression);
+        return (expression, context) -> unwrapDateTrunc(context.getSession(), plannerContext, context.getSymbolAllocator(), expression);
     }
 
     private static Expression unwrapDateTrunc(
             Session session,
             PlannerContext plannerContext,
+            SymbolAllocator symbolAllocator,
             Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, session), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, session, symbolAllocator), expression);
     }
 
     private static class Visitor
@@ -117,76 +122,95 @@ public class UnwrapDateTruncInComparison
     {
         private final PlannerContext plannerContext;
         private final Session session;
+        private final SymbolAllocator symbolAllocator;
         private final InterpretedFunctionInvoker functionInvoker;
         private final IrExpressionEvaluator evaluator;
         private final IrExpressionOptimizer optimizer;
 
-        public Visitor(PlannerContext plannerContext, Session session)
+        public Visitor(PlannerContext plannerContext, Session session, SymbolAllocator symbolAllocator)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.session = requireNonNull(session, "session is null");
+            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
             evaluator = plannerContext.getExpressionEvaluator();
             optimizer = plannerContext.getExpressionOptimizer();
         }
 
         @Override
-        public Expression rewriteComparison(Comparison node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        public Expression rewriteCall(Call node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            Comparison expression = treeRewriter.defaultRewrite(node, null);
-            return unwrapDateTrunc(expression);
+            Call expression = treeRewriter.defaultRewrite(node, null);
+            if (!(matchComparison(expression) instanceof Comparison comparison)) {
+                return expression;
+            }
+            // The unwrap logic expects date_trunc(...) on the left. A comparison whose date_trunc operand is
+            // on the right (e.g. the canonical form of date_trunc(...) > literal, which is literal <
+            // date_trunc(...)) is flipped so the date_trunc call lands on the left; the rebuilt comparison is
+            // canonicalized again on the way out.
+            if (isDateTruncCall(comparison.right()) && !isDateTruncCall(comparison.left())) {
+                return unwrapDateTrunc(comparison.operator().flip(), comparison.right(), comparison.left());
+            }
+            return unwrapDateTrunc(comparison.operator(), comparison.left(), comparison.right());
+        }
+
+        private static boolean isDateTruncCall(Expression expression)
+        {
+            return expression instanceof Call call &&
+                    call.function().name().equals(builtinFunctionName("date_trunc")) &&
+                    call.arguments().size() == 2;
         }
 
         // Simplify `date_trunc(unit, d) ? value`
-        private Expression unwrapDateTrunc(Comparison expression)
+        private Expression unwrapDateTrunc(ComparisonOperator operator, Expression left, Expression originalRight)
         {
             // Expect date_trunc on the left side and value on the right side of the comparison.
             // This is provided by CanonicalizeExpressionRewriter.
 
-            if (!(expression.left() instanceof Call call) ||
+            if (!(left instanceof Call call) ||
                     !call.function().name().equals(builtinFunctionName("date_trunc")) ||
                     call.arguments().size() != 2) {
-                return expression;
+                return comparison(plannerContext.getMetadata(), operator, left, originalRight);
             }
 
             Expression unitExpression = call.arguments().get(0);
             if (!(unitExpression.type() instanceof VarcharType) || !(unitExpression instanceof Constant)) {
-                return expression;
+                return comparison(plannerContext.getMetadata(), operator, left, originalRight);
             }
             Slice unitName = (Slice) evaluator.evaluate(unitExpression, session, ImmutableMap.of());
             if (unitName == null) {
-                return expression;
+                return comparison(plannerContext.getMetadata(), operator, left, originalRight);
             }
 
             Expression argument = call.arguments().get(1);
-            Expression right = optimizer.process(expression.right(), session, ImmutableMap.of()).orElse(expression.right());
+            Expression right = optimizer.process(originalRight, session, symbolAllocator, ImmutableMap.of()).orElse(originalRight);
 
             if (right instanceof Constant constant && constant.value() == null) {
-                return switch (expression.operator()) {
+                return switch (operator) {
                     case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> new Constant(BOOLEAN, null);
                     case IDENTICAL -> new IsNull(argument);
                 };
             }
 
             if (!(right instanceof Constant(Type rightType, Object rightValue))) {
-                return expression;
+                return comparison(plannerContext.getMetadata(), operator, left, originalRight);
             }
             if (rightType instanceof TimestampWithTimeZoneType) {
                 // Cannot replace with a range due to how date_trunc operates on value's local date/time.
                 // I.e. unwrapping is possible only when values are all of some fixed zone and the zone is known.
-                return expression;
+                return comparison(plannerContext.getMetadata(), operator, left, originalRight);
             }
 
             ResolvedFunction resolvedFunction = call.function();
 
             Optional<SupportedUnit> unitIfSupported = Enums.getIfPresent(SupportedUnit.class, unitName.toStringUtf8().toUpperCase(Locale.ENGLISH)).toJavaUtil();
             if (unitIfSupported.isEmpty()) {
-                return expression;
+                return comparison(plannerContext.getMetadata(), operator, left, originalRight);
             }
             SupportedUnit unit = unitIfSupported.get();
             if (rightType == DATE && (unit == SupportedUnit.DAY || unit == SupportedUnit.HOUR)) {
                 // DAY case handled by CanonicalizeExpressionRewriter, other is illegal, will fail
-                return expression;
+                return comparison(plannerContext.getMetadata(), operator, left, originalRight);
             }
 
             Object rangeLow = functionInvoker.invoke(resolvedFunction, session.toConnectorSession(), ImmutableList.of(unitName, rightValue));
@@ -194,18 +218,28 @@ public class UnwrapDateTruncInComparison
             verify(compare <= 0, "Truncation of %s value %s resulted in a bigger value %s", rightType, rightValue, rangeLow);
             boolean rightValueAtRangeLow = compare == 0;
 
-            return switch (expression.operator()) {
+            return switch (operator) {
                 case EQUAL -> {
                     if (!rightValueAtRangeLow) {
                         yield falseIfNotNull(argument);
                     }
-                    yield between(argument, rightType, rangeLow, calculateRangeEndInclusive(rangeLow, rightType, unit));
+                    yield between(
+                            plannerContext.getMetadata(),
+                            symbolAllocator,
+                            argument,
+                            new Constant(rightType, rangeLow),
+                            new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
                 case NOT_EQUAL -> {
                     if (!rightValueAtRangeLow) {
                         yield trueIfNotNull(argument);
                     }
-                    yield not(plannerContext.getMetadata(), between(argument, rightType, rangeLow, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield not(plannerContext.getMetadata(), between(
+                            plannerContext.getMetadata(),
+                            symbolAllocator,
+                            argument,
+                            new Constant(rightType, rangeLow),
+                            new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit))));
                 }
                 case IDENTICAL -> {
                     if (!rightValueAtRangeLow) {
@@ -213,25 +247,30 @@ public class UnwrapDateTruncInComparison
                     }
                     yield and(
                             not(plannerContext.getMetadata(), new IsNull(argument)),
-                            between(argument, rightType, rangeLow, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                            between(
+                                    plannerContext.getMetadata(),
+                                    symbolAllocator,
+                                    argument,
+                                    new Constant(rightType, rangeLow),
+                                    new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit))));
                 }
                 case LESS_THAN -> {
                     if (rightValueAtRangeLow) {
-                        yield new Comparison(LESS_THAN, argument, new Constant(rightType, rangeLow));
+                        yield comparison(plannerContext.getMetadata(), LESS_THAN, argument, new Constant(rightType, rangeLow));
                     }
-                    yield new Comparison(LESS_THAN_OR_EQUAL, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield comparison(plannerContext.getMetadata(), LESS_THAN_OR_EQUAL, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
                 case LESS_THAN_OR_EQUAL -> {
-                    yield new Comparison(LESS_THAN_OR_EQUAL, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield comparison(plannerContext.getMetadata(), LESS_THAN_OR_EQUAL, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
                 case GREATER_THAN -> {
-                    yield new Comparison(GREATER_THAN, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield comparison(plannerContext.getMetadata(), GREATER_THAN, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
                 case GREATER_THAN_OR_EQUAL -> {
                     if (rightValueAtRangeLow) {
-                        yield new Comparison(GREATER_THAN_OR_EQUAL, argument, new Constant(rightType, rangeLow));
+                        yield comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, argument, new Constant(rightType, rangeLow));
                     }
-                    yield new Comparison(GREATER_THAN, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield comparison(plannerContext.getMetadata(), GREATER_THAN, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
             };
         }
@@ -275,14 +314,6 @@ public class UnwrapDateTruncInComparison
                 return new LongTimestamp(endInclusiveMicros, toIntExact(PICOSECONDS_PER_MICROSECOND - scaleFactor(timestampType.getPrecision(), 12)));
             }
             throw new UnsupportedOperationException("Unsupported type: " + type);
-        }
-
-        private Between between(Expression argument, Type type, Object minInclusive, Object maxInclusive)
-        {
-            return new Between(
-                    argument,
-                    new Constant(type, minInclusive),
-                    new Constant(type, maxInclusive));
         }
 
         private int compare(Type type, Object first, Object second)

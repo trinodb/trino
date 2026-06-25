@@ -34,7 +34,6 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.lambda.BinaryFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
@@ -42,7 +41,8 @@ import java.lang.invoke.MethodHandle;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.type.TypeSignature.functionType;
+import static io.trino.spi.type.TypeTemplates.functionType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.format;
 
@@ -79,16 +79,16 @@ public class ReduceAggregationFunction
                         .signature(Signature.builder()
                                 .typeVariable("T")
                                 .typeVariable("S")
-                                .returnType(new TypeSignature("S"))
-                                .argumentType(new TypeSignature("T"))
-                                .argumentType(new TypeSignature("S"))
-                                .argumentType(functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")))
-                                .argumentType(functionType(new TypeSignature("S"), new TypeSignature("S"), new TypeSignature("S")))
+                                .returnType(typeVariable("S"))
+                                .argumentType(typeVariable("T"))
+                                .argumentType(typeVariable("S"))
+                                .argumentType(functionType(typeVariable("S"), typeVariable("T"), typeVariable("S")))
+                                .argumentType(functionType(typeVariable("S"), typeVariable("S"), typeVariable("S")))
                                 .build())
                         .description("Reduce input elements into a single value")
                         .build(),
                 AggregationFunctionMetadata.builder()
-                        .intermediateType(new TypeSignature("S"))
+                        .intermediateType(typeVariable("S"))
                         .build());
     }
 

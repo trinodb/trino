@@ -48,8 +48,15 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
+import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -289,6 +296,24 @@ public class TestArrayOperators
         int size = toIntExact(MAX_FUNCTION_MEMORY.toBytes() + 1);
         assertTrinoExceptionThrownBy(
                 () -> assertions.expression("array_distinct(ARRAY[lpad('', %1$s , 'x'), lpad('', %1$s , 'y'), lpad('', %1$s , 'z')])".formatted(size)).evaluate())
+                .hasErrorCode(EXCEEDED_FUNCTION_MEMORY_LIMIT);
+    }
+
+    @Test
+    public void testArrayUnionSize()
+    {
+        int size = toIntExact(MAX_FUNCTION_MEMORY.toBytes() + 1);
+        assertTrinoExceptionThrownBy(
+                () -> assertions.expression("array_union(ARRAY[lpad('', %1$s , 'x')], ARRAY[lpad('', %1$s , 'y'), lpad('', %1$s , 'z')])".formatted(size)).evaluate())
+                .hasErrorCode(EXCEEDED_FUNCTION_MEMORY_LIMIT);
+    }
+
+    @Test
+    public void testArrayIntersectSize()
+    {
+        int size = toIntExact(MAX_FUNCTION_MEMORY.toBytes() + 1);
+        assertTrinoExceptionThrownBy(
+                () -> assertions.expression("array_intersect(ARRAY[lpad('', %1$s , 'x'), lpad('', %1$s , 'y')], ARRAY[lpad('', %1$s , 'x'), lpad('', %1$s , 'y')])".formatted(size)).evaluate())
                 .hasErrorCode(EXCEEDED_FUNCTION_MEMORY_LIMIT);
     }
 
@@ -5889,5 +5914,187 @@ public class TestArrayOperators
         assertThat(assertions.function("flatten", "ARRAY[NULL, ARRAY[MAP(ARRAY[3, 4], ARRAY[3, 4])]]"))
                 .hasType(new ArrayType(mapType(INTEGER, INTEGER)))
                 .isEqualTo(ImmutableList.of(ImmutableMap.of(3, 3, 4, 4)));
+    }
+
+    /**
+     * Probe every {@code Generic*Operator} class on an ARRAY with a NULL element, in both SQL form
+     * (when one exists) and the mangled {@code "$operator$x"(...)} form. The assertions document
+     * which {@code Generic*Operator.neverFails} declarations match the operator's actual runtime
+     * behavior. A mismatch (planner-belief {@code .neverFails()} passing while the runtime
+     * assertion proves the operator can throw) indicates the declaration is incorrect — see
+     * https://github.com/trinodb/trino/issues/29891.
+     *
+     * Planner-belief assertions use NULL-free input of the same type, since the planner reasons
+     * type-wise, not value-wise.
+     */
+    @Test
+    public void testOperatorsOnArrayWithNullElement()
+    {
+        String arrayWithNull = "ARRAY[1, CAST(NULL AS INTEGER)]";
+        String arrayWithLeadingNull = "ARRAY[CAST(NULL AS INTEGER), 1]";
+        String arrayConcrete = "ARRAY[1, 2]";
+        String arrayConcreteOther = "ARRAY[3, 4]";
+
+        // EQUAL — three-valued; a NULL element makes equality unknown
+        assertThat(assertions.expression("a = b")
+                .binding("a", arrayWithNull)
+                .binding("b", arrayConcrete))
+                .isNull(BOOLEAN);
+        assertThat(assertions.operator(EQUAL, arrayWithNull, arrayConcrete))
+                .isNull(BOOLEAN);
+        assertThat(assertions.operator(EQUAL, arrayConcrete, arrayConcreteOther))
+                .neverFails();
+
+        // IDENTICAL — NULL-aware (NULL ≡ NULL is TRUE)
+        assertThat(assertions.expression("a IS NOT DISTINCT FROM b")
+                .binding("a", arrayWithNull)
+                .binding("b", arrayWithNull))
+                .isEqualTo(true);
+        assertThat(assertions.operator(IDENTICAL, arrayWithNull, arrayWithNull))
+                .isEqualTo(true);
+        assertThat(assertions.operator(IDENTICAL, arrayConcrete, arrayConcreteOther))
+                .neverFails();
+
+        // INDETERMINATE — detects the NULL element
+        assertThat(assertions.operator(INDETERMINATE, arrayWithNull))
+                .isEqualTo(true);
+        assertThat(assertions.operator(INDETERMINATE, arrayConcrete))
+                .neverFails();
+
+        // LESS_THAN — three-valued: unknown when the NULL element decides, decided by an earlier element otherwise
+        assertThat(assertions.expression("a < b")
+                .binding("a", arrayWithNull)
+                .binding("b", arrayConcrete))
+                .isNull(BOOLEAN);
+        assertThat(assertions.expression("a < b")
+                .binding("a", arrayWithNull)
+                .binding("b", arrayConcreteOther))
+                .isEqualTo(true);
+        assertThat(assertions.expression("a < b")
+                .binding("a", arrayConcreteOther)
+                .binding("b", arrayWithNull))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a < b")
+                .binding("a", arrayWithLeadingNull)
+                .binding("b", arrayConcrete))
+                .isNull(BOOLEAN);
+        assertThat(assertions.operator(LESS_THAN, arrayWithNull, arrayConcrete))
+                .isNull(BOOLEAN);
+        assertThat(assertions.operator(LESS_THAN, arrayConcrete, arrayConcreteOther))
+                .neverFails();
+
+        // LESS_THAN_OR_EQUAL — same three-valued logic, true when the arrays are equal
+        assertThat(assertions.expression("a <= b")
+                .binding("a", arrayWithNull)
+                .binding("b", arrayConcrete))
+                .isNull(BOOLEAN);
+        assertThat(assertions.expression("a <= b")
+                .binding("a", arrayConcrete)
+                .binding("b", arrayConcrete))
+                .isEqualTo(true);
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, arrayWithNull, arrayConcrete))
+                .isNull(BOOLEAN);
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, arrayConcrete, arrayConcreteOther))
+                .neverFails();
+
+        // COMPARISON_UNORDERED_FIRST / LAST — total ordering, never fails on a NULL element
+        assertThat(assertions.operator(COMPARISON_UNORDERED_FIRST, arrayWithNull, arrayConcrete))
+                .neverFails();
+        assertThat(assertions.operator(COMPARISON_UNORDERED_LAST, arrayWithNull, arrayConcrete))
+                .neverFails();
+
+        // BETWEEN — desugars to two ordering comparisons, so it is three-valued too
+        assertThat(assertions.expression("a BETWEEN b AND c")
+                .binding("a", arrayWithNull)
+                .binding("b", arrayConcrete)
+                .binding("c", arrayConcreteOther))
+                .isNull(BOOLEAN);
+        assertThat(assertions.expression("a BETWEEN b AND c")
+                .binding("a", arrayConcrete)
+                .binding("b", arrayConcrete)
+                .binding("c", arrayConcreteOther))
+                .isEqualTo(true);
+
+        // HASH_CODE / XX_HASH_64 — tolerate NULL elements
+        assertThat(assertions.operator(HASH_CODE, arrayWithNull))
+                .neverFails();
+        assertThat(assertions.operator(XX_HASH_64, arrayWithNull))
+                .neverFails();
+    }
+
+    @Test
+    public void testArrayOrderingWithNullElement()
+    {
+        // ORDER BY uses the total array comparison: a NULL element sorts last in ascending order,
+        // examined only after the preceding elements tie
+        assertThat(assertions.query(
+                """
+                SELECT x
+                FROM (VALUES
+                        ARRAY[1, 2],
+                        ARRAY[1, CAST(NULL AS INTEGER)],
+                        ARRAY[1, 1],
+                        ARRAY[CAST(NULL AS INTEGER), 9]) t(x)
+                ORDER BY x"""))
+                .ordered()
+                .matches(
+                        """
+                        VALUES
+                            ARRAY[1, 1],
+                            ARRAY[1, 2],
+                            ARRAY[1, CAST(NULL AS INTEGER)],
+                            ARRAY[CAST(NULL AS INTEGER), 9]""");
+
+        // a shorter array sorts before a longer one that shares its prefix, regardless of trailing nulls
+        assertThat(assertions.query(
+                """
+                SELECT x
+                FROM (VALUES
+                        ARRAY[1, 2],
+                        ARRAY[1],
+                        ARRAY[1, CAST(NULL AS INTEGER)]) t(x)
+                ORDER BY x"""))
+                .ordered()
+                .matches(
+                        """
+                        VALUES
+                            ARRAY[1],
+                            ARRAY[1, 2],
+                            ARRAY[1, CAST(NULL AS INTEGER)]""");
+    }
+
+    @Test
+    public void testArrayComparisonWithNanAndNegativeZero()
+    {
+        // NaN and -0.0 follow the element type's semantics and coexist with NULL handling
+        assertThat(assertions.expression("a = b")
+                .binding("a", "ARRAY[nan()]")
+                .binding("b", "ARRAY[nan()]"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a < b")
+                .binding("a", "ARRAY[nan()]")
+                .binding("b", "ARRAY[1e0]"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "ARRAY[-0e0]")
+                .binding("b", "ARRAY[0e0]"))
+                .isEqualTo(true);
+
+        // ordering treats NaN as the largest non-null value and a NULL element as last
+        assertThat(assertions.query(
+                """
+                SELECT x
+                FROM (VALUES
+                        ARRAY[nan()],
+                        ARRAY[1e0],
+                        ARRAY[CAST(NULL AS DOUBLE)]) t(x)
+                ORDER BY x"""))
+                .ordered()
+                .matches(
+                        """
+                        VALUES
+                            ARRAY[1e0],
+                            ARRAY[nan()],
+                            ARRAY[CAST(NULL AS DOUBLE)]""");
     }
 }

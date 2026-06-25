@@ -227,6 +227,14 @@ public class TestTinyintOperators
 
         assertThat(assertions.operator(EQUAL, "TINYINT '17'", "TINYINT '17'"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a = b")
+                .binding("a", "TINYINT '17'")
+                .binding("b", "TINYINT '17'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "TINYINT '17'", "TINYINT '17'"))
+                .neverFails();
     }
 
     @Test
@@ -267,6 +275,14 @@ public class TestTinyintOperators
 
         assertThat(assertions.operator(LESS_THAN, "TINYINT '17'", "TINYINT '17'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a < b")
+                .binding("a", "TINYINT '17'")
+                .binding("b", "TINYINT '17'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "TINYINT '17'", "TINYINT '17'"))
+                .neverFails();
     }
 
     @Test
@@ -283,6 +299,14 @@ public class TestTinyintOperators
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TINYINT '17'", "TINYINT '17'"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "TINYINT '17'")
+                .binding("b", "TINYINT '17'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TINYINT '17'", "TINYINT '17'"))
+                .neverFails();
     }
 
     @Test
@@ -395,6 +419,10 @@ public class TestTinyintOperators
         assertThat(assertions.expression("cast(a as bigint)")
                 .binding("a", "TINYINT '17'"))
                 .isEqualTo(17L);
+
+        assertThat(assertions.expression("cast(a as bigint)")
+                .binding("a", "TINYINT '17'"))
+                .neverFails();
     }
 
     @Test
@@ -407,6 +435,10 @@ public class TestTinyintOperators
         assertThat(assertions.expression("cast(a as integer)")
                 .binding("a", "TINYINT '17'"))
                 .isEqualTo(17);
+
+        assertThat(assertions.expression("cast(a as integer)")
+                .binding("a", "TINYINT '17'"))
+                .neverFails();
     }
 
     @Test
@@ -419,6 +451,10 @@ public class TestTinyintOperators
         assertThat(assertions.expression("cast(a as smallint)")
                 .binding("a", "TINYINT '17'"))
                 .isEqualTo((short) 17);
+
+        assertThat(assertions.expression("cast(a as smallint)")
+                .binding("a", "TINYINT '17'"))
+                .neverFails();
     }
 
     @Test
@@ -461,6 +497,10 @@ public class TestTinyintOperators
         assertThat(assertions.expression("cast(a as double)")
                 .binding("a", "TINYINT '17'"))
                 .isEqualTo(17.0);
+
+        assertThat(assertions.expression("cast(a as double)")
+                .binding("a", "TINYINT '17'"))
+                .neverFails();
     }
 
     @Test
@@ -477,6 +517,10 @@ public class TestTinyintOperators
         assertThat(assertions.expression("cast(a as real)")
                 .binding("a", "TINYINT '0'"))
                 .isEqualTo(0.0f);
+
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "TINYINT '0'"))
+                .neverFails();
     }
 
     @Test
@@ -493,6 +537,10 @@ public class TestTinyintOperators
         assertThat(assertions.expression("CAST(a AS number)")
                 .binding("a", "TINYINT '0'"))
                 .isEqualTo(new SqlNumber("0"));
+
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "TINYINT '0'"))
+                .neverFails();
     }
 
     @Test
@@ -500,6 +548,7 @@ public class TestTinyintOperators
     {
         assertThat(assertions.expression("cast(a as boolean)")
                 .binding("a", "TINYINT '37'"))
+                .neverFails()
                 .isEqualTo(true);
 
         assertThat(assertions.expression("cast(a as boolean)")

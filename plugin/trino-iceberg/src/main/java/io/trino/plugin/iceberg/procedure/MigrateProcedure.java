@@ -83,7 +83,7 @@ import static io.trino.plugin.hive.HiveMetadata.TRANSACTIONAL;
 import static io.trino.plugin.hive.HiveMetadata.extractHiveStorageFormat;
 import static io.trino.plugin.hive.HiveTimestampPrecision.MILLISECONDS;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
-import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeDescriptor;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
@@ -289,7 +289,7 @@ public class MigrateProcedure
         List<Types.NestedField> icebergColumns = new ArrayList<>();
         for (Column column : columns) {
             int index = icebergColumns.size();
-            org.apache.iceberg.types.Type type = toIcebergType(typeManager.getType(getTypeSignature(column.getType(), MILLISECONDS)), nextFieldId, storageFormat);
+            org.apache.iceberg.types.Type type = toIcebergType(typeManager.getType(getTypeDescriptor(column.getType(), MILLISECONDS)), nextFieldId, storageFormat);
             Types.NestedField field = Types.NestedField.optional(index, column.getName(), type, column.getComment().orElse(null));
             icebergColumns.add(field);
         }

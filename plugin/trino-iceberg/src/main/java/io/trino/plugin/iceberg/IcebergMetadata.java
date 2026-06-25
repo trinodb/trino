@@ -85,6 +85,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
@@ -122,6 +123,7 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.BoundSignature;
@@ -264,7 +266,7 @@ import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveMetadata.TRANSACTIONAL;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.ViewReaderUtil.isSomeKindOfAView;
-import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeDescriptor;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
@@ -328,8 +330,10 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.MAX_PREVIOUS_VERSIO
 import static io.trino.plugin.iceberg.IcebergTableProperties.OBJECT_STORE_LAYOUT_ENABLED_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_COLUMNS_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.PARQUET_WRITER_ROW_GROUP_SIZE;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.TARGET_MAX_FILE_SIZE;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getFormatVersion;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
@@ -447,8 +451,10 @@ import static org.apache.iceberg.TableProperties.MIN_SNAPSHOTS_TO_KEEP_DEFAULT;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static org.apache.iceberg.TableProperties.PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX;
+import static org.apache.iceberg.TableProperties.PARQUET_ROW_GROUP_SIZE_BYTES;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
+import static org.apache.iceberg.TableProperties.WRITE_TARGET_FILE_SIZE_BYTES;
 import static org.apache.iceberg.TableUtil.formatVersion;
 import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
 import static org.apache.iceberg.types.TypeUtil.indexParents;
@@ -477,8 +483,10 @@ public class IcebergMetadata
             .add(DATA_LOCATION_PROPERTY)
             .add(ORC_BLOOM_FILTER_COLUMNS_PROPERTY)
             .add(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)
+            .add(PARQUET_WRITER_ROW_GROUP_SIZE)
             .add(PARTITIONING_PROPERTY)
             .add(SORTED_BY_PROPERTY)
+            .add(TARGET_MAX_FILE_SIZE)
             .build();
     private static final String SYSTEM_SCHEMA = "system";
 
@@ -513,6 +521,7 @@ public class IcebergMetadata
     private final Map<IcebergTableHandle, AtomicReference<TableStatistics>> tableStatisticsCache = new ConcurrentHashMap<>();
     private final IcebergTableCredentialsProvider tableCredentialsProvider;
     private final DeletionVectorWriter deletionVectorWriter;
+    private final ConnectorExpressionEvaluator evaluator;
 
     private Transaction transaction;
     private OptionalLong fromSnapshotForRefresh = OptionalLong.empty();
@@ -534,7 +543,8 @@ public class IcebergMetadata
             ExecutorService icebergPlanningExecutor,
             ExecutorService icebergFileDeleteExecutor,
             int materializedViewRefreshMaxSnapshotsToExpire,
-            Duration materializedViewRefreshSnapshotRetentionPeriod)
+            Duration materializedViewRefreshSnapshotRetentionPeriod,
+            ConnectorExpressionEvaluator evaluator)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -554,6 +564,7 @@ public class IcebergMetadata
         this.materializedViewRefreshMaxSnapshotsToExpire = materializedViewRefreshMaxSnapshotsToExpire;
         this.materializedViewRefreshSnapshotRetentionPeriod = materializedViewRefreshSnapshotRetentionPeriod;
         this.tableCredentialsProvider = new IcebergTableCredentialsProvider(catalog);
+        this.evaluator = requireNonNull(evaluator, "evaluator is null");
     }
 
     @Override
@@ -1953,7 +1964,7 @@ public class IcebergMetadata
                         return;
                     }
                     ColumnIdentity columnIdentity = createColumnIdentity(targetColumn);
-                    org.apache.iceberg.types.Type sourceColumnType = toIcebergType(typeManager.getType(getTypeSignature(sourceColumn.getType(), DEFAULT_PRECISION)), columnIdentity);
+                    org.apache.iceberg.types.Type sourceColumnType = toIcebergType(typeManager.getType(getTypeDescriptor(sourceColumn.getType(), DEFAULT_PRECISION)), columnIdentity);
                     if (!targetColumn.type().equals(sourceColumnType)) {
                         throw new TrinoException(TYPE_MISMATCH, "Target '%s' column is '%s' type, but got source '%s' type".formatted(targetColumn.name(), targetColumn.type(), sourceColumnType));
                     }
@@ -2604,6 +2615,18 @@ public class IcebergMetadata
             updateProperties.set(WRITE_DATA_LOCATION, dataLocation);
         }
 
+        if (properties.containsKey(TARGET_MAX_FILE_SIZE)) {
+            DataSize targetMaxFileSize = (DataSize) properties.get(TARGET_MAX_FILE_SIZE)
+                    .orElseThrow(() -> new IllegalArgumentException("The target_max_file_size property cannot be empty"));
+            updateProperties.set(WRITE_TARGET_FILE_SIZE_BYTES, Long.toString(targetMaxFileSize.toBytes()));
+        }
+
+        if (properties.containsKey(PARQUET_WRITER_ROW_GROUP_SIZE)) {
+            DataSize rowGroupSize = (DataSize) properties.get(PARQUET_WRITER_ROW_GROUP_SIZE)
+                    .orElseThrow(() -> new IllegalArgumentException("The parquet_writer_row_group_size property cannot be empty"));
+            updateProperties.set(PARQUET_ROW_GROUP_SIZE_BYTES, Long.toString(rowGroupSize.toBytes()));
+        }
+
         try {
             updateProperties.commit();
         }
@@ -2741,7 +2764,7 @@ public class IcebergMetadata
             // Handle default value if present
             Literal<?> defaultLiteral = column.getDefaultValue()
                     .map(defaultValue -> {
-                        Object parsed = parseDefaultValue(defaultValue, column.getType(), icebergType);
+                        Object parsed = parseDefaultValue(defaultValue, column.getType());
                         return toIcebergLiteral(parsed, icebergType);
                     })
                     .orElse(null);
@@ -2769,7 +2792,7 @@ public class IcebergMetadata
         checkDefaultValueCompatibility(formatVersion(icebergTable), true);
 
         NestedField field = icebergTable.schema().findField(columnHandle.getId());
-        Object parsed = parseDefaultValue(defaultValue, columnHandle.getType(), field.type());
+        Object parsed = parseDefaultValue(defaultValue, columnHandle.getType());
         Literal<?> defaultLiteral = toIcebergLiteral(parsed, field.type());
 
         try {
@@ -3238,7 +3261,11 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorPartitioningHandle> getUpdateLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getInsertLayout(session, tableHandle)
+        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
+        int specId = table.getSpecId().orElseThrow(() -> new VerifyException("Partition spec missing in the table handle"));
+        PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, table.getPartitionSpecJsons().get(specId));
+        return getWriteLayout(schema, partitionSpec, true)
                 .flatMap(ConnectorTableLayout::getPartitioning)
                 .map(IcebergPartitioningHandle.class::cast)
                 .map(IcebergPartitioningHandle::forUpdate);
@@ -3446,8 +3473,7 @@ public class IcebergMetadata
     @Override
     public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
-        checkArgument(viewProperties.isEmpty(), "This connector does not support creating views with properties");
-        catalog.createView(session, viewName, definition, replace);
+        catalog.createView(session, viewName, definition, viewProperties, replace);
     }
 
     @Override
@@ -3510,6 +3536,12 @@ public class IcebergMetadata
         }
 
         return catalog.getView(session, viewName);
+    }
+
+    @Override
+    public Map<String, Object> getViewProperties(ConnectorSession session, SchemaTableName viewName)
+    {
+        return catalog.getViewProperties(session, viewName);
     }
 
     @Override
@@ -3596,7 +3628,9 @@ public class IcebergMetadata
         UtcConstraintExtractor.ExtractionResult extractionResult = extractTupleDomain(constraint);
         TupleDomain<IcebergColumnHandle> predicate = extractionResult.tupleDomain()
                 .transformKeys(IcebergColumnHandle.class::cast);
-        if (predicate.isAll() && constraint.getPredicateColumns().isEmpty()) {
+        Map<String, ColumnHandle> assignments = constraint.getAssignments();
+        ConnectorExpressionEvaluator.Prepared prepared = evaluator.prepare(session, constraint.getExpression());
+        if (predicate.isAll() && Constant.TRUE.equals(constraint.getExpression())) {
             return Optional.empty();
         }
         if (table.getLimit().isPresent()) {
@@ -3650,8 +3684,9 @@ public class IcebergMetadata
 
         Set<IcebergColumnHandle> newConstraintColumns = Streams.concat(
                         table.getConstraintColumns().stream(),
-                        constraint.getPredicateColumns().orElseGet(ImmutableSet::of).stream()
-                                .map(columnHandle -> (IcebergColumnHandle) columnHandle))
+                        prepared.getArguments().stream()
+                                .map(assignments::get)
+                                .map(IcebergColumnHandle.class::cast))
                 .collect(toImmutableSet());
 
         if (newEnforcedConstraint.equals(table.getEnforcedPredicate())

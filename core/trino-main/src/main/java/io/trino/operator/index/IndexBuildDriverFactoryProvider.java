@@ -16,6 +16,8 @@ package io.trino.operator.index;
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.DriverFactory;
 import io.trino.operator.OperatorFactory;
+import io.trino.operator.index.PageBufferOperator.PageBufferOperatorFactory;
+import io.trino.operator.index.PagesIndexBuilderOperator.PagesIndexBuilderOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -25,8 +27,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.operator.index.PageBufferOperator.PageBufferOperatorFactory;
-import static io.trino.operator.index.PagesIndexBuilderOperator.PagesIndexBuilderOperatorFactory;
 import static java.util.Objects.requireNonNull;
 
 public class IndexBuildDriverFactoryProvider

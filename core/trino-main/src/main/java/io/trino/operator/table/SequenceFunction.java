@@ -83,7 +83,8 @@ public class SequenceFunction
                                 .type(BIGINT)
                                 .defaultValue(1L)
                                 .build()),
-                new DescribedTable(descriptor(ImmutableList.of("sequential_number"), ImmutableList.of(BIGINT))));
+                new DescribedTable(descriptor(ImmutableList.of("sequential_number"), ImmutableList.of(BIGINT))),
+                "Sequence function to generate synthetic tables");
     }
 
     @Override

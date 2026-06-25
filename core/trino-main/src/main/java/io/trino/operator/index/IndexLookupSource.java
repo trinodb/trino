@@ -19,7 +19,7 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;
+import static io.trino.operator.index.IndexedData.UNLOADED_INDEX_KEY;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe

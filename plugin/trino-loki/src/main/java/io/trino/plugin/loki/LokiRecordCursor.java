@@ -14,12 +14,10 @@
 package io.trino.plugin.loki;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeUtils;
 
 import java.util.Comparator;
 import java.util.List;
@@ -28,9 +26,11 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -103,7 +103,7 @@ public class LokiRecordCursor
     public Slice getSlice(int field)
     {
         checkFieldType(field, createUnboundedVarcharType());
-        return Slices.utf8Slice((String) requireNonNull(getFieldValue(field)));
+        return utf8Slice((String) requireNonNull(getFieldValue(field)));
     }
 
     @Override
@@ -153,8 +153,8 @@ public class LokiRecordCursor
 
         return buildMapValue(mapType, labels.size(), (keyBuilder, valueBuilder) -> {
             labels.forEach((key, value) -> {
-                TypeUtils.writeNativeValue(keyType, keyBuilder, key);
-                TypeUtils.writeNativeValue(valueType, valueBuilder, value);
+                writeNativeValue(keyType, keyBuilder, utf8Slice(key));
+                writeNativeValue(valueType, valueBuilder, utf8Slice(value));
             });
         });
     }

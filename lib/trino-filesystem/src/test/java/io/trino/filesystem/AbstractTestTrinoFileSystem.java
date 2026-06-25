@@ -81,6 +81,9 @@ public abstract class AbstractTestTrinoFileSystem
     // The test subclasses are encouraged to use this constant in their configurations.
     protected static final DataSize LARGER_FILE_DATA_SIZE = DataSize.of(10, DataSize.Unit.MEGABYTE);
 
+    // Smaller than LARGER_FILE_DATA_SIZE so streaming file system tests exercise multipart writes.
+    protected static final DataSize STREAMING_PART_SIZE = DataSize.valueOf("5.5MB");
+
     protected abstract boolean isHierarchical();
 
     protected abstract TrinoFileSystem getFileSystem();

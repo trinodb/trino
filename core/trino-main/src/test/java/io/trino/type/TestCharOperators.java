@@ -79,8 +79,9 @@ public class TestCharOperators
         assertThat(assertions.operator(EQUAL, "cast('bar' as char(5))", "'bar'"))
                 .isEqualTo(true);
 
+        // the char is coerced to varchar by trimming, so the trailing spaces in the varchar are significant
         assertThat(assertions.operator(EQUAL, "cast('bar' as char(5))", "'bar   '"))
-                .isEqualTo(true);
+                .isEqualTo(false);
 
         assertThat(assertions.operator(EQUAL, "cast('a' as char(2))", "cast('a ' as char(2))"))
                 .isEqualTo(true);
@@ -129,7 +130,7 @@ public class TestCharOperators
         assertThat(assertions.expression("a <> b")
                 .binding("a", "cast('bar' as char(5))")
                 .binding("b", "'bar   '"))
-                .isEqualTo(false);
+                .isEqualTo(true);
 
         assertThat(assertions.expression("a <> b")
                 .binding("a", "cast('a' as char(2))")
@@ -575,7 +576,7 @@ public class TestCharOperators
                 .isEqualTo(true);
 
         assertThat(assertions.operator(IDENTICAL, "cast('bar' as char(5))", "'bar   '"))
-                .isEqualTo(true);
+                .isEqualTo(false);
 
         assertThat(assertions.operator(IDENTICAL, "NULL", "cast('foo' as char(3))"))
                 .isEqualTo(false);
@@ -663,6 +664,10 @@ public class TestCharOperators
                 .hasType(VARBINARY)
                 .matches("X'616263'");
 
+        assertThat(assertions.expression("CAST(CAST('abc' AS char(5)) AS VARBINARY)"))
+                .hasType(VARBINARY)
+                .matches("X'6162632020'");
+
         // cast to number
         assertThat(assertions.expression("CAST(CHAR '13.37' AS NUMBER)"))
                 .hasType(NUMBER)
@@ -692,5 +697,28 @@ public class TestCharOperators
 
         assertTrinoExceptionThrownBy(assertions.expression("CAST(CHAR 'abc' AS NUMBER)")::evaluate)
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a AS INTEGER)")
+                .binding("a", "CHAR 'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a AS SMALLINT)")
+                .binding("a", "CHAR 'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a AS TINYINT)")
+                .binding("a", "CHAR 'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a AS REAL)")
+                .binding("a", "CHAR 'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a AS BOOLEAN)")
+                .binding("a", "CHAR 'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertThat(assertions.expression("cast(a AS VARBINARY)").binding("a", "CHAR 'abc'"))
+                .neverFails();
     }
 }

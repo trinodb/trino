@@ -22,8 +22,8 @@ import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedAggregationFunctionMetadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.type.FunctionType;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
@@ -264,7 +264,7 @@ public class AggregationNode
         boolean decomposableFunctions = getAggregations().values().stream()
                 .map(Aggregation::getResolvedFunction)
                 .map(resolvedFunction -> metadata.getAggregationFunctionMetadata(session, resolvedFunction))
-                .allMatch(AggregationFunctionMetadata::isDecomposable);
+                .allMatch(ResolvedAggregationFunctionMetadata::isDecomposable);
 
         return !hasOrderBy && !hasDistinct && decomposableFunctions;
     }

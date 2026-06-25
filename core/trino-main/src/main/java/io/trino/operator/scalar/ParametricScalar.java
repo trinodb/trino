@@ -60,16 +60,10 @@ public class ParametricScalar
     private static FunctionMetadata createFunctionMetadata(Signature signature, ScalarHeader details, boolean deprecated, FunctionNullability functionNullability)
     {
         FunctionMetadata.Builder functionMetadata = FunctionMetadata.scalarBuilder(details.getName())
-                .signature(signature);
+                .signature(signature)
+                .description(details.getDescription().orElse(""));
 
         details.getAliases().forEach(functionMetadata::alias);
-
-        if (details.getDescription().isPresent()) {
-            functionMetadata.description(details.getDescription().get());
-        }
-        else {
-            functionMetadata.noDescription();
-        }
 
         if (details.isHidden()) {
             functionMetadata.hidden();
@@ -143,7 +137,7 @@ public class ParametricScalar
             Optional<SpecializedSqlScalarFunction> scalarFunctionImplementation = exactImplementation.specialize(functionBinding, functionDependencies);
             if (scalarFunctionImplementation.isEmpty()) {
                 String expectedTypes = boundSignature.getArgumentTypes().stream()
-                        .map(type -> "@SqlType(%s) %s".formatted(type.getTypeSignature().toString().toUpperCase(ENGLISH), type.getJavaType().getSimpleName()))
+                        .map(type -> "@SqlType(%s) %s".formatted(type.getTypeDescriptor().toString().toUpperCase(ENGLISH), type.getJavaType().getSimpleName()))
                         .collect(joining(", "));
                 throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Expected implementation %s(%s):%s but java types do not match".formatted(
                         boundSignature.getName(), expectedTypes, boundSignature.getReturnType().getJavaType().getSimpleName()));

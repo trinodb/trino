@@ -221,8 +221,7 @@ public class TestGroupedTopNRankBuilder
                 .row(1L, 0.2)
                 .row(1L, 0.9)
                 .row(1L, 0.1)
-                .build()
-                .get(0);
+                .buildPage();
         input.compact();
 
         AtomicBoolean unblock = new AtomicBoolean();
@@ -242,16 +241,14 @@ public class TestGroupedTopNRankBuilder
         unblock.set(true);
         assertThat(work.process()).isTrue();
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertThat(output).hasSize(1);
 
         Page expected = rowPagesBuilder(types)
                 .row(1L, 0.1)
                 .row(1L, 0.2)
                 .row(1L, 0.3)
                 .row(1L, 0.9)
-                .build()
-                .get(0);
-        assertPageEquals(types, output.get(0), expected);
+                .buildPage();
+        assertPageEquals(types, getOnlyElement(output), expected);
     }
 
     private GroupByHash createGroupByHash(Type partitionType, UpdateMemory updateMemory, TypeOperators typeOperators)

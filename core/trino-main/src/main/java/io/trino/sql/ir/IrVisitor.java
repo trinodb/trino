@@ -72,12 +72,7 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitComparison(Comparison node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
-    protected R visitBetween(Between node, C context)
+    protected R visitLet(Let node, C context)
     {
         return visitExpression(node, context);
     }
@@ -102,17 +97,12 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitSwitch(Switch node, C context)
+    protected R visitMatch(Match node, C context)
     {
         return visitExpression(node, context);
     }
 
     protected R visitCoalesce(Coalesce node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
-    protected R visitNullIf(NullIf node, C context)
     {
         return visitExpression(node, context);
     }

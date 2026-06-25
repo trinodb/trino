@@ -44,7 +44,6 @@ import static io.trino.plugin.base.session.PropertyMetadataUtil.validateMinDataS
 import static io.trino.plugin.hive.parquet.ParquetReaderConfig.PARQUET_READER_MAX_SMALL_FILE_THRESHOLD;
 import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MAX_PAGE_SIZE;
 import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MAX_PAGE_VALUE_COUNT;
-import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MAX_ROW_GROUP_SIZE;
 import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MIN_PAGE_SIZE;
 import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MIN_PAGE_VALUE_COUNT;
 import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MIN_ROW_GROUP_ROW_COUNT;
@@ -63,7 +62,7 @@ import static java.util.Objects.requireNonNull;
 public final class IcebergSessionProperties
         implements SessionPropertiesProvider
 {
-    public static final String SPLIT_SIZE = "experimental_split_size";
+    public static final String SPLIT_SIZE = "max_split_size";
     private static final String USE_FILE_SIZE_FROM_METADATA = "use_file_size_from_metadata";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
@@ -87,8 +86,6 @@ public final class IcebergSessionProperties
     private static final String PARQUET_SMALL_FILE_THRESHOLD = "parquet_small_file_threshold";
     private static final String PARQUET_IGNORE_STATISTICS = "parquet_ignore_statistics";
     private static final String PARQUET_VECTORIZED_DECODING_ENABLED = "parquet_vectorized_decoding_enabled";
-    private static final String PARQUET_WRITER_ROW_GROUP_SIZE = "parquet_writer_row_group_size";
-    private static final String LEGACY_PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_ROW_GROUP_MAX_ROW_COUNT = "parquet_writer_row_group_max_row_count";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String PARQUET_WRITER_PAGE_VALUE_COUNT = "parquet_writer_page_value_count";
@@ -97,7 +94,6 @@ public final class IcebergSessionProperties
     public static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
     private static final String STATISTICS_ENABLED = "statistics_enabled";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
-    private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
     private static final String IDLE_WRITER_MIN_FILE_SIZE = "idle_writer_min_file_size";
     public static final String COLLECT_EXTENDED_STATISTICS_ON_WRITE = "collect_extended_statistics_on_write";
     private static final String HIVE_CATALOG_NAME = "hive_catalog_name";
@@ -125,10 +121,8 @@ public final class IcebergSessionProperties
         sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(dataSizeProperty(
                         SPLIT_SIZE,
-                        "Target split size",
-                        // Note: this is null by default & hidden, currently mainly for tests.
-                        // See https://github.com/trinodb/trino/issues/9018#issuecomment-1752929193 for further discussion.
-                        null,
+                        "Max split size",
+                        icebergConfig.getMaxSplitSize().orElse(null),
                         true))
                 .add(booleanProperty(
                         USE_FILE_SIZE_FROM_METADATA,
@@ -262,12 +256,6 @@ public final class IcebergSessionProperties
                         "Enable using Java Vector API for faster decoding of parquet files",
                         parquetReaderConfig.isVectorizedDecodingEnabled(),
                         false))
-                .add(dataSizeProperty(
-                        PARQUET_WRITER_ROW_GROUP_SIZE,
-                        "Parquet: Writer row group size",
-                        parquetWriterConfig.getRowGroupSize(),
-                        value -> validateMaxDataSize(PARQUET_WRITER_ROW_GROUP_SIZE, value, DataSize.valueOf(PARQUET_WRITER_MAX_ROW_GROUP_SIZE)),
-                        false))
                 .add(integerProperty(
                         PARQUET_WRITER_ROW_GROUP_MAX_ROW_COUNT,
                         "Parquet: The maximum row count of row groups created by the Parquet writer",
@@ -280,12 +268,6 @@ public final class IcebergSessionProperties
                             }
                         },
                         false))
-                .add(dataSizeProperty(
-                        LEGACY_PARQUET_WRITER_BLOCK_SIZE,
-                        "Deprecated. Use parquet_writer_row_group_size instead.",
-                        null,
-                        value -> validateMaxDataSize(LEGACY_PARQUET_WRITER_BLOCK_SIZE, value, DataSize.valueOf(PARQUET_WRITER_MAX_ROW_GROUP_SIZE)),
-                        true))
                 .add(dataSizeProperty(
                         PARQUET_WRITER_PAGE_SIZE,
                         "Parquet: Writer page size",
@@ -331,11 +313,6 @@ public final class IcebergSessionProperties
                         PROJECTION_PUSHDOWN_ENABLED,
                         "Read only required fields from a row type",
                         icebergConfig.isProjectionPushdownEnabled(),
-                        false))
-                .add(dataSizeProperty(
-                        TARGET_MAX_FILE_SIZE,
-                        "Target maximum size of written files; the actual size may be larger",
-                        icebergConfig.getTargetMaxFileSize(),
                         false))
                 .add(dataSizeProperty(
                         IDLE_WRITER_MIN_FILE_SIZE,
@@ -564,15 +541,6 @@ public final class IcebergSessionProperties
         return session.getProperty(PARQUET_WRITER_PAGE_VALUE_COUNT, Integer.class);
     }
 
-    public static DataSize getParquetWriterRowGroupSize(ConnectorSession session)
-    {
-        DataSize legacyValue = session.getProperty(LEGACY_PARQUET_WRITER_BLOCK_SIZE, DataSize.class);
-        if (legacyValue != null) {
-            return legacyValue;
-        }
-        return session.getProperty(PARQUET_WRITER_ROW_GROUP_SIZE, DataSize.class);
-    }
-
     public static int getParquetWriterRowGroupMaxRowCount(ConnectorSession session)
     {
         return session.getProperty(PARQUET_WRITER_ROW_GROUP_MAX_ROW_COUNT, Integer.class);
@@ -611,11 +579,6 @@ public final class IcebergSessionProperties
     public static boolean isProjectionPushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(PROJECTION_PUSHDOWN_ENABLED, Boolean.class);
-    }
-
-    public static long getTargetMaxFileSize(ConnectorSession session)
-    {
-        return session.getProperty(TARGET_MAX_FILE_SIZE, DataSize.class).toBytes();
     }
 
     public static long getIdleWriterMinFileSize(ConnectorSession session)

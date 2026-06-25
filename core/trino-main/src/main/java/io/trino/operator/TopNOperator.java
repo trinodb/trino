@@ -14,7 +14,6 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
@@ -68,12 +67,12 @@ public class TopNOperator
 
         @Override
         public WorkProcessorOperator create(
-                ProcessorContext processorContext,
+                OperatorContext operatorContext,
                 WorkProcessor<Page> sourcePages)
         {
             checkState(!closed, "Factory is already closed");
             return new TopNOperator(
-                    processorContext.getMemoryTrackingContext(),
+                    operatorContext,
                     sourcePages,
                     sourceTypes,
                     n,
@@ -114,7 +113,7 @@ public class TopNOperator
     private final WorkProcessor<Page> pages;
 
     private TopNOperator(
-            MemoryTrackingContext memoryTrackingContext,
+            OperatorContext operatorContext,
             WorkProcessor<Page> sourcePages,
             List<Type> types,
             int n,
@@ -127,7 +126,7 @@ public class TopNOperator
             pages = sourcePages.transform(
                     new TopNPages(
                             new TopNProcessor(
-                                    memoryTrackingContext.aggregateUserMemoryContext(),
+                                    operatorContext.aggregateUserMemoryContext(),
                                     types,
                                     n,
                                     comparator)));

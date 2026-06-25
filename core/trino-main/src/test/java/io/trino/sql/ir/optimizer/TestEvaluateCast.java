@@ -18,6 +18,7 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.optimizer.rule.EvaluateCast;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -50,6 +51,6 @@ public class TestEvaluateCast
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new EvaluateCast(PLANNER_CONTEXT).apply(expression, testSession(), ImmutableMap.of());
+        return new EvaluateCast(PLANNER_CONTEXT).apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }

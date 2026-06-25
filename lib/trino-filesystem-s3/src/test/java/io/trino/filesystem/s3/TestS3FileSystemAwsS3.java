@@ -13,7 +13,6 @@
  */
 package io.trino.filesystem.s3;
 
-import io.airlift.units.DataSize;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.FileEntry;
 import org.junit.jupiter.api.Test;
@@ -83,9 +82,6 @@ public class TestS3FileSystemAwsS3
     @Override
     protected S3FileSystemFactory createS3FileSystemFactory()
     {
-        DataSize streamingPartSize = DataSize.valueOf("5.5MB");
-        assertThat(streamingPartSize).describedAs("Configured part size should be less than test's larger file size")
-                .isLessThan(LARGER_FILE_DATA_SIZE);
         return new S3FileSystemFactory(
                 OpenTelemetry.noop(),
                 new S3FileSystemConfig()
@@ -94,7 +90,7 @@ public class TestS3FileSystemAwsS3
                         .setRegion(region)
                         .setEndpoint(endpoint)
                         .setSignerType(S3FileSystemConfig.SignerType.AwsS3V4Signer)
-                        .setStreamingPartSize(streamingPartSize),
+                        .setStreamingPartSize(STREAMING_PART_SIZE),
                 new S3FileSystemStats());
     }
 

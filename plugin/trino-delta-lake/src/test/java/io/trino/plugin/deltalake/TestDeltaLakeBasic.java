@@ -175,6 +175,7 @@ public class TestDeltaLakeBasic
         closeAfterClass(() -> deleteRecursively(catalogDir, ALLOW_INSECURE));
 
         return DeltaLakeQueryRunner.builder()
+                .addDeltaProperty("fs.hadoop.enabled", "true")
                 .addDeltaProperty("hive.metastore.catalog.dir", catalogDir.toUri().toString())
                 .addDeltaProperty("delta.register-table-procedure.enabled", "true")
                 .addDeltaProperty("delta.enable-non-concurrent-writes", "true")

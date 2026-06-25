@@ -123,6 +123,8 @@ import io.trino.operator.scalar.ArrayUnionFunction;
 import io.trino.operator.scalar.ArrayVectorFunctions;
 import io.trino.operator.scalar.ArraysOverlapFunction;
 import io.trino.operator.scalar.BitwiseFunctions;
+import io.trino.operator.scalar.CharMethods;
+import io.trino.operator.scalar.CharToVarcharCast;
 import io.trino.operator.scalar.CharacterStringCasts;
 import io.trino.operator.scalar.ColorFunctions;
 import io.trino.operator.scalar.CombineHashFunction;
@@ -150,6 +152,7 @@ import io.trino.operator.scalar.JoniRegexpFunctions;
 import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
 import io.trino.operator.scalar.JsonFunctions;
 import io.trino.operator.scalar.JsonOperators;
+import io.trino.operator.scalar.LegacyCharToVarcharCast;
 import io.trino.operator.scalar.LuhnCheckFunction;
 import io.trino.operator.scalar.MapCardinalityFunction;
 import io.trino.operator.scalar.MapConcatFunction;
@@ -176,6 +179,7 @@ import io.trino.operator.scalar.TryFunction;
 import io.trino.operator.scalar.TypeOfFunction;
 import io.trino.operator.scalar.UrlFunctions;
 import io.trino.operator.scalar.VarbinaryFunctions;
+import io.trino.operator.scalar.VarcharMethods;
 import io.trino.operator.scalar.VersionFunction;
 import io.trino.operator.scalar.WilsonInterval;
 import io.trino.operator.scalar.WordStemFunction;
@@ -323,6 +327,7 @@ import static io.trino.operator.scalar.MapZipWithFunction.MAP_ZIP_WITH_FUNCTION;
 import static io.trino.operator.scalar.MathFunctions.DECIMAL_MOD_FUNCTION;
 import static io.trino.operator.scalar.Re2JCastToRegexpFunction.castCharToRe2JRegexp;
 import static io.trino.operator.scalar.Re2JCastToRegexpFunction.castVarcharToRe2JRegexp;
+import static io.trino.operator.scalar.RowFieldsFunction.ROW_FIELDS_FUNCTION;
 import static io.trino.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static io.trino.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
 import static io.trino.operator.scalar.RowToVariantCast.ROW_TO_VARIANT;
@@ -453,6 +458,8 @@ public final class SystemFunctionBundle
                 .scalars(SequenceFunction.class)
                 .scalars(SessionFunctions.class)
                 .scalars(StringFunctions.class)
+                .scalars(VarcharMethods.class)
+                .scalars(CharMethods.class)
                 .scalars(WordStemFunction.class)
                 .scalar(SplitToMapFunction.class)
                 .scalar(SplitToMultimapFunction.class)
@@ -527,6 +534,7 @@ public final class SystemFunctionBundle
                 .scalars(FailureFunction.class)
                 .scalars(JoniRegexpCasts.class)
                 .scalars(CharacterStringCasts.class)
+                .scalars(featuresConfig.isLegacyVarcharToCharCoercion() ? LegacyCharToVarcharCast.class : CharToVarcharCast.class)
                 .scalars(LuhnCheckFunction.class)
                 .scalar(DecimalOperators.Negation.class)
                 .functions(IDENTITY_CAST, CAST_FROM_UNKNOWN)
@@ -625,6 +633,7 @@ public final class SystemFunctionBundle
                 .functions(MAP_FILTER_FUNCTION, new MapTransformKeysFunction(blockTypeOperators), MAP_TRANSFORM_VALUES_FUNCTION)
                 .function(FORMAT_FUNCTION)
                 .function(TRY_CAST)
+                .function(ROW_FIELDS_FUNCTION)
                 .function(new GenericReadValueOperator(typeOperators))
                 .function(new GenericEqualOperator(typeOperators))
                 .function(new GenericHashCodeOperator(typeOperators))

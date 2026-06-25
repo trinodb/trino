@@ -20,6 +20,7 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import com.google.inject.Inject;
 import io.trino.spi.security.ConnectorIdentity;
+import jakarta.annotation.PreDestroy;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -31,6 +32,7 @@ import java.util.Optional;
 
 import static com.google.cloud.storage.StorageRetryStrategy.getUniformStorageRetryStrategy;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
+import static io.trino.filesystem.gcs.GcsFileSystemConfig.AuthType.ACCESS_TOKEN;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY;
@@ -39,6 +41,7 @@ import static java.util.Objects.requireNonNull;
 public class GcsStorageFactory
 {
     public static final String GCS_OAUTH_KEY = "gcs.oauth";
+    private final GcsFileSystemConfig.AuthType authType;
     private final String projectId;
     private final Optional<String> endpoint;
     private final int maxRetries;
@@ -48,11 +51,13 @@ public class GcsStorageFactory
     private final Duration maxBackoffDelay;
     private final String applicationId;
     private final GcsAuth gcsAuth;
+    private volatile Storage cachedStorage;
 
     @Inject
     public GcsStorageFactory(GcsFileSystemConfig config, GcsAuth gcsAuth)
     {
         this.gcsAuth = requireNonNull(gcsAuth, "gcsAuth is null");
+        authType = config.getAuthType();
         projectId = config.getProjectId();
         endpoint = config.getEndpoint();
         this.maxRetries = config.getMaxRetries();
@@ -64,6 +69,40 @@ public class GcsStorageFactory
     }
 
     public Storage create(ConnectorIdentity identity)
+    {
+        if (isCacheable(identity)) {
+            Storage storage = cachedStorage;
+            if (storage == null) {
+                synchronized (this) {
+                    storage = cachedStorage;
+                    if (storage == null) {
+                        storage = createStorage(identity);
+                        cachedStorage = storage;
+                    }
+                }
+            }
+            return storage;
+        }
+        return createStorage(identity);
+    }
+
+    @PreDestroy
+    public void stop()
+            throws Exception
+    {
+        Storage storage = cachedStorage;
+        cachedStorage = null;
+        if (storage != null) {
+            storage.close();
+        }
+    }
+
+    private boolean isCacheable(ConnectorIdentity identity)
+    {
+        return authType != ACCESS_TOKEN && !identity.getExtraCredentials().containsKey(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY);
+    }
+
+    private Storage createStorage(ConnectorIdentity identity)
     {
         try {
             StorageOptions.Builder storageOptionsBuilder = StorageOptions.newBuilder();

@@ -33,7 +33,7 @@ import static io.trino.block.BlockAssertions.createDoublesBlock;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.operator.scalar.TDigestFunctions.DEFAULT_WEIGHT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static java.lang.Math.abs;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;

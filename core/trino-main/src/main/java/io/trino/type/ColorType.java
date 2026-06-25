@@ -16,7 +16,7 @@ package io.trino.type;
 import io.trino.operator.scalar.ColorFunctions;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.AbstractIntType;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 
 import java.util.HexFormat;
 
@@ -29,7 +29,7 @@ public class ColorType
 
     private ColorType()
     {
-        super(new TypeSignature(NAME));
+        super(new TypeDescriptor(NAME));
     }
 
     @Override

@@ -21,6 +21,7 @@ import io.trino.security.AccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Cast;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
@@ -60,11 +61,11 @@ public final class ConstantEvaluator
                 WarningCollector.NOOP,
                 CorrelationSupport.DISALLOWED);
 
-        TranslationMap translationMap = new TranslationMap(Optional.empty(), scope, analysis, ImmutableMap.of(), ImmutableList.of(), session, plannerContext);
+        TranslationMap translationMap = new TranslationMap(Optional.empty(), scope, analysis, ImmutableMap.of(), ImmutableList.of(), session, plannerContext, new SymbolAllocator());
         io.trino.sql.ir.Expression rewritten = translationMap.rewrite(expression);
 
         Type actualType = rewritten.type();
-        if (!new TypeCoercion(plannerContext.getTypeManager()::getType).canCoerce(actualType, expectedType)) {
+        if (!new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion()).canCoerce(actualType, expectedType)) {
             throw semanticException(TYPE_MISMATCH, expression, "Cannot cast type %s to %s", actualType.getDisplayName(), expectedType.getDisplayName());
         }
 

@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.lakehouse;
 
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
+import io.trino.plugin.hive.containers.HiveFlociDataLake;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.BeforeAll;
@@ -24,9 +24,9 @@ import org.junit.jupiter.api.TestInstance;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
+import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.Floci.FLOCI_REGION;
+import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -47,19 +47,18 @@ public abstract class BaseLakehouseConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        HiveMinioDataLake hiveMinio = closeAfterClass(new Hive3MinioDataLake(bucketName));
-        hiveMinio.start();
+        HiveFlociDataLake hiveFloci = closeAfterClass(new Hive3FlociDataLake(bucketName));
+        hiveFloci.start();
 
         return LakehouseQueryRunner.builder()
                 .addLakehouseProperty("lakehouse.table-type", tableType.name())
                 .addLakehouseProperty("hive.metastore", "thrift")
-                .addLakehouseProperty("hive.metastore.uri", hiveMinio.getHiveMetastoreEndpoint().toString())
-                .addLakehouseProperty("fs.hadoop.enabled", "true")
+                .addLakehouseProperty("hive.metastore.uri", hiveFloci.getHiveMetastoreEndpoint().toString())
                 .addLakehouseProperty("fs.s3.enabled", "true")
-                .addLakehouseProperty("s3.aws-access-key", MINIO_ROOT_USER)
-                .addLakehouseProperty("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
-                .addLakehouseProperty("s3.region", MINIO_REGION)
-                .addLakehouseProperty("s3.endpoint", hiveMinio.getMinio().getMinioAddress())
+                .addLakehouseProperty("s3.aws-access-key", FLOCI_ACCESS_KEY)
+                .addLakehouseProperty("s3.aws-secret-key", FLOCI_SECRET_KEY)
+                .addLakehouseProperty("s3.endpoint", hiveFloci.floci().endpoint().toString())
+                .addLakehouseProperty("s3.region", FLOCI_REGION)
                 .addLakehouseProperty("s3.path-style-access", "true")
                 .addLakehouseProperty("s3.streaming.part-size", "5MB")
                 .build();

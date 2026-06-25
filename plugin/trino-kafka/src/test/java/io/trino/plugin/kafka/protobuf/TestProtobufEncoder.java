@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Timestamp;
-import io.airlift.slice.Slices;
 import io.trino.plugin.kafka.KafkaColumnHandle;
 import io.trino.plugin.kafka.encoder.EncoderColumnHandle;
 import io.trino.plugin.kafka.encoder.RowEncoder;
@@ -270,9 +269,9 @@ public class TestProtobufEncoder
             writeNativeValue(DOUBLE, fieldBuilders.get(3), doubleData);
             writeNativeValue(REAL, fieldBuilders.get(4), (long) floatToIntBits(floatData));
             writeNativeValue(BOOLEAN, fieldBuilders.get(5), booleanData);
-            writeNativeValue(VARCHAR, fieldBuilders.get(6), enumData);
+            writeNativeValue(VARCHAR, fieldBuilders.get(6), utf8Slice(enumData));
             writeNativeValue(createTimestampType(6), fieldBuilders.get(7), sqlTimestamp.getEpochMicros());
-            writeNativeValue(VARBINARY, fieldBuilders.get(8), bytesData);
+            writeNativeValue(VARBINARY, fieldBuilders.get(8), wrappedBuffer(bytesData));
         });
         rowEncoder.appendColumnValue(rowBlockBuilder.build(), 0);
 
@@ -377,15 +376,15 @@ public class TestProtobufEncoder
 
         RowBlockBuilder rowBlockBuilder = rowType.createBlockBuilder(null, 1);
         rowBlockBuilder.buildEntry(fieldBuilders -> {
-            writeNativeValue(VARCHAR, fieldBuilders.get(0), Slices.utf8Slice(stringData));
+            writeNativeValue(VARCHAR, fieldBuilders.get(0), utf8Slice(stringData));
             writeNativeValue(INTEGER, fieldBuilders.get(1), integerData.longValue());
             writeNativeValue(BIGINT, fieldBuilders.get(2), longData);
             writeNativeValue(DOUBLE, fieldBuilders.get(3), doubleData);
             writeNativeValue(REAL, fieldBuilders.get(4), (long) floatToIntBits(floatData));
             writeNativeValue(BOOLEAN, fieldBuilders.get(5), booleanData);
-            writeNativeValue(VARCHAR, fieldBuilders.get(6), enumData);
+            writeNativeValue(VARCHAR, fieldBuilders.get(6), utf8Slice(enumData));
             writeNativeValue(createTimestampType(6), fieldBuilders.get(7), sqlTimestamp.getEpochMicros());
-            writeNativeValue(VARBINARY, fieldBuilders.get(8), bytesData);
+            writeNativeValue(VARBINARY, fieldBuilders.get(8), wrappedBuffer(bytesData));
         });
 
         RowType nestedRowType = (RowType) columnHandles.get(0).getType();
