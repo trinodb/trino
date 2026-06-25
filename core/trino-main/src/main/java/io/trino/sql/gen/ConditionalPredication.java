@@ -34,6 +34,7 @@ import io.trino.sql.ir.Row;
 
 import java.util.List;
 
+import static io.trino.metadata.OperatorNameUtil.isOperatorName;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 
 final class ConditionalPredication
@@ -42,9 +43,14 @@ final class ConditionalPredication
 
     /**
      * A conditional (e.g. AND/OR) can be compiled to branchless, predicated form only when every operand is
-     * safe to evaluate unconditionally: the feature is enabled and each term is deterministic and provably
-     * infallible. Evaluating a term that short-circuiting would have skipped must not change the result, so
-     * it must neither throw nor have an observable side effect on a row it would not otherwise reach.
+     * safe to evaluate unconditionally and cheap enough that doing so is worthwhile:
+     * <ul>
+     *     <li>the feature is enabled,
+     *     <li>each term is {@link #isCheap cheap} -- predication gives up short-circuiting, so it must not
+     *     eagerly compute an expensive term that short-circuiting would usually skip,
+     *     <li>each term is deterministic and provably {@link #neverFails infallible} -- evaluating a term that
+     *     short-circuiting would have skipped must not change the result.
+     * </ul>
      */
     static boolean canPredicate(BytecodeGeneratorContext generator, List<Expression> terms)
     {
@@ -52,7 +58,27 @@ final class ConditionalPredication
             return false;
         }
         Metadata metadata = generator.getMetadata();
-        return terms.stream().allMatch(term -> isDeterministic(term) && neverFails(term, metadata));
+        return terms.stream().allMatch(term -> isCheap(term) && isDeterministic(term) && neverFails(term, metadata));
+    }
+
+    /**
+     * Cost gate for predication. Because the predicated form evaluates every term unconditionally (it gives
+     * up short-circuiting to stay branchless), it is only worthwhile when each term is cheap enough that
+     * computing it for every row is essentially free. A term is cheap when it is built solely from column
+     * references, constants, {@code IS NULL}, boolean connectives and operator calls (comparisons,
+     * arithmetic, ...). Anything that can do real work per row -- a (possibly user-defined) function call, a
+     * cast, or a nested conditional -- is treated as expensive, so short-circuiting (late materialization) is
+     * kept instead.
+     */
+    static boolean isCheap(Expression expression)
+    {
+        return switch (expression) {
+            case Constant _, Reference _, FieldReference _ -> true;
+            case IsNull e -> isCheap(e.value());
+            case Logical e -> e.terms().stream().allMatch(ConditionalPredication::isCheap);
+            case Call e -> isOperatorName(e.function().name().functionName()) && e.arguments().stream().allMatch(ConditionalPredication::isCheap);
+            default -> false;
+        };
     }
 
     /**
